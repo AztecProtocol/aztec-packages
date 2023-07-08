@@ -54,6 +54,17 @@ impl Context {
         }
     }
 
+    fn empty() -> Context {
+        let emptyInputs = abi::PrivateContextInputs {
+            call_context: abi::CallContext { msg_sender: 0, storage_contract_address: 0, portal_contract_address: 0, is_delegate_call: false, is_static_call: false, is_contract_deployment: false, },
+            roots: abi::CommitmentTreesRoots { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, },
+            contract_deployment_data: abi::ContractDeploymentData { constructor_vk_hash: 0, function_tree_root:  0, contract_address_salt: 0, portal_contract_address: 0, },
+            private_global_variables: abi::PrivateGlobalVariables { chain_id: 0, version: 0, },
+        };
+
+        Context::new(emptyInputs, 0)
+    }
+
     fn finish(self) -> abi::PrivateCircuitPublicInputs {
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,

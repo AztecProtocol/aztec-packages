@@ -6,7 +6,6 @@ import {
   PUBLIC_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PublicCallRequest,
-  ReadRequestMembershipWitness,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import { Curve } from '@aztec/circuits.js/barretenberg';
@@ -65,11 +64,11 @@ export class PrivateFunctionExecution {
     const acir = Buffer.from(this.abi.bytecode, 'hex');
     const initialWitness = this.writeInputs();
 
+    // TODO: Move to ClientTxExecutionContext.
     const newNotePreimages: NewNoteData[] = [];
     const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
-    const readRequestMembershipWitnesses: ReadRequestMembershipWitness[] = [];
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
@@ -88,17 +87,14 @@ export class PrivateFunctionExecution {
           ),
         ),
       ],
-      getNotes2: async ([_connector, storageSlot]: ACVMField[]) => {
-        const { preimagesACVM, realNoteWitnesses } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        readRequestMembershipWitnesses.push(...realNoteWitnesses);
-        return preimagesACVM;
-      },
+      getNotes: ([_oracleConnector, ...fields]: ACVMField[]) => this.context.getNotes(this.contractAddress, fields),
       getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      notifyCreatedNote: ([_connector, storageSlot, ...acvmPreimage]: ACVMField[]) => {
+      notifyCreatedNote: ([_oracleConnector, storageSlot, ...acvmPreimage]: ACVMField[]) => {
+        this.log(`Created note at contractAddress ${this.contractAddress} in slot ${storageSlot}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
-          storageSlot: storageSlot,
+          storageSlot: fromACVMField(storageSlot),
         };
         this.context.pendingNotes.push(pendingNoteData);
 
@@ -109,7 +105,7 @@ export class PrivateFunctionExecution {
         // return is used to force proper ordering of callbacks
         return Promise.resolve([ZERO_ACVM_FIELD]);
       },
-      notifyNullifiedNote: ([_connector, slot, nullifier, ...acvmPreimage]: ACVMField[]) => {
+      notifyNullifiedNote: ([_oracleConnector, slot, nullifier, ...acvmPreimage]: ACVMField[]) => {
         // TODO(dbanks12) if nullifies pending commitment remove it from this.context.pendingCommitments,
         // and flag this nullifier as transient in simulator output.  Can we provide kernel hint here?
         newNullifiers.push({
@@ -141,11 +137,12 @@ export class PrivateFunctionExecution {
       getL1ToL2Message: ([msgKey]: ACVMField[]) => {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: async ([commitment]: ACVMField[]) => {
-        const commitmentData = await this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
-        readRequestMembershipWitnesses.push(ReadRequestMembershipWitness.empty(commitmentData.index));
-        return commitmentData.acvmData;
-      },
+      //getCommitment: async ([commitment]: ACVMField[]) => {
+      //  const commitmentData = await this.context.getCommitment(this.contractAddress, fromACVMField(commitment));
+      //  readRequestMembershipWitnesses.push(ReadRequestMembershipWitness.empty(commitmentData.index));
+      //  return commitmentData.acvmData;
+      //},
+      getCommitment: ([commitment]: ACVMField[]) => this.context.getCommitment(this.contractAddress, commitment),
       debugLog: (fields: ACVMField[]) => {
         this.log(fieldsToFormattedStr(fields));
         return Promise.resolve([ZERO_ACVM_FIELD]);
@@ -162,7 +159,6 @@ export class PrivateFunctionExecution {
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
       },
-      viewNotesPage: notAvailable,
       storageRead: notAvailable,
       storageWrite: notAvailable,
       createCommitment: notAvailable,
@@ -220,12 +216,14 @@ export class PrivateFunctionExecution {
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);
 
+    const readRequestPartialWitnesses = this.context.getReadRequestPartialWitnesses();
+
     return {
       acir,
       partialWitness,
       callStackItem,
       returnValues,
-      readRequestMembershipWitnesses,
+      readRequestPartialWitnesses,
       preimages: {
         newNotes: newNotePreimages,
         nullifiedNotes: newNullifiers,
@@ -293,9 +291,10 @@ export class PrivateFunctionExecution {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
+    const context = this.context.extend();
 
     const nestedExecution = new PrivateFunctionExecution(
-      this.context, // forwards current state of pending commitments
+      context,
       targetAbi,
       targetContractAddress,
       targetFunctionData,

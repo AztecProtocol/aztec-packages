@@ -97,7 +97,9 @@ export class KernelProver {
           .map(() => PrivateCallStackItem.empty()),
       );
 
-      const readRequestMembershipWitnesses = currentExecution.readRequestMembershipWitnesses;
+      // Start with the partially filled in read request witnesses from the simulator
+      // and fill the non-transient ones in with sibling paths.
+      const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
       for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
           throw new Error(

@@ -3,14 +3,14 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
   ACVMField,
-  createDummyNote,
+  ACVMFieldsReader,
   fromACVMField,
   toACVMField,
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
-import { NoteLoadOracleInputs, DBOracle } from './db_oracle.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
+import { DBOracle } from './db_oracle.js';
 
 /**
  * Information about a note created during execution.
@@ -21,25 +21,16 @@ export type PendingNoteData = {
   /** The contract address of the commitment. */
   contractAddress: AztecAddress;
   /** The storage slot of the commitment. */
-  storageSlot: ACVMField;
-};
-
-/**
- * A type that wraps data with it's read request index
- */
-type ACVMWithReadRequestIndex = {
-  /** The index of the data in the tree. */
-  index: bigint;
-  /** The formatted data. */
-  acvmData: ACVMField[];
+  storageSlot: Fr;
 };
 
 /**
  * The execution context for a client tx simulation.
  */
 export class ClientTxExecutionContext {
-  /** Pending commitments created (and not nullified) up to current point in execution **/
-  public pendingNotes: PendingNoteData[] = [];
+  // Note: need to make sure that readRequestPartialWitnesses does not accumulate across
+  // multiple calls in a TX.
+  private readRequestPartialWitnesses: ReadRequestMembershipWitness[] = [];
 
   constructor(
     /**  The database oracle. */
@@ -50,11 +41,35 @@ export class ClientTxExecutionContext {
     public historicRoots: PrivateHistoricTreeRoots,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
+    /** Pending commitments created (and not nullified) up to current point in execution **/
+    public pendingNotes: PendingNoteData[] = [],
   ) {}
 
   /**
+   * Create context for nested executions.
+   * @returns ClientTxExecutionContext
+   */
+  public extend() {
+    return new ClientTxExecutionContext(
+      this.db,
+      this.txContext,
+      this.historicRoots,
+      this.packedArgsCache,
+      this.pendingNotes,
+    );
+  }
+
+  /**
+   * For getting accumulated data.
+   * @returns An array of partially filled in read request membership witnesses.
+   */
+  public getReadRequestPartialWitnesses() {
+    return this.readRequestPartialWitnesses;
+  }
+
+  /**
    * Gets the notes for a contract address and storage slot.
-   * Returns note preimages and their leaf indices in the private data tree.
+   * Returns flattened array containing real-note-count and note preimages.
    *
    * Details:
    * Check for pending notes with matching address/slot.
@@ -62,117 +77,70 @@ export class ClientTxExecutionContext {
    * fetchNotes from DB with modified limit.
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the private data tree.
-   * Real pending notes will have a leafIndex set to -1
-   * since they don't exist (yet) in the private data tree.
+   * Pending notes will have no leaf index and will be flagged
+   * as transient since they don't exist (yet) in the private data tree.
    *
-   * leaf indices are not passed to app circuit. They are forwarded to
-   * the kernel prover which uses them to compute witnesses to pass
-   * to the private kernel.
+   * This function will populate this.readRequestPartialWitnesses which
+   * here is just used to flag reads as "transient" or not and to mark
+   * non-transient reads with their leafIndex. The KernelProver will
+   * use this to fully populate the witnesses.
    *
    * @param contractAddress - The contract address.
-   * @param storageSlot - The storage slot.
-   * @param limit - The amount of notes to get.
-   * @returns An array of ACVM fields for the note count and the requested note preimages
-   * (padded to reach limit), and another array of partially-filled-in read request membership
-   * witnesses corresponding to each _real_ note's indicating only whether it is transient
-   * and if not indicating its leaf index in the private data tree.
+   * @param fields - An array of ACVM fields.
+   * @returns An array of ACVM fields containing the note count and the requested note preimages.
    */
-  public async getNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number) {
-    const pendingPreimages: ACVMField[][] = [];
-    const pendingNoteWitnesses: ReadRequestMembershipWitness[] = [];
+  public async getNotes(contractAddress: AztecAddress, fields: ACVMField[]) {
+    const reader = new ACVMFieldsReader(fields);
+    const storageSlot = reader.readField();
+    const noteSize = reader.readNumber();
+    const sortBy = reader.readNumberArray(noteSize);
+    const sortOrder = reader.readNumberArray(noteSize);
+    const limit = reader.readNumber();
+    const offset = reader.readNumber();
+    const returnSize = reader.readNumber();
+
+    // TODO(dbanks12): how should sorting and offset affect pending commitments?
+    let pendingCount = 0;
+    const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages
+    console.log(`Looking for ${limit} notes matching ${contractAddress.toString()} ${storageSlot.toString()}`);
+    console.log(`There are ${this.pendingNotes.length} pending notes to check`);
     for (const note of this.pendingNotes) {
-      if (pendingPreimages.length == limit) {
+      if (pendingCount == limit) {
         break;
       }
-      if (note.contractAddress.equals(contractAddress) && note.storageSlot == storageSlot) {
-        // TODO(dbanks12): flag as pending and separately provide "hint" of
-        // which "new_commitment" in which kernel this read maps to
-        pendingPreimages.push(note.preimage);
-        pendingNoteWitnesses.push(ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)));
+      console.log(`Checking pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
+      console.log(`note.contractAddress.equals(contractAddress): ${note.contractAddress.equals(contractAddress)}`);
+      console.log(`note.storageSlot == storageSlot: ${note.storageSlot.equals(storageSlot)}`);
+      if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(storageSlot)) {
+        pendingCount++;
+        console.log(`\t\tFound pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
+        console.log(`\t\tThat was the ${pendingCount}th pending note found this run`);
+        console.log(`\t\tPreimage 0th entry: ${note.preimage[0].toString()}`);
+        pendingPreimages.push(...note.preimage); // flattened
+        this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)));
       }
     }
-    const numPendingNotes = pendingPreimages.length;
 
-    // may still need to get some notes from db
-    const remainingLimit = limit - numPendingNotes;
-    const { realCount: numDbRealNotes, notes: dbNotes } = await this.fetchNotes(
+    const dbLimit = limit - pendingCount;
+    const { count: dbCount, notes: dbNotes } = await this.db.getNotes(
       contractAddress,
       storageSlot,
-      remainingLimit,
-    );
-    // only need leaf indices for "real" notes (those found in db)
-    const dbRealNoteWitnesses = dbNotes
-      .slice(0, numDbRealNotes)
-      .map(note => ReadRequestMembershipWitness.empty(note.index));
-    // need preimages for all notes (real and dummy) for consumption by Noir circuit
-    const dbAllPreimages = dbNotes.map(note => note.preimage.map(f => toACVMField(f)));
-
-    // all pending notes and notes found in db
-    const numRealNotes = numPendingNotes + numDbRealNotes;
-    // all preimages (including pending, dummy, and real)
-    const allPreimages = [...pendingPreimages, ...dbAllPreimages];
-    // partially-filled-in read request membership witnesses for all
-    // "real" notes (both pending and from db).
-    const realNoteWitnesses = [...pendingNoteWitnesses, ...dbRealNoteWitnesses];
-
-    // Create flattened array of ACVM fields to return back to Noir/ACVM execution.
-    // The first entry is the number of real notes.
-    // The remaining entries are the ACVM fields for the ALL note preimages
-    // (pending, db, dummy, real).
-    const preimagesACVM = [
-      toACVMField(numRealNotes), // number of real notes
-      ...allPreimages.flat(), // all note preimages
-    ];
-
-    return { preimagesACVM, realNoteWitnesses };
-  }
-
-  /**
-   * Views the notes for a contract address and storage slot.
-   * Doesn't include the leaf indices.
-   * @param contractAddress - The contract address.
-   * @param storageSlot - The storage slot.
-   * @param limit - The amount of notes to get.
-   * @param offset - The offset to start from (for pagination).
-   * @returns The ACVM fields for the count and the requested notes.
-   */
-  public async viewNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    const { realCount, notes } = await this.fetchNotes(contractAddress, storageSlot, limit, offset);
-
-    return [toACVMField(realCount), ...notes.flatMap(noteGetData => noteGetData.preimage.map(f => toACVMField(f)))];
-  }
-
-  /**
-   * Fetches the notes for a contract address and storage slot from the db.
-   * @param contractAddress - The contract address.
-   * @param storageSlot - The storage slot.
-   * @param limit - The amount of notes to get.
-   * @param offset - The offset to start from (for pagination).
-   * @returns The count and the requested notes, padded with dummy notes.
-   */
-  private async fetchNotes(contractAddress: AztecAddress, storageSlot: ACVMField, limit: number, offset = 0) {
-    // TODO(dbanks12): usage of this function would be cleaner if this just returned
-    // separate preimage and leafIndex arrays since preiamge should always have length
-    // limit and leafIndex should always have length realCount.
-    const { count: realCount, notes } = await this.db.getNotes(
-      contractAddress,
-      fromACVMField(storageSlot),
-      limit,
+      sortBy,
+      sortOrder,
+      dbLimit,
       offset,
     );
+    const dbPreimages = dbNotes.flatMap(({ preimage }) => preimage).map(f => toACVMField(f));
 
-    const dummyNotes = Array.from(
-      { length: Math.max(0, limit - notes.length) },
-      (): NoteLoadOracleInputs => ({
-        preimage: createDummyNote(),
-        index: BigInt(-1), // invalid index - shouldn't ever be used!
-      }),
-    );
+    // Combine pending and db preimages into a single flattened array.
+    const preimages = [...pendingPreimages, ...dbPreimages];
 
-    return {
-      realCount,
-      notes: notes.concat(dummyNotes),
-    };
+    // Add a partial witness for each note from the db containing only the note index.
+    // By default they will be flagged as non-transient.
+    this.readRequestPartialWitnesses.push(...dbNotes.map(note => ReadRequestMembershipWitness.empty(note.index)));
+
+    const paddedZeros = Array(returnSize - 1 - preimages.length).fill(toACVMField(Fr.ZERO));
+    return [toACVMField(pendingCount + dbCount), ...preimages, ...paddedZeros];
   }
 
   /**
@@ -191,11 +159,12 @@ export class ClientTxExecutionContext {
    * @param commitment - The commitment.
    * @returns The commitment data.
    */
-  public async getCommitment(contractAddress: AztecAddress, commitment: Fr): Promise<ACVMWithReadRequestIndex> {
-    const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, commitment);
-    return {
-      acvmData: toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot),
-      index: commitmentInputs.index,
-    };
+  public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
+    const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
+    // TODO(dbanks12): support getting pending commitments
+    // - may require notifyCreatedNote to output commitment as well, but then it may
+    // need to be siloed here commitments in tree are siloed by kernel
+    this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
+    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
   }
 }

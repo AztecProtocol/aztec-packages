@@ -3,6 +3,7 @@ use crate::abi::MAX_READ_REQUESTS;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 
+
 // TODO: Replace returned number of notes (MAX_READ_REQUESTS) with a larger global value.
 
 // Hacky way to force stepwise execution of oracle calls by injecting
@@ -68,17 +69,34 @@ fn notify_nullified_note<N>(
     (context, ret)
 }
 
-#[oracle(getNotes2)]
-fn get_notes_2_oracle(
+#[oracle(getNote)]
+fn get_note_oracle<S>(_oracle_connector: Field, w_storage_slot: Field) -> [Field; S] {}
+
+#[oracle(getNotes)]
+fn get_notes_oracle<N, S>(
     _oracle_connector: Field,
     _storage_slot: Field,
-) -> [Field; 13] {}
+    _note_size: u32,
+    _sort_by: [u8; N],
+    _sort_order: [u8; N],
+    _limit: u32,
+    _offset: u32,
+    _return_size: u32,
+    _zero_fields: [Field; S],
+) -> [Field; S] {}
 
-unconstrained fn get_notes_2_oracle_wrapper(
+unconstrained fn get_notes_oracle_wrapper<N, S>(
     oracle_connector: Field,
-    storage_slot: Field
-)-> [Field; 13] {
-    get_notes_2_oracle(oracle_connector, storage_slot)
+    storage_slot: Field,
+    sort_by: [u8; N],
+    sort_order: [u8; N],
+    limit: u32,
+    offset: u32,
+    mut fields: [Field; S],
+)-> [Field; S] {
+    let note_size: comptime u32 = N;
+    let return_size = fields.len() as u32;
+    get_notes_oracle(oracle_connector, storage_slot, note_size, sort_by, sort_order, limit, offset, return_size, fields)
 }
 
 // TODO: The following functions should all be unconstrained.
@@ -89,79 +107,41 @@ fn get_note<Note, N>(
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
 ) -> (Context, Note) {
-    // TODO: get_note_oracle
-    let fields = get_notes_2_oracle_wrapper(context.oracle_connector, storage_slot);
+    let fields = get_note_oracle(context.oracle_connector, storage_slot);
     context = force_oracle_ordering(context, fields);
 
-    let note = deserialise(arr_copy_slice(fields, [0; N], 1));
-    (context, note)
+    let has_note = fields[0] == 1;
+    if (has_note) {
+        (context, deserialise(arr_copy_slice(fields, [0; N], 1)))
+    } else {
+        (context, dummy())
+    }
 }
 
-fn get_max_notes<Note, N>(
+fn get_notes<Note, N, S, NS>(
     mut context: Context,
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
     sort_by: [u8; N],
     sort_order: [u8; N],
-    skip: u32,
-) -> (Context, [Note; MAX_READ_REQUESTS]) {
-    // TODO: get_max_notes_oracle
-    let fields = get_notes_2_oracle_wrapper(context.oracle_connector, storage_slot);
-    context = force_oracle_ordering(context, fields);
-
-    let preimage1 = arr_copy_slice(fields, [0; N], 1);
-    let note1 = deserialise(preimage1);
-    let preimage2 = arr_copy_slice(fields, [0; N], 1 + preimage1.len());
-    let note2 = deserialise(preimage2);
-    (context, [note1, note2, dummy(), dummy()])
-}
-
-fn get_notes<Note, N, S, P>(
-    mut context: Context,
-    storage_slot: Field,
-    deserialise: fn ([Field; N]) -> Note,
-    dummy: fn () -> Note,
-    sort_by: [u8; N],
-    sort_order: [u8; N],
-    skip: u32,
-    filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
-    filter_args: P,
-) -> (Context, [Note; S]) {
-    let (context_tmp, all_notes) = get_max_notes(context, storage_slot, deserialise, dummy, sort_by, sort_order, skip);
-    context = context_tmp;
-    let notes = filter(all_notes, filter_args);
-    (context, notes)
-}
-
-#[oracle(viewNotesPage)]
-fn view_notes_oracle(
-    _storage_slot: Field,
-    _limit: Field,
-    _offset: Field,
-) -> [Field; 61] {}
-
-unconstrained fn view_notes_oracle_wrapper(_storage_slot: Field, _limit: u32, _offset: u32)-> [Field; 61] {
-    view_notes_oracle(_storage_slot, _limit as Field, _offset as Field)
-}
-
-fn view_notes<Note, N, S>(
-    storage_slot: Field,
-    deserialise: fn ([Field; N]) -> Note,
-    dummy: fn () -> Note,
     limit: u32,
     offset: u32,
-    init_arr: fn (Note) -> [Note; S], // TODO: Remove it.
-) -> [Note; S] {
-    let mut notes = init_arr(dummy());
-    let fields = view_notes_oracle_wrapper(storage_slot, limit, offset);
+    mut notes: [Note; S], // TODO: Remove it and use `limit` to initialise the note array.
+    zero_fields: [Field; NS], // TODO: Remove it and use `limit` to initialise the note array.
+) -> (Context, [Note; S]) {
+    let fields = get_notes_oracle_wrapper(context.oracle_connector, storage_slot, sort_by, sort_order, limit, offset, zero_fields);
+    context = force_oracle_ordering(context, fields);
+    let num_notes = fields[0] as u32;
     for i in 0..notes.len() {
-        let read_offset: comptime Field = 1 + i * N;
-        let preimage = arr_copy_slice(fields, [0; N], read_offset);
-        let note = deserialise(preimage);
-        notes[i] = note;
+        if i as u32 < num_notes {
+            let read_offset: comptime Field = 1 + i * N;
+            let preimage = arr_copy_slice(fields, [0; N], read_offset);
+            let note = deserialise(preimage);
+            notes[i] = note;
+        };
     };
-    notes
+    (context, notes)
 }
 
 unconstrained fn is_nullifier_emitted(nullifier: Field) -> bool {

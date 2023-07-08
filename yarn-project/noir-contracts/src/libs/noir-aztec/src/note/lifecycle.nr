@@ -11,18 +11,20 @@ fn create_note<Note, N>(
     note: Note,
     note_interface: NoteInterface<Note, N>,
 ) -> Context {
-    let compute_note_hash = note_interface.compute_note_hash;
-    let note_hash = compute_note_hash(note);
-    let siloed_note_hash = compute_siloed_note_hash(storage_slot, note_hash);
-    context = context.push_new_note_hash(siloed_note_hash);
+    let mut siloed_note_hash = 0;
+    let is_dummy = note_interface.is_dummy;
+    if is_dummy(note) == false {
+        let compute_note_hash = note_interface.compute_note_hash;
+        let note_hash = compute_note_hash(note);
+        siloed_note_hash = compute_siloed_note_hash(storage_slot, note_hash);
 
-    let serialise = note_interface.serialise;
-    let preimage = serialise(note);
-    let (context_tmp, ret) = notify_created_note(context, storage_slot, preimage);
-    context = context_tmp;
-    assert(ret == 0);
-
-    context
+        let serialise = note_interface.serialise;
+        let preimage = serialise(note);
+        let (context_tmp, ret) = notify_created_note(context, storage_slot, preimage);
+        context.oracle_connector = context_tmp.oracle_connector;
+        assert(ret == 0);
+    }
+    context.push_new_note_hash(siloed_note_hash)
 }
 
 fn destroy_note<Note, N>(
@@ -31,18 +33,21 @@ fn destroy_note<Note, N>(
     note: Note,
     note_interface: NoteInterface<Note, N>,
 ) -> Context {
-    let compute_note_hash = note_interface.compute_note_hash;
-    let note_hash = compute_note_hash(note);
-    let final_note_hash = compute_final_note_hash(storage_slot, note_hash);
-    let compute_nullifier = note_interface.compute_nullifier;
-    let nullifier = compute_nullifier(note, final_note_hash);
-    context = context.push_new_nullifier(nullifier);
+    let mut nullifier = 0;
+    let is_dummy = note_interface.is_dummy;
+    if is_dummy(note) == false {
+        let compute_note_hash = note_interface.compute_note_hash;
+        let note_hash = compute_note_hash(note);
+        let final_note_hash = compute_final_note_hash(storage_slot, note_hash);
+        let compute_nullifier = note_interface.compute_nullifier;
+        nullifier = compute_nullifier(note, final_note_hash);
 
-    let serialise = note_interface.serialise;
-    let preimage = serialise(note);
-    let (context_tmp, ret) = notify_nullified_note(context, storage_slot, nullifier, preimage);
-    context = context_tmp;
-    assert(ret == 0);
+        let serialise = note_interface.serialise;
+        let preimage = serialise(note);
+        let (context_tmp, ret) = notify_nullified_note(context, storage_slot, nullifier, preimage);
+        context = context_tmp;
+        assert(ret == 0);
+    }
 
-    context
+    context.push_new_nullifier(nullifier)
 }
