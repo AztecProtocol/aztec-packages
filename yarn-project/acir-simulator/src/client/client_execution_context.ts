@@ -109,8 +109,6 @@ export class ClientTxExecutionContext {
         break;
       }
       console.log(`Checking pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
-      console.log(`note.contractAddress.equals(contractAddress): ${note.contractAddress.equals(contractAddress)}`);
-      console.log(`note.storageSlot == storageSlot: ${note.storageSlot.equals(storageSlot)}`);
       if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(storageSlot)) {
         pendingCount++;
         console.log(`\t\tFound pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);

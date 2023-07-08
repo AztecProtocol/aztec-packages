@@ -1,4 +1,3 @@
-use crate::context::Context;
 use crate::abi::MAX_READ_REQUESTS;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
@@ -10,10 +9,8 @@ use crate::utils::arr_copy_slice;
 // strict dependencies. Call this after an oracle call and then
 // pass context.oracle_connector to next oracle call.
 // TODO(dbanks12): remove when closed: https://github.com/noir-lang/acvm/pull/399
-fn force_oracle_ordering<N>(mut context: Context, oracle_ret: [Field; N]) -> Context {
-    let connector_hash = dep::std::hash::pedersen([oracle_ret[0]])[0];
-    context.oracle_connector = connector_hash;
-    context
+fn force_oracle_ordering<N>(oracle_connector: &mut Field, oracle_ret: [Field; N]) {
+    *oracle_connector = dep::std::hash::pedersen([oracle_ret[0]])[0];
 }
 
 #[oracle(notifyCreatedNote)]
@@ -32,13 +29,13 @@ unconstrained fn notify_created_note_wrapper<N>(
 }
 
 fn notify_created_note<N>(
-    mut context: Context,
+    oracle_connector: &mut Field,
     storage_slot: Field,
     preimage: [Field; N],
-) -> (Context, Field) {
-    let ret = notify_created_note_wrapper(context.oracle_connector, storage_slot, preimage);
-    context = force_oracle_ordering(context, [ret]);
-    (context, ret)
+) -> Field {
+    let ret = notify_created_note_wrapper(*oracle_connector, storage_slot, preimage);
+    force_oracle_ordering(oracle_connector, [ret]);
+    ret
 }
 
 #[oracle(notifyNullifiedNote)]
@@ -59,18 +56,18 @@ unconstrained fn notify_nullified_note_wrapper<N>(
 }
 
 fn notify_nullified_note<N>(
-    mut context: Context,
+    oracle_connector: &mut Field,
     storage_slot: Field,
     nullifier: Field,
     preimage: [Field; N],
-) -> (Context, Field) {
-    let ret = notify_nullified_note_wrapper(context.oracle_connector, storage_slot, nullifier, preimage);
-    context = force_oracle_ordering(context, [ret]);
-    (context, ret)
+) -> Field {
+    let ret = notify_nullified_note_wrapper(*oracle_connector, storage_slot, nullifier, preimage);
+    force_oracle_ordering(oracle_connector, [ret]);
+    ret
 }
 
 #[oracle(getNote)]
-fn get_note_oracle<S>(_oracle_connector: Field, w_storage_slot: Field) -> [Field; S] {}
+fn get_note_oracle<S>(_oracle_connector: Field, _storage_slot: Field) -> [Field; S] {}
 
 #[oracle(getNotes)]
 fn get_notes_oracle<N, S>(
@@ -102,24 +99,24 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
 // TODO: The following functions should all be unconstrained.
 
 fn get_note<Note, N>(
-    mut context: Context,
+    oracle_connector: &mut Field,
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
-) -> (Context, Note) {
-    let fields = get_note_oracle(context.oracle_connector, storage_slot);
-    context = force_oracle_ordering(context, fields);
+) -> Note {
+    let fields = get_note_oracle(*oracle_connector, storage_slot);
+    force_oracle_ordering(oracle_connector, fields);
 
     let has_note = fields[0] == 1;
     if (has_note) {
-        (context, deserialise(arr_copy_slice(fields, [0; N], 1)))
+        deserialise(arr_copy_slice(fields, [0; N], 1))
     } else {
-        (context, dummy())
+        dummy()
     }
 }
 
 fn get_notes<Note, N, S, NS>(
-    mut context: Context,
+    oracle_connector: &mut Field,
     storage_slot: Field,
     deserialise: fn ([Field; N]) -> Note,
     dummy: fn () -> Note,
@@ -129,9 +126,9 @@ fn get_notes<Note, N, S, NS>(
     offset: u32,
     mut notes: [Note; S], // TODO: Remove it and use `limit` to initialise the note array.
     zero_fields: [Field; NS], // TODO: Remove it and use `limit` to initialise the note array.
-) -> (Context, [Note; S]) {
-    let fields = get_notes_oracle_wrapper(context.oracle_connector, storage_slot, sort_by, sort_order, limit, offset, zero_fields);
-    context = force_oracle_ordering(context, fields);
+) -> [Note; S] {
+    let fields = get_notes_oracle_wrapper(*oracle_connector, storage_slot, sort_by, sort_order, limit, offset, zero_fields);
+    force_oracle_ordering(oracle_connector, fields);
     let num_notes = fields[0] as u32;
     for i in 0..notes.len() {
         if i as u32 < num_notes {
@@ -141,7 +138,7 @@ fn get_notes<Note, N, S, NS>(
             notes[i] = note;
         };
     };
-    (context, notes)
+    notes
 }
 
 unconstrained fn is_nullifier_emitted(nullifier: Field) -> bool {

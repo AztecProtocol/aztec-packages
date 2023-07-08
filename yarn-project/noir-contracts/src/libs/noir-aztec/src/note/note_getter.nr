@@ -19,8 +19,7 @@ fn get_note<Note, N>(
 ) -> (Context, Note) {
     let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
-    let (context_tmp, note) = oracle::notes::get_note(context, storage_slot, deserialise, dummy);
-    context = context_tmp;
+    let note = oracle::notes::get_note(&mut context.oracle_connector, storage_slot, deserialise, dummy);
 
     let mut note_hash = 0;
     let is_dummy = note_interface.is_dummy;
@@ -39,8 +38,7 @@ fn get_notes<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> (Context, [Note; S]) {
-    let (context_tmp, notes) = get_notes_internal(context, storage_slot, note_interface, options);
-    context = context_tmp;
+    let notes = get_notes_internal(context, storage_slot, note_interface, options);
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
@@ -61,7 +59,7 @@ fn get_notes_internal<Note, N, S, P>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
-) -> (Context, [Note; S]) {
+) -> [Note; S] {
     let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
     let sort_by = options.sort_by;
@@ -74,8 +72,8 @@ fn get_notes_internal<Note, N, S, P>(
     let offset = options.offset;
     let dummy_notes = [dummy(); abi::MAX_READ_REQUESTS];
     let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
-    let (context_tmp, notes) = oracle::notes::get_notes(
-        context,
+    let notes = oracle::notes::get_notes(
+        &mut context.oracle_connector,
         storage_slot,
         deserialise,
         dummy,
@@ -86,11 +84,10 @@ fn get_notes_internal<Note, N, S, P>(
         dummy_notes,
         zero_fields,
     );
-    context = context_tmp;
 
     let filter = options.filter;
     let filter_args = options.filter_args;
-    (context, filter(notes, filter_args))
+    filter(notes, filter_args)
 }
 
 fn view_notes<Note, N>(
@@ -105,6 +102,6 @@ fn view_notes<Note, N>(
     let sort_order = [0; N];
     let dummy_notes = [dummy(); MAX_NOTES_PER_PAGE];
     let zero_fields = [0; VIEW_NOTE_ORACLE_RETURN_SIZE];
-    let (_context, notes) = oracle::notes::get_notes(Context::empty(), storage_slot, deserialise, dummy, sort_by, sort_order, limit, offset, dummy_notes, zero_fields);
+    let notes = oracle::notes::get_notes(&mut 0, storage_slot, deserialise, dummy, sort_by, sort_order, limit, offset, dummy_notes, zero_fields);
     notes
 }

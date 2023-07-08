@@ -20,8 +20,7 @@ fn create_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        let (context_tmp, ret) = notify_created_note(context, storage_slot, preimage);
-        context.oracle_connector = context_tmp.oracle_connector;
+        let ret = notify_created_note(&mut context.oracle_connector, storage_slot, preimage);
         assert(ret == 0);
     }
     context.push_new_note_hash(siloed_note_hash)
@@ -44,8 +43,7 @@ fn destroy_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        let (context_tmp, ret) = notify_nullified_note(context, storage_slot, nullifier, preimage);
-        context = context_tmp;
+        let ret = notify_nullified_note(&mut context.oracle_connector, storage_slot, nullifier, preimage);
         assert(ret == 0);
     }
 
