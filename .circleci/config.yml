@@ -220,6 +220,17 @@ jobs:
           name: "Build and test"
           command: build types
 
+  l1-artifacts:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build l1-artifacts
+
   noir-contracts:
     machine:
       image: ubuntu-2004:202010-01
@@ -745,6 +756,7 @@ workflows:
       - merkle-tree: *yarn_project
       - p2p: *yarn_project
       - p2p-bootstrap: *yarn_project
+      - l1-artifacts: *yarn_project
       - noir-contracts: *yarn_project
       - noir-compiler: *yarn_project
       - sequencer-client: *yarn_project
@@ -766,6 +778,7 @@ workflows:
             - merkle-tree
             - p2p
             - p2p-bootstrap
+            - l1-artifacts
             - noir-contracts
             - noir-compiler
             - sequencer-client
