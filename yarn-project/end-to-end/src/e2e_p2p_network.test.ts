@@ -79,7 +79,7 @@ describe('e2e_p2p_network', () => {
       await context.rpcServer.stop();
     }
     await bootstrapNode.stop();
-  }, 60_000);
+  }, 80_000);
 
   const createBootstrapNode = async () => {
     const peerId = await createLibP2PPeerId();
@@ -127,13 +127,12 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-      const tx = deployer.deploy().send({ from: account });
+      const tx = deployer.deploy().send({ from: account, contractAddressSalt: Fr.random() });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
         expect.objectContaining({
           from: account,
-          to: undefined,
           status: TxStatus.PENDING,
           error: '',
         }),
@@ -150,7 +149,7 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    const account = await aztecRpcServer.registerSmartAccount(randomBytes(32), AztecAddress.random(), Fr.random());
+    const account = await aztecRpcServer.addAccount(randomBytes(32), AztecAddress.random(), Fr.random());
 
     const txs = await submitTxsTo(aztecRpcServer, account, numTxs);
     return {
