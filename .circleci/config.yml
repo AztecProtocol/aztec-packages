@@ -786,6 +786,9 @@ workflows:
       - acir-simulator: *yarn_project
       - archiver: *yarn_project
       - aztec-rpc: *yarn_project
+      - aztec-node: *yarn_project
+      - aztec-cli: *yarn_project
+      - key-store: *yarn_project
       - merkle-tree: *yarn_project
       - p2p: *yarn_project
       - p2p-bootstrap: *yarn_project
@@ -808,6 +811,9 @@ workflows:
             - acir-simulator
             - archiver
             - aztec-rpc
+            - aztec-node
+            - aztec-cli
+            - key-store
             - merkle-tree
             - p2p
             - p2p-bootstrap
