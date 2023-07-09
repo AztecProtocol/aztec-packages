@@ -286,7 +286,7 @@ __metadata:
     typescript: ^5.0.4
     viem: ^1.2.5
   bin:
-    aztec_cli: index.js
+    azti: ./dest/index.js
   languageName: unknown
   linkType: soft
 
