@@ -209,6 +209,17 @@ jobs:
           name: "Build and test"
           command: build aztec.js
 
+  aztec-cli:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-cli
+
   types:
     machine:
       image: ubuntu-2004:202010-01
@@ -230,6 +241,28 @@ jobs:
       - run:
           name: "Build and test"
           command: build l1-artifacts
+
+  aztec-node:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build aztec-node
+
+  key-store:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build key-store
 
   noir-contracts:
     machine:
