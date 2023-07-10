@@ -102,13 +102,13 @@ NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs con
         auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
 
         // Our commitments size MUST be 4 to calculate our subtrees correctly
-        builder.do_assert(new_commitments.size() == KERNEL_NEW_COMMITMENTS_LENGTH,
+        builder.do_assert(new_commitments.size() == MAX_NEW_COMMITMENTS_PER_TX,
                           "New commitments in kernel data must be 4",
                           CircuitErrorCode::BASE__INCORRECT_NUM_OF_NEW_COMMITMENTS);
 
         for (size_t j = 0; j < new_commitments.size(); j++) {
             // todo: batch insert
-            commitments_tree.update_element(i * KERNEL_NEW_COMMITMENTS_LENGTH + j, new_commitments[j]);
+            commitments_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j, new_commitments[j]);
         }
     }
 

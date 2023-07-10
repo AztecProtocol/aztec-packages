@@ -149,7 +149,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     }
 
     {  // commitments, nullifiers, and contracts
-        std::array<CT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments;
+        std::array<CT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {
             siloed_new_commitments[i] = CT::fr::conditional_assign(
                 new_commitments[i] == 0, 0, silo_commitment<CT>(storage_contract_address, new_commitments[i]));

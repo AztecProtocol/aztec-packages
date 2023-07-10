@@ -141,7 +141,7 @@ void common_update_end_values(DummyBuilder& builder,
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {  // commitments & nullifiers
-        std::array<NT::fr, NEW_COMMITMENTS_LENGTH> siloed_new_commitments{};
+        std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
         for (size_t i = 0; i < new_commitments.size(); ++i) {
             siloed_new_commitments[i] =
                 new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);

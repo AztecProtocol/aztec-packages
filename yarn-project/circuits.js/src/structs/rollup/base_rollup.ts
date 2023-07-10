@@ -5,7 +5,7 @@ import { serializeToBuffer } from '../../utils/serialize.js';
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
@@ -135,7 +135,7 @@ export class BaseRollupInputs {
    * Height of the private data subtree which is to be inserted into the private data tree.
    * Note: There are notes from 2 kernels being processed here so kernel new commitments length is multiplied by 2.
    */
-  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_COMMITMENTS_LENGTH * 2);
+  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(MAX_NEW_COMMITMENTS_PER_TX * 2);
   /**
    * Height of the contract subtree which is to be inserted into the contract tree.
    */

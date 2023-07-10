@@ -3,7 +3,7 @@ import { assertMemberLength, FieldsOf } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
-  NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NUM_FIELDS_PER_SHA256,
@@ -107,7 +107,7 @@ export class PrivateCircuitPublicInputs {
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'readRequests', READ_REQUESTS_LENGTH);
-    assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertMemberLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
@@ -138,7 +138,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       frArray(RETURN_VALUES_LENGTH),
       frArray(READ_REQUESTS_LENGTH),
-      frArray(NEW_COMMITMENTS_LENGTH),
+      frArray(MAX_NEW_COMMITMENTS_PER_CALL),
       frArray(NEW_NULLIFIERS_LENGTH),
       frArray(PRIVATE_CALL_STACK_LENGTH),
       frArray(PUBLIC_CALL_STACK_LENGTH),

@@ -8,7 +8,7 @@ import { CallContext } from './call_context.js';
 import {
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NUM_FIELDS_PER_SHA256,
@@ -165,7 +165,7 @@ export class PublicCircuitPublicInputs {
     /**
      * New commitments created within a public execution call
      */
-    public newCommitments: Tuple<Fr, typeof NEW_COMMITMENTS_LENGTH>,
+    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
@@ -194,7 +194,7 @@ export class PublicCircuitPublicInputs {
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
-    assertMemberLength(this, 'newCommitments', NEW_COMMITMENTS_LENGTH);
+    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
@@ -223,7 +223,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, ContractStorageUpdateRequest.empty),
       makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       makeTuple(PUBLIC_CALL_STACK_LENGTH, Fr.zero),
-      makeTuple(NEW_COMMITMENTS_LENGTH, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
       makeTuple(NEW_NULLIFIERS_LENGTH, Fr.zero),
       makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       makeTuple(2, Fr.zero),

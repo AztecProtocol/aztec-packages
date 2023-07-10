@@ -29,7 +29,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
 
-    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
     std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers{};
 
     std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack{};
@@ -303,7 +303,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::array<opt_fr, READ_REQUESTS_LENGTH> read_requests;
 
-    std::array<opt_fr, NEW_COMMITMENTS_LENGTH> new_commitments;
+    std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
     std::array<opt_fr, NEW_NULLIFIERS_LENGTH> new_nullifiers;
 
     std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack;
@@ -335,7 +335,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
                                             std::array<opt_fr, READ_REQUESTS_LENGTH> const& read_requests,
 
-                                            std::array<opt_fr, NEW_COMMITMENTS_LENGTH> const& new_commitments,
+                                            std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
                                             std::array<opt_fr, NEW_NULLIFIERS_LENGTH> const& new_nullifiers,
 
                                             std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> const& private_call_stack,

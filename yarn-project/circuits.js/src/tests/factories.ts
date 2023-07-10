@@ -26,7 +26,7 @@ import {
   Fr,
   FunctionData,
   G1AffineElement,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
@@ -40,7 +40,7 @@ import {
   L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
   MembershipWitness,
   MergeRollupInputs,
-  NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
@@ -201,7 +201,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
@@ -227,7 +227,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
@@ -314,7 +314,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeContractStorageUpdateRequest, seed + 0x400),
     tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeContractStorageRead, seed + 0x500),
     tupleGenerator(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x600),
-    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x700),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
     tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x800),
     tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
@@ -610,7 +610,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(READ_REQUESTS_LENGTH, fr, seed + 0x300),
-    newCommitments: makeTuple(NEW_COMMITMENTS_LENGTH, fr, seed + 0x400),
+    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(NEW_NULLIFIERS_LENGTH, fr, seed + 0x500),
     privateCallStack: makeTuple(PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x600),
     publicCallStack: makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x700),

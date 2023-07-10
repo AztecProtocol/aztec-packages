@@ -1,6 +1,6 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  KERNEL_NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_TX,
   KernelCircuitPublicInputs,
   MembershipWitness,
   PRIVATE_CALL_STACK_LENGTH,
@@ -64,7 +64,7 @@ describe('Kernel Prover', () => {
     const publicInputs = KernelCircuitPublicInputs.empty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
+    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>;
     return {
       publicInputs,
       proof: makeEmptyProof(),

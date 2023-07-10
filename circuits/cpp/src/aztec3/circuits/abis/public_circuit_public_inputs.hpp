@@ -31,7 +31,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     std::array<ContractStorageRead<NCT>, KERNEL_PUBLIC_DATA_READS_LENGTH> contract_storage_reads{};
 
     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
-    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
     std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers{};
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs{};
 

@@ -1,7 +1,7 @@
 import {
   CallContext,
   ContractDeploymentData,
-  NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
   NEW_NULLIFIERS_LENGTH,
   NUM_FIELDS_PER_SHA256,
@@ -124,7 +124,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const readRequests = witnessReader.readFieldArray(READ_REQUESTS_LENGTH);
-  const newCommitments = witnessReader.readFieldArray(NEW_COMMITMENTS_LENGTH);
+  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
   const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
   const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);

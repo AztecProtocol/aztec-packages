@@ -2,7 +2,7 @@ import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
   GlobalVariables,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   KERNEL_NEW_NULLIFIERS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
@@ -171,7 +171,7 @@ describe('L1Publisher integration', () => {
 
     const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
+    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);

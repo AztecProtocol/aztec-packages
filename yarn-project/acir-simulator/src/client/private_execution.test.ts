@@ -4,7 +4,7 @@ import {
   ContractDeploymentData,
   FunctionData,
   L1_TO_L2_MESSAGES_TREE_HEIGHT,
-  NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PrivateHistoricTreeRoots,
   PublicCallRequest,
@@ -120,7 +120,7 @@ describe('Private Execution test suite', () => {
     it('should run the empty constructor', async () => {
       const abi = TestContractAbi.functions[0];
       const result = await runSimulator({ abi, isConstructor: true });
-      expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(NEW_COMMITMENTS_LENGTH).fill(Fr.ZERO));
+      expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO));
     });
   });
 

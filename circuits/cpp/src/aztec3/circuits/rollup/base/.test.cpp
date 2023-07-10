@@ -255,11 +255,11 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     // Then get sibling path so we can verify insert them into the tree.
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH* 2> new_commitments = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX* 2> new_commitments = { 0, 1, 2, 3, 4, 5, 6, 7 };
     for (uint8_t i = 0; i < 2; i++) {
-        std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> kernel_commitments;
-        for (uint8_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            kernel_commitments[j] = new_commitments[i * KERNEL_NEW_COMMITMENTS_LENGTH + j];
+        std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> kernel_commitments;
+        for (uint8_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
+            kernel_commitments[j] = new_commitments[i * MAX_NEW_COMMITMENTS_PER_TX + j];
         }
         kernel_data[i].public_inputs.end.new_commitments = kernel_commitments;
     }
@@ -275,7 +275,7 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     }
     AppendOnlyTreeSnapshot<NT> const expected_end_commitments_snapshot = {
         .root = private_data_tree.root(),
-        .next_available_leaf_index = 2 * KERNEL_NEW_COMMITMENTS_LENGTH,
+        .next_available_leaf_index = 2 * MAX_NEW_COMMITMENTS_PER_TX,
     };
 
     auto inputs = base_rollup_inputs_from_kernels(kernel_data);

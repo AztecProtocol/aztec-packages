@@ -125,7 +125,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
     std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
         array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
-    std::array<NT::fr, NEW_COMMITMENTS_LENGTH> const new_commitments = array_of_values<NEW_COMMITMENTS_LENGTH>(count);
+    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
+        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
     std::array<NT::fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers = array_of_values<NEW_NULLIFIERS_LENGTH>(count);
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
         array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(count);
@@ -206,11 +207,11 @@ public_data_update_requests_from_contract_storage_update_requests(
     return values;
 }
 
-std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments_as_siloed_commitments(
-    std::array<fr, NEW_COMMITMENTS_LENGTH> const& new_commitments, NT::fr const& contract_address)
+std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments_as_siloed_commitments(
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments, NT::fr const& contract_address)
 {
-    std::array<fr, NEW_COMMITMENTS_LENGTH> siloed_commitments{};
-    for (size_t i = 0; i < NEW_COMMITMENTS_LENGTH; ++i) {
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_commitments{};
+    for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_CALL; ++i) {
         if (!new_commitments[i].is_zero()) {
             siloed_commitments[i] = silo_commitment<NT>(contract_address, new_commitments[i]);
         }
@@ -317,8 +318,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         generate_contract_storage_update_requests(seed, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH / 2);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
         generate_contract_storage_reads(seed, KERNEL_PUBLIC_DATA_READS_LENGTH / 2);
-    std::array<fr, NEW_COMMITMENTS_LENGTH> const new_commitments =
-        array_of_values<NEW_COMMITMENTS_LENGTH>(seed, NEW_COMMITMENTS_LENGTH / 2);
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
+        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(seed, MAX_NEW_COMMITMENTS_PER_CALL / 2);
     std::array<fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers =
         array_of_values<NEW_NULLIFIERS_LENGTH>(seed, NEW_NULLIFIERS_LENGTH / 2);
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
@@ -387,8 +388,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     public_call_stack[0] = public_call_data.call_stack_item.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
-        .new_commitments = array_of_values<KERNEL_NEW_COMMITMENTS_LENGTH>(
-            seed, private_previous ? KERNEL_NEW_COMMITMENTS_LENGTH / 2 : 0),
+        .new_commitments =
+            array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
         .new_nullifiers = array_of_values<KERNEL_NEW_NULLIFIERS_LENGTH>(
             seed, private_previous ? KERNEL_NEW_NULLIFIERS_LENGTH / 2 : 0),
         .private_call_stack = array_of_values<KERNEL_PRIVATE_CALL_STACK_LENGTH>(seed, 0),
@@ -1016,7 +1017,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     inputs.previous_kernel.public_inputs.end.public_data_reads = initial_reads;
 
     // setup 2 previous new commitments
-    std::array<NT::fr, KERNEL_NEW_COMMITMENTS_LENGTH> initial_commitments{};
+    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> initial_commitments{};
     initial_commitments[0] = fr(1);
     initial_commitments[1] = fr(2);
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
@@ -1097,8 +1098,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_reads,
                                             public_inputs.end.public_data_reads));
 
-    std::array<NT::fr, NEW_COMMITMENTS_LENGTH> const expected_new_commitments = new_commitments_as_siloed_commitments(
-        inputs.public_call.call_stack_item.public_inputs.new_commitments, contract_address);
+    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const expected_new_commitments =
+        new_commitments_as_siloed_commitments(inputs.public_call.call_stack_item.public_inputs.new_commitments,
+                                              contract_address);
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_commitments,
                                             expected_new_commitments,
@@ -1198,7 +1200,7 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_
     inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests =
         empty_array_of_values<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>();
     inputs.public_call.call_stack_item.public_inputs.new_commitments =
-        empty_array_of_values<NT::fr, NEW_COMMITMENTS_LENGTH>();
+        empty_array_of_values<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL>();
 
     // regenerate call data hash
     inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
