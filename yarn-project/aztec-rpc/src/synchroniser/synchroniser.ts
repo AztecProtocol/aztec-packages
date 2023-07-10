@@ -174,6 +174,11 @@ export class Synchroniser {
     abi = SchnorrAccountContractAbi,
     keyStore: KeyStore,
   ) {
+    // check if account exists
+    const account = this.getAccount(address);
+    if (account) {
+      return account;
+    }
     const accountState = new AccountState(
       publicKey,
       keyStore,
