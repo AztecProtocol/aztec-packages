@@ -399,8 +399,8 @@ export class AztecRPCServer implements AztecRPC {
     const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
 
     return {
-      version: Number(version.value),
-      chainId: Number(chainId.value),
+      version,
+      chainId,
     };
   }
 }
