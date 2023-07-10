@@ -80,7 +80,7 @@ async function main() {
   program
     .command('create-account')
     .description('Creates an aztec account that can be used for transactions.')
-    .option('-k, --private-key', 'Private Key to use for the 1st account generation. Uses random by default.')
+    .option('-k, --private-key <string>', 'Private Key to use for the 1st account generation. Uses random by default.')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
