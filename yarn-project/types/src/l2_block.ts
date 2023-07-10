@@ -5,7 +5,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   GlobalVariables,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
@@ -182,7 +182,7 @@ export class L2Block {
     const newContractData = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
-    const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
+    const newL2ToL1Msgs = times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random);
     const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPrivateFunctionCalls, numEncryptedLogs);
     const newUnencryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPublicFunctionCalls, numUnencryptedLogs);
 
@@ -618,7 +618,7 @@ export class L2Block {
       const commitmentsPerBase = MAX_NEW_COMMITMENTS_PER_TX * 2;
       const nullifiersPerBase = MAX_NEW_NULLIFIERS_PER_TX * 2;
       const publicDataUpdateRequestsPerBase = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2;
-      const l2ToL1MsgsPerBase = KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
+      const l2ToL1MsgsPerBase = MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
       const commitmentsBuffer = Buffer.concat(
         this.newCommitments.slice(i * commitmentsPerBase, (i + 1) * commitmentsPerBase).map(x => x.toBuffer()),
       );
@@ -695,8 +695,8 @@ export class L2Block {
       KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * (txIndex + 1),
     );
     const newL2ToL1Msgs = this.newL2ToL1Msgs.slice(
-      KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * txIndex,
-      KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * (txIndex + 1),
+      MAX_NEW_L2_TO_L1_MSGS_PER_TX * txIndex,
+      MAX_NEW_L2_TO_L1_MSGS_PER_TX * (txIndex + 1),
     );
     const newContracts = this.newContracts.slice(
       MAX_NEW_CONTRACTS_PER_TX * txIndex,

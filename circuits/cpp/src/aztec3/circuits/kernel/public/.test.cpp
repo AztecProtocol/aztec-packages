@@ -129,8 +129,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
         array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(count);
-    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
-        array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(count);
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
+        array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL>(count);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
         generate_contract_storage_reads(count);
     std::array<ContractStorageUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> const update_requests =
@@ -232,15 +232,15 @@ std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers_as_siloed_nullifiers(
     return siloed_nullifiers;
 }
 
-std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_messages_from_message(
-    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_messages,
+std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_messages_from_message(
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_messages,
     NT::fr const& contract_address,
     fr const& portal_contract_address,
     fr const& chain_id,
     fr const& version)
 {
-    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> formatted_msgs{};
-    for (size_t i = 0; i < NEW_L2_TO_L1_MSGS_LENGTH; ++i) {
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> formatted_msgs{};
+    for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; ++i) {
         if (!new_messages[i].is_zero()) {
             formatted_msgs[i] = compute_l2_to_l1_hash<NT>(
                 contract_address, version, portal_contract_address, chain_id, new_messages[i]);
@@ -323,8 +323,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(seed, MAX_NEW_COMMITMENTS_PER_CALL / 2);
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
         array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(seed, MAX_NEW_NULLIFIERS_PER_CALL / 2);
-    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
-        array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(seed, NEW_L2_TO_L1_MSGS_LENGTH / 2);
+    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
+        array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL>(seed, MAX_NEW_L2_TO_L1_MSGS_PER_CALL / 2);
     std::array<fr, NUM_FIELDS_PER_SHA256> const unencrypted_logs_hash =
         array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256);
     fr const unencrypted_log_preimages_length = ++seed;
@@ -395,8 +395,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
             array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
         .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
         .public_call_stack = public_call_stack,
-        .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(
-            seed, private_previous ? KERNEL_NEW_L2_TO_L1_MSGS_LENGTH / 2 : 0),
+        .new_l2_to_l1_msgs = array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX>(
+            seed, private_previous ? MAX_NEW_L2_TO_L1_MSGS_PER_TX / 2 : 0),
         .encrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(
             seed, private_previous ? 2 : 0),  // only private kernel is producing encrypted logs
         .unencrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256),
@@ -1032,7 +1032,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     inputs.previous_kernel.public_inputs.end.new_nullifiers = initial_nullifiers;
 
     // setup 1 new l2 to l1 messages
-    std::array<NT::fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> initial_l2_to_l1_messages{};
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> initial_l2_to_l1_messages{};
     initial_l2_to_l1_messages[0] = fr(1);
     inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs = initial_l2_to_l1_messages;
 
@@ -1120,7 +1120,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     fr const chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
     fr const version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
 
-    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const expected_new_messages =
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const expected_new_messages =
         new_l2_messages_from_message(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs,
                                      contract_address,
                                      portal_contract_address,

@@ -345,7 +345,7 @@ void propagate_new_l2_to_l1_messages(Builder& builder,
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
     const auto& new_l2_to_l1_msgs = public_call_public_inputs.new_l2_to_l1_msgs;
 
-    std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs_to_insert{};
+    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs_to_insert{};
     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
         if (!new_l2_to_l1_msgs[i].is_zero()) {
             const auto chain_id = public_kernel_inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;

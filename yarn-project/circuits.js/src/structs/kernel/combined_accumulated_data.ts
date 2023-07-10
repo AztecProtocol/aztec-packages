@@ -1,7 +1,7 @@
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { AggregationObject } from '../aggregation_object.js';
 import {
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -10,7 +10,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
 } from '../constants.js';
 import { FunctionData } from '../function_data.js';
@@ -294,7 +294,7 @@ export class CombinedAccumulatedData {
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof NEW_L2_TO_L1_MSGS_LENGTH>,
+    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -334,7 +334,7 @@ export class CombinedAccumulatedData {
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
-    assertMemberLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_TX);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'newContracts', MAX_NEW_CONTRACTS_PER_TX);
@@ -379,7 +379,7 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
       reader.readArray(2, Fr),
       reader.readArray(2, Fr),
       reader.readFr(),
@@ -407,7 +407,7 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
       makeTuple(2, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.zero(),

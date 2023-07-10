@@ -4,7 +4,7 @@ import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
-  NEW_L2_TO_L1_MSGS_LENGTH,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -111,7 +111,7 @@ export class PrivateCircuitPublicInputs {
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
+    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
   }
@@ -142,7 +142,7 @@ export class PrivateCircuitPublicInputs {
       frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       frArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
-      frArray(NEW_L2_TO_L1_MSGS_LENGTH),
+      frArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       frArray(NUM_FIELDS_PER_SHA256),
       frArray(NUM_FIELDS_PER_SHA256),
       Fr.ZERO,

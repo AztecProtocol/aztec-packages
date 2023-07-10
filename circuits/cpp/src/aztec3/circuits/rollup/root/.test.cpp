@@ -191,9 +191,9 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         }
         kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
 
-        std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_messages;
-        for (uint8_t i = 0; i < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; i++) {
-            auto val = fr(kernel_j * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + i + 1);
+        std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_messages;
+        for (uint8_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_TX; i++) {
+            auto val = fr(kernel_j * MAX_NEW_L2_TO_L1_MSGS_PER_TX + i + 1);
             new_l2_to_l1_messages[i] = val;
         }
         kernels[kernel_j].public_inputs.end.new_l2_to_l1_msgs = new_l2_to_l1_messages;

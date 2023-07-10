@@ -30,8 +30,8 @@
 
 //     // std::array<fr, CONTRACT_DEPLOYMENT_CALL_STACK_LENGTH> contract_deployment_call_stack;
 
-//     std::array<CallContext<NCT>, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_contexts;
-//     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_counterparts; // TODO: this is probably wrong.
+//     std::array<CallContext<NCT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> l1_call_contexts;
+//     std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> l1_counterparts; // TODO: this is probably wrong.
 
 //     template <typename Builder>
 //     CallContextReconciliationData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const

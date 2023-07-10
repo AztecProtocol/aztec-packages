@@ -112,7 +112,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     // 2 unencrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     auto const number_of_inputs =
         (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
-         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + MAX_NEW_CONTRACTS_PER_TX * 3 +
+         MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
          KERNEL_NUM_ENCRYPTED_LOGS_HASHES * NUM_FIELDS_PER_SHA256 +
          KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * NUM_FIELDS_PER_SHA256) *
         2;
@@ -146,10 +146,10 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
         }
         offset += KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 * 2;
 
-        for (size_t j = 0; j < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; j++) {
-            calldata_hash_inputs[offset + i * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + j] = newL2ToL1msgs[j];
+        for (size_t j = 0; j < MAX_NEW_L2_TO_L1_MSGS_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_NEW_L2_TO_L1_MSGS_PER_TX + j] = newL2ToL1msgs[j];
         }
-        offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
+        offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
 
         auto const contract_leaf = kernel_data[i].public_inputs.end.new_contracts[0];
         calldata_hash_inputs[offset + i] = contract_leaf.hash();

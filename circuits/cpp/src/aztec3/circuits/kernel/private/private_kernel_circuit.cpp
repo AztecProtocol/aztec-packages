@@ -173,7 +173,7 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
 
     // {
     //     const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-    //     std::array<CT::fr, NEW_L2_TO_L1_MSGS_LENGTH> l1_call_stack;
+    //     std::array<CT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> l1_call_stack;
 
     //     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
     //         l1_call_stack[i] = CT::fr::conditional_assign(

@@ -6,7 +6,7 @@ import {
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
@@ -84,7 +84,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
     newPublicDataWrites: times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataWrite.random),
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
-    newL2ToL1Msgs: times(NEW_L2_TO_L1_MSGS_LENGTH, Fr.random),
+    newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
     newEncryptedLogs,
   });
   return block;
