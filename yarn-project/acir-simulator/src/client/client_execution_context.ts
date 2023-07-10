@@ -104,7 +104,6 @@ export class ClientTxExecutionContext {
     offset: ACVMField,
     returnSize: ACVMField,
   ) {
-
     // TODO(dbanks12): how should sorting and offset affect pending commitments?
     let pendingCount = 0;
     const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages

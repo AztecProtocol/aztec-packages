@@ -3,7 +3,7 @@ import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Tuple } from '@aztec/foundation/serialize';
-import { NEW_COMMITMENTS_LENGTH, PRIVATE_DATA_TREE_HEIGHT } from './constants.js';
+import { MAX_NEW_COMMITMENTS_PER_CALL, PRIVATE_DATA_TREE_HEIGHT } from './constants.js';
 import { MembershipWitness } from './membership_witness.js';
 
 /**
@@ -36,9 +36,9 @@ export class ReadRequestMembershipWitness {
     public commitmentKernelIter: Fr,
   ) {
     assertMemberLength(this, 'siblingPath', PRIVATE_DATA_TREE_HEIGHT);
-    if (commitmentIndex.value > NEW_COMMITMENTS_LENGTH) {
+    if (commitmentIndex.value > MAX_NEW_COMMITMENTS_PER_CALL) {
       throw new Error(
-        `Expected ReadRequestMembershipWitness' commitmentIndex(${commitmentIndex}) to be <= NEW_COMMITMENTS_LENGTH(${NEW_COMMITMENTS_LENGTH})`,
+        `Expected ReadRequestMembershipWitness' commitmentIndex(${commitmentIndex}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_COMMITMENTS_PER_CALL})`,
       );
     }
   }

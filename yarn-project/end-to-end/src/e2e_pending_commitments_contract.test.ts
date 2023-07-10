@@ -44,14 +44,8 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     const tx = deployedContract.methods
-      .create_get_and_check_note_inline(
-        mintAmount,
-        ownerPublicKey,
-        Fr.fromBuffer(deployedContract.methods.create_note.selector),
-        Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
-      )
+      .create_get_and_check_note_inline(mintAmount, ownerPublicKey)
       .send({ from: owner });
-    //const tx = deployedContract.methods.create_get_and_check_note_in_nested_calls(mintAmount, ownerPublicKey).send({ from: owner });
     //assert commitment output from app
     //assert no rr output from app that matches pending commitment
     //assert bal?
@@ -62,7 +56,32 @@ describe('e2e_pending_commitments_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
-  // TODO(dbanks12) tests for insert/get in nested calls and nested/inline combos
-  // TODO(dbanks12) tests for nullifying pending notes
-  // TODO(dbanks12) test expected kernel failures if transient reads and nullifiers (or their hints) don't match or follow rules
+  it('Noir function can "get" notes inserted in a previous function call in same TX', async () => {
+    const mintAmount = 65n;
+
+    const [owner] = accounts;
+    const ownerPublicKey = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner));
+
+    const deployedContract = await deployContract();
+
+    const tx = deployedContract.methods
+      .create_get_and_check_note_in_nested_calls(
+        mintAmount,
+        ownerPublicKey,
+        Fr.fromBuffer(deployedContract.methods.create_note.selector),
+        Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
+      )
+      .send({ from: owner });
+    //assert commitment output from app
+    //assert no rr output from app that matches pending commitment
+    //assert bal?
+
+    await tx.isMined(0, 0.1);
+    const receipt = await tx.getReceipt();
+
+    expect(receipt.status).toBe(TxStatus.MINED);
+  }, 60_000);
+
+  // TODO(dbanks12): tests for nullifying pending notes
+  // TODO(dbanks12): test expected kernel failures if transient reads and nullifiers (or their hints) don't match or follow rules
 });

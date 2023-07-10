@@ -110,9 +110,8 @@ export class KernelProver {
         if (!rrWitness.isTransient) {
           // Non-transient reads must contain full membership witness
           // with sibling path from commitment to root.
-          // Get regular membership witness and then use it to fill members in the read request witness.
+          // Get regular membership witness to fill in sibling path in the read request witness.
           const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex);
-          rrWitness.leafIndex = membershipWitness.leafIndex;
           rrWitness.siblingPath = membershipWitness.siblingPath;
         }
       }
