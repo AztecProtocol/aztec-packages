@@ -185,7 +185,7 @@ const transferWethOnL2 = async (
 async function main() {
   logger('Running L1/L2 messaging test on HTTP interface.');
 
-  wallet = await createAccounts(aztecRpcClient, privateKey!, 2);
+  wallet = await createAccounts(aztecRpcClient, privateKey!, Fr.random(), 2);
   const accounts = await wallet.getAccounts();
   const [owner, receiver] = accounts;
   const ownerPub = (await aztecRpcClient.getAccountPublicKey(owner)).toBigInts();

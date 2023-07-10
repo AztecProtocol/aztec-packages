@@ -20,6 +20,7 @@ import { Schnorr } from '@aztec/circuits.js/barretenberg';
 export async function createAccounts(
   aztecRpcClient: AztecRPC,
   privateKey?: Buffer,
+  salt = Fr.random(),
   numberOfAccounts = 1,
   logger = createDebugLogger('aztec:aztec.js:accounts'),
 ): Promise<Wallet> {
@@ -30,7 +31,6 @@ export async function createAccounts(
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
     const privKey = i == 0 && privateKey ? privateKey : randomBytes(32);
     const publicKey = await generatePublicKey(privKey);
-    const salt = Fr.random();
     const deploymentInfo = await getContractDeploymentInfo(accountAbi, [], salt, publicKey);
     await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress, accountAbi);
     const contractDeployer = new ContractDeployer(accountAbi, aztecRpcClient, publicKey);
@@ -60,4 +60,31 @@ export async function createAccounts(
     );
   }
   return new AccountWallet(aztecRpcClient, accountImpls);
+}
+
+/**
+ * Gets the Aztec accounts that are stored in an Aztec RPC instance.
+ * @param aztecRpcClient - An instance of the Aztec RPC interface.
+ * @param numberOfAccounts - The number of accounts to fetch.
+ * @returns An AccountWallet implementation that includes all the accounts found.
+ */
+export async function getAccountWallet(aztecRpcClient: AztecRPC, privateKey: Buffer, salt: Fr) {
+  const wasm = await CircuitsWasm.get();
+  const accountCollection = new AccountCollection();
+  const publicKey = await generatePublicKey(privateKey);
+  const address = await aztecRpcClient.getAccountAddress(publicKey);
+  const deploymentInfo = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
+
+  accountCollection.registerAccount(
+    address,
+    new AccountContract(
+      address,
+      publicKey,
+      new SchnorrAuthProvider(await Schnorr.new(), privateKey),
+      deploymentInfo.partialAddress,
+      SchnorrAccountContractAbi,
+      wasm,
+    ),
+  );
+  return new AccountWallet(aztecRpcClient, accountCollection);
 }
