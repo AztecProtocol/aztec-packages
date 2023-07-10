@@ -10,7 +10,6 @@ import {
   TxHash,
   createAccounts,
   createAztecRpcClient,
-  pointToPublicKey,
 } from '@aztec/aztec.js';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
@@ -45,7 +44,31 @@ async function main() {
       'test test test test test test test test test test test junk',
     )
     .action(async (rpcUrl: string, options) => {
-      await deployAztecContracts(rpcUrl, options.apiKey ?? '', options.privateKey, options.mnemonic, debugLogger);
+      const { rollupAddress, registryAddress, inboxAddress, outboxAddress, contractDeploymentEmitterAddress } =
+        await deployAztecContracts(rpcUrl, options.apiKey ?? '', options.privateKey, options.mnemonic, debugLogger);
+      log('\n');
+      log(`Rollup Address: ${rollupAddress.toString()}`);
+      log(`Registry Address: ${registryAddress.toString()}`);
+      log(`L1 -> L2 Inbox Address: ${inboxAddress.toString()}`);
+      log(`L2 -> L1 Outbox address: ${outboxAddress.toString()}`);
+      log(`Contract Deployment Emitter Address: ${contractDeploymentEmitterAddress.toString()}`);
+      log('\n');
+    });
+
+  program
+    .command('create-accounts')
+    .option('-k, --private-key', 'Private Key to use for the 1st account generation. Uses random by default.')
+    .option('-n, --num-addresses <number>', 'Number of accounts to create', '1')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .action(async options => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const privateKey = options.privateKey && Buffer.from(options.privateKeystr.replace(/^0x/i, ''), 'hex');
+      const numAccounts = options.numAddresses ? parseInt(options.numAddresses) : 1;
+      const wallet = await createAccounts(client, privateKey, numAccounts);
+      const accounts = await wallet.getAccounts();
+      const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
+      log(`\nCreated account(s).`);
+      accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
     });
 
   program
@@ -63,11 +86,11 @@ async function main() {
       const deployer = new ContractDeployer(contractAbi, client);
 
       const tx = deployer
-        .deploy(...encodeArgs(options.constructorArgs, constructorAbi!.parameters), pointToPublicKey(publicKey))
+        .deploy(...encodeArgs(options.constructorArgs, constructorAbi!.parameters), publicKey.toBigInts())
         .send();
       await tx.isMined();
       const receipt = await tx.getReceipt();
-      log(`Contract deployed at ${receipt.contractAddress?.toString()}`);
+      log(`\nAztec Contract deployed at ${receipt.contractAddress?.toString()}\n`);
     });
 
   program
@@ -78,7 +101,7 @@ async function main() {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_contractAddress);
       const isDeployed = await client.isContractDeployed(address);
-      log(isDeployed.toString());
+      log(`\n${isDeployed.toString()}\n`);
     });
 
   program
@@ -92,7 +115,7 @@ async function main() {
       if (!receipt) {
         log(`No receipt found for tx hash ${_txHash}`);
       } else {
-        log(`TX Receipt: \n${JsonStringify(receipt, true)}`);
+        log(`\nTX Receipt: \n${JsonStringify(receipt, true)}\n`);
       }
     });
 
@@ -119,11 +142,12 @@ async function main() {
       } else {
         contractData = contractDataOrInfo;
       }
-      log(`Contract Data: \nAddress: ${contractData.contractAddress.toString()}`);
+      log(`\nContract Data: \nAddress: ${contractData.contractAddress.toString()}`);
       log(`Portal: ${contractData.portalContractAddress.toString()}`);
       if ('bytecode' in contractDataOrInfo) {
         log(`Bytecode: ${contractDataOrInfo.bytecode}`);
       }
+      log('\n');
     });
 
   program
@@ -149,23 +173,6 @@ async function main() {
         log('Logs found: \n');
         L2BlockL2Logs.unrollLogs(logs).forEach(fnLog => log(`${fnLog.toString('ascii')}\n`));
       }
-    });
-
-  // NOTE: This implementation should change soon but keeping it here for quick account creation.
-  program
-    .command('create-account')
-    .option('-k, --private-key', 'Private Key to use for the 1st account generation.')
-    .option('-n, --num-addresses <number>', 'Number of addresses the account can control')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
-    .action(async options => {
-      const client = createAztecRpcClient(options.rpcUrl);
-      const privateKey = options.privateKey && Buffer.from(options.privateKeystr.replace(/^0x/i, ''), 'hex');
-      const numAccounts = options.numAddresses ? parseInt(options.numAddresses) : 1;
-      const wallet = await createAccounts(client, privateKey, numAccounts);
-      const accounts = await wallet.getAccounts();
-      const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
-      log(`Created account(s).`);
-      accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
     });
 
   program

@@ -23,7 +23,6 @@ export async function createAccounts(
   logger = createDebugLogger('aztec:aztec.js:accounts'),
 ): Promise<Wallet> {
   const accountImpls = new AccountCollection();
-  const results: [AztecAddress, Point][] = [];
   const wasm = await CircuitsWasm.get();
   for (let i = 0; i < numberOfAccounts; ++i) {
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
@@ -53,7 +52,6 @@ export async function createAccounts(
         wasm,
       ),
     );
-    results.push([address, publicKey]);
   }
   return new AccountWallet(aztecRpcClient, accountImpls);
 }

@@ -184,20 +184,6 @@ export function getLogger() {
 }
 
 /**
- * Converts a point to a public key.
- * @param point - the point to convert to
- * @returns two big ints x,y representing the public key
- */
-export function pointToPublicKey(point: Point) {
-  const x = point.x.toBigInt();
-  const y = point.y.toBigInt();
-  return {
-    x,
-    y,
-  };
-}
-
-/**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
  * @param aztecRpcServer - the aztec rpc server instance
  * @param walletClient - A viem WalletClient.

@@ -22,7 +22,7 @@ export async function deployAztecContracts(
 ) {
   const account = !privateKey ? mnemonicToAccount(mnemonic!) : privateKeyToAccount(`0x${privateKey}`);
   const chain = createEthereumChain(rpcUrl, apiKey);
-  await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger);
+  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger);
 }
 
 /**
