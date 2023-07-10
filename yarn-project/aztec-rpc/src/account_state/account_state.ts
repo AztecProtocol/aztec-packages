@@ -1,12 +1,11 @@
 import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ConstantKeyPair, KeyPair } from '@aztec/key-store';
+import { ConstantKeyPair, KeyStore, PublicKey } from '@aztec/key-store';
 import {
   EncodedContractFunction,
   ExecutionRequest,
@@ -27,6 +26,8 @@ import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
 import { collectUnencryptedLogs } from '@aztec/acir-simulator';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { ContractDao } from '../contract_database/contract_dao.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -37,11 +38,11 @@ interface ProcessedData {
    */
   blockContext: L2BlockContext;
   /**
-   * Indices of private transactions in the block that pertain to the user.
+   * Indices of transactions in the block that emitted encrypted log which the user could decrypt.
    */
-  userPertainingPrivateTxIndices: number[];
+  userPertainingTxIndices: number[];
   /**
-   * A collection of data access objects for transaction auxiliary data.
+   * A collection of data access objects for note spending info.
    */
   noteSpendingInfoDaos: NoteSpendingInfoDao[];
 }
@@ -58,27 +59,18 @@ export class AccountState {
    * The latest L2 block number that the account state has synchronized to.
    */
   public syncedToBlock = 0;
-  private publicKey: Point;
-  private keyPair: KeyPair;
 
   constructor(
-    private readonly privKey: Buffer,
+    private readonly publicKey: PublicKey,
+    private keyStore: KeyStore,
     private readonly address: AztecAddress,
     private readonly partialContractAddress: PartialContractAddress,
     private db: Database,
     private node: AztecNode,
-    private curve: Curve,
-    private signer: Signer,
     private accountContractAbi: ContractAbi,
     private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_rpc_account_state'),
-  ) {
-    if (privKey.length !== 32) {
-      throw new Error(`Invalid private key length. Received ${privKey.length}, expected 32`);
-    }
-    this.publicKey = Point.fromBuffer(this.curve.mul(this.curve.generator(), this.privKey));
-    this.keyPair = new ConstantKeyPair(this.curve, this.signer, this.publicKey, privKey);
-  }
+  ) {}
 
   /**
    * Check if the AccountState is synchronised with the remote block height.
@@ -207,19 +199,17 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = this.getAcirSimulator(contractDataOracle);
-    this.log('Executing simulator...');
-    const result = await simulator.run(
-      txRequest,
-      functionAbi,
-      contractAddress,
-      portalContract,
-      historicRoots,
-      this.curve,
-    );
-    this.log('Simulation completed!');
+    const simulator = await this.getAcirSimulator(contractDataOracle);
 
-    return result;
+    try {
+      this.log('Executing simulator...');
+      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+      this.log('Simulation completed!');
+
+      return result;
+    } catch (err: any) {
+      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
+    }
   }
 
   /**
@@ -241,7 +231,7 @@ export class AccountState {
       contractDataOracle,
     );
 
-    const simulator = this.getAcirSimulator(contractDataOracle);
+    const simulator = await this.getAcirSimulator(contractDataOracle);
 
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
@@ -265,30 +255,28 @@ export class AccountState {
    *
    * @param txExecutionRequest - The transaction request to be simulated and proved.
    * @param signature - The ECDSA signature for the transaction request.
-   * @param newContractAddress - Optional. The address of a new contract to be included in the transaction object.
+   * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContractAddress: AztecAddress | undefined) {
+  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
+
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
-    const argsHash = executionResult.callStackItem.publicInputs.argsHash;
 
     const kernelProver = new KernelProver(kernelOracle);
-    this.log('Executing Prover...');
-    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(argsHash), executionResult);
+    this.log(`Executing kernel prover from account state ${this.address}`);
+    const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
     this.log('Proof completed!');
 
-    const newContractPublicFunctions = newContractAddress
-      ? await this.getNewContractPublicFunctions(newContractAddress)
-      : [];
+    const newContractPublicFunctions = newContract ? this.getNewContractPublicFunctions(newContract) : [];
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
 
-    return Tx.createTx(
+    return new Tx(
       publicInputs,
       proof,
       encryptedLogs,
@@ -300,15 +288,10 @@ export class AccountState {
 
   /**
    * Return public functions from the newly deployed contract to be injected into the tx object.
-   * @param newContractAddress - Address of the new contract.
+   * @param newContract - The new contract
    * @returns List of EncodedContractFunction.
    */
-  private async getNewContractPublicFunctions(newContractAddress: AztecAddress) {
-    const newContract = await this.db.getContract(newContractAddress);
-    if (!newContract) {
-      throw new Error(`Invalid new contract address provided at ${newContractAddress}. Contract not found in DB.`);
-    }
-
+  private getNewContractPublicFunctions(newContract: ContractDao) {
     return newContract.functions
       .filter(c => c.functionType === FunctionType.OPEN)
       .map(
@@ -351,19 +334,24 @@ export class AccountState {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       let logIndexWithinBlock = 0;
 
-      // Try decrypting the encrypted logs.
-      // Note: Public txs don't generate commitments and encrypted logs and for this reason we can ignore them here.
-      const privateTxIndices: Set<number> = new Set();
+      // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
+      // multiple encrypted logs in a tx pertaining to a user.
+      const userPertainingTxIndices: Set<number> = new Set();
       const noteSpendingInfoDaos: NoteSpendingInfoDao[] = [];
-      for (let txIndex = 0; txIndex < txLogs.length; ++txIndex) {
-        const txFunctionLogs = txLogs[txIndex].functionLogs;
+      const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
+      const curve = await Grumpkin.new();
+
+      // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
+      for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
+        // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
+        //       to the index of a tx in a block.
+        const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
         for (const functionLogs of txFunctionLogs) {
           for (const logs of functionLogs.logs) {
-            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, this.privKey, this.curve);
+            const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
-              const privateTxIndex = Math.floor(txIndex / KERNEL_NEW_COMMITMENTS_LENGTH);
-              privateTxIndices.add(privateTxIndex);
+              userPertainingTxIndices.add(indexOfTxInABlock);
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
                 nullifier: await this.computeNullifier(noteSpendingInfo),
@@ -378,7 +366,7 @@ export class AccountState {
 
       blocksAndNoteSpendingInfo.push({
         blockContext: l2BlockContexts[blockIndex],
-        userPertainingPrivateTxIndices: [...privateTxIndices],
+        userPertainingTxIndices: [...userPertainingTxIndices], // Convert set to array.
         noteSpendingInfoDaos,
       });
       dataStartIndex += txLogs.length;
@@ -400,13 +388,14 @@ export class AccountState {
    * @returns A Fr instance representing the computed nullifier.
    */
   private async computeNullifier(noteSpendingInfo: NoteSpendingInfo) {
-    const simulator = this.getAcirSimulator();
+    const simulator = await this.getAcirSimulator();
     // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
     return Fr.fromBuffer(
       simulator.computeSiloedNullifier(
         noteSpendingInfo.contractAddress,
+        noteSpendingInfo.storageSlot,
         noteSpendingInfo.notePreimage.items,
-        this.privKey,
+        await this.keyStore.getAccountPrivateKey(this.publicKey),
         await CircuitsWasm.get(),
       ),
     );
@@ -427,10 +416,10 @@ export class AccountState {
     let newNullifiers: Fr[] = [];
 
     for (let i = 0; i < blocksAndNoteSpendingInfo.length; ++i) {
-      const { blockContext, userPertainingPrivateTxIndices, noteSpendingInfoDaos } = blocksAndNoteSpendingInfo[i];
+      const { blockContext, userPertainingTxIndices, noteSpendingInfoDaos } = blocksAndNoteSpendingInfo[i];
 
-      // Process all the user pertaining private txs.
-      userPertainingPrivateTxIndices.map((txIndex, j) => {
+      // Process all the user pertaining txs.
+      userPertainingTxIndices.map((txIndex, j) => {
         const txHash = blockContext.getTxHash(txIndex);
         this.log(`Processing tx ${txHash!.toString()} from block ${blockContext.block.number}`);
         const { newContractData } = blockContext.block.getTx(txIndex);
@@ -459,13 +448,13 @@ export class AccountState {
     if (noteSpendingInfoDaosBatch.length) {
       await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
       noteSpendingInfoDaosBatch.forEach(noteSpendingInfo => {
-        this.log(`Added tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
+        this.log(`Added note spending info with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
       });
     }
     if (txDaos.length) await this.db.addTxs(txDaos);
     const removedNoteSpendingInfo = await this.db.removeNullifiedNoteSpendingInfo(newNullifiers, this.publicKey);
     removedNoteSpendingInfo.forEach(noteSpendingInfo => {
-      this.log(`Removed tx aux data with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
+      this.log(`Removed note spending info with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
     });
   }
 
@@ -492,11 +481,14 @@ export class AccountState {
     }
   }
 
-  private getAcirSimulator(contractDataOracle?: ContractDataOracle) {
+  private async getAcirSimulator(contractDataOracle?: ContractDataOracle) {
+    const privateKey = await this.keyStore.getAccountPrivateKey(this.publicKey);
+    const keyPair = new ConstantKeyPair(this.publicKey, privateKey);
+
     const simulatorOracle = new SimulatorOracle(
       contractDataOracle ?? new ContractDataOracle(this.db, this.node),
       this.db,
-      this.keyPair,
+      keyPair,
       this.address,
       this.node,
     );
