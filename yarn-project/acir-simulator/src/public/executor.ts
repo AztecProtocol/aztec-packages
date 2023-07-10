@@ -74,26 +74,26 @@ export class PublicExecutor {
     const packedArgs = await PackedArgsCache.create([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      packArguments: async ([args]) => {
+      packArguments: async args => {
         return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
       },
 
-      debugLog: fields => {
-        this.log(oracleDebugCallToFormattedStr(fields));
+      debugLog: (...args) => {
+        this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      getL1ToL2Message: async ([[msgKey]]) => {
+      getL1ToL2Message: async ([msgKey]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
-      getCommitment: async ([[commitment]]) => {
+      getCommitment: async ([commitment]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
           execution.contractAddress,
           fromACVMField(commitment),
         );
         return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.treeRoots.privateDataTreeRoot);
       },
-      storageRead: async ([[slot], [numberOfElements]]) => {
+      storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);
         const values = [];
         for (let i = 0; i < Number(numberOfElements); i++) {
@@ -104,7 +104,7 @@ export class PublicExecutor {
         }
         return values.map(v => toACVMField(v));
       },
-      storageWrite: async ([[slot], values]) => {
+      storageWrite: async ([slot], values) => {
         const startStorageSlot = fromACVMField(slot);
         const newValues = [];
         for (let i = 0; i < values.length; i++) {
@@ -117,22 +117,22 @@ export class PublicExecutor {
         }
         return newValues.map(v => toACVMField(v));
       },
-      createCommitment: async ([[commitment]]) => {
+      createCommitment: async ([commitment]) => {
         this.log('Creating commitment: ' + commitment.toString());
         newCommitments.push(fromACVMField(commitment));
         return await Promise.resolve(ZERO_ACVM_FIELD);
       },
-      createL2ToL1Message: async ([[message]]) => {
+      createL2ToL1Message: async ([message]) => {
         this.log('Creating L2 to L1 message: ' + message.toString());
         newL2ToL1Messages.push(fromACVMField(message));
         return await Promise.resolve(ZERO_ACVM_FIELD);
       },
-      createNullifier: async ([[nullifier]]) => {
+      createNullifier: async ([nullifier]) => {
         this.log('Creating nullifier: ' + nullifier.toString());
         newNullifiers.push(fromACVMField(nullifier));
         return await Promise.resolve(ZERO_ACVM_FIELD);
       },
-      callPublicFunction: async ([[address], [functionSelector], [argsHash]]) => {
+      callPublicFunction: async ([address], [functionSelector], [argsHash]) => {
         const args = packedArgs.unpack(fromACVMField(argsHash));
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
@@ -147,7 +147,7 @@ export class PublicExecutor {
         this.log(`Returning from nested call: ret=${childExecutionResult.returnValues.join(', ')}`);
         return padArrayEnd(childExecutionResult.returnValues, Fr.ZERO, NOIR_MAX_RETURN_VALUES).map(toACVMField);
       },
-      emitUnencryptedLog: ([args]) => {
+      emitUnencryptedLog: args => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885
         const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);

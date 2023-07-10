@@ -48,7 +48,7 @@ type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
 /**
  * The callback interface for the ACIR.
  */
-export type ACIRCallback = PartialRecord<ORACLE_NAMES, (args: ForeignCallInput[]) => Promise<ForeignCallOutput>>;
+export type ACIRCallback = PartialRecord<ORACLE_NAMES, (...args: ForeignCallInput[]) => Promise<ForeignCallOutput>>;
 
 /**
  * The result of executing an ACIR.
@@ -77,7 +77,7 @@ export async function acvm(
         throw new Error(`Callback ${name} not found`);
       }
 
-      const result = await oracleFunction.call(callback, args);
+      const result = await oracleFunction.call(callback, ...args);
       return [result];
     } catch (err: any) {
       logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);

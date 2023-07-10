@@ -68,10 +68,10 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      packArguments: async ([args]) => {
+      packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
-      getSecretKey: async ([[ownerX], [ownerY]]) =>
+      getSecretKey: async ([ownerX], [ownerY]) =>
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
@@ -81,17 +81,17 @@ export class PrivateFunctionExecution {
             ),
           ),
         ),
-      getNotes: ([[slot], sortBy, sortOrder, [limit], [offset], [returnSize]]) =>
+      getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: ([[storageSlot], acvmPreimage]) => {
+      notifyCreatedNote: ([storageSlot], acvmPreimage) => {
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
           preimage: acvmPreimage.map(f => fromACVMField(f)),
         });
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: ([[slot], [nullifier], acvmPreimage]) => {
+      notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
@@ -99,7 +99,7 @@ export class PrivateFunctionExecution {
         });
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      callPrivateFunction: async ([[acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]]) => {
+      callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
         const functionSelector = fromACVMField(acvmFunctionSelector);
         this.log(
@@ -118,15 +118,15 @@ export class PrivateFunctionExecution {
 
         return toAcvmCallPrivateStackItem(childExecutionResult.callStackItem);
       },
-      getL1ToL2Message: ([[msgKey]]) => {
+      getL1ToL2Message: ([msgKey]) => {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: ([[commitment]]) => this.context.getCommitment(this.contractAddress, commitment),
-      debugLog: fields => {
-        this.log(oracleDebugCallToFormattedStr(fields));
+      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
+      debugLog: (...args) => {
+        this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      enqueuePublicFunctionCall: async ([[acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]]) => {
+      enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
           frToSelector(fromACVMField(acvmFunctionSelector)),
@@ -138,14 +138,14 @@ export class PrivateFunctionExecution {
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
       },
-      emitUnencryptedLog: ([args]) => {
+      emitUnencryptedLog: message => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885
-        const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+        const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: ([[acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage]) => {
+      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
