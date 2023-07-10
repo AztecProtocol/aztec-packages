@@ -18,14 +18,14 @@ fn notify_created_note_oracle<N>(
     _oracle_connector: Field,
     _storage_slot: Field,
     _preimage: [Field; N],
-) -> [Field; 1] {}
+) -> Field {}
 
 unconstrained fn notify_created_note_wrapper<N>(
     oracle_connector: Field,
     storage_slot: Field,
     preimage: [Field; N],
 ) -> Field {
-    notify_created_note_oracle(oracle_connector, storage_slot, preimage)[0]
+    notify_created_note_oracle(oracle_connector, storage_slot, preimage)
 }
 
 fn notify_created_note<N>(
@@ -44,7 +44,7 @@ fn notify_nullified_note_oracle<N>(
     _storage_slot: Field,
     _nullifier: Field,
     _preimage: [Field; N],
-) -> [Field; 1] {}
+) -> Field {}
 
 unconstrained fn notify_nullified_note_wrapper<N>(
     oracle_connector: Field,
@@ -52,7 +52,7 @@ unconstrained fn notify_nullified_note_wrapper<N>(
     nullifier: Field,
     preimage: [Field; N],
 ) -> Field {
-    notify_nullified_note_oracle(oracle_connector, storage_slot, nullifier, preimage)[0]
+    notify_nullified_note_oracle(oracle_connector, storage_slot, nullifier, preimage)
 }
 
 fn notify_nullified_note<N>(
@@ -73,7 +73,6 @@ fn get_note_oracle<S>(_oracle_connector: Field, _storage_slot: Field) -> [Field;
 fn get_notes_oracle<N, S>(
     _oracle_connector: Field,
     _storage_slot: Field,
-    _note_size: u32,
     _sort_by: [u8; N],
     _sort_order: [u8; N],
     _limit: u32,
@@ -91,9 +90,8 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     offset: u32,
     mut fields: [Field; S],
 )-> [Field; S] {
-    let note_size: comptime u32 = N;
     let return_size = fields.len() as u32;
-    get_notes_oracle(oracle_connector, storage_slot, note_size, sort_by, sort_order, limit, offset, return_size, fields)
+    get_notes_oracle(oracle_connector, storage_slot, sort_by, sort_order, limit, offset, return_size, fields)
 }
 
 // TODO: The following functions should all be unconstrained.

@@ -3,7 +3,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import {
   ACVMField,
-  ACVMFieldsReader,
   fromACVMField,
   toACVMField,
   toAcvmCommitmentLoadOracleInputs,
@@ -86,18 +85,25 @@ export class ClientTxExecutionContext {
    * use this to fully populate the witnesses.
    *
    * @param contractAddress - The contract address.
-   * @param fields - An array of ACVM fields.
-   * @returns An array of ACVM fields containing the note count and the requested note preimages.
+   * @param storageSlot - The storage slot.
+   * @param noteSize - The note size.
+   * @param sortBy - The sort by fields.
+   * @param sortOrder - The sort order fields.
+   * @param limit - The limit.
+   * @param offset - The offset.
+   * @param returnSize - The return size.
+   * @returns An array of ACVM fields for the note count and the requested note preimages,
+   * and another array of indices corresponding to each note
    */
-  public async getNotes(contractAddress: AztecAddress, fields: ACVMField[]) {
-    const reader = new ACVMFieldsReader(fields);
-    const storageSlot = reader.readField();
-    const noteSize = reader.readNumber();
-    const sortBy = reader.readNumberArray(noteSize);
-    const sortOrder = reader.readNumberArray(noteSize);
-    const limit = reader.readNumber();
-    const offset = reader.readNumber();
-    const returnSize = reader.readNumber();
+  public async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: ACVMField,
+    sortBy: ACVMField[],
+    sortOrder: ACVMField[],
+    limit: ACVMField,
+    offset: ACVMField,
+    returnSize: ACVMField,
+  ) {
 
     // TODO(dbanks12): how should sorting and offset affect pending commitments?
     let pendingCount = 0;
@@ -105,11 +111,11 @@ export class ClientTxExecutionContext {
     //console.log(`Looking for ${limit} notes matching ${contractAddress.toString()} ${storageSlot.toString()}`);
     //console.log(`There are ${this.pendingNotes.length} pending notes to check`);
     for (const note of this.pendingNotes) {
-      if (pendingCount == limit) {
+      if (pendingCount == +limit) {
         break;
       }
       //console.log(`Checking pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
-      if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(storageSlot)) {
+      if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(fromACVMField(storageSlot))) {
         pendingCount++;
         //console.log(`\t\tFound pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
         //console.log(`\t\tThat was the ${pendingCount}th pending note found this run`);
@@ -119,14 +125,14 @@ export class ClientTxExecutionContext {
       }
     }
 
-    const dbLimit = limit - pendingCount;
+    const dbLimit = +limit - pendingCount;
     const { count: dbCount, notes: dbNotes } = await this.db.getNotes(
       contractAddress,
-      storageSlot,
-      sortBy,
-      sortOrder,
+      fromACVMField(storageSlot),
+      sortBy.map(field => +field),
+      sortOrder.map(field => +field),
       dbLimit,
-      offset,
+      +offset,
     );
     const dbPreimages = dbNotes.flatMap(({ preimage }) => preimage).map(f => toACVMField(f));
 
@@ -137,7 +143,7 @@ export class ClientTxExecutionContext {
     // By default they will be flagged as non-transient.
     this.readRequestPartialWitnesses.push(...dbNotes.map(note => ReadRequestMembershipWitness.empty(note.index)));
 
-    const paddedZeros = Array(returnSize - 1 - preimages.length).fill(toACVMField(Fr.ZERO));
+    const paddedZeros = Array(+returnSize - 1 - preimages.length).fill(toACVMField(Fr.ZERO));
     return [toACVMField(pendingCount + dbCount), ...preimages, ...paddedZeros];
   }
 
