@@ -188,7 +188,7 @@ void perform_historical_l1_to_l2_message_tree_membership_checks(DummyBuilder& bu
 }
 
 NT::fr create_nullifier_subtree(
-    std::array<NullifierLeafPreimage, KERNEL_NEW_NULLIFIERS_LENGTH * 2> const& nullifier_leaves)
+    std::array<NullifierLeafPreimage, MAX_NEW_NULLIFIERS_PER_TX * 2> const& nullifier_leaves)
 {
     // Build a merkle tree of the nullifiers
     MerkleTree nullifier_subtree = MerkleTree(NULLIFIER_SUBTREE_DEPTH);
@@ -223,7 +223,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
     // 2. If we receive the 0 nullifier leaf (where all values are 0, we skip insertion and leave a sparse subtree)
 
     // New nullifier subtree
-    std::array<NullifierLeafPreimage, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifier_insertion_subtree;
+    std::array<NullifierLeafPreimage, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifier_insertion_subtree;
 
     // This will update on each iteration
     auto current_nullifier_tree_root = baseRollupInputs.start_nullifier_tree_snapshot.root;
@@ -236,9 +236,9 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
     for (size_t i = 0; i < 2; i++) {
         auto new_nullifiers = baseRollupInputs.kernel_data[i].public_inputs.end.new_nullifiers;
         // For each of our nullifiers
-        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+        for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
             // Witness containing index and path
-            auto nullifier_index = i * KERNEL_NEW_NULLIFIERS_LENGTH + j;
+            auto nullifier_index = i * MAX_NEW_NULLIFIERS_PER_TX + j;
 
             auto witness = baseRollupInputs.low_nullifier_membership_witness[nullifier_index];
             // Preimage of the lo-index required for a non-membership proof

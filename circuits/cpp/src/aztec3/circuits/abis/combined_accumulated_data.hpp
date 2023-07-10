@@ -26,7 +26,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     AggregationObject aggregation_object{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
 
     std::array<fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> private_call_stack{};
     std::array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack{};

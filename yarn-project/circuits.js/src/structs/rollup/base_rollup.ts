@@ -7,7 +7,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
+  MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
@@ -143,7 +143,7 @@ export class BaseRollupInputs {
   /**
    * Height of the nullifier subtree which is to be inserted into the nullifier tree.
    */
-  public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH * 2);
+  public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(MAX_NEW_NULLIFIERS_PER_TX * 2);
 
   constructor(
     /**
@@ -230,8 +230,8 @@ export class BaseRollupInputs {
      */
     public constants: ConstantBaseRollupData,
   ) {
-    assertMemberLength(this, 'lowNullifierLeafPreimages', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'lowNullifierLeafPreimages', 2 * MAX_NEW_NULLIFIERS_PER_TX);
+    assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(
       this,
       'newCommitmentsSubtreeSiblingPath',

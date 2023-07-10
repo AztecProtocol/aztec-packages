@@ -29,7 +29,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_CONTRACTS_LENGTH,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
+  MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   KERNEL_PRIVATE_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
@@ -42,7 +42,7 @@ import {
   MergeRollupInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
+  MAX_NEW_NULLIFIERS_PER_CALL,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
@@ -202,7 +202,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
-    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
@@ -228,7 +228,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
-    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
@@ -315,7 +315,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeContractStorageRead, seed + 0x500),
     tupleGenerator(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x600),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
-    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x800),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x800),
     tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
@@ -611,7 +611,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(READ_REQUESTS_LENGTH, fr, seed + 0x300),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
-    newNullifiers: makeTuple(NEW_NULLIFIERS_LENGTH, fr, seed + 0x500),
+    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     privateCallStack: makeTuple(PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x600),
     publicCallStack: makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
@@ -848,11 +848,11 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
 
-  const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
+  const lowNullifierLeafPreimages = range(2 * MAX_NEW_NULLIFIERS_PER_TX, seed + 0x1000).map(
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
   );
 
-  const lowNullifierMembershipWitness = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x2000).map(x =>
+  const lowNullifierMembershipWitness = range(2 * MAX_NEW_NULLIFIERS_PER_TX, seed + 0x2000).map(x =>
     makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
   );
 

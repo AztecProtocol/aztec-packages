@@ -52,7 +52,7 @@ namespace aztec3::circuits::rollup::test_utils::utils {
 std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
-        (MAX_NEW_COMMITMENTS_PER_TX + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
+        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
          KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 +
          KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2) *
         2;
@@ -128,16 +128,16 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                               },
                                               .constants = constantRollupData };
 
-    std::vector<fr> initial_values(2 * KERNEL_NEW_NULLIFIERS_LENGTH - 1);
+    std::vector<fr> initial_values(2 * MAX_NEW_NULLIFIERS_PER_TX - 1);
 
     for (size_t i = 0; i < initial_values.size(); i++) {
         initial_values[i] = i + 1;
     }
 
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers;
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
     for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
-            nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = kernel_data[i].public_inputs.end.new_nullifiers[j];
+        for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
+            nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = kernel_data[i].public_inputs.end.new_nullifiers[j];
         }
     }
 
@@ -254,12 +254,12 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
     // Build the trees based on inputs in base_rollup_input_1.
     MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
     MerkleTree contract_tree = MerkleTree(CONTRACT_TREE_HEIGHT);
-    std::vector<fr> initial_values(2 * KERNEL_NEW_NULLIFIERS_LENGTH - 1);
+    std::vector<fr> initial_values(2 * MAX_NEW_NULLIFIERS_PER_TX - 1);
 
     for (size_t i = 0; i < initial_values.size(); i++) {
         initial_values[i] = i + 1;
     }
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> nullifiers;
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
 
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
@@ -270,9 +270,9 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
         if (!contract_data.is_empty()) {
             contract_tree.update_element(i, contract_data.hash());
         }
-        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
+        for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
             initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
-            nullifiers[i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
+            nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
         }
     }
 
@@ -392,7 +392,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
                                                                      size_t starting_insertion_value = 0,
                                                                      size_t spacing = 5)
 {
-    const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+    const size_t NUMBER_OF_NULLIFIERS = MAX_NEW_NULLIFIERS_PER_TX * 2;
     std::array<fr, NUMBER_OF_NULLIFIERS> nullifiers;
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = (starting_insertion_value + i * spacing);
@@ -409,11 +409,11 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 }
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
-    BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing = 5)
+    BaseRollupInputs inputs, std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers, size_t spacing = 5)
 {
     // Generate initial values lin spaced
     std::vector<fr> initial_values;
-    for (size_t i = 1; i < 2 * KERNEL_NEW_NULLIFIERS_LENGTH; ++i) {
+    for (size_t i = 1; i < 2 * MAX_NEW_NULLIFIERS_PER_TX; ++i) {
         initial_values.emplace_back(i * spacing);
     }
 
@@ -422,7 +422,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     BaseRollupInputs rollupInputs,
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers,
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
     const std::vector<fr>& initial_values)
 {
     size_t const start_tree_size = initial_values.size() + 1;
@@ -435,21 +435,21 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
         .next_available_leaf_index = static_cast<uint32_t>(start_tree_size),
     };
 
-    const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+    const size_t NUMBER_OF_NULLIFIERS = MAX_NEW_NULLIFIERS_PER_TX * 2;
     std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves{};
 
     // Calculate the predecessor nullifier pre-images
     // Get insertion values
     std::vector<fr> insertion_values;
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_1{};
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers_kernel_2{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_1{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_2{};
 
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = new_nullifiers[i];
-        if (i < KERNEL_NEW_NULLIFIERS_LENGTH) {
+        if (i < MAX_NEW_NULLIFIERS_PER_TX) {
             new_nullifiers_kernel_1[i] = insertion_val;
         } else {
-            new_nullifiers_kernel_2[i - KERNEL_NEW_NULLIFIERS_LENGTH] = insertion_val;
+            new_nullifiers_kernel_2[i - MAX_NEW_NULLIFIERS_PER_TX] = insertion_val;
         }
         insertion_values.push_back(insertion_val);
         reference_tree.update_element(insertion_val);

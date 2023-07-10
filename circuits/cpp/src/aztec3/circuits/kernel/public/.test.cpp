@@ -127,7 +127,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
     std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
         array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
-    std::array<NT::fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers = array_of_values<NEW_NULLIFIERS_LENGTH>(count);
+    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
+        array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(count);
     std::array<NT::fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
         array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(count);
     std::array<ContractStorageRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH> const reads =
@@ -219,11 +220,11 @@ std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments_as_siloed_commitmen
     return siloed_commitments;
 }
 
-std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers_as_siloed_nullifiers(
-    std::array<fr, NEW_NULLIFIERS_LENGTH> const& new_nullifiers, NT::fr const& contract_address)
+std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers_as_siloed_nullifiers(
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers, NT::fr const& contract_address)
 {
-    std::array<fr, NEW_NULLIFIERS_LENGTH> siloed_nullifiers{};
-    for (size_t i = 0; i < NEW_NULLIFIERS_LENGTH; ++i) {
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullifiers{};
+    for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
         if (!new_nullifiers[i].is_zero()) {
             siloed_nullifiers[i] = silo_nullifier<NT>(contract_address, new_nullifiers[i]);
         }
@@ -320,8 +321,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         generate_contract_storage_reads(seed, KERNEL_PUBLIC_DATA_READS_LENGTH / 2);
     std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
         array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(seed, MAX_NEW_COMMITMENTS_PER_CALL / 2);
-    std::array<fr, NEW_NULLIFIERS_LENGTH> const new_nullifiers =
-        array_of_values<NEW_NULLIFIERS_LENGTH>(seed, NEW_NULLIFIERS_LENGTH / 2);
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
+        array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(seed, MAX_NEW_NULLIFIERS_PER_CALL / 2);
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> const new_l2_to_l1_msgs =
         array_of_values<NEW_L2_TO_L1_MSGS_LENGTH>(seed, NEW_L2_TO_L1_MSGS_LENGTH / 2);
     std::array<fr, NUM_FIELDS_PER_SHA256> const unencrypted_logs_hash =
@@ -390,8 +391,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     CombinedAccumulatedData<NT> const end_accumulated_data = {
         .new_commitments =
             array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
-        .new_nullifiers = array_of_values<KERNEL_NEW_NULLIFIERS_LENGTH>(
-            seed, private_previous ? KERNEL_NEW_NULLIFIERS_LENGTH / 2 : 0),
+        .new_nullifiers =
+            array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
         .private_call_stack = array_of_values<KERNEL_PRIVATE_CALL_STACK_LENGTH>(seed, 0),
         .public_call_stack = public_call_stack,
         .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(
@@ -1023,7 +1024,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
 
     // setup 2 previous new nullifiers
-    std::array<NT::fr, KERNEL_NEW_NULLIFIERS_LENGTH> initial_nullifiers{};
+    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> initial_nullifiers{};
     initial_nullifiers[0] = fr(12345);
     initial_nullifiers[1] = fr(67890);
     inputs.previous_kernel.public_inputs.end.new_nullifiers = initial_nullifiers;
@@ -1106,7 +1107,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_commitments,
                                             public_inputs.end.new_commitments));
 
-    std::array<NT::fr, NEW_NULLIFIERS_LENGTH> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
+    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
         inputs.public_call.call_stack_item.public_inputs.new_nullifiers, contract_address);
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_nullifiers,

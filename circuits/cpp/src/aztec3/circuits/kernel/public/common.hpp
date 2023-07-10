@@ -316,7 +316,7 @@ void propagate_new_nullifiers(Builder& builder,
     const auto& new_nullifiers = public_call_public_inputs.new_nullifiers;
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    std::array<NT::fr, KERNEL_NEW_NULLIFIERS_LENGTH> siloed_new_nullifiers{};
+    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> siloed_new_nullifiers{};
     for (size_t i = 0; i < new_nullifiers.size(); ++i) {
         if (!new_nullifiers[i].is_zero()) {
             siloed_new_nullifiers[i] = silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);

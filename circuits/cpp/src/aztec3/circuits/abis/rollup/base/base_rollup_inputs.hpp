@@ -21,8 +21,8 @@ template <typename NCT> struct BaseRollupInputs {
     AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot;
     fr start_public_data_tree_root;
 
-    std::array<NullifierLeafPreimage<NCT>, 2 * KERNEL_NEW_NULLIFIERS_LENGTH> low_nullifier_leaf_preimages;
-    std::array<MembershipWitness<NCT, NULLIFIER_TREE_HEIGHT>, 2 * KERNEL_NEW_NULLIFIERS_LENGTH>
+    std::array<NullifierLeafPreimage<NCT>, 2 * MAX_NEW_NULLIFIERS_PER_TX> low_nullifier_leaf_preimages;
+    std::array<MembershipWitness<NCT, NULLIFIER_TREE_HEIGHT>, 2 * MAX_NEW_NULLIFIERS_PER_TX>
         low_nullifier_membership_witness;
 
     // For inserting the new subtrees into their respective trees:

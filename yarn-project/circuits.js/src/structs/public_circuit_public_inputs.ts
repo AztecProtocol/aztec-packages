@@ -10,7 +10,7 @@ import {
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
+  MAX_NEW_NULLIFIERS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   PUBLIC_CALL_STACK_LENGTH,
   RETURN_VALUES_LENGTH,
@@ -169,7 +169,7 @@ export class PublicCircuitPublicInputs {
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<Fr, typeof NEW_NULLIFIERS_LENGTH>,
+    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
@@ -195,7 +195,7 @@ export class PublicCircuitPublicInputs {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
-    assertMemberLength(this, 'newNullifiers', NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'contractStorageUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
     assertMemberLength(this, 'contractStorageReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
@@ -224,7 +224,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, ContractStorageRead.empty),
       makeTuple(PUBLIC_CALL_STACK_LENGTH, Fr.zero),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
-      makeTuple(NEW_NULLIFIERS_LENGTH, Fr.zero),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.ZERO,

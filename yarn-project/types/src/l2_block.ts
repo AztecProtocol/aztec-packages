@@ -2,7 +2,7 @@ import {
   AppendOnlyTreeSnapshot,
   MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
+  MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
@@ -176,7 +176,7 @@ export class L2Block {
     numEncryptedLogs = 2,
     numUnencryptedLogs = 1,
   ): L2Block {
-    const newNullifiers = times(KERNEL_NEW_NULLIFIERS_LENGTH * txsPerBlock, Fr.random);
+    const newNullifiers = times(MAX_NEW_NULLIFIERS_PER_TX * txsPerBlock, Fr.random);
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
     const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
@@ -616,7 +616,7 @@ export class L2Block {
 
     for (let i = 0; i < leafCount; i++) {
       const commitmentsPerBase = MAX_NEW_COMMITMENTS_PER_TX * 2;
-      const nullifiersPerBase = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+      const nullifiersPerBase = MAX_NEW_NULLIFIERS_PER_TX * 2;
       const publicDataUpdateRequestsPerBase = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2;
       const l2ToL1MsgsPerBase = KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
       const commitmentsBuffer = Buffer.concat(
@@ -687,8 +687,8 @@ export class L2Block {
       MAX_NEW_COMMITMENTS_PER_TX * (txIndex + 1),
     );
     const newNullifiers = this.newNullifiers.slice(
-      KERNEL_NEW_NULLIFIERS_LENGTH * txIndex,
-      KERNEL_NEW_NULLIFIERS_LENGTH * (txIndex + 1),
+      MAX_NEW_NULLIFIERS_PER_TX * txIndex,
+      MAX_NEW_NULLIFIERS_PER_TX * (txIndex + 1),
     );
     const newPublicDataWrites = this.newPublicDataWrites.slice(
       KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txIndex,
