@@ -10,7 +10,7 @@ using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
 
 NullifierTreeTestingHarness::NullifierTreeTestingHarness(proof_system::plonk::stdlib::merkle_tree::MemoryStore store,
                                                          size_t depth)
-    : NullifierTree(store, depth)
+    : NullifierTree(store, depth, 0)
 {}
 
 // Check for a larger value in an array
