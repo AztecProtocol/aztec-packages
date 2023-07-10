@@ -12,7 +12,6 @@ import {
   Contract,
   ContractDeployer,
   EthAddress,
-  Point,
   TxStatus,
   Wallet,
   createAztecRPCServer,
