@@ -147,10 +147,10 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     baseRollupInputs = std::get<0>(temp);
 
     baseRollupInputs.new_contracts_subtree_sibling_path =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 0, CONTRACT_SUBTREE_DEPTH);
+        get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 0, CONTRACT_SUBTREE_HEIGHT);
 
     baseRollupInputs.new_commitments_subtree_sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_DEPTH);
+        get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_HEIGHT);
 
 
     // Update public data tree to generate sibling paths: we first set the initial public data tree to the result of all
@@ -285,10 +285,10 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
     base_rollup_input_2.start_contract_tree_snapshot = base_public_input_1.end_contract_tree_snapshot;
 
     base_rollup_input_2.new_contracts_subtree_sibling_path =
-        get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(contract_tree, 2, CONTRACT_SUBTREE_DEPTH);
+        get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 2, CONTRACT_SUBTREE_HEIGHT);
     base_rollup_input_2.new_commitments_subtree_sibling_path =
-        get_sibling_path<PRIVATE_DATA_SUBTREE_INCLUSION_CHECK_DEPTH>(
-            private_data_tree, 2 * MAX_NEW_COMMITMENTS_PER_TX, PRIVATE_DATA_SUBTREE_DEPTH);
+        get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(
+            private_data_tree, 2 * MAX_NEW_COMMITMENTS_PER_TX, PRIVATE_DATA_SUBTREE_HEIGHT);
 
     auto base_public_input_2 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, base_rollup_input_2);
@@ -343,7 +343,7 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
         get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 1, 0);
     // l1 to l2 tree
     auto l1_to_l2_tree_sibling_path =
-        get_sibling_path<L1_TO_L2_MSG_SUBTREE_INCLUSION_CHECK_DEPTH>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_DEPTH);
+        get_sibling_path<L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_HEIGHT);
 
     // l1_to_l2_message tree snapshots
     AppendOnlyTreeSnapshot const start_l1_to_l2_msg_tree_snapshot = {
@@ -494,10 +494,10 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     };
 
     std::vector<fr> sibling_path = reference_tree.get_sibling_path(start_tree_size);
-    std::array<fr, NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH> sibling_path_array;
+    std::array<fr, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH> sibling_path_array;
 
     // Chop the first NULLIFIER-SUBTREE-DEPTH levels from the sibling_path
-    sibling_path.erase(sibling_path.begin(), sibling_path.begin() + NULLIFIER_SUBTREE_DEPTH);
+    sibling_path.erase(sibling_path.begin(), sibling_path.begin() + NULLIFIER_SUBTREE_HEIGHT);
     std::copy(sibling_path.begin(), sibling_path.end(), sibling_path_array.begin());
 
     // Update our start state

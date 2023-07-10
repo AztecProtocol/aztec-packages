@@ -3,7 +3,7 @@ import {
   CircuitsWasm,
   ContractDeploymentData,
   FunctionData,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PrivateHistoricTreeRoots,
@@ -47,7 +47,7 @@ describe('Private Execution test suite', () => {
 
   const treeHeights: { [name: string]: number } = {
     privateData: PRIVATE_DATA_TREE_HEIGHT,
-    l1ToL2Messages: L1_TO_L2_MESSAGES_TREE_HEIGHT,
+    l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
   const trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
   const txContext = new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(69), new Fr(420));

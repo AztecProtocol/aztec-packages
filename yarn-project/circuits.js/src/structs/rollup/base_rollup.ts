@@ -10,7 +10,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MSG_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
@@ -221,8 +221,8 @@ export class BaseRollupInputs {
      * Membership witnesses of L1-to-L2 message tree roots referred by each of the 2 kernels.
      */
     public historicL1ToL2MsgTreeRootMembershipWitnesses: [
-      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
-      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
+      MembershipWitness<typeof L1_TO_L2_MSG_ROOTS_TREE_HEIGHT>,
+      MembershipWitness<typeof L1_TO_L2_MSG_ROOTS_TREE_HEIGHT>,
     ],
 
     /**

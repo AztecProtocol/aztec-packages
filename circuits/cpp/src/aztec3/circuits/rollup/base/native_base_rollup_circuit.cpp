@@ -84,7 +84,7 @@ std::vector<NT::fr> calculate_contract_leaves(BaseRollupInputs const& baseRollup
 
 NT::fr calculate_contract_subtree(std::vector<NT::fr> contract_leaves)
 {
-    MerkleTree contracts_tree = MerkleTree(CONTRACT_SUBTREE_DEPTH);
+    MerkleTree contracts_tree = MerkleTree(CONTRACT_SUBTREE_HEIGHT);
 
     // Compute the merkle root of a contract subtree
     // Contracts subtree
@@ -96,7 +96,7 @@ NT::fr calculate_contract_subtree(std::vector<NT::fr> contract_leaves)
 
 NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs const& baseRollupInputs)
 {
-    MerkleTree commitments_tree = MerkleTree(PRIVATE_DATA_SUBTREE_DEPTH);
+    MerkleTree commitments_tree = MerkleTree(PRIVATE_DATA_SUBTREE_HEIGHT);
 
     for (size_t i = 0; i < 2; i++) {
         auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
@@ -191,7 +191,7 @@ NT::fr create_nullifier_subtree(
     std::array<NullifierLeafPreimage, MAX_NEW_NULLIFIERS_PER_TX * 2> const& nullifier_leaves)
 {
     // Build a merkle tree of the nullifiers
-    MerkleTree nullifier_subtree = MerkleTree(NULLIFIER_SUBTREE_DEPTH);
+    MerkleTree nullifier_subtree = MerkleTree(NULLIFIER_SUBTREE_HEIGHT);
     for (size_t i = 0; i < nullifier_leaves.size(); i++) {
         // hash() checks if nullifier is empty (and if so returns 0)
         nullifier_subtree.update_element(i, nullifier_leaves[i].hash());
@@ -348,9 +348,9 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
     }
 
     // Check that the new subtree is to be inserted at the next location, and is empty currently
-    const auto empty_nullifier_subtree_root = components::calculate_empty_tree_root(NULLIFIER_SUBTREE_DEPTH);
+    const auto empty_nullifier_subtree_root = components::calculate_empty_tree_root(NULLIFIER_SUBTREE_HEIGHT);
     auto leafIndexNullifierSubtreeDepth =
-        baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_DEPTH;
+        baseRollupInputs.start_nullifier_tree_snapshot.next_available_leaf_index >> NULLIFIER_SUBTREE_HEIGHT;
     check_membership<NT>(builder,
                          empty_nullifier_subtree_root,
                          leafIndexNullifierSubtreeDepth,
@@ -364,7 +364,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
 
     // Calculate the new root
     // We are inserting a subtree rather than a full tree here
-    auto subtree_index = start_insertion_index >> (NULLIFIER_SUBTREE_DEPTH);
+    auto subtree_index = start_insertion_index >> (NULLIFIER_SUBTREE_HEIGHT);
     auto new_root = root_from_sibling_path<NT>(nullifier_subtree_root, subtree_index, nullifier_sibling_path);
 
     // Return the new state of the nullifier tree
@@ -493,25 +493,25 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyBuilder& builder, BaseRol
     NT::fr const commitments_tree_subroot = calculate_commitments_subtree(builder, baseRollupInputs);
 
     // Insert commitment subtrees:
-    const auto empty_commitments_subtree_root = components::calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_DEPTH);
+    const auto empty_commitments_subtree_root = components::calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_HEIGHT);
     auto end_private_data_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(builder,
                                                     baseRollupInputs.start_private_data_tree_snapshot,
                                                     baseRollupInputs.new_commitments_subtree_sibling_path,
                                                     empty_commitments_subtree_root,
                                                     commitments_tree_subroot,
-                                                    PRIVATE_DATA_SUBTREE_DEPTH,
+                                                    PRIVATE_DATA_SUBTREE_HEIGHT,
                                                     "empty commitment subtree membership check");
 
     // Insert contract subtrees:
-    const auto empty_contracts_subtree_root = components::calculate_empty_tree_root(CONTRACT_SUBTREE_DEPTH);
+    const auto empty_contracts_subtree_root = components::calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
     auto end_contract_tree_snapshot =
         components::insert_subtree_to_snapshot_tree(builder,
                                                     baseRollupInputs.start_contract_tree_snapshot,
                                                     baseRollupInputs.new_contracts_subtree_sibling_path,
                                                     empty_contracts_subtree_root,
                                                     contracts_tree_subroot,
-                                                    CONTRACT_SUBTREE_DEPTH,
+                                                    CONTRACT_SUBTREE_HEIGHT,
                                                     "empty contract subtree membership check");
 
     // Insert nullifiers:

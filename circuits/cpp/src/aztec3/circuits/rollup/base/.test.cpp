@@ -224,8 +224,8 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     };
 
     // Set the new_contracts_subtree_sibling_path
-    auto sibling_path = get_sibling_path<CONTRACT_SUBTREE_INCLUSION_CHECK_DEPTH>(
-        start_contract_tree_snapshot, 12, CONTRACT_SUBTREE_DEPTH);
+    auto sibling_path = get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(
+        start_contract_tree_snapshot, 12, CONTRACT_SUBTREE_HEIGHT);
     inputs.new_contracts_subtree_sibling_path = sibling_path;
 
     // create expected end contract tree snapshot
