@@ -15,9 +15,11 @@ import {
   Tx,
   TxExecutionRequest,
   TxHash,
+  AztecRPC,
+  DeployedContract,
+  NodeInfo,
 } from '@aztec/types';
 import { AccountState } from '../account_state/account_state.js';
-import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
 import { toContractDao } from '../contract_database/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';

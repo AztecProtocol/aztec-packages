@@ -1,5 +1,4 @@
 export * from './abi_coder/index.js';
-export * from './aztec_rpc/index.js';
 export * from './aztec_rpc_server/index.js';
 export * from './aztec_rpc_http/index.js';
 export * from './tx/index.js';

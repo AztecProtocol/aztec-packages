@@ -1,3 +1,4 @@
+export * from './aztec_rpc.js';
 export * from './constants.js';
 export * from './contract_data.js';
 export * from './execution_request.js';
