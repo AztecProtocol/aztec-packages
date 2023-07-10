@@ -393,7 +393,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
             array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
         .new_nullifiers =
             array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
-        .private_call_stack = array_of_values<KERNEL_PRIVATE_CALL_STACK_LENGTH>(seed, 0),
+        .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
         .public_call_stack = public_call_stack,
         .new_l2_to_l1_msgs = array_of_values<KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>(
             seed, private_previous ? KERNEL_NEW_L2_TO_L1_MSGS_LENGTH / 2 : 0),
@@ -464,7 +464,7 @@ void validate_private_data_propagation(const PublicKernelInputs<NT>& inputs,
                                        const KernelCircuitPublicInputs<NT>& public_inputs)
 {
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.private_call_stack,
-                                            std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>{},
+                                            std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>{},
                                             public_inputs.end.private_call_stack));
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_contracts,

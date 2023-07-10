@@ -3,7 +3,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   KernelCircuitPublicInputs,
   MembershipWitness,
-  PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   READ_REQUESTS_LENGTH,
@@ -141,7 +141,7 @@ describe('Kernel Prover', () => {
   });
 
   it('should throw if call stack is too deep', async () => {
-    dependencies.a = Array(PRIVATE_CALL_STACK_LENGTH + 1)
+    dependencies.a = Array(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + 1)
       .fill(0)
       .map((_, i) => `${i}`);
     const executionResult = createExecutionResult('a');

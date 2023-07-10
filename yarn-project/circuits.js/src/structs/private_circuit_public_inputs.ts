@@ -7,7 +7,7 @@ import {
   NEW_L2_TO_L1_MSGS_LENGTH,
   MAX_NEW_NULLIFIERS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
-  PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   PUBLIC_CALL_STACK_LENGTH,
   READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
@@ -109,7 +109,7 @@ export class PrivateCircuitPublicInputs {
     assertMemberLength(this, 'readRequests', READ_REQUESTS_LENGTH);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
-    assertMemberLength(this, 'privateCallStack', PRIVATE_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', PUBLIC_CALL_STACK_LENGTH);
     assertMemberLength(this, 'newL2ToL1Msgs', NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
@@ -140,7 +140,7 @@ export class PrivateCircuitPublicInputs {
       frArray(READ_REQUESTS_LENGTH),
       frArray(MAX_NEW_COMMITMENTS_PER_CALL),
       frArray(MAX_NEW_NULLIFIERS_PER_CALL),
-      frArray(PRIVATE_CALL_STACK_LENGTH),
+      frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       frArray(PUBLIC_CALL_STACK_LENGTH),
       frArray(NEW_L2_TO_L1_MSGS_LENGTH),
       frArray(NUM_FIELDS_PER_SHA256),

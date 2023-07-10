@@ -26,7 +26,7 @@ template <typename NCT> struct PrivateCallData {
 
     CallStackItem<NCT, PrivateTypes> call_stack_item{};
 
-    std::array<CallStackItem<NCT, PrivateTypes>, PRIVATE_CALL_STACK_LENGTH> private_call_stack_preimages{};
+    std::array<CallStackItem<NCT, PrivateTypes>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack_preimages{};
 
     // std::array<CallStackItem<NCT, CallType::Public>, PUBLIC_CALL_STACK_LENGTH> public_call_stack_preimages;
 

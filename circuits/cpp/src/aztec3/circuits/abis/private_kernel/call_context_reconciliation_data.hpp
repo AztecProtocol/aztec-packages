@@ -22,8 +22,8 @@
 //      * This class needs an explanation...
 //      *
 //      */
-//     std::array<CallContext<NCT>, PRIVATE_CALL_STACK_LENGTH> private_call_contexts;
-//     std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_counterparts;
+//     std::array<CallContext<NCT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_contexts;
+//     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_counterparts;
 
 //     std::array<CallContext<NCT>, PUBLIC_CALL_STACK_LENGTH> public_call_contexts;
 //     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_counterparts;

@@ -31,7 +31,7 @@ import {
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
@@ -49,7 +49,7 @@ import {
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_CALL_STACK_LENGTH,
@@ -203,7 +203,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
     makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
-    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero), // private call stack must be empty
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
@@ -229,7 +229,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     makeAggregationObject(seed),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
-    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x300),
     tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
     tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
     tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
@@ -566,7 +566,7 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
-    privateCallStackPreimages: makeTuple(PRIVATE_CALL_STACK_LENGTH, makePrivateCallStackItem, seed + 0x10),
+    privateCallStackPreimages: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallStackItem, seed + 0x10),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
@@ -612,7 +612,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     readRequests: makeTuple(READ_REQUESTS_LENGTH, fr, seed + 0x300),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
-    privateCallStack: makeTuple(PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x600),
+    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     publicCallStack: makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
     encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),

@@ -7,7 +7,7 @@ import {
   Fr,
   FunctionData,
   GlobalVariables,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   KERNEL_PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
@@ -133,7 +133,7 @@ describe('public_processor', () => {
 
       const kernelOutput = makeKernelPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
+      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], callRequests);
 
@@ -161,7 +161,7 @@ describe('public_processor', () => {
 
       const kernelOutput = makeKernelPublicInputs(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
+      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], [callRequest]);
 
