@@ -6,8 +6,8 @@ import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
 import {
-  MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -152,12 +152,12 @@ export class PublicCircuitPublicInputs {
      */
     public contractStorageUpdateRequests: Tuple<
       ContractStorageUpdateRequest,
-      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
     >,
     /**
      * Contract storage reads executed during the call.
      */
-    public contractStorageReads: Tuple<ContractStorageRead, typeof MAX_KERNEL_PUBLIC_DATA_READS_PER_TX>,
+    public contractStorageReads: Tuple<ContractStorageRead, typeof MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL>,
     /**
      * Public call stack of the current kernel iteration.
      */
@@ -197,8 +197,8 @@ export class PublicCircuitPublicInputs {
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
-    assertMemberLength(this, 'contractStorageUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertMemberLength(this, 'contractStorageReads', MAX_KERNEL_PUBLIC_DATA_READS_PER_TX);
+    assertMemberLength(this, 'contractStorageUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL);
+    assertMemberLength(this, 'contractStorageReads', MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
   }
 
@@ -220,8 +220,8 @@ export class PublicCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, ContractStorageUpdateRequest.empty),
-      makeTuple(MAX_KERNEL_PUBLIC_DATA_READS_PER_TX, ContractStorageRead.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
+      makeTuple(MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
