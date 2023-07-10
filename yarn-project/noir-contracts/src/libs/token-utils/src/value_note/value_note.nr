@@ -2,7 +2,6 @@ use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::oracle::rand::rand;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 use dep::aztec::types::point::Point;
-use crate::generators;
 
 global VALUE_NOTE_LEN: Field = 6;
 
@@ -71,7 +70,6 @@ fn serialise(note: ValueNote) -> [Field; VALUE_NOTE_LEN] {
 
 fn compute_note_hash(note: ValueNote) -> Field {
     dep::std::hash::pedersen([
-        generators::VALUE_NOTE,
         note.value, 
         note.owner.x, 
         note.owner.y, 

@@ -1,24 +1,17 @@
-import { pedersenCompressWithHashIndex, pedersenPlookupCommitInputs, Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { CallContext, CircuitsWasm, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, GeneratorIndex, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { Grumpkin, pedersenCompressWithHashIndex, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
+import { ExecutionResult } from './execution_result.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
-import { ExecutionResult } from './execution_result.js';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { PackedArgsCache } from '../packed_args_cache.js';
-
-export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
-export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
-export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
-export const MESSAGE_SECRET_PEDERSEN_CONSTANT = new Fr(29n);
-
-const OUTER_NULLIFIER_GENERATOR_INDEX = 7;
 
 /**
  * The ACIR simulator.
@@ -135,10 +128,10 @@ export class AcirSimulator {
    */
   public computeNoteHash(storageSlot: Fr, notePreimage: Fr[], bbWasm: CircuitsWasm) {
     // TODO: Remove index for inner note hash.
-    const innerNoteHash = pedersenPlookupCommitInputs(bbWasm, [
-      NOTE_PEDERSEN_CONSTANT.toBuffer(),
-      ...notePreimage.map(x => x.toBuffer()),
-    ]);
+    const innerNoteHash = pedersenPlookupCommitInputs(
+      bbWasm,
+      notePreimage.map(x => x.toBuffer()),
+    );
     return pedersenPlookupCommitInputs(bbWasm, [storageSlot.toBuffer(), innerNoteHash]);
   }
 
@@ -177,7 +170,7 @@ export class AcirSimulator {
     return pedersenCompressWithHashIndex(
       bbWasm,
       [contractAddress.toBuffer(), nullifier],
-      OUTER_NULLIFIER_GENERATOR_INDEX,
+      GeneratorIndex.OUTER_NULLIFIER,
     );
   }
 }
