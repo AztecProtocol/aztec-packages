@@ -40,7 +40,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     fr encrypted_log_preimages_length = 0;
     fr unencrypted_log_preimages_length = 0;
 
-    std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
+    std::array<NewContractData<NCT>, MAX_NEW_CONTRACTS_PER_TX> new_contracts{};
 
     std::array<OptionallyRevealedData<NCT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH> optionally_revealed_data{};
 

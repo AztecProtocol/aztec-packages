@@ -402,7 +402,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .unencrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256),
         .encrypted_log_preimages_length = private_previous ? ++seed : 0,
         .unencrypted_log_preimages_length = ++seed,
-        .new_contracts = std::array<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(),
+        .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
         .optionally_revealed_data = std::array<OptionallyRevealedData<NT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>(),
         .public_data_update_requests =
             std::array<PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>(),
@@ -468,7 +468,7 @@ void validate_private_data_propagation(const PublicKernelInputs<NT>& inputs,
                                             public_inputs.end.private_call_stack));
 
     ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_contracts,
-                                            std::array<NewContractData<NT>, KERNEL_NEW_CONTRACTS_LENGTH>(),
+                                            std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
                                             public_inputs.end.new_contracts));
 
     ASSERT_EQ(inputs.previous_kernel.public_inputs.end.encrypted_logs_hash,

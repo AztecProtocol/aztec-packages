@@ -144,8 +144,8 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
             .function_tree_root = contract_deployment_data.function_tree_root,
         };
 
-        array_push<Builder, NewContractData<CT>, KERNEL_NEW_CONTRACTS_LENGTH>(public_inputs.end.new_contracts,
-                                                                              new_contract_data);
+        array_push<Builder, NewContractData<CT>, MAX_NEW_CONTRACTS_PER_TX>(public_inputs.end.new_contracts,
+                                                                           new_contract_data);
     }
 
     {  // commitments, nullifiers, and contracts

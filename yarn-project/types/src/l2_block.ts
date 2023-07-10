@@ -1,7 +1,7 @@
 import {
   AppendOnlyTreeSnapshot,
   MAX_NEW_COMMITMENTS_PER_TX,
-  KERNEL_NEW_CONTRACTS_LENGTH,
+  MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -178,8 +178,8 @@ export class L2Block {
   ): L2Block {
     const newNullifiers = times(MAX_NEW_NULLIFIERS_PER_TX * txsPerBlock, Fr.random);
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
-    const newContracts = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, Fr.random);
-    const newContractData = times(KERNEL_NEW_CONTRACTS_LENGTH * txsPerBlock, ContractData.random);
+    const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
+    const newContractData = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.random);
@@ -699,12 +699,12 @@ export class L2Block {
       KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * (txIndex + 1),
     );
     const newContracts = this.newContracts.slice(
-      KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
-      KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
+      MAX_NEW_CONTRACTS_PER_TX * txIndex,
+      MAX_NEW_CONTRACTS_PER_TX * (txIndex + 1),
     );
     const newContractData = this.newContractData.slice(
-      KERNEL_NEW_CONTRACTS_LENGTH * txIndex,
-      KERNEL_NEW_CONTRACTS_LENGTH * (txIndex + 1),
+      MAX_NEW_CONTRACTS_PER_TX * txIndex,
+      MAX_NEW_CONTRACTS_PER_TX * (txIndex + 1),
     );
 
     return new L2Tx(newCommitments, newNullifiers, newPublicDataWrites, newL2ToL1Msgs, newContracts, newContractData);

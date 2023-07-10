@@ -27,7 +27,7 @@ import {
   FunctionData,
   G1AffineElement,
   MAX_NEW_COMMITMENTS_PER_TX,
-  KERNEL_NEW_CONTRACTS_LENGTH,
+  MAX_NEW_CONTRACTS_PER_TX,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
@@ -210,7 +210,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
     tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
     fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
     tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
     tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
     tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0xd00),
@@ -236,7 +236,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
     fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
     tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
     tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0xc00),
     tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0xd00),
