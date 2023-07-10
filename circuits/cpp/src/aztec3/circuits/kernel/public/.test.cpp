@@ -123,8 +123,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     };
     fr const args_hash = count;
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> const public_call_stack =
-        array_of_values<PUBLIC_CALL_STACK_LENGTH>(count);
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const public_call_stack =
+        array_of_values<MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>(count);
     std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
         array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
@@ -296,11 +296,11 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
                                                .chain_id = 1,
                                            } };
 
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
                                                         contract_address,
@@ -385,7 +385,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
             }
     };
 
-    std::array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     public_call_stack[0] = public_call_data.call_stack_item.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
@@ -431,7 +431,7 @@ template <typename KernelInput>
 void validate_public_kernel_outputs_correctly_propagated(const KernelInput& inputs,
                                                          const KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         ASSERT_EQ(public_inputs.end.public_call_stack[i],
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
@@ -510,7 +510,7 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.previous_kernel.public_inputs.constants.tx_context);
 
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         ASSERT_EQ(public_inputs.end.public_call_stack[i],
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
@@ -555,7 +555,7 @@ TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
     ASSERT_FALSE(public_inputs.is_private);
     ASSERT_EQ(public_inputs.constants.tx_context, inputs.previous_kernel.public_inputs.constants.tx_context);
 
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         ASSERT_EQ(public_inputs.end.public_call_stack[i],
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
@@ -638,7 +638,7 @@ TEST(public_kernel_tests, private_call_should_fail)
 
 TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
 {
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         DummyBuilder dummyBuilder = DummyBuilder(format("public_kernel_tests__inconsistent_call_hash_should_fail-", i));
         PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
 
@@ -652,7 +652,7 @@ TEST(public_kernel_tests, inconsistent_call_hash_should_fail)
 
 TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_calls)
 {
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         DummyBuilder dummyBuilder =
             DummyBuilder(format("public_kernel_tests__incorrect_storage_contract_address_fails_for_regular_calls-", i));
         PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
@@ -671,7 +671,7 @@ TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_c
 
 TEST(public_kernel_tests, incorrect_msg_sender_fails_for_regular_calls)
 {
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         DummyBuilder dummyBuilder =
             DummyBuilder(format("public_kernel_tests__incorrect_msg_sender_fails_for_regular_calls-", i));
         PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
@@ -697,13 +697,13 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
     const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
     // redefine the child calls/stacks to use some delegate calls
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
     NT::boolean is_delegate_call = false;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         child_call_stacks[i] =
             // NOLINTNEXTLINE(readability-suspicious-call-argument)
             generate_call_stack_item(child_contract_address,
@@ -736,10 +736,10 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
     const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
     // set the first call stack item to be a delegate call
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     child_call_stacks[0] =
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         generate_call_stack_item(child_contract_address,
@@ -769,10 +769,10 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_storage_contr
     const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
     // set the first call stack item to be a delegate call
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
                                                     child_contract_address,  // this should be contract_address
@@ -800,11 +800,11 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     // const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
     // set the first call stack item to be a delegate call
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH> child_call_stacks;
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
     NT::fr const child_portal_contract = 200000;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH> call_stack_hashes{};
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     // NOLINTNEXTLINE(readability-suspicious-call-argument)
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
@@ -834,14 +834,14 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
 
     // set all but the first call stack item to have a zero call stack hash
     // these call stack items will have an contract portal address but will be ignored as the call stack will be ignored
-    std::array<PublicCallStackItem, PUBLIC_CALL_STACK_LENGTH>& child_call_stacks =
+    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>& child_call_stacks =
         inputs.public_call.public_call_stack_preimages;
-    std::array<NT::fr, PUBLIC_CALL_STACK_LENGTH>& call_stack_hashes =
+    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>& call_stack_hashes =
         inputs.public_call.call_stack_item.public_inputs.public_call_stack;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
     NT::fr const child_portal_contract = 200000;
-    for (size_t i = 1; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 1; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
                                                         origin_msg_sender,
@@ -899,7 +899,8 @@ TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should
     DummyBuilder dummyBuilder =
         DummyBuilder("public_kernel_tests__private_previous_kernel_empty_public_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-    inputs.previous_kernel.public_inputs.end.public_call_stack = std::array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>{};
+    inputs.previous_kernel.public_inputs.end.public_call_stack =
+        std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
@@ -962,7 +963,8 @@ TEST(public_kernel_tests, public_previous_kernel_empty_public_call_stack_should_
     DummyBuilder dummyBuilder =
         DummyBuilder("public_kernel_tests__public_previous_kernel_empty_public_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
-    inputs.previous_kernel.public_inputs.end.public_call_stack = std::array<NT::fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>{};
+    inputs.previous_kernel.public_inputs.end.public_call_stack =
+        std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
@@ -1040,7 +1042,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     validate_private_data_propagation(inputs, public_inputs);
 
     // this call should have been popped from the public call stack and the stack of call pre images pushed on
-    for (size_t i = 0; i < PUBLIC_CALL_STACK_LENGTH; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         ASSERT_EQ(public_inputs.end.public_call_stack[i],
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }

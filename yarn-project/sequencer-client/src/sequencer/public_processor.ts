@@ -13,7 +13,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   NEW_L2_TO_L1_MSGS_LENGTH,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  PUBLIC_CALL_STACK_LENGTH,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PreviousKernelData,
   Proof,
   PublicCallData,
@@ -243,12 +243,12 @@ export class PublicProcessor {
   protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
     const nested = result.nestedExecutions;
     const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
-    if (preimages.length > PUBLIC_CALL_STACK_LENGTH) {
-      throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
+    if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
+      throw new Error(`Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`);
     }
 
     // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, PublicCallStackItem.empty(), PUBLIC_CALL_STACK_LENGTH);
+    return padArrayStart(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -268,7 +268,7 @@ export class PublicProcessor {
    */
   protected async getPublicCallData(
     result: PublicExecutionResult,
-    preimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
+    preimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);

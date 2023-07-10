@@ -28,7 +28,8 @@ template <typename NCT> struct PrivateCallData {
 
     std::array<CallStackItem<NCT, PrivateTypes>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack_preimages{};
 
-    // std::array<CallStackItem<NCT, CallType::Public>, PUBLIC_CALL_STACK_LENGTH> public_call_stack_preimages;
+    // std::array<CallStackItem<NCT, CallType::Public>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>
+    // public_call_stack_preimages;
 
     NativeTypes::Proof proof{};  // TODO: how to express proof as native/circuit type when it gets used as a buffer?
     std::shared_ptr<VK> vk;

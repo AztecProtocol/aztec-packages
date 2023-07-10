@@ -29,7 +29,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
-    std::array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
+    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};

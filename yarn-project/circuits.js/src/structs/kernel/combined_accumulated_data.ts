@@ -7,7 +7,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_TX,
   KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   KERNEL_PUBLIC_DATA_READS_LENGTH,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   NEW_L2_TO_L1_MSGS_LENGTH,
@@ -290,7 +290,7 @@ export class CombinedAccumulatedData {
     /**
      * Current public call stack.
      */
-    public publicCallStack: Tuple<Fr, typeof KERNEL_PUBLIC_CALL_STACK_LENGTH>,
+    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
@@ -333,7 +333,7 @@ export class CombinedAccumulatedData {
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
-    assertMemberLength(this, 'publicCallStack', KERNEL_PUBLIC_CALL_STACK_LENGTH);
+    assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'newL2ToL1Msgs', KERNEL_NEW_L2_TO_L1_MSGS_LENGTH);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
@@ -378,7 +378,7 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
       reader.readArray(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr),
       reader.readArray(2, Fr),
       reader.readArray(2, Fr),
@@ -406,7 +406,7 @@ export class CombinedAccumulatedData {
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
       makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, Fr.zero),
       makeTuple(2, Fr.zero),
       makeTuple(2, Fr.zero),

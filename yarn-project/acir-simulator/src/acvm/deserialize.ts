@@ -6,7 +6,7 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  PUBLIC_CALL_STACK_LENGTH,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PrivateCircuitPublicInputs,
   READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
@@ -127,7 +127,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-  const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
+  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
 
   const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);

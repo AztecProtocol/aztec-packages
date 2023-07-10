@@ -8,7 +8,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
   MAX_NEW_NULLIFIERS_PER_TX,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -154,7 +154,7 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyLogs(),
         makeEmptyLogs(),
         [],
-        times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+        times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
       ),
     );
 

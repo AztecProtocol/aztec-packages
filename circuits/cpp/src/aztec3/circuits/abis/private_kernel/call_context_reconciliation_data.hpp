@@ -25,8 +25,8 @@
 //     std::array<CallContext<NCT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_contexts;
 //     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_counterparts;
 
-//     std::array<CallContext<NCT>, PUBLIC_CALL_STACK_LENGTH> public_call_contexts;
-//     std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_counterparts;
+//     std::array<CallContext<NCT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_contexts;
+//     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_counterparts;
 
 //     // std::array<fr, CONTRACT_DEPLOYMENT_CALL_STACK_LENGTH> contract_deployment_call_stack;
 

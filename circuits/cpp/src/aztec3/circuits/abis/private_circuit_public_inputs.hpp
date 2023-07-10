@@ -33,7 +33,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack{};
-    std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
+    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
     std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
@@ -307,7 +307,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
 
     std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack;
-    std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack;
+    std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack;
     std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs;
 
     std::array<opt_fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash;
@@ -340,7 +340,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
 
         std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
-        std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> const& public_call_stack,
+        std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
         std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_l2_to_l1_msgs,
 
         std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
