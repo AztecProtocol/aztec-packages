@@ -34,8 +34,6 @@ export class AccountCollection implements AccountImplementation {
   ): Promise<TxExecutionRequest> {
     // TODO: Check all executions have the same origin
     const sender = executions[0].from;
-    console.log(`sender: ${sender?.toShortString()}`);
-    console.log(`accounts: ${this.accounts.size}`);
     const impl = this.accounts.get(sender.toString());
     if (!impl) throw new Error(`No account implementation registered for ${sender}`);
     return impl.createAuthenticatedTxRequest(executions, txContext);

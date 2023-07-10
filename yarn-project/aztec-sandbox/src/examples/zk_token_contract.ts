@@ -51,20 +51,20 @@ async function main() {
   logger('Running ZK contract test on HTTP interface.');
 
   wallet = await createAccounts(aztecRpcClient, privateKey, 2);
-  console.log(await wallet.getAccounts());
   const accounts = await aztecRpcClient.getAccounts();
-  logger(`Created ${accounts.length} accounts`);
   const [ownerAddress, address2] = accounts;
+  logger(`Created ${accounts.length} accounts`);
+
   const ownerPubKeyPoint = await wallet.getAccountPublicKey(ownerAddress);
   const address2PubKeyPoint = await wallet.getAccountPublicKey(address2);
-  logger(`Created account ${ownerAddress.toString()} with public key ${ownerPubKeyPoint.toString()}`);
+  logger(`Created Owner account ${ownerAddress.toString()} with public key ${ownerPubKeyPoint.toString()}`);
+
   const zkContract = await deployZKContract(ownerPubKeyPoint);
   const [balance1] = await zkContract.methods.getBalance(ownerPubKeyPoint.toBigInts()).view({ from: ownerAddress });
   logger(`Initial owner balance: ${balance1}`);
 
   // Mint more tokens
   logger(`Minting ${SECONDARY_AMOUNT} more coins`);
-  console.log(`ownerAddr: ${ownerAddress.toShortString()}`);
   const mintTx = zkContract.methods.mint(SECONDARY_AMOUNT, ownerPubKeyPoint.toBigInts()).send({ from: ownerAddress });
   await mintTx.isMined(0, 0.5);
   const balanceAfterMint = await getBalance(zkContract, ownerPubKeyPoint, ownerAddress);

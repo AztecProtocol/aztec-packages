@@ -3,7 +3,18 @@ import { AztecAddress } from '../index.js';
 import { AuthPayload, TxAuthProvider } from './index.js';
 
 import { EntrypointPayload } from '../account_impl/account_contract.js';
-import { EcdsaSignature } from '@aztec/circuits.js/barretenberg';
+import { EcdsaSignature, Schnorr } from '@aztec/circuits.js/barretenberg';
+
+/**
+ * Implementation of a schnorr signature provider
+ */
+export class SchnorrAuthProvider implements TxAuthProvider {
+  constructor(private signer: Schnorr, private privateKey: Buffer) {}
+  authenticateTx(_payload: EntrypointPayload, _payloadHash: Buffer, _address: AztecAddress): Promise<AuthPayload> {
+    const sig = this.signer.constructSignature(_payloadHash, this.privateKey);
+    return Promise.resolve(sig as AuthPayload);
+  }
+}
 
 /**
  * An ecdsa implementation of TxAuthProvider.
