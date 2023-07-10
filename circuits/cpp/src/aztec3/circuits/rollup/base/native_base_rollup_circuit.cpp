@@ -408,11 +408,11 @@ fr insert_public_data_update_requests(
 void validate_public_data_reads(
     DummyBuilder& builder,
     fr tree_root,
-    std::array<abis::PublicDataRead<NT>, MAX_KERNEL_PUBLIC_DATA_READS_PER_TX> const& public_data_reads,
+    std::array<abis::PublicDataRead<NT>, MAX_PUBLIC_DATA_READS_PER_TX> const& public_data_reads,
     size_t witnesses_offset,
-    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_KERNEL_PUBLIC_DATA_READS_PER_TX> const& witnesses)
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_READS_PER_TX> const& witnesses)
 {
-    for (size_t i = 0; i < MAX_KERNEL_PUBLIC_DATA_READS_PER_TX; ++i) {
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; ++i) {
         const auto& public_data_read = public_data_reads[i];
         const auto& witness = witnesses[i + witnesses_offset];
 
@@ -450,7 +450,7 @@ fr validate_and_process_public_state(DummyBuilder& builder, BaseRollupInputs con
     validate_public_data_reads(builder,
                                mid_public_data_tree_root,
                                baseRollupInputs.kernel_data[1].public_inputs.end.public_data_reads,
-                               MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
+                               MAX_PUBLIC_DATA_READS_PER_TX,
                                baseRollupInputs.new_public_data_reads_sibling_paths);
 
     auto end_public_data_tree_root = insert_public_data_update_requests(

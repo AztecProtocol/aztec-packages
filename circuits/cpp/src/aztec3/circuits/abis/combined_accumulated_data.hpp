@@ -45,7 +45,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
     std::array<PublicDataUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_update_requests{};
-    std::array<PublicDataRead<NCT>, MAX_KERNEL_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
+    std::array<PublicDataRead<NCT>, MAX_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,

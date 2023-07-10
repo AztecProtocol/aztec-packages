@@ -32,7 +32,7 @@ template <typename NCT> struct BaseRollupInputs {
     std::array<fr, CONTRACT_SUBTREE_SIBLING_PATH_LENGTH> new_contracts_subtree_sibling_path;
     std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>
         new_public_data_update_requests_sibling_paths;
-    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_KERNEL_PUBLIC_DATA_READS_PER_TX>
+    std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_READS_PER_TX>
         new_public_data_reads_sibling_paths;
 
     std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>, 2>

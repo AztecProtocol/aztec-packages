@@ -4,7 +4,7 @@ import { assertMemberLength } from '../../utils/jsUtils.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { PublicCallStackItem } from '../call_stack_item.js';
 import {
-  MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PUBLIC_DATA_TREE_HEIGHT,
@@ -57,7 +57,7 @@ export class WitnessedPublicCallData {
     public readonly publicDataTreeRoot: Fr,
   ) {
     assertMemberLength(this, 'updateRequestsHashPaths', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertMemberLength(this, 'readsHashPaths', MAX_KERNEL_PUBLIC_DATA_READS_PER_TX);
+    assertMemberLength(this, 'readsHashPaths', MAX_PUBLIC_DATA_READS_PER_TX);
   }
 
   toBuffer() {

@@ -255,7 +255,7 @@ void propagate_valid_public_data_reads(Builder& builder,
 {
     const auto& contract_address = public_kernel_inputs.public_call.call_stack_item.contract_address;
     const auto& reads = public_kernel_inputs.public_call.call_stack_item.public_inputs.contract_storage_reads;
-    for (size_t i = 0; i < MAX_KERNEL_PUBLIC_DATA_READS_PER_TX; ++i) {
+    for (size_t i = 0; i < MAX_PUBLIC_DATA_READS_PER_TX; ++i) {
         const auto& contract_storage_read = reads[i];
         if (contract_storage_read.is_empty()) {
             continue;

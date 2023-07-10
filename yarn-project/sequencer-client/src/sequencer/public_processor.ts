@@ -6,7 +6,7 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
-  MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   KernelCircuitPublicInputs,
   MembershipWitness,
@@ -217,7 +217,7 @@ export class PublicProcessor {
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
         ContractStorageRead.empty(),
-        MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
       contractStorageUpdateRequests: padArrayEnd(
         result.contractStorageUpdateRequests,

@@ -28,7 +28,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
 
     std::array<ContractStorageUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>
         contract_storage_update_requests{};
-    std::array<ContractStorageRead<NCT>, MAX_KERNEL_PUBLIC_DATA_READS_PER_CALL> contract_storage_reads{};
+    std::array<ContractStorageRead<NCT>, MAX_PUBLIC_DATA_READS_PER_CALL> contract_storage_reads{};
 
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
     std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};

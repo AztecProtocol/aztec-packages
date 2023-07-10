@@ -183,13 +183,13 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     // Then we collect all sibling paths for the reads in the left tx, and then apply the update requests while
     // collecting their paths. And then repeat for the right tx.
     for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < MAX_KERNEL_PUBLIC_DATA_READS_PER_TX; j++) {
+        for (size_t j = 0; j < MAX_PUBLIC_DATA_READS_PER_TX; j++) {
             auto public_data_read = kernel_data[i].public_inputs.end.public_data_reads[j];
             if (public_data_read.is_empty()) {
                 continue;
             }
             auto leaf_index = uint256_t(public_data_read.leaf_index);
-            baseRollupInputs.new_public_data_reads_sibling_paths[i * MAX_KERNEL_PUBLIC_DATA_READS_PER_TX + j] =
+            baseRollupInputs.new_public_data_reads_sibling_paths[i * MAX_PUBLIC_DATA_READS_PER_TX + j] =
                 get_sibling_path<PUBLIC_DATA_TREE_HEIGHT>(public_data_tree, leaf_index);
         }
 
