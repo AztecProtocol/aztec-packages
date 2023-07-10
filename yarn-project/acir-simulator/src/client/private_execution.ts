@@ -192,7 +192,11 @@ export class PrivateFunctionExecution {
     // TODO(#499): Noir fails to compute the enqueued calls preimages properly, since it cannot use pedersen generators, so we patch those values here.
     const publicCallStackItems = await Promise.all(enqueuedPublicFunctionCalls.map(c => c.toPublicCallStackItem()));
     const publicStack = await Promise.all(publicCallStackItems.map(c => computeCallStackItemHash(wasm, c)));
-    callStackItem.publicInputs.publicCallStack = padArrayEnd(publicStack, Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    callStackItem.publicInputs.publicCallStack = padArrayEnd(
+      publicStack,
+      Fr.ZERO,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    );
 
     // TODO: This should be set manually by the circuit
     publicInputs.contractDeploymentData.deployerPublicKey =

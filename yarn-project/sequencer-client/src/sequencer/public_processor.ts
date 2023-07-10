@@ -244,7 +244,9 @@ export class PublicProcessor {
     const nested = result.nestedExecutions;
     const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
     if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
-      throw new Error(`Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`);
+      throw new Error(
+        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`,
+      );
     }
 
     // Top of the stack is at the end of the array, so we padStart

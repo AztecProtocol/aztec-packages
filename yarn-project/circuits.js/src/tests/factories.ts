@@ -514,11 +514,7 @@ export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPu
     range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
       makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
     ),
-    makeTuple(
-      MAX_PUBLIC_DATA_READS_PER_TX,
-      x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
-      seed + 0x200,
-    ),
+    makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
     fr(seed + 0x300),
   );
 }

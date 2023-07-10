@@ -120,7 +120,9 @@ describe('Private Execution test suite', () => {
     it('should run the empty constructor', async () => {
       const abi = TestContractAbi.functions[0];
       const result = await runSimulator({ abi, isConstructor: true });
-      expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO));
+      expect(result.callStackItem.publicInputs.newCommitments).toEqual(
+        new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO),
+      );
     });
   });
 
