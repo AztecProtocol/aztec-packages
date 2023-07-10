@@ -75,12 +75,12 @@ export class PublicExecutor {
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       packArguments: async ([args]) => {
-        return [toACVMField(await packedArgs.pack(args.map(fromACVMField)))];
+        return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
       },
 
       debugLog: fields => {
         this.log(oracleDebugCallToFormattedStr(fields));
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       getL1ToL2Message: async ([[msgKey]]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
@@ -120,17 +120,17 @@ export class PublicExecutor {
       createCommitment: async ([[commitment]]) => {
         this.log('Creating commitment: ' + commitment.toString());
         newCommitments.push(fromACVMField(commitment));
-        return await Promise.resolve([ZERO_ACVM_FIELD]);
+        return await Promise.resolve(ZERO_ACVM_FIELD);
       },
       createL2ToL1Message: async ([[message]]) => {
         this.log('Creating L2 to L1 message: ' + message.toString());
         newL2ToL1Messages.push(fromACVMField(message));
-        return await Promise.resolve([ZERO_ACVM_FIELD]);
+        return await Promise.resolve(ZERO_ACVM_FIELD);
       },
       createNullifier: async ([[nullifier]]) => {
         this.log('Creating nullifier: ' + nullifier.toString());
         newNullifiers.push(fromACVMField(nullifier));
-        return await Promise.resolve([ZERO_ACVM_FIELD]);
+        return await Promise.resolve(ZERO_ACVM_FIELD);
       },
       callPublicFunction: async ([[address], [functionSelector], [argsHash]]) => {
         const args = packedArgs.unpack(fromACVMField(argsHash));
@@ -152,7 +152,7 @@ export class PublicExecutor {
         const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
     });
 

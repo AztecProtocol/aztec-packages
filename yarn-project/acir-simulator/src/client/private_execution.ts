@@ -69,9 +69,9 @@ export class PrivateFunctionExecution {
 
     const { partialWitness } = await acvm(acir, initialWitness, {
       packArguments: async ([args]) => {
-        return [toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)))];
+        return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
-      getSecretKey: async ([[ownerX], [ownerY]]) => [
+      getSecretKey: async ([[ownerX], [ownerY]]) =>
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
@@ -81,16 +81,15 @@ export class PrivateFunctionExecution {
             ),
           ),
         ),
-      ],
-      getNotes: ([[slot], [_noteSize], sortBy, sortOrder, [limit], [offset], [returnSize]]) =>
+      getNotes: ([[slot], sortBy, sortOrder, [limit], [offset], [returnSize]]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
-      getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
+      getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       notifyCreatedNote: ([[storageSlot], acvmPreimage]) => {
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
           preimage: acvmPreimage.map(f => fromACVMField(f)),
         });
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       notifyNullifiedNote: ([[slot], [nullifier], acvmPreimage]) => {
         newNullifiers.push({
@@ -98,7 +97,7 @@ export class PrivateFunctionExecution {
           storageSlot: fromACVMField(slot),
           nullifier: fromACVMField(nullifier),
         });
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       callPrivateFunction: async ([[acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]]) => {
         const contractAddress = fromACVMField(acvmContractAddress);
@@ -125,7 +124,7 @@ export class PrivateFunctionExecution {
       getCommitment: ([[commitment]]) => this.context.getCommitment(this.contractAddress, commitment),
       debugLog: fields => {
         this.log(oracleDebugCallToFormattedStr(fields));
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       enqueuePublicFunctionCall: async ([[acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
@@ -144,7 +143,7 @@ export class PrivateFunctionExecution {
         const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       emitEncryptedLog: ([[acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage]) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
@@ -162,7 +161,7 @@ export class PrivateFunctionExecution {
 
         encryptedLogs.logs.push(encryptedNotePreimage);
 
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
     });
 

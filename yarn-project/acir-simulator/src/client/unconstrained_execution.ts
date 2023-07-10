@@ -39,7 +39,7 @@ export class UnconstrainedFunctionExecution {
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: async ([[ownerX, ownerY]]) => [
+      getSecretKey: async ([[ownerX, ownerY]]) =>
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
@@ -49,13 +49,13 @@ export class UnconstrainedFunctionExecution {
             ),
           ),
         ),
-      ],
-      getNotes: ([[slot], [_noteSize], sortBy, sortOrder, [limit], [offset], [returnSize]]) =>
+
+      getNotes: ([[slot], sortBy, sortOrder, [limit], [offset], [returnSize]]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
-      getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
+      getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       debugLog: params => {
         this.log(oracleDebugCallToFormattedStr(params));
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       getL1ToL2Message: ([[msgKey]]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
       getCommitment: ([[commitment]]) => this.context.getCommitment(this.contractAddress, commitment),
