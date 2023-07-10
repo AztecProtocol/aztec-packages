@@ -403,7 +403,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .encrypted_log_preimages_length = private_previous ? ++seed : 0,
         .unencrypted_log_preimages_length = ++seed,
         .new_contracts = std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
-        .optionally_revealed_data = std::array<OptionallyRevealedData<NT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH>(),
+        .optionally_revealed_data =
+            std::array<OptionallyRevealedData<NT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>(),
         .public_data_update_requests =
             std::array<PublicDataUpdateRequest<NT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>(),
         .public_data_reads = std::array<PublicDataRead<NT>, KERNEL_PUBLIC_DATA_READS_LENGTH>()

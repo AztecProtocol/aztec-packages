@@ -42,7 +42,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     std::array<NewContractData<NCT>, MAX_NEW_CONTRACTS_PER_TX> new_contracts{};
 
-    std::array<OptionallyRevealedData<NCT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH> optionally_revealed_data{};
+    std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
     std::array<PublicDataUpdateRequest<NCT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> public_data_update_requests{};
     std::array<PublicDataRead<NCT>, KERNEL_PUBLIC_DATA_READS_LENGTH> public_data_reads{};
