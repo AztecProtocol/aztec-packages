@@ -8,8 +8,8 @@ import {
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
 } from '../constants.js';
@@ -324,11 +324,11 @@ export class CombinedAccumulatedData {
     /**
      * All the public data update requests made in this transaction.
      */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH>,
+    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
     /**
      * All the public data reads made in this transaction.
      */
-    public publicDataReads: Tuple<PublicDataRead, typeof KERNEL_PUBLIC_DATA_READS_LENGTH>,
+    public publicDataReads: Tuple<PublicDataRead, typeof MAX_KERNEL_PUBLIC_DATA_READS_PER_TX>,
   ) {
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
@@ -339,8 +339,8 @@ export class CombinedAccumulatedData {
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'newContracts', MAX_NEW_CONTRACTS_PER_TX);
     assertMemberLength(this, 'optionallyRevealedData', MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX);
-    assertMemberLength(this, 'publicDataUpdateRequests', KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertMemberLength(this, 'publicDataReads', KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'publicDataUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    assertMemberLength(this, 'publicDataReads', MAX_KERNEL_PUBLIC_DATA_READS_PER_TX);
   }
 
   toBuffer() {
@@ -386,8 +386,8 @@ export class CombinedAccumulatedData {
       reader.readFr(),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
       reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
-      reader.readArray(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest),
-      reader.readArray(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead),
+      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
+      reader.readArray(MAX_KERNEL_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
 
@@ -414,8 +414,8 @@ export class CombinedAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
-      makeTuple(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, PublicDataUpdateRequest.empty),
-      makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, PublicDataRead.empty),
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_KERNEL_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 }

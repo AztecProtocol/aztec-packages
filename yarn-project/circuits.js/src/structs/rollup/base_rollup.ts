@@ -8,8 +8,8 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  MAX_KERNEL_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
@@ -247,8 +247,8 @@ export class BaseRollupInputs {
       'newContractsSubtreeSiblingPath',
       CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
-    assertMemberLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertMemberLength(this, 'newPublicDataReadsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    assertMemberLength(this, 'newPublicDataReadsSiblingPaths', 2 * MAX_KERNEL_PUBLIC_DATA_READS_PER_TX);
     assertItemsLength(this, 'newPublicDataUpdateRequestsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
     assertItemsLength(this, 'newPublicDataReadsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
   }

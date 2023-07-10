@@ -3,7 +3,7 @@ import {
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   GlobalVariables,
@@ -180,7 +180,7 @@ export class L2Block {
     const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
     const newContractData = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, ContractData.random);
-    const newPublicDataWrites = times(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txsPerBlock, PublicDataWrite.random);
+    const newPublicDataWrites = times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txsPerBlock, PublicDataWrite.random);
     const newL1ToL2Messages = times(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, Fr.random);
     const newL2ToL1Msgs = times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random);
     const newEncryptedLogs = L2BlockL2Logs.random(txsPerBlock, numPrivateFunctionCalls, numEncryptedLogs);
@@ -617,7 +617,7 @@ export class L2Block {
     for (let i = 0; i < leafCount; i++) {
       const commitmentsPerBase = MAX_NEW_COMMITMENTS_PER_TX * 2;
       const nullifiersPerBase = MAX_NEW_NULLIFIERS_PER_TX * 2;
-      const publicDataUpdateRequestsPerBase = KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2;
+      const publicDataUpdateRequestsPerBase = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
       const l2ToL1MsgsPerBase = MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
       const commitmentsBuffer = Buffer.concat(
         this.newCommitments.slice(i * commitmentsPerBase, (i + 1) * commitmentsPerBase).map(x => x.toBuffer()),
@@ -691,8 +691,8 @@ export class L2Block {
       MAX_NEW_NULLIFIERS_PER_TX * (txIndex + 1),
     );
     const newPublicDataWrites = this.newPublicDataWrites.slice(
-      KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * txIndex,
-      KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * (txIndex + 1),
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txIndex,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * (txIndex + 1),
     );
     const newL2ToL1Msgs = this.newL2ToL1Msgs.slice(
       MAX_NEW_L2_TO_L1_MSGS_PER_TX * txIndex,
