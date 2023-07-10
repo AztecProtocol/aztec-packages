@@ -96,13 +96,13 @@ async function main() {
     .command('deploy')
     .description('Deploys a compiled Noir contract to Aztec.')
     .argument('<contractAbi>', "A compiled Noir contract's ABI in JSON format", undefined)
+    .argument('[constructorArgs...]', 'Contract constructor arguments', [])
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
     .option(
       '-k, --public-key <string>',
       'Public key of the deployer. If not provided, it will check the RPC for existing ones.',
     )
-    .option('-a, --constructor-args [args...]', 'Contract constructor arguments', [])
-    .action(async (contractFile: string, options: any) => {
+    .action(async (contractFile: string, args: string[], options: any) => {
       const contractAbi = getContractAbi(contractFile, log);
       const constructorAbi = contractAbi.functions.find(({ name }) => name === 'constructor');
 
@@ -122,9 +122,7 @@ async function main() {
 
       const deployer = new ContractDeployer(contractAbi, client);
 
-      const tx = deployer
-        .deploy(...encodeArgs(options.constructorArgs, constructorAbi!.parameters), publicKey.toBigInts())
-        .send();
+      const tx = deployer.deploy(...encodeArgs(args, constructorAbi!.parameters), publicKey.toBigInts()).send();
       await tx.isMined();
       const receipt = await tx.getReceipt();
       log(`\nAztec Contract deployed at ${receipt.contractAddress?.toString()}\n`);
@@ -226,7 +224,7 @@ async function main() {
         log('No accounts found.');
       } else {
         log(`Accounts found: \n`);
-        accounts.forEach(acc => log(`${acc}\n`));
+        accounts.forEach(async acc => log(`Address: ${acc}\nPublic Key: ${await client.getAccountPublicKey(acc)}\n`));
       }
     });
 
@@ -268,14 +266,14 @@ async function main() {
       const client = createAztecRpcClient(options.rpcUrl);
       const wallet = await getAccountWallet(client, Buffer.from(options.privateKey, 'hex'), accountCreationSalt);
       const contract = new Contract(contractAddress, contractAbi, wallet);
-      const tx = contract.methods[functionName](...functionArgs).send();
+      const tx = contract.methods[functionName](...functionArgs).send({ from: (await wallet.getAccounts())[0] });
       await tx.isMined();
       log('\nTX has been mined');
       const receipt = await tx.getReceipt();
       log(`TX Hash: ${(await tx.getTxHash()).toString()}`);
       log(`Block Num: ${receipt.blockNumber}`);
       log(`Block Hash: ${receipt.blockHash?.toString('hex')}`);
-      log(`TX Status: ${receipt.status}`);
+      log(`TX Status: ${receipt.status}\n`);
     });
 
   program
@@ -289,7 +287,7 @@ async function main() {
     .argument('[functionArgs...]', 'Function arguments', [])
     .option('-f, --from <string>', 'Public key of the TX viewer. If empty, will try to find account in RPC.')
     .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
-    .action(async (contractFile, _contractAddress, functionName, _from, _functionArgs, options) => {
+    .action(async (contractFile, _contractAddress, functionName, _functionArgs, options) => {
       const { contractAddress, functionArgs } = prepTx(
         contractFile,
         _contractAddress,
@@ -298,7 +296,7 @@ async function main() {
         log,
       );
       const client = createAztecRpcClient(options.rpcUrl);
-      const from = await getTxSender(client, _from);
+      const from = await getTxSender(client, options.from);
       const result = await client.viewTx(functionName, functionArgs, contractAddress, from);
       log('\nView TX result: ', JsonStringify(result, true), '\n');
     });

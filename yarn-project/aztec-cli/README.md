@@ -122,19 +122,19 @@ azti deploy <contractAbi> [options]
 ```
 
 - `contractAbi`: Path to the compiled Noir contract's ABI file in JSON format.
+- `constructorArgs` (optional): Contract constructor arguments.
 
 Options:
 
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 - `-k, --public-key <string>`: Public key of the deployer. If not provided, it will check the RPC for existing ones.
-- `-a, --constructor-args [args...]`: Contract constructor arguments.
 
 This command deploys a compiled Noir contract to Aztec. It requires the path to the contract's ABI file in JSON format. Optionally, you can specify the public key of the deployer and provide constructor arguments for the contract. The command displays the address of the deployed contract.
 
 Example usage:
 
 ```shell
-azti deploy path/to/contract.abi.json
+azti deploy path/to/contract.abi.json ...args
 ```
 
 ### check-deploy
