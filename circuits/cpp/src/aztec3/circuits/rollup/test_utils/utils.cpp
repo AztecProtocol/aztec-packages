@@ -53,8 +53,8 @@ std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
         (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
-         MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 +
-         KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2) *
+         MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * 2 +
+         NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * 2) *
         2;
 
     // We subtract 4 from inputs size because 1 logs hash is stored in 2 fields and those 2 fields get converted only

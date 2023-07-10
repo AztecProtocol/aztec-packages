@@ -113,8 +113,8 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     auto const number_of_inputs =
         (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
          MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
-         KERNEL_NUM_ENCRYPTED_LOGS_HASHES * NUM_FIELDS_PER_SHA256 +
-         KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * NUM_FIELDS_PER_SHA256) *
+         NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 +
+         NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256) *
         2;
     std::array<NT::fr, number_of_inputs> calldata_hash_inputs{};
 
@@ -166,7 +166,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
             calldata_hash_inputs[offset + i * 2 + j] = encryptedLogsHash[j];
         }
 
-        offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * NUM_FIELDS_PER_SHA256 * 2;
+        offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2;
 
         for (size_t j = 0; j < NUM_FIELDS_PER_SHA256; j++) {
             calldata_hash_inputs[offset + i * 2 + j] = unencryptedLogsHash[j];
