@@ -868,4 +868,7 @@ workflows:
       - deploy-npm:
           requires:
             - e2e-end
+          filters:
+            branches:
+              only: master
           <<: *defaults
