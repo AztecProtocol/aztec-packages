@@ -84,7 +84,7 @@ async function main() {
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
-      const privateKey = options.privateKey && Buffer.from(options.privateKeystr.replace(/^0x/i, ''), 'hex');
+      const privateKey = options.privateKey && Buffer.from(options.privateKey.replace(/^0x/i, ''), 'hex');
       const wallet = await createAccounts(client, privateKey, accountCreationSalt, 1);
       const accounts = await wallet.getAccounts();
       const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
