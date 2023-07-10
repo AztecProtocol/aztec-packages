@@ -11,7 +11,6 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
 import {
-  ACVMField,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
