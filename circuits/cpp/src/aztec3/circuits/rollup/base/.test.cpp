@@ -238,7 +238,6 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
         { new_contract.contract_address, new_contract.portal_contract_address, new_contract.function_tree_root },
         GeneratorIndex::CONTRACT_LEAF);
 
-    // TODO(benesjan): is this the correct approach to clone the tree? Should the store be committed first?
     auto expected_end_contract_tree_snapshot_store = start_contract_tree_snapshot_store;
     auto expected_end_contracts_snapshot_tree =
         MerkleTree(expected_end_contract_tree_snapshot_store, CONTRACT_TREE_HEIGHT);

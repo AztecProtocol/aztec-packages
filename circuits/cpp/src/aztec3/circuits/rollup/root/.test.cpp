@@ -165,14 +165,15 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     utils::DummyCircuitBuilder builder =
         utils::DummyCircuitBuilder("root_rollup_tests__native_root_missing_nullifier_logic");
 
-    MemoryStore data_tree_store;
-    MerkleTree data_tree = MerkleTree(data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
     MemoryStore contract_tree_store;
     MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
 
-    MemoryStore historic_data_tree_store;
-    MerkleTree historic_data_tree = MerkleTree(historic_data_tree_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
+    MemoryStore historic_private_data_tree_store;
+    MerkleTree historic_private_data_tree =
+        MerkleTree(historic_private_data_tree_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
 
     MemoryStore historic_contract_tree_store;
     MerkleTree historic_contract_tree = MerkleTree(historic_contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
@@ -185,7 +186,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         MerkleTree(historic_l1_to_l2_messages_tree_store, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
     // Historic trees are initialised with an empty root at position 0.
-    historic_data_tree.update_element(0, data_tree.root());
+    historic_private_data_tree.update_element(0, private_data_tree.root());
     historic_contract_tree.update_element(0, contract_tree.root());
     historic_l1_to_l2_tree.update_element(0, l1_to_l2_messages_tree.root());
 
@@ -200,7 +201,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         for (uint8_t commitment_k = 0; commitment_k < KERNEL_NEW_COMMITMENTS_LENGTH; commitment_k++) {
             auto val = fr(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k + 1);
             new_commitments[commitment_k] = val;
-            data_tree.update_element(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k, val);
+            private_data_tree.update_element(kernel_j * KERNEL_NEW_COMMITMENTS_LENGTH + commitment_k, val);
         }
         kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
 
@@ -230,7 +231,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
                                                                                .next_available_leaf_index = 0 };
 
     // The start historic data snapshots
-    AppendOnlyTreeSnapshot<NT> const start_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+    AppendOnlyTreeSnapshot<NT> const start_historic_data_tree_snapshot = { .root = historic_private_data_tree.root(),
                                                                            .next_available_leaf_index = 1 };
     AppendOnlyTreeSnapshot<NT> const start_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
                                                                                .next_available_leaf_index = 1 };
@@ -243,12 +244,12 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     }
 
     // Insert the newest data root into the historic tree
-    historic_data_tree.update_element(1, data_tree.root());
+    historic_private_data_tree.update_element(1, private_data_tree.root());
     historic_contract_tree.update_element(1, contract_tree.root());
     historic_l1_to_l2_tree.update_element(1, l1_to_l2_messages_tree.root());
 
     // Compute the end snapshot
-    AppendOnlyTreeSnapshot<NT> const end_historic_data_tree_snapshot = { .root = historic_data_tree.root(),
+    AppendOnlyTreeSnapshot<NT> const end_historic_data_tree_snapshot = { .root = historic_private_data_tree.root(),
                                                                          .next_available_leaf_index = 2 };
     AppendOnlyTreeSnapshot<NT> const end_historic_contract_tree_snapshot = { .root = historic_contract_tree.root(),
                                                                              .next_available_leaf_index = 2 };
@@ -269,7 +270,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     ASSERT_EQ(
         outputs.end_private_data_tree_snapshot,
         rootRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_private_data_tree_snapshot);
-    AppendOnlyTreeSnapshot<NT> const expected_private_data_tree_snapshot = { .root = data_tree.root(),
+    AppendOnlyTreeSnapshot<NT> const expected_private_data_tree_snapshot = { .root = private_data_tree.root(),
                                                                              .next_available_leaf_index =
                                                                                  4 * KERNEL_NEW_COMMITMENTS_LENGTH };
     ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_private_data_tree_snapshot);

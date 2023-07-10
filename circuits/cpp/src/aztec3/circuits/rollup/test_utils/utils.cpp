@@ -453,10 +453,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     NullifierMemoryTreeTestingHarness nullifier_tree = get_initial_nullifier_tree(initial_values);
     NullifierMemoryTreeTestingHarness reference_tree = get_initial_nullifier_tree(initial_values);
 
-    AppendOnlyTreeSnapshot const nullifier_tree_start_snapshot = {
-        .root = nullifier_tree.root(),
-        .next_available_leaf_index = static_cast<uint32_t>(start_tree_size),
-    };
+    AppendOnlyTreeSnapshot const nullifier_tree_start_snapshot = nullifier_tree.get_snapshot();
 
     const size_t NUMBER_OF_NULLIFIERS = KERNEL_NEW_NULLIFIERS_LENGTH * 2;
     std::array<NullifierLeafPreimage, NUMBER_OF_NULLIFIERS> new_nullifier_leaves{};
@@ -511,10 +508,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
 
     // Get expected root with subtrees inserted correctly
     // Expected end state
-    AppendOnlyTreeSnapshot const nullifier_tree_end_snapshot = {
-        .root = reference_tree.root(),
-        .next_available_leaf_index = uint32_t(reference_tree.size()),
-    };
+    AppendOnlyTreeSnapshot const nullifier_tree_end_snapshot = reference_tree.get_snapshot();
 
     std::vector<fr> sibling_path = reference_tree.get_sibling_path(start_tree_size);
     std::array<fr, NULLIFIER_SUBTREE_INCLUSION_CHECK_DEPTH> sibling_path_array;
