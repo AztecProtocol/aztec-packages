@@ -73,7 +73,7 @@ contract TouchIdAccount {
         let message_hash = std::hash::sha256(message);
 
         let valid_signature = std::ecdsa_secp256r1::verify_signature(x, y, signature, message_hash);
-        // assert(valid_signature);
+        assert(valid_signature);
 
         // TODO: When we can use pedersen with non-zero generators, get this working        
         //let reproduced_address = dep::std::hash::pedersen([owner, partial_contract_address])[0];
