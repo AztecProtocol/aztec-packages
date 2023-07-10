@@ -404,7 +404,7 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
  */
 NullifierTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values)
 {
-    const MemoryStore nullifier_tree_store;
+    MemoryStore nullifier_tree_store;
     NullifierTreeTestingHarness nullifier_tree =
         NullifierTreeTestingHarness(nullifier_tree_store, NULLIFIER_TREE_HEIGHT);
     for (const auto& initial_value : initial_values) {

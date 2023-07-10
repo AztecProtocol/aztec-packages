@@ -5,12 +5,11 @@
 #include <cstdint>
 #include <tuple>
 
-using NullifierMemoryTree = proof_system::plonk::stdlib::merkle_tree::NullifierMemoryTree;
 using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
+using MemoryStore = proof_system::plonk::stdlib::merkle_tree::MemoryStore;
 
-NullifierTreeTestingHarness::NullifierTreeTestingHarness(proof_system::plonk::stdlib::merkle_tree::MemoryStore store,
-                                                         size_t depth)
-    : NullifierTree(store, depth, 0)
+NullifierTreeTestingHarness::NullifierTreeTestingHarness(MemoryStore& store, size_t depth, uint8_t tree_id)
+    : NullifierTree(store, depth, tree_id)
 {}
 
 // Check for a larger value in an array
