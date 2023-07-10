@@ -2,7 +2,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { LogType, MerkleTreeId, Tx, TxHash } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
@@ -120,7 +120,9 @@ export function appFactory(node: AztecNode, prefix: string) {
       throw new Error('Invalid log type');
     }
 
-    const logs = await node.getLogs(from, take, logType);
+    const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
+
+    const logs = await node.getLogs(from, take, processedLogType);
     const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {

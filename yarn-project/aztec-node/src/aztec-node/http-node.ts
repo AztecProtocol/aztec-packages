@@ -15,6 +15,7 @@ import {
   L1ToL2MessageAndIndex,
   L2Block,
   L2BlockL2Logs,
+  LogType,
   MerkleTreeId,
   Tx,
   TxHash,
@@ -119,12 +120,12 @@ export class HttpNode implements AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public async getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]> {
+  public async getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const url = new URL(`${this.baseUrl}/get-logs`);
 
     url.searchParams.append('from', from.toString());
     url.searchParams.append('take', take.toString());
-    url.searchParams.append('logType', logType);
+    url.searchParams.append('logType', logType.toString());
 
     const response = await (await fetch(url.toString())).json();
     const logs = response.logs as string[];

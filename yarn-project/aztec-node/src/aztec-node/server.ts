@@ -20,6 +20,7 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
+  LogType,
   MerkleTreeId,
   Tx,
   TxHash,
@@ -171,8 +172,8 @@ export class AztecNodeService implements AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]> {
-    const logSource = logType === 'encrypted' ? this.encryptedLogsSource : this.unencryptedLogsSource;
+  public getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
     return logSource.getLogs(from, take, logType);
   }
 

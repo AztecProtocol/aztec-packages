@@ -7,6 +7,7 @@ import {
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
+  LogType,
   MerkleTreeId,
   mockTx,
   TxHash,
@@ -150,6 +151,8 @@ describe('HttpNode', () => {
 
   describe('getLogs', () => {
     it.each(['encrypted', 'unencrypted'])('should fetch and return %s logs', async logType => {
+      const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
+
       const from = 0;
       const take = 3;
       const log1 = L2BlockL2Logs.random(2, 3, 4);
@@ -159,7 +162,7 @@ describe('HttpNode', () => {
       };
       setFetchMock(response);
 
-      const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
+      const result = await httpNode.getLogs(from, take, processedLogType);
 
       expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
       expect(result).toEqual([log1, log2]);
@@ -168,12 +171,14 @@ describe('HttpNode', () => {
     it.each(['encrypted', 'unencrypted'])(
       'should return an empty array if %s logs are not available',
       async logType => {
+        const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
+
         const from = 0;
         const take = 2;
         const response = {};
         setFetchMock(response);
 
-        const result = await httpNode.getLogs(from, take, logType as 'encrypted' | 'unencrypted');
+        const result = await httpNode.getLogs(from, take, processedLogType);
 
         expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
         expect(result).toEqual([]);

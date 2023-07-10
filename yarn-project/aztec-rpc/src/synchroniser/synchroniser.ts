@@ -3,7 +3,7 @@ import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
+import { L2BlockContext, LogType, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
@@ -66,13 +66,13 @@ export class Synchroniser {
 
   protected async work(from = 1, take = 1, retryInterval = 1000): Promise<number> {
     try {
-      let encryptedLogs = await this.node.getLogs(from, take, 'encrypted');
+      let encryptedLogs = await this.node.getLogs(from, take, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
       }
 
-      let unencryptedLogs = await this.node.getLogs(from, take, 'unencrypted');
+      let unencryptedLogs = await this.node.getLogs(from, take, LogType.UNENCRYPTED);
       if (!unencryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;

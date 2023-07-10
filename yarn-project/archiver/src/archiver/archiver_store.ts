@@ -5,6 +5,7 @@ import {
   ContractData,
   L1ToL2Message,
   L2BlockL2Logs,
+  LogType,
 } from '@aztec/types';
 import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -81,7 +82,7 @@ export interface ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]>;
+  getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]>;
 
   /**
    * Store new Contract Public Data from an L2 block to the store's list.
@@ -294,11 +295,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]> {
+  getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     if (from < INITIAL_L2_BLOCK_NUM) {
       throw new Error(`Invalid block range ${from}`);
     }
-    const logs = logType === 'encrypted' ? this.encryptedLogs : this.unencryptedLogs;
+    const logs = logType === LogType.ENCRYPTED ? this.encryptedLogs : this.unencryptedLogs;
     if (from > logs.length) {
       return Promise.resolve([]);
     }

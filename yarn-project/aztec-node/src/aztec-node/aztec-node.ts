@@ -9,6 +9,7 @@ import {
   L2BlockL2Logs,
   TxHash,
   Tx,
+  LogType,
 } from '@aztec/types';
 import { SiblingPath } from '@aztec/merkle-tree';
 import { Fr } from '@aztec/foundation/fields';
@@ -72,7 +73,7 @@ export interface AztecNode {
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, take: number, logType: 'encrypted' | 'unencrypted'): Promise<L2BlockL2Logs[]>;
+  getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]>;
 
   /**
    * Method to submit a transaction to the p2p pool.
