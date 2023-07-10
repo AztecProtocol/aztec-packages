@@ -5,6 +5,10 @@ fn get_2_notes<P>(notes: [ValueNote; MAX_READ_REQUESTS], _x: P) -> [ValueNote; 2
     [notes[0], notes[1]]
 }
 
+fn get_4_notes<P>(notes: [ValueNote; MAX_READ_REQUESTS], _x: P) -> [ValueNote; 4] {
+    [notes[0], notes[1], notes[2], notes[3]]
+}
+
 fn get_all_notes<P>(notes: [ValueNote; MAX_READ_REQUESTS], _x: P) -> [ValueNote; MAX_READ_REQUESTS] {
     notes
 }
