@@ -5,12 +5,10 @@
 #include <cstdint>
 #include <tuple>
 
+using NullifierMemoryTree = proof_system::plonk::stdlib::merkle_tree::NullifierMemoryTree;
 using nullifier_leaf = proof_system::plonk::stdlib::merkle_tree::nullifier_leaf;
-using MemoryStore = proof_system::plonk::stdlib::merkle_tree::MemoryStore;
 
-NullifierTreeTestingHarness::NullifierTreeTestingHarness(MemoryStore& store, size_t depth, uint8_t tree_id)
-    : NullifierTree(store, depth, tree_id)
-{}
+NullifierMemoryTreeTestingHarness::NullifierMemoryTreeTestingHarness(size_t depth) : NullifierMemoryTree(depth) {}
 
 // Check for a larger value in an array
 bool check_has_less_than(std::vector<fr> const& values, fr const& value)
@@ -28,7 +26,7 @@ bool check_has_less_than(std::vector<fr> const& values, fr const& value)
 
 // handle synthetic membership assertions
 std::tuple<std::vector<nullifier_leaf>, std::vector<std::vector<fr>>, std::vector<uint32_t>>
-NullifierTreeTestingHarness::circuit_prep_batch_insert(std::vector<fr> const& values)
+NullifierMemoryTreeTestingHarness::circuit_prep_batch_insert(std::vector<fr> const& values)
 {
     // Start insertion index
     fr const start_insertion_index = this->size();
@@ -58,7 +56,7 @@ NullifierTreeTestingHarness::circuit_prep_batch_insert(std::vector<fr> const& va
 
         size_t current = 0;
         bool is_already_present = false;
-        std::tie(current, is_already_present) = find_closest_leaf(leaves, new_value);
+        std::tie(current, is_already_present) = find_closest_leaf(leaves_, new_value);
 
         // If the inserted value is 0, then we ignore and provide a dummy low nullifier
         if (new_value == 0) {
@@ -114,7 +112,7 @@ NullifierTreeTestingHarness::circuit_prep_batch_insert(std::vector<fr> const& va
                 prev_nodes->second.push_back(new_value);
             }
 
-            nullifier_leaf const low_nullifier = leaves[current].unwrap();
+            nullifier_leaf const low_nullifier = leaves_[current].unwrap();
             std::vector<fr> const sibling_path = this->get_sibling_path(current);
 
             sibling_paths.push_back(sibling_path);
@@ -136,22 +134,22 @@ NullifierTreeTestingHarness::circuit_prep_batch_insert(std::vector<fr> const& va
     return std::make_tuple(low_nullifiers, sibling_paths, low_nullifier_indexes);
 }
 
-void NullifierTreeTestingHarness::update_element_in_place(size_t index, const nullifier_leaf& leaf)
+void NullifierMemoryTreeTestingHarness::update_element_in_place(size_t index, const nullifier_leaf& leaf)
 {
     // Find the leaf with the value closest and less than `value`
-    this->leaves[index].set(leaf);
+    this->leaves_[index].set(leaf);
     update_element(index, leaf.hash());
 }
 
-std::pair<nullifier_leaf, size_t> NullifierTreeTestingHarness::find_lower(fr const& value)
+std::pair<nullifier_leaf, size_t> NullifierMemoryTreeTestingHarness::find_lower(fr const& value)
 {
     size_t current = 0;
     bool is_already_present = false;
-    std::tie(current, is_already_present) = find_closest_leaf(leaves, value);
+    std::tie(current, is_already_present) = find_closest_leaf(leaves_, value);
 
     // TODO: handle is already present case
     if (!is_already_present) {
-        return std::make_pair(leaves[current].unwrap(), current);
+        return std::make_pair(leaves_[current].unwrap(), current);
     }
-    return std::make_pair(leaves[current].unwrap(), current);
+    return std::make_pair(leaves_[current].unwrap(), current);
 }

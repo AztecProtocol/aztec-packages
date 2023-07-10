@@ -32,7 +32,7 @@ using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
-using NullifierTree = stdlib::merkle_tree::NullifierTree<MemoryStore>;
+using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
 using aztec3::circuits::abis::MembershipWitness;
@@ -402,11 +402,9 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
  * @param initial_values values to pre-populate the tree
  * @return NullifierMemoryTreeTestingHarness
  */
-NullifierTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values)
+NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values)
 {
-    MemoryStore nullifier_tree_store;
-    NullifierTreeTestingHarness nullifier_tree =
-        NullifierTreeTestingHarness(nullifier_tree_store, NULLIFIER_TREE_HEIGHT);
+    NullifierMemoryTreeTestingHarness nullifier_tree = NullifierMemoryTreeTestingHarness(NULLIFIER_TREE_HEIGHT);
     for (const auto& initial_value : initial_values) {
         nullifier_tree.update_element(initial_value);
     }
@@ -452,8 +450,8 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
 {
     size_t const start_tree_size = initial_values.size() + 1;
     // Generate nullifier tree testing values
-    NullifierTreeTestingHarness nullifier_tree = get_initial_nullifier_tree(initial_values);
-    NullifierTreeTestingHarness reference_tree = get_initial_nullifier_tree(initial_values);
+    NullifierMemoryTreeTestingHarness nullifier_tree = get_initial_nullifier_tree(initial_values);
+    NullifierMemoryTreeTestingHarness reference_tree = get_initial_nullifier_tree(initial_values);
 
     AppendOnlyTreeSnapshot const nullifier_tree_start_snapshot = {
         .root = nullifier_tree.root(),

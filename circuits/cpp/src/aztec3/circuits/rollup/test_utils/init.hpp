@@ -38,7 +38,7 @@ using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 // Tree Aliases
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
-using NullifierTree = stdlib::merkle_tree::NullifierTree<MemoryStore>;
+using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
 
 using aztec3::circuits::abis::MembershipWitness;

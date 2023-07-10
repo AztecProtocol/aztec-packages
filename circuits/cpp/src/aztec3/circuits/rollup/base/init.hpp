@@ -35,7 +35,7 @@ using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
 // Tree Aliases
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
-using NullifierTree = stdlib::merkle_tree::NullifierTree<MemoryStore>;
+using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeafPreimage = abis::NullifierLeafPreimage<NT>;
 
 }  // namespace aztec3::circuits::rollup::native_base_rollup
