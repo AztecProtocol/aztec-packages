@@ -132,7 +132,7 @@ describe('e2e_p2p_network', () => {
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
         expect.objectContaining({
-          from: account,
+          origin: account,
           status: TxStatus.PENDING,
           error: '',
         }),
