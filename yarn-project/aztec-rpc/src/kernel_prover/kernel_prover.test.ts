@@ -54,7 +54,7 @@ describe('Kernel Prover', () => {
       // TODO(dbanks12): Should test kernel prover with non-transient reads.
       // Will be necessary once kernel actually checks/matches transient reads.
       readRequestPartialWitnesses: Array.from({ length: READ_REQUESTS_LENGTH }, () =>
-        ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)),
+        ReadRequestMembershipWitness.emptyTransient(),
       ),
       returnValues: [],
       acir: Buffer.alloc(0),

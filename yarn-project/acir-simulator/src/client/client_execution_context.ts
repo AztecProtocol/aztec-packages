@@ -112,7 +112,7 @@ export class ClientTxExecutionContext {
         //console.log(`\t\tThat was the ${pendingCount}th pending note found this run`);
         //console.log(`\t\tPreimage 0th entry: ${note.preimage[0].toString()}`);
         pendingPreimages.push(...note.preimage); // flattened
-        this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)));
+        this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.emptyTransient());
       }
     }
     return { pendingCount, pendingPreimages };

@@ -7,7 +7,9 @@ import { MAX_NEW_COMMITMENTS_PER_CALL, PRIVATE_DATA_TREE_HEIGHT } from './consta
 import { MembershipWitness } from './membership_witness.js';
 
 /**
- * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
+ * A ReadRequestMembershipWitness is similar to a MembershipWitness but includes
+ * some additional fields used to direct the kernel regarding whether a read is transient
+ * and if so which commitment it corresponds to.
  */
 export class ReadRequestMembershipWitness {
   constructor(
@@ -93,17 +95,13 @@ export class ReadRequestMembershipWitness {
 
   /**
    * Creates a transient read request membership witness.
-   * @param commitmentIndex - index of commitment in the app circuit's newCommitments that
-   * created it
-   * @param commitmentKernelIter - kernel iteration during which the app circuit's newCommitments
-   * contained this commitment
-   * @returns Transient read request membership witness.
+   * @returns an empty transient read request membership witness.
    */
-  public static newTransient(commitmentIndex: Fr, commitmentKernelIter: Fr): ReadRequestMembershipWitness {
+  public static emptyTransient(): ReadRequestMembershipWitness {
     const arr = Array(PRIVATE_DATA_TREE_HEIGHT)
       .fill(0)
       .map(() => Fr.ZERO);
-    return new ReadRequestMembershipWitness(BigInt(0), arr, true, commitmentIndex, commitmentKernelIter);
+    return new ReadRequestMembershipWitness(BigInt(0), arr, true, new Fr(0), new Fr(0));
   }
 
   static fromBufferArray<N extends number>(
