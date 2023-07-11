@@ -1,5 +1,3 @@
-use crate::abi::MAX_READ_REQUESTS;
-use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 
 #[oracle(notifyCreatedNote)]
