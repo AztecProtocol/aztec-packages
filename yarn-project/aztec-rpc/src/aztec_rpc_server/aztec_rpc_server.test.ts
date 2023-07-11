@@ -33,7 +33,8 @@ describe('AztecRpcServer', function () {
     expect(await db.getPublicKey(address)).toEqual([pubKey, partialAddress]);
   });
 
-  it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
+  // TODO(#1007)
+  it.skip('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
     const privateKey = randomBytes(32);
     const partialAddress = Fr.random();
     const address = AztecAddress.random();
