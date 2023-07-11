@@ -14,6 +14,9 @@ constexpr size_t log2(size_t input)
     return (input < 2) ? 0 : 1 + log2(input / 2);
 }
 
+// The following informs yarn-project/circuits.js/src/cbind/constants.in.ts from which line to start.
+// TS-RELEVANT-CODE-START
+
 // Note: must be kept in sync with ts/structs/constants.ts
 constexpr size_t ARGS_LENGTH = 16;
 constexpr size_t RETURN_VALUES_LENGTH = 4;
@@ -175,5 +178,7 @@ enum PrivateStateNoteGeneratorIndex {
 };
 
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
+
+// TS-RELEVANT-CODE-END
 
 }  // namespace aztec3
