@@ -1,25 +1,32 @@
-import { FunctionL2Logs } from '@aztec/types';
-import { ExecutionResult, collectEncryptedLogs } from './execution_result.js';
 import { PrivateCallStackItem } from '@aztec/circuits.js';
+import { FunctionL2Logs } from '@aztec/types';
+
+import { ExecutionResult, collectEncryptedLogs, collectUnencryptedLogs } from './execution_result.js';
+
+function emptyExecutionResult(): ExecutionResult {
+  return {
+    acir: Buffer.from(''),
+    vk: Buffer.from(''),
+    partialWitness: new Map(),
+    callStackItem: PrivateCallStackItem.empty(),
+    readRequestPartialWitnesses: [],
+    preimages: {
+      newNotes: [],
+      nullifiedNotes: [],
+    },
+    returnValues: [],
+    nestedExecutions: [],
+    enqueuedPublicFunctionCalls: [],
+    encryptedLogs: FunctionL2Logs.empty(),
+    unencryptedLogs: FunctionL2Logs.empty(),
+  };
+}
 
 describe('Execution Result test suite - collect encrypted logs', () => {
   function emptyExecutionResultWithEncryptedLogs(encryptedLogs = FunctionL2Logs.empty()): ExecutionResult {
-    return {
-      acir: Buffer.from(''),
-      vk: Buffer.from(''),
-      partialWitness: new Map(),
-      callStackItem: PrivateCallStackItem.empty(),
-      readRequestCommitmentIndices: [],
-      preimages: {
-        newNotes: [],
-        nullifiedNotes: [],
-      },
-      returnValues: [],
-      nestedExecutions: [],
-      enqueuedPublicFunctionCalls: [],
-      encryptedLogs: encryptedLogs,
-      unencryptedLogs: FunctionL2Logs.empty(),
-    };
+    const executionResult = emptyExecutionResult();
+    executionResult.encryptedLogs = encryptedLogs;
+    return executionResult;
   }
 
   it('collect encrypted logs with nested fn calls', () => {
@@ -31,7 +38,7 @@ describe('Execution Result test suite - collect encrypted logs', () => {
         |---------->fnE (log5) 
                      |-------->fnF (log6)
                      |-------->fnG (log7) 
-    Circuits and ACVM process in a DFS + stack like format: [fnA, fnE, fnF, fnG fnC, fnD, fnB]
+    Circuits and ACVM process in a DFS + stack like format: [fnA, fnE, fnG, fnF, fnC, fnD, fnB]
     */
     const executionResult: ExecutionResult = emptyExecutionResultWithEncryptedLogs(
       new FunctionL2Logs([Buffer.from('Log 1')]),
@@ -93,9 +100,9 @@ describe('Execution Result test suite - collect encrypted logs', () => {
         |----------> fnB (log1) -> fnC ()
     Circuits and ACVM process in a DFS + stack like format: [fnA, fnB, fnC]
     */
-    const executionResult: ExecutionResult = emptyExecutionResultWithEncryptedLogs();
+    const executionResult: ExecutionResult = emptyExecutionResult();
     const fnB = emptyExecutionResultWithEncryptedLogs(new FunctionL2Logs([Buffer.from('Log 1')]));
-    const fnC = emptyExecutionResultWithEncryptedLogs();
+    const fnC = emptyExecutionResult();
     fnB.nestedExecutions.push(fnC);
     executionResult.nestedExecutions.push(fnB);
     const encryptedLogs = collectEncryptedLogs(executionResult);
@@ -112,13 +119,13 @@ describe('Execution Result test suite - collect encrypted logs', () => {
     fnA ()
       |----------> fnB () -> fnC ()
       |----------> fnD () -> fnE ()
-    Circuits and ACVM process in a DFS + stack like format: [fnA, fnB, fnC]
+    Circuits and ACVM process in a DFS + stack like format: [fnA, fnD, fnE, fnB, fnC]
     */
-    const executionResult: ExecutionResult = emptyExecutionResultWithEncryptedLogs();
-    const fnB = emptyExecutionResultWithEncryptedLogs();
-    const fnC = emptyExecutionResultWithEncryptedLogs();
-    const fnD = emptyExecutionResultWithEncryptedLogs();
-    const fnE = emptyExecutionResultWithEncryptedLogs();
+    const executionResult: ExecutionResult = emptyExecutionResult();
+    const fnB = emptyExecutionResult();
+    const fnC = emptyExecutionResult();
+    const fnD = emptyExecutionResult();
+    const fnE = emptyExecutionResult();
 
     fnB.nestedExecutions.push(fnC);
     fnD.nestedExecutions.push(fnE);
@@ -132,6 +139,74 @@ describe('Execution Result test suite - collect encrypted logs', () => {
       FunctionL2Logs.empty(),
       FunctionL2Logs.empty(),
       FunctionL2Logs.empty(),
+    ]);
+  });
+});
+
+describe('collect unencrypted logs', () => {
+  // collection of unencrypted logs work similar to encrypted logs, so lets write other kinds of test cases:
+
+  function emptyExecutionResultWithUnencryptedLogs(unencryptedLogs = FunctionL2Logs.empty()): ExecutionResult {
+    const executionResult = emptyExecutionResult();
+    executionResult.unencryptedLogs = unencryptedLogs;
+    return executionResult;
+  }
+
+  it('collect unencrypted logs even when no logs and no recursion', () => {
+    // fnA()
+    const executionResult: ExecutionResult = emptyExecutionResult();
+    const unencryptedLogs = collectUnencryptedLogs(executionResult);
+    expect(unencryptedLogs).toEqual([FunctionL2Logs.empty()]);
+  });
+
+  it('collect unencrypted logs with no logs in some nested calls', () => {
+    /*
+    Create the following executionResult object: 
+    fnA () 
+        |----------> fnB () -> fnC (log1, log2, log3)
+    Circuits and ACVM process in a DFS + stack like format: [fnA, fnC, fnB]
+    */
+    const executionResult: ExecutionResult = emptyExecutionResult();
+    const fnB = emptyExecutionResult();
+    const fnC = emptyExecutionResultWithUnencryptedLogs(
+      new FunctionL2Logs([Buffer.from('Log 1'), Buffer.from('Log 2'), Buffer.from('Log 3')]),
+    );
+
+    executionResult.nestedExecutions.push(fnB, fnC);
+
+    const unencryptedLogs = collectUnencryptedLogs(executionResult);
+    expect(unencryptedLogs).toEqual([
+      FunctionL2Logs.empty(),
+      new FunctionL2Logs([Buffer.from('Log 1'), Buffer.from('Log 2'), Buffer.from('Log 3')]),
+      FunctionL2Logs.empty(),
+    ]);
+  });
+
+  it('collect unencrypted logs with multiple logs in each function call leaves', () => {
+    /*
+    Create the following executionResult object:
+    fnA()
+      |->fnB
+          |->fnC(log1, log2, log3)
+          |->fnD(log4, log5, log6)
+    Circuits and ACVM process in a DFS + stack like format: [fnA, fnB, fnD, fnC]
+    */
+    const executionResult: ExecutionResult = emptyExecutionResult();
+    const fnB = emptyExecutionResult();
+    const fnC = emptyExecutionResultWithUnencryptedLogs(
+      new FunctionL2Logs([Buffer.from('Log 1'), Buffer.from('Log 2'), Buffer.from('Log 3')]),
+    );
+    const fnD = emptyExecutionResultWithUnencryptedLogs(
+      new FunctionL2Logs([Buffer.from('Log 4'), Buffer.from('Log 5'), Buffer.from('Log 6')]),
+    );
+    fnB.nestedExecutions.push(fnC, fnD);
+    executionResult.nestedExecutions.push(fnB);
+    const unencryptedLogs = collectUnencryptedLogs(executionResult);
+    expect(unencryptedLogs).toEqual([
+      FunctionL2Logs.empty(),
+      FunctionL2Logs.empty(),
+      new FunctionL2Logs([Buffer.from('Log 4'), Buffer.from('Log 5'), Buffer.from('Log 6')]),
+      new FunctionL2Logs([Buffer.from('Log 1'), Buffer.from('Log 2'), Buffer.from('Log 3')]),
     ]);
   });
 });
