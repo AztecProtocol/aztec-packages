@@ -2,27 +2,17 @@ use crate::abi::MAX_READ_REQUESTS;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 
-
-// TODO: Replace returned number of notes (MAX_READ_REQUESTS) with a larger global value.
-
 #[oracle(notifyCreatedNote)]
 fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _preimage: [Field; N],
 ) -> Field {}
 
-unconstrained fn notify_created_note_wrapper<N>(
+unconstrained fn notify_created_note<N>(
     storage_slot: Field,
     preimage: [Field; N],
 ) -> Field {
     notify_created_note_oracle(storage_slot, preimage)
-}
-
-fn notify_created_note<N>(
-    storage_slot: Field,
-    preimage: [Field; N],
-) -> Field {
-    notify_created_note_wrapper(storage_slot, preimage)
 }
 
 #[oracle(notifyNullifiedNote)]
@@ -32,20 +22,12 @@ fn notify_nullified_note_oracle<N>(
     _preimage: [Field; N],
 ) -> Field {}
 
-unconstrained fn notify_nullified_note_wrapper<N>(
+unconstrained fn notify_nullified_note<N>(
     storage_slot: Field,
     nullifier: Field,
     preimage: [Field; N],
 ) -> Field {
     notify_nullified_note_oracle(storage_slot, nullifier, preimage)
-}
-
-fn notify_nullified_note<N>(
-    storage_slot: Field,
-    nullifier: Field,
-    preimage: [Field; N],
-) -> Field {
-    notify_nullified_note_wrapper(storage_slot, nullifier, preimage)
 }
 
 #[oracle(getNote)]

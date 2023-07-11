@@ -68,7 +68,7 @@ contract PendingCommitments {
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
-        assert(note.eq(got_notes[0]));
+        assert(note.value == got_notes[0].value);
         assert(!got_notes[1].is_real);
 
         context.return_values = context.return_values.push(got_notes[0].value);

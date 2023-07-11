@@ -10,7 +10,6 @@ struct Context {
     // TODO(dbanks12): remove when stepwise execution of acir is complete
     // https://github.com/noir-lang/noir/pull/1729
     oracle_connector: Field,  // for forcing dependencies between oracle calls
-    sideeffect_counter: Field,
 
     args_hash : Field,
     return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
@@ -37,7 +36,6 @@ impl Context {
             // TODO(dbanks12): remove when stepwise execution of acir is complete
             // https://github.com/noir-lang/noir/pull/1729
             oracle_connector: 0,
-            sideeffect_counter: 0,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
@@ -56,17 +54,6 @@ impl Context {
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
         }
-    }
-
-    fn empty() -> Context {
-        let emptyInputs = abi::PrivateContextInputs {
-            call_context: abi::CallContext { msg_sender: 0, storage_contract_address: 0, portal_contract_address: 0, is_delegate_call: false, is_static_call: false, is_contract_deployment: false, },
-            roots: abi::CommitmentTreesRoots { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, },
-            contract_deployment_data: abi::ContractDeploymentData { constructor_vk_hash: 0, function_tree_root:  0, contract_address_salt: 0, portal_contract_address: 0, },
-            private_global_variables: abi::PrivateGlobalVariables { chain_id: 0, version: 0, },
-        };
-
-        Context::new(emptyInputs, 0)
     }
 
     fn finish(self) -> abi::PrivateCircuitPublicInputs {
@@ -94,25 +81,21 @@ impl Context {
 
     fn push_read_request(mut self: Self, read_request: Field) -> Self {
         self.read_requests = self.read_requests.push(read_request);
-        self.sideeffect_counter += 1;
         self
     }
 
     fn push_new_note_hash(mut self: Self, note_hash: Field) -> Self {
         self.new_commitments = self.new_commitments.push(note_hash);
-        self.sideeffect_counter += 1;
         self
     }
 
     fn push_new_nullifier(mut self: Self, nullifier: Field) -> Self {
         self.new_nullifiers = self.new_nullifiers.push(nullifier);
-        self.sideeffect_counter += 1;
         self
     }
 
     fn message_portal(mut self: Self, msg: Field) -> Self {
         self.new_l2_to_l1_msgs = self.new_l2_to_l1_msgs.push(msg);
-        self.sideeffect_counter += 1;
         self
     }
 

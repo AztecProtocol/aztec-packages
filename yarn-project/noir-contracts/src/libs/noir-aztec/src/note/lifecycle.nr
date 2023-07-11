@@ -13,6 +13,7 @@ fn create_note<Note, N>(
 ) -> Context {
     let mut siloed_note_hash = 0;
     let is_dummy = note_interface.is_dummy;
+    let mut notify_result = 0; // TODO(dbanks12): remove me (more below)
     if is_dummy(note) == false {
         let compute_note_hash = note_interface.compute_note_hash;
         let note_hash = compute_note_hash(note);
@@ -21,13 +22,14 @@ fn create_note<Note, N>(
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
         let mut myfield = 0;
-        let ret = notify_created_note(storage_slot, preimage);
-        // TODO(dbanks12): remove when stepwise execution of acir is complete
-        // https://github.com/noir-lang/noir/pull/1729
-        // replace with: `assert(notify_created_note(storage_slot, preimage) == 0);`
-        context.oracle_connector = ret; // to force dependency/ordering between oracle calls
-        assert(ret == 0);
+        notify_result = notify_created_note(storage_slot, preimage);
+        assert(notify_result == 0); // TODO(dbanks12): combine with above line (more below)
     }
+    // TODO(dbanks12): remove when stepwise execution of acir is complete
+    // https://github.com/noir-lang/noir/pull/1729
+    // replace with: `assert(notify_created_note(storage_slot, preimage) == 0);`
+    context.oracle_connector = notify_result; // to force dependency/ordering between oracle calls
+
     context.push_new_note_hash(siloed_note_hash)
 }
 
