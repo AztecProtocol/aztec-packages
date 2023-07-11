@@ -36,6 +36,27 @@ azti <command> [options]
 
 Replace `<command>` with the actual command you want to execute and `[options]` with any optional flags or parameters required by the command.
 
+### Environment Variables
+
+Some options can be set globally as environment variables to avoid having to re-enter them every time you call `azti.`
+These options are:
+
+- `PRIVATE_KEY` -> `-k, --private-key` for all commands that require a private key.
+- `AZTEC_RPC_HOST` -> `-u, --rpc-url` for commands that require an Aztec RPC URL.
+- `API_KEY` -> `a, --api-key` for `deploy-l1-contracts`.
+- `ETHEREUM_RPC_HOST` -> `-u, --rpc-url` for `deploy-l1-contracts`.
+
+So if for example you are running your Aztec RPC server remotely you can do:
+
+```shell
+export AZTEC_RPC_HOST=http://external.site/rpc:8080
+azti deploy my_contract.json
+```
+
+And this will send the request to `http://external.site/rpc:8080`.
+
+**NOTE**: Entering an option value will override the environment variable.
+
 ## Available Commands
 
 `azti` provides the following commands for interacting with Aztec:

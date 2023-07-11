@@ -31,6 +31,8 @@ const program = new Command();
 
 program.name('azti').description('CLI for interacting with Aztec.').version('0.1.0');
 
+const { ETHEREUM_HOST, AZTEC_RPC_HOST, PRIVATE_KEY, API_KEY } = process.env;
+
 /**
  * Main function for the Aztec CLI.
  */
@@ -41,10 +43,10 @@ async function main() {
     .argument(
       '[rpcUrl]',
       'Url of the ethereum host. Chain identifiers localhost and testnet can be used',
-      'http://localhost:8545',
+      ETHEREUM_HOST || 'http://localhost:8545',
     )
-    .option('-a, --api-key <string>', 'Api key for the ethereum host', undefined)
-    .option('-p, --private-key <string>', 'The private key to use for deployment')
+    .option('-a, --api-key <string>', 'Api key for the ethereum host', API_KEY)
+    .option('-p, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
@@ -80,8 +82,12 @@ async function main() {
   program
     .command('create-account')
     .description('Creates an aztec account that can be used for transactions.')
-    .option('-k, --private-key <string>', 'Private Key to use for the 1st account generation. Uses random by default.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option(
+      '-k, --private-key <string>',
+      'Private Key to use for the 1st account generation. Uses random by default.',
+      PRIVATE_KEY,
+    )
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
       const privateKey = options.privateKey && Buffer.from(options.privateKey.replace(/^0x/i, ''), 'hex');
@@ -97,7 +103,7 @@ async function main() {
     .description('Deploys a compiled Noir contract to Aztec.')
     .argument('<contractAbi>', "A compiled Noir contract's ABI in JSON format", undefined)
     .argument('[constructorArgs...]', 'Contract constructor arguments', [])
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .option(
       '-k, --public-key <string>',
       'Public key of the deployer. If not provided, it will check the RPC for existing ones.',
@@ -132,7 +138,7 @@ async function main() {
     .command('check-deploy')
     .description('Checks if a contract is deployed to the specified Aztec address.')
     .argument('<contractAddress>', 'An Aztec address to check if contract has been deployed to.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_contractAddress, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_contractAddress);
@@ -144,7 +150,7 @@ async function main() {
     .command('get-tx-receipt')
     .description('Gets the receipt for the specified transaction hash.')
     .argument('<txHash>', 'A TX hash to get the receipt for.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_txHash, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const txHash = TxHash.fromString(_txHash);
@@ -160,7 +166,7 @@ async function main() {
     .command('get-contract-data')
     .description('Gets information about the Aztec contract deployed at the specified address.')
     .argument('<contractAddress>', 'Aztec address of the contract.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .option('-b, --include-bytecode', "Include the contract's public function bytecode, if any.")
     .action(async (_contractAddress, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
@@ -193,7 +199,7 @@ async function main() {
     .description('Gets all the unencrypted logs from L2 blocks in the range specified.')
     .argument('<from>', 'Block num start for getting logs.')
     .argument('<take>', 'How many block logs to fetch.')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_from, _take, options) => {
       let from: number;
       let take: number;
@@ -216,7 +222,7 @@ async function main() {
 
   program
     .command('get-accounts')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const accounts = await client.getAccounts();
@@ -232,7 +238,7 @@ async function main() {
     .command('get-account-public-key')
     .description("Gets an account's public key, given its Aztec address.")
     .argument('<address>', 'The Aztec address to get the public key for')
-    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_address, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_address);
@@ -251,8 +257,8 @@ async function main() {
     .argument('<contractAddress>', 'Address of the contract')
     .argument('<functionName>', 'Name of Function to view')
     .argument('[functionArgs...]', 'Function arguments', [])
-    .option('-k, --private-key <string>', "The sender's private key.")
-    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-k, --private-key <string>', "The sender's private key.", PRIVATE_KEY)
+    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
 
     .action(async (contractFile, _contractAddress, functionName, _functionArgs, options) => {
       const { contractAddress, functionArgs, contractAbi } = prepTx(
@@ -289,7 +295,7 @@ async function main() {
     .argument('<functionName>', 'Name of Function to view')
     .argument('[functionArgs...]', 'Function arguments', [])
     .option('-f, --from <string>', 'Public key of the TX viewer. If empty, will try to find account in RPC.')
-    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (contractFile, _contractAddress, functionName, _functionArgs, options) => {
       const { contractAddress, functionArgs } = prepTx(
         contractFile,
@@ -328,7 +334,7 @@ async function main() {
   program
     .command('block-num')
     .description('Gets the current Aztec L2 number.')
-    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', 'http://localhost:8080')
+    .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const num = await client.getBlockNum();
