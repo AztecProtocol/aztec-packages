@@ -16,6 +16,7 @@ contract PendingCommitments {
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
     use dep::aztec::note::note_getter::NoteGetterOptions;
+    use dep::aztec::note::note_getter_options::Sort;
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
@@ -54,7 +55,16 @@ contract PendingCommitments {
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
 
-        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // Hack: we add the return value from `notifyCreatedNote` oracle call
+        // to the sort option to `getNotes` oracle call to force a dependency
+        // and therefore ordering between these two oracles
+        // TODO(dbanks12): remove when stepwise execution of acir is complete
+        // https://github.com/noir-lang/noir/pull/1729
+        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
+        let nada = Sort::nada();
+        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
@@ -101,7 +111,16 @@ contract PendingCommitments {
 
         let owner_balance = storage.balances.at(owner.x);
 
-        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // Hack: we add the return value from `notifyCreatedNote` oracle call
+        // to the sort option to `getNotes` oracle call to force a dependency
+        // and therefore ordering between these two oracles
+        // TODO(dbanks12): remove when stepwise execution of acir is complete
+        // https://github.com/noir-lang/noir/pull/1729
+        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
+        let nada = Sort::nada();
+        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 

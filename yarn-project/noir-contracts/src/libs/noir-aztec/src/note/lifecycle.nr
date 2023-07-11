@@ -20,7 +20,12 @@ fn create_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        let ret = notify_created_note(&mut context.oracle_connector, storage_slot, preimage);
+        let mut myfield = 0;
+        let ret = notify_created_note(storage_slot, preimage);
+        // TODO(dbanks12): remove when stepwise execution of acir is complete
+        // https://github.com/noir-lang/noir/pull/1729
+        // replace with: `assert(notify_created_note(storage_slot, preimage) == 0);`
+        context.oracle_connector = ret; // to force dependency/ordering between oracle calls
         assert(ret == 0);
     }
     context.push_new_note_hash(siloed_note_hash)
@@ -43,8 +48,7 @@ fn destroy_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        let ret = notify_nullified_note(&mut context.oracle_connector, storage_slot, nullifier, preimage);
-        assert(ret == 0);
+        assert(notify_nullified_note(storage_slot, nullifier, preimage) == 0);
     }
 
     context.push_new_nullifier(nullifier)

@@ -84,4 +84,5 @@ describe('e2e_pending_commitments_contract', () => {
 
   // TODO(dbanks12): tests for nullifying pending notes
   // TODO(dbanks12): test expected kernel failures if transient reads and nullifiers (or their hints) don't match or follow rules
+  // TODO(dbanks12): test creation, getting, nullifying of multiple notes
 });

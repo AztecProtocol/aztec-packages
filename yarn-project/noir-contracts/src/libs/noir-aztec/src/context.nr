@@ -7,7 +7,9 @@ use crate::messaging::process_l1_to_l2_message;
 // When finished, one can call .finish() to convert back to the abi
 struct Context {
     inputs: abi::PrivateContextInputs,
-    oracle_connector: Field,  // for forcing dependencies between sequential oracle calls
+    // TODO(dbanks12): remove when stepwise execution of acir is complete
+    // https://github.com/noir-lang/noir/pull/1729
+    oracle_connector: Field,  // for forcing dependencies between oracle calls
     sideeffect_counter: Field,
 
     args_hash : Field,
@@ -32,6 +34,8 @@ impl Context {
     fn new(inputs: abi::PrivateContextInputs, args_hash: Field) -> Context {
         Context {
             inputs: inputs,
+            // TODO(dbanks12): remove when stepwise execution of acir is complete
+            // https://github.com/noir-lang/noir/pull/1729
             oracle_connector: 0,
             sideeffect_counter: 0,
 

@@ -81,10 +81,10 @@ export class PrivateFunctionExecution {
             ),
           ),
         ),
-      getNotes: (_oracleConnector, [slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
+      getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: (_oracleConnector, [storageSlot], acvmPreimage) => {
+      notifyCreatedNote: ([storageSlot], acvmPreimage) => {
         this.log(`Created note at contractAddress ${this.contractAddress} in slot ${storageSlot}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
