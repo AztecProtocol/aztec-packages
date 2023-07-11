@@ -1,9 +1,10 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
 import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
 
 import { pointToPublicKey, setup } from './utils.js';
+import { CircuitError } from '@aztec/circuits.js';
 
 describe('e2e_pending_commitments_contract', () => {
   let aztecNode: AztecNodeService;
@@ -46,14 +47,20 @@ describe('e2e_pending_commitments_contract', () => {
     const tx = deployedContract.methods
       .create_get_and_check_note_inline(mintAmount, ownerPublicKey)
       .send({ from: owner });
-    //assert commitment output from app
-    //assert no rr output from app that matches pending commitment
-    //assert bal?
 
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
+    // with `tx.isMined()` (etc) once kernel supports forwarding and matching of transient reads.
+    expect.assertions(2);
+    try {
+      await tx.isMined(0, 0.1);
+    } catch (error) {
+      expect(error).toBeInstanceOf(CircuitError);
+      expect(error).toHaveProperty('message', expect.stringContaining('kernel could not match read_request'));
+    }
 
-    expect(receipt.status).toBe(TxStatus.MINED);
+    //await tx.isMined(0, 0.1);
+    //const receipt = await tx.getReceipt();
+    //expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
   it('Noir function can "get" notes inserted in a previous function call in same TX', async () => {
@@ -72,17 +79,24 @@ describe('e2e_pending_commitments_contract', () => {
         Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
       )
       .send({ from: owner });
-    //assert commitment output from app
-    //assert no rr output from app that matches pending commitment
-    //assert bal?
 
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
+    // with `tx.isMined()` (etc) once kernel supports forwarding and matching of transient reads.
+    expect.assertions(2);
+    try {
+      await tx.isMined(0, 0.1);
+    } catch (error) {
+      expect(error).toBeInstanceOf(CircuitError);
+      expect(error).toHaveProperty('message', expect.stringContaining('kernel could not match read_request'));
+    }
 
-    expect(receipt.status).toBe(TxStatus.MINED);
+    //await tx.isMined(0, 0.1);
+    //const receipt = await tx.getReceipt();
+    //expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
-  // TODO(dbanks12): tests for nullifying pending notes
-  // TODO(dbanks12): test expected kernel failures if transient reads and nullifiers (or their hints) don't match or follow rules
-  // TODO(dbanks12): test creation, getting, nullifying of multiple notes
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): test nullify & squash of pending notes
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): test expected kernel failures if transient reads (or their hints) don't match
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): test expected kernel failures if nullifiers (or their hints) don't match
+  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/839): test creation, getting, nullifying of multiple notes
 });

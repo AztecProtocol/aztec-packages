@@ -85,7 +85,6 @@ export class PrivateFunctionExecution {
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       notifyCreatedNote: ([storageSlot], acvmPreimage) => {
-        this.log(`Created note at contractAddress ${this.contractAddress} in slot ${storageSlot}`);
         const pendingNoteData: PendingNoteData = {
           preimage: acvmPreimage,
           contractAddress: this.contractAddress,
@@ -100,8 +99,7 @@ export class PrivateFunctionExecution {
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
-        // TODO(dbanks12) if nullifies pending commitment remove it from this.context.pendingCommitments,
-        // and flag this nullifier as transient in simulator output.  Can we provide kernel hint here?
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),

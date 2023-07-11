@@ -107,9 +107,22 @@ void common_validate_read_requests(DummyBuilder& builder,
                        "and merkle-hashing to a root using membership witness"),
                 CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
-        // TODO(dbanks12): kernel must ensure that transient reads are either matched to a commitment or
-        // forwarded to the next iteration to handle it.
-        // https://github.com/AztecProtocol/aztec-packages/issues/906
+        if (witness.is_transient) {
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906):
+            // kernel must ensure that transient reads are either matched to a
+            // commitment or forwarded to the next iteration to handle it.
+            builder.do_assert(
+                false,
+                format("kernel could not match read_request[",
+                       rr_idx,
+                       "] with a commitment and does not yet support forwarding read requests.",
+                       "\n\tread_request:      ",
+                       read_request,
+                       "\n\tsiloed-rr* (leaf): ",
+                       leaf,
+                       "\n\t* got leaf by siloing read_request (compressing with storage_contract_address)"),
+                CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
+        }
     }
 }
 

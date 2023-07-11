@@ -96,7 +96,8 @@ export class ClientTxExecutionContext {
     limit: ACVMField,
     _offset: ACVMField,
   ) {
-    // TODO(dbanks12): how should sorting and offset affect pending commitments?
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): don't 'get' notes nullified in pendingNullifiers
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1030): enforce sorting and offset for pending notes
     let pendingCount = 0;
     const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages
     //console.log(`Looking for ${limit} notes matching ${contractAddress.toString()} ${storageSlot.toString()}`);
@@ -205,9 +206,7 @@ export class ClientTxExecutionContext {
    */
   public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
-    // TODO(dbanks12): support getting pending commitments
-    // - may require notifyCreatedNote to output commitment as well, but then it may
-    // need to be siloed here commitments in tree are siloed by kernel
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
     return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
   }
