@@ -50,9 +50,9 @@ fn compute_note_hash(note: ClaimNote) -> Field {
     ])[0]
 }
 
-fn compute_nullifier(note: ClaimNote, final_note_hash: Field) -> Field {
+fn compute_nullifier(note: ClaimNote, siloed_note_hash: Field) -> Field {
     dep::std::hash::pedersen([
-        final_note_hash,
+        siloed_note_hash,
         note.secret_hash, // Include the secret_hash again so that the public won't know the note has been claimed.
     ])[0]
 }

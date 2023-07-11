@@ -152,6 +152,8 @@ describe('Private Execution test suite', () => {
     });
 
     beforeEach(() => {
+      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
+
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
           ZkTokenContractAbi.functions.find(f =>
@@ -221,8 +223,6 @@ describe('Private Execution test suite', () => {
         };
       });
 
-      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
-
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });
 
@@ -283,8 +283,6 @@ describe('Private Execution test suite', () => {
           ),
         };
       });
-
-      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
 
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });

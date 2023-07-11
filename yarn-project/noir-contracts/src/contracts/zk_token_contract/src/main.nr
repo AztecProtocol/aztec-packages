@@ -12,7 +12,7 @@ contract ZkToken {
     use dep::custom_notes::{
         claim_note::{ClaimNote, ClaimNoteInterface},
         constants::MAX_NOTE_FIELDS_SIZE,
-        utils,
+        utils::compute_note_hash_and_nullifier,
     };
 
     use dep::aztec::abi;
@@ -166,21 +166,12 @@ contract ZkToken {
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 
-    /// ABI compute_note_hash type "unconstrained"
-    fn compute_note_hash(storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub Field {
+    /// ABI stev type "unconstrained"
+    fn stev(storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub [Field; 2] {
         if (storage_slot == 2) {
-            utils::compute_note_hash(storage_slot, ClaimNoteInterface, preimage)
+            compute_note_hash_and_nullifier(storage_slot, ClaimNoteInterface, preimage)
         } else {
-            utils::compute_note_hash(storage_slot, ValueNoteInterface, preimage)
-        }
-    }
-
-    /// ABI compute_nullifier type "unconstrained"
-    fn compute_nullifier(storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub Field {
-        if (storage_slot == 2) {
-            utils::compute_nullifier(storage_slot, ClaimNoteInterface, preimage)
-        } else {
-            utils::compute_nullifier(storage_slot, ValueNoteInterface, preimage)
+            compute_note_hash_and_nullifier(storage_slot, ValueNoteInterface, preimage)
         }
     }
 }

@@ -1,7 +1,7 @@
 use crate::abi;
 use crate::context::Context;
 use crate::note::note_getter_options::NoteGetterOptions;
-use crate::note::note_hash::compute_siloed_note_hash;
+use crate::note::note_hash::compute_inner_note_hash;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle;
 
@@ -20,7 +20,7 @@ fn ensure_note_exists<Note, N>(
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
         let compute_note_hash = note_interface.compute_note_hash;
-        note_hash = compute_siloed_note_hash(storage_slot, compute_note_hash(note));
+        note_hash = compute_inner_note_hash(storage_slot, compute_note_hash(note));
     };
     context.push_read_request(note_hash)
 }
@@ -50,7 +50,7 @@ fn get_notes<Note, N, S, P>(
         let mut note_hash = 0;
         if is_dummy(note) == false {
             let compute_note_hash = note_interface.compute_note_hash;
-            note_hash = compute_siloed_note_hash(storage_slot, compute_note_hash(note));
+            note_hash = compute_inner_note_hash(storage_slot, compute_note_hash(note));
         };
         context = context.push_read_request(note_hash);
     };

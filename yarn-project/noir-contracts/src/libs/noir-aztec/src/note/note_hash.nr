@@ -1,4 +1,4 @@
-fn compute_siloed_note_hash(storage_slot: Field, note_hash: Field) -> Field {
+fn compute_inner_note_hash(storage_slot: Field, note_hash: Field) -> Field {
     dep::std::hash::pedersen([
         storage_slot,
         note_hash,
@@ -6,7 +6,7 @@ fn compute_siloed_note_hash(storage_slot: Field, note_hash: Field) -> Field {
 }
 
 // TODO: Should include contract address and nonce.
-fn compute_final_note_hash(storage_slot: Field, note_hash: Field) -> Field {
+fn compute_siloed_note_hash(storage_slot: Field, note_hash: Field) -> Field {
     dep::std::hash::pedersen([
         storage_slot,
         note_hash,

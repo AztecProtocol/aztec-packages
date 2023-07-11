@@ -79,13 +79,13 @@ fn compute_note_hash(note: ValueNote) -> Field {
     ])[0]
 }
 
-fn compute_nullifier(note: ValueNote, final_note_hash: Field) -> Field {
+fn compute_nullifier(note: ValueNote, siloed_note_hash: Field) -> Field {
     if (!note.is_real) {
         0
     } else {
         let secret = get_secret_key(note.owner);
         dep::std::hash::pedersen([
-            final_note_hash,
+            siloed_note_hash,
             secret, 
         ])[0]
     }
