@@ -6,4 +6,4 @@ export * from './auth/index.js';
 export * from './account_impl/index.js';
 
 // TODO - only export necessary stuffs
-export * from '@aztec/aztec-rpc';
+// export * from '@aztec/aztec-rpc';

@@ -28,5 +28,8 @@
       "path": "../types"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src",
+    "../types/src/tx/tx_receipt.ts"
+  ]
 }

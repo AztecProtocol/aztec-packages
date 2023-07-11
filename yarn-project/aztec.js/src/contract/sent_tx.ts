@@ -1,6 +1,6 @@
-import { TxReceipt, TxHash, TxStatus } from '@aztec/aztec-rpc';
+import { TxHash } from '@aztec/aztec-rpc';
 import { retryUntil } from '@aztec/foundation/retry';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, TxReceipt, TxStatus } from '@aztec/types';
 
 /**
  * The SentTx class represents a sent transaction through the AztecRPCClient, providing methods to fetch

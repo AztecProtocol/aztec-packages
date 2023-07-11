@@ -10,8 +10,8 @@ import {
   Tx,
   TxExecutionRequest,
   TxHash,
+  TxReceipt,
 } from '@aztec/types';
-import { TxReceipt } from '../tx/index.js';
 
 /**
  * Represents a deployed contract on the Aztec network.

@@ -1,5 +1,5 @@
 import { mockTx } from './mocks.js';
-import { Tx } from './tx.js';
+import { Tx } from './tx/index.js';
 
 describe('Tx', () => {
   it('convert to and from buffer', () => {

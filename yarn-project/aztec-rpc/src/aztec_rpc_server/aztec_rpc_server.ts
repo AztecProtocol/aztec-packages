@@ -7,24 +7,25 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey } from '@aztec/key-store';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
+  AztecRPC,
   ContractData,
   ContractPublicData,
+  DeployedContract,
   ExecutionRequest,
   L2BlockL2Logs,
   LogType,
+  NodeInfo,
   PartialContractAddress,
   Tx,
   TxExecutionRequest,
   TxHash,
-  AztecRPC,
-  DeployedContract,
-  NodeInfo,
+  TxReceipt,
+  TxStatus,
 } from '@aztec/types';
 import { AccountState } from '../account_state/account_state.js';
 import { toContractDao } from '../contract_database/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
-import { TxReceipt, TxStatus } from '../tx/index.js';
 
 /**
  * A remote Aztec RPC Client implementation.

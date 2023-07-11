@@ -1,3 +1,5 @@
+export * from './abi_coder.js';
+
 /**
  * A named type.
  */
