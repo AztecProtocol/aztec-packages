@@ -34,8 +34,8 @@ TEST_F(native_private_kernel_ordering_tests, native_one_read_request_choping_com
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, KERNEL_READ_REQUESTS_LENGTH> read_requests{};
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, KERNEL_READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1282);
@@ -65,8 +65,8 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, KERNEL_READ_REQUESTS_LENGTH> read_requests{};
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, KERNEL_READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1285);
@@ -104,8 +104,8 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, KERNEL_READ_REQUESTS_LENGTH> read_requests{};
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, KERNEL_READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1285);

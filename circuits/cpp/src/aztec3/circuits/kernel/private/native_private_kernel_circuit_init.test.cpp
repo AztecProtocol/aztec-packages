@@ -395,8 +395,8 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
     auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
-    std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
+    std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
     bad_requests[1] = read_requests0[1];
@@ -429,8 +429,8 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
     // empty requests
-    std::array<fr, READ_REQUESTS_LENGTH> const read_requests{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
+    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -518,7 +518,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -588,7 +588,7 @@ TEST_F(native_private_kernel_init_tests, skip_native_max_read_requests_one_trans
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 

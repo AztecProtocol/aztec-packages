@@ -61,7 +61,7 @@ export class PrivateCallData {
     public acirHash: Fr,
   ) {
     assertMemberLength(this, 'privateCallStackPreimages', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'readRequestMembershipWitnesses', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readRequestMembershipWitnesses', MAX_READ_REQUESTS_PER_CALL);
   }
 
   /**

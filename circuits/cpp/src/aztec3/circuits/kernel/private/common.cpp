@@ -69,9 +69,9 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  */
 void common_validate_read_requests(DummyBuilder& builder,
                                    NT::fr const& storage_contract_address,
-                                   std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
-                                   std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
-                                              READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
+                                   std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+                                   std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
+                                              MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses,
                                    NT::fr const& historic_private_data_tree_root)
 {
     // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
@@ -86,7 +86,7 @@ void common_validate_read_requests(DummyBuilder& builder,
 
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
-    for (size_t rr_idx = 0; rr_idx < aztec3::READ_REQUESTS_LENGTH; rr_idx++) {
+    for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
         // the read request comes un-siloed from the app circuit so we must silo it here
         // so that it matches the private data tree leaf that we are membership checking
@@ -166,7 +166,7 @@ void common_update_end_values(DummyBuilder& builder,
     // Read requests and witnessess to be accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
     {
-        std::array<NT::fr, READ_REQUESTS_LENGTH> siloed_read_requests;
+        std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> siloed_read_requests;
         for (size_t i = 0; i < read_requests.size(); ++i) {
             siloed_read_requests[i] =
                 read_requests[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_requests[i]);

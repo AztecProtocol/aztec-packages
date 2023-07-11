@@ -9,7 +9,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
-  READ_REQUESTS_LENGTH,
+  MAX_READ_REQUESTS_PER_CALL,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -117,7 +117,7 @@ export class KernelProver {
 
       // fill in witnesses for remaining/empty read requests
       readRequestMembershipWitnesses.push(
-        ...Array(READ_REQUESTS_LENGTH - readRequestMembershipWitnesses.length)
+        ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
           .fill(0)
           .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );

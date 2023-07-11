@@ -29,8 +29,8 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, KERNEL_READ_REQUESTS_LENGTH> read_requests{};
-    std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, KERNEL_READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
