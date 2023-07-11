@@ -31,7 +31,7 @@ const program = new Command();
 
 program.name('azti').description('CLI for interacting with Aztec.').version('0.1.0');
 
-const { ETHEREUM_HOST, AZTEC_RPC_HOST, PRIVATE_KEY, API_KEY } = process.env;
+const { ETHEREUM_HOST, AZTEC_RPC_HOST, PRIVATE_KEY, PUBLIC_KEY, API_KEY } = process.env;
 
 /**
  * Main function for the Aztec CLI.
@@ -107,6 +107,7 @@ async function main() {
     .option(
       '-k, --public-key <string>',
       'Public key of the deployer. If not provided, it will check the RPC for existing ones.',
+      PUBLIC_KEY,
     )
     .action(async (contractFile: string, args: string[], options: any) => {
       const contractAbi = getContractAbi(contractFile, log);

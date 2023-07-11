@@ -42,6 +42,7 @@ Some options can be set globally as environment variables to avoid having to re-
 These options are:
 
 - `PRIVATE_KEY` -> `-k, --private-key` for all commands that require a private key.
+- `PUBLIC_KEY` -> `-k, --public-key` for all commands that require a public key.
 - `AZTEC_RPC_HOST` -> `-u, --rpc-url` for commands that require an Aztec RPC URL.
 - `API_KEY` -> `a, --api-key` for `deploy-l1-contracts`.
 - `ETHEREUM_RPC_HOST` -> `-u, --rpc-url` for `deploy-l1-contracts`.
