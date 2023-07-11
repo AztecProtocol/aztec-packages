@@ -4,9 +4,16 @@ contract ZkToken {
     // Libs
     use dep::token_utils::{
         balance_utils,
-        value_note::utils::{send_note, spend_notes},
+        value_note::{
+            value_note::ValueNoteInterface,
+            utils::{send_note, spend_notes},
+        },
     };
-    use dep::custom_notes::claim_note::ClaimNote;
+    use dep::custom_notes::{
+        claim_note::{ClaimNote, ClaimNoteInterface},
+        constants::MAX_NOTE_FIELDS_SIZE,
+        utils,
+    };
 
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
@@ -157,5 +164,23 @@ contract ZkToken {
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance.storage_slot)
+    }
+
+    /// ABI compute_note_hash type "unconstrained"
+    fn compute_note_hash(storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub Field {
+        if (storage_slot == 2) {
+            utils::compute_note_hash(storage_slot, ClaimNoteInterface, preimage)
+        } else {
+            utils::compute_note_hash(storage_slot, ValueNoteInterface, preimage)
+        }
+    }
+
+    /// ABI compute_nullifier type "unconstrained"
+    fn compute_nullifier(storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub Field {
+        if (storage_slot == 2) {
+            utils::compute_nullifier(storage_slot, ClaimNoteInterface, preimage)
+        } else {
+            utils::compute_nullifier(storage_slot, ValueNoteInterface, preimage)
+        }
     }
 }

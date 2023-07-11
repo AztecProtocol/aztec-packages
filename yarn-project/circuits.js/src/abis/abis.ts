@@ -14,8 +14,10 @@ import {
   TxRequest,
   Vector,
 } from '../index.js';
+import { GeneratorIndex } from '../structs/generators.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { pedersenCompressWithHashIndex } from '../barretenberg/crypto/index.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -228,6 +230,23 @@ export function computePartialContractAddress(
 export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
   wasm.call('pedersen__init');
   return abisSiloCommitment(wasm, contract, commitment);
+}
+
+/**
+ * Computes a siloed nullifier, given the contract address and the inner nullifier.
+ * A siloed nullifier effectively namespaces a nullifier to a specific contract.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contract - The contract address.
+ * @param innerNullifier - The nullifier to silo.
+ * @returns A siloed nullifier.
+ */
+export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
+  const buf = pedersenCompressWithHashIndex(
+    wasm,
+    [contract.toBuffer(), innerNullifier.toBuffer()],
+    GeneratorIndex.OUTER_NULLIFIER,
+  );
+  return Fr.fromBuffer(buf);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;
