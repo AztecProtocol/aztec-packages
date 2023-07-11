@@ -98,7 +98,7 @@ export class KernelProver {
       );
 
       // Start with the partially filled in read request witnesses from the simulator
-      // and fill the non-transient ones in with sibling paths.
+      // and fill the non-transient ones in with sibling paths via oracle.
       const readRequestMembershipWitnesses = currentExecution.readRequestPartialWitnesses;
       for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
@@ -108,8 +108,7 @@ export class KernelProver {
         }
         const rrWitness = readRequestMembershipWitnesses[rr];
         if (!rrWitness.isTransient) {
-          // Non-transient reads must contain full membership witness
-          // with sibling path from commitment to root.
+          // Non-transient reads must contain full membership witness with sibling path from commitment to root.
           // Get regular membership witness to fill in sibling path in the read request witness.
           const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex);
           rrWitness.siblingPath = membershipWitness.siblingPath;

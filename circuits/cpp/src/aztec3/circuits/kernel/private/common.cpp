@@ -77,6 +77,9 @@ void common_validate_read_requests(DummyBuilder& builder,
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::READ_REQUESTS_LENGTH; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
+        // the read request comes un-siloed from the app circuit so we must silo it here
+        // so that it matches the private data tree leaf that we are membership checking
+        const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
@@ -85,10 +88,6 @@ void common_validate_read_requests(DummyBuilder& builder,
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a transient read.
         if (read_request != 0 && !witness.is_transient) {
-            // the read request comes un-siloed from the app circuit so we must silo it here
-            // so that it matches the private data tree leaf that we are membership checking
-            const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
-
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
@@ -108,6 +107,9 @@ void common_validate_read_requests(DummyBuilder& builder,
                        "and merkle-hashing to a root using membership witness"),
                 CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
+        // TODO(dbanks12): kernel must ensure that transient reads are either matched to a commitment or
+        // forwarded to the next iteration to handle it.
+        // https://github.com/AztecProtocol/aztec-packages/issues/906
     }
 }
 
