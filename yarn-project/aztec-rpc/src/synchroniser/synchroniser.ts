@@ -97,8 +97,8 @@ export class Synchroniser {
 
       // attach logs to blocks
       blocks.forEach((block, i) => {
-        block.attachLogs(encryptedLogs[i], 'newEncryptedLogs');
-        block.attachLogs(unencryptedLogs[i], 'newUnencryptedLogs');
+        block.attachLogs(encryptedLogs[i], LogType.ENCRYPTED);
+        block.attachLogs(unencryptedLogs[i], LogType.UNENCRYPTED);
       });
 
       // Wrap blocks in block contexts.
