@@ -164,7 +164,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getLogs(from, take, processedLogType);
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${processedLogType}`);
       expect(result).toEqual([log1, log2]);
     });
 
@@ -180,7 +180,7 @@ describe('HttpNode', () => {
 
         const result = await httpNode.getLogs(from, take, processedLogType);
 
-        expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${logType}`);
+        expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${processedLogType}`);
         expect(result).toEqual([]);
       },
     );

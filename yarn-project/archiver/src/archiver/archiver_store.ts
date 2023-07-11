@@ -37,7 +37,7 @@ export interface ArchiverDataStore {
    * @param logType - The type of the logs to be added to the store.
    * @returns True if the operation is successful.
    */
-  addLogs(data: L2BlockL2Logs[], logType: 'encrypted' | 'unencrypted'): Promise<boolean>;
+  addLogs(data: L2BlockL2Logs[], logType: LogType): Promise<boolean>;
 
   /**
    * Append new pending L1 to L2 messages to the store.
@@ -190,8 +190,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param logType - The type of the logs to be added to the store.
    * @returns True if the operation is successful.
    */
-  addLogs(data: L2BlockL2Logs[], logType: 'encrypted' | 'unencrypted'): Promise<boolean> {
-    logType === 'encrypted' ? this.encryptedLogs.push(...data) : this.unencryptedLogs.push(...data);
+  addLogs(data: L2BlockL2Logs[], logType: LogType): Promise<boolean> {
+    logType === LogType.ENCRYPTED ? this.encryptedLogs.push(...data) : this.unencryptedLogs.push(...data);
     return Promise.resolve(true);
   }
 

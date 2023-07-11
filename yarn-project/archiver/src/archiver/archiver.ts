@@ -204,13 +204,13 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     const encryptedLogs = retrievedBlocks.retrievedData.map(block => {
       return block.newEncryptedLogs!;
     });
-    await this.store.addLogs(encryptedLogs, 'encrypted');
+    await this.store.addLogs(encryptedLogs, LogType.ENCRYPTED);
 
     // store unencrypted logs from L2 Blocks that we have retrieved
     const unencryptedLogs = retrievedBlocks.retrievedData.map(block => {
       return block.newUnencryptedLogs!;
     });
-    await this.store.addLogs(unencryptedLogs, 'unencrypted');
+    await this.store.addLogs(unencryptedLogs, LogType.UNENCRYPTED);
 
     // store contracts for which we have retrieved L2 blocks
     const lastKnownL2BlockNum = retrievedBlocks.retrievedData[retrievedBlocks.retrievedData.length - 1].number;

@@ -2,7 +2,7 @@ import { AztecNode } from '@aztec/aztec-node';
 import { Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { LogType, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { MerkleTreeId, Tx, TxHash } from '@aztec/types';
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
 import { PromiseReadable } from 'promise-readable';
@@ -115,14 +115,12 @@ export function appFactory(node: AztecNode, prefix: string) {
   router.get('/get-logs', async (ctx: Koa.Context) => {
     const from = +ctx.query.from!;
     const take = +ctx.query.take!;
-    const logType = ctx.query.logType;
-    if (logType !== 'encrypted' && logType !== 'unencrypted') {
-      throw new Error('Invalid log type');
+    const logType = Number(ctx.query.logType);
+    if (logType !== 0 && logType !== 1) {
+      throw new Error('Invalid log type: ' + ctx.query.logType);
     }
 
-    const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
-
-    const logs = await node.getLogs(from, take, processedLogType);
+    const logs = await node.getLogs(from, take, logType);
     const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
