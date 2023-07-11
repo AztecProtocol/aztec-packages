@@ -1,7 +1,7 @@
 import {
   AztecAddress,
   Fr,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   KernelCircuitPublicInputs,
   Proof,
   PublicCallRequest,
@@ -79,7 +79,7 @@ export class Tx {
       reader.readObject(TxL2Logs),
       reader.readObject(TxL2Logs),
       reader.readArray(reader.readNumber(), EncodedContractFunction),
-      reader.readArray(KERNEL_PUBLIC_CALL_STACK_LENGTH, PublicCallRequest),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
     );
   }
 
