@@ -432,8 +432,7 @@ export class AccountState {
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          from: this.address,
-          to,
+          origin: this.address,
           contractAddress,
           error: '',
         });
