@@ -16,7 +16,7 @@ import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
@@ -479,7 +479,7 @@ describe('Private Execution test suite', () => {
 
       // Generate a partial address, pubkey, and resulting address
       const partialAddress = Fr.random();
-      const pubKey = Point.random();
+      const pubKey = new Point(new Coordinate([Fr.random(), Fr.ZERO]), new Coordinate([Fr.random(), Fr.ZERO]));
       const wasm = await CircuitsWasm.get();
       const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
       const args = [address];
