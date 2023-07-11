@@ -2,6 +2,7 @@ import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { EntrypointPayload } from '../account_impl/account_contract.js';
 
 export * from './ecdsa.js';
+export * from './schnorr.js';
 
 /**
  * An interface for the payload returned from auth operations.
