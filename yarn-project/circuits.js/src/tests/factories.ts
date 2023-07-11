@@ -204,7 +204,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_READ_REQUESTS_PER_CALL, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero), // private call stack must be empty
@@ -232,7 +232,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_READ_REQUESTS_PER_CALL, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x300),
