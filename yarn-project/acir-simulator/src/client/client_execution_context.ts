@@ -67,42 +67,34 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Gets the notes for a contract address and storage slot.
-   * Returns flattened array containing real-note-count and note preimages.
+   * Gets the pending notes for a contract address and storage slot.
+   * Returns number of notes retrieved and flattened array of fields representing pending notes.
    *
    * Details:
    * Check for pending notes with matching address/slot.
-   * If limit isn't reached after pending notes are all checked,
-   * fetchNotes from DB with modified limit.
-   * Real notes coming from DB will have a leafIndex which
-   * represents their index in the private data tree.
    * Pending notes will have no leaf index and will be flagged
    * as transient since they don't exist (yet) in the private data tree.
    *
-   * This function will populate this.readRequestPartialWitnesses which
-   * here is just used to flag reads as "transient" or not and to mark
-   * non-transient reads with their leafIndex. The KernelProver will
-   * use this to fully populate the witnesses.
+   * This function will partially populate this.readRequestPartialWitnesses solely
+   * to flag these reads as "transient" since they correspond to pending commitments.
+   * The KernelProver will use this to fill in kernel hints.
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param noteSize - The note size.
-   * @param sortBy - The sort by fields.
-   * @param sortOrder - The sort order fields.
+   * @param _sortBy - The sort by fields.
+   * @param _sortOrder - The sort order fields.
    * @param limit - The limit.
-   * @param offset - The offset.
-   * @param returnSize - The return size.
-   * @returns An array of ACVM fields for the note count and the requested note preimages,
-   * and another array of indices corresponding to each note
+   * @param _offset - The offset.
+   * @returns pendingCount - number of pending notes retrieved, and
+   * pendingPreimages - array of ACVM fields that is the retrieved note preimages
    */
-  public async getNotes(
+  private getPendingNotes(
     contractAddress: AztecAddress,
     storageSlot: ACVMField,
-    sortBy: ACVMField[],
-    sortOrder: ACVMField[],
+    _sortBy: ACVMField[],
+    _sortOrder: ACVMField[],
     limit: ACVMField,
-    offset: ACVMField,
-    returnSize: ACVMField,
+    _offset: ACVMField,
   ) {
     // TODO(dbanks12): how should sorting and offset affect pending commitments?
     let pendingCount = 0;
@@ -123,6 +115,55 @@ export class ClientTxExecutionContext {
         this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.newTransient(new Fr(0), new Fr(0)));
       }
     }
+    return { pendingCount, pendingPreimages };
+  }
+
+  /**
+   * Gets the notes for a contract address and storage slot.
+   * Returns flattened array containing real-note-count and note preimages.
+   *
+   * @remarks
+   *
+   * Check for pending notes with matching address/slot.
+   * If limit isn't reached after pending notes are checked/retrieved,
+   * fetchNotes from DB with modified limit.
+   * Real notes coming from DB will have a leafIndex which
+   * represents their index in the private data tree.
+   *
+   * This function will populate this.readRequestPartialWitnesses which
+   * here is just used to flag reads as "transient" (one in getPendingNotes)
+   * or to flag non-transient reads with their leafIndex.
+   * The KernelProver will use this to fully populate witnesses and provide kernel hints.
+   *
+   * @param contractAddress - The contract address.
+   * @param storageSlot - The storage slot.
+   * @param sortBy - The sort by fields.
+   * @param sortOrder - The sort order fields.
+   * @param limit - The limit.
+   * @param offset - The offset.
+   * @param returnSize - The return size.
+   * @returns An array of ACVM fields containing:
+   * count - number of real (non-padding) notes retrieved,
+   * preimages - the real note preimages retrieved, and
+   * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
+   */
+  public async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: ACVMField,
+    sortBy: ACVMField[],
+    sortOrder: ACVMField[],
+    limit: ACVMField,
+    offset: ACVMField,
+    returnSize: ACVMField,
+  ) {
+    const { pendingCount, pendingPreimages } = this.getPendingNotes(
+      contractAddress,
+      storageSlot,
+      sortBy,
+      sortOrder,
+      limit,
+      offset,
+    );
 
     const dbLimit = +limit - pendingCount;
     const { count: dbCount, notes: dbNotes } = await this.db.getNotes(
