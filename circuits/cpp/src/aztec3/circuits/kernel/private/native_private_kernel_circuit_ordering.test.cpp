@@ -33,7 +33,7 @@ TEST_F(native_private_kernel_ordering_tests, native_one_read_request_choping_com
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
@@ -61,7 +61,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
@@ -98,7 +98,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
     std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
@@ -121,7 +121,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
-    auto const& public_inputs = native_private_kernel_circuit_ordering(
+    native_private_kernel_circuit_ordering(
         builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
     auto failure = builder.get_first_failure();
