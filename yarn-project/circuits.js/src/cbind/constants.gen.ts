@@ -1,4 +1,5 @@
 /* eslint-disable */
+// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants
 function log2(input: number): number {
   return input < 2 ? 0 : 1 + log2(Math.floor(input / 2));
 }

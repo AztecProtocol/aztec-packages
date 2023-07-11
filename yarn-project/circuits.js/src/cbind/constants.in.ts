@@ -21,15 +21,12 @@ function convertToTypeScript(): void {
 
   // Remove "static_cast<size_t>( )""
   content = content.replace(/static_cast<size_t>\(log2\([^)]+\)/g, match => {
-    const innerContent = match.substring(20, match.length - 1); // Extract content inside log2()
+    const innerContent = match.substring(20, match.length - 1); // Extract content inside static_cast<size_t>(...)
     return `${innerContent}`;
   });
 
+  // Remove size_t
   content = content.replace(/size_t/g, '');
-
-  // Replace namespace
-  content = content.replace(/namespace (\w+) {/g, 'export namespace $1 {');
-  content = content.replace(/}  \/\/ namespace (\w+)/g, '}');
 
   // Replace constexpr
   content = content.replace(/constexpr/g, 'export const');
@@ -50,9 +47,11 @@ function convertToTypeScript(): void {
   content =
     'function log2(input: number): number {return (input < 2) ? 0 : 1 + log2(Math.floor(input / 2));}' + content;
 
-  // Add TypeScript file extension
+  // Add file origin info
+  content = '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants\n' + content;
+
+  // Disable eslint for the whole file
   content = '/* eslint-disable */\n' + content;
-  content = content.replace(/\n/g, '\n');
 
   fs.writeFileSync(TS_FILE_PATH, content);
 }
