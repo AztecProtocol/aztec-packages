@@ -51,4 +51,4 @@ From the `aztec-sandbox` directory, you can run the two existing examples:
 ## Publishing
 
 This package is set-up to be published on dockerhub by CI whenever there's a tagged release on `master` branch.
-It's published under the tag `aztecprotocol/aztec-sandbox:latest`.
+It's published under the tags `aztecprotocol/aztec-sandbox:latest` & `aztecprotocol/aztec-sandbox:<version-tag>`.
