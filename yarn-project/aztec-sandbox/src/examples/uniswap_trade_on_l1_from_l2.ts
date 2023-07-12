@@ -172,7 +172,7 @@ const transferWethOnL2 = async (
       (await aztecRpcClient.getAccountPublicKey(ownerAddress)).toBigInts(),
       (await aztecRpcClient.getAccountPublicKey(receiver)).toBigInts(),
     )
-    .send({ from: ownerAddress });
+    .send({ origin: ownerAddress });
   await transferTx.isMined(0, 0.5);
   const transferReceipt = await transferTx.getReceipt();
   // expect(transferReceipt.status).toBe(TxStatus.MINED);
@@ -241,7 +241,7 @@ async function main() {
   // Call the mint tokens function on the noir contract
   const consumptionTx = wethL2Contract.methods
     .mint(wethAmountToBridge, ownerPub, owner, messageKey, secret, ethAccount.toField())
-    .send({ from: owner });
+    .send({ origin: owner });
   await consumptionTx.isMined(0, 0.5);
   const consumptionReceipt = await consumptionTx.getReceipt();
   // expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -276,7 +276,7 @@ async function main() {
       uniswapPortalAddress,
       ethAccount.toField(),
     )
-    .send({ from: owner });
+    .send({ origin: owner });
   await withdrawTx.isMined(0, 0.5);
   const withdrawReceipt = await withdrawTx.getReceipt();
   // expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -327,7 +327,7 @@ async function main() {
   // Call the mint tokens function on the noir contract
   const daiMintTx = daiL2Contract.methods
     .mint(daiAmountToBridge, ownerPub, owner, depositDaiMessageKey, secret, ethAccount.toField())
-    .send({ from: owner });
+    .send({ origin: owner });
   await daiMintTx.isMined(0, 0.5);
   const daiMintTxReceipt = await daiMintTx.getReceipt();
   // expect(daiMintTxReceipt.status).toBe(TxStatus.MINED);
