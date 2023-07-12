@@ -382,13 +382,15 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 /**
  * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
  * @param start - The start of the membership witness.
- * @returns A read request membership witness with additional fields initialized to 0.
+ * @returns A non-transient read request membership witness.
  */
-export function makeReadRequestMembershipWitness<N extends number>(
-  size: N,
-  start: number,
-): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(BigInt(start), makeTuple(size, fr, start), false, new Fr(0));
+export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
+  return new ReadRequestMembershipWitness(
+    BigInt(start),
+    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start),
+    false,
+    new Fr(0),
+  );
 }
 
 /**
@@ -587,7 +589,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
     readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x =>
-      makeReadRequestMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, x),
+      makeReadRequestMembershipWitness(x),
     ),
     portalContractAddress: makeEthAddress(seed + 0x40),
     acirHash: fr(seed + 0x60),

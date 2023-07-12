@@ -65,8 +65,7 @@ contract PendingCommitments {
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
         // and therefore ordering between these two oracles
-        // TODO(dbanks12): remove when stepwise execution of acir is complete
-        // https://github.com/noir-lang/noir/pull/1729
+        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
         let nada = Sort::nada();
         let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
@@ -100,8 +99,7 @@ contract PendingCommitments {
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
         // and therefore ordering between these two oracles
-        // TODO(dbanks12): remove when stepwise execution of acir is complete
-        // https://github.com/noir-lang/noir/pull/1729
+        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
         let nada = Sort::nada();
         let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
@@ -162,8 +160,7 @@ contract PendingCommitments {
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
         // and therefore ordering between these two oracles
-        // TODO(dbanks12): remove when stepwise execution of acir is complete
-        // https://github.com/noir-lang/noir/pull/1729
+        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
         let nada = Sort::nada();
         let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];

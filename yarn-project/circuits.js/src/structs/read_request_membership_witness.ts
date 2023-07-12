@@ -22,7 +22,7 @@ export class ReadRequestMembershipWitness {
      */
     public siblingPath: Tuple<Fr, number>,
     /**
-     * Does this read request correspond to a pending commitment?
+     * Whether or not the read request corresponds to a pending commitment.
      */
     public isTransient = false,
     /**
@@ -96,9 +96,9 @@ export class ReadRequestMembershipWitness {
     return new ReadRequestMembershipWitness(BigInt(0), arr, true, new Fr(0));
   }
 
-  static fromBufferArray<N extends number>(
+  static fromBufferArray(
     leafIndex: bigint,
-    siblingPath: Tuple<Buffer, N>,
+    siblingPath: Tuple<Buffer, typeof PRIVATE_DATA_TREE_HEIGHT>,
     isTransient: boolean,
     hintToCommitment: Fr,
   ): ReadRequestMembershipWitness {
@@ -110,8 +110,8 @@ export class ReadRequestMembershipWitness {
     );
   }
 
-  static fromMembershipWitness<N extends number>(
-    membershipWitness: MembershipWitness<N>,
+  static fromMembershipWitness(
+    membershipWitness: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
     isTransient: boolean,
     hintToCommitment: Fr,
   ): ReadRequestMembershipWitness {
