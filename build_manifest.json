@@ -132,7 +132,6 @@
     "dependencies": [
       "acir-simulator",
       "aztec-node",
-      "aztec.js",
       "circuits.js",
       "foundation",
       "key-store",

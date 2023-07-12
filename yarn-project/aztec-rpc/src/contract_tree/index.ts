@@ -1,13 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
 import {
-  NewContractConstructor,
-  computeFunctionTreeData,
-  generateFunctionLeaves,
-  hashVKStr,
-  isConstrained,
-  isConstructor,
-} from '@aztec/aztec.js';
-import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   EthAddress,
@@ -17,6 +9,12 @@ import {
   MembershipWitness,
   NewContractData,
   computeFunctionTree,
+  NewContractConstructor,
+  computeFunctionTreeData,
+  generateFunctionLeaves,
+  hashVKStr,
+  isConstrained,
+  isConstructor,
 } from '@aztec/circuits.js';
 import {
   computeContractAddress,

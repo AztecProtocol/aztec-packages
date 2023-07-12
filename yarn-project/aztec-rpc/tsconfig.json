@@ -10,9 +10,6 @@
       "path": "../acir-simulator"
     },
     {
-      "path": "../aztec.js"
-    },
-    {
       "path": "../aztec-node"
     },
     {

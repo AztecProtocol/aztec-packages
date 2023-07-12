@@ -1,4 +1,4 @@
-import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, TxStatus } from '@aztec/types';
@@ -13,7 +13,6 @@ import {
   SchnorrAuthProvider,
   generatePublicKey,
 } from '../index.js';
-import { getContractDeploymentInfo } from '../contract/contract_deployment_info.js';
 
 /**
  * Creates an Aztec Account.

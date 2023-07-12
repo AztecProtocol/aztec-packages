@@ -1,4 +1,4 @@
-import { CircuitsWasm, ContractDeploymentData, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, ContractDeploymentData, TxContext, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -15,7 +15,6 @@ import {
 
 import { BaseWallet, Wallet } from '../aztec_rpc_client/wallet.js';
 import { Contract, ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
-import { getContractDeploymentInfo } from '../contract/contract_deployment_info.js';
 
 /**
  * Options for deploying a contract on the Aztec network.

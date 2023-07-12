@@ -13,9 +13,8 @@ import {
   SchnorrAuthProvider,
   Wallet,
   generatePublicKey,
-  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
-import { CircuitsWasm } from '@aztec/circuits.js';
+import { CircuitsWasm, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';

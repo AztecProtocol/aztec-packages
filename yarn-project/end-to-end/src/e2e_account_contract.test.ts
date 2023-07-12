@@ -9,13 +9,12 @@ import {
   SchnorrAuthProvider,
   Wallet,
   generatePublicKey,
-  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
-import { CircuitsWasm, Point } from '@aztec/circuits.js';
+import { CircuitsWasm, getContractDeploymentInfo, Point } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { randomBytes } from 'crypto';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
