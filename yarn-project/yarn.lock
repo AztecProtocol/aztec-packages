@@ -236,6 +236,7 @@ __metadata:
   resolution: "@aztec/circuits.js@workspace:circuits.js"
   dependencies:
     "@aztec/foundation": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@msgpack/msgpack": ^3.0.0-beta2
     "@noble/curves": ^1.0.0
