@@ -44,9 +44,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods
-      .test_insert_then_read_flat(mintAmount, ownerPublicKey)
-      .send({ from: owner });
+    const tx = deployedContract.methods.test_insert_then_read_flat(mintAmount, ownerPublicKey).send({ from: owner });
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
     // with `tx.isMined()` (etc) once kernel supports forwarding and matching of transient reads.
