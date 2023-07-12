@@ -27,8 +27,9 @@ export type PendingNoteData = {
  * The execution context for a client tx simulation.
  */
 export class ClientTxExecutionContext {
-  // Note: need to make sure that readRequestPartialWitnesses does not accumulate across
-  // multiple calls in a TX.
+  // Note: not forwarded to nested contexts via `extend()` because these witnesses
+  // are meant to be maintained on a per-call basis as they should mirror read requests
+  // output by an app circuit via public inputs.
   private readRequestPartialWitnesses: ReadRequestMembershipWitness[] = [];
 
   constructor(
@@ -67,8 +68,8 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Gets the notes for a contract address and storage slot.
-   * Returns flattened array containing real-note-count and note preimages.
+   * Gets some notes for a contract address and storage slot.
+   * Returns a flattened array containing real-note-count and note preimages.
    *
    * @remarks
    *
@@ -91,7 +92,7 @@ export class ClientTxExecutionContext {
    * @param limit - The limit.
    * @param offset - The offset.
    * @param returnSize - The return size.
-   * @returns An array of ACVM fields containing:
+   * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
    * count - number of real (non-padding) notes retrieved,
    * preimages - the real note preimages retrieved, and
    * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
@@ -161,8 +162,8 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Gets the pending notes for a contract address and storage slot.
-   * Returns number of notes retrieved and flattened array of fields representing pending notes.
+   * Gets some pending notes for a contract address and storage slot.
+   * Returns number of notes retrieved and a flattened array of fields representing pending notes.
    *
    * Details:
    * Check for pending notes with matching address/slot.
@@ -181,7 +182,8 @@ export class ClientTxExecutionContext {
    * @param limit - The limit.
    * @param _offset - The offset.
    * @returns pendingCount - number of pending notes retrieved, and
-   * pendingPreimages - array of ACVM fields that is the retrieved note preimages
+   * pendingPreimages - flattened array of ACVMFields (format expected by Noir/ACVM)
+   * containing the retrieved note preimages
    */
   private getPendingNotes(
     contractAddress: AztecAddress,
