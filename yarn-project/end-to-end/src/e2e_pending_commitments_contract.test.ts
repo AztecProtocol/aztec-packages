@@ -40,7 +40,7 @@ describe('e2e_pending_commitments_contract', () => {
     const mintAmount = 65n;
 
     const [owner] = accounts;
-    const ownerPublicKey = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner));
+    const ownerPublicKey = (await aztecRpcServer.getAccountPublicKey(owner)).toBigInts();
 
     const deployedContract = await deployContract();
 
@@ -65,7 +65,7 @@ describe('e2e_pending_commitments_contract', () => {
     const mintAmount = 65n;
 
     const [owner] = accounts;
-    const ownerPublicKey = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(owner));
+    const ownerPublicKey = (await aztecRpcServer.getAccountPublicKey(owner)).toBigInts();
 
     const deployedContract = await deployContract();
 
