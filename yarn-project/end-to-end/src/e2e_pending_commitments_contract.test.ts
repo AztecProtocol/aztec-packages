@@ -3,7 +3,7 @@ import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, Wallet } 
 import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
 
-import { pointToPublicKey, setup } from './utils.js';
+import { setup } from './utils.js';
 import { CircuitError } from '@aztec/circuits.js';
 
 describe('e2e_pending_commitments_contract', () => {
