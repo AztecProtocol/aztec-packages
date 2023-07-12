@@ -575,4 +575,9 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
 
-CBIND(get_circuit_constants, [] { return ConstantsPacker{}; });
+
+// When we return ConstantsPacker, we call its msgpack_pack method (as that is what is used internally in msgpack)
+// and thus can get a JSON-like object of all our constants in Typescript.
+// We explicitly do not want a schema here as our ConstantsPacker is not meant to be used in a Typescript function.
+// (if it were, it would need to implement msgpack_schema, but as we handle it specially not much value).
+CBIND_NOSCHEMA(get_circuit_constants, [] { return ConstantsPacker{}; });
