@@ -10,13 +10,13 @@ import {
   PublicCallRequest,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
+import { computeContractAddressFromPartial, computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
@@ -28,7 +28,7 @@ import {
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
-import { mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/index.js';
@@ -41,7 +41,7 @@ const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
-  let oracle: ReturnType<typeof mock<DBOracle>>;
+  let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
   let historicRoots = PrivateHistoricTreeRoots.empty();
   let logger: DebugLogger;
@@ -639,5 +639,23 @@ describe('Private Execution test suite', () => {
       // should get note value 0 because it actually gets a fake note since the real one hasn't been created yet!
       expect(gotNoteValue).toEqual(0n);
     }, 30_000);
+  });
+  describe('get public key', () => {
+    it('gets the public key for an address', async () => {
+      // Tweak the contract ABI so we can extract return values
+      const abi = TestContractAbi.functions.find(f => f.name === 'getPublicKey')!;
+      abi.returnTypes = [{ kind: 'field' }, { kind: 'field' }];
+
+      // Generate a partial address, pubkey, and resulting address
+      const partialAddress = Fr.random();
+      const pubKey = new Point(new Coordinate([Fr.random(), Fr.ZERO]), new Coordinate([Fr.random(), Fr.ZERO]));
+      const wasm = await CircuitsWasm.get();
+      const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+      const args = [address];
+
+      oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
+      expect(result.returnValues).toEqual([pubKey.x.toBigInt(), pubKey.y.toBigInt()]);
+    });
   });
 });
