@@ -42,3 +42,5 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
 WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* tx_request_buf, uint8_t* output);
 WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output);
 WASM_EXPORT void abis__compute_var_args_hash(uint8_t const* args_buf, uint8_t* output);
+
+CBIND_DECL(get_circuit_constants);

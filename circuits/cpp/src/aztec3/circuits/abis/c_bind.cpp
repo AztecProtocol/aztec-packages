@@ -16,6 +16,7 @@
 #include "rollup/root/root_rollup_public_inputs.hpp"
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
+#include "aztec3/circuits/abis/constants_packer.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
@@ -33,6 +34,7 @@ using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
 using aztec3::circuits::compute_partial_contract_address;
 using aztec3::circuits::abis::CallStackItem;
+using aztec3::circuits::abis::ConstantsPacker;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::NewContractData;
@@ -572,3 +574,5 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
+
+CBIND(get_circuit_constants, [] { return ConstantsPacker{}; });
