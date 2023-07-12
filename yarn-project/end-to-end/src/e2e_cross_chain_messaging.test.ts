@@ -5,7 +5,7 @@ import { Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 
-import { delay, pointToPublicKey, setup } from './utils.js';
+import { delay, setup } from './utils.js';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { TxStatus } from '@aztec/types';
 
@@ -64,7 +64,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPub)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(ownerPub.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };

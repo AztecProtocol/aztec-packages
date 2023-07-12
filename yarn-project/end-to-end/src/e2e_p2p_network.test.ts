@@ -3,9 +3,11 @@ import { AztecAddress, ContractDeployer, Fr, SentTx } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
-import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecRPCServer, ConstantKeyPair, createAztecRPCServer } from '@aztec/aztec-rpc';
 import { TxStatus } from '@aztec/types';
-import { randomBytes } from 'crypto';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { setup } from './utils.js';
 
@@ -143,7 +145,10 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    const account = await aztecRpcServer.addAccount(randomBytes(32), AztecAddress.random(), Fr.random());
+    const keyPair = ConstantKeyPair.random(await Grumpkin.new());
+    const partialAddress = Fr.random();
+    const address = computeContractAddressFromPartial(await CircuitsWasm.get(), keyPair.getPublicKey(), partialAddress);
+    const account = await aztecRpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
 
     const txs = await submitTxsTo(aztecRpcServer, account, numTxs);
     return {

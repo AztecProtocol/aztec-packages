@@ -11,7 +11,7 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { TxStatus } from '@aztec/types';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { delay, deployAndInitializeNonNativeL2TokenContracts, pointToPublicKey, setup } from './utils.js';
+import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
 
 // PSA: this works on a fork of mainnet but with the default anvil chain id. Start it with the command:
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
@@ -60,7 +60,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
     const ownerPubPoint = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    ownerPub = pointToPublicKey(ownerPubPoint);
+    ownerPub = ownerPubPoint.toBigInts();
 
     logger('Deploying DAI Portal, initializing and deploying l2 contract...');
     const daiContracts = await deployAndInitializeNonNativeL2TokenContracts(

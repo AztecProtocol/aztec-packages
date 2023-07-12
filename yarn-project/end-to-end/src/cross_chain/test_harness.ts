@@ -10,7 +10,7 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { TxStatus } from '@aztec/types';
 import { PublicClient, HttpTransport, Chain, getContract } from 'viem';
 
-import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot, pointToPublicKey } from '../utils.js';
+import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot } from '../utils.js';
 
 /**
  * A Class for testing cross chain interactions, contains common interactions
@@ -47,7 +47,7 @@ export class CrossChainTestHarness {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      pointToPublicKey(ownerPub),
+      ownerPub.toBigInts(),
     );
     const l2Contract = contracts.l2Contract;
     const underlyingERC20 = contracts.underlyingERC20;
@@ -155,8 +155,8 @@ export class CrossChainTestHarness {
     const transferTx = this.l2Contract.methods
       .transfer(
         transferAmount,
-        pointToPublicKey(await this.aztecRpcServer.getAccountPublicKey(this.ownerAddress)),
-        pointToPublicKey(await this.aztecRpcServer.getAccountPublicKey(this.receiver)),
+        (await this.aztecRpcServer.getAccountPublicKey(this.ownerAddress)).toBigInts(),
+        (await this.aztecRpcServer.getAccountPublicKey(this.receiver)).toBigInts(),
       )
       .send({ from: this.accounts[0] });
 
@@ -192,7 +192,7 @@ export class CrossChainTestHarness {
 
   async getL2BalanceOf(owner: AztecAddress) {
     const ownerPublicKey = await this.aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await this.l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await this.l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
     return balance;
   }
 

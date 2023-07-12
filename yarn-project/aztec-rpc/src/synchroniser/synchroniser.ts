@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr } from '@aztec/circuits.js';
+import { Fr, Point } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
@@ -175,6 +175,11 @@ export class Synchroniser {
     abi: ContractAbi = SchnorrAccountContractAbi,
     keyStore: KeyStore,
   ) {
+    // check if account exists
+    const account = this.getAccount(address);
+    if (account) {
+      return account;
+    }
     const accountState = new AccountState(
       publicKey,
       keyStore,
@@ -197,6 +202,17 @@ export class Synchroniser {
    */
   public getAccount(account: AztecAddress) {
     return this.accountStates.find(as => as.getAddress().equals(account));
+  }
+
+  /**
+   * Retrieve an account state by its AztecAddress from the list of managed account states.
+   * If no account state with the given address is found, returns undefined.
+   *
+   * @param account - The AztecAddress instance representing the account to search for.
+   * @returns The AccountState instance associated with the provided AztecAddress or undefined if not found.
+   */
+  public getAccountByPublicKey(account: Point) {
+    return this.accountStates.find(as => as.getPublicKey().equals(account));
   }
 
   /**

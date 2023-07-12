@@ -8,13 +8,7 @@ import { Chain, HttpTransport, PublicClient } from 'viem';
 import { Archiver } from '@aztec/archiver';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 
-import {
-  delay,
-  deployAndInitializeNonNativeL2TokenContracts,
-  pointToPublicKey,
-  setNextBlockTimestamp,
-  setup,
-} from './utils.js';
+import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
 
 describe('archiver integration with l1 to l2 messages', () => {
   let aztecNode: AztecNodeService;
@@ -47,7 +41,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
-    const ownerPub = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress));
+    const ownerPub = (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts();
 
     // Deploy and initialize all required contracts
     logger('Deploying Portal, initializing and deploying l2 contract...');
@@ -75,7 +69,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -129,8 +123,8 @@ describe('archiver integration with l1 to l2 messages', () => {
     l2Contract.methods
       .transfer(
         transferAmount,
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress)),
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
+        (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts(),
+        (await aztecRpcServer.getAccountPublicKey(receiver)).toBigInts(),
       )
       .send({ from: accounts[0] });
 
