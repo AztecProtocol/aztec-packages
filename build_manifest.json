@@ -177,6 +177,7 @@
       "^yarn-project/circuits.js/"
     ],
     "dependencies": [
+      "^circuits/",
       "foundation"
     ]
   },
