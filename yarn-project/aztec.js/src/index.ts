@@ -9,3 +9,4 @@ export * from './account_impl/index.js';
 // export * from '@aztec/aztec-rpc';
 
 export { AztecAddress, EthAddress, Point, Fr } from '@aztec/circuits.js';
+export { AztecRPC } from '@aztec/types';
