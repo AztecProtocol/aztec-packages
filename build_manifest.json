@@ -362,8 +362,7 @@
     ],
     "dependencies": [
       "circuits.js",
-      "foundation",
-      "l1-artifacts"
+      "foundation"
     ]
   },
   "world-state": {
