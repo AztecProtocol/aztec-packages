@@ -23,20 +23,20 @@ using BaseRollupInputs = aztec3::circuits::abis::BaseRollupInputs<NT>;
 using MergeRollupInputs = aztec3::circuits::abis::MergeRollupInputs<NT>;
 using BaseOrMergeRollupPublicInputs = aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>;
 using RootRollupInputs = aztec3::circuits::abis::RootRollupInputs<NT>;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AppendOnlyTreeSnapshot = aztec3::circuits::abis::AppendOnlyTreeSnapshot<NT>;
 
 using NullifierLeafPreimage = aztec3::circuits::abis::NullifierLeafPreimage<NT>;
 
-// Nullifier Tree Alias
-using MerkleTree = stdlib::merkle_tree::MemoryTree;
+// Tree Aliases
+using MemoryStore = stdlib::merkle_tree::MemoryStore;
+using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeaf = stdlib::merkle_tree::nullifier_leaf;
+
 using KernelData = aztec3::circuits::abis::PreviousKernelData<NT>;
-using MemoryStore = stdlib::merkle_tree::MemoryStore;
-using SparseTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 
 using aztec3::circuits::abis::MembershipWitness;
 using aztec3::circuits::abis::PreviousRollupData;
@@ -49,11 +49,11 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
                                                  MerkleTree& private_data_tree,
                                                  MerkleTree& contract_tree,
-                                                 SparseTree& public_data_tree,
+                                                 MerkleTree& public_data_tree,
                                                  MerkleTree& l1_to_l2_msg_tree);
 
 
-template <size_t N> std::array<fr, N> get_sibling_path(SparseTree& tree, uint256_t leafIndex)
+template <size_t N> std::array<fr, N> get_sibling_path(MerkleTree& tree, uint256_t leafIndex)
 {
     std::array<fr, N> siblingPath;
     auto path = tree.get_hash_path(leafIndex);
@@ -71,7 +71,7 @@ abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierMemoryTreeT
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     BaseRollupInputs inputs,
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers,
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
     const std::vector<fr>& initial_values);
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupInputs inputs,
@@ -81,17 +81,17 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages();
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
-    BaseRollupInputs inputs, std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH * 2> new_nullifiers, size_t spacing);
+    BaseRollupInputs inputs, std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers, size_t spacing);
 
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values);
 
 KernelData get_empty_kernel();
 
-RootRollupInputs get_root_rollup_inputs(utils::DummyComposer& composer,
+RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
                                         std::array<KernelData, 4> kernel_data,
                                         std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages);
 
-MergeRollupInputs get_merge_rollup_inputs(utils::DummyComposer& composer, std::array<KernelData, 4> kernel_data);
+MergeRollupInputs get_merge_rollup_inputs(utils::DummyBuilder& builder, std::array<KernelData, 4> kernel_data);
 
 inline abis::PublicDataUpdateRequest<NT> make_public_data_update_request(fr leaf_index, fr old_value, fr new_value)
 {

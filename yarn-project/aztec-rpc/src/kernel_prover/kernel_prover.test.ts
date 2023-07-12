@@ -1,12 +1,13 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  KERNEL_NEW_COMMITMENTS_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_TX,
   KernelCircuitPublicInputs,
   MembershipWitness,
-  PRIVATE_CALL_STACK_LENGTH,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   READ_REQUESTS_LENGTH,
+  ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -50,7 +51,11 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
+      // TODO(dbanks12): should test kernel prover with non-transient reads.
+      // This will be necessary once kernel actually checks (attempts to match) transient reads.
+      readRequestPartialWitnesses: Array.from({ length: READ_REQUESTS_LENGTH }, () =>
+        ReadRequestMembershipWitness.emptyTransient(),
+      ),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
@@ -64,7 +69,7 @@ describe('Kernel Prover', () => {
     const publicInputs = KernelCircuitPublicInputs.empty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
+    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -97,6 +102,7 @@ describe('Kernel Prover', () => {
     txRequest = makeTxRequest();
 
     oracle = mock<ProvingDataOracle>();
+    // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
@@ -141,7 +147,7 @@ describe('Kernel Prover', () => {
   });
 
   it('should throw if call stack is too deep', async () => {
-    dependencies.a = Array(PRIVATE_CALL_STACK_LENGTH + 1)
+    dependencies.a = Array(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + 1)
       .fill(0)
       .map((_, i) => `${i}`);
     const executionResult = createExecutionResult('a');

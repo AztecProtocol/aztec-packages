@@ -1,12 +1,10 @@
 #pragma once
 
-#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 
 namespace aztec3::circuits::abis {
 
-using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -15,8 +13,8 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    fr leaf_index;
-    std::array<fr, N> sibling_path = zero_array<fr, N>();
+    fr leaf_index = 0;
+    std::array<fr, N> sibling_path{};
 
     MSGPACK_FIELDS(leaf_index, sibling_path);
     boolean operator==(MembershipWitness<NCT, N> const& other) const
@@ -24,14 +22,14 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
         return leaf_index == other.leaf_index && sibling_path == other.sibling_path;
     };
 
-    template <typename Composer> MembershipWitness<CircuitTypes<Composer>, N> to_circuit_type(Composer& composer) const
+    template <typename Builder> MembershipWitness<CircuitTypes<Builder>, N> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
-        MembershipWitness<CircuitTypes<Composer>, N> witness = {
+        MembershipWitness<CircuitTypes<Builder>, N> witness = {
             to_ct(leaf_index),
             map(sibling_path, to_ct),
         };

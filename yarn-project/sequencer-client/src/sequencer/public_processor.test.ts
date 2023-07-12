@@ -6,8 +6,9 @@ import {
   EthAddress,
   Fr,
   FunctionData,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
+  GlobalVariables,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
@@ -29,6 +30,7 @@ import {
   EncodedContractFunction,
   ExecutionRequest,
   FunctionL2Logs,
+  mockTx,
   Tx,
   TxL2Logs,
 } from '@aztec/types';
@@ -36,7 +38,6 @@ import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
-import { makeTx } from '../index.js';
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
@@ -81,11 +82,11 @@ describe('public_processor', () => {
       processor = new PublicProcessor(db, publicExecutor, publicKernel, publicProver, contractDataSource);
     });
 
-    it('skips non-public txs without public execution requests', async function () {
-      const tx = makeTx();
-      tx.data.end.publicCallStack = makeTuple(KERNEL_PUBLIC_CALL_STACK_LENGTH, Fr.zero);
+    it('skips txs without public execution requests', async function () {
+      const tx = mockTx();
+      tx.data.end.publicCallStack = makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero);
       const hash = await tx.getTxHash();
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], GlobalVariables.empty());
 
       expect(processed).toEqual([
         { isEmpty: false, hash, ...pick(tx, 'data', 'proof', 'encryptedLogs', 'unencryptedLogs') },
@@ -96,8 +97,8 @@ describe('public_processor', () => {
     it('returns failed txs without aborting entire operation', async function () {
       publicExecutor.execute.mockRejectedValue(new Error(`Failed`));
 
-      const tx = makeTx();
-      const [processed, failed] = await processor.process([tx]);
+      const tx = mockTx();
+      const [processed, failed] = await processor.process([tx], GlobalVariables.empty());
 
       expect(processed).toEqual([]);
       expect(failed).toEqual([tx]);
@@ -125,16 +126,16 @@ describe('public_processor', () => {
         proof,
       });
 
-    it('runs a private tx with enqueued calls', async function () {
+    it('runs a tx with enqueued public calls', async function () {
       const callRequests: PublicCallRequest[] = [makePublicCallRequest(0x100), makePublicCallRequest(0x100)];
       const callStackItems = await Promise.all(callRequests.map(call => call.toPublicCallStackItem()));
       const callStackHashes = callStackItems.map(call => computeCallStackItemHash(wasm, call));
 
       const kernelOutput = makeKernelPublicInputs(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
+      kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
-      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], callRequests);
+      const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], callRequests);
 
       publicExecutor.execute.mockImplementation(execution => {
         for (const request of callRequests) {
@@ -145,7 +146,7 @@ describe('public_processor', () => {
         throw new Error(`Unexpected execution request: ${execution}`);
       });
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], GlobalVariables.empty());
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);
@@ -153,16 +154,16 @@ describe('public_processor', () => {
       expect(publicExecutor.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('runs a private tx with an enqueued call with nested execution', async function () {
+    it('runs a tx with an enqueued public call with nested execution', async function () {
       const callRequest: PublicCallRequest = makePublicCallRequest(0x100);
       const callStackItem = await callRequest.toPublicCallStackItem();
       const callStackHash = computeCallStackItemHash(wasm, callStackItem);
 
       const kernelOutput = makeKernelPublicInputs(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, KERNEL_PUBLIC_CALL_STACK_LENGTH);
-      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, KERNEL_PRIVATE_CALL_STACK_LENGTH);
+      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
-      const tx = Tx.createTx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], [callRequest]);
+      const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], [callRequest]);
 
       const publicExecutionResult = makePublicExecutionResultFromRequest(callRequest);
       publicExecutionResult.nestedExecutions = [
@@ -175,7 +176,7 @@ describe('public_processor', () => {
       ];
       publicExecutor.execute.mockResolvedValue(publicExecutionResult);
 
-      const [processed, failed] = await processor.process([tx]);
+      const [processed, failed] = await processor.process([tx], GlobalVariables.empty());
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);

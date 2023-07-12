@@ -1,5 +1,12 @@
 import { InboxAbi, RollupAbi, ContractDeploymentEmitterAbi } from '@aztec/l1-artifacts';
-import { ContractData, ContractPublicData, EncodedContractFunction, L2Block, L2BlockL2Logs } from '@aztec/types';
+import {
+  ContractData,
+  ContractPublicData,
+  EncodedContractFunction,
+  L2Block,
+  L2BlockL2Logs,
+  LogType,
+} from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
 import { Archiver } from './archiver.js';
@@ -104,7 +111,7 @@ describe('Archiver', () => {
     expect(expectedPendingMessageKeys).toEqual(actualPendingMessageKeys);
 
     // Expect logs to correspond to what is set by L2Block.random(...)
-    const encryptedLogs = await archiver.getEncryptedLogs(1, 100);
+    const encryptedLogs = await archiver.getLogs(1, 100, LogType.ENCRYPTED);
     expect(encryptedLogs.length).toEqual(blockNums.length);
 
     for (const [index, x] of blockNums.entries()) {
@@ -113,7 +120,7 @@ describe('Archiver', () => {
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 
-    const unencryptedLogs = await archiver.getUnencryptedLogs(1, 100);
+    const unencryptedLogs = await archiver.getLogs(1, 100, LogType.UNENCRYPTED);
     expect(unencryptedLogs.length).toEqual(blockNums.length);
 
     blockNums.forEach((x, index) => {
@@ -137,7 +144,7 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
     blockNumber: l1BlockNum,
     args: { blockNum: l2BlockNum },
     transactionHash: `0x${l2BlockNum}`,
-  } as Log<bigint, number, undefined, typeof RollupAbi, 'L2BlockProcessed'>;
+  } as Log<bigint, number, undefined, true, typeof RollupAbi, 'L2BlockProcessed'>;
 }
 
 /**
@@ -165,7 +172,7 @@ function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,
-  } as Log<bigint, number, undefined, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>;
+  } as Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>;
 }
 
 /**
@@ -190,7 +197,7 @@ function makeL1ToL2MessageAddedEvents(l1BlockNum: bigint, entryKeys: string[]) {
         entryKey: entryKey,
       },
       transactionHash: `0x${l1BlockNum}`,
-    } as Log<bigint, number, undefined, typeof InboxAbi, 'MessageAdded'>;
+    } as Log<bigint, number, undefined, true, typeof InboxAbi, 'MessageAdded'>;
   });
 }
 
@@ -208,7 +215,7 @@ function makeL1ToL2MessageCancelledEvents(l1BlockNum: bigint, entryKeys: string[
         entryKey,
       },
       transactionHash: `0x${l1BlockNum}`,
-    } as Log<bigint, number, undefined, typeof InboxAbi, 'L1ToL2MessageCancelled'>;
+    } as Log<bigint, number, undefined, true, typeof InboxAbi, 'L1ToL2MessageCancelled'>;
   });
 }
 

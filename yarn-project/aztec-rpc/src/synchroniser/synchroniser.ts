@@ -1,14 +1,14 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr } from '@aztec/circuits.js';
-import { Curve, Signer } from '@aztec/circuits.js/barretenberg';
+import { Fr, PartialContractAddress, Point } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
+import { KeyStore, L2BlockContext, LogType, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ContractAbi } from '@aztec/foundation/abi';
+
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.
@@ -65,13 +65,13 @@ export class Synchroniser {
 
   protected async work(from = 1, take = 1, retryInterval = 1000): Promise<number> {
     try {
-      let encryptedLogs = await this.node.getEncryptedLogs(from, take);
+      let encryptedLogs = await this.node.getLogs(from, take, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
       }
 
-      let unencryptedLogs = await this.node.getUnencryptedLogs(from, take);
+      let unencryptedLogs = await this.node.getLogs(from, take, LogType.UNENCRYPTED);
       if (!unencryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
         return from;
@@ -96,8 +96,8 @@ export class Synchroniser {
 
       // attach logs to blocks
       blocks.forEach((block, i) => {
-        block.attachLogs(encryptedLogs[i], 'newEncryptedLogs');
-        block.attachLogs(unencryptedLogs[i], 'newUnencryptedLogs');
+        block.attachLogs(encryptedLogs[i], LogType.ENCRYPTED);
+        block.attachLogs(unencryptedLogs[i], LogType.UNENCRYPTED);
       });
 
       // Wrap blocks in block contexts.
@@ -159,30 +159,32 @@ export class Synchroniser {
    * Creates an AccountState instance for the account and pushes it into the accountStates array.
    * The method resolves immediately after pushing the new account state.
    *
-   * @param privKey - The private key buffer to initialize the account state.
+   * @param publicKey - The public key for the account.
    * @param address - Address of the corresponding account contract.
    * @param partialContractAddress - The partially computed account contract address.
-   * @param curve - The curve to be used for elliptic curve operations.
-   * @param signer - The signer to be used for transaction signing.
    * @param abi - Implementation of the account contract to backing the account.
+   * @param keyStore - The key store.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
   public addAccount(
-    privKey: Buffer,
+    publicKey: PublicKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    curve: Curve,
-    signer: Signer,
-    abi = SchnorrAccountContractAbi,
+    abi: ContractAbi = SchnorrAccountContractAbi,
+    keyStore: KeyStore,
   ) {
+    // check if account exists
+    const account = this.getAccount(address);
+    if (account) {
+      return account;
+    }
     const accountState = new AccountState(
-      privKey,
+      publicKey,
+      keyStore,
       address,
       partialContractAddress,
       this.db,
       this.node,
-      curve,
-      signer,
       abi,
     );
     this.accountStates.push(accountState);
@@ -198,6 +200,17 @@ export class Synchroniser {
    */
   public getAccount(account: AztecAddress) {
     return this.accountStates.find(as => as.getAddress().equals(account));
+  }
+
+  /**
+   * Retrieve an account state by its AztecAddress from the list of managed account states.
+   * If no account state with the given address is found, returns undefined.
+   *
+   * @param account - The AztecAddress instance representing the account to search for.
+   * @returns The AccountState instance associated with the provided AztecAddress or undefined if not found.
+   */
+  public getAccountByPublicKey(account: Point) {
+    return this.accountStates.find(as => as.getPublicKey().equals(account));
   }
 
   /**
@@ -223,9 +236,9 @@ export class Synchroniser {
       throw new Error(`Transaction ${txHash} not found in RPC database`);
     }
 
-    const account = this.getAccount(tx.from);
+    const account = this.getAccount(tx.origin);
     if (!account) {
-      throw new Error(`Unauthorised account: ${tx.from}`);
+      throw new Error(`Unauthorised account: ${tx.origin}`);
     }
 
     return tx;

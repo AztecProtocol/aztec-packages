@@ -5,14 +5,15 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  GlobalVariables,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   KernelCircuitPublicInputs,
   MembershipWitness,
-  NEW_COMMITMENTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
-  PUBLIC_CALL_STACK_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PreviousKernelData,
   Proof,
   PublicCallData,
@@ -81,16 +82,17 @@ export class PublicProcessor {
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
    * @param txs - Txs to process.
+   * @param globalVariables - The global variables for the block.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
+  public async process(txs: Tx[], globalVariables: GlobalVariables): Promise<[ProcessedTx[], Tx[]]> {
     const result: ProcessedTx[] = [];
     const failed: Tx[] = [];
 
     for (const tx of txs) {
       this.log(`Processing tx ${await tx.getTxHash()}`);
       try {
-        result.push(await this.processTx(tx));
+        result.push(await this.processTx(tx, globalVariables));
       } catch (err) {
         this.log(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push(tx);
@@ -110,10 +112,11 @@ export class PublicProcessor {
     return makeEmptyProcessedTx(historicTreeRoots, chainId, version);
   }
 
-  protected async processTx(tx: Tx): Promise<ProcessedTx> {
+  protected async processTx(tx: Tx, globalVariables: GlobalVariables): Promise<ProcessedTx> {
     if (!isArrayEmpty(tx.data.end.publicCallStack, item => item.isZero())) {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
+        globalVariables,
       );
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
@@ -123,7 +126,10 @@ export class PublicProcessor {
     }
   }
 
-  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
+  protected async processEnqueuedPublicCalls(
+    tx: Tx,
+    globalVariables: GlobalVariables,
+  ): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
@@ -137,7 +143,7 @@ export class PublicProcessor {
     while (executionStack.length) {
       const current = executionStack.pop()!;
       const isExecutionRequest = !isPublicExecutionResult(current);
-      const result = isExecutionRequest ? await this.publicExecutor.execute(current) : current;
+      const result = isExecutionRequest ? await this.publicExecutor.execute(current, globalVariables) : current;
       newUnencryptedFunctionLogs.push(result.unencryptedLogs);
       const functionSelector = result.execution.functionData.functionSelectorBuffer.toString('hex');
       this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
@@ -204,19 +210,19 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, NEW_COMMITMENTS_LENGTH),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, NEW_NULLIFIERS_LENGTH),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
+      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
         ContractStorageRead.empty(),
-        KERNEL_PUBLIC_DATA_READS_LENGTH,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
       contractStorageUpdateRequests: padArrayEnd(
         result.contractStorageUpdateRequests,
         ContractStorageUpdateRequest.empty(),
-        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStack,
       unencryptedLogsHash,
@@ -237,12 +243,14 @@ export class PublicProcessor {
   protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
     const nested = result.nestedExecutions;
     const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
-    if (preimages.length > PUBLIC_CALL_STACK_LENGTH) {
-      throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
+    if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
+      throw new Error(
+        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`,
+      );
     }
 
     // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, PublicCallStackItem.empty(), PUBLIC_CALL_STACK_LENGTH);
+    return padArrayStart(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -262,7 +270,7 @@ export class PublicProcessor {
    */
   protected async getPublicCallData(
     result: PublicExecutionResult,
-    preimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
+    preimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);

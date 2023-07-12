@@ -4,28 +4,29 @@ import {
   FunctionData,
   CircuitsWasm,
   PrivateHistoricTreeRoots,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  GlobalVariables,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import {
   ChildAbi,
   NonNativeTokenContractAbi,
   ParentAbi,
-  PublicToPrivateContractAbi,
   PublicTokenContractAbi,
+  TestContractAbi,
 } from '@aztec/noir-contracts/examples';
+import { toBigInt } from '@aztec/foundation/serialize';
+import { keccak } from '@aztec/foundation/crypto';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from '../abi_coder/encoder.js';
+
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
-import { toBigInt } from '@aztec/foundation/serialize';
-import { keccak } from '@aztec/foundation/crypto';
 import { buildL1ToL2Message } from '../test/utils.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -84,7 +85,7 @@ describe('ACIR public execution simulator', () => {
         publicState.storageRead.mockResolvedValue(previousBalance);
 
         const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-        const result = await executor.execute(execution);
+        const result = await executor.execute(execution, GlobalVariables.empty());
 
         const expectedBalance = new Fr(160n);
         expect(result.returnValues).toEqual([expectedBalance]);
@@ -151,7 +152,7 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.execute(execution);
+        const result = await executor.execute(execution, GlobalVariables.empty());
 
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
@@ -174,7 +175,7 @@ describe('ACIR public execution simulator', () => {
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
-        const result = await executor.execute(execution);
+        const result = await executor.execute(execution, GlobalVariables.empty());
 
         expect(result.returnValues).toEqual([recipientBalance]);
 
@@ -228,9 +229,18 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
+      const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7));
+      const result = await executor.execute(execution, globalVariables);
 
-      expect(result.returnValues).toEqual([new Fr(42n + initialValue)]);
+      expect(result.returnValues).toEqual([
+        new Fr(
+          initialValue +
+            globalVariables.chainId.value +
+            globalVariables.version.value +
+            globalVariables.blockNumber.value +
+            globalVariables.timestamp.value,
+        ),
+      ]);
     });
   });
 
@@ -250,8 +260,8 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a commitment from the public context', async () => {
-      const publicToPrivateAbi = PublicToPrivateContractAbi.functions.find(f => f.name === 'mintFromPublicToPrivate')!;
-      const args = encodeArguments(publicToPrivateAbi, params);
+      const shieldAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'shield')!;
+      const args = encodeArguments(shieldAbi, params);
 
       const callContext = CallContext.from({
         msgSender: AztecAddress.random(),
@@ -262,10 +272,12 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(publicToPrivateAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'hex'));
+      // mock initial balance to be greater than the amount being sent
+      publicState.storageRead.mockResolvedValue(amount);
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
+      const result = await executor.execute(execution, GlobalVariables.empty());
 
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
@@ -278,9 +290,7 @@ describe('ACIR public execution simulator', () => {
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
-      const createL2ToL1MessagePublicAbi = PublicToPrivateContractAbi.functions.find(
-        f => f.name === 'createL2ToL1MessagePublic',
-      )!;
+      const createL2ToL1MessagePublicAbi = TestContractAbi.functions.find(f => f.name === 'createL2ToL1MessagePublic')!;
       const args = encodeArguments(createL2ToL1MessagePublicAbi, params);
 
       const callContext = CallContext.from({
@@ -295,7 +305,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
+      const result = await executor.execute(execution, GlobalVariables.empty());
 
       // Assert the l2 to l1 message was created
       expect(result.newL2ToL1Messages.length).toEqual(1);
@@ -354,20 +364,18 @@ describe('ACIR public execution simulator', () => {
         return await Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,
-          siblingPath: Array(L1_TO_L2_MESSAGES_TREE_HEIGHT).fill(Fr.random()),
+          siblingPath: Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random()),
         });
       });
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
+      const result = await executor.execute(execution, GlobalVariables.empty());
 
       expect(result.newNullifiers.length).toEqual(1);
     });
 
     it('Should be able to create a nullifier from the public context', async () => {
-      const createNullifierPublicAbi = PublicToPrivateContractAbi.functions.find(
-        f => f.name === 'createNullifierPublic',
-      )!;
+      const createNullifierPublicAbi = TestContractAbi.functions.find(f => f.name === 'createNullifierPublic')!;
 
       const args = encodeArguments(createNullifierPublicAbi, params);
 
@@ -383,7 +391,7 @@ describe('ACIR public execution simulator', () => {
       publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'hex'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
-      const result = await executor.execute(execution);
+      const result = await executor.execute(execution, GlobalVariables.empty());
 
       // Assert the l2 to l1 message was created
       expect(result.newNullifiers.length).toEqual(1);

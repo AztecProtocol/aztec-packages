@@ -1,12 +1,12 @@
-import { AztecRPCClient, TxReceipt, TxHash, TxStatus } from '@aztec/aztec-rpc';
 import { retryUntil } from '@aztec/foundation/retry';
+import { AztecRPC, TxHash, TxReceipt, TxStatus } from '@aztec/types';
 
 /**
  * The SentTx class represents a sent transaction through the AztecRPCClient, providing methods to fetch
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(private arc: AztecRPCClient, private txHashPromise: Promise<TxHash>) {}
+  constructor(private arc: AztecRPC, private txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.

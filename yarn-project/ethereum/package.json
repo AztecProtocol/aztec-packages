@@ -1,6 +1,6 @@
 {
   "name": "@aztec/ethereum",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
@@ -28,7 +28,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0",
-    "viem": "^0.3.14"
+    "viem": "^1.2.5"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

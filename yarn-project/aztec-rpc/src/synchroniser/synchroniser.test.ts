@@ -1,24 +1,24 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr } from '@aztec/circuits.js';
-import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
-import { ConstantKeyPair, getAddressFromPublicKey } from '@aztec/key-store';
-import { L2Block, MerkleTreeId } from '@aztec/types';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { ConstantKeyPair } from '@aztec/key-store';
+import { KeyStore, L2Block, MerkleTreeId } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 import { Database, MemoryDB } from '../database/index.js';
 import { Synchroniser } from './synchroniser.js';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 describe('Synchroniser', () => {
   let grumpkin: Grumpkin;
-  let schnorr: Schnorr;
   let aztecNode: MockProxy<AztecNode>;
   let database: Database;
   let synchroniser: TestSynchroniser;
   let roots: Record<MerkleTreeId, Fr>;
+  let keyStore: MockProxy<KeyStore>;
 
   beforeAll(async () => {
     grumpkin = await Grumpkin.new();
-    schnorr = await Schnorr.new();
   });
 
   beforeEach(() => {
@@ -39,12 +39,12 @@ describe('Synchroniser', () => {
   });
 
   it('should create account state', async () => {
-    const account = ConstantKeyPair.random(grumpkin, schnorr);
-    const address = getAddressFromPublicKey(account.getPublicKey());
+    const account = ConstantKeyPair.random(grumpkin);
+    const address = AztecAddress.random();
 
     expect(synchroniser.getAccount(address)).toBeUndefined();
 
-    await synchroniser.addAccount(await account.getPrivateKey(), address, Fr.random(), grumpkin, schnorr);
+    await synchroniser.addAccount(account.getPublicKey(), address, Fr.random(), SchnorrAccountContractAbi, keyStore);
 
     expect(synchroniser.getAccount(address)!.getPublicKey()).toEqual(account.getPublicKey());
   });
@@ -61,8 +61,7 @@ describe('Synchroniser', () => {
   it('sets tree roots from latest block', async () => {
     const block = L2Block.random(1, 4);
     aztecNode.getBlocks.mockResolvedValue([L2Block.fromFields(omit(block, 'newEncryptedLogs', 'newUnencryptedLogs'))]);
-    aztecNode.getEncryptedLogs.mockResolvedValue([block.newEncryptedLogs!]);
-    aztecNode.getUnencryptedLogs.mockResolvedValue([block.newUnencryptedLogs!]);
+    aztecNode.getLogs.mockResolvedValueOnce([block.newEncryptedLogs!]).mockResolvedValue([block.newUnencryptedLogs!]);
 
     await synchroniser.work();
 
@@ -84,8 +83,7 @@ describe('Synchroniser', () => {
     aztecNode.getBlocks.mockResolvedValueOnce([
       L2Block.fromFields(omit(block1, 'newEncryptedLogs', 'newUnencryptedLogs')),
     ]);
-    aztecNode.getEncryptedLogs.mockResolvedValue([block1.newEncryptedLogs!]);
-    aztecNode.getUnencryptedLogs.mockResolvedValue([block1.newUnencryptedLogs!]);
+    aztecNode.getLogs.mockResolvedValue([block1.newEncryptedLogs!]).mockResolvedValue([block1.newUnencryptedLogs!]);
 
     await synchroniser.work();
     const roots1 = database.getTreeRoots();

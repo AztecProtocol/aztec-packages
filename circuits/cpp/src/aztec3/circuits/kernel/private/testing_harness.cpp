@@ -43,7 +43,6 @@ using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 
 using aztec3::utils::array_length;
-using aztec3::utils::zero_array;
 
 /**
  * @brief Get the random read requests and their membership requests
@@ -56,12 +55,13 @@ using aztec3::utils::zero_array;
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
 std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
            NT::fr>
 get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 {
-    auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    auto leaves = zero_array<fr, READ_REQUESTS_LENGTH>();
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
+    std::array<fr, READ_REQUESTS_LENGTH> leaves{};
+
     // randomize the number of read requests with a configurable minimum
     const auto final_num_rr = num_read_requests >= 0
                                   ? std::min(static_cast<size_t>(num_read_requests), READ_REQUESTS_LENGTH)
@@ -82,7 +82,8 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     // set -> vector without collisions
     std::vector<NT::uint32> rr_leaf_indices(rr_leaf_indices_set.begin(), rr_leaf_indices_set.end());
 
-    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
     // add the commitments to the private data tree for each read request
     // add them at their corresponding index in the tree
@@ -93,12 +94,13 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     }
 
     // compute the merkle sibling paths for each request
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
     for (size_t i = 0; i < array_length(read_requests); i++) {
         read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
-                                                     private_data_tree, rr_leaf_indices[i], 0) };
+                                                     private_data_tree, rr_leaf_indices[i], 0),
+                                                 .hint_to_commitment = 0 };
     }
 
 
@@ -219,7 +221,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
 
     /**
      * If `is_circuit` is true, we are running a real circuit test and therefore we need to generate a real proof using
-     * a private function composer. For the native tests, we are using a random data as public inputs of the private
+     * a private function builder. For the native tests, we are using a random data as public inputs of the private
      * function. As the native private kernel circuit doesn't validate any proofs and we don't currently test
      * multi-iterative kernel circuit, this should be fine.
      */
@@ -227,10 +229,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     const NT::Proof private_circuit_proof = utils::get_proof_from_file();
     if (is_circuit) {
         //***************************************************************************
-        // Create a private circuit/call using composer, oracles, execution context
+        // Create a private circuit/call using builder, oracles, execution context
         // Generate its proof and public inputs for submission with a TX request
         //***************************************************************************
-        Composer private_circuit_composer = Composer("../barretenberg/cpp/srs_db/ignition");
+        Builder private_circuit_builder = Builder();
 
         DB dummy_db;
         NativeOracle oracle =
@@ -243,9 +245,9 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
                                msg_sender_private_key)
                 : NativeOracle(dummy_db, contract_address, function_data, call_context, msg_sender_private_key);
 
-        OracleWrapper oracle_wrapper = OracleWrapper(private_circuit_composer, oracle);
+        OracleWrapper oracle_wrapper = OracleWrapper(private_circuit_builder, oracle);
 
-        FunctionExecutionContext ctx(private_circuit_composer, oracle_wrapper);
+        FunctionExecutionContext ctx(private_circuit_builder, oracle_wrapper);
 
         OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args_vec);
         private_circuit_public_inputs = opt_private_circuit_public_inputs.remove_optionality();
@@ -447,7 +449,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     // We mock a kernel circuit proof to initialize ipnut required by an inner call
     //***************************************************************************
 
-    std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> initial_kernel_private_call_stack{};
+    std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> initial_kernel_private_call_stack{};
     initial_kernel_private_call_stack[0] = private_call_data.call_stack_item.hash();
 
     auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;

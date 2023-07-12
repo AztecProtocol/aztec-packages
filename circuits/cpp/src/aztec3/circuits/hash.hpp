@@ -18,7 +18,8 @@ using abis::FunctionData;
 using abis::Point;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionLeafPreimage;
-using MerkleTree = stdlib::merkle_tree::MemoryTree;
+using MemoryStore = stdlib::merkle_tree::MemoryStore;
+using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 
 template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
 {
@@ -26,7 +27,7 @@ template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typen
     if (args.size() > MAX_ARGS) {
         throw_or_abort("Too many arguments in call to compute_var_args_hash");
     }
-    return NCT::compress(args, FUNCTION_ARGS);
+    return NCT::hash(args, FUNCTION_ARGS);
 }
 
 template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
@@ -57,21 +58,29 @@ template <typename NCT> typename NCT::fr compute_partial_contract_address(typena
     return NCT::compress(inputs, aztec3::GeneratorIndex::PARTIAL_CONTRACT_ADDRESS);
 }
 
+template <typename NCT>
+typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, typename NCT::fr partial_address)
+{
+    using fr = typename NCT::fr;
+    using address = typename NCT::address;
+
+    std::vector<fr> const inputs = {
+        point.x.fields[0], point.x.fields[1], point.y.fields[0], point.y.fields[1], partial_address,
+    };
+    return address(NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
+}
+
 template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
                                                                        typename NCT::fr contract_address_salt,
                                                                        typename NCT::fr function_tree_root,
                                                                        typename NCT::fr constructor_hash)
 {
     using fr = typename NCT::fr;
-    using address = typename NCT::address;
 
     const fr partial_address =
         compute_partial_contract_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
 
-    std::vector<fr> const inputs = {
-        point.x.fields[0], point.x.fields[1], point.y.fields[0], point.y.fields[1], partial_address,
-    };
-    return address(NCT::compress(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
+    return compute_contract_address_from_partial(point, partial_address);
 }
 
 template <typename NCT>
@@ -198,8 +207,8 @@ std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t c
     return sibling_path;
 }
 
-template <typename NCT, typename Composer, size_t SIZE>
-void check_membership(Composer& composer,
+template <typename NCT, typename Builder, size_t SIZE>
+void check_membership(Builder& builder,
                       typename NCT::fr const& value,
                       typename NCT::fr const& index,
                       std::array<typename NCT::fr, SIZE> const& sibling_path,
@@ -207,9 +216,9 @@ void check_membership(Composer& composer,
                       std::string const& msg)
 {
     const auto calculated_root = root_from_sibling_path<NCT>(value, index, sibling_path);
-    composer.do_assert(calculated_root == root,
-                       std::string("Membership check failed: ") + msg,
-                       aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
+    builder.do_assert(calculated_root == root,
+                      std::string("Membership check failed: ") + msg,
+                      aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
 }
 
 /**

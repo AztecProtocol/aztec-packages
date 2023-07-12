@@ -5,8 +5,10 @@
 import { RemoteObject } from 'comlink';
 import { createDebugLogger } from '../../log/index.js';
 import { retry } from '../../retry/index.js';
-import { ClassConverter, ClassConverterInput } from '../class_converter.js';
-import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
+import { ClassConverter, StringClassConverterInput, JsonClassConverterInput } from '../class_converter.js';
+import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
+
+export { JsonStringify } from '../convert.js';
 
 const debug = createDebugLogger('json-rpc:json_rpc_client');
 /**
@@ -17,31 +19,39 @@ const debug = createDebugLogger('json-rpc:json_rpc_client');
  * @param body - The RPC payload.
  * @returns The parsed JSON response, or throws an error.
  */
-export async function defaultFetch(host: string, rpcMethod: string, body: any) {
-  debug(`JsonRpcClient.fetch`, host, rpcMethod, '<-', body);
-  const resp = await fetch(`${host}/${rpcMethod}`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-    headers: { 'content-type': 'application/json' },
-  });
+export async function defaultFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
+  debug(`JsonRpcClient.fetch`, host, rpcMethod, '->', body);
+  let resp: Response;
+  if (useApiEndpoints) {
+    resp = await fetch(`${host}/${rpcMethod}`, {
+      method: 'POST',
+      body: JsonStringify(body),
+      headers: { 'content-type': 'application/json' },
+    });
+  } else {
+    resp = await fetch(host, {
+      method: 'POST',
+      body: JsonStringify({ ...body, method: rpcMethod }),
+      headers: { 'content-type': 'application/json' },
+    });
+  }
 
   if (!resp.ok) {
     throw new Error(resp.statusText);
   }
 
-  const text = await resp.text();
   try {
-    return JSON.parse(text);
+    return await resp.json();
   } catch (err) {
-    throw new Error(`Failed to parse body as JSON: ${text}`);
+    throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
 }
 
 /**
  * A fetch function with retries.
  */
-export async function mustSucceedFetch(host: string, rpcMethod: string, body: any) {
-  return await retry(() => defaultFetch(host, rpcMethod, body), 'JsonRpcClient request');
+export async function mustSucceedFetch(host: string, rpcMethod: string, body: any, useApiEndpoints: boolean) {
+  return await retry(() => defaultFetch(host, rpcMethod, body, useApiEndpoints), 'JsonRpcClient request');
 }
 
 /**
@@ -50,10 +60,12 @@ export async function mustSucceedFetch(host: string, rpcMethod: string, body: an
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
-  classMap: ClassConverterInput,
+  stringClassMap: StringClassConverterInput,
+  objectClassMap: JsonClassConverterInput,
+  useApiEndpoints: boolean,
   fetch = defaultFetch,
 ) {
-  const classConverter = new ClassConverter(classMap);
+  const classConverter = new ClassConverter(stringClassMap, objectClassMap);
   let id = 0;
   const request = async (method: string, params: any[]): Promise<any> => {
     const body = {
@@ -63,10 +75,13 @@ export function createJsonRpcClient<T extends object>(
       params: params.map(param => convertToJsonObj(classConverter, param)),
     };
     debug(`JsonRpcClient.request`, method, '<-', params);
-    const res = await fetch(host, method, body);
-    debug(`JsonRpcClient.request`, method, '->', res);
+    const res = await fetch(host, method, body, useApiEndpoints);
+    debug(`JsonRpcClient.result`, method, '->', res);
     if (res.error) {
       throw res.error;
+    }
+    if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
+      return;
     }
     return convertFromJsonObj(classConverter, res.result);
   };

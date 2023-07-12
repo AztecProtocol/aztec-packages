@@ -5,7 +5,6 @@
 #include "public_data_update_request.hpp"
 
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -14,7 +13,6 @@
 
 namespace aztec3::circuits::abis {
 
-using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -27,30 +25,27 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, KERNEL_NEW_COMMITMENTS_LENGTH> new_commitments = zero_array<fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
-    std::array<fr, KERNEL_NEW_NULLIFIERS_LENGTH> new_nullifiers = zero_array<fr, KERNEL_NEW_NULLIFIERS_LENGTH>();
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
 
-    std::array<fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> private_call_stack =
-        zero_array<fr, KERNEL_PRIVATE_CALL_STACK_LENGTH>();
-    std::array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH> public_call_stack =
-        zero_array<fr, KERNEL_PUBLIC_CALL_STACK_LENGTH>();
-    std::array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs =
-        zero_array<fr, KERNEL_NEW_L2_TO_L1_MSGS_LENGTH>();
+    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
+    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
+    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
 
-    std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash = zero_array<fr, NUM_FIELDS_PER_SHA256>();
-    std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash = zero_array<fr, NUM_FIELDS_PER_SHA256>();
+    std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
+    std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
     fr encrypted_log_preimages_length = 0;
     fr unencrypted_log_preimages_length = 0;
 
-    std::array<NewContractData<NCT>, KERNEL_NEW_CONTRACTS_LENGTH> new_contracts{};
+    std::array<NewContractData<NCT>, MAX_NEW_CONTRACTS_PER_TX> new_contracts{};
 
-    std::array<OptionallyRevealedData<NCT>, KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH> optionally_revealed_data{};
+    std::array<OptionallyRevealedData<NCT>, MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX> optionally_revealed_data{};
 
-    std::array<PublicDataUpdateRequest<NCT>, KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH> public_data_update_requests{};
-    std::array<PublicDataRead<NCT>, KERNEL_PUBLIC_DATA_READS_LENGTH> public_data_reads{};
+    std::array<PublicDataUpdateRequest<NCT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> public_data_update_requests{};
+    std::array<PublicDataRead<NCT>, MAX_PUBLIC_DATA_READS_PER_TX> public_data_reads{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
@@ -81,15 +76,14 @@ template <typename NCT> struct CombinedAccumulatedData {
                public_data_reads == other.public_data_reads;
     };
 
-    template <typename Composer>
-    CombinedAccumulatedData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> CombinedAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
-        typedef CircuitTypes<Composer> CT;
+        typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
         CombinedAccumulatedData<CT> acc_data = {
             typename CT::AggregationObject{
@@ -122,11 +116,11 @@ template <typename NCT> struct CombinedAccumulatedData {
         return acc_data;
     };
 
-    template <typename Composer> CombinedAccumulatedData<NativeTypes> to_native_type() const
+    template <typename Builder> CombinedAccumulatedData<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
         CombinedAccumulatedData<NativeTypes> acc_data = {
             typename NativeTypes::AggregationObject{

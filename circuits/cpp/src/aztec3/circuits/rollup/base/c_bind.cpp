@@ -8,16 +8,16 @@
 #include "aztec3/circuits/abis/rollup/base/base_or_merge_rollup_public_inputs.hpp"
 #include "aztec3/circuits/mock/mock_kernel_circuit.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 #include <barretenberg/serialize/cbind.hpp>
 
 namespace {
-using Composer = plonk::UltraPlonkComposer;
+using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::BaseRollupInputs;
 using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;
@@ -51,8 +51,8 @@ WASM_EXPORT size_t base_rollup__init_verification_key(uint8_t const* pk_buf, uin
 
 static auto base_rollup__sim_helper(BaseRollupInputs<NT> base_rollup_inputs)
 {
-    DummyComposer composer = DummyComposer("base_rollup__sim");
-    // TODO accept proving key and use that to initialize composers
+    DummyBuilder builder = DummyBuilder("base_rollup__sim");
+    // TODO accept proving key and use that to initialize builders
     // this info is just to prevent error for unused pk_buf
     // TODO do we want to accept it or just get it from our factory?
     // auto crs_factory = std::make_shared<EnvReferenceStringFactory>();

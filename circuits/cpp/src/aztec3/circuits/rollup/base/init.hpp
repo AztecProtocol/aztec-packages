@@ -10,7 +10,7 @@
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/recursion/aggregator.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -25,17 +25,17 @@ using NT = aztec3::utils::types::NativeTypes;
 using ConstantRollupData = abis::ConstantRollupData<NT>;
 using BaseRollupInputs = abis::BaseRollupInputs<NT>;
 using BaseOrMergeRollupPublicInputs = abis::BaseOrMergeRollupPublicInputs<NT>;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 using AggregationObject = utils::types::NativeTypes::AggregationObject;
 using AppendOnlySnapshot = abis::AppendOnlyTreeSnapshot<NT>;
 
-// Nullifier Tree Alias
-using MerkleTree = stdlib::merkle_tree::MemoryTree;
+// Tree Aliases
+using MemoryStore = stdlib::merkle_tree::MemoryStore;
+using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 using NullifierTree = stdlib::merkle_tree::NullifierMemoryTree;
 using NullifierLeafPreimage = abis::NullifierLeafPreimage<NT>;
-using SparseTree = stdlib::merkle_tree::MerkleTree<stdlib::merkle_tree::MemoryStore>;
 
 }  // namespace aztec3::circuits::rollup::native_base_rollup

@@ -26,7 +26,8 @@ namespace aztec3::circuits::rollup::native_root_rollup {
  */
 NT::fr calculate_subtree(std::array<NT::fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> leaves)
 {
-    MerkleTree merkle_tree = MerkleTree(L1_TO_L2_MSG_SUBTREE_DEPTH);
+    MemoryStore merkle_tree_store;
+    MerkleTree merkle_tree(merkle_tree_store, L1_TO_L2_MSG_SUBTREE_HEIGHT);
 
     for (size_t i = 0; i < NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP; i++) {
         merkle_tree.update_element(i, leaves[i]);
@@ -69,7 +70,7 @@ std::array<NT::fr, NUM_FIELDS_PER_SHA256> compute_messages_hash(
     return { high, low };
 }
 
-RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupInputs const& rootRollupInputs)
+RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInputs const& rootRollupInputs)
 {
     // TODO: Verify the previous rollup proofs
     // TODO: Check both previous rollup vks (in previous_rollup_data) against the permitted set of kernel vks.
@@ -79,14 +80,14 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
     auto right = rootRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
     auto aggregation_object = components::aggregate_proofs(left, right);
-    components::assert_both_input_proofs_of_same_rollup_type(composer, left, right);
-    components::assert_both_input_proofs_of_same_height_and_return(composer, left, right);
-    components::assert_equal_constants(composer, left, right);
-    components::assert_prev_rollups_follow_on_from_each_other(composer, left, right);
+    components::assert_both_input_proofs_of_same_rollup_type(builder, left, right);
+    components::assert_both_input_proofs_of_same_height_and_return(builder, left, right);
+    components::assert_equal_constants(builder, left, right);
+    components::assert_prev_rollups_follow_on_from_each_other(builder, left, right);
 
     // Update the historic private data tree
     auto end_tree_of_historic_private_data_tree_roots_snapshot = components::insert_subtree_to_snapshot_tree(
-        composer,
+        builder,
         left.constants.start_tree_of_historic_private_data_tree_roots_snapshot,
         rootRollupInputs.new_historic_private_data_tree_root_sibling_path,
         fr::zero(),
@@ -96,7 +97,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
 
     // Update the historic private data tree
     auto end_tree_of_historic_contract_tree_roots_snapshot =
-        components::insert_subtree_to_snapshot_tree(composer,
+        components::insert_subtree_to_snapshot_tree(builder,
                                                     left.constants.start_tree_of_historic_contract_tree_roots_snapshot,
                                                     rootRollupInputs.new_historic_contract_tree_root_sibling_path,
                                                     fr::zero(),
@@ -109,19 +110,19 @@ RootRollupPublicInputs root_rollup_circuit(DummyComposer& composer, RootRollupIn
     auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
 
     // // Insert subtree into the l1 to l2 data tree
-    const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_DEPTH);
+    const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
     auto new_l1_to_l2_messages_tree_snapshot =
-        components::insert_subtree_to_snapshot_tree(composer,
+        components::insert_subtree_to_snapshot_tree(builder,
                                                     rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
                                                     rootRollupInputs.new_l1_to_l2_message_tree_root_sibling_path,
                                                     empty_l1_to_l2_subtree_root,
                                                     l1_to_l2_subtree_root,
-                                                    L1_TO_L2_MSG_SUBTREE_DEPTH,
+                                                    L1_TO_L2_MSG_SUBTREE_HEIGHT,
                                                     "l1 to l2 message tree insertion");
 
     // Update the historic l1 to l2 data tree
     auto end_l1_to_l2_data_roots_tree_snapshot = components::insert_subtree_to_snapshot_tree(
-        composer,
+        builder,
         rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         rootRollupInputs.new_historic_l1_to_l2_message_roots_tree_sibling_path,
         fr::zero(),

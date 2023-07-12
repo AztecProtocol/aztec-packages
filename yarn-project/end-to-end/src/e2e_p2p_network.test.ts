@@ -1,19 +1,15 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  AztecRPCServer,
-  ContractDeployer,
-  Fr,
-  SentTx,
-  TxStatus,
-  createAztecRPCServer,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, Fr, SentTx } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
+import { AztecRPCServer, ConstantKeyPair, createAztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
+import { CircuitsWasm } from '@aztec/circuits.js';
+import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { setup } from './utils.js';
-import { randomBytes } from 'crypto';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
@@ -79,7 +75,7 @@ describe('e2e_p2p_network', () => {
       await context.rpcServer.stop();
     }
     await bootstrapNode.stop();
-  }, 60_000);
+  }, 80_000);
 
   const createBootstrapNode = async () => {
     const peerId = await createLibP2PPeerId();
@@ -127,13 +123,12 @@ describe('e2e_p2p_network', () => {
     const txs: SentTx[] = [];
     for (let i = 0; i < numTxs; i++) {
       const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-      const tx = deployer.deploy().send({ from: account });
+      const tx = deployer.deploy().send({ origin: account, contractAddressSalt: Fr.random() });
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.getReceipt();
       expect(receipt).toEqual(
         expect.objectContaining({
-          from: account,
-          to: undefined,
+          origin: account,
           status: TxStatus.PENDING,
           error: '',
         }),
@@ -150,7 +145,10 @@ describe('e2e_p2p_network', () => {
     numTxs: number,
   ): Promise<NodeContext> => {
     const aztecRpcServer = await createAztecRPCServer(node);
-    const account = await aztecRpcServer.registerSmartAccount(randomBytes(32), AztecAddress.random(), Fr.random());
+    const keyPair = ConstantKeyPair.random(await Grumpkin.new());
+    const partialAddress = Fr.random();
+    const address = computeContractAddressFromPartial(await CircuitsWasm.get(), keyPair.getPublicKey(), partialAddress);
+    const account = await aztecRpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
 
     const txs = await submitTxsTo(aztecRpcServer, account, numTxs);
     return {

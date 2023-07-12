@@ -2,17 +2,24 @@ import {
   AppendOnlyTreeSnapshot,
   CircuitsWasm,
   GlobalVariables,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
 import { ContractData, L2Block, L2BlockL2Logs, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
 import { jest } from '@jest/globals';
-import { MerkleTreeDb } from '../index.js';
-import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
-import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { createLogger } from '@aztec/foundation/log';
+import times from 'lodash.times';
+
+import { MerkleTreeDb } from '../index.js';
+import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
+import { WorldStateRunningState } from './world_state_synchroniser.js';
 
 /**
  * Generic mock implementation.
@@ -72,13 +79,13 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     endPublicDataTreeRoot: Fr.random(),
     endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
     endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: getMockTreeSnapshot(),
-    newCommitments: [Fr.random(), Fr.random(), Fr.random(), Fr.random()],
-    newNullifiers: [Fr.random()],
+    newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
+    newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
-    newContractData: [getMockContractData()],
-    newPublicDataWrites: [PublicDataWrite.random()],
+    newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
+    newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
     newL1ToL2Messages: getMockL1ToL2MessagesData(),
-    newL2ToL1Msgs: [Fr.random()],
+    newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
     newEncryptedLogs,
   });
   return block;

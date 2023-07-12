@@ -15,6 +15,7 @@ import {
   Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
+import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Synchronously calls a wasm function.
@@ -169,7 +170,7 @@ export function hashConstructor(
 /**
  * Computes a contract address.
  * @param wasm - A module providing low-level wasm access.
- * @param deployerAddr - The address of the contract deployer.
+ * @param deployerPubKey - The pubkey of the contract deployer.
  * @param contractAddrSalt - The salt used as 1 one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
@@ -217,6 +218,25 @@ export function computePartialContractAddress(
 }
 
 /**
+ * Computes a contract address from its partial address and the pubkey.
+ * @param wasm - A module providing low-level wasm access.
+ * @param partial - The salt used as 1 one of the inputs of the contract address computation.
+ * @param fnTreeRoot - The function tree root of the contract being deployed.
+ * @param constructorHash - The hash of the constructor.
+ * @returns The partially constructed contract address.
+ */
+export function computeContractAddressFromPartial(wasm: IWasmModule, pubKey: Point, partialAddress: Fr): AztecAddress {
+  wasm.call('pedersen__init');
+  const result = inputBuffersToOutputBuffer(
+    wasm,
+    'abis__compute_contract_address_from_partial',
+    [pubKey.toFieldsBuffer(), partialAddress.toBuffer()],
+    32,
+  );
+  return new AztecAddress(result);
+}
+
+/**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
@@ -229,6 +249,9 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commit
   return abisSiloCommitment(wasm, contract, commitment);
 }
 
+const ARGS_HASH_CHUNK_SIZE = 32;
+const ARGS_HASH_CHUNK_COUNT = 16;
+
 /**
  * Computes the hash of a list of arguments.
  * @param wasm - A module providing low-level wasm access.
@@ -237,18 +260,25 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commit
  */
 export function computeVarArgsHash(wasm: IWasmModule, args: Fr[]): Promise<Fr> {
   if (args.length === 0) return Promise.resolve(Fr.ZERO);
-  if (args.length > 32 ** 2) throw new Error(`Cannot hash more than 1024 arguments`);
+  if (args.length > ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT)
+    throw new Error(`Cannot hash more than ${ARGS_HASH_CHUNK_SIZE * ARGS_HASH_CHUNK_COUNT} arguments`);
   wasm.call('pedersen__init');
 
   const wasmComputeVarArgs = (args: Fr[]) =>
     Fr.fromBuffer(wasmSyncCall(wasm, 'abis__compute_var_args_hash', new Vector(args), 32));
 
-  if (args.length > 32) {
-    const chunksHashes = chunk(args, 32).map(c => wasmComputeVarArgs(c));
-    return Promise.resolve(wasmComputeVarArgs(chunksHashes));
-  } else {
-    return Promise.resolve(wasmComputeVarArgs(args));
+  let chunksHashes = chunk(args, ARGS_HASH_CHUNK_SIZE).map(c => {
+    if (c.length < ARGS_HASH_CHUNK_SIZE) {
+      c = padArrayEnd(c, Fr.ZERO, ARGS_HASH_CHUNK_SIZE);
+    }
+    return wasmComputeVarArgs(c);
+  });
+
+  if (chunksHashes.length < ARGS_HASH_CHUNK_COUNT) {
+    chunksHashes = padArrayEnd(chunksHashes, Fr.ZERO, ARGS_HASH_CHUNK_COUNT);
   }
+
+  return Promise.resolve(wasmComputeVarArgs(chunksHashes));
 }
 
 /**

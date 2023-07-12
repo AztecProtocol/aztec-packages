@@ -1,10 +1,11 @@
 import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  GlobalVariables,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
@@ -27,10 +28,10 @@ import {
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
   makeProcessedTx,
-  makeTx,
 } from '@aztec/sequencer-client';
-import { L2Actor, L2Block } from '@aztec/types';
+import { L2Actor, L2Block, mockTx } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
 import {
@@ -46,8 +47,8 @@ import {
   getContract,
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+
 import { localAnvil } from './fixtures.js';
-import { to2Fields } from '@aztec/foundation/serialize';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -130,7 +131,7 @@ describe('L1Publisher integration', () => {
     const vks = getVerificationKeys();
     const simulator = await WasmRollupCircuitSimulator.new();
     const prover = new EmptyRollupProver();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, new Fr(config.chainId), new Fr(config.version));
+    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
     l2Proof = Buffer.alloc(0);
 
@@ -157,32 +158,32 @@ describe('L1Publisher integration', () => {
   };
 
   const makeBloatedProcessedTx = async (seed = 0x1) => {
-    const publicTx = makeTx(seed);
+    const tx = mockTx(seed);
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(config.chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
-      KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+      MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
       seed + 0x500,
     );
 
-    const tx = await makeProcessedTx(publicTx, kernelOutput, makeProof());
+    const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-    tx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
-    tx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
-    tx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-    tx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
-    tx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
-    tx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(tx.encryptedLogs));
-    tx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(tx.unencryptedLogs));
+    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
+    processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
+    processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
+    processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
+    processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
+    processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
+    processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
 
-    return tx;
+    return processedTx;
   };
 
   const sendToL2 = async (content: Fr, recipientAddress: AztecAddress) => {
-    // @todo @LHerskind version hardcoded here
+    // @todo @LHerskind version hardcoded here (update to bigint or field)
     const recipient = new L2Actor(recipientAddress, 1);
     // Note: using max deadline
     const deadline = 2 ** 32 - 1;
@@ -266,7 +267,13 @@ describe('L1Publisher integration', () => {
         await makeBloatedProcessedTx(128 * i + 96),
         await makeBloatedProcessedTx(128 * i + 128),
       ];
-      const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
+      const globalVariables = new GlobalVariables(
+        new Fr(config.chainId),
+        new Fr(config.version),
+        new Fr(1 + i),
+        new Fr(await rollup.read.lastBlockTs()),
+      );
+      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -351,7 +358,13 @@ describe('L1Publisher integration', () => {
         await makeEmptyProcessedTx(),
         await makeEmptyProcessedTx(),
       ];
-      const [block] = await builder.buildL2Block(1 + i, txs, l1ToL2Messages);
+      const globalVariables = new GlobalVariables(
+        new Fr(config.chainId),
+        new Fr(config.version),
+        new Fr(1 + i),
+        new Fr(await rollup.read.lastBlockTs()),
+      );
+      const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
 
       await publisher.processL2Block(block);
 

@@ -1,8 +1,10 @@
 #include "testing_harness.hpp"
 
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 #include <gtest/gtest.h>
@@ -31,27 +33,27 @@ TEST_F(native_private_kernel_ordering_tests, native_one_read_request_choping_com
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    auto new_commitments = zero_array<fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
-    auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1282);
     read_requests[0] = fr(1282);
-    read_request_membership_witnesses[0].leaf_index = fr(-1);
+    read_request_membership_witnesses[0].is_transient = true;
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
 
-    DummyComposer composer =
-        DummyComposer("native_private_kernel_ordering_tests__native_one_read_request_choping_commitment_works");
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_one_read_request_choping_commitment_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(
-        composer, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
-    auto failure = composer.get_first_failure();
+    auto failure = builder.get_first_failure();
     if (failure.code != CircuitErrorCode::NO_ERROR) {
         info("failure: ", failure);
     }
-    ASSERT_FALSE(composer.failed());
+    ASSERT_FALSE(builder.failed());
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 0);
 }
 
@@ -59,9 +61,9 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    auto new_commitments = zero_array<fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
-    auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1285);
@@ -72,21 +74,21 @@ TEST_F(native_private_kernel_ordering_tests, native_read_requests_choping_commit
 
     read_requests[0] = fr(1283);
     read_requests[1] = fr(1284);
-    read_request_membership_witnesses[0].leaf_index = fr(-1);
-    read_request_membership_witnesses[1].leaf_index = fr(-1);
+    read_request_membership_witnesses[0].is_transient = true;
+    read_request_membership_witnesses[1].is_transient = true;
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
 
-    DummyComposer composer =
-        DummyComposer("native_private_kernel_ordering_tests__native_read_requests_choping_commitment_works");
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_read_requests_choping_commitment_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(
-        composer, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
-    auto failure = composer.get_first_failure();
+    auto failure = builder.get_first_failure();
     if (failure.code != CircuitErrorCode::NO_ERROR) {
         info("failure: ", failure);
     }
-    ASSERT_FALSE(composer.failed());
+    ASSERT_FALSE(builder.failed());
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 2);
     ASSERT_TRUE(public_inputs.end.new_commitments[0] == fr(1285));
     ASSERT_TRUE(public_inputs.end.new_commitments[1] == fr(1282));
@@ -96,9 +98,9 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    auto new_commitments = zero_array<fr, KERNEL_NEW_COMMITMENTS_LENGTH>();
-    auto read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
 
     new_commitments[0] = fr(1285);
@@ -111,18 +113,18 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     read_requests[1] = fr(1282);
     read_requests[2] = fr(1283);
     read_requests[3] = fr(1286);
-    read_request_membership_witnesses[0].leaf_index = fr(-1);
-    read_request_membership_witnesses[1].leaf_index = fr(-1);
-    read_request_membership_witnesses[2].leaf_index = fr(-1);
-    read_request_membership_witnesses[3].leaf_index = fr(-1);
+    read_request_membership_witnesses[0].is_transient = true;
+    read_request_membership_witnesses[1].is_transient = true;
+    read_request_membership_witnesses[2].is_transient = true;
+    read_request_membership_witnesses[3].is_transient = true;
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
 
-    DummyComposer composer = DummyComposer("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
-    auto const& public_inputs = native_private_kernel_circuit_ordering(
-        composer, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
+    DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
+    native_private_kernel_circuit_ordering(
+        builder, private_inputs.previous_kernel, read_requests, read_request_membership_witnesses);
 
-    auto failure = composer.get_first_failure();
+    auto failure = builder.get_first_failure();
     ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
 }
 

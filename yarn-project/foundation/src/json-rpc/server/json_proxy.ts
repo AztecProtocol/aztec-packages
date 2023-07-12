@@ -1,5 +1,5 @@
 import { createDebugLogger } from '../../log/index.js';
-import { ClassConverter, ClassConverterInput } from '../class_converter.js';
+import { ClassConverter, StringClassConverterInput, JsonClassConverterInput } from '../class_converter.js';
 import { convertFromJsonObj, convertToJsonObj } from '../convert.js';
 import { assert, hasOwnProperty } from '../js_utils.js';
 
@@ -11,8 +11,12 @@ const debug = createDebugLogger('json-rpc:json_proxy');
  */
 export class JsonProxy {
   classConverter: ClassConverter;
-  constructor(private handler: object, input: ClassConverterInput) {
-    this.classConverter = new ClassConverter(input);
+  constructor(
+    private handler: object,
+    stringClassMap: StringClassConverterInput,
+    objectClassMap: JsonClassConverterInput,
+  ) {
+    this.classConverter = new ClassConverter(stringClassMap, objectClassMap);
   }
   /**
    * Call an RPC method.
@@ -27,10 +31,10 @@ export class JsonProxy {
     assert(Array.isArray(jsonParams), 'JsonProxy: Params not an array!');
     // convert the params from json representation to classes
     const convertedParams = jsonParams.map(param => convertFromJsonObj(this.classConverter, param));
-    debug('JsonProxy:call', this.handler, methodName, '<-', convertedParams);
+    debug('JsonProxy:call', methodName, '<-', convertedParams);
     const rawRet = await (this.handler as any)[methodName](...convertedParams);
     const ret = convertToJsonObj(this.classConverter, rawRet);
-    debug('JsonProxy:call', this.handler, methodName, '->', ret);
+    debug('JsonProxy:call', methodName, '->', ret);
     return ret;
   }
 }

@@ -1,17 +1,25 @@
-import { CombinedHistoricTreeRoots, Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, makeEmptyProof } from '@aztec/circuits.js';
+import {
+  CombinedHistoricTreeRoots,
+  Fr,
+  GlobalVariables,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  makeEmptyProof,
+} from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, mockTx, Tx, TxHash } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 import { BlockBuilder } from '../block_builder/index.js';
-import { L1Publisher, makeTx } from '../index.js';
+import { L1Publisher } from '../index.js';
 import { makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
 import { Sequencer } from './sequencer.js';
+import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
+  let globalVariableBuilder: MockProxy<GlobalVariableBuilder>;
   let p2p: MockProxy<P2P>;
   let worldState: MockProxy<WorldStateSynchroniser>;
   let blockBuilder: MockProxy<BlockBuilder>;
@@ -25,10 +33,14 @@ describe('sequencer', () => {
 
   let sequencer: TestSubject;
 
+  const chainId = Fr.ZERO;
+  const version = Fr.ZERO;
+
   beforeEach(() => {
     lastBlockNumber = 0;
 
     publisher = mock<L1Publisher>();
+    globalVariableBuilder = mock<GlobalVariableBuilder>();
     merkleTreeOps = mock<MerkleTreeOperations>();
     blockBuilder = mock<BlockBuilder>();
 
@@ -43,7 +55,7 @@ describe('sequencer', () => {
 
     publicProcessor = mock<PublicProcessor>({
       process: async txs => [await Promise.all(txs.map(tx => makeProcessedTx(tx))), []],
-      makeEmptyProcessedTx: () => makeEmptyProcessedTx(CombinedHistoricTreeRoots.empty(), Fr.ZERO, Fr.ZERO),
+      makeEmptyProcessedTx: () => makeEmptyProcessedTx(CombinedHistoricTreeRoots.empty(), chainId, version),
     });
 
     publicProcessorFactory = mock<PublicProcessorFactory>({
@@ -60,6 +72,7 @@ describe('sequencer', () => {
 
     sequencer = new TestSubject(
       publisher,
+      globalVariableBuilder,
       p2p,
       worldState,
       blockBuilder,
@@ -67,20 +80,23 @@ describe('sequencer', () => {
       l1ToL2MessageSource,
       publicProcessorFactory,
       {
-        chainId: 0,
-        version: 0,
+        chainId: Number(chainId.value),
+        version: Number(version.value),
       },
     );
   });
 
   it('builds a block out of a single tx', async () => {
-    const tx = makeTx();
+    const tx = mockTx();
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
 
     p2p.getTxs.mockResolvedValueOnce([tx]);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+    );
 
     await sequencer.initialSync();
     await sequencer.work();
@@ -88,7 +104,7 @@ describe('sequencer', () => {
     const expectedTxHashes = [...(await Tx.getHashes([tx])), ...times(3, () => TxHash.ZERO)];
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      lastBlockNumber + 1,
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );
@@ -96,7 +112,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
-    const txs = [makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)];
+    const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
@@ -104,6 +120,9 @@ describe('sequencer', () => {
     p2p.getTxs.mockResolvedValueOnce(txs);
     blockBuilder.buildL2Block.mockResolvedValueOnce([block, proof]);
     publisher.processL2Block.mockResolvedValueOnce(true);
+    globalVariableBuilder.buildGlobalVariables.mockResolvedValueOnce(
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
+    );
 
     // We make a nullifier from tx1 a part of the nullifier tree, so it gets rejected as double spend
     const doubleSpendNullifier = doubleSpendTx.data.end.newNullifiers[0].toBuffer();
@@ -119,7 +138,7 @@ describe('sequencer', () => {
     const expectedTxHashes = [...(await Tx.getHashes([txs[0], txs[2]])), TxHash.ZERO, TxHash.ZERO];
 
     expect(blockBuilder.buildL2Block).toHaveBeenCalledWith(
-      lastBlockNumber + 1,
+      new GlobalVariables(chainId, version, new Fr(lastBlockNumber + 1), Fr.ZERO),
       expectedTxHashes.map(hash => expect.objectContaining({ hash })),
       Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n)),
     );

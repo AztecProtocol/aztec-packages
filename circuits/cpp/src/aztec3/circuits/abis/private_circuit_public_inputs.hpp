@@ -4,16 +4,15 @@
 #include "contract_deployment_data.hpp"
 
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
+#include "barretenberg/common/serialize.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::abis {
 
-using aztec3::utils::zero_array;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using plonk::stdlib::witness_t;
@@ -26,19 +25,19 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     CallContext<NCT> call_context{};
 
     fr args_hash = 0;
-    std::array<fr, RETURN_VALUES_LENGTH> return_values = zero_array<fr, RETURN_VALUES_LENGTH>();
+    std::array<fr, RETURN_VALUES_LENGTH> return_values{};
 
-    std::array<fr, READ_REQUESTS_LENGTH> read_requests = zero_array<fr, READ_REQUESTS_LENGTH>();
+    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
 
-    std::array<fr, NEW_COMMITMENTS_LENGTH> new_commitments{};
-    std::array<fr, NEW_NULLIFIERS_LENGTH> new_nullifiers{};
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
 
-    std::array<fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack{};
-    std::array<fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack{};
-    std::array<fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs{};
+    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack{};
+    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
+    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
 
-    std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash = zero_array<fr, NUM_FIELDS_PER_SHA256>();
-    std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash = zero_array<fr, NUM_FIELDS_PER_SHA256>();
+    std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
+    std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
 
     // Here so that the gas cost of this request can be measured by circuits, without actually needing to feed in the
     // variable-length data.
@@ -52,6 +51,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
+<<<<<<< HEAD
     // for serialization, update with new fields
     MSGPACK_FIELDS(call_context,
                    args_hash,
@@ -75,18 +75,39 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
         return utils::msgpack_derived_equals<boolean>(*this, other);
+=======
+    fr chain_id = 0;
+    fr version = 0;
+
+    boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
+    {
+        return call_context == other.call_context && args_hash == other.args_hash &&
+               return_values == other.return_values && read_requests == other.read_requests &&
+               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
+               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
+               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
+               unencrypted_logs_hash == other.unencrypted_logs_hash &&
+               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
+               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
+               historic_private_data_tree_root == other.historic_private_data_tree_root &&
+               historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
+               historic_contract_tree_root == other.historic_contract_tree_root &&
+               historic_l1_to_l2_messages_tree_root == other.historic_l1_to_l2_messages_tree_root &&
+               contract_deployment_data == other.contract_deployment_data && chain_id == other.chain_id &&
+               version == other.version;
+>>>>>>> origin/master
     };
 
-    template <typename Composer>
-    PrivateCircuitPublicInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder>
+    PrivateCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
-        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(composer); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
+        auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
-        PrivateCircuitPublicInputs<CircuitTypes<Composer>> pis = {
+        PrivateCircuitPublicInputs<CircuitTypes<Builder>> pis = {
             to_circuit_type(call_context),
 
             to_ct(args_hash),
@@ -113,16 +134,19 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(historic_l1_to_l2_messages_tree_root),
 
             to_circuit_type(contract_deployment_data),
+
+            to_ct(chain_id),
+            to_ct(version),
         };
 
         return pis;
     };
 
-    template <typename Composer> PrivateCircuitPublicInputs<NativeTypes> to_native_type() const
+    template <typename Builder> PrivateCircuitPublicInputs<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
-        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Composer>(); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
+        auto to_native_type = []<typename T>(T& e) { return e.template to_native_type<Builder>(); };
 
         PrivateCircuitPublicInputs<NativeTypes> pis = {
             to_native_type(call_context),
@@ -151,6 +175,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(historic_l1_to_l2_messages_tree_root),
 
             to_native_type(contract_deployment_data),
+
+            to_nt(chain_id),
+            to_nt(version),
         };
 
         return pis;
@@ -189,6 +216,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
         inputs.push_back(contract_deployment_data.hash());
 
+        inputs.push_back(chain_id);
+        inputs.push_back(version);
+
         return NCT::compress(inputs, GeneratorIndex::PRIVATE_CIRCUIT_PUBLIC_INPUTS);
     }
 
@@ -199,11 +229,95 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     }
 };
 
+<<<<<<< HEAD
+=======
+template <typename NCT> void read(uint8_t const*& it, PrivateCircuitPublicInputs<NCT>& private_circuit_public_inputs)
+{
+    using serialize::read;
+
+    PrivateCircuitPublicInputs<NCT>& pis = private_circuit_public_inputs;
+    read(it, pis.call_context);
+    read(it, pis.args_hash);
+    read(it, pis.return_values);
+    read(it, pis.read_requests);
+    read(it, pis.new_commitments);
+    read(it, pis.new_nullifiers);
+    read(it, pis.private_call_stack);
+    read(it, pis.public_call_stack);
+    read(it, pis.new_l2_to_l1_msgs);
+    read(it, pis.encrypted_logs_hash);
+    read(it, pis.unencrypted_logs_hash);
+    read(it, pis.encrypted_log_preimages_length);
+    read(it, pis.unencrypted_log_preimages_length);
+    read(it, pis.historic_private_data_tree_root);
+    read(it, pis.historic_nullifier_tree_root);
+    read(it, pis.historic_contract_tree_root);
+    read(it, pis.historic_l1_to_l2_messages_tree_root);
+    read(it, pis.contract_deployment_data);
+    read(it, pis.chain_id);
+    read(it, pis.version);
+};
+
+template <typename NCT>
+void write(std::vector<uint8_t>& buf, PrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
+{
+    using serialize::write;
+
+    PrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
+
+    write(buf, pis.call_context);
+    write(buf, pis.args_hash);
+    write(buf, pis.return_values);
+    write(buf, pis.read_requests);
+    write(buf, pis.new_commitments);
+    write(buf, pis.new_nullifiers);
+    write(buf, pis.private_call_stack);
+    write(buf, pis.public_call_stack);
+    write(buf, pis.new_l2_to_l1_msgs);
+    write(buf, pis.encrypted_logs_hash);
+    write(buf, pis.unencrypted_logs_hash);
+    write(buf, pis.encrypted_log_preimages_length);
+    write(buf, pis.unencrypted_log_preimages_length);
+    write(buf, pis.historic_private_data_tree_root);
+    write(buf, pis.historic_nullifier_tree_root);
+    write(buf, pis.historic_contract_tree_root);
+    write(buf, pis.historic_l1_to_l2_messages_tree_root);
+
+    write(buf, pis.contract_deployment_data);
+    write(buf, pis.chain_id);
+    write(buf, pis.version);
+};
+
+>>>>>>> origin/master
 template <typename NCT>
 std::ostream& operator<<(std::ostream& os, PrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
 {
+<<<<<<< HEAD
     utils::msgpack_derived_output(os, private_circuit_public_inputs);
     return os;
+=======
+    PrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
+    return os << "call_context: " << pis.call_context << "\n"
+              << "args_hash: " << pis.args_hash << "\n"
+              << "return_values: " << pis.return_values << "\n"
+              << "read_requests: " << pis.read_requests << "\n"
+              << "new_commitments: " << pis.new_commitments << "\n"
+              << "new_nullifiers: " << pis.new_nullifiers << "\n"
+              << "private_call_stack: " << pis.private_call_stack << "\n"
+              << "public_call_stack: " << pis.public_call_stack << "\n"
+              << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
+              << "encrypted_logs_hash: " << pis.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash: " << pis.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length: " << pis.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length: " << pis.unencrypted_log_preimages_length << "\n"
+              << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
+              << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
+              << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
+              << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
+              << "contract_deployment_data: " << pis.contract_deployment_data << "\n"
+              << "chain_id: " << pis.chain_id << "\n"
+              << "version: " << pis.version << "\n";
+>>>>>>> origin/master
 }
 
 // It's been extremely useful for all members here to be std::optional. It allows test app circuits to be very
@@ -222,12 +336,12 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::array<opt_fr, READ_REQUESTS_LENGTH> read_requests;
 
-    std::array<opt_fr, NEW_COMMITMENTS_LENGTH> new_commitments;
-    std::array<opt_fr, NEW_NULLIFIERS_LENGTH> new_nullifiers;
+    std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
+    std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
 
-    std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> private_call_stack;
-    std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> public_call_stack;
-    std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> new_l2_to_l1_msgs;
+    std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack;
+    std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack;
+    std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs;
 
     std::array<opt_fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash;
     std::array<opt_fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash;
@@ -242,6 +356,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::optional<ContractDeploymentData<NCT>> contract_deployment_data;
 
+<<<<<<< HEAD
     // for serialization, update with new fields
     MSGPACK_FIELDS(call_context,
                    args_hash,
@@ -261,35 +376,43 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    historic_contract_tree_root,
                    historic_l1_to_l2_messages_tree_root,
                    contract_deployment_data)
+=======
+    opt_fr chain_id;
+    opt_fr version;
+>>>>>>> origin/master
 
     OptionalPrivateCircuitPublicInputs<NCT>() = default;
 
-    OptionalPrivateCircuitPublicInputs<NCT>(std::optional<CallContext<NCT>> const& call_context,
+    OptionalPrivateCircuitPublicInputs<NCT>(
+        std::optional<CallContext<NCT>> const& call_context,
 
-                                            opt_fr const& args_hash,
-                                            std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
+        opt_fr const& args_hash,
+        std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
 
-                                            std::array<opt_fr, READ_REQUESTS_LENGTH> const& read_requests,
+        std::array<opt_fr, READ_REQUESTS_LENGTH> const& read_requests,
 
-                                            std::array<opt_fr, NEW_COMMITMENTS_LENGTH> const& new_commitments,
-                                            std::array<opt_fr, NEW_NULLIFIERS_LENGTH> const& new_nullifiers,
+        std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
+        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
 
-                                            std::array<opt_fr, PRIVATE_CALL_STACK_LENGTH> const& private_call_stack,
-                                            std::array<opt_fr, PUBLIC_CALL_STACK_LENGTH> const& public_call_stack,
-                                            std::array<opt_fr, NEW_L2_TO_L1_MSGS_LENGTH> const& new_l2_to_l1_msgs,
+        std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
+        std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
+        std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_l2_to_l1_msgs,
 
-                                            std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
-                                            std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
+        std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+        std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
 
-                                            opt_fr const& encrypted_log_preimages_length,
-                                            opt_fr const& unencrypted_log_preimages_length,
+        opt_fr const& encrypted_log_preimages_length,
+        opt_fr const& unencrypted_log_preimages_length,
 
-                                            opt_fr const& historic_private_data_tree_root,
-                                            opt_fr const& historic_nullifier_tree_root,
-                                            opt_fr const& historic_contract_tree_root,
-                                            opt_fr const& historic_l1_to_l2_messages_tree_root,
+        opt_fr const& historic_private_data_tree_root,
+        opt_fr const& historic_nullifier_tree_root,
+        opt_fr const& historic_contract_tree_root,
+        opt_fr const& historic_l1_to_l2_messages_tree_root,
 
-                                            std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data)
+        std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data,
+
+        opt_fr const& chain_id,
+        opt_fr const& version)
         : call_context(call_context)
         , args_hash(args_hash)
         , return_values(return_values)
@@ -307,7 +430,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , historic_nullifier_tree_root(historic_nullifier_tree_root)
         , historic_contract_tree_root(historic_contract_tree_root)
         , historic_l1_to_l2_messages_tree_root(historic_l1_to_l2_messages_tree_root)
-        , contract_deployment_data(contract_deployment_data){};
+        , contract_deployment_data(contract_deployment_data)
+        , chain_id(chain_id)
+        , version(version){};
 
     bool operator==(OptionalPrivateCircuitPublicInputs<NCT> const&) const = default;
 
@@ -342,6 +467,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         new_inputs.contract_deployment_data = std::nullopt;
 
+        new_inputs.chain_id = std::nullopt;
+        new_inputs.version = std::nullopt;
+
         return new_inputs;
     };
 
@@ -365,45 +493,48 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         }
     }
 
-    template <typename Composer> void make_unused_inputs_zero(Composer& composer)
+    template <typename Builder> void make_unused_inputs_zero(Builder& builder)
     {
-        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
-        make_unused_element_zero(composer, call_context);
+        make_unused_element_zero(builder, call_context);
 
-        make_unused_element_zero(composer, args_hash);
-        make_unused_array_elements_zero(composer, return_values);
+        make_unused_element_zero(builder, args_hash);
+        make_unused_array_elements_zero(builder, return_values);
 
-        make_unused_array_elements_zero(composer, read_requests);
+        make_unused_array_elements_zero(builder, read_requests);
 
-        make_unused_array_elements_zero(composer, new_commitments);
-        make_unused_array_elements_zero(composer, new_nullifiers);
+        make_unused_array_elements_zero(builder, new_commitments);
+        make_unused_array_elements_zero(builder, new_nullifiers);
 
-        make_unused_array_elements_zero(composer, private_call_stack);
-        make_unused_array_elements_zero(composer, public_call_stack);
-        make_unused_array_elements_zero(composer, new_l2_to_l1_msgs);
+        make_unused_array_elements_zero(builder, private_call_stack);
+        make_unused_array_elements_zero(builder, public_call_stack);
+        make_unused_array_elements_zero(builder, new_l2_to_l1_msgs);
 
-        make_unused_array_elements_zero(composer, encrypted_logs_hash);
-        make_unused_array_elements_zero(composer, unencrypted_logs_hash);
+        make_unused_array_elements_zero(builder, encrypted_logs_hash);
+        make_unused_array_elements_zero(builder, unencrypted_logs_hash);
 
-        make_unused_element_zero(composer, encrypted_log_preimages_length);
-        make_unused_element_zero(composer, unencrypted_log_preimages_length);
+        make_unused_element_zero(builder, encrypted_log_preimages_length);
+        make_unused_element_zero(builder, unencrypted_log_preimages_length);
 
-        make_unused_element_zero(composer, historic_private_data_tree_root);
-        make_unused_element_zero(composer, historic_nullifier_tree_root);
-        make_unused_element_zero(composer, historic_contract_tree_root);
-        make_unused_element_zero(composer, historic_l1_to_l2_messages_tree_root);
+        make_unused_element_zero(builder, historic_private_data_tree_root);
+        make_unused_element_zero(builder, historic_nullifier_tree_root);
+        make_unused_element_zero(builder, historic_contract_tree_root);
+        make_unused_element_zero(builder, historic_l1_to_l2_messages_tree_root);
 
-        make_unused_element_zero(composer, contract_deployment_data);
+        make_unused_element_zero(builder, contract_deployment_data);
+
+        make_unused_element_zero(builder, chain_id);
+        make_unused_element_zero(builder, version);
 
         all_elements_populated = true;
     }
 
-    template <typename Composer> void set_public(Composer& composer)
+    template <typename Builder> void set_public(Builder& builder)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
 
-        make_unused_inputs_zero(composer);
+        make_unused_inputs_zero(builder);
 
         // Optional members are guaranteed to be nonempty from here.
 
@@ -433,20 +564,23 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         (*historic_l1_to_l2_messages_tree_root).set_public();
 
         (*contract_deployment_data).set_public();
+
+        (*chain_id).set_public();
+        (*version).set_public();
     }
 
-    template <typename Composer>
-    OptionalPrivateCircuitPublicInputs<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder>
+    OptionalPrivateCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
         auto to_circuit_type = [&](auto& e) {
-            return e ? std::make_optional((*e).to_circuit_type(composer)) : std::nullopt;
+            return e ? std::make_optional((*e).to_circuit_type(builder)) : std::nullopt;
         };
 
-        OptionalPrivateCircuitPublicInputs<CircuitTypes<Composer>> pis = {
+        OptionalPrivateCircuitPublicInputs<CircuitTypes<Builder>> pis = {
             to_circuit_type(call_context),
 
             to_ct(args_hash),
@@ -473,48 +607,52 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_ct(historic_l1_to_l2_messages_tree_root),
 
             to_circuit_type(contract_deployment_data),
+
+            to_ct(chain_id),
+            to_ct(version),
         };
 
         return pis;
     };
 
-    template <typename Composer> OptionalPrivateCircuitPublicInputs<NativeTypes> to_native_type() const
+    template <typename Builder> OptionalPrivateCircuitPublicInputs<NativeTypes> to_native_type() const
     {
-        static_assert(std::is_same<CircuitTypes<Composer>, NCT>::value);
-        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Composer>(e); };
+        static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
         auto to_native_type = []<typename T>(const std::optional<T>& e) {
-            return e ? std::make_optional((*e).template to_native_type<Composer>()) : std::nullopt;
+            return e ? std::make_optional((*e).template to_native_type<Builder>()) : std::nullopt;
         };
         // auto to_native_type = [&]<typename T>(T& e) { return e.to_native_type(); };
 
-        OptionalPrivateCircuitPublicInputs<NativeTypes> pis = {
-            to_native_type(call_context),
+        OptionalPrivateCircuitPublicInputs<NativeTypes> pis = { to_native_type(call_context),
 
-            to_nt(args_hash),
-            to_nt(return_values),
+                                                                to_nt(args_hash),
+                                                                to_nt(return_values),
 
-            to_nt(read_requests),
+                                                                to_nt(read_requests),
 
-            to_nt(new_commitments),
-            to_nt(new_nullifiers),
+                                                                to_nt(new_commitments),
+                                                                to_nt(new_nullifiers),
 
-            to_nt(private_call_stack),
-            to_nt(public_call_stack),
-            to_nt(new_l2_to_l1_msgs),
+                                                                to_nt(private_call_stack),
+                                                                to_nt(public_call_stack),
+                                                                to_nt(new_l2_to_l1_msgs),
 
-            to_nt(encrypted_logs_hash),
-            to_nt(unencrypted_logs_hash),
+                                                                to_nt(encrypted_logs_hash),
+                                                                to_nt(unencrypted_logs_hash),
 
-            to_nt(encrypted_log_preimages_length),
-            to_nt(unencrypted_log_preimages_length),
+                                                                to_nt(encrypted_log_preimages_length),
+                                                                to_nt(unencrypted_log_preimages_length),
 
-            to_nt(historic_private_data_tree_root),
-            to_nt(historic_nullifier_tree_root),
-            to_nt(historic_contract_tree_root),
-            to_nt(historic_l1_to_l2_messages_tree_root),
+                                                                to_nt(historic_private_data_tree_root),
+                                                                to_nt(historic_nullifier_tree_root),
+                                                                to_nt(historic_contract_tree_root),
+                                                                to_nt(historic_l1_to_l2_messages_tree_root),
 
-            to_native_type(contract_deployment_data),
-        };
+                                                                to_native_type(contract_deployment_data),
+
+                                                                to_nt(chain_id),
+                                                                to_nt(version) };
 
         return pis;
     };
@@ -557,6 +695,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         inputs.push_back((*contract_deployment_data).hash());
 
+        inputs.push_back(*chain_id);
+        inputs.push_back(*version);
+
         return NCT::compress(inputs, GeneratorIndex::PRIVATE_CIRCUIT_PUBLIC_INPUTS);
     }
 
@@ -592,6 +733,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             .historic_l1_to_l2_messages_tree_root = historic_l1_to_l2_messages_tree_root.value(),
 
             .contract_deployment_data = contract_deployment_data.value(),
+
+            .chain_id = chain_id.value(),
+            .version = version.value(),
         };
     }
 
@@ -619,38 +763,37 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
     }
 
-    template <typename Composer, typename T, size_t SIZE>
-    void make_unused_array_elements_zero(Composer& composer, std::array<std::optional<T>, SIZE>& arr)
+    template <typename Builder, typename T, size_t SIZE>
+    void make_unused_array_elements_zero(Builder& builder, std::array<std::optional<T>, SIZE>& arr)
     {
-        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
         for (std::optional<T>& e : arr) {
-            make_unused_element_zero(composer, e);
+            make_unused_element_zero(builder, e);
         }
     }
 
-    template <typename Composer, typename T>
-    void make_unused_element_zero(Composer& composer, std::optional<T>& element)
+    template <typename Builder, typename T> void make_unused_element_zero(Builder& builder, std::optional<T>& element)
     {
-        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
         if (!element) {
             element =
-                T(witness_t<Composer>(&composer, 0));  // convert the nullopt value to a circuit witness value of `0`
+                T(witness_t<Builder>(&builder, 0));  // convert the nullopt value to a circuit witness value of `0`
             fr(*element).assert_is_zero();
         }
     }
 
     // ABIStruct is a template for any of the structs in the abis/ dir. E.g. ExecutedCallback, CallbackStackItem.
-    template <typename Composer, template <class> class ABIStruct>
-    void make_unused_element_zero(Composer& composer, std::optional<ABIStruct<CircuitTypes<Composer>>>& element)
+    template <typename Builder, template <class> class ABIStruct>
+    void make_unused_element_zero(Builder& builder, std::optional<ABIStruct<CircuitTypes<Builder>>>& element)
     {
-        static_assert((std::is_same<CircuitTypes<Composer>, NCT>::value));
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
         if (!element) {
             element = ABIStruct<NativeTypes>().to_circuit_type(
-                composer);  // convert the nullopt value to a circuit witness value of `0`
-            (*element).template assert_is_zero<Composer>();
+                builder);  // convert the nullopt value to a circuit witness value of `0`
+            (*element).template assert_is_zero<Builder>();
         }
     }
 
@@ -664,10 +807,94 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 };  // namespace aztec3::circuits::abis
 
 template <typename NCT>
+<<<<<<< HEAD
+=======
+void read(uint8_t const*& it, OptionalPrivateCircuitPublicInputs<NCT>& private_circuit_public_inputs)
+{
+    using serialize::read;
+
+    OptionalPrivateCircuitPublicInputs<NCT>& pis = private_circuit_public_inputs;
+    read(it, pis.call_context);
+    read(it, pis.args_hash);
+    read(it, pis.return_values);
+    read(it, pis.read_requests);
+    read(it, pis.new_commitments);
+    read(it, pis.new_nullifiers);
+    read(it, pis.private_call_stack);
+    read(it, pis.public_call_stack);
+    read(it, pis.new_l2_to_l1_msgs);
+    read(it, pis.encrypted_logs_hash);
+    read(it, pis.unencrypted_logs_hash);
+    read(it, pis.encrypted_log_preimages_length);
+    read(it, pis.unencrypted_log_preimages_length);
+    read(it, pis.historic_private_data_tree_root);
+    read(it, pis.historic_nullifier_tree_root);
+    read(it, pis.historic_contract_tree_root);
+    read(it, pis.historic_l1_to_l2_messages_tree_root);
+    read(it, pis.contract_deployment_data);
+    read(it, pis.chain_id);
+    read(it, pis.version);
+};
+
+template <typename NCT>
+void write(std::vector<uint8_t>& buf, OptionalPrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
+{
+    using serialize::write;
+
+    OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
+
+    write(buf, pis.call_context);
+    write(buf, pis.args_hash);
+    write(buf, pis.return_values);
+    write(buf, pis.read_requests);
+    write(buf, pis.new_commitments);
+    write(buf, pis.new_nullifiers);
+    write(buf, pis.private_call_stack);
+    write(buf, pis.public_call_stack);
+    write(buf, pis.new_l2_to_l1_msgs);
+    write(buf, pis.encrypted_logs_hash);
+    write(buf, pis.unencrypted_logs_hash);
+    write(buf, pis.encrypted_log_preimages_length);
+    write(buf, pis.unencrypted_log_preimages_length);
+    write(buf, pis.historic_private_data_tree_root);
+    write(buf, pis.historic_nullifier_tree_root);
+    write(buf, pis.historic_contract_tree_root);
+    write(buf, pis.historic_l1_to_l2_messages_tree_root);
+    write(buf, pis.contract_deployment_data);
+    write(buf, pis.chain_id);
+    write(buf, pis.version);
+};
+
+template <typename NCT>
+>>>>>>> origin/master
 std::ostream& operator<<(std::ostream& os, OptionalPrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
 {
+<<<<<<< HEAD
     utils::msgpack_derived_output(os, private_circuit_public_inputs);
     return os;
+=======
+    OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
+    return os << "call_context: " << pis.call_context << "\n"
+              << "args_hash: " << pis.args_hash << "\n"
+              << "return_values: " << pis.return_values << "\n"
+              << "read_requests: " << pis.read_requests << "\n"
+              << "new_commitments: " << pis.new_commitments << "\n"
+              << "new_nullifiers: " << pis.new_nullifiers << "\n"
+              << "private_call_stack: " << pis.private_call_stack << "\n"
+              << "public_call_stack: " << pis.public_call_stack << "\n"
+              << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
+              << "encrypted_logs_hash: " << pis.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash: " << pis.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length: " << pis.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length: " << pis.unencrypted_log_preimages_length << "\n"
+              << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
+              << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
+              << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
+              << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
+              << "contract_deployment_data: " << pis.contract_deployment_data << "\n"
+              << "chain_id: " << pis.chain_id << "\n"
+              << "version: " << pis.version << "\n";
+>>>>>>> origin/master
 }
 
 }  // namespace aztec3::circuits::abis

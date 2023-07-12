@@ -1,23 +1,27 @@
+mod storage;
+
 contract ZkToken {
-    mod balance_utils;
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::notes::value_note::Note;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::map::Map;
-    use dep::aztec3::state_vars::set::Set;
+    // Libs
+    use dep::token_utils::{
+        balance_utils,
+        value_note::utils::{send_note, spend_notes},
+    };
+    use dep::custom_notes::claim_note::ClaimNote;
 
-    // oracles
-    use dep::aztec3::oracle::logs::emit_encrypted_log;
-    use dep::aztec3::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::note::note_getter::NoteGetterOptions;
+    use dep::aztec::types::point::Point;
+    use dep::aztec::state_vars::map::Map;
+    use dep::aztec::state_vars::set::Set;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::log::emit_unencrypted_log;
 
-    //*********************************/
-    global balances = Map { storage_slot: 1 };
-    // Should eventually be replaced by:
-    // `balances: Mapping<Field, Set<Note>>;`
-    //*********************************/
+    use crate::storage::Storage;
 
+
+    // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
@@ -26,20 +30,19 @@ contract ZkToken {
         initial_supply: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([initial_supply, owner.x, owner.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y]));
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(initial_supply, owner);
+        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
+        let owner_balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, owner_balance, initial_supply, owner);
+        context = emit_unencrypted_log(context, "Balance set in constructor");
 
-        // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
-        assert(emit_unencrypted_log("Balance set in constructor") == 0);
-
-        context.finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
     }
 
+    // Mints `amount` of tokens to `owner`.
     fn mint(
         //*********************************/
         // Should eventually be hidden:
@@ -48,20 +51,19 @@ contract ZkToken {
         amount: Field, 
         owner: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateFunctionContext::new();
-        context.args = context.args.push_array([amount, owner.x, owner.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
 
-        let owner_balance = balances.at(owner.x);
-        let note = Note::new(amount, owner);
+        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
+        let owner_balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, owner_balance, amount, owner);
+        context = emit_unencrypted_log(context, "Coins minted");
 
-        // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, owner_balance.storage_slot, note.owner, note) == 0);
-        assert(emit_unencrypted_log("Coins minted") == 0);
-
-        context.finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish()
     }
 
+    // Transfers `amount` of tokens from `sender` to a `recipient`.
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
@@ -71,44 +73,89 @@ contract ZkToken {
         sender: Point, 
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut initialContext = PrivateFunctionContext::new();
-        initialContext.args = initialContext.args.push_array([amount, sender.x, sender.y, recipient.x, recipient.y]);
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amount, sender.x, sender.y, recipient.x, recipient.y]));
 
-        let sender_balance = balances.at(sender.x);
-        let (mut context, (note1, note2)) = sender_balance.get_2(initialContext);
+        // Pick from the set of sender's notes to spend amount.
+        let sender_balance = storage.balances.at(sender.x);
+        context = spend_notes(context, inputs, sender_balance, amount, sender);
 
-        note1.validate(sender);
-        note2.validate(sender);
+        // Creates new note for the recipient.
+        let recipient_balance = storage.balances.at(recipient.x);
+        context = send_note(context, inputs, recipient_balance, amount, recipient);
+        
+        context = emit_unencrypted_log(context, "Coins transferred");
 
-        let sum = note1.value + note2.value;
-        assert(sum as u64 >= amount as u64);
-        let change_value = sum - amount;
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish()
+    }
 
-        context = sender_balance.remove(inputs, context, note1);
-        context = sender_balance.remove(inputs, context, note2);
+    fn createClaims(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amounts: [Field; 2], 
+        secrets: [Field; 2], 
+        sender: Point, 
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amounts[0], amounts[1], secrets[0], secrets[1], sender.x, sender.y]));
 
-        let change_note = Note::new(change_value, sender);
-        let recipient_note = Note::new(amount, recipient);
+        // Pick from the set of sender's notes to spend amount.
+        let sender_balance = storage.balances.at(sender.x);
+        let total = amounts[0] + amounts[1];
+        context = spend_notes(context, inputs, sender_balance, total, sender);
 
-        let recipient_balance = balances.at(recipient.x);
+        // Create claim notes.
+        let claims = storage.claims;
+        let note0 = ClaimNote::new(amounts[0], secrets[0]);
+        let note1 = ClaimNote::new(amounts[1], secrets[1]);
 
-        context = recipient_balance.insert(context, recipient_note);
-        context = sender_balance.insert(context, change_note);
+        // Insert the new claim notes to the set.
+        context = claims.insert(context, note0);
+        context = claims.insert(context, note1);
 
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, recipient_balance.storage_slot, recipient_note.owner, recipient_note) == 0);
-        assert(emit_encrypted_log(inputs.call_context.storage_contract_address, sender_balance.storage_slot, change_note.owner, change_note) == 0);
-        assert(emit_unencrypted_log("Coins transferred") == 0);
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish()
+    }
 
-        context.finish(inputs)
+    fn claim(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        secret: Field,
+        owner: Point,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([amount, secret, owner.x, owner.y]));
+
+        // Remove the claim note if it exists in the set.
+        let note = ClaimNote::new(amount, secret);
+        context = storage.claims.has(context, note);
+        context = storage.claims.remove(context, note);
+
+        // Send the value note.
+        let balance = storage.balances.at(owner.x);
+        context = send_note(context, inputs, balance, amount, owner);
+
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish()
     }
 
     /// ABI getBalance type "unconstrained"
+    // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
         owner: Point,
-        _padding: [Field; abi::MAX_ARGS - 2]
     ) -> pub Field {
-        let owner_balance = balances.at(owner.x);
-        
+        let storage = Storage::init();
+
+        // Get the set of notes owned by the user.
+        let owner_balance = storage.balances.at(owner.x);
+
+        // Return the sum of all notes in the set.
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 }

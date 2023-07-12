@@ -9,9 +9,9 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Composer = plonk::UltraPlonkComposer;
+using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit;
 using aztec3::circuits::rollup::native_root_rollup::RootRollupInputs;
 using aztec3::circuits::rollup::native_root_rollup::RootRollupPublicInputs;
@@ -45,9 +45,21 @@ WASM_EXPORT size_t root_rollup__init_verification_key(uint8_t const* pk_buf, uin
 
 static auto root_rollup__sim_helper(RootRollupInputs root_rollup_inputs)
 {
-    DummyComposer composer = DummyComposer("root_rollup__sim");
-    RootRollupPublicInputs const result = root_rollup_circuit(composer, root_rollup_inputs);
-    return composer.result_or_error(result);
+    RootRollupInputs root_rollup_inputs;
+    read(root_rollup_inputs_buf, root_rollup_inputs);
+
+    DummyBuilder builder = DummyBuilder("root_rollup__sim");
+    RootRollupPublicInputs const public_inputs = root_rollup_circuit(builder, root_rollup_inputs);
+
+    // serialize public inputs to bytes vec
+    std::vector<uint8_t> public_inputs_vec;
+    write(public_inputs_vec, public_inputs);
+    // copy public inputs to output buffer
+    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
+    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
+    *root_rollup_public_inputs_buf = raw_public_inputs_buf;
+    *root_rollup_public_inputs_size_out = public_inputs_vec.size();
+    return builder.alloc_and_serialize_first_failure();
 }
 
 CBIND(root_rollup__sim, root_rollup__sim_helper)

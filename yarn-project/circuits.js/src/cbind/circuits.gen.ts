@@ -355,8 +355,8 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  new_commitments: Tuple<Buffer, 4>;
-  new_nullifiers: Tuple<Buffer, 4>;
+  new_commitments: Tuple<Buffer, 16>;
+  new_nullifiers: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -816,7 +816,7 @@ export function fromKernelCircuitPublicInputs(o: KernelCircuitPublicInputs): Msg
 }
 
 interface MsgpackVerificationKeyData {
-  composer_type: number;
+  circuit_type: number;
   circuit_size: number;
   num_public_inputs: number;
   commitments: Record<string, MsgpackG1AffineElement>;
@@ -825,8 +825,8 @@ interface MsgpackVerificationKeyData {
 }
 
 export function toVerificationKeyData(o: MsgpackVerificationKeyData): VerificationKeyData {
-  if (o.composer_type === undefined) {
-    throw new Error('Expected composer_type in VerificationKeyData deserialization');
+  if (o.circuit_type === undefined) {
+    throw new Error('Expected circuit_type in VerificationKeyData deserialization');
   }
   if (o.circuit_size === undefined) {
     throw new Error('Expected circuit_size in VerificationKeyData deserialization');
@@ -844,7 +844,7 @@ export function toVerificationKeyData(o: MsgpackVerificationKeyData): Verificati
     throw new Error('Expected recursive_proof_public_input_indices in VerificationKeyData deserialization');
   }
   return new VerificationKeyData(
-    o.composer_type,
+    o.circuit_type,
     o.circuit_size,
     o.num_public_inputs,
     mapValues(o.commitments, (v: MsgpackG1AffineElement) => toG1AffineElement(v)),
@@ -854,8 +854,8 @@ export function toVerificationKeyData(o: MsgpackVerificationKeyData): Verificati
 }
 
 export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerificationKeyData {
-  if (o.composerType === undefined) {
-    throw new Error('Expected composerType in VerificationKeyData serialization');
+  if (o.circuitType === undefined) {
+    throw new Error('Expected circuitType in VerificationKeyData serialization');
   }
   if (o.circuitSize === undefined) {
     throw new Error('Expected circuitSize in VerificationKeyData serialization');
@@ -873,7 +873,7 @@ export function fromVerificationKeyData(o: VerificationKeyData): MsgpackVerifica
     throw new Error('Expected recursiveProofPublicInputIndices in VerificationKeyData serialization');
   }
   return {
-    composer_type: o.composerType,
+    circuit_type: o.circuitType,
     circuit_size: o.circuitSize,
     num_public_inputs: o.numPublicInputs,
     commitments: mapValues(o.commitments, (v: G1AffineElement) => fromG1AffineElement(v)),
@@ -1374,22 +1374,6 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
-export function abisComputeContractAddress(
-  wasm: IWasmModule,
-  arg0: Tuple<Fr, 2>,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-): Address {
-  return Address.fromBuffer(
-    callCbind(wasm, 'abis__compute_contract_address', [
-      mapTuple(arg0, (v: Fr) => v.toBuffer()),
-      arg1.toBuffer(),
-      arg2.toBuffer(),
-      arg3.toBuffer(),
-    ]),
-  );
-}
 export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [arg0.toBuffer(), arg1.toBuffer()]));
 }

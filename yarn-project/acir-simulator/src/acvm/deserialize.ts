@@ -1,13 +1,12 @@
-import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
-
 import {
   CallContext,
   ContractDeploymentData,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_COMMITMENTS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
-  PRIVATE_CALL_STACK_LENGTH,
-  PUBLIC_CALL_STACK_LENGTH,
+  MAX_NEW_COMMITMENTS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  NUM_FIELDS_PER_SHA256,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PrivateCircuitPublicInputs,
   READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
@@ -15,7 +14,8 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { getReturnWitness } from 'acvm-simulator';
+import { getReturnWitness } from 'acvm_js';
+import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
@@ -124,21 +124,16 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const readRequests = witnessReader.readFieldArray(READ_REQUESTS_LENGTH);
-  const newCommitments = witnessReader.readFieldArray(NEW_COMMITMENTS_LENGTH);
-  const newNullifiers = witnessReader.readFieldArray(NEW_NULLIFIERS_LENGTH);
-  const privateCallStack = witnessReader.readFieldArray(PRIVATE_CALL_STACK_LENGTH);
-  const publicCallStack = witnessReader.readFieldArray(PUBLIC_CALL_STACK_LENGTH);
-  const newL2ToL1Msgs = witnessReader.readFieldArray(NEW_L2_TO_L1_MSGS_LENGTH);
+  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
+  const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
+  const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
+  const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+  const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
 
-  // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
-  // const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  // const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
-  // const encryptedLogPreimagesLength = witnessReader.readField();
-  // const unencryptedLogPreimagesLength = witnessReader.readField();
-  const encryptedLogsHash = [new Fr(0), new Fr(0)] as [Fr, Fr];
-  const unencryptedLogsHash = [new Fr(0), new Fr(0)] as [Fr, Fr];
-  const encryptedLogPreimagesLength = new Fr(0);
-  const unencryptedLogPreimagesLength = new Fr(0);
+  const encryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
+  const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
+  const encryptedLogPreimagesLength = witnessReader.readField();
+  const unencryptedLogPreimagesLength = witnessReader.readField();
 
   const privateDataTreeRoot = witnessReader.readField();
   const nullifierTreeRoot = witnessReader.readField();
@@ -154,6 +149,9 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     witnessReader.readField(),
     EthAddress.fromField(witnessReader.readField()),
   );
+
+  const chainId = witnessReader.readField();
+  const version = witnessReader.readField();
 
   return new PrivateCircuitPublicInputs(
     callContext,
@@ -174,5 +172,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     contractTreeRoot,
     l1Tol2TreeRoot,
     contractDeploymentData,
+    chainId,
+    version,
   );
 }

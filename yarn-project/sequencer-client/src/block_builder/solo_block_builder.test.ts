@@ -4,13 +4,13 @@ import {
   BaseRollupInputs,
   CircuitsWasm,
   Fr,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+  GlobalVariables,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   KernelCircuitPublicInputs,
-  NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   Proof,
   PublicDataUpdateRequest,
@@ -29,14 +29,23 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, Tx, TxL2Logs } from '@aztec/types';
+import {
+  ContractData,
+  L2Block,
+  L2BlockL2Logs,
+  MerkleTreeId,
+  mockTx,
+  PublicDataWrite,
+  Tx,
+  TxL2Logs,
+  makeEmptyLogs,
+} from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
 import { default as memdown, type MemDown } from 'memdown';
-import { makeEmptyLogs, makeTx } from '../mocks/tx.js';
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
 import { RollupProver } from '../prover/index.js';
@@ -70,6 +79,8 @@ describe('sequencer/solo_block_builder', () => {
 
   let wasm: CircuitsWasm;
 
+  let globalVariables: GlobalVariables;
+
   const emptyProof = new Proof(Buffer.alloc(32, 0));
 
   const chainId = Fr.ZERO;
@@ -81,12 +92,14 @@ describe('sequencer/solo_block_builder', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
+
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
-    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+    builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
 
     // Create mock l1 to L2 messages
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
@@ -116,10 +129,14 @@ describe('sequencer/solo_block_builder', () => {
     for (const [tree, leaves] of [
       [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
-      [MerkleTreeId.NULLIFIER_TREE, flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer()))],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
     }
+    await expectsDb.batchInsert(
+      MerkleTreeId.NULLIFIER_TREE,
+      flatMap(txs, tx => tx.data.end.newNullifiers.map(x => x.toBuffer())),
+      BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+    );
     for (const write of txs.flatMap(tx => tx.data.end.publicDataUpdateRequests)) {
       await expectsDb.updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, write.newValue.toBuffer(), write.leafIndex.value);
     }
@@ -140,13 +157,13 @@ describe('sequencer/solo_block_builder', () => {
     kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(expectsDb);
 
     const tx = await makeProcessedTx(
-      Tx.createTx(
+      new Tx(
         kernelOutput,
         emptyProof,
         makeEmptyLogs(),
         makeEmptyLogs(),
         [],
-        times(KERNEL_PUBLIC_CALL_STACK_LENGTH, makePublicCallRequest),
+        times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
       ),
     );
 
@@ -244,7 +261,7 @@ describe('sequencer/solo_block_builder', () => {
   describe('mock simulator', () => {
     beforeEach(() => {
       // Create instance to test
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
     it('builds an L2 block using mock simulator', async () => {
@@ -252,40 +269,17 @@ describe('sequencer/solo_block_builder', () => {
       const txs = await buildMockSimulatorInputs();
 
       // Actually build a block!
-      const [l2Block, proof] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      const [l2Block, proof] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
       expect(proof).toEqual(emptyProof);
     }, 20000);
 
-    // For varying orders of insertions assert the local batch insertion generator creates the correct proofs
-    it.each([
-      [[16, 15, 14, 13, 0, 0, 0, 0]],
-      [[13, 14, 15, 16, 0, 0, 0, 0]],
-      [[1234, 98, 0, 0, 99999, 88, 54, 0]],
-      [[97, 98, 10, 0, 99999, 88, 100001, 9000000]],
-    ] as const)('performs nullifier tree batch insertion correctly', async nullifiers => {
-      const leaves = nullifiers.map(i => toBufferBE(BigInt(i), 32));
-      await expectsDb.appendLeaves(MerkleTreeId.NULLIFIER_TREE, leaves);
-
-      await builderDb.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        leaves,
-        NULLIFIER_TREE_HEIGHT,
-        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
-      );
-
-      const expected = await expectsDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      const actual = await builderDb.getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-      expect(actual).toEqual(expected);
-    });
-
     it('rejects if too many l1 to l2 messages are provided', async () => {
       // Assemble a fake transaction
       const txs = await buildMockSimulatorInputs();
       const l1ToL2Messages = new Array(100).fill(new Fr(0n));
-
-      await expect(builder.buildL2Block(blockNumber, txs, l1ToL2Messages)).rejects.toThrow();
+      await expect(builder.buildL2Block(globalVariables, txs, l1ToL2Messages)).rejects.toThrow();
     });
   });
 
@@ -293,7 +287,7 @@ describe('sequencer/solo_block_builder', () => {
     beforeEach(async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
     });
 
     const makeContractDeployProcessedTx = async (seed = 0x1) => {
@@ -303,21 +297,21 @@ describe('sequencer/solo_block_builder', () => {
     };
 
     const makeBloatedProcessedTx = async (seed = 0x1) => {
-      const tx = makeTx(seed);
+      const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
       kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
-        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
         seed + 0x500,
       );
 
       const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100);
-      processedTx.data.end.newNullifiers = makeTuple(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200);
+      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
+      processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
       processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
-      processedTx.data.end.newL2ToL1Msgs = makeTuple(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x300);
+      processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
       processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
@@ -341,7 +335,7 @@ describe('sequencer/solo_block_builder', () => {
           ...(await Promise.all(times(totalCount - deployCount, makeEmptyProcessedTx))),
         ];
 
-        const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+        const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
         expect(l2Block.number).toEqual(blockNumber);
 
         await updateExpectedTreesFromTxs(txs);
@@ -366,8 +360,8 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyProcessedTx(),
       ]);
 
-      const [l2Block] = await builder.buildL2Block(1, txs, mockL1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 10_000);
 
     it('builds a mixed L2 block', async () => {
@@ -380,23 +374,24 @@ describe('sequencer/solo_block_builder', () => {
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
-      const [l2Block] = await builder.buildL2Block(1, txs, l1ToL2Messages);
-      expect(l2Block.number).toEqual(1);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      expect(l2Block.number).toEqual(blockNumber);
     }, 20_000);
 
     // This test specifically tests nullifier values which previously caused e2e_zk_token test to fail
     it('e2e_zk_token edge case regression test on nullifier values', async () => {
       const simulator = await WasmRollupCircuitSimulator.new();
       const prover = new EmptyRollupProver();
-      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover, chainId, version);
+      builder = new SoloBlockBuilder(builderDb, vks, simulator, prover);
       // update the starting tree
-      const updateVals = Array(16).fill(0n);
+      const updateVals = Array(4 * MAX_NEW_NULLIFIERS_PER_TX).fill(0n);
       updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
       updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
 
-      await builderDb.appendLeaves(
+      await builderDb.batchInsert(
         MerkleTreeId.NULLIFIER_TREE,
         updateVals.map(v => toBufferBE(v, 32)),
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
       );
 
       // new added values
@@ -409,7 +404,7 @@ describe('sequencer/solo_block_builder', () => {
       );
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
 
-      const [l2Block] = await builder.buildL2Block(blockNumber, txs, mockL1ToL2Messages);
+      const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 
       expect(l2Block.number).toEqual(blockNumber);
     }, 10000);

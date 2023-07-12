@@ -1,23 +1,19 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Chain, HttpTransport, PublicClient } from 'viem';
-import {
-  delay,
-  deployAndInitializeNonNativeL2TokenContracts,
-  pointToPublicKey,
-  setNextBlockTimestamp,
-  setup,
-} from './utils.js';
 import { Archiver } from '@aztec/archiver';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+
+import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
 
 describe('archiver integration with l1 to l2 messages', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let wallet: Wallet;
   let archiver: Archiver;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -37,7 +33,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts | undefined;
-    ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, config, logger } = await setup(2));
+    ({ aztecNode, aztecRpcServer, wallet, deployL1ContractsValues, accounts, config, logger } = await setup(2));
     archiver = await Archiver.createAndSync(config);
 
     const walletClient = deployL1ContractsValues.walletClient;
@@ -45,12 +41,12 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
-    const ownerPub = pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress));
+    const ownerPub = (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts();
 
     // Deploy and initialize all required contracts
     logger('Deploying Portal, initializing and deploying l2 contract...');
     const contracts = await deployAndInitializeNonNativeL2TokenContracts(
-      aztecRpcServer,
+      wallet,
       walletClient,
       publicClient,
       deployL1ContractsValues!.registryAddress,
@@ -73,7 +69,7 @@ describe('archiver integration with l1 to l2 messages', () => {
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
     const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -127,10 +123,10 @@ describe('archiver integration with l1 to l2 messages', () => {
     l2Contract.methods
       .transfer(
         transferAmount,
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(ownerAddress)),
-        pointToPublicKey(await aztecRpcServer.getAccountPublicKey(receiver)),
+        (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts(),
+        (await aztecRpcServer.getAccountPublicKey(receiver)).toBigInts(),
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
     expect(() => archiver.getConfirmedL1ToL2Message(Fr.ZERO)).toThrow();

@@ -1,55 +1,60 @@
+mod storage;
+
 contract PublicToken {
-    use dep::aztec3::abi;
-    use dep::aztec3::abi::PrivateContextInputs;
-    use dep::aztec3::context::PrivateFunctionContext;
-    use dep::aztec3::abi::PublicContextInputs;
-    use dep::aztec3::types::point::Point;
-    use dep::aztec3::state_vars::storage_map::StorageMap;
-    use dep::aztec3::state_vars::storage_field::StorageField;
+    use dep::aztec::abi;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PublicContextInputs;
+    use dep::aztec::context::Context;
+    use dep::aztec::oracle::logs::emit_unencrypted_log;
+    use dep::aztec::types::point::Point;
+    use crate::storage::Storage;
 
-    // oracles
-    use dep::aztec3::oracle::logs::emit_unencrypted_log;
-
-    global balances = StorageMap { storage_slot: 1 };
-
+    // Constructs the contract.
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        PrivateFunctionContext::new().finish(inputs)
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        Context::new(inputs, 0).finish()
     }
 
+    // Mints `amount` of tokens to a `recipient`.
     open fn mint(
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
-        let recipient_balance = balances.at(recipient.x);
-        // emit event log
-        assert(emit_unencrypted_log("Coins minted") == 0);
-        recipient_balance.write(recipient_balance.read() + amount)
+        let storage = Storage::init();
+        let recipient_balance = storage.balances.at(recipient.x);
+        let new_amount = recipient_balance.read() + amount;
+        // TODO: Remove return value.
+        let hash = emit_unencrypted_log("Coins minted");
+        recipient_balance.write(new_amount);
+        new_amount
     }
 
+    // Transfers `amount` of tokens from `msg_sender` to `recipient`.
     open fn transfer(
         inputs: PublicContextInputs,
         amount: Field,
         recipient: Point,
-        _padding: [Field; abi::MAX_ARGS - 3]
     ) -> pub Field {
+        let storage = Storage::init();
         let sender = inputs.call_context.msg_sender;
 
-        let sender_balance = balances.at(sender);
-        let recipient_balance = balances.at(recipient.x);
+        let sender_balance = storage.balances.at(sender);
+        let recipient_balance = storage.balances.at(recipient.x);
 
-        let current_sender_balance = sender_balance.read();
+        let current_sender_balance: Field = sender_balance.read();
         let current_recipient_balance = recipient_balance.read();
 
-        // TODO: Handle larger integer values ("long integers are not yet supported")
-        if (current_sender_balance as u120) > (amount as u120) {
+        // TODO: Should support larger numbers.
+        if (current_sender_balance as u126 > amount as u126) {
+            sender_balance.write(current_sender_balance - amount);
             // TODO: Compiler complains if we don't assign the result of the write to anything
-            let _void1 = sender_balance.write(current_sender_balance - amount);
-            assert(emit_unencrypted_log("Coins transferred") == 0);
-            recipient_balance.write(current_recipient_balance + amount)
+            let hash = emit_unencrypted_log("Coins transferred");
+            let amount = current_recipient_balance + amount;
+            recipient_balance.write(amount);
+            amount
         } else {
             // TODO: Revert if there is not enough balance
             current_recipient_balance

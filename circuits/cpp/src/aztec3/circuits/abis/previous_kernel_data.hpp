@@ -26,7 +26,7 @@ template <typename NCT> struct PreviousKernelData {
     // TODO: this index and path are meant to be those of a leaf within the tree of _kernel circuit_ vks; not the tree
     // of functions within the contract tree.
     uint32 vk_index = 0;
-    std::array<fr, VK_TREE_HEIGHT> vk_path = zero_array<fr, VK_TREE_HEIGHT>();
+    std::array<fr, VK_TREE_HEIGHT> vk_path{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(public_inputs, proof, vk, vk_index, vk_path);
@@ -39,18 +39,18 @@ template <typename NCT> struct PreviousKernelData {
     };
 
     // WARNING: the `proof` does NOT get converted!
-    template <typename Composer> PreviousKernelData<CircuitTypes<Composer>> to_circuit_type(Composer& composer) const
+    template <typename Builder> PreviousKernelData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
-        typedef CircuitTypes<Composer> CT;
+        typedef CircuitTypes<Builder> CT;
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
-        // Capture the composer:
-        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(composer, e); };
+        // Capture the circuit builder:
+        auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
-        PreviousKernelData<CircuitTypes<Composer>> data = {
-            public_inputs.to_circuit_type(composer),
+        PreviousKernelData<CircuitTypes<Builder>> data = {
+            public_inputs.to_circuit_type(builder),
             proof,  // Notice: not converted! Stays as native.
-            CT::VK::from_witness(&composer, vk),
+            CT::VK::from_witness(&builder, vk),
             to_ct(vk_index),
             to_ct(vk_path),
         };

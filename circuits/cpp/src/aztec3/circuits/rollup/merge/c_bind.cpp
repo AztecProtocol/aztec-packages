@@ -2,13 +2,13 @@
 
 #include "index.hpp"
 
-#include "aztec3/utils/dummy_composer.hpp"
+#include "aztec3/utils/dummy_circuit_builder.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
-using DummyComposer = aztec3::utils::DummyComposer;
+using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::MergeRollupInputs;
 using aztec3::circuits::rollup::merge::merge_rollup_circuit;

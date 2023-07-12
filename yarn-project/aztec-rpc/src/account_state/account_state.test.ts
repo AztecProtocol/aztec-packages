@@ -1,35 +1,44 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin, Schnorr } from '@aztec/circuits.js/barretenberg';
-import { AztecAddress, CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { ConstantKeyPair, KeyPair, getAddressFromPublicKey } from '@aztec/key-store';
-import { FunctionL2Logs, L2Block, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, TxL2Logs } from '@aztec/types';
+import { ConstantKeyPair } from '@aztec/key-store';
+import {
+  FunctionL2Logs,
+  KeyPair,
+  KeyStore,
+  L2Block,
+  L2BlockContext,
+  L2BlockL2Logs,
+  NoteSpendingInfo,
+  TxL2Logs,
+} from '@aztec/types';
 import { jest } from '@jest/globals';
-import { mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
 import { AccountState } from './account_state.js';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;
-  let schnorr: Schnorr;
   let database: Database;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let addNoteSpendingInfoBatchSpy: any;
   let accountState: AccountState;
   let owner: KeyPair;
   let ownerAddress: AztecAddress;
+  let keyStore: MockProxy<KeyStore>;
 
   const createEncryptedLogsAndOwnedNoteSpendingInfo = (ownedDataIndices: number[] = []) => {
     ownedDataIndices.forEach(index => {
-      if (index >= KERNEL_NEW_COMMITMENTS_LENGTH) {
-        throw new Error(`Data index should be less than ${KERNEL_NEW_COMMITMENTS_LENGTH}.`);
+      if (index >= MAX_NEW_COMMITMENTS_PER_TX) {
+        throw new Error(`Data index should be less than ${MAX_NEW_COMMITMENTS_PER_TX}.`);
       }
     });
 
     const txLogs: TxL2Logs[] = [];
     const ownedNoteSpendingInfo: NoteSpendingInfo[] = [];
-    for (let i = 0; i < KERNEL_NEW_COMMITMENTS_LENGTH; ++i) {
+    for (let i = 0; i < MAX_NEW_COMMITMENTS_PER_TX; ++i) {
       const noteSpendingInfo = NoteSpendingInfo.random();
       const isOwner = ownedDataIndices.includes(i);
       const publicKey = isOwner ? owner.getPublicKey() : Point.random();
@@ -61,26 +70,25 @@ describe('Account State', () => {
   beforeAll(async () => {
     const wasm = await CircuitsWasm.get();
     grumpkin = new Grumpkin(wasm);
-    schnorr = new Schnorr(wasm);
-    owner = ConstantKeyPair.random(grumpkin, schnorr);
+    owner = ConstantKeyPair.random(grumpkin);
   });
 
-  beforeEach(async () => {
+  beforeEach(() => {
     database = new MemoryDB();
     addNoteSpendingInfoBatchSpy = jest.spyOn(database, 'addNoteSpendingInfoBatch');
 
-    const ownerPrivateKey = await owner.getPrivateKey();
-    ownerAddress = getAddressFromPublicKey(owner.getPublicKey());
+    ownerAddress = AztecAddress.random();
     const partialAccountContractAddress = Fr.random();
     aztecNode = mock<AztecNode>();
+    keyStore = mock<KeyStore>();
+    keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
     accountState = new AccountState(
-      ownerPrivateKey,
+      owner.getPublicKey(),
+      keyStore,
       ownerAddress,
       partialAccountContractAddress,
       database,
       aztecNode,
-      grumpkin,
-      schnorr,
       SchnorrAccountContractAbi,
     );
   });
@@ -98,7 +106,7 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 1,
-        from: ownerAddress,
+        origin: ownerAddress,
       }),
     ]);
     expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledTimes(1);
@@ -126,26 +134,30 @@ describe('Account State', () => {
     expect(txs).toEqual([
       expect.objectContaining({
         blockNumber: 2,
-        from: ownerAddress,
+        origin: ownerAddress,
       }),
       expect.objectContaining({
         blockNumber: 5,
-        from: ownerAddress,
+        origin: ownerAddress,
+      }),
+      expect.objectContaining({
+        blockNumber: 5,
+        origin: ownerAddress,
       }),
     ]);
     expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledTimes(1);
     expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedNoteSpendingInfos[0],
-        index: BigInt(KERNEL_NEW_COMMITMENTS_LENGTH + 1),
+        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX + 1),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[1],
-        index: BigInt(KERNEL_NEW_COMMITMENTS_LENGTH * 4),
+        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX * 4),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[2],
-        index: BigInt(KERNEL_NEW_COMMITMENTS_LENGTH * 4 + 2),
+        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX * 4 + 2),
       }),
     ]);
   });
@@ -158,22 +170,5 @@ describe('Account State', () => {
     const txs = await accountState.getTxs();
     expect(txs).toEqual([]);
     expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledTimes(0);
-  });
-
-  it('should throw an error if invalid privKey is passed on input', () => {
-    const ownerPrivateKey = Buffer.alloc(0);
-    expect(
-      () =>
-        new AccountState(
-          ownerPrivateKey,
-          ownerAddress,
-          Fr.random(),
-          database,
-          aztecNode,
-          grumpkin,
-          schnorr,
-          SchnorrAccountContractAbi,
-        ),
-    ).toThrowError();
   });
 });

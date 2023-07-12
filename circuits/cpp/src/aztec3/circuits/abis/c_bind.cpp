@@ -88,7 +88,20 @@ static const char* bbmalloc_copy_string(const char* data, size_t len)
 
 /**
  * For testing only. Take this object, write it to a buffer, then output it. */
-template <typename T> static const char* as_string_output(T obj)
+template <typename T> static const char* as_string_output(uint8_t const* input_buf, uint32_t* size)
+{
+    T obj;
+    read(input_buf, obj);
+    std::ostringstream stream;
+    stream << obj;
+    std::string const str = stream.str();
+    *size = static_cast<uint32_t>(str.size());
+    return bbmalloc_copy_string(str.c_str(), *size);
+}
+
+/**
+ * For testing only. Take this object, write it to a buffer, then output it. */
+template <typename T> static const char* as_string_output_msgpack(T obj)
 {
     std::ostringstream stream;
     stream << obj;
@@ -98,7 +111,7 @@ template <typename T> static const char* as_string_output(T obj)
 
 /**
  * For testing only. Now with msgpack, this is the identity (x => x) function. */
-template <typename T> T as_serialized_output(T obj)
+template <typename T> T as_serialized_output(const T& obj)
 {
     return obj;
 }
@@ -284,6 +297,33 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* point_data_buf,
 }
 
 /**
+ * @brief Compute a contract address from its partial contract address
+ * This is a WASM-export that can be called from Typescript.
+ *
+ * @details Computes a contract address by hashing the deployers public key along with the previously computed partial
+ * address Return the serialized results in the `output` buffer.
+ *
+ * @param point_data_buf point data struct as a buffer of bytes
+ * @param partial_address_data_buf partial contract address
+ * @param output buffer that will contain the output. The serialized contract address.
+ */
+WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* point_data_buf,
+                                                             uint8_t const* partial_address_data_buf,
+                                                             uint8_t* output)
+{
+    Point<NT> deployer_public_key;
+    NT::fr partial_address;
+
+    read(point_data_buf, deployer_public_key);
+    read(partial_address_data_buf, partial_address);
+
+    NT::fr const contract_address =
+        aztec3::circuits::compute_contract_address_from_partial(deployer_public_key, partial_address);
+
+    NT::fr::serialize_to_buffer(contract_address, output);
+}
+
+/**
  * @brief Compute a partial contract address
  * This is a WASM-export that can be called from Typescript.
  *
@@ -383,36 +423,145 @@ WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_
 }
 
 /* Typescript test helpers that call as_string_output() to stress serialization.*/
-CBIND(abis__test_roundtrip_serialize_tx_context, as_string_output<TxContext<NT>>);
-CBIND(abis__test_roundtrip_serialize_tx_request, as_string_output<TxRequest<NT>>);
-CBIND(abis__test_roundtrip_serialize_call_context, as_string_output<aztec3::circuits::abis::CallContext<NT>>);
+CBIND(abis__test_roundtrip_serialize_tx_context, as_string_output_msgpack<TxContext<NT>>);
+CBIND(abis__test_roundtrip_serialize_tx_request, as_string_output_msgpack<TxRequest<NT>>);
+CBIND(abis__test_roundtrip_serialize_call_context, as_string_output_msgpack<aztec3::circuits::abis::CallContext<NT>>);
 CBIND(abis__test_roundtrip_serialize_private_circuit_public_inputs,
-      as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_function_data, as_string_output<aztec3::circuits::abis::FunctionData<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_function_data, as_string_output_msgpack<aztec3::circuits::abis::FunctionData<NT>>);
 CBIND(abis__test_roundtrip_serialize_base_rollup_inputs,
-      as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::BaseRollupInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_previous_kernel_data,
-      as_string_output<aztec3::circuits::abis::PreviousKernelData<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::PreviousKernelData<NT>>);
 CBIND(abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs,
-      as_string_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs,
       as_serialized_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_root_rollup_inputs,
-      as_string_output<aztec3::circuits::abis::RootRollupInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::RootRollupInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_root_rollup_public_inputs,
-      as_string_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_reserialize_root_rollup_public_inputs,
       as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_combined_accumulated_data,
-      as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>);
-CBIND(abis__test_roundtrip_serialize_signature, as_string_output<NT::ecdsa_signature>);
+      as_string_output_msgpack<aztec3::circuits::abis::CombinedAccumulatedData<NT>>);
+CBIND(abis__test_roundtrip_serialize_signature, as_string_output_msgpack<NT::ecdsa_signature>);
 CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_inner,
-      as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>);
 CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_init,
-      as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>);
 CBIND(abis__test_roundtrip_serialize_kernel_circuit_public_inputs,
-      as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_public_kernel_inputs,
-      as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>);
 CBIND(abis__test_roundtrip_serialize_function_leaf_preimage,
-      as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>);
+      as_string_output_msgpack<aztec3::circuits::abis::FunctionLeafPreimage<NT>>);
+
+/* Typescript test helpers that call as_string_output() to stress serialization.
+ * Each of these take an object buffer, and a string size pointer.
+ * They return a string pointer (to be bbfree'd) and write to the string size pointer. */
+WASM_EXPORT const char* abis__test_roundtrip_serialize_tx_context(uint8_t const* tx_context_buf, uint32_t* size)
+{
+    return as_string_output<TxContext<NT>>(tx_context_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_tx_request(uint8_t const* tx_request_buf, uint32_t* size)
+{
+    return as_string_output<TxRequest<NT>>(tx_request_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_call_context(uint8_t const* call_context_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::CallContext<NT>>(call_context_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_circuit_public_inputs(
+    uint8_t const* private_circuits_public_inputs_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>(private_circuits_public_inputs_buf,
+                                                                                    size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_function_data(uint8_t const* function_data_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::FunctionData<NT>>(function_data_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_base_rollup_inputs(uint8_t const* rollup_inputs_buf,
+                                                                          uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::BaseRollupInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_previous_kernel_data(uint8_t const* kernel_data_buf,
+                                                                            uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PreviousKernelData<NT>>(kernel_data_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs(
+    uint8_t const* rollup_inputs_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs(
+    uint8_t const* rollup_inputs_buf, uint32_t* size)
+{
+    return as_serialized_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_root_rollup_inputs(uint8_t const* rollup_inputs_buf,
+                                                                          uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::RootRollupInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_root_rollup_public_inputs(uint8_t const* rollup_inputs_buf,
+                                                                                 uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_reserialize_root_rollup_public_inputs(uint8_t const* rollup_inputs_buf,
+                                                                                   uint32_t* size)
+{
+    return as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>(rollup_inputs_buf, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_combined_accumulated_data(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::CombinedAccumulatedData<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_signature(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<NT::schnorr_signature>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs_inner(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_private_kernel_inputs_init(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_kernel_circuit_public_inputs(uint8_t const* input,
+                                                                                    uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_public_kernel_inputs(uint8_t const* input, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>(input, size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(uint8_t const* function_leaf_preimage_buf,
+                                                                              uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
+}

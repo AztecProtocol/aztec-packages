@@ -1,17 +1,13 @@
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { decodeReturnValues, FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { decodeReturnValues } from '../abi_coder/decoder.js';
-import { extractReturnWitness, frToNumber } from '../acvm/deserialize.js';
+
+import { extractReturnWitness, frToAztecAddress } from '../acvm/deserialize.js';
 import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
-import { fieldsToFormattedStr } from './debug.js';
-
-const notAvailable = () => {
-  return Promise.reject(new Error(`Not available for unconstrained function execution`));
-};
+import { oracleDebugCallToFormattedStr } from './debug.js';
 
 /**
  * The unconstrained function execution class.
@@ -43,7 +39,7 @@ export class UnconstrainedFunctionExecution {
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: async ([ownerX, ownerY]: ACVMField[]) => [
+      getSecretKey: async ([ownerX, ownerY]) =>
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,
@@ -53,40 +49,20 @@ export class UnconstrainedFunctionExecution {
             ),
           ),
         ),
-      ],
-      getNotes2: async ([storageSlot]: ACVMField[]) => {
-        const { preimages } = await this.context.getNotes(this.contractAddress, storageSlot, 2);
-        return preimages;
+      getPublicKey: async ([acvmAddress]) => {
+        const address = frToAztecAddress(fromACVMField(acvmAddress));
+        const [pubKey, partialContractAddress] = await this.context.db.getPublicKey(address);
+        return [pubKey.x.toBigInt(), pubKey.y.toBigInt(), partialContractAddress].map(toACVMField);
       },
-      getRandomField: () => Promise.resolve([toACVMField(Fr.random())]),
-      viewNotesPage: ([acvmSlot, acvmLimit, acvmOffset]) =>
-        this.context.viewNotes(
-          this.contractAddress,
-          acvmSlot,
-          frToNumber(fromACVMField(acvmLimit)),
-          frToNumber(fromACVMField(acvmOffset)),
-        ),
-      debugLog: (fields: ACVMField[]) => {
-        this.log(fieldsToFormattedStr(fields));
-        return Promise.resolve([ZERO_ACVM_FIELD]);
+      getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
+        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
+      getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
+      debugLog: (...params) => {
+        this.log(oracleDebugCallToFormattedStr(params));
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      getL1ToL2Message: ([msgKey]: ACVMField[]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
-      getCommitment: ([commitment]: ACVMField[]) =>
-        this.context
-          .getCommitment(this.contractAddress, fromACVMField(commitment))
-          .then(commitmentData => commitmentData.acvmData),
-      enqueuePublicFunctionCall: notAvailable,
-      notifyCreatedNote: notAvailable,
-      notifyNullifiedNote: notAvailable,
-      callPrivateFunction: notAvailable,
-      callPublicFunction: notAvailable,
-      storageRead: notAvailable,
-      storageWrite: notAvailable,
-      createCommitment: notAvailable,
-      createL2ToL1Message: notAvailable,
-      createNullifier: notAvailable,
-      emitEncryptedLog: notAvailable,
-      emitUnencryptedLog: notAvailable,
+      getL1ToL2Message: ([msgKey]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
+      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
     });
 
     const returnValues: ACVMField[] = extractReturnWitness(acir, partialWitness);
