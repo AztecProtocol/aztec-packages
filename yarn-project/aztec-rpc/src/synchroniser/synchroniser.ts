@@ -3,10 +3,16 @@ import { Fr, Point } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, LogType, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
+import {
+  KeyStore,
+  L2BlockContext,
+  LogType,
+  MerkleTreeId,
+  PartialContractAddress,
+  PublicKey,
+  TxHash,
+} from '@aztec/types';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { PublicKey } from '@aztec/key-store';
-import { KeyStore } from '@aztec/key-store';
 import { ContractAbi } from '@aztec/foundation/abi';
 
 import { AccountState } from '../account_state/index.js';

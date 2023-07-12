@@ -22,10 +22,9 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { PublicKey } from '@aztec/key-store';
+import { ContractDao, ContractFunctionDao, PublicKey } from '@aztec/types';
 
 import { computeFunctionTreeData } from './function_tree_data.js';
-import { ContractDao, ContractFunctionDao } from '@aztec/types';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).

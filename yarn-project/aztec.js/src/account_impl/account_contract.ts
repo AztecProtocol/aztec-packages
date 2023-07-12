@@ -3,8 +3,7 @@ import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { PublicKey } from '@aztec/key-store';
-import { ExecutionRequest, PackedArguments, PartialContractAddress, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PackedArguments, PartialContractAddress, PublicKey, TxExecutionRequest } from '@aztec/types';
 import { ContractAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 
 import { AccountImplementation } from './index.js';

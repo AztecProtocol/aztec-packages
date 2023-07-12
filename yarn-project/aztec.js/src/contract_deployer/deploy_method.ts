@@ -3,12 +3,12 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { PublicKey } from '@aztec/key-store';
 import {
   AztecRPC,
   ExecutionRequest,
   PackedArguments,
   PartialContractAddress,
+  PublicKey,
   Tx,
   TxExecutionRequest,
 } from '@aztec/types';

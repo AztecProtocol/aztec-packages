@@ -1,8 +1,7 @@
-import { PartialContractAddress, ContractDatabase, TxHash } from '@aztec/types';
+import { PartialContractAddress, ContractDatabase, TxHash, PublicKey } from '@aztec/types';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { MerkleTreeId } from '@aztec/types';
-import { PublicKey } from '@aztec/key-store';
 
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
 import { TxDao } from './tx_dao.js';

@@ -1,12 +1,12 @@
 import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
-import { PublicKey } from '@aztec/key-store';
 import {
   ContractData,
   ContractPublicData,
   L2BlockL2Logs,
   PartialContractAddress,
+  PublicKey,
   Tx,
   TxExecutionRequest,
   TxHash,

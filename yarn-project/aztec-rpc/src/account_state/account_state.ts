@@ -5,17 +5,19 @@ import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foun
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ConstantKeyPair, KeyStore, PublicKey } from '@aztec/key-store';
+import { ConstantKeyPair } from '@aztec/key-store';
 import {
   ContractDao,
   EncodedContractFunction,
   ExecutionRequest,
   INITIAL_L2_BLOCK_NUM,
+  KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
   MerkleTreeId,
   NoteSpendingInfo,
   PartialContractAddress,
+  PublicKey,
   Tx,
   TxExecutionRequest,
   TxL2Logs,

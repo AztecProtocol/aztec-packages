@@ -1,7 +1,7 @@
 import { Point } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { PublicKey } from '@aztec/key-store';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, PublicKey } from '@aztec/types';
+
 import { DeployMethod } from './deploy_method.js';
 
 /**

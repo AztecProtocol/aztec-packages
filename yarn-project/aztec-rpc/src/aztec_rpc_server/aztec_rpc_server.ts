@@ -4,7 +4,6 @@ import { AztecAddress, EthAddress, FunctionData } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, PublicKey } from '@aztec/key-store';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   AztecRPC,
@@ -13,10 +12,12 @@ import {
   ContractPublicData,
   DeployedContract,
   ExecutionRequest,
+  KeyStore,
   L2BlockL2Logs,
   LogType,
   NodeInfo,
   PartialContractAddress,
+  PublicKey,
   Tx,
   TxExecutionRequest,
   TxHash,
