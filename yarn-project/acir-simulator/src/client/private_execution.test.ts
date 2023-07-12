@@ -3,21 +3,21 @@ import {
   CircuitsWasm,
   ContractDeploymentData,
   FunctionData,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
-  NEW_COMMITMENTS_LENGTH,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PrivateHistoricTreeRoots,
   PublicCallRequest,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
+import { computeContractAddressFromPartial, computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
@@ -29,7 +29,7 @@ import {
 } from '@aztec/noir-contracts/examples';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
 import { jest } from '@jest/globals';
-import { mock } from 'jest-mock-extended';
+import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 import { encodeArguments } from '../abi_coder/index.js';
@@ -44,14 +44,14 @@ const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
 describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
-  let oracle: ReturnType<typeof mock<DBOracle>>;
+  let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
   let historicRoots = PrivateHistoricTreeRoots.empty();
   let logger: DebugLogger;
 
   const treeHeights: { [name: string]: number } = {
     privateData: PRIVATE_DATA_TREE_HEIGHT,
-    l1ToL2Messages: L1_TO_L2_MESSAGES_TREE_HEIGHT,
+    l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
   const trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
   const txContext = new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(69), new Fr(420));
@@ -124,7 +124,9 @@ describe('Private Execution test suite', () => {
     it('should run the empty constructor', async () => {
       const abi = TestContractAbi.functions[0];
       const result = await runSimulator({ abi, isConstructor: true });
-      expect(result.callStackItem.publicInputs.newCommitments).toEqual(new Array(NEW_COMMITMENTS_LENGTH).fill(Fr.ZERO));
+      expect(result.callStackItem.publicInputs.newCommitments).toEqual(
+        new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO),
+      );
     });
   });
 
@@ -476,6 +478,25 @@ describe('Private Execution test suite', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('get public key', () => {
+    it('gets the public key for an address', async () => {
+      // Tweak the contract ABI so we can extract return values
+      const abi = TestContractAbi.functions.find(f => f.name === 'getPublicKey')!;
+      abi.returnTypes = [{ kind: 'field' }, { kind: 'field' }];
+
+      // Generate a partial address, pubkey, and resulting address
+      const partialAddress = Fr.random();
+      const pubKey = new Point(new Coordinate([Fr.random(), Fr.ZERO]), new Coordinate([Fr.random(), Fr.ZERO]));
+      const wasm = await CircuitsWasm.get();
+      const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+      const args = [address];
+
+      oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
+      expect(result.returnValues).toEqual([pubKey.x.toBigInt(), pubKey.y.toBigInt()]);
     });
   });
 });

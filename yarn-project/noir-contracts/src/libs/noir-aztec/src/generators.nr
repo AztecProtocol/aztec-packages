@@ -3,3 +3,4 @@ global NULLIFIER = 5;
 global INITIALISATION_NULLIFIER = 6;
 global L1_TO_L2_MESSAGE_SECRET = 20;
 global FUNCTION_ARGS = 44;
+global ContractAddress = 15;

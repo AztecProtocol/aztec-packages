@@ -5,7 +5,8 @@ import {
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -32,7 +33,6 @@ import { generateFunctionSelector } from '../index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
-import { siloNullifier } from '@aztec/circuits.js/abis';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -331,7 +331,7 @@ export class AccountState {
     // TODO(Maddiaa): this calculation is brittle.
     // https://github.com/AztecProtocol/aztec-packages/issues/788
     let dataStartIndex =
-      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
+      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
     const blocksAndNoteSpendingInfo: ProcessedData[] = [];
 
     // Iterate over both blocks and encrypted logs.
@@ -486,7 +486,6 @@ export class AccountState {
       contractDataOracle ?? new ContractDataOracle(this.db, this.node),
       this.db,
       keyPair,
-      this.address,
       this.node,
     );
     return new AcirSimulator(simulatorOracle);
