@@ -45,7 +45,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods.test_insert_then_read_flat(mintAmount, ownerPublicKey).send({ from: owner });
+    const tx = deployedContract.methods.test_insert_then_read_flat(mintAmount, ownerPublicKey).send({ origin: owner });
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
     // with `tx.isMined()` (etc) once kernel supports forwarding and matching of transient reads.
@@ -77,7 +77,7 @@ describe('e2e_pending_commitments_contract', () => {
         Fr.fromBuffer(deployedContract.methods.create_note.selector),
         Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
       )
-      .send({ from: owner });
+      .send({ origin: owner });
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
     // with `tx.isMined()` (etc) once kernel supports forwarding and matching of transient reads.
