@@ -96,6 +96,8 @@ export class PrivateFunctionExecution {
         };
         this.context.pendingNotes.push(pendingNoteData);
 
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
+        // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
           preimage: acvmPreimage.map(f => fromACVMField(f)),
