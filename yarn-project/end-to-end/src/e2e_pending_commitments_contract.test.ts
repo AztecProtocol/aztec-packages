@@ -45,7 +45,7 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     const tx = deployedContract.methods
-      .create_get_and_check_note_inline(mintAmount, ownerPublicKey)
+      .test_insert_then_read_flat(mintAmount, ownerPublicKey)
       .send({ from: owner });
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove code below and replace
@@ -72,7 +72,7 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     const tx = deployedContract.methods
-      .create_get_and_check_note_in_nested_calls(
+      .test_insert_then_read_both_in_nested_calls(
         mintAmount,
         ownerPublicKey,
         Fr.fromBuffer(deployedContract.methods.create_note.selector),

@@ -493,7 +493,7 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'create_get_and_check_note_inline')!;
+      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'test_insert_then_read_flat')!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
@@ -518,6 +518,9 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(
         Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)),
       );
+      // read request should match commitment
+      const readRequest = result.callStackItem.publicInputs.readRequests[0];
+      expect(readRequest).toEqual(commitment);
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
@@ -535,7 +538,7 @@ describe('Private Execution test suite', () => {
 
       const contractAddress = AztecAddress.random();
       const abi = PendingCommitmentsContractAbi.functions.find(
-        f => f.name === 'create_get_and_check_note_in_nested_calls',
+        f => f.name === 'test_insert_then_read_both_in_nested_calls',
       )!;
       const createAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'create_note')!;
       const getAndCheckAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_and_check_note')!;
@@ -582,11 +585,59 @@ describe('Private Execution test suite', () => {
       expect(commitment).toEqual(
         Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)),
       );
+      // read request should match commitment
+      const readRequest = execGetAndCheck.callStackItem.publicInputs.readRequests[0];
+      expect(readRequest).toEqual(commitment);
 
       const gotNoteValue = execGetAndCheck.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       // TODO check read request is output that matches pending commitment
+    }, 30_000);
+
+    it('cant read a commitment that is created later in same function', async () => {
+      oracle.getNotes.mockImplementation(async () => {
+        return {
+          count: 0,
+          notes: await Promise.all([]),
+        };
+      });
+
+      const amountToTransfer = 100n;
+
+      const contractAddress = AztecAddress.random();
+      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'test_bad_read_then_insert_flat')!;
+
+      const args = [amountToTransfer, owner];
+      const result = await runSimulator({
+        args: args,
+        abi: abi,
+        origin: contractAddress,
+        contractAddress: contractAddress,
+      });
+
+      expect(result.preimages.newNotes).toHaveLength(1);
+      const note = result.preimages.newNotes[0];
+      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+
+      expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
+
+      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
+
+      expect(newCommitments).toHaveLength(1);
+
+      const commitment = newCommitments[0];
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      expect(commitment).toEqual(
+        Fr.fromBuffer(acirSimulator.computeNoteHash(storageSlot, note.preimage, circuitsWasm)),
+      );
+      // read requests should be empty
+      const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
+      expect(readRequest).toEqual(0n);
+
+      const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
+      // should get note value 0 because it actually gets a fake note since the real one hasn't been created yet!
+      expect(gotNoteValue).toEqual(0n);
     }, 30_000);
   });
 });
