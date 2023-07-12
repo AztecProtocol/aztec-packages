@@ -244,7 +244,8 @@
     ],
     "dependencies": [
       "circuits.js",
-      "foundation"
+      "foundation",
+      "types"
     ]
   },
   "noir-contracts": {
