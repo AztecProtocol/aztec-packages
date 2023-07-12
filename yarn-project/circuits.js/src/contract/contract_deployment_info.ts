@@ -1,4 +1,3 @@
-import { CircuitsWasm, Fr, FunctionData } from '@aztec/circuits.js';
 import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import {
   computeContractAddress,
@@ -7,9 +6,9 @@ import {
   computeVarArgsHash,
   hashConstructor,
 } from '@aztec/circuits.js/abis';
-import { DeploymentInfo, PublicKey } from '@aztec/types';
 
 import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
+import { CircuitsWasm, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
 
 /**
  * Generates the deployment info for a contract

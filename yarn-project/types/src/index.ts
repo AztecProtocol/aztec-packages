@@ -18,4 +18,3 @@ export * from './public_data_write.js';
 export * from './tx/index.js';
 export * from './tx_execution_request.js';
 export * from './packed_arguments.js';
-export * from './partial_contract_address.js';

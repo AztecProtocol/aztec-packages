@@ -1,12 +1,10 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialContractAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import {
   ContractData,
   ContractPublicData,
   L2BlockL2Logs,
-  PartialContractAddress,
-  PublicKey,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -44,32 +42,6 @@ export type NodeInfo = {
    * The network's chain id.
    */
   chainId: number;
-};
-
-/**
- * Represents the data generated as part of contract deployment.
- */
-export type DeploymentInfo = {
-  /**
-   * The derived aztec address of the contract.
-   */
-  address: AztecAddress;
-  /**
-   * The partially derived aztec address of the contract.
-   */
-  partialAddress: PartialContractAddress;
-  /**
-   * The contract's constructor hash.
-   */
-  constructorHash: Fr;
-  /**
-   * The root of the contract's function tree.
-   */
-  functionTreeRoot: Fr;
-  /**
-   * The public key associated with the contract.
-   */
-  publicKey: PublicKey;
 };
 
 /**

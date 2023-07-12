@@ -1,17 +1,9 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr, Point } from '@aztec/circuits.js';
+import { Fr, PartialContractAddress, Point } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import {
-  KeyStore,
-  L2BlockContext,
-  LogType,
-  MerkleTreeId,
-  PartialContractAddress,
-  PublicKey,
-  TxHash,
-} from '@aztec/types';
+import { KeyStore, L2BlockContext, LogType, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { ContractAbi } from '@aztec/foundation/abi';
 

@@ -1,8 +1,8 @@
 import partition from 'lodash.partition';
-import { AztecAddress, CircuitsWasm, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, FunctionData, PartialContractAddress, TxContext } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
-import { ExecutionRequest, PackedArguments, PartialContractAddress, PublicKey, TxExecutionRequest } from '@aztec/types';
+import { ExecutionRequest, PackedArguments, PublicKey, TxExecutionRequest } from '@aztec/types';
 import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 
 import { AccountImplementation } from './index.js';

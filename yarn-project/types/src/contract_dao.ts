@@ -1,18 +1,7 @@
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+import { ContractFunctionDao } from '@aztec/circuits.js';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-
-/**
- * A contract function Data Access Object (DAO).
- * Extends the FunctionAbi interface, adding a 'selector' property.
- * The 'selector' is a unique identifier for the function within the contract.
- */
-export interface ContractFunctionDao extends FunctionAbi {
-  /**
-   * Unique identifier for a contract function.
-   */
-  selector: Buffer;
-}
 
 /**
  * A contract Data Access Object (DAO).

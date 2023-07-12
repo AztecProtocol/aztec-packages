@@ -1,7 +1,6 @@
-import { CircuitsWasm, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
+import { CircuitsWasm, ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage } from '@aztec/circuits.js';
 import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
 import { FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
-import { ContractFunctionDao } from '@aztec/types';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
