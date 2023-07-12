@@ -6,9 +6,10 @@ use crate::note::note_interface::NoteInterface;
 use crate::oracle;
 
 // TODO: Remove these when nested array is supported.
-global GET_NOTE_ORACLE_RETURN_SIZE = 321; // MAX_READ_REQUESTS * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 16 * 20 + 1
+// EXTRA_DATA: [number_of_return_notes, contract_address]
+global GET_NOTE_ORACLE_RETURN_SIZE = 322; // MAX_READ_REQUESTS * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 16 * 20 + 2
 global MAX_NOTES_PER_PAGE = 10;
-global VIEW_NOTE_ORACLE_RETURN_SIZE = 201; // MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 10 * 20 + 1
+global VIEW_NOTE_ORACLE_RETURN_SIZE = 202; // MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 10 * 20 + 2
 
 fn ensure_note_exists<Note, N>(
     mut context: Context,
@@ -30,9 +31,7 @@ fn get_note<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> (Context, Note) {
-    let deserialise = note_interface.deserialise;
-    let dummy = note_interface.dummy;
-    let note = oracle::notes::get_note(storage_slot, deserialise, dummy);
+    let note = oracle::notes::get_note(storage_slot, note_interface);
     context = ensure_note_exists(context, storage_slot, note_interface, note);
     (context, note)
 }
@@ -64,7 +63,6 @@ fn get_notes_internal<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> [Note; S] {
-    let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
     let sort_by = options.sort_by;
     let mut sort_by_indices = [0; N];
@@ -78,8 +76,7 @@ fn get_notes_internal<Note, N, S, P>(
     let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
     let notes = oracle::notes::get_notes(
         storage_slot,
-        deserialise,
-        dummy,
+        note_interface,
         sort_by_indices,
         sort_order,
         abi::MAX_READ_REQUESTS as u32,
@@ -99,11 +96,10 @@ fn view_notes<Note, N>(
     limit: u32,
     offset: u32,
 ) -> [Note; MAX_NOTES_PER_PAGE] {
-    let deserialise = note_interface.deserialise;
     let dummy = note_interface.dummy;
     let sort_by = [0; N];
     let sort_order = [0; N];
     let dummy_notes = [dummy(); MAX_NOTES_PER_PAGE];
     let zero_fields = [0; VIEW_NOTE_ORACLE_RETURN_SIZE];
-    oracle::notes::get_notes(storage_slot, deserialise, dummy, sort_by, sort_order, limit, offset, dummy_notes, zero_fields)
+    oracle::notes::get_notes(storage_slot, note_interface, sort_by, sort_order, limit, offset, dummy_notes, zero_fields)
 }

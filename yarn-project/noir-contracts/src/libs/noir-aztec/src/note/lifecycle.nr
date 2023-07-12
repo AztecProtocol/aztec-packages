@@ -1,8 +1,9 @@
 use crate::context::Context;
-use crate::note::note_hash::{compute_inner_note_hash, compute_siloed_note_hash};
-use crate::note::note_interface::NoteInterface;
-use crate::oracle::notes::notify_created_note;
-use crate::oracle::notes::notify_nullified_note;
+use crate::note::{
+    note_hash::compute_inner_note_hash,
+    note_interface::NoteInterface,
+};
+use crate::oracle::notes::{notify_created_note, notify_nullified_note};
 
 fn create_note<Note, N>(
     mut context: Context,
@@ -34,11 +35,8 @@ fn destroy_note<Note, N>(
     let mut nullifier = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
-        let compute_note_hash = note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
-        let siloed_note_hash = compute_siloed_note_hash(storage_slot, note_hash);
         let compute_nullifier = note_interface.compute_nullifier;
-        nullifier = compute_nullifier(note, siloed_note_hash);
+        nullifier = compute_nullifier(note);
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);

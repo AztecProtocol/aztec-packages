@@ -39,7 +39,7 @@ export class UnconstrainedFunctionExecution {
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: async ([ownerX, ownerY]) =>
+      getSecretKey: async ([ownerX], [ownerY]) =>
         toACVMField(
           await this.context.db.getSecretKey(
             this.contractAddress,

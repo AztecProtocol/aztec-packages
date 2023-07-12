@@ -49,6 +49,7 @@ describe('Private Execution test suite', () => {
   let historicRoots = PrivateHistoricTreeRoots.empty();
   let logger: DebugLogger;
 
+  const defaultContractAddress = AztecAddress.random();
   const treeHeights: { [name: string]: number } = {
     privateData: PRIVATE_DATA_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
@@ -60,7 +61,7 @@ describe('Private Execution test suite', () => {
     abi,
     args = [],
     origin = AztecAddress.random(),
-    contractAddress = AztecAddress.random(),
+    contractAddress = defaultContractAddress,
     isConstructor = false,
   }: {
     abi: FunctionAbi;
@@ -131,30 +132,25 @@ describe('Private Execution test suite', () => {
   });
 
   describe('zk token contract', () => {
-    const contractAddress = AztecAddress.random();
-
-    let currentNonce = 0n;
-
-    let ownerPk: Buffer;
+    const contractAddress = defaultContractAddress;
+    const ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
+    const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
     let owner: NoirPoint;
-    let recipientPk: Buffer;
     let recipient: NoirPoint;
+    let currentNonce = 0n;
 
     const buildNote = (amount: bigint, owner: NoirPoint) => {
       return [new Fr(amount), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(currentNonce++), new Fr(1n)];
     };
 
     beforeAll(() => {
-      ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
-      recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
-
       const grumpkin = new Grumpkin(circuitsWasm);
       owner = toPublicKey(ownerPk, grumpkin);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
     beforeEach(() => {
-      oracle.getSecretKey.mockReturnValue(Promise.resolve(ownerPk));
+      oracle.getSecretKey.mockResolvedValue(ownerPk);
 
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
@@ -163,6 +159,34 @@ describe('Private Execution test suite', () => {
           )!,
         ),
       );
+    });
+
+    it('should have an abi for computing note hash and nullifier', async () => {
+      const storageSlot = Fr.random();
+      const note = buildNote(60n, owner);
+
+      // Should be the same as how we compute the values for the ValueNote in the noir library.
+      const valueNoteHash = pedersenPlookupCommitInputs(
+        circuitsWasm,
+        note.map(f => f.toBuffer()),
+      );
+      const expectedNoteHash = Fr.fromBuffer(
+        pedersenPlookupCommitInputs(circuitsWasm, [storageSlot.toBuffer(), valueNoteHash]),
+      );
+
+      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, expectedNoteHash);
+      const expectedNullifier = Fr.fromBuffer(
+        pedersenPlookupCommitInputs(circuitsWasm, [siloedNoteHash.toBuffer(), ownerPk]),
+      );
+
+      const { noteHash, nullifier } = await acirSimulator.computeNoteHashAndNullifier(
+        contractAddress,
+        storageSlot,
+        note,
+      );
+
+      expect(noteHash).toEqual(expectedNoteHash);
+      expect(nullifier).toEqual(expectedNullifier);
     });
 
     it('should a constructor with arguments that creates notes', async () => {
@@ -207,7 +231,6 @@ describe('Private Execution test suite', () => {
 
       const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       const leaves = await asyncMap(preimages, preimage =>
         acirSimulator.computeNoteHash(contractAddress, storageSlot, preimage),
       );
@@ -268,7 +291,6 @@ describe('Private Execution test suite', () => {
 
       const preimages = [buildNote(balance, owner)];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
       const leaves = await asyncMap(preimages, preimage =>
         acirSimulator.computeNoteHash(contractAddress, storageSlot, preimage),
       );
@@ -360,18 +382,16 @@ describe('Private Execution test suite', () => {
   });
 
   describe('Consuming Messages', () => {
-    let recipientPk: Buffer;
+    const contractAddress = defaultContractAddress;
+    const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
     let recipient: NoirPoint;
 
     beforeAll(() => {
-      recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
-
       const grumpkin = new Grumpkin(circuitsWasm);
       recipient = toPublicKey(recipientPk, grumpkin);
     });
 
     it('Should be able to consume a dummy cross chain message', async () => {
-      const contractAddress = AztecAddress.random();
       const bridgedAmount = 100n;
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'mint')!;
 
@@ -406,7 +426,6 @@ describe('Private Execution test suite', () => {
     });
 
     it('Should be able to consume a dummy public to private message', async () => {
-      const contractAddress = AztecAddress.random();
       const amount = 100n;
       const abi = NonNativeTokenContractAbi.functions.find(f => f.name === 'redeemShield')!;
 

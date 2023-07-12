@@ -130,20 +130,20 @@ export class AcirSimulator {
   public async computeNoteHashAndNullifier(contractAddress: AztecAddress, storageSlot: Fr, notePreimage: Fr[]) {
     const abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
 
-    const preimageLen = (abi.parameters[1].type as ArrayType).length;
+    const preimageLen = (abi.parameters[2].type as ArrayType).length;
     const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
 
     const execRequest: ExecutionRequest = {
       from: AztecAddress.ZERO,
-      to: contractAddress,
+      to: AztecAddress.ZERO,
       functionData: FunctionData.empty(),
-      args: encodeArguments(abi, [storageSlot, extendedPreimage]),
+      args: encodeArguments(abi, [contractAddress, storageSlot, extendedPreimage]),
     };
 
     const [result] = await this.runUnconstrained(
       execRequest,
       abi,
-      contractAddress,
+      AztecAddress.ZERO,
       EthAddress.ZERO,
       PrivateHistoricTreeRoots.empty(),
     );

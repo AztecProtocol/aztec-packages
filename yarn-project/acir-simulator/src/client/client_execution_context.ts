@@ -88,8 +88,8 @@ export class ClientTxExecutionContext {
     const indices = notes.map(({ index }) => index).filter(index => index != BigInt(-1));
     this.readRequestCommitmentIndices.push(...indices);
 
-    const paddedZeros = Array(+returnSize - 1 - preimages.length).fill(Fr.ZERO);
-    return [count, preimages, paddedZeros].flat().map(f => toACVMField(f));
+    const paddedZeros = Array(+returnSize - 2 - preimages.length).fill(Fr.ZERO);
+    return [count, contractAddress, preimages, paddedZeros].flat().map(f => toACVMField(f));
   }
 
   /**
