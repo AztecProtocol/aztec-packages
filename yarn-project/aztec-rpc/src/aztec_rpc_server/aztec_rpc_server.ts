@@ -1,13 +1,14 @@
 import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, FunctionData } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { AztecAddress, EthAddress, FunctionData } from '@aztec/circuits.js';
+import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { KeyStore, PublicKey } from '@aztec/key-store';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   AztecRPC,
+  ContractDao,
   ContractData,
   ContractPublicData,
   DeployedContract,
@@ -22,10 +23,32 @@ import {
   TxReceipt,
   TxStatus,
 } from '@aztec/types';
+
 import { AccountState } from '../account_state/account_state.js';
-import { toContractDao } from '../contract_database/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
+
+/**
+ * Converts the given contract ABI into a ContractDao object that includes additional properties
+ * such as the address, portal contract, and function selectors.
+ *
+ * @param abi - The contract ABI.
+ * @param address - The AztecAddress representing the contract's address.
+ * @param portalContract - The EthAddress representing the address of the associated portal contract.
+ * @returns A ContractDao object containing the provided information along with generated function selectors.
+ */
+export function toContractDao(abi: ContractAbi, address: AztecAddress, portalContract: EthAddress): ContractDao {
+  const functions = abi.functions.map(f => ({
+    ...f,
+    selector: generateFunctionSelector(f.name, f.parameters),
+  }));
+  return {
+    ...abi,
+    address,
+    functions,
+    portalContract,
+  };
+}
 
 /**
  * A remote Aztec RPC Client implementation.

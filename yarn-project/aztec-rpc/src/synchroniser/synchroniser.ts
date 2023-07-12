@@ -4,12 +4,13 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { L2BlockContext, LogType, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
-import { AccountState } from '../account_state/index.js';
-import { Database, TxDao } from '../database/index.js';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { PublicKey } from '@aztec/key-store';
 import { KeyStore } from '@aztec/key-store';
+import { ContractAbi } from '@aztec/foundation/abi';
 
+import { AccountState } from '../account_state/index.js';
+import { Database, TxDao } from '../database/index.js';
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.
@@ -171,7 +172,7 @@ export class Synchroniser {
     publicKey: PublicKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    abi = SchnorrAccountContractAbi,
+    abi: ContractAbi = SchnorrAccountContractAbi,
     keyStore: KeyStore,
   ) {
     const accountState = new AccountState(

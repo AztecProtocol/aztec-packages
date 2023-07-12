@@ -1,10 +1,10 @@
-import { TxHash } from '@aztec/types';
-import { ContractDatabase } from '../contract_database/index.js';
-import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
+import { ContractDatabase, TxHash } from '@aztec/types';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { MerkleTreeId } from '@aztec/types';
+
+import { TxDao } from './tx_dao.js';
+import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
 
 /**
  * Options for selecting items from the database.

@@ -1,19 +1,13 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  AztecRPCServer,
-  ContractDeployer,
-  Fr,
-  SentTx,
-  TxStatus,
-  createAztecRPCServer,
-} from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, Fr, SentTx } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
+import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
+import { randomBytes } from 'crypto';
 
 import { setup } from './utils.js';
-import { randomBytes } from 'crypto';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;

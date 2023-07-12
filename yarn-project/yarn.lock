@@ -154,6 +154,7 @@ __metadata:
   dependencies:
     "@aztec/acir-simulator": "workspace:^"
     "@aztec/aztec-node": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/key-store": "workspace:^"
@@ -303,6 +304,7 @@ __metadata:
   resolution: "@aztec/end-to-end@workspace:end-to-end"
   dependencies:
     "@aztec/aztec-node": "workspace:^"
+    "@aztec/aztec-rpc": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"

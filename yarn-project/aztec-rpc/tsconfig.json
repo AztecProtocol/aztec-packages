@@ -10,6 +10,9 @@
       "path": "../acir-simulator"
     },
     {
+      "path": "../aztec.js"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -28,8 +31,5 @@
       "path": "../types"
     }
   ],
-  "include": [
-    "src",
-    "../types/src/tx/tx_receipt.ts"
-  ]
+  "include": ["src"]
 }

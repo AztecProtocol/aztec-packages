@@ -1,12 +1,13 @@
 import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ConstantKeyPair, KeyStore, PublicKey } from '@aztec/key-store';
 import {
+  ContractDao,
   EncodedContractFunction,
   ExecutionRequest,
   INITIAL_L2_BLOCK_NUM,
@@ -19,15 +20,14 @@ import {
   TxExecutionRequest,
   TxL2Logs,
 } from '@aztec/types';
+import { collectUnencryptedLogs } from '@aztec/acir-simulator';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
-import { generateFunctionSelector } from '../index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
-import { collectUnencryptedLogs } from '@aztec/acir-simulator';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ContractDao } from '../contract_database/contract_dao.js';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.

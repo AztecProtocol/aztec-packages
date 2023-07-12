@@ -7,17 +7,16 @@ import {
   Contract,
   ContractDeployer,
   Point,
-  TxHash,
   createAccounts,
   createAztecRpcClient,
   pointToPublicKey,
 } from '@aztec/aztec.js';
+import { JsonStringify } from '@aztec/foundation/json-rpc';
+import { StructType } from '@aztec/foundation/abi';
+import { ContractData, TxHash, L2BlockL2Logs } from '@aztec/types';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, prepTx } from './utils.js';
-import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { StructType } from '@aztec/foundation/abi';
-import { ContractData, L2BlockL2Logs } from '@aztec/types';
 
 const debugLogger = createDebugLogger('aztec:cli');
 const log = createLogger();

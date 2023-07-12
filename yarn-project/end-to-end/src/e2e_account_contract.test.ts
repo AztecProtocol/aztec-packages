@@ -2,13 +2,11 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import {
   AccountContract,
   AccountWallet,
-  AztecRPCServer,
   Contract,
   ContractDeployer,
   EcdsaAuthProvider,
   Fr,
   SchnorrAuthProvider,
-  TxStatus,
   Wallet,
   generatePublicKey,
   getContractDeploymentInfo,
@@ -24,6 +22,8 @@ import { setup } from './utils.js';
 import { CircuitsWasm, Point } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { randomBytes } from 'crypto';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
