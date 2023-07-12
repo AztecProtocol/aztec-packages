@@ -1,7 +1,7 @@
 import { CallContext, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
+import { BigField, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { decodeReturnValues } from '../abi_coder/decoder.js';
 import { extractReturnWitness, frToAztecAddress } from '../acvm/deserialize.js';
@@ -44,8 +44,8 @@ export class UnconstrainedFunctionExecution {
           await this.context.db.getSecretKey(
             this.contractAddress,
             Point.fromCoordinates(
-              Coordinate.fromField(fromACVMField(ownerX)),
-              Coordinate.fromField(fromACVMField(ownerY)),
+              BigField.fromField(fromACVMField(ownerX)),
+              BigField.fromField(fromACVMField(ownerY)),
             ),
           ),
         ),

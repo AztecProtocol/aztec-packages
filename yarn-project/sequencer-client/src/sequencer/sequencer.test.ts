@@ -3,7 +3,7 @@ import {
   Fr,
   GlobalVariables,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  TwoFieldHash,
+  BigField,
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
@@ -36,7 +36,7 @@ describe('sequencer', () => {
 
   const chainId = Fr.ZERO;
   const version = Fr.ZERO;
-  const ethBlockHash = TwoFieldHash.empty();
+  const ethBlockHash = BigField.empty();
 
   beforeEach(() => {
     lastBlockNumber = 0;

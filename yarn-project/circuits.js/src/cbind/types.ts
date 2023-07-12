@@ -32,7 +32,7 @@ export {
   PublicKernelInputs,
   CircuitError,
   Point,
-  Coordinate,
+  BigField as Coordinate,
 } from '../structs/index.js';
 
 /**

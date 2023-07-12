@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
+import { Fr, BigField  } from '@aztec/foundation/fields';
 import { computeCallStackItemHash } from '../abis/abis.js';
 import {
   ARGS_LENGTH,
@@ -20,10 +21,8 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  Coordinate,
   FUNCTION_TREE_HEIGHT,
   Fq,
-  Fr,
   FunctionData,
   G1AffineElement,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -87,7 +86,6 @@ import {
   makeHalfFullTuple,
   makeTuple,
   range,
-  TwoFieldHash,
 } from '../index.js';
 import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
@@ -402,7 +400,7 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return Point.fromCoordinates(Coordinate.fromField(new Fr(seed)), Coordinate.fromField(new Fr(seed + 1)));
+  return Point.fromCoordinates(BigField.fromField(new Fr(seed)), BigField.fromField(new Fr(seed + 1)));
 }
 
 /**
@@ -655,7 +653,7 @@ export function makeContractDeploymentData(seed = 1) {
  * @returns Global variables.
  */
 export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = undefined): GlobalVariables {
-  const l1BlockHash = new TwoFieldHash(fr(seed + 4), fr(seed + 5));
+  const l1BlockHash = new BigField([fr(seed + 4), fr(seed + 5)]);
   return new GlobalVariables(fr(seed), fr(seed + 1), fr(blockNumber ?? seed + 2), fr(seed + 3), l1BlockHash);
 }
 

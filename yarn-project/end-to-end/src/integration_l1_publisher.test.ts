@@ -9,14 +9,13 @@ import {
   KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PublicDataUpdateRequest,
-  TwoFieldHash,
   makeTuple,
   range,
 } from '@aztec/circuits.js';
 import { fr, makeNewContractData, makeProof } from '@aztec/circuits.js/factories';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, BigField } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
@@ -282,7 +281,7 @@ describe('L1Publisher integration', () => {
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
-        TwoFieldHash.from32ByteHash(lastBlockHash),
+        BigField.fromBuffer(lastBlockHash),
       );
 
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
@@ -377,7 +376,7 @@ describe('L1Publisher integration', () => {
         new Fr(config.version),
         new Fr(1 + i),
         new Fr(await rollup.read.lastBlockTs()),
-        TwoFieldHash.from32ByteHash(lastBlockHash),
+        BigField.fromBuffer(lastBlockHash),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
 

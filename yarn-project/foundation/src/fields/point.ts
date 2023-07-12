@@ -1,5 +1,5 @@
 import { BufferReader } from '../serialize/buffer_reader.js';
-import { Coordinate } from './coordinate.js';
+import { BigField } from './big_field.js';
 
 /**
  * Represents a Point on an elliptic curve with x and y coordinates.
@@ -7,7 +7,7 @@ import { Coordinate } from './coordinate.js';
  * converting instances to various output formats, and checking the equality of points.
  */
 export class Point {
-  static ZERO = new Point(Coordinate.ZERO, Coordinate.ZERO);
+  static ZERO = new Point(BigField.ZERO, BigField.ZERO);
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -16,11 +16,11 @@ export class Point {
     /**
      * The point's x coordinate
      */
-    public readonly x: Coordinate,
+    public readonly x: BigField,
     /**
      * The point's y coordinate
      */
-    public readonly y: Coordinate,
+    public readonly y: BigField,
   ) {}
 
   /**
@@ -30,7 +30,7 @@ export class Point {
    */
   static random() {
     // TODO is this a random point on the curve?
-    return new Point(Coordinate.random(), Coordinate.random());
+    return new Point(BigField.random(), BigField.random());
   }
 
   /**
@@ -42,7 +42,7 @@ export class Point {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Coordinate.fromBuffer(reader.readBytes(32)), Coordinate.fromBuffer(reader.readBytes(32)));
+    return new this(BigField.fromBuffer(reader.readBytes(32)), BigField.fromBuffer(reader.readBytes(32)));
   }
 
   /**
@@ -51,7 +51,7 @@ export class Point {
    * @param y - Y coordinate.
    * @returns A Point instance.
    */
-  static fromCoordinates(x: Coordinate, y: Coordinate) {
+  static fromCoordinates(x: BigField, y: BigField) {
     return new this(x, y);
   }
 

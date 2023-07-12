@@ -1,6 +1,5 @@
-import { Fr } from '@aztec/foundation/fields';
+import { BigField, Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { TwoFieldHash } from '@aztec/circuits.js';
 import { FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/index.js';
 
@@ -28,7 +27,7 @@ export class GlobalVariables {
     /**
      * The block hash of the eth l1 block.
      */
-    public ethBlockHash: TwoFieldHash,
+    public ethBlockHash: BigField,
   ) {}
 
   static from(fields: FieldsOf<GlobalVariables>): GlobalVariables {
@@ -36,7 +35,7 @@ export class GlobalVariables {
   }
 
   static empty(): GlobalVariables {
-    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero(), TwoFieldHash.empty());
+    return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero(), BigField.empty());
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): GlobalVariables {
@@ -46,7 +45,7 @@ export class GlobalVariables {
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),
-      new TwoFieldHash(reader.readFr(), reader.readFr()),
+      new BigField([reader.readFr(), reader.readFr()]),
     );
   }
 

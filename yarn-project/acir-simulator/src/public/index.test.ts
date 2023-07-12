@@ -6,11 +6,10 @@ import {
   PrivateHistoricTreeRoots,
   L1_TO_L2_MSG_TREE_HEIGHT,
   GlobalVariables,
-  TwoFieldHash,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { BigField, Fr } from '@aztec/foundation/fields';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import {
   ChildAbi,
@@ -230,7 +229,7 @@ describe('ACIR public execution simulator', () => {
       });
 
       const execution: PublicExecution = { contractAddress: parentContractAddress, functionData, args, callContext };
-      const ethBlockHash = new TwoFieldHash(new Fr(0), new Fr(1337));
+      const ethBlockHash = new BigField([new Fr(0), new Fr(1337)]);
       const globalVariables = new GlobalVariables(new Fr(69), new Fr(420), new Fr(1), new Fr(7), ethBlockHash);
       const result = await executor.execute(execution, globalVariables);
 
@@ -241,8 +240,8 @@ describe('ACIR public execution simulator', () => {
             globalVariables.version.value +
             globalVariables.blockNumber.value +
             globalVariables.timestamp.value +
-            globalVariables.ethBlockHash.high.value +
-            globalVariables.ethBlockHash.low.value,
+            globalVariables.ethBlockHash.fields[1].value +
+            globalVariables.ethBlockHash.fields[0].value,
         ),
       ]);
     });

@@ -26,7 +26,7 @@ template <typename NCT> struct GlobalVariables {
     fr block_number = 0;
     fr timestamp = 0;
 
-    TwoFieldHash<NCT> eth_block_hash;
+    BigField<NCT> eth_block_hash;
 
     MSGPACK_FIELDS(chain_id, version, block_number, timestamp, eth_block_hash);
 

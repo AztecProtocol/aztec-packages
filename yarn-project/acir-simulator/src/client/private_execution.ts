@@ -12,7 +12,7 @@ import { Curve } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
+import { BigField, Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
@@ -76,8 +76,8 @@ export class PrivateFunctionExecution {
           await this.context.db.getSecretKey(
             this.contractAddress,
             Point.fromCoordinates(
-              Coordinate.fromField(fromACVMField(ownerX)),
-              Coordinate.fromField(fromACVMField(ownerY)),
+              BigField.fromField(fromACVMField(ownerX)),
+              BigField.fromField(fromACVMField(ownerY)),
             ),
           ),
         ),
@@ -158,8 +158,8 @@ export class PrivateFunctionExecution {
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = Point.fromCoordinates(
-          Coordinate.fromField(fromACVMField(ownerX)),
-          Coordinate.fromField(fromACVMField(ownerY)),
+          BigField.fromField(fromACVMField(ownerX)),
+          BigField.fromField(fromACVMField(ownerY)),
         );
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);

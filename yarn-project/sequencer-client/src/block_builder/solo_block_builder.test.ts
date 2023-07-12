@@ -15,7 +15,6 @@ import {
   Proof,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
-  TwoFieldHash,
   makeTuple,
   range,
 } from '@aztec/circuits.js';
@@ -30,6 +29,7 @@ import {
   makeRootRollupPublicInputs,
 } from '@aztec/circuits.js/factories';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import {BigField} from '@aztec/foundation/fields';
 import {
   ContractData,
   L2Block,
@@ -93,7 +93,7 @@ describe('sequencer/solo_block_builder', () => {
 
   beforeEach(async () => {
     blockNumber = 3;
-    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, TwoFieldHash.empty());
+    globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO, BigField.empty());
 
     builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
     expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());

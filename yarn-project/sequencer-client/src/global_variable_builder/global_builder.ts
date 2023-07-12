@@ -1,4 +1,5 @@
-import { Fr, GlobalVariables, TwoFieldHash } from '@aztec/circuits.js';
+import {  GlobalVariables } from '@aztec/circuits.js';
+import { Fr, BigField } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
@@ -25,15 +26,15 @@ export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
   private log = createDebugLogger('aztec:sequencer:simple_global_variable_builder');
   constructor(private readonly reader: L1GlobalReader) {}
 
-  private async getLastEthBlockHash(blockNumber: Fr): Promise<TwoFieldHash> {
+  private async getLastEthBlockHash(blockNumber: Fr): Promise<BigField> {
     // In the case where this is the genesis block, we expect previous eth block hash to be 0.
     // block hash of the last block.
     if (blockNumber.value == 1n) {
       // first aztec block number is 1
-      return TwoFieldHash.empty();
+      return BigField.empty();
     }
     const blockHash = await this.reader.getLastEthBlockHash();
-    return TwoFieldHash.from32ByteHash(blockHash);
+    return BigField.fromBuffer(blockHash);
   }
 
   /**

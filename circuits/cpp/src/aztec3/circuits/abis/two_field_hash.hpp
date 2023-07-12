@@ -12,7 +12,7 @@ namespace aztec3::circuits::abis {
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
-template <typename NCT> struct TwoFieldHash {
+template <typename NCT> struct BigField {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
@@ -21,9 +21,9 @@ template <typename NCT> struct TwoFieldHash {
 
     MSGPACK_FIELDS(high, low);
 
-    boolean operator==(TwoFieldHash<NCT> const& other) const { return high == other.high && low == other.low; };
+    boolean operator==(BigField<NCT> const& other) const { return high == other.high && low == other.low; };
 
-    template <typename Builder> TwoFieldHash<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Builder> BigField<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
@@ -31,7 +31,7 @@ template <typename NCT> struct TwoFieldHash {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
         auto to_circuit_type = [&](auto& e) { return e.to_circuit_type(builder); };
 
-        TwoFieldHash<CircuitTypes<Builder>> hash = {
+        BigField<CircuitTypes<Builder>> hash = {
             to_ct(high),
             to_ct(low),
         };
@@ -40,7 +40,7 @@ template <typename NCT> struct TwoFieldHash {
     };
 };
 
-template <typename NCT> void read(uint8_t const*& it, TwoFieldHash<NCT>& hash)
+template <typename NCT> void read(uint8_t const*& it, BigField<NCT>& hash)
 {
     using serialize::read;
 
@@ -48,7 +48,7 @@ template <typename NCT> void read(uint8_t const*& it, TwoFieldHash<NCT>& hash)
     read(it, hash.low);
 };
 
-template <typename NCT> void write(std::vector<uint8_t>& buf, TwoFieldHash<NCT> const& hash)
+template <typename NCT> void write(std::vector<uint8_t>& buf, BigField<NCT> const& hash)
 {
     using serialize::write;
 
@@ -56,7 +56,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, TwoFieldHash<NCT> 
     write(buf, hash.low);
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, TwoFieldHash<NCT> const& hash)
+template <typename NCT> std::ostream& operator<<(std::ostream& os, BigField<NCT> const& hash)
 {
     return os << "high: " << hash.high << "\n"
               << "low: " << hash.low << "\n";

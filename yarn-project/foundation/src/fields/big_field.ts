@@ -3,15 +3,15 @@ import { Tuple } from '../serialize/types.js';
 import { Fr } from './fields.js';
 
 /**
- * Class to wrap a single point coordinate.
+ * Class to wrap a 32 byte value in a field.
  * This class handles the complexities of representing point coordinates as 32 byte buffers as well as fields.
  * The coordinate value is split across 2 fields to ensure that the max size of a field is not breached.
  * This is achieved by placing the most significant byte of the lower field into the least significant byte of the higher field.
  * Calls to 'toBuffer' or 'toBigInt' undo this change and simply return the original 32 byte value.
  * Calls to 'toFieldsBuffer' will return a 64 bytes buffer containing the serialised fields.
  */
-export class Coordinate {
-  static ZERO = new Coordinate([Fr.ZERO, Fr.ZERO]);
+export class BigField {
+  static ZERO = new BigField([Fr.ZERO, Fr.ZERO]);
 
   constructor(
     /**
@@ -32,12 +32,20 @@ export class Coordinate {
    * Generates a random coordinate value
    * @returns The random coordinate
    */
-  static random(): Coordinate {
+  static random(): BigField {
     return this.fromField(Fr.random());
   }
 
   /**
-   * Serialises the oblect to buffer of 2 fields.
+   * Generates an empty coordinate value.
+   * @returns The empty coordinate.
+   */
+  static empty(): BigField {
+    return new BigField([Fr.ZERO, Fr.ZERO]);
+  }
+
+  /**
+   * Serialises the object to buffer of 2 fields.
    * @returns A buffer serialisation of the object.
    */
   toFieldsBuffer(): Buffer {
@@ -60,7 +68,7 @@ export class Coordinate {
    * @param other - The coordinate against which to compare
    * @returns True if the coordinates are the same, false otherwise
    */
-  equals(other: Coordinate): boolean {
+  equals(other: BigField): boolean {
     return this.toBigInt() === other.toBigInt();
   }
 
@@ -86,7 +94,7 @@ export class Coordinate {
     const buf1 = Buffer.alloc(32);
     buf1[31] = buf0[0];
     buf0[0] = 0;
-    return new Coordinate([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
+    return new BigField([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
   }
 
   /**
@@ -99,6 +107,6 @@ export class Coordinate {
     const buf1 = Buffer.alloc(32);
     buf1[31] = buf0[0];
     buf0[0] = 0;
-    return new Coordinate([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
+    return new BigField([Fr.fromBuffer(buf0), Fr.fromBuffer(buf1)]);
   }
 }
