@@ -10,7 +10,7 @@ import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
 import { ExecutionResult } from './execution_result.js';
-import { computeNoteHashAndNullifierSelector } from './function_selectors.js';
+import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
@@ -128,6 +128,11 @@ export class AcirSimulator {
    */
   public async computeNoteHashAndNullifier(contractAddress: AztecAddress, storageSlot: Fr, notePreimage: Fr[]) {
     const abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
+    if (!abi) {
+      throw new Error(
+        `Please define an unconstrained function "${computeNoteHashAndNullifierSignature}" in the noir contract.`,
+      );
+    }
 
     const preimageLen = (abi.parameters[2].type as ArrayType).length;
     const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));

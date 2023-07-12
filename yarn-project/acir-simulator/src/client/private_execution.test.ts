@@ -51,6 +51,8 @@ describe('Private Execution test suite', () => {
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
+  const ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
+
   const treeHeights: { [name: string]: number } = {
     privateData: PRIVATE_DATA_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
@@ -119,6 +121,8 @@ describe('Private Execution test suite', () => {
 
   beforeEach(() => {
     oracle = mock<DBOracle>();
+    oracle.getSecretKey.mockResolvedValue(ownerPk);
+
     acirSimulator = new AcirSimulator(oracle);
   });
 
@@ -134,7 +138,6 @@ describe('Private Execution test suite', () => {
 
   describe('zk token contract', () => {
     const contractAddress = defaultContractAddress;
-    const ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
     const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
     let owner: NoirPoint;
     let recipient: NoirPoint;
@@ -151,8 +154,6 @@ describe('Private Execution test suite', () => {
     });
 
     beforeEach(() => {
-      oracle.getSecretKey.mockResolvedValue(ownerPk);
-
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
           ZkTokenContractAbi.functions.find(f => selector.equals(generateFunctionSelector(f.name, f.parameters)))!,
@@ -500,13 +501,21 @@ describe('Private Execution test suite', () => {
   });
 
   describe('pending commitments contract', () => {
-    let ownerPk: Buffer;
     let owner: NoirPoint;
 
     beforeAll(() => {
-      ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
       const grumpkin = new Grumpkin(circuitsWasm);
       owner = toPublicKey(ownerPk, grumpkin);
+    });
+
+    beforeEach(() => {
+      oracle.getFunctionABI.mockImplementation((_, selector) =>
+        Promise.resolve(
+          PendingCommitmentsContractAbi.functions.find(f =>
+            selector.equals(generateFunctionSelector(f.name, f.parameters)),
+          )!,
+        ),
+      );
     });
 
     it('should be able to read pending commitments created in same function', async () => {
@@ -542,7 +551,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const readRequest = result.callStackItem.publicInputs.readRequests[0];
       expect(readRequest).toEqual(commitment);
@@ -568,18 +577,9 @@ describe('Private Execution test suite', () => {
       const createAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'create_note')!;
       const getAndCheckAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_and_check_note')!;
 
-      const createFnSelector = Buffer.alloc(4, 1); // should match the call
-      const getAndCheckFnSelector = Buffer.alloc(4, 2); // should match the call
+      const createFnSelector = generateFunctionSelector(createAbi.name, createAbi.parameters);
+      const getAndCheckFnSelector = generateFunctionSelector(getAndCheckAbi.name, getAndCheckAbi.parameters);
 
-      oracle.getFunctionABI.mockImplementation((_addr, selector) => {
-        if (selector.equals(createFnSelector)) {
-          return Promise.resolve(createAbi);
-        } else if (selector.equals(getAndCheckFnSelector)) {
-          return Promise.resolve(getAndCheckAbi);
-        } else {
-          throw `Unknown selector ${selector.toString('hex')}`;
-        }
-      });
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
       const args = [amountToTransfer, owner, createFnSelector, getAndCheckFnSelector];
@@ -607,7 +607,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const readRequest = execGetAndCheck.callStackItem.publicInputs.readRequests[0];
       expect(readRequest).toEqual(commitment);
@@ -616,7 +616,7 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       // TODO check read request is output that matches pending commitment
-    }, 30_000);
+    });
 
     it('cant read a commitment that is created later in same function', async () => {
       oracle.getNotes.mockImplementation(async () => {
@@ -651,7 +651,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
       // read requests should be empty
       const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
       expect(readRequest).toEqual(0n);
@@ -659,8 +659,9 @@ describe('Private Execution test suite', () => {
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       // should get note value 0 because it actually gets a fake note since the real one hasn't been created yet!
       expect(gotNoteValue).toEqual(0n);
-    }, 30_000);
+    });
   });
+
   describe('get public key', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract ABI so we can extract return values
