@@ -20,13 +20,14 @@ import {
   SiblingPath,
 } from '@aztec/types';
 import { jest } from '@jest/globals';
-import { MerkleTreeDb } from '../index.js';
-import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
-import { WorldStateRunningState } from './world_state_synchroniser.js';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { createLogger } from '@aztec/foundation/log';
 import times from 'lodash.times';
+
+import { MerkleTreeDb } from '../index.js';
+import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
+import { WorldStateRunningState } from './world_state_synchroniser.js';
 
 /**
  * Generic mock implementation.

@@ -2,36 +2,39 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
-  encodeArguments,
 } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { FunctionType } from '@aztec/foundation/abi';
+import { AztecAddress, FunctionData, PartialContractAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore } from '@aztec/key-store';
 import {
+  AztecRPC,
+  ContractDao,
   ContractData,
   ContractPublicData,
+  DeployedContract,
   ExecutionRequest,
+  KeyStore,
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
-  PartialContractAddress,
+  NodeInfo,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxL2Logs,
+  TxReceipt,
+  TxStatus,
+  getNewContractPublicFunctions,
+  toContractDao,
 } from '@aztec/types';
-import { AztecRPC, DeployedContract, NodeInfo } from '../aztec_rpc/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { ContractDao, getNewContractPublicFunctions, toContractDao } from '../contract_database/index.js';
 import { Database, TxDao } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
-import { TxReceipt, TxStatus } from '../tx/index.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -184,8 +187,7 @@ export class AztecRPCServer implements AztecRPC {
     await this.db.addTx(
       TxDao.from({
         txHash: await tx.getTxHash(),
-        from: account,
-        to: account,
+        origin: account,
         contractAddress: deployedContractAddress,
       }),
     );
@@ -236,8 +238,7 @@ export class AztecRPCServer implements AztecRPC {
       txHash: txHash,
       blockHash: localTx?.blockHash,
       blockNumber: localTx?.blockNumber,
-      from: localTx?.from,
-      to: localTx?.to,
+      origin: localTx?.origin,
       contractAddress: localTx?.contractAddress,
       error: '',
     };
@@ -260,7 +261,7 @@ export class AztecRPCServer implements AztecRPC {
     // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
     // until the synchroniser picks this up
 
-    const isSynchronised = await this.synchroniser.isAccountSynchronised(localTx.from);
+    const isSynchronised = await this.synchroniser.isAccountSynchronised(localTx.origin);
     if (isSynchronised) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
       return {
@@ -364,6 +365,24 @@ export class AztecRPCServer implements AztecRPC {
     }
 
     return address;
+  }
+
+  /**
+   * Ensures the given account public key exists in the synchroniser.
+   * Retrieves the account state for the provided address and throws an error if the account is not found.
+   *
+   * @param account - The public key.
+   * @returns The account state associated with the given address.
+   * @throws If the account is unknown or not found in the synchroniser.
+   */
+  #ensureAccountPublicKey(account: Point) {
+    const accountState = this.synchroniser.getAccountByPublicKey(account);
+
+    if (!accountState) {
+      throw new Error(`Unknown account: ${account.toShortString()}.`);
+    }
+
+    return accountState;
   }
 
   /**

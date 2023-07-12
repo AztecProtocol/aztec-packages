@@ -1,10 +1,12 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
-
 import { toBigInt } from '@aztec/foundation/serialize';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
+
 import { setup } from './utils.js';
 
 describe('e2e_nested_contract', () => {
@@ -53,7 +55,7 @@ describe('e2e_nested_contract', () => {
   it('performs nested calls', async () => {
     const tx = parentContract.methods
       .entryPoint(childContract.address, Fr.fromBuffer(childContract.methods.value.selector))
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -64,7 +66,7 @@ describe('e2e_nested_contract', () => {
   it('performs public nested calls', async () => {
     const tx = parentContract.methods
       .pubEntryPoint(childContract.address, Fr.fromBuffer(childContract.methods.pubValue.selector), 42n)
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -75,7 +77,7 @@ describe('e2e_nested_contract', () => {
   it('enqueues a single public call', async () => {
     const tx = parentContract.methods
       .enqueueCallToChild(childContract.address, Fr.fromBuffer(childContract.methods.pubStoreValue.selector), 42n)
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -93,7 +95,7 @@ describe('e2e_nested_contract', () => {
         Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
         42n,
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -109,7 +111,7 @@ describe('e2e_nested_contract', () => {
         Fr.fromBuffer(childContract.methods.pubStoreValue.selector),
         42n,
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -127,7 +129,7 @@ describe('e2e_nested_contract', () => {
         Fr.fromBuffer(childContract.methods.pubStoreValue.selector),
         42n,
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -146,7 +148,7 @@ describe('e2e_nested_contract', () => {
         Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
         42n,
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();

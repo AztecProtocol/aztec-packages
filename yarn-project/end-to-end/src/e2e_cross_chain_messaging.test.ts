@@ -1,11 +1,13 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, Contract } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-
 import { Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
-import { delay, pointToPublicKey, setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+
+import { delay, setup } from './utils.js';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
+import { TxStatus } from '@aztec/types';
 
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
@@ -62,7 +64,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPub)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(ownerPub.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -71,7 +73,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger('Send L2 tx to withdraw funds');
     const withdrawTx = l2Contract.methods
       .withdraw(withdrawAmount, ownerPub, ethAccount, EthAddress.ZERO.toField())
-      .send({ from: ownerAddress });
+      .send({ origin: ownerAddress });
 
     await withdrawTx.isMined(0, 0.1);
     const withdrawReceipt = await withdrawTx.getReceipt();

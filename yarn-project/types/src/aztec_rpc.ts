@@ -1,17 +1,15 @@
-import { AztecAddress, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialContractAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
-import { PublicKey } from '@aztec/key-store';
 import {
   ContractData,
   ContractPublicData,
   L2BlockL2Logs,
-  PartialContractAddress,
   Tx,
   TxExecutionRequest,
   TxHash,
+  TxReceipt,
 } from '@aztec/types';
-import { TxReceipt } from '../tx/index.js';
 
 /**
  * Represents a deployed contract on the Aztec network.
@@ -47,32 +45,6 @@ export type NodeInfo = {
 };
 
 /**
- * Represents the data generated as part of contract deployment.
- */
-export type DeploymentInfo = {
-  /**
-   * The derived aztec address of the contract.
-   */
-  address: AztecAddress;
-  /**
-   * The partially derived aztec address of the contract.
-   */
-  partialAddress: PartialContractAddress;
-  /**
-   * The contract's constructor hash.
-   */
-  constructorHash: Fr;
-  /**
-   * The root of the contract's function tree.
-   */
-  functionTreeRoot: Fr;
-  /**
-   * The public key associated with the contract.
-   */
-  publicKey: PublicKey;
-};
-
-/**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
  * including account management, contract deployment, transaction creation, and execution,
@@ -87,6 +59,7 @@ export interface AztecRPC {
   ): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
+  getAccountAddress(publicKey: Point): Promise<AztecAddress>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
   /**
    * Is an L2 contract deployed at this address?

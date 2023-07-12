@@ -1,7 +1,7 @@
 import { Curve } from '@aztec/circuits.js/barretenberg';
-import { ConstantKeyPair, KeyPair } from './key_pair.js';
-import { KeyStore, PublicKey } from './key_store.js';
+import { ConstantKeyPair } from './key_pair.js';
 import { Point } from '@aztec/circuits.js';
+import { KeyPair, KeyStore, PublicKey } from '@aztec/types';
 
 /**
  * TestKeyStore is an implementation of the KeyStore interface, used for managing key pairs in a testing environment.
@@ -19,6 +19,13 @@ export class TestKeyStore implements KeyStore {
    */
   public addAccount(privKey: Buffer): PublicKey {
     const keyPair = ConstantKeyPair.fromPrivateKey(this.curve, privKey);
+
+    // check if private key has already been used
+    const account = this.accounts.find(a => a.getPublicKey().equals(keyPair.getPublicKey()));
+    if (account) {
+      return account.getPublicKey();
+    }
+
     this.accounts.push(keyPair);
     return keyPair.getPublicKey();
   }

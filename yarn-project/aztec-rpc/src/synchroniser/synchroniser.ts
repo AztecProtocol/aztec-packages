@@ -2,11 +2,9 @@ import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { KeyStore, PublicKey } from '@aztec/key-store';
 import { L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 import { Database } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
-
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.

@@ -1,8 +1,7 @@
-import { encodeArguments } from '@aztec/acir-simulator';
-import { generateFunctionSelector, Tx } from '@aztec/aztec-rpc';
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { FunctionAbi, FunctionType, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
+
 import { Wallet } from '../aztec_rpc_client/wallet.js';
 import { SentTx } from './sent_tx.js';
 
@@ -14,7 +13,7 @@ export interface SendMethodOptions {
   /**
    * Sender's address initiating the transaction.
    */
-  from?: AztecAddress;
+  origin?: AztecAddress;
   /**
    * The nonce representing the order of transactions sent by the address.
    */
@@ -61,7 +60,7 @@ export class ContractFunctionInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      const executionRequest = this.getExecutionRequest(this.contractAddress, options.from);
+      const executionRequest = this.getExecutionRequest(this.contractAddress, options.origin);
       const nodeInfo = await this.wallet.getNodeInfo();
       const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
       const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);

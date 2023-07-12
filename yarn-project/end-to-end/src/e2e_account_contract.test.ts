@@ -2,28 +2,26 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import {
   AccountContract,
   AccountWallet,
-  AztecRPCServer,
   Contract,
   ContractDeployer,
   EcdsaAuthProvider,
   Fr,
   SchnorrAuthProvider,
-  TxStatus,
   Wallet,
   generatePublicKey,
-  getContractDeploymentInfo,
 } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-
 import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
-import { PublicKey } from '@aztec/key-store';
-import { privateKey2 } from './fixtures.js';
-import { setup } from './utils.js';
-import { CircuitsWasm, Point } from '@aztec/circuits.js';
+import { CircuitsWasm, getContractDeploymentInfo, Point } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { randomBytes } from 'crypto';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { PublicKey, TxStatus } from '@aztec/types';
+
+import { privateKey2 } from './fixtures.js';
+import { setup } from './utils.js';
 
 describe('e2e_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -131,8 +129,8 @@ describe('e2e_account_contract', () => {
       await deployAll();
 
     logger('Calling private function...');
-    const tx1 = child.methods.value(42).send({ from: schnorrAccountContractAddress });
-    const tx2 = childContractWithEcdsaSigning.methods.value(56).send({ from: ecdsaAccountContractAddress });
+    const tx1 = child.methods.value(42).send({ origin: schnorrAccountContractAddress });
+    const tx2 = childContractWithEcdsaSigning.methods.value(56).send({ origin: ecdsaAccountContractAddress });
 
     const txs = [tx1, tx2];
 
@@ -148,8 +146,8 @@ describe('e2e_account_contract', () => {
       await deployAll();
 
     logger('Calling public function...');
-    const tx1 = child.methods.pubStoreValue(42).send({ from: schnorrAccountContractAddress });
-    const tx2 = childContractWithEcdsaSigning.methods.pubStoreValue(15).send({ from: ecdsaAccountContractAddress });
+    const tx1 = child.methods.pubStoreValue(42).send({ origin: schnorrAccountContractAddress });
+    const tx2 = childContractWithEcdsaSigning.methods.pubStoreValue(15).send({ origin: ecdsaAccountContractAddress });
 
     const txs = [tx1, tx2];
 
@@ -176,7 +174,7 @@ describe('e2e_account_contract', () => {
       await schnorrWallet.getAccountPublicKey(schnorrAccountContractAddress),
       schnorrWallet,
     );
-    await expect(child.methods.value(42).simulate({ from: schnorrAccountContractAddress })).rejects.toThrowError(
+    await expect(child.methods.value(42).simulate({ origin: schnorrAccountContractAddress })).rejects.toThrowError(
       /could not satisfy all constraints/,
     );
   }, 60_000);
@@ -192,7 +190,7 @@ describe('e2e_account_contract', () => {
     );
     logger('Deploying child contract...');
     child = await deployChildContract(await ecdsaWallet.getAccountPublicKey(ecdsaAccountContractAddress), ecdsaWallet);
-    await expect(child.methods.value(42).simulate({ from: ecdsaAccountContractAddress })).rejects.toThrowError(
+    await expect(child.methods.value(42).simulate({ origin: ecdsaAccountContractAddress })).rejects.toThrowError(
       /could not satisfy all constraints/,
     );
   }, 60_000);
