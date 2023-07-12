@@ -6,7 +6,7 @@ import { FunctionAbi } from '@aztec/foundation/abi';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
-import { MerkleTreeId } from '@aztec/types';
+import { MerkleTreeId, PartialContractAddress } from '@aztec/types';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -16,7 +16,6 @@ export class SimulatorOracle implements DBOracle {
     private contractDataOracle: ContractDataOracle,
     private db: Database,
     private keyPair: KeyPair,
-    private address: AztecAddress,
     private node: AztecNode,
   ) {}
 
@@ -41,6 +40,17 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
+   * Retrieve the public key associated to a given address.
+   * @param address - Address to fetch the pubkey for.
+   * @returns A public key and the corresponding partial contract address, such that the hash of the two resolves to the input address.
+   */
+  async getPublicKey(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
+    const result = await this.db.getPublicKey(address);
+    if (!result) throw new Error(`Unknown public key for address ${address.toString()}`);
+    return result;
+  }
+
+  /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.
    * The query result is paginated using 'limit' and 'offset' values.
    * Returns an object containing the total count of notes and an array of note data, including preimage,
@@ -48,23 +58,33 @@ export class SimulatorOracle implements DBOracle {
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param sortBy - An array of indices of the fields to sort.
+   * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query (pagination limit).
    * @param offset - The starting index for pagination.
    * @returns A Promise that resolves to an object with properties 'count' and 'notes'.
    */
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, limit: number, offset: number) {
-    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
+  async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    sortBy: number[],
+    sortOrder: number[],
+    limit: number,
+    offset: number,
+  ) {
+    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot, {
+      sortBy,
+      sortOrder,
+      limit,
+      offset,
+    });
     return {
       count: noteDaos.length,
-      notes: await Promise.all(
-        noteDaos.slice(offset, offset + limit).map(noteDao => {
-          return {
-            preimage: noteDao.notePreimage.items,
-            // RPC Client can use this index to get full MembershipWitness
-            index: noteDao.index,
-          };
-        }),
-      ),
+      notes: noteDaos.map(({ notePreimage, index }) => ({
+        preimage: notePreimage.items,
+        // RPC Client can use this index to get full MembershipWitness
+        index,
+      })),
     };
   }
 

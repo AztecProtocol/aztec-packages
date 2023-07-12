@@ -11,6 +11,7 @@ import {
   ContractPublicData,
   ExecutionRequest,
   L2BlockL2Logs,
+  LogType,
   PartialContractAddress,
   Tx,
   TxExecutionRequest,
@@ -78,6 +79,16 @@ export class AztecRPCServer implements AztecRPC {
     abi = SchnorrAccountContractAbi,
   ) {
     const pubKey = this.keyStore.addAccount(privKey);
+    // TODO(#1007): ECDSA contract breaks this check, since the ecdsa public key does not match the one derived from the keystore.
+    // Once we decouple the ecdsa contract signing and encryption keys, we can re-enable this check.
+    // const wasm = await CircuitsWasm.get();
+    // const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialContractAddress);
+    // if (!expectedAddress.equals(address)) {
+    //   throw new Error(
+    //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+    //   );
+    // }
+    await this.db.addPublicKey(address, pubKey, partialContractAddress);
     await this.#initAccountState(pubKey, address, partialContractAddress, abi);
     return address;
   }
@@ -118,8 +129,21 @@ export class AztecRPCServer implements AztecRPC {
    * @returns A Promise resolving to the Point instance representing the public key.
    */
   public getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    const account = this.#ensureAccount(address);
+    const account = this.#ensureAccountAddress(address);
     return Promise.resolve(account.getPublicKey());
+  }
+
+  /**
+   * Retrieve the address associated with a public key.
+   * Throws an error if the account is not found in the key store.
+   *
+   * @param publicKey - The Point instance representing the account public key.
+   * @returns A Promise resolving to the Aztec Address.
+   */
+  public getAccountAddress(publicKey: Point): Promise<AztecAddress> {
+    // const account = this.#ensureAccount(address);
+    const account = this.#ensureAccountPublicKey(publicKey);
+    return Promise.resolve(account.getAddress());
   }
 
   /**
@@ -298,7 +322,7 @@ export class AztecRPCServer implements AztecRPC {
    * @returns The requested unencrypted logs.
    */
   public async getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return await this.node.getUnencryptedLogs(from, take);
+    return await this.node.getLogs(from, take, LogType.UNENCRYPTED);
   }
 
   /**
@@ -371,7 +395,7 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error('No accounts available in the key store.');
     }
 
-    return this.#ensureAccount(address);
+    return this.#ensureAccountAddress(address);
   }
 
   /**
@@ -382,8 +406,26 @@ export class AztecRPCServer implements AztecRPC {
    * @returns The account state associated with the given address.
    * @throws If the account is unknown or not found in the synchroniser.
    */
-  #ensureAccount(account: AztecAddress) {
+  #ensureAccountAddress(account: AztecAddress) {
     const accountState = this.synchroniser.getAccount(account);
+    if (!accountState) {
+      throw new Error(`Unknown account: ${account.toShortString()}.`);
+    }
+
+    return accountState;
+  }
+
+  /**
+   * Ensures the given account public key exists in the synchroniser.
+   * Retrieves the account state for the provided address and throws an error if the account is not found.
+   *
+   * @param account - The public key.
+   * @returns The account state associated with the given address.
+   * @throws If the account is unknown or not found in the synchroniser.
+   */
+  #ensureAccountPublicKey(account: Point) {
+    const accountState = this.synchroniser.getAccountByPublicKey(account);
+
     if (!accountState) {
       throw new Error(`Unknown account: ${account.toShortString()}.`);
     }
@@ -399,8 +441,8 @@ export class AztecRPCServer implements AztecRPC {
     const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
 
     return {
-      version: Number(version.value),
-      chainId: Number(chainId.value),
+      version,
+      chainId,
     };
   }
 }

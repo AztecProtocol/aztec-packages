@@ -5,8 +5,10 @@
 import { RemoteObject } from 'comlink';
 import { createDebugLogger } from '../../log/index.js';
 import { retry } from '../../retry/index.js';
-import { ClassConverter, ClassConverterInput } from '../class_converter.js';
+import { ClassConverter, StringClassConverterInput, JsonClassConverterInput } from '../class_converter.js';
 import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.js';
+
+export { JsonStringify } from '../convert.js';
 
 const debug = createDebugLogger('json-rpc:json_rpc_client');
 /**
@@ -38,11 +40,10 @@ export async function defaultFetch(host: string, rpcMethod: string, body: any, u
     throw new Error(resp.statusText);
   }
 
-  const text = await resp.text();
   try {
-    return JSON.parse(text);
+    return await resp.json();
   } catch (err) {
-    throw new Error(`Failed to parse body as JSON: ${text}`);
+    throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
 }
 
@@ -59,8 +60,8 @@ export async function mustSucceedFetch(host: string, rpcMethod: string, body: an
  */
 export function createJsonRpcClient<T extends object>(
   host: string,
-  stringClassMap: ClassConverterInput,
-  objectClassMap: ClassConverterInput,
+  stringClassMap: StringClassConverterInput,
+  objectClassMap: JsonClassConverterInput,
   useApiEndpoints: boolean,
   fetch = defaultFetch,
 ) {
@@ -82,7 +83,7 @@ export function createJsonRpcClient<T extends object>(
     if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
       return;
     }
-    return convertFromJsonObj(classConverter, JSON.parse(res.result));
+    return convertFromJsonObj(classConverter, res.result);
   };
 
   // Intercept any RPC methods with a proxy

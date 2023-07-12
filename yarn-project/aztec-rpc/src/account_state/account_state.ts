@@ -1,6 +1,6 @@
 import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm, KERNEL_NEW_COMMITMENTS_LENGTH, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -200,11 +200,16 @@ export class AccountState {
     );
 
     const simulator = await this.getAcirSimulator(contractDataOracle);
-    this.log('Executing simulator...');
-    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
-    this.log('Simulation completed!');
 
-    return result;
+    try {
+      this.log('Executing simulator...');
+      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+      this.log('Simulation completed!');
+
+      return result;
+    } catch (err: any) {
+      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
+    }
   }
 
   /**
@@ -321,7 +326,7 @@ export class AccountState {
     // TODO(Maddiaa): this calculation is brittle.
     // https://github.com/AztecProtocol/aztec-packages/issues/788
     let dataStartIndex =
-      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * KERNEL_NEW_COMMITMENTS_LENGTH;
+      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
     const blocksAndNoteSpendingInfo: ProcessedData[] = [];
 
     // Iterate over both blocks and encrypted logs.
@@ -484,7 +489,6 @@ export class AccountState {
       contractDataOracle ?? new ContractDataOracle(this.db, this.node),
       this.db,
       keyPair,
-      this.address,
       this.node,
     );
     return new AcirSimulator(simulatorOracle);

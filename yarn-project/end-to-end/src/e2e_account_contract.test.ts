@@ -7,7 +7,7 @@ import {
   ContractDeployer,
   EcdsaAuthProvider,
   Fr,
-  TxAuthProvider,
+  SchnorrAuthProvider,
   TxStatus,
   Wallet,
   generatePublicKey,
@@ -19,7 +19,6 @@ import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@a
 
 import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { PublicKey } from '@aztec/key-store';
-import { SchnorrAuthProvider } from './auth.js';
 import { privateKey2 } from './fixtures.js';
 import { setup } from './utils.js';
 import { CircuitsWasm, Point } from '@aztec/circuits.js';
@@ -45,7 +44,7 @@ describe('e2e_account_contract', () => {
 
   const deployAccountContract = async (
     abi: ContractAbi,
-    authProvider: TxAuthProvider,
+    authProvider: EcdsaAuthProvider | SchnorrAuthProvider,
     publicKey: PublicKey,
     privateKey: Buffer,
   ) => {
@@ -182,7 +181,7 @@ describe('e2e_account_contract', () => {
       await schnorrWallet.getAccountPublicKey(schnorrAccountContractAddress),
       schnorrWallet,
     );
-    await expect(child.methods.value(42).simulate({ from: schnorrAccountContractAddress })).rejects.toMatch(
+    await expect(child.methods.value(42).simulate({ from: schnorrAccountContractAddress })).rejects.toThrowError(
       /could not satisfy all constraints/,
     );
   }, 60_000);
@@ -198,7 +197,7 @@ describe('e2e_account_contract', () => {
     );
     logger('Deploying child contract...');
     child = await deployChildContract(await ecdsaWallet.getAccountPublicKey(ecdsaAccountContractAddress), ecdsaWallet);
-    await expect(child.methods.value(42).simulate({ from: ecdsaAccountContractAddress })).rejects.toMatch(
+    await expect(child.methods.value(42).simulate({ from: ecdsaAccountContractAddress })).rejects.toThrowError(
       /could not satisfy all constraints/,
     );
   }, 60_000);
