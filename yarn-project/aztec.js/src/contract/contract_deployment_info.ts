@@ -11,8 +11,6 @@ import { DeploymentInfo, PublicKey } from '@aztec/types';
 
 import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 
-// import { generateFunctionLeaves, hashVKStr, isConstructor } from '../contract_tree/contract_tree.js';
-
 /**
  * Generates the deployment info for a contract
  * @param abi - The account contract abi
