@@ -99,7 +99,7 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
         read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
                                                      private_data_tree, rr_leaf_indices[i], 0),
-                                                 .commitment_index = 0,
+                                                 .hint_to_commitment = 0,
                                                  .commitment_kernel_iter = 0 };
     }
 

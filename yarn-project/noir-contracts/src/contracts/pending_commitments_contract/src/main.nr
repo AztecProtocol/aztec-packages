@@ -1,5 +1,9 @@
 mod storage;
 
+// Test contract to confirm that notes can be created and then later
+// read (eventually even nullified) in the same TX. This contract
+// also contains some "bad" test cases to ensure that notes cannot
+// be read/nullified before their creation etc.
 contract PendingCommitments {
     // Libs
     use dep::token_utils::{

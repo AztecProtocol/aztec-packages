@@ -388,7 +388,7 @@ export function makeReadRequestMembershipWitness<N extends number>(
   size: N,
   start: number,
 ): ReadRequestMembershipWitness {
-  return new ReadRequestMembershipWitness(BigInt(start), makeTuple(size, fr, start), false, new Fr(0), new Fr(0));
+  return new ReadRequestMembershipWitness(BigInt(start), makeTuple(size, fr, start), false, new Fr(0));
 }
 
 /**

@@ -27,20 +27,15 @@ export class ReadRequestMembershipWitness {
     public isTransient = false,
     /**
      * When transient, the commitment being read was created by some app circuit in the current TX.
-     * What index will the commitment be found in the app circuit's newCommitments?
-     * When not transient, this is 0.
+     * The kernel will need some hint to efficiently find that commitment for a given read request.
+     * When not transient, this can be 0.
      */
-    public commitmentIndex: Fr,
-    /**
-     * When transient, what kernel iteration (which callStackItem) was the commitment created in?
-     * When not transient, this is 0.
-     */
-    public commitmentKernelIter: Fr,
+    public hintToCommitment: Fr,
   ) {
     assertMemberLength(this, 'siblingPath', PRIVATE_DATA_TREE_HEIGHT);
-    if (commitmentIndex.value > MAX_NEW_COMMITMENTS_PER_CALL) {
+    if (hintToCommitment.value > MAX_NEW_COMMITMENTS_PER_CALL) {
       throw new Error(
-        `Expected ReadRequestMembershipWitness' commitmentIndex(${commitmentIndex}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_COMMITMENTS_PER_CALL})`,
+        `Expected ReadRequestMembershipWitness' hintToCommitment(${hintToCommitment}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_COMMITMENTS_PER_CALL})`,
       );
     }
   }
@@ -50,8 +45,7 @@ export class ReadRequestMembershipWitness {
       toBufferBE(this.leafIndex, 32),
       ...this.siblingPath,
       this.isTransient,
-      this.commitmentIndex,
-      this.commitmentKernelIter,
+      this.hintToCommitment,
     );
   }
 
@@ -60,7 +54,6 @@ export class ReadRequestMembershipWitness {
       BigInt(start),
       range(size, start).map(x => new Fr(BigInt(x))),
       false,
-      new Fr(0),
       new Fr(0),
     );
   }
@@ -77,7 +70,6 @@ export class ReadRequestMembershipWitness {
         .map(() => Fr.random()),
       false,
       new Fr(0),
-      new Fr(0),
     );
   }
 
@@ -90,7 +82,7 @@ export class ReadRequestMembershipWitness {
     const arr = Array(PRIVATE_DATA_TREE_HEIGHT)
       .fill(0)
       .map(() => Fr.ZERO);
-    return new ReadRequestMembershipWitness(leafIndex, arr, false, new Fr(0), new Fr(0));
+    return new ReadRequestMembershipWitness(leafIndex, arr, false, new Fr(0));
   }
 
   /**
@@ -101,37 +93,33 @@ export class ReadRequestMembershipWitness {
     const arr = Array(PRIVATE_DATA_TREE_HEIGHT)
       .fill(0)
       .map(() => Fr.ZERO);
-    return new ReadRequestMembershipWitness(BigInt(0), arr, true, new Fr(0), new Fr(0));
+    return new ReadRequestMembershipWitness(BigInt(0), arr, true, new Fr(0));
   }
 
   static fromBufferArray<N extends number>(
     leafIndex: bigint,
     siblingPath: Tuple<Buffer, N>,
     isTransient: boolean,
-    commitmentIndex: Fr,
-    commitmentKernelIter: Fr,
+    hintToCommitment: Fr,
   ): ReadRequestMembershipWitness {
     return new ReadRequestMembershipWitness(
       leafIndex,
       siblingPath.map(x => Fr.fromBuffer(x)) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
       isTransient,
-      commitmentIndex,
-      commitmentKernelIter,
+      hintToCommitment,
     );
   }
 
   static fromMembershipWitness<N extends number>(
     membershipWitness: MembershipWitness<N>,
     isTransient: boolean,
-    commitmentIndex: Fr,
-    commitmentKernelIter: Fr,
+    hintToCommitment: Fr,
   ): ReadRequestMembershipWitness {
     return new ReadRequestMembershipWitness(
       membershipWitness.leafIndex,
       membershipWitness.siblingPath as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
       isTransient,
-      commitmentIndex,
-      commitmentKernelIter,
+      hintToCommitment,
     );
   }
 }
