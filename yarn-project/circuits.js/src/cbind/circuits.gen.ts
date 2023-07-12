@@ -10,7 +10,7 @@ import {
   Fq,
   G1AffineElement,
   NativeAggregationState,
-  MembershipWitness16,
+  MembershipWitness32,
   NewContractData,
   FunctionData,
   OptionallyRevealedData,
@@ -125,30 +125,30 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
   };
 }
 
-interface MsgpackMembershipWitness16 {
+interface MsgpackMembershipWitness32 {
   leaf_index: Buffer;
-  sibling_path: Tuple<Buffer, 16>;
+  sibling_path: Tuple<Buffer, 32>;
 }
 
-export function toMembershipWitness16(o: MsgpackMembershipWitness16): MembershipWitness16 {
+export function toMembershipWitness32(o: MsgpackMembershipWitness32): MembershipWitness32 {
   if (o.leaf_index === undefined) {
-    throw new Error('Expected leaf_index in MembershipWitness16 deserialization');
+    throw new Error('Expected leaf_index in MembershipWitness32 deserialization');
   }
   if (o.sibling_path === undefined) {
-    throw new Error('Expected sibling_path in MembershipWitness16 deserialization');
+    throw new Error('Expected sibling_path in MembershipWitness32 deserialization');
   }
-  return new MembershipWitness16(
+  return new MembershipWitness32(
     Fr.fromBuffer(o.leaf_index),
     mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
   );
 }
 
-export function fromMembershipWitness16(o: MembershipWitness16): MsgpackMembershipWitness16 {
+export function fromMembershipWitness32(o: MembershipWitness32): MsgpackMembershipWitness32 {
   if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in MembershipWitness16 serialization');
+    throw new Error('Expected leafIndex in MembershipWitness32 serialization');
   }
   if (o.siblingPath === undefined) {
-    throw new Error('Expected siblingPath in MembershipWitness16 serialization');
+    throw new Error('Expected siblingPath in MembershipWitness32 serialization');
   }
   return {
     leaf_index: toBuffer(o.leafIndex),
@@ -388,7 +388,7 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 4>;
-  read_request_membership_witnesses: Tuple<MsgpackMembershipWitness16, 4>;
+  read_request_membership_witnesses: Tuple<MsgpackMembershipWitness32, 4>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
@@ -456,7 +456,7 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.read_request_membership_witnesses, (v: MsgpackMembershipWitness16) => toMembershipWitness16(v)),
+    mapTuple(o.read_request_membership_witnesses, (v: MsgpackMembershipWitness32) => toMembershipWitness32(v)),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
@@ -525,8 +525,8 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: MembershipWitness16) =>
-      fromMembershipWitness16(v),
+    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: MembershipWitness32) =>
+      fromMembershipWitness32(v),
     ),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),

@@ -8,7 +8,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 /**
  * Alias for msgpack which expects a MembershipWitness + N name.
  */
-export class MembershipWitness16 extends MembershipWitness<16> {
+export class MembershipWitness32 extends MembershipWitness<32> {
   constructor(
     /**
      * Index of a leaf in the Merkle tree.
@@ -17,9 +17,9 @@ export class MembershipWitness16 extends MembershipWitness<16> {
     /**
      * Sibling path of the leaf in the Merkle tree.
      */
-    siblingPath: Tuple<Fr, 16>,
+    siblingPath: Tuple<Fr, 32>,
   ) {
-    super(16, leafIndex.toBigInt(), siblingPath);
+    super(32, leafIndex.toBigInt(), siblingPath);
   }
 }
 
