@@ -132,6 +132,7 @@
     "dependencies": [
       "acir-simulator",
       "aztec-node",
+      "aztec.js",
       "circuits.js",
       "foundation",
       "key-store",
@@ -162,7 +163,6 @@
       "^yarn-project/aztec.js/"
     ],
     "dependencies": [
-      "aztec-rpc",
       "circuits.js",
       "foundation",
       "key-store",
