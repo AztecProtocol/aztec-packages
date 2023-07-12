@@ -5,6 +5,7 @@
 #include "public_data_update_request.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
+#include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -30,7 +31,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     AggregationObject aggregation_object{};
 
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
-    std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
+    std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
@@ -203,7 +204,7 @@ template <typename NCT> struct CombinedAccumulatedData {
     }
 
     template <size_t SIZE>
-    void set_array_public(std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, SIZE>& arr)
+    void set_array_public(std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, SIZE>& arr)
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {

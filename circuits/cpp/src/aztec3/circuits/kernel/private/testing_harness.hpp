@@ -82,7 +82,7 @@ inline const auto& get_empty_contract_siblings()
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
 std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
-           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
 get_random_reads(NT::fr const& contract_address, int num_read_requests);
 

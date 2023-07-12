@@ -13,13 +13,11 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
-  PRIVATE_DATA_TREE_HEIGHT,
 } from '../../cbind/constants.gen.js';
 import { FunctionData } from '../function_data.js';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { assertMemberLength, makeTuple } from '../../index.js';
-import { EthAddress, AztecAddress, Fr } from '../index.js';
-import { MembershipWitness } from '../membership_witness.js';
+import { EthAddress, AztecAddress, Fr, ReadRequestMembershipWitness } from '../index.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -285,10 +283,7 @@ export class CombinedAccumulatedData {
     /**
      * All the read request membership witnesses made in this transaction.
      */
-    public readRequestMembershipWitnesses: Tuple<
-      MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
-      typeof MAX_READ_REQUESTS_PER_TX
-    >,
+    public readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
     /**
      * The number of new commitments made in this transaction.
      */
@@ -394,11 +389,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
-      // reader.readBufferArray(MAX_READ_REQUESTS_PER_TX).map(member => reader.readObject<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>>(member)),
-      reader.readArray<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>, typeof MAX_READ_REQUESTS_PER_TX>(
-        MAX_READ_REQUESTS_PER_TX,
-        MembershipWitness,
-      ),
+      reader.readArray(MAX_READ_REQUESTS_PER_TX, ReadRequestMembershipWitness),
       reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
@@ -428,7 +419,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, () => MembershipWitness.empty(PRIVATE_DATA_TREE_HEIGHT, BigInt(0))),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, () => ReadRequestMembershipWitness.empty(BigInt(0))),
       makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
