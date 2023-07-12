@@ -80,7 +80,7 @@ describe('Account State', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
-    noteProcessor = new NoteProcessor(owner.getPublicKey(), keyStore, database, aztecNode);
+    noteProcessor = new NoteProcessor(owner.getPublicKey(), ownerAddress, keyStore, database, aztecNode);
   });
 
   afterEach(() => {

@@ -149,16 +149,9 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: (
-        [acvmContractAddress],
-        [acvmOwnerAddress],
-        [acvmStorageSlot],
-        [ownerX],
-        [ownerY],
-        acvmPreimage,
-      ) => {
+      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
-        const ownerAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmOwnerAddress));
+        const ownerAddress = AztecAddress.ZERO; // TODO(#1021): Needs to be emitted
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 

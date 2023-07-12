@@ -1,5 +1,5 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -47,6 +47,7 @@ export class NoteProcessor {
      * The public counterpart to the private key to be used in note decryption.
      */
     public readonly publicKey: PublicKey,
+    private address: AztecAddress, // TODO: Remove once owner addreses are emitted by contracts
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
@@ -199,14 +200,12 @@ export class NoteProcessor {
         const { newContractData } = blockContext.block.getTx(txIndex);
         const isContractDeployment = !newContractData[0].contractAddress.isZero();
         const noteSpendingInfo = noteSpendingInfoDaos[j];
-        const [to, contractAddress] = isContractDeployment
-          ? [undefined, noteSpendingInfo.contractAddress]
-          : [noteSpendingInfo.contractAddress, undefined];
+        const contractAddress = isContractDeployment ? noteSpendingInfo.contractAddress : undefined;
         txDaos.push({
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          origin: isContractDeployment ? contractAddress! : to!,
+          origin: this.address,
           contractAddress,
           error: '',
         });

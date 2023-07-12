@@ -94,7 +94,7 @@ export class AztecRPCServer implements AztecRPC {
     //   );
     // }
     await this.db.addPublicKey(address, pubKey, partialContractAddress);
-    this.synchroniser.addAccount(pubKey, this.keyStore);
+    this.synchroniser.addAccount(pubKey, address, this.keyStore);
     return address;
   }
 
