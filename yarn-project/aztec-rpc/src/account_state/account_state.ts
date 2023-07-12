@@ -1,6 +1,11 @@
 import { AcirSimulator, collectEncryptedLogs, collectEnqueuedPublicFunctionCalls } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  PartialContractAddress,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
 import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -16,7 +21,6 @@ import {
   L2BlockL2Logs,
   MerkleTreeId,
   NoteSpendingInfo,
-  PartialContractAddress,
   PublicKey,
   Tx,
   TxExecutionRequest,
