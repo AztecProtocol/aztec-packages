@@ -1,7 +1,8 @@
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisSiloCommitment } from '../cbind/circuits.gen.js';
+import { abisSiloCommitment, abisSiloNullifier } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -14,10 +15,7 @@ import {
   TxRequest,
   Vector,
 } from '../index.js';
-import { GeneratorIndex } from '../structs/generators.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { pedersenCompressWithHashIndex } from '../barretenberg/crypto/index.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -260,12 +258,8 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commit
  * @returns A siloed nullifier.
  */
 export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
-  const buf = pedersenCompressWithHashIndex(
-    wasm,
-    [contract.toBuffer(), innerNullifier.toBuffer()],
-    GeneratorIndex.OUTER_NULLIFIER,
-  );
-  return Fr.fromBuffer(buf);
+  wasm.call('pedersen__init');
+  return abisSiloNullifier(wasm, contract, innerNullifier);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;
