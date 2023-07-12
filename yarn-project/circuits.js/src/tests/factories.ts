@@ -206,7 +206,7 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
     tupleGenerator(
       MAX_READ_REQUESTS_PER_TX,
-      i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123),
+      i => makeReadRequestMembershipWitness(i * 123),
       seed + 0x90,
     ),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
@@ -238,7 +238,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
     tupleGenerator(
       MAX_READ_REQUESTS_PER_TX,
-      i => makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, i * 123),
+      i => makeReadRequestMembershipWitness(i*123),
       seed + 0x90,
     ),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
@@ -397,7 +397,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
-    BigInt(start),
+    new Fr (start),
     makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start),
     false,
     new Fr(0),

@@ -283,7 +283,7 @@ export class CombinedAccumulatedData {
     /**
      * All the read request membership witnesses made in this transaction.
      */
-    public readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
+    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
      * The number of new commitments made in this transaction.
      */
