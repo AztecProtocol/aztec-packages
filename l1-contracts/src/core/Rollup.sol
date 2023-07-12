@@ -28,7 +28,7 @@ contract Rollup is IRollup {
 
   bytes32 public rollupStateHash;
   uint256 public lastBlockTs;
-  uint256 public lastBlockNumber;
+  bytes32 public lastBlockHash;
 
   constructor(IRegistry _registry) {
     VERIFIER = new MockVerifier();
@@ -66,7 +66,7 @@ contract Rollup is IRollup {
 
     rollupStateHash = newStateHash;
     lastBlockTs = block.timestamp;
-    lastBlockNumber = block.number;
+    lastBlockHash = blockhash(uint256(block.number - 1));
 
     // @todo (issue #605) handle fee collector
     // @todo: (issue #624) handle different versions
@@ -121,10 +121,10 @@ contract Rollup is IRollup {
     uint256 lastEthBlockHash;
     uint256 ethBlockHash;
     assembly {
-      ethBlockHash := or(shl(128, ethBlockHashHi), ethBlockHashLo)
+      ethBlockHash := or(shl(252, ethBlockHashHi), ethBlockHashLo)
     }
-    if (lastBlockNumber != 0) {
-      lastEthBlockHash = uint256(blockhash(lastBlockNumber));
+    if (lastBlockHash != 0) {
+      lastEthBlockHash = uint256(lastBlockHash);
     }
     if (lastEthBlockHash != ethBlockHash) {
       revert Errors.Rollup__InvalidBlockHash(lastEthBlockHash, ethBlockHash);

@@ -59,7 +59,7 @@ template <typename NCT> struct GlobalVariables {
         inputs.push_back(block_number);
         inputs.push_back(timestamp);
 
-        // TODO(MADDiaa): remember to implement this hash using the two fields of the block hash
+        // TODO(MADDiaa): remember to implement this hash by compressing the two fields of the block hash
         inputs.push_back(eth_block_hash);
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);

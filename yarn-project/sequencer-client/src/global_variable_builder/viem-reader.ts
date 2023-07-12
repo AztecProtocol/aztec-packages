@@ -66,8 +66,7 @@ export class ViemReader implements L1GlobalReader {
    * @returns The current block hash.
    */
   public async getLastEthBlockHash(): Promise<Buffer> {
-    const lastBlockNumber = BigInt(await this.rollupContract.read.lastBlockNumber());
-    const block = await this.publicClient.getBlock({ blockNumber: lastBlockNumber });
-    return block.hash ? Buffer.from(block.hash.replace('0x', ''), 'hex') : Buffer.alloc(32, 0);
+    const blockHash = await this.rollupContract.read.lastBlockHash();
+    return blockHash ? Buffer.from(blockHash.replace('0x', ''), 'hex') : Buffer.alloc(32, 0);
   }
 }

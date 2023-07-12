@@ -221,10 +221,8 @@ describe('L1Publisher integration', () => {
   };
 
   const getLastBlockHash = async () => {
-    const lastBlockNumber = await rollup.read.lastBlockNumber();
-    const prevBlockHashString = (await publicClient.getBlock({ blockNumber: lastBlockNumber })).hash;
-    const prevBlockHash =
-      prevBlockHashString && lastBlockNumber != 0n ? hexStringToBuffer(prevBlockHashString) : Buffer.alloc(32, 0);
+    const lastBlockHash = await rollup.read.lastBlockHash();
+    const prevBlockHash = lastBlockHash ? hexStringToBuffer(lastBlockHash) : Buffer.alloc(32, 0);
     return prevBlockHash;
   };
 
