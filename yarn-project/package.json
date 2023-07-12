@@ -42,6 +42,9 @@
     "world-state",
     "yarn-project-base"
   ],
+  "engines":{
+    "node":">=18"
+  },
   "prettier": "@aztec/foundation/prettier",
   "devDependencies": {
     "@monorepo-utils/workspaces-to-typescript-project-references": "^2.9.0",
