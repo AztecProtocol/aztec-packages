@@ -3,6 +3,7 @@ import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE, toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
+import { PRIVATE_DATA_TREE_HEIGHT } from './constants.js';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
@@ -33,7 +34,7 @@ export class MembershipWitness<N extends number> {
     return new MembershipWitness(
       size,
       BigInt(start),
-      range(size, start).map(x => new Fr(BigInt(x))),
+      range(size, start).map(x => new Fr(BigInt(x))) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
     );
   }
 

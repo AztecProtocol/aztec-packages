@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertMemberLength, range } from '../utils/jsUtils.js';
+import { assertMemberLength, makeTuple, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { toBufferBE, toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from './membership_witness.js';
 import { MAX_NEW_COMMITMENTS_PER_CALL, PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
@@ -20,7 +20,7 @@ export class ReadRequestMembershipWitness {
     /**
      * Sibling path of the leaf in the Merkle tree.
      */
-    public siblingPath: Tuple<Fr, number>,
+    public siblingPath: Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
     /**
      * Whether or not the read request corresponds to a pending commitment.
      */
@@ -52,7 +52,7 @@ export class ReadRequestMembershipWitness {
   static mock(size: number, start: number) {
     return new ReadRequestMembershipWitness(
       new Fr(start),
-      range(size, start).map(x => new Fr(BigInt(x))),
+      range(size, start).map(x => new Fr(BigInt(x))) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
       false,
       new Fr(0),
     );
@@ -65,9 +65,7 @@ export class ReadRequestMembershipWitness {
   public static random() {
     return new ReadRequestMembershipWitness(
       new Fr(0n),
-      Array(PRIVATE_DATA_TREE_HEIGHT)
-        .fill(0)
-        .map(() => Fr.random()),
+      makeTuple(PRIVATE_DATA_TREE_HEIGHT, () => Fr.random()),
       false,
       new Fr(0),
     );
@@ -79,9 +77,7 @@ export class ReadRequestMembershipWitness {
    * @returns Membership witness with zero sibling path.
    */
   public static empty(leafIndex: bigint): ReadRequestMembershipWitness {
-    const arr = Array(PRIVATE_DATA_TREE_HEIGHT)
-      .fill(0)
-      .map(() => Fr.ZERO);
+    const arr = makeTuple(PRIVATE_DATA_TREE_HEIGHT, () => Fr.ZERO);
     return new ReadRequestMembershipWitness(new Fr(leafIndex), arr, false, new Fr(0));
   }
 
@@ -90,9 +86,7 @@ export class ReadRequestMembershipWitness {
    * @returns an empty transient read request membership witness.
    */
   public static emptyTransient(): ReadRequestMembershipWitness {
-    const arr = Array(PRIVATE_DATA_TREE_HEIGHT)
-      .fill(0)
-      .map(() => Fr.ZERO);
+    const arr = makeTuple(PRIVATE_DATA_TREE_HEIGHT, () => Fr.ZERO);
     return new ReadRequestMembershipWitness(new Fr(0), arr, true, new Fr(0));
   }
 
@@ -123,12 +117,12 @@ export class ReadRequestMembershipWitness {
     );
   }
 
-   /**
+  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer or reader to read from.
    * @returns The deserialized `ReadRequestMembershipWitness`.
    */
-   static fromBuffer(buffer: Buffer | BufferReader): ReadRequestMembershipWitness {
+  static fromBuffer(buffer: Buffer | BufferReader): ReadRequestMembershipWitness {
     const reader = BufferReader.asReader(buffer);
     const leafIndex = reader.readFr();
     const siblingPath = reader.readBufferArray() as Tuple<Buffer, typeof PRIVATE_DATA_TREE_HEIGHT>;
