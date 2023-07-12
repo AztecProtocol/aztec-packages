@@ -1,7 +1,6 @@
-import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress, FunctionData } from '@aztec/circuits.js';
-import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionType, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';

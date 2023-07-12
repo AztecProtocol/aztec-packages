@@ -9,7 +9,6 @@ import {
   AztecAddress,
   Contract,
   ContractDeployer,
-  Point,
   EthAddress,
   SchnorrAuthProvider,
   Wallet,

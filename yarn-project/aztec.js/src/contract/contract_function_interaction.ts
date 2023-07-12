@@ -1,7 +1,7 @@
-import { encodeArguments } from '@aztec/acir-simulator';
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionType, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
+
 import { Wallet } from '../aztec_rpc_client/wallet.js';
 import { SentTx } from './sent_tx.js';
 
