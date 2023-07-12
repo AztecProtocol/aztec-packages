@@ -1,8 +1,7 @@
-import { ContractCommitmentProvider, DataCommitmentProvider, L1ToL2MessageProvider } from '@aztec/types';
+import { ContractCommitmentProvider, DataCommitmentProvider, L1ToL2MessageProvider, KeyStore } from '@aztec/types';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/database.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
-import { KeyStore } from '@aztec/key-store';
 import { AcirSimulator } from '@aztec/acir-simulator';
 
 /**

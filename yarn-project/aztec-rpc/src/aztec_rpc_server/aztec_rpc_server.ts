@@ -368,24 +368,6 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Ensures the given account public key exists in the synchroniser.
-   * Retrieves the account state for the provided address and throws an error if the account is not found.
-   *
-   * @param account - The public key.
-   * @returns The account state associated with the given address.
-   * @throws If the account is unknown or not found in the synchroniser.
-   */
-  #ensureAccountPublicKey(account: Point) {
-    const accountState = this.synchroniser.getAccountByPublicKey(account);
-
-    if (!accountState) {
-      throw new Error(`Unknown account: ${account.toShortString()}.`);
-    }
-
-    return accountState;
-  }
-
-  /**
    * Returns the information about the server's node
    * @returns - The node information.
    */

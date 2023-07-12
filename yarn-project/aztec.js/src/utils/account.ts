@@ -73,13 +73,12 @@ export async function getAccountWallet(aztecRpcClient: AztecRPC, privateKey: Buf
   const wasm = await CircuitsWasm.get();
   const accountCollection = new AccountCollection();
   const publicKey = await generatePublicKey(privateKey);
-  const address = await aztecRpcClient.getAccountAddress(publicKey);
   const deploymentInfo = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
 
   accountCollection.registerAccount(
-    address,
+    deploymentInfo.address,
     new AccountContract(
-      address,
+      deploymentInfo.address,
       publicKey,
       new SchnorrAuthProvider(await Schnorr.new(), privateKey),
       deploymentInfo.partialAddress,

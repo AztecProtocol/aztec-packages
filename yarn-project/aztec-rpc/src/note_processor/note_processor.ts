@@ -3,8 +3,14 @@ import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { KeyStore, PublicKey } from '@aztec/key-store';
-import { INITIAL_L2_BLOCK_NUM, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo } from '@aztec/types';
+import {
+  INITIAL_L2_BLOCK_NUM,
+  L2BlockContext,
+  L2BlockL2Logs,
+  NoteSpendingInfo,
+  PublicKey,
+  KeyStore,
+} from '@aztec/types';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
 
@@ -200,8 +206,7 @@ export class NoteProcessor {
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          from: isContractDeployment ? contractAddress! : to!,
-          to,
+          origin: isContractDeployment ? contractAddress! : to!,
           contractAddress,
           error: '',
         });

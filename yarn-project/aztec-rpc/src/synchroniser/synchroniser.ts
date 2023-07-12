@@ -1,8 +1,8 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
+import { KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 import { Database } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 /**
