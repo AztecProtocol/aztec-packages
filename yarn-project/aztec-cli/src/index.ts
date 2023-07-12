@@ -9,15 +9,14 @@ import {
   ContractDeployer,
   Fr,
   Point,
-  TxHash,
   createAccounts,
   createAztecRpcClient,
   getAccountWallet,
 } from '@aztec/aztec.js';
-import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { StructType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { ContractData, L2BlockL2Logs } from '@aztec/types';
+import { JsonStringify } from '@aztec/foundation/json-rpc';
+import { ContractData, TxHash, L2BlockL2Logs } from '@aztec/types';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, getTxSender, prepTx } from './utils.js';
@@ -273,9 +272,9 @@ async function main() {
       const client = createAztecRpcClient(options.rpcUrl);
       const wallet = await getAccountWallet(client, Buffer.from(options.privateKey, 'hex'), accountCreationSalt);
       const contract = new Contract(contractAddress, contractAbi, wallet);
-      const from = (await wallet.getAccounts()).find(addr => addr.equals(wallet.getAddress()));
+      const origin = (await wallet.getAccounts()).find(addr => addr.equals(wallet.getAddress()));
       const tx = contract.methods[functionName](...functionArgs).send({
-        from,
+        origin,
       });
       await tx.isMined();
       log('\nTX has been mined');

@@ -1,12 +1,13 @@
-import { PartialContractAddress, TxHash } from '@aztec/types';
+import { TxHash } from '@aztec/types';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { MerkleTreeId, PublicKey } from '@aztec/types';
+import { PartialContractAddress } from '@aztec/circuits.js';
+
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database, GetOptions } from './database.js';
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
 import { TxDao } from './tx_dao.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { MerkleTreeId } from '@aztec/types';
-import { PublicKey } from '@aztec/key-store';
 
 const sortNotes = (notes: NoteSpendingInfoDao[], sortBy: number[], sortOrder: number[]) => {
   const sortNotesLevel = (a: Fr[], b: Fr[], level = 0): number => {
@@ -54,11 +55,11 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   /**
    * Retrieve all transactions associated with a given AztecAddress.
    *
-   * @param from - The sender's address.
+   * @param origin - The sender's address.
    * @returns A Promise resolving to an array of TxDao objects associated with the sender.
    */
-  public getTxsByAddress(from: AztecAddress) {
-    return Promise.resolve(this.txTable.filter(tx => tx.from.equals(from)));
+  public getTxsByAddress(origin: AztecAddress) {
+    return Promise.resolve(this.txTable.filter(tx => tx.origin.equals(origin)));
   }
 
   /**

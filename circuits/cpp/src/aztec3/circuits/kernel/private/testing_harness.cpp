@@ -55,7 +55,7 @@ using aztec3::utils::array_length;
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
 std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
            NT::fr>
 get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 {
@@ -82,7 +82,8 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     // set -> vector without collisions
     std::vector<NT::uint32> rr_leaf_indices(rr_leaf_indices_set.begin(), rr_leaf_indices_set.end());
 
-    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
     // add the commitments to the private data tree for each read request
     // add them at their corresponding index in the tree
@@ -93,12 +94,13 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     }
 
     // compute the merkle sibling paths for each request
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
         read_request_membership_witnesses{};
     for (size_t i = 0; i < array_length(read_requests); i++) {
         read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
-                                                     private_data_tree, rr_leaf_indices[i], 0) };
+                                                     private_data_tree, rr_leaf_indices[i], 0),
+                                                 .hint_to_commitment = 0 };
     }
 
 

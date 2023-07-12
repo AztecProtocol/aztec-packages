@@ -5,31 +5,36 @@ import {
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
 import { AztecNode } from '@aztec/aztec-node';
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  PartialContractAddress,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { ConstantKeyPair, KeyStore, PublicKey } from '@aztec/key-store';
+import { ConstantKeyPair } from '@aztec/key-store';
 import {
+  ContractDao,
   EncodedContractFunction,
   ExecutionRequest,
   INITIAL_L2_BLOCK_NUM,
+  KeyStore,
   L2BlockContext,
   L2BlockL2Logs,
   MerkleTreeId,
   NoteSpendingInfo,
-  PartialContractAddress,
+  PublicKey,
   Tx,
   TxExecutionRequest,
   TxL2Logs,
 } from '@aztec/types';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { ContractDao } from '../contract_database/contract_dao.js';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
-import { generateFunctionSelector } from '../index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/index.js';
 import { SimulatorOracle } from '../simulator_oracle/index.js';
@@ -422,15 +427,12 @@ export class AccountState {
         const { newContractData } = blockContext.block.getTx(txIndex);
         const isContractDeployment = !newContractData[0].contractAddress.isZero();
         const noteSpendingInfo = noteSpendingInfoDaos[j];
-        const [to, contractAddress] = isContractDeployment
-          ? [undefined, noteSpendingInfo.contractAddress]
-          : [noteSpendingInfo.contractAddress, undefined];
+        const contractAddress = isContractDeployment ? noteSpendingInfo.contractAddress : undefined;
         txDaos.push({
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          from: this.address,
-          to,
+          origin: this.address,
           contractAddress,
           error: '',
         });

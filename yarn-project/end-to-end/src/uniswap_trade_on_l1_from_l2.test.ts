@@ -1,15 +1,17 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
 import { deployL1Contract } from '@aztec/ethereum';
-
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
-import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { getContract, parseEther } from 'viem';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
+
+import { CrossChainTestHarness } from './cross_chain/test_harness.js';
+import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
 
 // PSA: this works on a fork of mainnet but with the default anvil chain id. Start it with the command:
 // anvil --fork-url https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c --fork-block-number 17514288 --chain-id 31337
@@ -197,12 +199,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         uniswapPortalAddress,
         ethAccount.toField(),
       )
-      .send({ from: ownerAddress });
+      .send({ origin: ownerAddress });
     await withdrawTx.isMined(0, 0.1);
     const withdrawReceipt = await withdrawTx.getReceipt();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
 
-    // check weth balance of owner on L2 (we first briedged `wethAmountToBridge` into L2 and now withdrew it!)
+    // check weth balance of owner on L2 (we first bridged `wethAmountToBridge` into L2 and now withdrew it!)
     await wethCrossChainHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
 
     // 5. Consume L2 to L1 message by calling uniswapPortal.swap()

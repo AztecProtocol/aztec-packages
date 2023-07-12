@@ -1,12 +1,11 @@
 import { CallContext, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
-import { encodeArguments } from '../abi_coder/index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';

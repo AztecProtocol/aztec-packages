@@ -1,8 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, TxStatus, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Contract, ContractDeployer, Wallet } from '@aztec/aztec.js';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
-import { L2BlockL2Logs, LogType } from '@aztec/types';
+import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 import { setup } from './utils.js';
 
@@ -90,7 +91,7 @@ describe('e2e_zk_token_contract', () => {
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
     await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
 
-    const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ from: owner });
+    const tx = deployedContract.methods.mint(mintAmount, ownerPublicKey).send({ origin: owner });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -124,7 +125,7 @@ describe('e2e_zk_token_contract', () => {
         (await aztecRpcServer.getAccountPublicKey(owner)).toBigInts(),
         (await aztecRpcServer.getAccountPublicKey(receiver)).toBigInts(),
       )
-      .send({ from: accounts[0] });
+      .send({ origin: accounts[0] });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
