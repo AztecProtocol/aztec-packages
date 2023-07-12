@@ -1,7 +1,8 @@
 import { generateFunctionSelector } from '../abi_coder/index.js';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { EncodedContractFunction } from '@aztec/types';
 
 /**
  * A contract function Data Access Object (DAO).
@@ -55,4 +56,18 @@ export function toContractDao(abi: ContractAbi, address: AztecAddress, portalCon
     functions,
     portalContract,
   };
+}
+
+/**
+ * Return public functions from the newly deployed contract to be injected into the tx object.
+ * @param newContract - The new contract
+ * @returns List of EncodedContractFunction.
+ */
+export function getNewContractPublicFunctions(newContract: ContractDao) {
+  return newContract.functions
+    .filter(c => c.functionType === FunctionType.OPEN)
+    .map(
+      fn =>
+        new EncodedContractFunction(generateFunctionSelector(fn.name, fn.parameters), Buffer.from(fn.bytecode, 'hex')),
+    );
 }

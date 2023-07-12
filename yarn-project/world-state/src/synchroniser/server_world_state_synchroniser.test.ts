@@ -9,8 +9,16 @@ import {
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
-import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, L2BlockL2Logs, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
+import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
+import {
+  ContractData,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  MerkleTreeId,
+  PublicDataWrite,
+  SiblingPath,
+} from '@aztec/types';
 import { jest } from '@jest/globals';
 import { MerkleTreeDb } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';

@@ -7,7 +7,6 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import {
@@ -24,6 +23,7 @@ import {
   MerkleTreeId,
   Tx,
   TxHash,
+  SiblingPath,
 } from '@aztec/types';
 import {
   MerkleTrees,

@@ -50,12 +50,7 @@ describe('e2e_account_contract', () => {
   ) => {
     const contractAddressSalt = Fr.random();
     const contractDeploymentInfo = await getContractDeploymentInfo(abi, [], contractAddressSalt, publicKey);
-    await aztecRpcServer.addAccount(
-      privateKey,
-      contractDeploymentInfo.address,
-      contractDeploymentInfo.partialAddress,
-      abi,
-    );
+    await aztecRpcServer.addAccount(privateKey, contractDeploymentInfo.address, contractDeploymentInfo.partialAddress);
     const accountDeploymentTx = await sendContractDeployment(publicKey, abi, contractAddressSalt);
     expect(await accountDeploymentTx.tx.isMined(0, 0.1)).toBeTruthy();
 

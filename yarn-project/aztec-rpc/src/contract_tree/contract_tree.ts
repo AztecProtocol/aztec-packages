@@ -26,6 +26,7 @@ import { PublicKey } from '@aztec/key-store';
 import { ContractDao, ContractFunctionDao } from '../contract_database/contract_dao.js';
 import { generateFunctionSelector } from '../index.js';
 import { computeFunctionTreeData } from './function_tree_data.js';
+import { ContractCommitmentProvider } from '@aztec/types';
 
 /**
  * Computes the hash of a hex-encoded string representation of a verification key (vk).
@@ -147,7 +148,7 @@ export class ContractTree {
      * The contract data object containing the ABI and contract address.
      */
     public readonly contract: ContractDao,
-    private node: AztecNode,
+    private contractCommitmentProvider: ContractCommitmentProvider,
     private wasm: CircuitsWasm,
     /**
      * Data associated with the contract constructor for a new contract.
@@ -256,14 +257,14 @@ export class ContractTree {
       const root = await this.getFunctionTreeRoot();
       const newContractData = new NewContractData(address, portalContract, root);
       const committment = computeContractLeaf(this.wasm, newContractData);
-      const index = await this.node.findContractIndex(committment.toBuffer());
+      const index = await this.contractCommitmentProvider.findContractIndex(committment.toBuffer());
       if (index === undefined) {
         throw new Error(
           `Failed to find contract at ${address} with portal ${portalContract} resulting in commitment ${committment}.`,
         );
       }
 
-      const siblingPath = await this.node.getContractPath(index);
+      const siblingPath = await this.contractCommitmentProvider.getContractPath(index);
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,

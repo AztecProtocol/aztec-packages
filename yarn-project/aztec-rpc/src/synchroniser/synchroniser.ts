@@ -1,14 +1,11 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Fr } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { L2BlockContext, LogType, MerkleTreeId, PartialContractAddress, TxHash } from '@aztec/types';
-import { AccountState } from '../account_state/index.js';
-import { Database, TxDao } from '../database/index.js';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { PublicKey } from '@aztec/key-store';
-import { KeyStore } from '@aztec/key-store';
+import { KeyStore, PublicKey } from '@aztec/key-store';
+import { L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
+import { Database } from '../database/index.js';
+import { NoteProcessor } from '../note_processor/index.js';
 
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
@@ -19,7 +16,7 @@ import { KeyStore } from '@aztec/key-store';
  */
 export class Synchroniser {
   private runningPromise?: Promise<void>;
-  private accountStates: AccountState[] = [];
+  private noteProcessors: NoteProcessor[] = [];
   private interruptableSleep = new InterruptableSleep();
   private running = false;
   private initialSyncBlockHeight = 0;
@@ -109,10 +106,10 @@ export class Synchroniser {
       await this.setTreeRootsFromBlock(latestBlock);
 
       this.log(
-        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.accountStates.length} account states`,
+        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} account states`,
       );
-      for (const accountState of this.accountStates) {
-        await accountState.process(blockContexts, encryptedLogs);
+      for (const noteProcessor of this.noteProcessors) {
+        await noteProcessor.process(blockContexts, encryptedLogs);
       }
 
       from += encryptedLogs.length;
@@ -161,71 +158,32 @@ export class Synchroniser {
    * The method resolves immediately after pushing the new account state.
    *
    * @param publicKey - The public key for the account.
-   * @param address - Address of the corresponding account contract.
-   * @param partialContractAddress - The partially computed account contract address.
-   * @param abi - Implementation of the account contract to backing the account.
    * @param keyStore - The key store.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
-  public addAccount(
-    publicKey: PublicKey,
-    address: AztecAddress,
-    partialContractAddress: PartialContractAddress,
-    abi = SchnorrAccountContractAbi,
-    keyStore: KeyStore,
-  ) {
-    const accountState = new AccountState(
-      publicKey,
-      keyStore,
-      address,
-      partialContractAddress,
-      this.db,
-      this.node,
-      abi,
-    );
-    this.accountStates.push(accountState);
-    return Promise.resolve(accountState);
-  }
-
-  /**
-   * Retrieve an account state by its AztecAddress from the list of managed account states.
-   * If no account state with the given address is found, returns undefined.
-   *
-   * @param account - The AztecAddress instance representing the account to search for.
-   * @returns The AccountState instance associated with the provided AztecAddress or undefined if not found.
-   */
-  public getAccount(account: AztecAddress) {
-    return this.accountStates.find(as => as.getAddress().equals(account));
-  }
-
-  /**
-   * Retrieve a shallow copy of the array containing all account states.
-   * The returned array includes all AccountState instances added to the synchronizer.
-   *
-   * @returns An array of AccountState instances.
-   */
-  public getAccounts() {
-    return [...this.accountStates];
-  }
-
-  /**
-   * Retrieve a transaction by its hash from the database.
-   * Throws an error if the transaction is not found in the database or if the account associated with the transaction is unauthorized.
-   *
-   * @param txHash - The hash of the transaction to be fetched.
-   * @returns A TxDao instance representing the retrieved transaction.
-   */
-  public async getTxByHash(txHash: TxHash): Promise<TxDao> {
-    const tx = await this.db.getTx(txHash);
-    if (!tx) {
-      throw new Error(`Transaction ${txHash} not found in RPC database`);
+  public addAccount(publicKey: PublicKey, keyStore: KeyStore) {
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
+    if (processor) {
+      return;
     }
+    this.noteProcessors.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
+  }
 
-    const account = this.getAccount(tx.from);
-    if (!account) {
-      throw new Error(`Unauthorised account: ${tx.from}`);
+  /**
+   * Returns true if the account specified by the given address is synched to the latest block
+   * @param account - The aztec address for which to query the sync status
+   * @returns True if the account is fully synched, false otherwise
+   */
+  public async isAccountSynchronised(account: AztecAddress) {
+    const result = await this.db.getPublicKey(account);
+    if (!result) {
+      return false;
     }
-
-    return tx;
+    const publicKey = result[0];
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
+    if (!processor) {
+      return false;
+    }
+    return await processor.isSynchronised();
   }
 }

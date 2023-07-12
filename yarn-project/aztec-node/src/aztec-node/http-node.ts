@@ -7,7 +7,6 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { Logger, createLogger } from '@aztec/foundation/log';
-import { SiblingPath } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
@@ -17,6 +16,7 @@ import {
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/types';
