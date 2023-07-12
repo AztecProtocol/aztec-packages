@@ -100,18 +100,12 @@ export class ClientTxExecutionContext {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1030): enforce sorting and offset for pending notes
     let pendingCount = 0;
     const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages
-    //console.log(`Looking for ${limit} notes matching ${contractAddress.toString()} ${storageSlot.toString()}`);
-    //console.log(`There are ${this.pendingNotes.length} pending notes to check`);
     for (const note of this.pendingNotes) {
       if (pendingCount == +limit) {
         break;
       }
-      //console.log(`Checking pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
       if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(fromACVMField(storageSlot))) {
         pendingCount++;
-        //console.log(`\t\tFound pending note ${note.contractAddress.toString()} ${note.storageSlot.toString()}`);
-        //console.log(`\t\tThat was the ${pendingCount}th pending note found this run`);
-        //console.log(`\t\tPreimage 0th entry: ${note.preimage[0].toString()}`);
         pendingPreimages.push(...note.preimage); // flattened
         this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.emptyTransient());
       }
