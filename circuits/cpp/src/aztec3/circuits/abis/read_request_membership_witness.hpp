@@ -75,7 +75,7 @@ std::ostream& operator<<(std::ostream& os, ReadRequestMembershipWitness<NCT, N> 
     return os << "leaf_index: " << obj.leaf_index << "\n"
               << "sibling_path: " << obj.sibling_path << "\n"
               << "is_transient: " << obj.is_transient << "\n"
-              << "hint_to_commitment_index: " << obj.hint_to_commitment << "\n"
+              << "hint_to_commitment_index: " << obj.hint_to_commitment << "\n";
 }
 
 }  // namespace aztec3::circuits::abis
