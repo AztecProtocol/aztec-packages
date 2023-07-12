@@ -1,8 +1,6 @@
 import { CircuitsWasm, Fr, FunctionData } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { ContractAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 import { PublicKey } from '@aztec/key-store';
-import { DeploymentInfo, generateFunctionSelector } from '../index.js';
-import { generateFunctionLeaves, hashVKStr, isConstructor } from '../contract_tree/contract_tree.js';
 import {
   computeContractAddress,
   computeFunctionTreeRoot,
@@ -11,6 +9,11 @@ import {
   hashConstructor,
 } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/acir-simulator';
+import { DeploymentInfo } from '@aztec/types';
+
+import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
+
+// import { generateFunctionLeaves, hashVKStr, isConstructor } from '../contract_tree/contract_tree.js';
 
 /**
  * Generates the deployment info for a contract

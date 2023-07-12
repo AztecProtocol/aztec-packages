@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../aztec-rpc"
-    },
-    {
       "path": "../circuits.js"
     },
     {
@@ -25,5 +22,7 @@
       "path": "../types"
     }
   ],
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

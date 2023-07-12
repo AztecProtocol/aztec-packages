@@ -1,6 +1,5 @@
 import { MockProxy, mock } from 'jest-mock-extended';
 import { DeployedContract, NodeInfo, Tx, TxHash, TxReceipt } from '@aztec/types';
-// import { AztecAddress, EthAddress, Tx, TxHash } from '@aztec/aztec-rpc';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { TxExecutionRequest } from '@aztec/types';

@@ -1,5 +1,7 @@
 export * from './aztec_rpc.js';
 export * from './constants.js';
+export * from './contract_dao.js';
+export * from './contract_database.js';
 export * from './contract_data.js';
 export * from './execution_request.js';
 export * from './l1_addresses.js';

@@ -1,9 +1,9 @@
-import { TxStatus, getContractDeploymentInfo } from '@aztec/aztec-rpc';
 import { AztecAddress, CircuitsWasm, Fr, Point } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
+
 import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
 import {
   AccountCollection,
@@ -12,6 +12,7 @@ import {
   EcdsaAuthProvider,
   generatePublicKey,
 } from '../index.js';
+import { getContractDeploymentInfo } from '../contract/contract_deployment_info.js';
 
 /**
  * Creates an Aztec Account.

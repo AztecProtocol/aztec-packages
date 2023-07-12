@@ -30,7 +30,6 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/aztec-rpc": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
