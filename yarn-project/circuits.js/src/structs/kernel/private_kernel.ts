@@ -15,6 +15,7 @@ import { ReadRequestMembershipWitness } from '../read_request_membership_witness
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
+import { CONTRACT_TREE_HEIGHT, FUNCTION_TREE_HEIGHT, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, PRIVATE_DATA_TREE_HEIGHT, READ_REQUESTS_LENGTH } from '../../cbind/constants.gen.js';
 
 /**
  * Private call data.

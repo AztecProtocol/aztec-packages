@@ -94,6 +94,7 @@ constexpr size_t L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = L1_TO_L2_MSG_TREE_HE
 
 // MISC CONSTANTS
 constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
+constexpr size_t MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
 constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
 
