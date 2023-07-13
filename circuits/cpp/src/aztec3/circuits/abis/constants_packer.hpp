@@ -14,6 +14,8 @@ struct ConstantsPacker {
         auto pack = [&](auto&... args) {
             msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_pack(packer);
         };
+        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
+        // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(ARGS_LENGTH,
                  RETURN_VALUES_LENGTH,
                  READ_REQUESTS_LENGTH,
@@ -33,8 +35,8 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_READS_PER_TX,
                  MAX_NEW_CONTRACTS_PER_TX,
                  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-                 NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
-                 NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
+                 NUM_ENCRYPTED_LOGS_HASHES_PER_TX),
+             NVP(NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
                  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
                  KERNELS_PER_ROLLUP,
                  VK_TREE_HEIGHT,
@@ -53,12 +55,12 @@ struct ConstantsPacker {
                  PRIVATE_DATA_SUBTREE_HEIGHT,
                  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
                  NULLIFIER_SUBTREE_HEIGHT,
-                 NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-                 L1_TO_L2_MSG_SUBTREE_HEIGHT,
+                 NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH),
+             NVP(L1_TO_L2_MSG_SUBTREE_HEIGHT,
                  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
                  FUNCTION_SELECTOR_NUM_BYTES,
                  MAPPING_SLOT_PEDERSEN_SEPARATOR,
-                 NUM_FIELDS_PER_SHA256));
+                 NUM_FIELDS_PER_SHA256));  // <-- Add names of new constants here
     }
 };
 
