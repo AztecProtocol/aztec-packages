@@ -20,6 +20,7 @@ import { ContractData, TxHash, L2BlockL2Logs } from '@aztec/types';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, getTxSender, prepTx } from './utils.js';
+import { SchnorrAccountContractAbi } from '../../noir-contracts/src/examples/index.js';
 
 const accountCreationSalt = Fr.ZERO;
 
@@ -90,7 +91,7 @@ async function main() {
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
       const privateKey = options.privateKey && Buffer.from(options.privateKey.replace(/^0x/i, ''), 'hex');
-      const wallet = await createAccounts(client, privateKey, accountCreationSalt, 1);
+      const wallet = await createAccounts(client, SchnorrAccountContractAbi, privateKey, accountCreationSalt, 1);
       const accounts = await wallet.getAccounts();
       const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
       log(`\nCreated account(s).`);
@@ -270,7 +271,12 @@ async function main() {
       );
 
       const client = createAztecRpcClient(options.rpcUrl);
-      const wallet = await getAccountWallet(client, Buffer.from(options.privateKey, 'hex'), accountCreationSalt);
+      const wallet = await getAccountWallet(
+        client,
+        SchnorrAccountContractAbi,
+        Buffer.from(options.privateKey, 'hex'),
+        accountCreationSalt,
+      );
       const contract = new Contract(contractAddress, contractAbi, wallet);
       const origin = (await wallet.getAccounts()).find(addr => addr.equals(wallet.getAddress()));
       const tx = contract.methods[functionName](...functionArgs).send({
