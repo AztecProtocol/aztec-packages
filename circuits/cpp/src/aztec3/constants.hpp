@@ -1,6 +1,8 @@
 #pragma once
 #include <stddef.h>
 
+// NOTE: When adding new constants add their names to `src/aztec3/circuits/abis/constants_packer.hpp` as well
+
 namespace aztec3 {
 
 /**

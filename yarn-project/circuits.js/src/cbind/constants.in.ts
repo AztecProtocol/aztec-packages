@@ -17,6 +17,8 @@ async function convertToTypeScript(): Promise<void> {
 
   const code: string[] = [];
 
+  console.log(result);
+
   Object.entries(result).forEach(([key, value]) => {
     code.push(`export const ${key} = ${value};`);
   });

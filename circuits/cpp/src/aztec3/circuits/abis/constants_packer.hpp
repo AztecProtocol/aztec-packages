@@ -57,6 +57,7 @@ struct ConstantsPacker {
                  L1_TO_L2_MSG_SUBTREE_HEIGHT,
                  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
                  FUNCTION_SELECTOR_NUM_BYTES,
+                 MAPPING_SLOT_PEDERSEN_SEPARATOR,
                  NUM_FIELDS_PER_SHA256));
     }
 };
