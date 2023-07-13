@@ -528,7 +528,6 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_pending_commitments_contract.test.ts
 
-
   uniswap-trade-on-l1-from-l2:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -621,12 +620,6 @@ jobs:
           command: |
             deploy_ecr circuits.js
             deploy_npm circuits.js
-      - run:
-          name: "noir-contracts"
-          working_directory: noir-contracts
-          command: |
-            deploy_ecr noir-contracts
-            deploy_npm noir-contracts
       - run:
           name: "l1-artifacts"
           working_directory: l1-artifacts
