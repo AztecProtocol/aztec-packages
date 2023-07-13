@@ -165,7 +165,6 @@
     "dependencies": [
       "circuits.js",
       "foundation",
-      "noir-contracts",
       "types"
     ]
   },
