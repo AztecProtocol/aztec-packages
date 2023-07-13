@@ -517,6 +517,18 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_account_contract.test.ts
 
+  e2e-pending-commitments-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_pending_commitments_contract.test.ts
+
+
   uniswap-trade-on-l1-from-l2:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -610,12 +622,6 @@ jobs:
             deploy_ecr circuits.js
             deploy_npm circuits.js
       - run:
-          name: "merkle-tree"
-          working_directory: merkle-tree
-          command: |
-            deploy_ecr merkle-tree
-            deploy_npm merkle-tree
-      - run:
           name: "noir-contracts"
           working_directory: noir-contracts
           command: |
@@ -639,54 +645,6 @@ jobs:
           command: |
             deploy_ecr types
             deploy_npm types
-      - run:
-          name: "acir-simulator"
-          working_directory: acir-simulator
-          command: |
-            deploy_ecr acir-simulator
-            deploy_npm acir-simulator
-      - run:
-          name: "archiver"
-          working_directory: archiver
-          command: |
-            deploy_ecr archiver
-            deploy_npm archiver
-      - run:
-          name: "p2p"
-          working_directory: p2p
-          command: |
-            deploy_ecr p2p
-            deploy_npm p2p
-      - run:
-          name: "world-state"
-          working_directory: world-state
-          command: |
-            deploy_ecr world-state
-            deploy_npm world-state
-      - run:
-          name: "sequencer-client"
-          working_directory: sequencer-client
-          command: |
-            deploy_ecr sequencer-client
-            deploy_npm sequencer-client
-      - run:
-          name: "aztec-node"
-          working_directory: aztec-node
-          command: |
-            deploy_ecr aztec-node
-            deploy_npm aztec-node
-      - run:
-          name: "key-store"
-          working_directory: key-store
-          command: |
-            deploy_ecr key-store
-            deploy_npm key-store
-      - run:
-          name: "aztec-rpc"
-          working_directory: aztec-rpc
-          command: |
-            deploy_ecr aztec-rpc
-            deploy_npm aztec-rpc
       - run:
           name: "aztec.js"
           working_directory: aztec.js
@@ -849,6 +807,7 @@ workflows:
       - e2e-public-cross-chain-messaging: *e2e_test
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contract: *e2e_test
+      - e2e-pending-commitments-contract: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
@@ -865,6 +824,7 @@ workflows:
             - e2e-public-cross-chain-messaging
             - e2e-public-to-private-messaging
             - e2e-account-contract
+            - e2e-pending-commitments-contract
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
