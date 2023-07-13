@@ -40,7 +40,7 @@ export class NoteProcessor {
   /**
    * The latest L2 block number that the note processor has synchronized to.
    */
-  public syncedToBlock = 0;
+  private syncedToBlock = 0;
 
   constructor(
     /**
@@ -57,25 +57,14 @@ export class NoteProcessor {
 
   /**
    * Check if the NoteProcessor is synchronised with the remote block height.
-   * The function queries the remote block height from the AztecNode and compares it with the syncedToBlock value in the AccountState.
-   * If the values are equal, then the AccountState is considered to be synchronised, otherwise not.
+   * The function queries the remote block height from the AztecNode and compares it with the syncedToBlock value in the NoteProcessor.
+   * If the values are equal, then the NoteProcessor is considered to be synchronised, otherwise not.
    *
-   * @returns A boolean indicating whether the AccountState is synchronised with the remote block height or not.
+   * @returns A boolean indicating whether the NoteProcessor is synchronised with the remote block height or not.
    */
   public async isSynchronised() {
     const remoteBlockHeight = await this.node.getBlockHeight();
     return this.syncedToBlock === remoteBlockHeight;
-  }
-
-  /**
-   * Get the latest synced block number for this note processor.
-   * The synced block number represents the highest block number that has been processed successfully
-   * by the `AccountState` instance, ensuring that all transactions and associated data is up-to-date.
-   *
-   * @returns The latest synced block number.
-   */
-  public getSyncedToBlock() {
-    return this.syncedToBlock;
   }
 
   /**

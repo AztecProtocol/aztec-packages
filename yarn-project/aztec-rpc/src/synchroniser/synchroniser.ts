@@ -6,10 +6,10 @@ import { KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 import { Database, TxDao } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 /**
- * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
+ * The Synchroniser class manages the synchronization of note processors and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.
  * It provides methods to start or stop the synchronization process, add new accounts, retrieve account
- * details, and fetch transactions by hash. The Synchroniser ensures that it maintains the account states
+ * details, and fetch transactions by hash. The Synchroniser ensures that it maintains the note processors
  * in sync with the blockchain while handling retries and errors gracefully.
  */
 export class Synchroniser {
@@ -28,7 +28,7 @@ export class Synchroniser {
 
   /**
    * Starts the synchronisation process by fetching encrypted logs and blocks from a specified position.
-   * Continuously processes the fetched data for all account states until stopped. If there is no data
+   * Continuously processes the fetched data for all note processors until stopped. If there is no data
    * available, it retries after a specified interval.
    *
    * @param from - The starting position for fetching encrypted logs and blocks.
@@ -157,8 +157,8 @@ export class Synchroniser {
 
   /**
    * Add a new account to the Synchroniser with the specified private key.
-   * Creates an AccountState instance for the account and pushes it into the accountStates array.
-   * The method resolves immediately after pushing the new account state.
+   * Creates a NoteProcessor instance for the account and pushes it into the noteProcessors array.
+   * The method resolves immediately after pushing the new note processor.
    *
    * @param publicKey - The public key for the account.
    * @param address - The address for the account.

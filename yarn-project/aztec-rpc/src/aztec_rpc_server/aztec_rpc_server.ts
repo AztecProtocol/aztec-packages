@@ -52,9 +52,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Starts the Aztec RPC server by initializing account states for each registered account and
-   * begins the synchronisation process between the Aztec node and the database.
-   * It logs the number of initial accounts that were started.
+   * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
    *
    * @returns A promise that resolves when the server has started successfully.
    */
@@ -411,7 +409,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Simulate the execution of a transaction request on an Aztec account state.
+   * Simulate the execution of a transaction request.
    * This function computes the expected state changes resulting from the transaction
    * without actually submitting it to the blockchain. The result will be used for creating the kernel proofs,
    * as well as for estimating gas costs.
