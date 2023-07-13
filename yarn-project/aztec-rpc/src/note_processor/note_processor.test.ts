@@ -20,7 +20,7 @@ import { NoteProcessor } from './note_processor.js';
 
 const TXS_PER_BLOCK = 4;
 
-describe('Account State', () => {
+describe('Note Processor', () => {
   let grumpkin: Grumpkin;
   let database: Database;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;

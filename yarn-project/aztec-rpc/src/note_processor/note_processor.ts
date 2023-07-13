@@ -27,7 +27,7 @@ interface ProcessedData {
 
 /**
  * NoteProcessor is responsible for decrypting logs and converting them to notes via their originating contracts
- * before storing them against
+ * before storing them against their owner.
  */
 export class NoteProcessor {
   /**
