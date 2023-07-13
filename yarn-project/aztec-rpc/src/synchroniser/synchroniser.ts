@@ -3,7 +3,7 @@ import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
-import { Database } from '../database/index.js';
+import { Database, TxDao } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
@@ -110,6 +110,8 @@ export class Synchroniser {
         await noteProcessor.process(blockContexts, encryptedLogs);
       }
 
+      await this.updateBlockInfoInBlockTxs(blockContexts);
+
       from += encryptedLogs.length;
       return from;
     } catch (err) {
@@ -184,5 +186,30 @@ export class Synchroniser {
       return false;
     }
     return await processor.isSynchronised();
+  }
+
+  /**
+   * Updates the block information for all transactions in a given block context.
+   * The function retrieves transaction data objects from the database using their hashes,
+   * sets the block hash and block number to the corresponding values, and saves the updated
+   * transaction data back to the database. If a transaction is not found in the database,
+   * an informational message is logged.
+   *
+   * @param blockContexts - The L2BlockContext objects containing the block information and related data.
+   */
+  private async updateBlockInfoInBlockTxs(blockContexts: L2BlockContext[]) {
+    for (const blockContext of blockContexts) {
+      for (const txHash of blockContext.getTxHashes()) {
+        const txDao: TxDao | undefined = await this.db.getTx(txHash);
+        if (txDao !== undefined) {
+          txDao.blockHash = blockContext.getBlockHash();
+          txDao.blockNumber = blockContext.block.number;
+          await this.db.addTx(txDao);
+          this.log(`Updated tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
+        } else if (!txHash.isZero()) {
+          this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
+        }
+      }
+    }
   }
 }

@@ -213,9 +213,6 @@ export class NoteProcessor {
       noteSpendingInfoDaosBatch.push(...noteSpendingInfoDaos);
 
       newNullifiers = newNullifiers.concat(blockContext.block.newNullifiers);
-
-      // Ensure all the other txs are updated with newly settled block info.
-      await this.updateBlockInfoInBlockTxs(blockContext);
     }
     if (noteSpendingInfoDaosBatch.length) {
       await this.db.addNoteSpendingInfoBatch(noteSpendingInfoDaosBatch);
@@ -228,28 +225,5 @@ export class NoteProcessor {
     removedNoteSpendingInfo.forEach(noteSpendingInfo => {
       this.log(`Removed note spending info with nullifier ${noteSpendingInfo.nullifier.toString()}}`);
     });
-  }
-
-  /**
-   * Updates the block information for all transactions in a given block context.
-   * The function retrieves transaction data objects from the database using their hashes,
-   * sets the block hash and block number to the corresponding values, and saves the updated
-   * transaction data back to the database. If a transaction is not found in the database,
-   * an informational message is logged.
-   *
-   * @param blockContext - The L2BlockContext object containing the block information and related data.
-   */
-  private async updateBlockInfoInBlockTxs(blockContext: L2BlockContext) {
-    for (const txHash of blockContext.getTxHashes()) {
-      const txDao: TxDao | undefined = await this.db.getTx(txHash);
-      if (txDao !== undefined) {
-        txDao.blockHash = blockContext.getBlockHash();
-        txDao.blockNumber = blockContext.block.number;
-        await this.db.addTx(txDao);
-        this.log(`Updated tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
-      } else if (!txHash.isZero()) {
-        this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
-      }
-    }
   }
 }
