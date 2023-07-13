@@ -125,9 +125,9 @@ export class ReadRequestMembershipWitness {
   static fromBuffer(buffer: Buffer | BufferReader): ReadRequestMembershipWitness {
     const reader = BufferReader.asReader(buffer);
     const leafIndex = reader.readFr();
-    const siblingPath = reader.readBufferArray() as Tuple<Buffer, typeof PRIVATE_DATA_TREE_HEIGHT>;
+    const siblingPath = reader.readArray<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>(PRIVATE_DATA_TREE_HEIGHT, Fr);
     const isTransient = reader.readBoolean();
     const hintToCommitment = reader.readFr();
-    return this.fromBufferArray(leafIndex, siblingPath, isTransient, hintToCommitment);
+    return new ReadRequestMembershipWitness(leafIndex, siblingPath, isTransient, hintToCommitment);
   }
 }
