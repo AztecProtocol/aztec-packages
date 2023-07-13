@@ -195,8 +195,7 @@
       "l1-artifacts",
       "noir-contracts",
       "p2p",
-      "sequencer-client",
-      "world-state"
+      "types"
     ]
   },
   "ethereum": {

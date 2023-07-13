@@ -307,8 +307,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/p2p": "workspace:^"
-    "@aztec/sequencer-client": "workspace:^"
-    "@aztec/world-state": "workspace:^"
+    "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
     "@noble/curves": ^1.0.0
     "@rushstack/eslint-patch": ^1.1.4

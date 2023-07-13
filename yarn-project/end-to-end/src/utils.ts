@@ -22,7 +22,6 @@ import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecod
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
-import { randomBytes } from 'crypto';
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import every from 'lodash.every';
@@ -30,6 +29,7 @@ import zipWith from 'lodash.zipwith';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
 import { TxStatus } from '@aztec/types';
+import { randomBytes } from '@aztec/foundation/crypto';
 
 /**
  * Sets up the environment for the end-to-end tests.
