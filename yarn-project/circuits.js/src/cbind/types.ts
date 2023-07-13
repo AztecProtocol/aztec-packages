@@ -1,27 +1,7 @@
 // Type mappings for cbinds
 // Can either export things directly or handle
 // naming differences with the 'as' syntax
-import { Tuple } from '@aztec/foundation/serialize';
-import { Fr, MembershipWitness } from '../structs/index.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-
-/**
- * Alias for msgpack which expects a MembershipWitness + N name.
- */
-export class MembershipWitness32 extends MembershipWitness<32> {
-  constructor(
-    /**
-     * Index of a leaf in the Merkle tree.
-     */
-    leafIndex: Fr,
-    /**
-     * Sibling path of the leaf in the Merkle tree.
-     */
-    siblingPath: Tuple<Fr, 32>,
-  ) {
-    super(32, leafIndex.toBigInt(), siblingPath);
-  }
-}
 
 /**
  * Coerce a variety of types to a buffer.
