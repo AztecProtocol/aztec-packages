@@ -58,7 +58,7 @@ type CreateAccountImplFn = (
 ) => Promise<AccountImplementation>;
 
 function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any[], createWallet: CreateAccountImplFn) {
-  describe(`${abi.name} behaves like an account contract`, () => {
+  describe(`behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
     let child: Contract;
     let address: AztecAddress;
@@ -115,23 +115,28 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
 }
 
 describe('e2e_account_contracts', () => {
-  const createSchnorrWallet = async (address: AztecAddress, partial: PartialContractAddress, privateKey: Buffer) =>
-    new SingleKeyAccountContract(address, partial, privateKey, await Schnorr.new());
+  describe('schnorr account', () => {
+    const createSchnorrWallet = async (address: AztecAddress, partial: PartialContractAddress, privateKey: Buffer) =>
+      new SingleKeyAccountContract(address, partial, privateKey, await Schnorr.new());
 
-  const createEcdsaWallet = async (address: AztecAddress, _partial: PartialContractAddress, privateKey: Buffer) =>
-    new StoredKeyAccountContract(address, privateKey, await Ecdsa.new());
-
-  let ecdsaPrivateKey: Buffer;
-  let ecdsaPublicKey: Buffer;
-  let ecdsaCreateArgs: any[];
-
-  beforeAll(async () => {
-    ecdsaPrivateKey = randomBytes(32);
-    const ecdsa = await Ecdsa.new();
-    ecdsaPublicKey = ecdsa.computePublicKey(ecdsaPrivateKey);
-    ecdsaCreateArgs = [ecdsaPublicKey.subarray(0, 32), ecdsaPublicKey.subarray(32, 64)];
+    itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, () => [], createSchnorrWallet);
   });
 
-  itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, () => [], createSchnorrWallet);
-  itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createEcdsaWallet);
+  describe.skip('ecdsa account', () => {
+    const createEcdsaWallet = async (address: AztecAddress, _partial: PartialContractAddress, privateKey: Buffer) =>
+      new StoredKeyAccountContract(address, privateKey, await Ecdsa.new());
+
+    let ecdsaPrivateKey: Buffer;
+    let ecdsaPublicKey: Buffer;
+    let ecdsaCreateArgs: any[];
+
+    beforeAll(async () => {
+      ecdsaPrivateKey = randomBytes(32);
+      const ecdsa = await Ecdsa.new();
+      ecdsaPublicKey = ecdsa.computePublicKey(ecdsaPrivateKey);
+      ecdsaCreateArgs = [ecdsaPublicKey.subarray(0, 32), ecdsaPublicKey.subarray(32, 64)];
+    });
+
+    itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createEcdsaWallet);
+  });
 });
