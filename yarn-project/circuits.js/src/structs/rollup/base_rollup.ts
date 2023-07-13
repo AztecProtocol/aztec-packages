@@ -7,7 +7,20 @@ import { MembershipWitness } from '../membership_witness.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
 import { GlobalVariables } from '../global_variables.js';
-import { CONTRACT_TREE_HEIGHT, CONTRACT_TREE_ROOTS_TREE_HEIGHT, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_CONTRACTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX, MAX_PUBLIC_DATA_READS_PER_TX, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT } from '../../cbind/constants.gen.js';
+import {
+  CONTRACT_TREE_HEIGHT,
+  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  NULLIFIER_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_HEIGHT,
+  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+} from '../../cbind/constants.gen.js';
 
 /**
  * Class containing the data of a preimage of a single leaf in the nullifier tree.

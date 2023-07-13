@@ -22,11 +22,18 @@ async function convertToTypeScript(): Promise<void> {
   });
 
   let accumulatedCode: string = code.join('\n');
-  
-  accumulatedCode = '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants\n' + accumulatedCode;
-  
+
+  accumulatedCode =
+    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants\n' + accumulatedCode;
+
   const cppContent: string = fs.readFileSync(CPP_FILE_PATH, 'utf-8');
-  accumulatedCode = accumulatedCode + '\n' + cppContent.split('TS-RELEVANT-CODE-START')[1].split('// TS-RELEVANT-CODE-END')[0].replace(/enum (\w+)/g, 'export enum $1');
+  accumulatedCode =
+    accumulatedCode +
+    '\n' +
+    cppContent
+      .split('TS-RELEVANT-CODE-START')[1]
+      .split('// TS-RELEVANT-CODE-END')[0]
+      .replace(/enum (\w+)/g, 'export enum $1');
 
   fs.writeFileSync(TS_FILE_PATH, accumulatedCode);
 }
