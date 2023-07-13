@@ -1,20 +1,13 @@
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
-  AccountContract,
   AccountWallet,
   Contract,
   ContractDeployer,
   Fr,
-  SchnorrAuthProvider,
+  SingleKeyAccountContract,
   generatePublicKey,
 } from '@aztec/aztec.js';
-import {
-  AztecAddress,
-  CircuitsWasm,
-  PartialContractAddress,
-  Point,
-  getContractDeploymentInfo,
-} from '@aztec/circuits.js';
+import { AztecAddress, PartialContractAddress, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
@@ -116,7 +109,7 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, args: any[], crea
   });
 }
 
-const createSchnorrAccount = async (
+const createSchnorrWallet = async (
   aztecRpcServer: AztecRPCServer,
   address: AztecAddress,
   partialAddress: PartialContractAddress,
@@ -124,16 +117,9 @@ const createSchnorrAccount = async (
 ) =>
   new AccountWallet(
     aztecRpcServer,
-    new AccountContract(
-      address,
-      await generatePublicKey(privateKey),
-      new SchnorrAuthProvider(await Schnorr.new(), privateKey),
-      partialAddress,
-      SchnorrAccountContractAbi,
-      await CircuitsWasm.get(),
-    ),
+    new SingleKeyAccountContract(address, partialAddress, privateKey, await Schnorr.new()),
   );
 
 describe('e2e_account_contracts', () => {
-  itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, [], createSchnorrAccount);
+  itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, [], createSchnorrWallet);
 });
