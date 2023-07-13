@@ -621,6 +621,12 @@ jobs:
             deploy_ecr circuits.js
             deploy_npm circuits.js
       - run:
+          name: "noir-contracts"
+          working_directory: noir-contracts
+          command: |
+            deploy_ecr noir-contracts
+            deploy_npm noir-contracts
+      - run:
           name: "l1-artifacts"
           working_directory: l1-artifacts
           command: |
