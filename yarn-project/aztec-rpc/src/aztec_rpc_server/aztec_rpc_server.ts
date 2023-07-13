@@ -3,12 +3,12 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
-import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, FunctionData, PartialContractAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import {
+  AztecNode,
   AztecRPC,
   ContractDao,
   ContractData,

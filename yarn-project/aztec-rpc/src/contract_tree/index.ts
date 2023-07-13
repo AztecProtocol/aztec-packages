@@ -1,4 +1,3 @@
-import { AztecNode } from '@aztec/aztec-node';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
@@ -25,7 +24,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { ContractCommitmentProvider, ContractDao, PublicKey } from '@aztec/types';
+import { AztecNode, ContractCommitmentProvider, ContractDao, PublicKey } from '@aztec/types';
 
 /**
  * The ContractTree class represents a Merkle tree of functions for a particular contract.

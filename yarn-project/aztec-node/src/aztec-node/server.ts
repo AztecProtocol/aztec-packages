@@ -33,7 +33,7 @@ import {
 } from '@aztec/world-state';
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
-import { AztecNode } from './aztec-node.js';
+import { AztecNode } from '../../../types/src/interfaces/aztec-node.js';
 import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;

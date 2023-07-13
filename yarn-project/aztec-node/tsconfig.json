@@ -31,5 +31,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../types/src/interfaces/aztec-node.ts"]
 }

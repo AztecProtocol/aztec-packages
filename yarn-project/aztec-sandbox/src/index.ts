@@ -3,10 +3,10 @@ import { foundry } from 'viem/chains';
 import { http as httpViemTransport, createPublicClient, HDAccount } from 'viem';
 
 import { mnemonicToAccount } from 'viem/accounts';
-import { getHttpRpcServer } from '@aztec/aztec-rpc';
+import { createAztecRPCServer, getHttpRpcServer } from '@aztec/aztec-rpc';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { deployL1Contracts } from '@aztec/ethereum';
 
 import { createApiRouter } from './routes.js';
@@ -64,7 +64,10 @@ async function main() {
   aztecNodeConfig.contractDeploymentEmitterContract = deployedL1Contracts.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
 
-  const rpcServer = await getHttpRpcServer(aztecNodeConfig);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const aztecRpcServer = await createAztecRPCServer(aztecNode);
+
+  const rpcServer = getHttpRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
   const apiRouter = createApiRouter(deployedL1Contracts);

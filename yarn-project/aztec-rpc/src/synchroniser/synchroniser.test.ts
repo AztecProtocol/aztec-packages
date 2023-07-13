@@ -1,6 +1,5 @@
-import { AztecNode } from '@aztec/aztec-node';
 import { Fr } from '@aztec/circuits.js';
-import { L2Block, MerkleTreeId } from '@aztec/types';
+import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';
 import { MockProxy, mock } from 'jest-mock-extended';
 import omit from 'lodash.omit';
 import { Database, MemoryDB } from '../database/index.js';

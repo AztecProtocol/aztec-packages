@@ -1,16 +1,8 @@
-import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import {
-  INITIAL_L2_BLOCK_NUM,
-  L2BlockContext,
-  L2BlockL2Logs,
-  NoteSpendingInfo,
-  PublicKey,
-  KeyStore,
-} from '@aztec/types';
+import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
 

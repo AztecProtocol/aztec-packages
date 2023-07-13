@@ -1,18 +1,11 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import {
-  ContractPublicData,
-  ContractData,
-  L2Block,
-  MerkleTreeId,
-  L2BlockL2Logs,
-  TxHash,
-  Tx,
-  LogType,
-  DataCommitmentProvider,
-  L1ToL2MessageProvider,
-  ContractCommitmentProvider,
-} from '@aztec/types';
 import { Fr } from '@aztec/foundation/fields';
+import { DataCommitmentProvider } from './data_commitment_provider.js';
+import { L1ToL2MessageProvider } from './l1_l2_message_provider.js';
+import { ContractCommitmentProvider } from './contract_commitment_provider.js';
+import { L2Block } from '../l2_block.js';
+import { ContractData, ContractPublicData } from '../contract_data.js';
+import { L2BlockL2Logs, LogType, MerkleTreeId, Tx, TxHash } from '../index.js';
 
 /**
  * The aztec node.

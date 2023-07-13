@@ -1,4 +1,3 @@
-import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
@@ -8,6 +7,7 @@ import {
 } from '@aztec/circuits.js';
 import { Logger, createLogger } from '@aztec/foundation/log';
 import {
+  AztecNode,
   ContractData,
   ContractPublicData,
   L1ToL2Message,

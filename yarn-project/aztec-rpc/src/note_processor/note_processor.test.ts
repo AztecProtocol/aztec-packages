@@ -1,9 +1,9 @@
-import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
+  AztecNode,
   FunctionL2Logs,
   KeyPair,
   KeyStore,
