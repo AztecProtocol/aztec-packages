@@ -1,6 +1,6 @@
 import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
 import {
   ACVMField,
   fromACVMField,
@@ -65,6 +65,22 @@ export class ClientTxExecutionContext {
    */
   public getReadRequestPartialWitnesses() {
     return this.readRequestPartialWitnesses;
+  }
+
+  /**
+   * For getting secret key.
+   * @param contractAddress - The contract address.
+   * @param ownerX - The x coordinate of the owner's public key.
+   * @param ownerY - The y coordinate of the owner's public key.
+   * @returns The secret key of the owner.
+   */
+  public async getSecretKey(contractAddress: AztecAddress, ownerX: ACVMField, ownerY: ACVMField) {
+    return toACVMField(
+      await this.db.getSecretKey(
+        contractAddress,
+        Point.fromCoordinates(Coordinate.fromField(fromACVMField(ownerX)), Coordinate.fromField(fromACVMField(ownerY))),
+      ),
+    );
   }
 
   /**
