@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -86,6 +86,8 @@ describe('Account State', () => {
     keyStore = mock<KeyStore>();
     keyStore.getAccountPrivateKey.mockResolvedValue(owner.getPrivateKey());
     noteProcessor = new NoteProcessor(owner.getPublicKey(), ownerAddress, keyStore, database, aztecNode);
+    const computeSiloedNullifierSpy = jest.spyOn(noteProcessor as any, 'computeSiloedNullifier');
+    computeSiloedNullifierSpy.mockResolvedValue(Fr.random());
   });
 
   afterEach(() => {
