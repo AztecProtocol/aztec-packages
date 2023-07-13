@@ -246,7 +246,7 @@ export class NoteProcessor {
         txDao.blockHash = blockContext.getBlockHash();
         txDao.blockNumber = blockContext.block.number;
         await this.db.addTx(txDao);
-        this.log(`Added tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
+        this.log(`Updated tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
       } else if (!txHash.isZero()) {
         this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
       }

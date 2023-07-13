@@ -66,7 +66,7 @@ export interface AztecRPC {
    * @returns Whether the contract was deployed.
    */
   isContractDeployed(contract: AztecAddress): Promise<boolean>;
-  simulateTx(txRequest: TxExecutionRequest, optionalFromAddress?: AztecAddress): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;

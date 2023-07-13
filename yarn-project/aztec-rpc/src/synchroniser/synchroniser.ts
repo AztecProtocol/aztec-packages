@@ -104,7 +104,7 @@ export class Synchroniser {
       await this.setTreeRootsFromBlock(latestBlock);
 
       this.log(
-        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} account states`,
+        `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
       );
       for (const noteProcessor of this.noteProcessors) {
         await noteProcessor.process(blockContexts, encryptedLogs);

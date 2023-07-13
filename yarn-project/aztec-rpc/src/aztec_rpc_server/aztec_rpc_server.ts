@@ -170,9 +170,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param optionalFromAddress - The address to simulate from
    * @returns A Tx ready to send to the p2p pool for execution.
    */
-  public async simulateTx(txRequest: TxExecutionRequest, optionalFromAddress?: AztecAddress) {
-    const account = await this.#ensureAccountOrDefault(optionalFromAddress);
-
+  public async simulateTx(txRequest: TxExecutionRequest) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
@@ -182,12 +180,12 @@ export class AztecRPCServer implements AztecRPC {
     const deployedContractAddress = txRequest.txContext.isContractDeploymentTx ? txRequest.origin : undefined;
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
-    const tx = await this.simulateAndProve(txRequest, newContract);
+    const tx = await this.#simulateAndProve(txRequest, newContract);
 
     await this.db.addTx(
       TxDao.from({
         txHash: await tx.getTxHash(),
-        origin: account,
+        origin: txRequest.origin,
         contractAddress: deployedContractAddress,
       }),
     );
@@ -218,10 +216,9 @@ export class AztecRPCServer implements AztecRPC {
    * @returns The result of the view function call, structured based on the function ABI.
    */
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
-    const account = await this.#ensureAccountOrDefault(from);
-    const txRequest = await this.#getExecutionRequest(account, functionName, args, to);
+    const txRequest = await this.#getExecutionRequest(functionName, args, to, from ?? AztecAddress.ZERO);
 
-    const executionResult = await this.simulateUnconstrained(txRequest);
+    const executionResult = await this.#simulateUnconstrained(txRequest);
 
     // TODO - Return typed result based on the function abi.
     return executionResult;
@@ -262,7 +259,7 @@ export class AztecRPCServer implements AztecRPC {
     // until the synchroniser picks this up
 
     const isSynchronised = await this.synchroniser.isAccountSynchronised(localTx.origin);
-    if (isSynchronised) {
+    if (!isSynchronised) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
       return {
         ...partialReceipt,
@@ -318,10 +315,10 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   async #getExecutionRequest(
-    account: AztecAddress,
     functionName: string,
     args: any[],
     to: AztecAddress,
+    from: AztecAddress,
   ): Promise<ExecutionRequest> {
     const contract = await this.db.getContract(to);
     if (!contract) {
@@ -343,28 +340,10 @@ export class AztecRPCServer implements AztecRPC {
 
     return {
       args: flatArgs,
-      from: account,
+      from,
       functionData,
       to,
     };
-  }
-
-  /**
-   * Retrieves an existing account or the default one if none is provided.
-   * Ensures that the given account address exists in the synchroniser, otherwise throws an error.
-   * If no account address is provided, it returns the first account from the synchroniser.
-   * Throws an error if there are no accounts available in the key store.
-   *
-   * @param account - (Optional) Address of the account to ensure its existence.
-   * @returns The ensured account instance.
-   */
-  async #ensureAccountOrDefault(account?: AztecAddress) {
-    const address = account || (await this.db.getAccounts())[0];
-    if (!address) {
-      throw new Error('No accounts available in the key store.');
-    }
-
-    return address;
   }
 
   /**
@@ -403,7 +382,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param contractDataOracle - An instance of ContractDataOracle used to fetch the necessary data.
    * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
    */
-  private async getSimulationParameters(
+  async #getSimulationParameters(
     execRequest: ExecutionRequest | TxExecutionRequest,
     contractDataOracle: ContractDataOracle,
   ) {
@@ -441,13 +420,13 @@ export class AztecRPCServer implements AztecRPC {
    * @param contractDataOracle - Optional parameter, an instance of ContractDataOracle class for retrieving contract data.
    * @returns A promise that resolves to an object containing the simulation results, including expected output notes and any error messages.
    */
-  public async simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
     );
@@ -474,12 +453,12 @@ export class AztecRPCServer implements AztecRPC {
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  public async simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  async #simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
     );
@@ -511,13 +490,13 @@ export class AztecRPCServer implements AztecRPC {
    * @param newContract - Optional. The address of a new contract to be included in the transaction object.
    * @returns A private transaction object containing the proof, public inputs, and encrypted logs.
    */
-  public async simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
+  async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
 
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const executionResult = await this.simulate(txExecutionRequest, contractDataOracle);
+    const executionResult = await this.#simulate(txExecutionRequest, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
