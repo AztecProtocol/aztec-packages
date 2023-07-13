@@ -390,7 +390,7 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
     new Fr(start),
-    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start),
+    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
     false,
     new Fr(0),
   );
