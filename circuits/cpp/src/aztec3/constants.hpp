@@ -14,10 +14,6 @@ constexpr size_t log2(size_t input)
     return (input < 2) ? 0 : 1 + log2(input / 2);
 }
 
-// The following informs yarn-project/circuits.js/src/cbind/constants.in.ts from which line to start.
-// TS-RELEVANT-CODE-START
-
-// Note: must be kept in sync with ts/structs/constants.ts
 constexpr size_t ARGS_LENGTH = 16;
 constexpr size_t RETURN_VALUES_LENGTH = 4;
 constexpr size_t READ_REQUESTS_LENGTH = 4;
@@ -100,6 +96,8 @@ constexpr size_t L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = L1_TO_L2_MSG_TREE_HE
 constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
 constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
+
+// TS-RELEVANT-CODE-START
 
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
