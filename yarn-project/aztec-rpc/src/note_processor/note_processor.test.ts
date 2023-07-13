@@ -18,6 +18,8 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { Database, MemoryDB } from '../database/index.js';
 import { NoteProcessor } from './note_processor.js';
 
+const TXS_PER_BLOCK = 4;
+
 describe('Account State', () => {
   let grumpkin: Grumpkin;
   let database: Database;
@@ -57,7 +59,10 @@ describe('Account State', () => {
     const encryptedLogsArr: L2BlockL2Logs[] = [];
     const ownedNoteSpendingInfos: NoteSpendingInfo[] = [];
     for (let i = 0; i < ownedData.length; ++i) {
-      const randomBlockContext = new L2BlockContext(L2Block.random(firstBlockNum + i));
+      const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
+      block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex =
+        (firstBlockNum - 1 + i) * TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
+      const randomBlockContext = new L2BlockContext(block);
       blockContexts.push(randomBlockContext);
       const { encryptedLogs, ownedNoteSpendingInfo } = createEncryptedLogsAndOwnedNoteSpendingInfo(ownedData[i]);
       encryptedLogsArr.push(encryptedLogs);
@@ -139,15 +144,15 @@ describe('Account State', () => {
     expect(addNoteSpendingInfoBatchSpy).toHaveBeenCalledWith([
       expect.objectContaining({
         ...ownedNoteSpendingInfos[0],
-        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX + 1),
+        index: BigInt(TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX + 1),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[1],
-        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX * 4),
+        index: BigInt(TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX * 4),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[2],
-        index: BigInt(MAX_NEW_COMMITMENTS_PER_TX * 4 + 2),
+        index: BigInt(TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX * 4 + 2),
       }),
     ]);
   });
