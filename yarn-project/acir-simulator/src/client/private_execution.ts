@@ -91,14 +91,14 @@ export class PrivateFunctionExecution {
         // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
-          preimage: acvmPreimage.map((f: any) => fromACVMField(f)),
+          preimage: acvmPreimage.map(f => fromACVMField(f)),
         });
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes
         newNullifiers.push({
-          preimage: acvmPreimage.map((f: any) => fromACVMField(f)),
+          preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
           nullifier: fromACVMField(nullifier),
         });
@@ -145,7 +145,7 @@ export class PrivateFunctionExecution {
       },
       emitUnencryptedLog: message => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885
-        const log = Buffer.concat(message.map((charBuffer: any) => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+        const log = Buffer.concat(message.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
@@ -153,7 +153,7 @@ export class PrivateFunctionExecution {
       emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
         const storageSlot = fromACVMField(acvmStorageSlot);
-        const preimage = acvmPreimage.map((f: any) => fromACVMField(f));
+        const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
