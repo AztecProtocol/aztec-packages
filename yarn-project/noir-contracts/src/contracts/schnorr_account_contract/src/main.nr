@@ -33,6 +33,7 @@ contract SchnorrAccount {
         let mut context = Context::new(inputs, abi::hash_args(args.storage));
 
         // Verify payload signature
+        // TODO: Use pedersen to make the payload hash cheaper to compute
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
         let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
 

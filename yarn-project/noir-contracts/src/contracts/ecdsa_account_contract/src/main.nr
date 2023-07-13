@@ -1,8 +1,8 @@
 mod storage;
 mod ecdsa_public_key_note;
 
-// Since we support account abstraction user accounts are represented by a contract. This contract is one such example
-// where the user is authenticated with an ECDSA signature.
+// Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
+// The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
     use dep::std;
     use dep::aztec::entrypoint;
@@ -44,28 +44,7 @@ contract EcdsaAccount {
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, challenge);
         assert(verification == true);
 
-        // Call private functions
-        for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
-            let target_address = payload.flattened_targets[i];
-            if target_address != 0 {
-                let function_selector = payload.flattened_selectors[i];
-                let args_hash = payload.flattened_args_hashes[i];
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-                context = updated_context;
-            }
-        }
-
-        // Call public functions
-        for i in entrypoint::ACCOUNT_MAX_PRIVATE_CALLS..entrypoint::ACCOUNT_MAX_CALLS {
-            let target_address = payload.flattened_targets[i];
-            if target_address != 0 {
-                let function_selector = payload.flattened_selectors[i];
-                let args_hash = payload.flattened_args_hashes[i];
-                let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-                context = updated_context;
-            }
-        }
-
+        context = payload.execute_calls(context);
         context.finish()
     }
 

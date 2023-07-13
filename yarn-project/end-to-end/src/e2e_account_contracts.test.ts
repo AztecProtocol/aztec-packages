@@ -1,17 +1,19 @@
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
+  AccountImplementation,
   AccountWallet,
   Contract,
   ContractDeployer,
   Fr,
   SingleKeyAccountContract,
+  StoredKeyAccountContract,
   generatePublicKey,
 } from '@aztec/aztec.js';
 import { AztecAddress, PartialContractAddress, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { ChildAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { PublicKey } from '@aztec/types';
 import { randomBytes } from 'crypto';
 
@@ -21,10 +23,11 @@ async function deployContract(
   aztecRpcServer: AztecRPCServer,
   publicKey: PublicKey,
   abi: ContractAbi,
+  args: any[],
   contractAddressSalt?: Fr,
 ) {
   const deployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
-  const deployMethod = deployer.deploy();
+  const deployMethod = deployer.deploy(...args);
   await deployMethod.create({ contractAddressSalt });
   const tx = deployMethod.send();
   expect(await tx.isMined(0, 0.1)).toBeTruthy();
@@ -37,25 +40,24 @@ async function createNewAccount(
   abi: ContractAbi,
   args: any[],
   privateKey: Buffer,
-  createWallet: CreateWalletFunction,
+  createWallet: CreateAccountImplFn,
 ) {
   const salt = Fr.random();
   const publicKey = await generatePublicKey(privateKey);
   const { address, partialAddress } = await getContractDeploymentInfo(abi, args, salt, publicKey);
   await aztecRpcServer.addAccount(privateKey, address, partialAddress, abi);
-  await deployContract(aztecRpcServer, publicKey, abi, salt);
-  const wallet = await createWallet(aztecRpcServer, address, partialAddress, privateKey);
+  await deployContract(aztecRpcServer, publicKey, abi, args, salt);
+  const wallet = new AccountWallet(aztecRpcServer, await createWallet(address, partialAddress, privateKey));
   return { wallet, address, partialAddress };
 }
 
-type CreateWalletFunction = (
-  aztecRpcServer: AztecRPCServer,
+type CreateAccountImplFn = (
   address: AztecAddress,
   partialAddress: PartialContractAddress,
   privateKey: Buffer,
-) => Promise<AccountWallet>;
+) => Promise<AccountImplementation>;
 
-function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, args: any[], createWallet: CreateWalletFunction) {
+function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any[], createWallet: CreateAccountImplFn) {
   describe(`${abi.name} behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
     let child: Contract;
@@ -70,12 +72,12 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, args: any[], crea
       ({ wallet, address, partialAddress } = await createNewAccount(
         aztecRpcServer,
         abi,
-        args,
+        argsFn(),
         privateKey,
         createWallet,
       ));
 
-      const { address: childAddress } = await deployContract(aztecRpcServer, Point.random(), ChildAbi);
+      const { address: childAddress } = await deployContract(aztecRpcServer, Point.random(), ChildAbi, []);
       child = new Contract(childAddress, ChildAbi, wallet);
     }, 60_000);
 
@@ -100,7 +102,10 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, args: any[], crea
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {
-      const invalidWallet = await createWallet(context.aztecRpcServer, address, partialAddress, randomBytes(32));
+      const invalidWallet = new AccountWallet(
+        context.aztecRpcServer,
+        await createWallet(address, partialAddress, randomBytes(32)),
+      );
       const childWithInvalidWallet = new Contract(child.address, child.abi, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
         /could not satisfy all constraints/,
@@ -109,17 +114,24 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, args: any[], crea
   });
 }
 
-const createSchnorrWallet = async (
-  aztecRpcServer: AztecRPCServer,
-  address: AztecAddress,
-  partialAddress: PartialContractAddress,
-  privateKey: Buffer,
-) =>
-  new AccountWallet(
-    aztecRpcServer,
-    new SingleKeyAccountContract(address, partialAddress, privateKey, await Schnorr.new()),
-  );
-
 describe('e2e_account_contracts', () => {
-  itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, [], createSchnorrWallet);
+  const createSchnorrWallet = async (address: AztecAddress, partial: PartialContractAddress, privateKey: Buffer) =>
+    new SingleKeyAccountContract(address, partial, privateKey, await Schnorr.new());
+
+  const createEcdsaWallet = async (address: AztecAddress, _partial: PartialContractAddress, privateKey: Buffer) =>
+    new StoredKeyAccountContract(address, privateKey, await Ecdsa.new());
+
+  let ecdsaPrivateKey: Buffer;
+  let ecdsaPublicKey: Buffer;
+  let ecdsaCreateArgs: any[];
+
+  beforeAll(async () => {
+    ecdsaPrivateKey = randomBytes(32);
+    const ecdsa = await Ecdsa.new();
+    ecdsaPublicKey = ecdsa.computePublicKey(ecdsaPrivateKey);
+    ecdsaCreateArgs = [ecdsaPublicKey.subarray(0, 32), ecdsaPublicKey.subarray(32, 64)];
+  });
+
+  itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, () => [], createSchnorrWallet);
+  itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createEcdsaWallet);
 });

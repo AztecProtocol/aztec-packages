@@ -2,6 +2,7 @@ import { AztecAddress, TxContext } from '@aztec/circuits.js';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
 
 export * from './single_key_account_contract.js';
+export * from './stored_key_account_contract.js';
 export * from './account_collection.js';
 
 /** Represents an implementation for a user account contract. Knows how to encode and sign a tx for that particular implementation. */
