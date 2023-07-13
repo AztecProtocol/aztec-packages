@@ -18,6 +18,7 @@ export class Synchroniser {
   private interruptableSleep = new InterruptableSleep();
   private running = false;
   private initialSyncBlockHeight = 0;
+  private synchedToBlock = 0;
 
   constructor(
     private node: AztecNode,
@@ -56,6 +57,7 @@ export class Synchroniser {
       Promise.resolve(this.node.getTreeRoots()),
     ]);
     this.initialSyncBlockHeight = blockNumber;
+    this.synchedToBlock = this.initialSyncBlockHeight;
     await this.db.setTreeRoots(treeRoots);
   }
 
@@ -113,6 +115,7 @@ export class Synchroniser {
       await this.updateBlockInfoInBlockTxs(blockContexts);
 
       from += encryptedLogs.length;
+      this.synchedToBlock = latestBlock.block.number;
       return from;
     } catch (err) {
       this.log(err);
@@ -186,6 +189,16 @@ export class Synchroniser {
       return false;
     }
     return await processor.isSynchronised();
+  }
+
+  /**
+   * Return true if the top level block synchronisation is up to date
+   * This indicates that blocks and transactions are synched even if notes are not
+   * @returns True if there are no outstanding blocks to be synched
+   */
+  public async isSynchronised() {
+    const latest = await this.node.getBlockHeight();
+    return latest <= this.synchedToBlock;
   }
 
   /**

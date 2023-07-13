@@ -38,7 +38,7 @@ interface ProcessedData {
  */
 export class NoteProcessor {
   /**
-   * The latest L2 block number that the account state has synchronized to.
+   * The latest L2 block number that the note processor has synchronized to.
    */
   public syncedToBlock = 0;
 
@@ -68,7 +68,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Get the latest synced block number for this account state.
+   * Get the latest synced block number for this note processor.
    * The synced block number represents the highest block number that has been processed successfully
    * by the `AccountState` instance, ensuring that all transactions and associated data is up-to-date.
    *
@@ -79,7 +79,7 @@ export class NoteProcessor {
   }
 
   /**
-   * Process the given L2 block contexts and encrypted logs to update the account state.
+   * Process the given L2 block contexts and encrypted logs to update the note processor.
    * It synchronizes the user's account by decrypting the encrypted logs and processing
    * the transactions and auxiliary data associated with them.
    * Throws an error if the number of block contexts and encrypted logs do not match.
