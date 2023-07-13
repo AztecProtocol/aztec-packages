@@ -26,10 +26,10 @@ async function main(): Promise<void> {
 }
 
 /**
- * Processes a collection of constants and generates code to export them as JavaScript constants.
+ * Processes a collection of constants and generates code to export them as TypeScript constants.
  *
  * @param constants - An object containing key-value pairs representing constants.
- * @returns A string containing code that exports the constants as JavaScript constants.
+ * @returns A string containing code that exports the constants as TypeScript constants.
  */
 function processConstants(constants: { [key: string]: number }): string {
   const code: string[] = [];
