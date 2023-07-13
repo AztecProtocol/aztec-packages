@@ -51,7 +51,6 @@ export class NoteProcessor {
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
-    private TXS_PER_BLOCK = 4,
     private log = createDebugLogger('aztec:aztec_note_processor'),
   ) {}
 
@@ -87,16 +86,14 @@ export class NoteProcessor {
       return;
     }
 
-    // TODO(Maddiaa): this calculation is brittle.
-    // https://github.com/AztecProtocol/aztec-packages/issues/788
-    let dataStartIndex =
-      (l2BlockContexts[0].block.number - INITIAL_L2_BLOCK_NUM) * this.TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
     const blocksAndNoteSpendingInfo: ProcessedData[] = [];
 
     // Iterate over both blocks and encrypted logs.
     for (let blockIndex = 0; blockIndex < encryptedL2BlockLogs.length; ++blockIndex) {
       const { txLogs } = encryptedL2BlockLogs[blockIndex];
       let logIndexWithinBlock = 0;
+      const dataStartIndexForBlock =
+        l2BlockContexts[blockIndex].block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex;
 
       // We are using set for `userPertainingTxIndices` to avoid duplicates. This would happen in case there were
       // multiple encrypted logs in a tx pertaining to a user.
@@ -119,7 +116,7 @@ export class NoteProcessor {
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
                 nullifier: await this.computeNullifier(noteSpendingInfo),
-                index: BigInt(dataStartIndex + logIndexWithinBlock),
+                index: BigInt(dataStartIndexForBlock + logIndexWithinBlock),
                 publicKey: this.publicKey,
               });
             }
@@ -133,7 +130,6 @@ export class NoteProcessor {
         userPertainingTxIndices: [...userPertainingTxIndices], // Convert set to array.
         noteSpendingInfoDaos,
       });
-      dataStartIndex += txLogs.length;
     }
 
     await this.processBlocksAndNoteSpendingInfo(blocksAndNoteSpendingInfo);

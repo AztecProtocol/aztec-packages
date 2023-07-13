@@ -131,11 +131,9 @@
     ],
     "dependencies": [
       "acir-simulator",
-      "aztec-node",
       "circuits.js",
       "foundation",
       "key-store",
-      "noir-contracts",
       "types"
     ]
   },
@@ -164,7 +162,6 @@
     "dependencies": [
       "circuits.js",
       "foundation",
-      "noir-contracts",
       "types"
     ]
   },
@@ -328,7 +325,6 @@
       "circuits.js",
       "foundation",
       "l1-artifacts",
-      "merkle-tree",
       "p2p",
       "sequencer-client",
       "types",
