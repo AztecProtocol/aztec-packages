@@ -19,9 +19,16 @@ contract NonNativeToken {
     // Libs
     use dep::token_utils::{
         balance_utils,
-        value_note::utils::{send_note, spend_notes},
+        value_note::{
+            utils::{send_note, spend_notes},
+            value_note::{VALUE_NOTE_LEN},
+            value_note::ValueNoteInterface,
+        },
     };
-    use dep::custom_notes::transparent_note::TransparentNote;
+    use dep::custom_notes::{
+        transparent_note::TransparentNote,
+        utils::compute_note_hash_and_nullifier,
+    };
 
     use crate::storage::Storage;
     use crate::hash::{get_mint_content_hash, get_withdraw_content_hash};
@@ -317,5 +324,10 @@ contract NonNativeToken {
         let owner_balance = storage.balances.at(owner.x);
         
         balance_utils::get_balance(owner_balance.storage_slot)
+    }
+
+    /// ABI stev type "unconstrained"
+    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 2] {
+        compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
     }
 }
