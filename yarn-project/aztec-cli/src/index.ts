@@ -17,10 +17,10 @@ import { StructType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { ContractData, TxHash, L2BlockL2Logs } from '@aztec/types';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, getTxSender, prepTx } from './utils.js';
-import { SchnorrAccountContractAbi } from '../../noir-contracts/src/examples/index.js';
 
 const accountCreationSalt = Fr.ZERO;
 
