@@ -15,7 +15,7 @@ struct ConstantsPacker {
             msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_pack(packer);
         };
 
-        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
+        // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(ARGS_LENGTH,
                  RETURN_VALUES_LENGTH,
@@ -106,7 +106,7 @@ struct GeneratorIndexPacker {
         int FUNCTION_ARGS = GeneratorIndex::FUNCTION_ARGS;
 
 
-        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
+        // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(COMMITMENT,
                  COMMITMENT_PLACEHOLDER,
@@ -154,8 +154,6 @@ struct StorageSlotGeneratorIndexPacker {
         int MAPPING_SLOT = StorageSlotGeneratorIndex::MAPPING_SLOT;
         int MAPPING_SLOT_PLACEHOLDER = StorageSlotGeneratorIndex::MAPPING_SLOT_PLACEHOLDER;
 
-        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
-        // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(BASE_SLOT, MAPPING_SLOT, MAPPING_SLOT_PLACEHOLDER));
     }
 };
@@ -175,8 +173,6 @@ struct PrivateStateNoteGeneratorIndexPacker {
         int MEMO = PrivateStateNoteGeneratorIndex::MEMO;
         int IS_DUMMY = PrivateStateNoteGeneratorIndex::IS_DUMMY;
 
-        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new
-        // constant add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(VALUE, OWNER, CREATOR, SALT, NONCE, MEMO, IS_DUMMY));
     }
 };
@@ -191,8 +187,6 @@ struct PrivateStateTypePacker {
         int PARTITIONED = PrivateStateType::PARTITIONED;
         int WHOLE = PrivateStateType::WHOLE;
 
-        // Noter: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new
-        // constant add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(PARTITIONED, WHOLE));
     }
 };

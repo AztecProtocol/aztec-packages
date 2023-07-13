@@ -1,7 +1,7 @@
 #pragma once
 #include <stddef.h>
 
-// NOTE: When adding new constants add their names to `src/aztec3/circuits/abis/constants_packer.hpp` as well
+// NOTE: When modifying names of constants or enums do the changes in `src/aztec3/circuits/abis/packers.hpp` as well
 
 namespace aztec3 {
 
@@ -100,8 +100,6 @@ constexpr size_t MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
 constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
 
-// TS-RELEVANT-CODE-START
-
 /**
  * Enumerate the hash_indices which are used for pedersen hashing.
  * We start from 1 to avoid the default generators. The generator indices are listed
@@ -115,6 +113,7 @@ constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
  * | HIGH      | 16 < n ≤ 44                   | 40 < hash_index ≤ 44 |
  * +-----------+-------------------------------+----------------------+
  *
+ * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
  */
 enum GeneratorIndex {
     /**
@@ -160,6 +159,7 @@ enum GeneratorIndex {
     FUNCTION_ARGS,                  // Size ≤ 40
 };
 
+// Note: When modifying, modify `StorageSlotGeneratorIndexPacker` in packer.hpp accordingly.
 enum StorageSlotGeneratorIndex {
     BASE_SLOT,
     MAPPING_SLOT,
@@ -168,6 +168,7 @@ enum StorageSlotGeneratorIndex {
 
 // Enumerate the hash_sub_indices which are used for committing to private state note preimages.
 // Start from 1.
+// Note: When modifying, modify `PrivateStateNoteGeneratorIndexPacker` in packer.hpp accordingly.
 enum PrivateStateNoteGeneratorIndex {
     VALUE = 1,
     OWNER,
@@ -178,8 +179,7 @@ enum PrivateStateNoteGeneratorIndex {
     IS_DUMMY,
 };
 
+// Note: When modifying, modify `PrivateStateTypePacker` in packer.hpp accordingly.
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
-
-// TS-RELEVANT-CODE-END
 
 }  // namespace aztec3

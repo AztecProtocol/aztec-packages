@@ -45,84 +45,50 @@ export const L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = 12;
 export const FUNCTION_SELECTOR_NUM_BYTES = 4;
 export const MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
 export const NUM_FIELDS_PER_SHA256 = 2;
-
-/**
- * Enumerate the hash_indices which are used for pedersen hashing.
- * We start from 1 to avoid the default generators. The generator indices are listed
- * based on the number of elements each index hashes. The following conditions must be met:
- *
- * +-----------+-------------------------------+----------------------+
- * | Hash size | Number of elements hashed (n) | Condition to use     |
- * |-----------+-------------------------------+----------------------|
- * | LOW       | n ≤ 8                         | 0 < hash_index ≤ 32  |
- * | MID       | 8 < n ≤ 16                    | 32 < hash_index ≤ 40 |
- * | HIGH      | 16 < n ≤ 44                   | 40 < hash_index ≤ 44 |
- * +-----------+-------------------------------+----------------------+
- *
- */
 export enum GeneratorIndex {
-  /**
-   * Indices with size ≤ 8
-   */
-  COMMITMENT = 1, // Size = 7 (unused)
-  COMMITMENT_PLACEHOLDER, // Size = 1 (unused), for omitting some elements of commitment when partially comm
-  OUTER_COMMITMENT, // Size = 2
-  NULLIFIER_HASHED_PRIVATE_KEY, // Size = 1 (unused)
-  NULLIFIER, // Size = 4 (unused)
-  INITIALISATION_NULLIFIER, // Size = 2 (unused)
-  OUTER_NULLIFIER, // Size = 2
-  PUBLIC_DATA_READ, // Size = 2
-  PUBLIC_DATA_UPDATE_REQUEST, // Size = 3
-  FUNCTION_DATA, // Size = 3
-  FUNCTION_LEAF, // Size = 4
-  CONTRACT_DEPLOYMENT_DATA, // Size = 4
-  CONSTRUCTOR, // Size = 3
-  CONSTRUCTOR_ARGS, // Size = 8
-  CONTRACT_ADDRESS, // Size = 4
-  CONTRACT_LEAF, // Size = 3
-  CALL_CONTEXT, // Size = 6
-  CALL_STACK_ITEM, // Size = 3
-  CALL_STACK_ITEM_2, // Size = ? (unused), // TODO see function where it's used for explanation
-  L1_TO_L2_MESSAGE_SECRET, // Size = 1 (wrongly used)
-  L2_TO_L1_MSG, // Size = 2 (unused)
-  TX_CONTEXT, // Size = 4
-  PUBLIC_LEAF_INDEX, // Size = 2 (unused)
-  PUBLIC_DATA_LEAF, // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
-  SIGNED_TX_REQUEST, // Size = 7
-  GLOBAL_VARIABLES, // Size = 4
-  PARTIAL_CONTRACT_ADDRESS, // Size = 7
-  /**
-   * Indices with size ≤ 16
-   */
-  TX_REQUEST = 33, // Size = 14
-  /**
-   * Indices with size ≤ 44
-   */
-  VK = 41, // Size = 35
-  PRIVATE_CIRCUIT_PUBLIC_INPUTS, // Size = 39
-  PUBLIC_CIRCUIT_PUBLIC_INPUTS, // Size = 32 (unused)
-  FUNCTION_ARGS, // Size ≤ 40
+  COMMITMENT = 1,
+  COMMITMENT_PLACEHOLDER = 2,
+  OUTER_COMMITMENT = 3,
+  NULLIFIER_HASHED_PRIVATE_KEY = 4,
+  NULLIFIER = 5,
+  INITIALISATION_NULLIFIER = 6,
+  OUTER_NULLIFIER = 7,
+  PUBLIC_DATA_READ = 8,
+  PUBLIC_DATA_UPDATE_REQUEST = 9,
+  FUNCTION_DATA = 10,
+  FUNCTION_LEAF = 11,
+  CONTRACT_DEPLOYMENT_DATA = 12,
+  CONSTRUCTOR = 13,
+  CONSTRUCTOR_ARGS = 14,
+  CONTRACT_ADDRESS = 15,
+  CONTRACT_LEAF = 16,
+  CALL_CONTEXT = 17,
+  CALL_STACK_ITEM = 18,
+  CALL_STACK_ITEM_2 = 19,
+  L1_TO_L2_MESSAGE_SECRET = 20,
+  L2_TO_L1_MSG = 21,
+  TX_CONTEXT = 22,
+  PUBLIC_LEAF_INDEX = 23,
+  PUBLIC_DATA_LEAF = 24,
+  SIGNED_TX_REQUEST = 25,
+  GLOBAL_VARIABLES = 26,
+  PARTIAL_CONTRACT_ADDRESS = 27,
+  TX_REQUEST = 33,
+  VK = 41,
+  PRIVATE_CIRCUIT_PUBLIC_INPUTS = 42,
+  PUBLIC_CIRCUIT_PUBLIC_INPUTS = 43,
+  FUNCTION_ARGS = 44,
 }
-
-export enum StorageSlotGeneratorIndex {
-  BASE_SLOT,
-  MAPPING_SLOT,
-  MAPPING_SLOT_PLACEHOLDER,
-}
-
-// Enumerate the hash_sub_indices which are used for committing to private state note preimages.
-// Start from 1.
 export enum PrivateStateNoteGeneratorIndex {
   VALUE = 1,
-  OWNER,
-  CREATOR,
-  SALT,
-  NONCE,
-  MEMO,
-  IS_DUMMY,
+  OWNER = 2,
+  CREATOR = 3,
+  SALT = 4,
+  NONCE = 5,
+  MEMO = 6,
+  IS_DUMMY = 7,
 }
-
 export enum PrivateStateType {
   PARTITIONED = 1,
-  WHOLE,
+  WHOLE = 2,
 }
