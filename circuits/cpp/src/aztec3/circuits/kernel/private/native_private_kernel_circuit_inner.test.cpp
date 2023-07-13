@@ -587,6 +587,7 @@ TEST_F(native_private_kernel_inner_tests, native_expect_error_transient_read_req
     read_request_membership_witnesses[0].leaf_index = NT::fr(0);
     read_request_membership_witnesses[0].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
     read_request_membership_witnesses[0].is_transient = true;
+
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =
