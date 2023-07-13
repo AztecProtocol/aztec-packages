@@ -5,6 +5,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, KeyStore, L2BlockContext, L2BlockL2Logs, NoteSpendingInfo, PublicKey } from '@aztec/types';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
 import { getAcirSimulator } from '../simulator/index.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 
 /**
  * Contains all the decrypted data in this array so that we can later batch insert it all into the database.
@@ -107,7 +108,7 @@ export class NoteProcessor {
               userPertainingTxIndices.add(indexOfTxInABlock);
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
-                nullifier: await this.computeNullifier(noteSpendingInfo),
+                nullifier: await this.computeSiloedNullifier(noteSpendingInfo),
                 index: BigInt(dataStartIndexForBlock + logIndexWithinBlock),
                 publicKey: this.publicKey,
               });
@@ -139,18 +140,10 @@ export class NoteProcessor {
    * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
    * @returns A Fr instance representing the computed nullifier.
    */
-  private async computeNullifier(noteSpendingInfo: NoteSpendingInfo) {
+  private async computeSiloedNullifier({ contractAddress, storageSlot, notePreimage }: NoteSpendingInfo) {
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore);
-    // TODO In the future, we'll need to simulate an unconstrained fn associated with the contract ABI and slot
-    return Fr.fromBuffer(
-      simulator.computeSiloedNullifier(
-        noteSpendingInfo.contractAddress,
-        noteSpendingInfo.storageSlot,
-        noteSpendingInfo.notePreimage.items,
-        await this.keyStore.getAccountPrivateKey(this.publicKey),
-        await CircuitsWasm.get(),
-      ),
-    );
+    const nullifier = await simulator.computeNullifier(contractAddress, storageSlot, notePreimage.items);
+    return siloNullifier(await CircuitsWasm.get(), contractAddress, nullifier);
   }
 
   /**
