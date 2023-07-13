@@ -39,6 +39,7 @@ void chop_pending_commitments(DummyBuilder& builder,
             }
 
             // chop the pending commitment, i.e., replacing with 0.
+            // TODO(jeanmon): In addition, we will NOT chop if this is only a read request action without nullifiers.
             if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
                 new_commitments[match_pos] = fr(0);
             } else {

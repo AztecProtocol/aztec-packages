@@ -1430,7 +1430,7 @@ export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): 
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function abisSiloNullifier(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__silo_nullifier', [arg0.toBuffer(), arg1.toBuffer()]));
+  return Fr.fromBuffer(callCbind(wasm, 'abis__silo_nullifier', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
