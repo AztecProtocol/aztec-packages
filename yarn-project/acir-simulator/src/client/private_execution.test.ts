@@ -150,23 +150,37 @@ describe('Private Execution test suite', () => {
   describe('zk token contract', () => {
     const contractAddress = defaultContractAddress;
     const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
-    let owner: NoirPoint;
-    let recipient: NoirPoint;
+    let owner: AztecAddress;
+    let recipient: AztecAddress;
     let currentNoteIndex = 0n;
 
-    const buildNote = (amount: bigint, owner: NoirPoint) => {
+    const buildNote = (amount: bigint, noteOwner: AztecAddress) => {
       const nonce = new Fr(currentNoteIndex);
-      const preimage = [new Fr(amount), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(1n)];
+      const preimage = [new Fr(amount), noteOwner.toField(), Fr.random(), new Fr(1n)];
       return { index: currentNoteIndex++, nonce, preimage };
     };
 
-    beforeAll(() => {
+    const calculateAddress = (privateKey: Buffer) => {
       const grumpkin = new Grumpkin(circuitsWasm);
-      owner = toPublicKey(ownerPk, grumpkin);
-      recipient = toPublicKey(recipientPk, grumpkin);
-    });
+      const pubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
+      const partialAddress = Fr.random();
+      const address = computeContractAddressFromPartial(circuitsWasm, pubKey, partialAddress);
+      return [address, partialAddress, pubKey] as const;
+    };
 
     beforeEach(() => {
+      const [ownerAddress, ownerPartialAddress, ownerPubKey] = calculateAddress(ownerPk);
+      const [recipientAddress, recipientPartialAddress, recipientPubKey] = calculateAddress(recipientPk);
+
+      owner = ownerAddress;
+      recipient = recipientAddress;
+
+      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
+        if (address.equals(recipient)) return Promise.resolve([recipientPubKey, recipientPartialAddress]);
+        throw new Error(`Unknown address ${address}`);
+      });
+
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
           ZkTokenContractAbi.functions.find(f => selector.equals(generateFunctionSelector(f.name, f.parameters)))!,
@@ -212,7 +226,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
@@ -230,7 +244,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
-      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+      expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(1);
@@ -245,7 +259,7 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer')!;
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
       const notes = [buildNote(60n, owner), buildNote(80n, owner)];
       oracle.getNotes.mockResolvedValue(notes);
@@ -264,13 +278,13 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
-      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient, circuitsWasm));
+      expect(recipientNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm));
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
       expect(newCommitments).toHaveLength(2);
 
       const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
-      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
+      const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
       expect(recipientNoteCommitment).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, recipientNote.preimage),
       );
@@ -290,7 +304,7 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer')!;
 
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
 
       const notes = [buildNote(balance, owner)];
       oracle.getNotes.mockResolvedValue(notes);
@@ -382,7 +396,7 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('Consuming Messages', () => {
+  describe('consuming Messages', () => {
     const contractAddress = defaultContractAddress;
     const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
     let recipient: NoirPoint;
