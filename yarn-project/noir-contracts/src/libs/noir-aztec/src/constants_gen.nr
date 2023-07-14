@@ -1,4 +1,3 @@
-/* eslint-disable */
 // GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js
 global ARGS_LENGTH: comptime Field = 16;
 global RETURN_VALUES_LENGTH: comptime Field = 4;

@@ -28,7 +28,7 @@ async function main(): Promise<void> {
 
   // Noir
   const resultNoir: string =
-    '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js\n' +
+    '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js\n' +
     processConstantsNoir(constants) +
     processConstantsNoir(generatorIndexEnum) + // Note: Noir doesn't support enums so we export them as constants
     processConstantsNoir(privateStateNoteGeneratorIndexEnum) +

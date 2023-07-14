@@ -1,19 +1,19 @@
 use crate::generators;
+use crate::constants_gen::RETURN_VALUES_LENGTH;
+use crate::constants_gen::READ_REQUESTS_LENGTH;
+use crate::constants_gen::MAX_NEW_COMMITMENTS_PER_CALL;
+use crate::constants_gen::MAX_NEW_NULLIFIERS_PER_CALL;
+use crate::constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
+use crate::constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL;
+use crate::constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
+use crate::constants_gen::NUM_FIELDS_PER_SHA256;
 use crate::types::vec::BoundedVec;
 
 // Please change these ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
 // In other words, if the structure/size of the public inputs of a function call changes then we 
 // should change these constants as well as the offsets in private_call_stack_item.nr
-global MAX_ARGS: comptime Field = 16;
-global MAX_RETURN_VALUES: comptime Field = 4;
-global MAX_READ_REQUESTS: comptime Field = 4;
-global MAX_NEW_COMMITMENTS: comptime Field = 4;
-global MAX_NEW_NULLIFIERS: comptime Field = 4;
-global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
-global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
-global MAX_L2_TO_L1_MSGS : comptime Field = 2;
+// TADY
 global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
-global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
 global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
 global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
@@ -156,13 +156,13 @@ impl FunctionData {
 // PUBLIC_INPUTS
 // CALL_CONTEXT_SIZE - 6
 // + ARGS_HASH - 1
-// + MAX_RETURN_VALUES - 4
-// + MAX_READ_REQUESTS - 4
-// + MAX_NEW_COMMITMENTS - 4
-// + MAX_NEW_NULLIFIERS - 4
-// + MAX_PRIVATE_CALL_STACK - 4
-// + MAX_PUBLIC_CALL_STACK - 4
-// + MAX_L2_TO_L1_MSGS - 2
+// + RETURN_VALUES_LENGTH - 4
+// + READ_REQUESTS_LENGTH - 4
+// + MAX_NEW_COMMITMENTS_PER_CALL - 4
+// + MAX_NEW_NULLIFIERS_PER_CALL - 4
+// + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL - 4
+// + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL - 4
+// + MAX_NEW_L2_TO_L1_MSGS_PER_CALL - 2
 // + historic_private_data_tree_root - 1
 // + historic_private_nullifier_tree_root - 1
 // + historic_contract_tree_root - 1
@@ -175,18 +175,18 @@ impl FunctionData {
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
-    return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    read_requests: [Field; crate::abi::MAX_READ_REQUESTS],
-    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
-    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
-    private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
-    public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    return_values: [Field; RETURN_VALUES_LENGTH],
+    read_requests: [Field; crate::abi::READ_REQUESTS_LENGTH],
+    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    private_call_stack: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     // Explore introducing a new type like uint256 (similar to Point), so it's more explicit that
     // we're talking about a single number backed by two field elements.
-    encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
-    unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     commitment_trees_roots: CommitmentTreesRoots,
@@ -261,13 +261,13 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 
 // CALL_CONTEXT_SIZE
 // + ARGS_HASH 
-// + MAX_RETURN_VALUES 
+// + RETURN_VALUES_LENGTH 
 // + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
 // + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
-// + MAX_PUBLIC_CALL_STACK
-// + MAX_NEW_COMMITMENTS
-// + MAX_NEW_NULLIFIERS
-// + MAX_L2_TO_L1_MSGS
+// + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
+// + MAX_NEW_COMMITMENTS_PER_CALL
+// + MAX_NEW_NULLIFIERS_PER_CALL
+// + MAX_NEW_L2_TO_L1_MSGS_PER_CALL
 // + COMMITMENT_TREES_ROOTS_SIZE - 4
 // + 2;
 // = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 4 + 2 + 4 + 2
@@ -276,13 +276,13 @@ global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 51;
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
-    return_values: [Field; crate::abi::MAX_RETURN_VALUES],
+    return_values: [Field; RETURN_VALUES_LENGTH],
     contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
     contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
-    public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
-    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     commitment_trees_roots: CommitmentTreesRoots,
     historic_public_data_tree_root: Field,
     prover_address: Field,
