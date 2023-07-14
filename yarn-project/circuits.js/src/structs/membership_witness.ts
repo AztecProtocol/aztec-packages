@@ -3,7 +3,7 @@ import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { toBufferBE, toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { PRIVATE_DATA_TREE_HEIGHT } from './constants.js';
+import { PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
 
 /**
  * Contains information which can be used to prove that a leaf is a member of a Merkle tree.
