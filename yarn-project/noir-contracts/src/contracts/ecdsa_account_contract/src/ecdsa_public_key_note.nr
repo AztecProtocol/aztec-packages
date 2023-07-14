@@ -1,7 +1,9 @@
 use dep::std::hash::pedersen;
 use dep::aztec::note::note_interface::NoteInterface;
+use dep::aztec::note::note_header::NoteHeader;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 use dep::aztec::oracle::get_public_key::get_public_key;
+use dep::custom_notes::utils::compute_siloed_note_hash;
 
 global ECDSA_PUBLIC_KEY_NOTE_LEN: Field = 65;
 
@@ -11,6 +13,7 @@ struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],
     owner: Field, // We store the owner address only to get the secret key to compute the nullifier
+    header: NoteHeader,
 }
 
 impl EcdsaPublicKeyNote {
@@ -19,6 +22,7 @@ impl EcdsaPublicKeyNote {
             x,
             y,
             owner,
+            header: NoteHeader::empty(),
         }
     }
 
@@ -32,11 +36,27 @@ impl EcdsaPublicKeyNote {
         res
     }
 
+    fn compute_nullifier(self) -> Field {
+        let siloed_note_hash = compute_siloed_note_hash(EcdsaPublicKeyNoteInterface, self);
+        let owner_nullifying_public_key = get_public_key(self.owner);
+        let secret = get_secret_key(owner_nullifying_public_key);
+        dep::std::hash::pedersen([
+            siloed_note_hash,
+            secret,
+        ])[0]
+    }
+
+    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+        self.header = header;
+        self
+    }
+
     fn dummy() -> Self {
         EcdsaPublicKeyNote {
             x: [0;32],
             y: [0;32],
             owner: 0,
+            header: NoteHeader::empty(),
         }
     }
 
@@ -56,7 +76,8 @@ fn deserialise(preimage: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> EcdsaPublicKeyNo
     EcdsaPublicKeyNote {
         x,
         y,
-        owner: preimage[64]
+        owner: preimage[64],
+        header: NoteHeader::empty(),
     }
 }
 
@@ -68,14 +89,8 @@ fn compute_note_hash(note: EcdsaPublicKeyNote) -> Field {
     dep::std::hash::pedersen(note.serialise())[0]
 }
 
-fn compute_nullifier(note: EcdsaPublicKeyNote, final_note_hash: Field) -> Field {
-    let owner_nullifying_public_key = get_public_key(note.owner);
-    let secret = get_secret_key(owner_nullifying_public_key);
-    // let secret = 0;
-    dep::std::hash::pedersen([
-        final_note_hash,
-        secret,
-    ])[0]
+fn compute_nullifier(note: EcdsaPublicKeyNote) -> Field {
+    note.compute_nullifier()
 }
 
 fn dummy() -> EcdsaPublicKeyNote {
@@ -86,6 +101,14 @@ fn is_dummy(note: EcdsaPublicKeyNote) -> bool {
     note.is_dummy()
 }
 
+fn get_header(note: EcdsaPublicKeyNote) -> NoteHeader {
+    note.header
+}
+
+fn set_header(note: EcdsaPublicKeyNote, header: NoteHeader) -> EcdsaPublicKeyNote {
+    note.set_header(header)
+}
+
 global EcdsaPublicKeyNoteInterface = NoteInterface {
     deserialise,
     serialise,
@@ -93,4 +116,6 @@ global EcdsaPublicKeyNoteInterface = NoteInterface {
     compute_nullifier,
     dummy,
     is_dummy,
+    get_header,
+    set_header,
 };
