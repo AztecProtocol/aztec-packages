@@ -90,7 +90,9 @@
     "dependencies": [
       "circuits.js",
       "foundation",
-      "types"
+      "types",
+      "merkle-tree",
+      "noir-contracts"
     ]
   },
   "archiver": {
