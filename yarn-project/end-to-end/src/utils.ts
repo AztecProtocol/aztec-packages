@@ -38,7 +38,6 @@ const createRpcServer = async (
   nodeConfig: AztecNodeConfig,
   rpcConfig: RpcServerConfig,
 ): Promise<[AztecNodeService | undefined, AztecRPC]> => {
-  console.log(`URL ${SANDBOX_URL}`);
   if (SANDBOX_URL) {
     const jsonClient = createJsonRpcClient(SANDBOX_URL);
     return [undefined, jsonClient];
