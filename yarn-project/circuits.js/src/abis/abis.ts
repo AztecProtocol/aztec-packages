@@ -2,7 +2,12 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisSiloCommitment, abisSiloNullifier } from '../cbind/circuits.gen.js';
+import {
+  abisComputeCommitmentNonce,
+  abisComputeUniqueCommitment,
+  abisSiloCommitment,
+  abisSiloNullifier,
+} from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -16,7 +21,6 @@ import {
   Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
-import { pedersenPlookupCommitInputs } from '../barretenberg/crypto/index.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -241,25 +245,24 @@ export function computeContractAddressFromPartial(wasm: IWasmModule, pubKey: Poi
  * Computes a commitment nonce, which will be used to create a unique commitment.
  * @param wasm - A module providing low-level wasm access.
  * @param nullifierZero - The first nullifier in the tx.
- * @param index - The index of the commitment.
+ * @param commitmentIndex - The index of the commitment.
  * @returns A commitment nonce.
  */
-export function computeCommitmentNonce(wasm: IWasmModule, _nullifierZero: Fr, _index: number): Fr {
+export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, commitmentIndex: number): Fr {
   wasm.call('pedersen__init');
-  // TODO #1019
-  return Fr.ZERO;
+  return abisComputeCommitmentNonce(wasm, nullifierZero, new Fr(commitmentIndex));
 }
 
 /**
  * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
  * @param wasm - A module providing low-level wasm access.
  * @param nonce - The contract address.
- * @param commitment - An inner commitment.
+ * @param innerCommitment - An inner commitment.
  * @returns A siloed commitment.
  */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, commitment: Fr): Fr {
+export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, innerCommitment: Fr): Fr {
   wasm.call('pedersen__init');
-  return Fr.fromBuffer(pedersenPlookupCommitInputs(wasm, [nonce.toBuffer(), commitment.toBuffer()]));
+  return abisComputeUniqueCommitment(wasm, nonce, innerCommitment);
 }
 
 /**
@@ -267,12 +270,12 @@ export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, commitment
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address
- * @param commitment - The commitment to silo.
+ * @param uniqueCommitment - The commitment to silo.
  * @returns A siloed commitment.
  */
-export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
+export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, uniqueCommitment: Fr): Fr {
   wasm.call('pedersen__init');
-  return abisSiloCommitment(wasm, contract, commitment);
+  return abisSiloCommitment(wasm, contract, uniqueCommitment);
 }
 
 /**

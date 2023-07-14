@@ -4,8 +4,8 @@ import { Buffer } from 'buffer';
 import { callCbind } from './cbind.js';
 import { IWasmModule } from '@aztec/foundation/wasm';
 import {
-  Address,
   Fr,
+  Address,
   Fq,
   G1AffineElement,
   NativeAggregationState,
@@ -1374,6 +1374,12 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
+export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [arg0.toBuffer(), arg1.toBuffer()]));
+}
+export function abisComputeUniqueCommitment(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_commitment', [arg0.toBuffer(), arg1.toBuffer()]));
+}
 export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [arg0.toBuffer(), arg1.toBuffer()]));
 }
