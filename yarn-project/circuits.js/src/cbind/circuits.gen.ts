@@ -669,8 +669,8 @@ export function fromPoint(o: Point): MsgpackPoint {
     throw new Error('Expected y in Point serialization');
   }
   return {
-    x: o.x.toBuffer(),
-    y: o.y.toBuffer(),
+    x: toBuffer(o.x),
+    y: toBuffer(o.y),
   };
 }
 
