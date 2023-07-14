@@ -405,8 +405,8 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  read_requests: Tuple<Buffer, 4>;
-  read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 4>;
+  read_requests: Tuple<Buffer, 16>;
+  read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 16>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;

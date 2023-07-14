@@ -22,9 +22,9 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 // a read request and commitment, i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
 // Relevant task: https://github.com/AztecProtocol/aztec-packages/issues/892
 void chop_pending_commitments(DummyBuilder& builder,
-                              std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+                              std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
                               std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
-                                         MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses,
+                                         MAX_READ_REQUESTS_PER_TX> const& read_request_membership_witnesses,
                               std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
     // chop commitments from the previous call(s)
