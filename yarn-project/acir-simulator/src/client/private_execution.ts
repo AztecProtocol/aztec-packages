@@ -77,6 +77,9 @@ export class PrivateFunctionExecution {
         const [pubKey, partialContractAddress] = await this.context.db.getPublicKey(address);
         return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
+      getNote: async ([slot], [returnSize]) => {
+        return await this.context.getNotes(this.contractAddress, slot, [], [], '1', '0', returnSize);
+      },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),

@@ -33,11 +33,11 @@ unconstrained fn notify_nullified_note<N>(
 }
 
 #[oracle(getNote)]
-fn get_note_oracle<S>(_storage_slot: Field) -> [Field; S] {}
-
-unconstrained fn get_note_oracle_wrapper<S>(storage_slot: Field) -> [Field; S] {
-    get_note_oracle(storage_slot)
-}
+fn get_note_oracle<S>(
+    _storage_slot: Field, 
+    _return_size: u32, 
+    _zero_fields: [Field; S]
+) -> [Field; S] {}
 
 #[oracle(getNotes)]
 fn get_notes_oracle<N, S>(
@@ -49,6 +49,13 @@ fn get_notes_oracle<N, S>(
     _return_size: u32,
     _zero_fields: [Field; S],
 ) -> [Field; S] {}
+
+unconstrained fn get_note_oracle_wrapper<S>(
+    storage_slot: Field, 
+    zero_fields: [Field; S]
+) -> [Field; S] {
+    get_note_oracle(storage_slot, zero_fields.len() as u32, zero_fields)
+}
 
 unconstrained fn get_notes_oracle_wrapper<N, S>(
     storage_slot: Field,
@@ -62,15 +69,20 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     get_notes_oracle(storage_slot, sort_by, sort_order, limit, offset, return_size, fields)
 }
 
-fn get_note<Note, N>(
+fn get_note<Note, N, NS>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
+    zero_fields: [Field; NS]
 ) -> Note {
-    let fields: [Field; N] = get_note_oracle_wrapper(storage_slot);
+    let fields: [Field; NS] = get_note_oracle_wrapper(storage_slot, zero_fields);
     let has_note = fields[0] == 1;
+    let contract_address = fields[1];
     if (has_note) {
         let deserialise = note_interface.deserialise;
-        deserialise(arr_copy_slice(fields, [0; N], 1))
+        let set_header = note_interface.set_header;
+        let header = NoteHeader { contract_address, storage_slot };
+        let mut note = deserialise(arr_copy_slice(fields, [0; N], 2));
+        set_header(note, header)
     } else {
         let dummy = note_interface.dummy;
         dummy()

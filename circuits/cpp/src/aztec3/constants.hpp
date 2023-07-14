@@ -198,6 +198,7 @@ constexpr size_t L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = L1_TO_L2_MESSAGE_LENGTH +
 constexpr size_t MAX_NOTE_FIELDS_LENGTH = 20;
 // + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
 constexpr size_t GET_NOTE_ORACLE_RETURN_LENGTH = MAX_READ_REQUESTS_PER_CALL * MAX_NOTE_FIELDS_LENGTH + 2;
+constexpr size_t GET_SINGLE_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTE_FIELDS_LENGTH + 2;
 constexpr size_t MAX_NOTES_PER_PAGE = 10;
 // + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
 constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_LENGTH + 2;

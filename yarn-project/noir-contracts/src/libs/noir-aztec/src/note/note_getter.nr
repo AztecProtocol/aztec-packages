@@ -5,6 +5,7 @@ use crate::note::note_interface::NoteInterface;
 use crate::oracle;
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
 use crate::constants_gen::GET_NOTE_ORACLE_RETURN_LENGTH;
+use crate::constants_gen::GET_SINGLE_NOTE_ORACLE_RETURN_LENGTH;
 use crate::constants_gen::MAX_NOTES_PER_PAGE;
 use crate::constants_gen::VIEW_NOTE_ORACLE_RETURN_LENGTH;
 
@@ -28,7 +29,7 @@ fn get_note<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> (Context, Note) {
-    let note = oracle::notes::get_note(storage_slot, note_interface);
+    let note = oracle::notes::get_note(storage_slot, note_interface, [0; GET_SINGLE_NOTE_ORACLE_RETURN_LENGTH]);
     context = ensure_note_exists(context, storage_slot, note_interface, note);
     (context, note)
 }

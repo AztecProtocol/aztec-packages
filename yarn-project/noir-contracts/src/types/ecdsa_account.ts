@@ -67,5 +67,13 @@ export class EcdsaAccountContract extends Contract {
       signature: (bigint | number)[],
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
+
+    /** stev(contract_address: field, storage_slot: field, preimage: array) */
+    stev: ((
+      contract_address: Fr | bigint | number | { toField: () => Fr },
+      storage_slot: Fr | bigint | number | { toField: () => Fr },
+      preimage: (Fr | bigint | number | { toField: () => Fr })[],
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
   };
 }

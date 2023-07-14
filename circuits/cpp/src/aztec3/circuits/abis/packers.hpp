@@ -76,7 +76,8 @@ struct ConstantsPacker {
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
                  CONTRACT_STORAGE_READ_LENGTH,
-                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));  // <-- Add names of new constants here
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH),
+             NVP(GET_SINGLE_NOTE_ORACLE_RETURN_LENGTH));  // <-- Add names of new constants here
     }
 };
 

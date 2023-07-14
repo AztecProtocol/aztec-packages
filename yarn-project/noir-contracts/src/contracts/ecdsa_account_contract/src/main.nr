@@ -10,14 +10,21 @@ contract EcdsaAccount {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
+    use dep::aztec::context::Context;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::oracle::debug_log;
+    use dep::aztec::oracle::get_public_key::get_public_key;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::context::Context;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
 
+    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
+    use dep::custom_notes::utils::compute_note_hash_and_nullifier;
+
     use crate::storage::Storage;
     use crate::ecdsa_public_key_note::EcdsaPublicKeyNote;
+    use crate::ecdsa_public_key_note::EcdsaPublicKeyNoteInterface;
 
     // All calls made by this account will be routed through this entrypoint
     fn entrypoint(  
@@ -61,9 +68,24 @@ contract EcdsaAccount {
         for byte in signing_pub_key_y { args = args.push(byte as Field); }
         let mut context = Context::new(inputs, abi::hash_args(args.storage));
         
-        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, inputs.call_context.storage_contract_address);
+        let this = inputs.call_context.storage_contract_address;
+        let pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         context = storage.public_key.initialise(context, pub_key_note);
         
+        context = emit_encrypted_log(
+            context,
+            this,
+            storage.public_key.storage_slot,
+            get_public_key(this),
+            pub_key_note.serialise(),
+        );
+
         context.finish()
+    }
+
+    /// ABI stev type "unconstrained"
+    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
+        assert(storage_slot == 1);
+        compute_note_hash_and_nullifier(contract_address, storage_slot, EcdsaPublicKeyNoteInterface, preimage)
     }
 }

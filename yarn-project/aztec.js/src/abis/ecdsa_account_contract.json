@@ -98,6 +98,46 @@
         }
       ],
       "returnTypes": []
+    },
+    {
+      "name": "stev",
+      "functionType": "unconstrained",
+      "parameters": [
+        {
+          "name": "contract_address",
+          "type": {
+            "kind": "field"
+          },
+          "visibility": "private"
+        },
+        {
+          "name": "storage_slot",
+          "type": {
+            "kind": "field"
+          },
+          "visibility": "private"
+        },
+        {
+          "name": "preimage",
+          "type": {
+            "kind": "array",
+            "length": 20,
+            "type": {
+              "kind": "field"
+            }
+          },
+          "visibility": "private"
+        }
+      ],
+      "returnTypes": [
+        {
+          "kind": "array",
+          "length": 2,
+          "type": {
+            "kind": "field"
+          }
+        }
+      ]
     }
   ]
 }
