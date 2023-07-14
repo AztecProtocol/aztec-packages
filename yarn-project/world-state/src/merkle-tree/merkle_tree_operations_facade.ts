@@ -1,5 +1,5 @@
-import { LowLeafWitnessData, SiblingPath } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId } from '@aztec/types';
+import { LowLeafWitnessData } from '@aztec/merkle-tree';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { CurrentCommitmentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 

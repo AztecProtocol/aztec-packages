@@ -1,15 +1,14 @@
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
+import { Hasher, SiblingPath } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 import { default as levelup } from 'levelup';
 
-import { Hasher } from '../hasher.js';
-import { INITIAL_LEAF, SiblingPath } from '../index.js';
+import { INITIAL_LEAF, newTree } from '../index.js';
 import { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
-import { newTree } from '../new_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';

@@ -7,10 +7,10 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import {
+  AztecNode,
   ContractData,
   ContractDataSource,
   ContractPublicData,
@@ -22,6 +22,7 @@ import {
   L2LogsSource,
   LogType,
   MerkleTreeId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/types';
@@ -35,7 +36,6 @@ import {
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
 
-import { AztecNode } from './aztec-node.js';
 import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;

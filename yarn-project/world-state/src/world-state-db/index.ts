@@ -1,7 +1,7 @@
 import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { LeafData, LowLeafWitnessData, SiblingPath } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId } from '@aztec/types';
+import { LeafData, LowLeafWitnessData } from '@aztec/merkle-tree';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 export * from './merkle_trees.js';
 export { LeafData } from '@aztec/merkle-tree';

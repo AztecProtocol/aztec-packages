@@ -5,8 +5,7 @@ import {
   pedersenHashInputs,
 } from '@aztec/circuits.js/barretenberg';
 import { IWasmModule } from '@aztec/foundation/wasm';
-
-import { Hasher } from './hasher.js';
+import { Hasher } from '@aztec/types';
 
 /**
  * A helper class encapsulating Pedersen hash functionality.

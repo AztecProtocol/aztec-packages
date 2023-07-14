@@ -89,6 +89,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     const publicClient = createPublicClient({
       chain: chain.chainInfo,
       transport: http(chain.rpcUrl),
+      pollingInterval: config.viemPollingIntervalMS,
     });
     const archiverStore = new MemoryArchiverStore();
     const archiver = new Archiver(
@@ -98,7 +99,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       config.contractDeploymentEmitterContract,
       config.searchStartBlock,
       archiverStore,
-      config.archiverPollingInterval,
+      config.archiverPollingIntervalMS,
     );
     await archiver.start(blockUntilSynced);
     return archiver;

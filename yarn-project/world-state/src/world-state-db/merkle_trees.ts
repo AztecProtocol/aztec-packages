@@ -20,14 +20,13 @@ import {
   LeafData,
   LowLeafWitnessData,
   Pedersen,
-  SiblingPath,
   SparseTree,
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
   newTree,
 } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId, merkleTreeIds } from '@aztec/types';
+import { L2Block, MerkleTreeId, SiblingPath, merkleTreeIds } from '@aztec/types';
 
 import { default as levelup } from 'levelup';
 

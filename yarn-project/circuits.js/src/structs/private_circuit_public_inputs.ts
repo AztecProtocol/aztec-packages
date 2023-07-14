@@ -6,8 +6,8 @@ import {
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
   NUM_FIELDS_PER_SHA256,
-  READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '../cbind/constants.gen.js';
 import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
@@ -107,7 +107,7 @@ export class PrivateCircuitPublicInputs {
     public version: Fr,
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'readRequests', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_CALL);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
@@ -138,7 +138,7 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       frArray(RETURN_VALUES_LENGTH),
-      frArray(READ_REQUESTS_LENGTH),
+      frArray(MAX_READ_REQUESTS_PER_CALL),
       frArray(MAX_NEW_COMMITMENTS_PER_CALL),
       frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),

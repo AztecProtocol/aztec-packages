@@ -1,7 +1,8 @@
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { Tuple } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
+import { PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
 import { assertMemberLength, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
@@ -34,7 +35,7 @@ export class MembershipWitness<N extends number> {
     return new MembershipWitness(
       size,
       BigInt(start),
-      range(size, start).map(x => new Fr(BigInt(x))),
+      range(size, start).map(x => new Fr(BigInt(x))) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
     );
   }
 
@@ -73,6 +74,19 @@ export class MembershipWitness<N extends number> {
       siblingPath.map(x => Fr.fromBuffer(x)) as Tuple<Fr, N>,
     );
   }
+
+  /**
+   * Deserializes from a buffer or reader, corresponding to a write in cpp.
+   * @param buffer - Buffer or reader to read from.
+   * @returns The deserialized `MembershipWitness`.
+   */
+  static fromBuffer<N extends number>(buffer: Buffer | BufferReader): MembershipWitness<N> {
+    const reader = BufferReader.asReader(buffer);
+    const leafIndex = toBigIntBE(reader.readBytes(32));
+    const siblingPath = reader.readBufferArray() as Tuple<Buffer, N>;
+    return this.fromBufferArray(leafIndex, siblingPath);
+  }
+
   // import { SiblingPath } from '@aztec/merkle-tree';
   //   static fromSiblingPath<N extends number>(leafIndex: bigint, siblingPath: SiblingPath<N>): MembershipWitness<N> {
   //     return new MembershipWitness<N>(siblingPath.pathSize, leafIndex, siblingPath.toFieldArray() as Tuple<Fr, N>);

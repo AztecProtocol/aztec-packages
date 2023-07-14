@@ -15,11 +15,8 @@ import { Fr } from '@aztec/foundation/fields';
 
 import times from 'lodash.times';
 
-import { ContractData } from './contract_data.js';
-import { LogType, TxL2Logs } from './index.js';
-import { L2Tx } from './l2_tx.js';
+import { ContractData, L2Tx, LogType, PublicDataWrite, TxL2Logs } from './index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
-import { PublicDataWrite } from './public_data_write.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
