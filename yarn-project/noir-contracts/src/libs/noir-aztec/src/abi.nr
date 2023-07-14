@@ -7,6 +7,8 @@ use crate::constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
 use crate::constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL;
 use crate::constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
 use crate::constants_gen::NUM_FIELDS_PER_SHA256;
+use crate::constants_gen::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
+use crate::constants_gen::MAX_PUBLIC_DATA_READS_PER_CALL;
 use crate::types::vec::BoundedVec;
 
 // Please change these ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
@@ -14,8 +16,6 @@ use crate::types::vec::BoundedVec;
 // should change these constants as well as the offsets in private_call_stack_item.nr
 // TADY
 global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
-global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
-global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
@@ -262,8 +262,8 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
 // CALL_CONTEXT_SIZE
 // + ARGS_HASH 
 // + RETURN_VALUES_LENGTH 
-// + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
-// + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
+// + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
+// + MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_SIZE
 // + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
 // + MAX_NEW_COMMITMENTS_PER_CALL
 // + MAX_NEW_NULLIFIERS_PER_CALL
@@ -277,8 +277,8 @@ struct PublicCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
-    contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
-    contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
+    contract_storage_update_requests: [ContractStorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+    contract_storage_read: [ContractStorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
     public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
     new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
     new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
@@ -299,10 +299,10 @@ impl PublicCircuitPublicInputs {
         fields = fields.push_array(self.call_context.serialize());   
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        for i in 0..crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH {
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             fields = fields.push_array(self.contract_storage_update_requests[i].serialize());
         }
-        for i in 0..crate::abi::CONTRACT_STORAGE_READS_LENGTH {
+        for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             fields = fields.push_array(self.contract_storage_read[i].serialize());
         }
         fields = fields.push_array(self.public_call_stack);
