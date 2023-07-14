@@ -1,6 +1,6 @@
 # Contributing Guidelines
 
-There are many ways to contribute to aztec-packages.
+There are many ways to contribute to Aztec Monorepo.
 
 ## Opening an issue
 
