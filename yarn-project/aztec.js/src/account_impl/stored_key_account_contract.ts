@@ -5,6 +5,7 @@ import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/ty
 
 import partition from 'lodash.partition';
 
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import EcdsaAccountContractAbi from '../abis/ecdsa_account_contract.json' assert { type: 'json' };
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { AccountImplementation } from './index.js';
@@ -14,7 +15,11 @@ import { AccountImplementation } from './index.js';
  * every new request in order to validate the payload signature.
  */
 export class StoredKeyAccountContract implements AccountImplementation {
-  constructor(private address: AztecAddress, private privateKey: Buffer, private signer: Signer) {}
+  private log: DebugLogger;
+
+  constructor(private address: AztecAddress, private privateKey: Buffer, private signer: Signer) {
+    this.log = createDebugLogger('aztec:client:accounts:stored_key');
+  }
 
   getAddress(): AztecAddress {
     return this.address;
@@ -31,8 +36,9 @@ export class StoredKeyAccountContract implements AccountImplementation {
     const wasm = await CircuitsWasm.get();
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-
     const signature = this.signer.constructSignature(hash, this.privateKey).toBuffer();
+    this.log(`Signed challenge ${hash.toString('hex')} as ${signature.toString('hex')}`);
+
     const args = [payload, signature];
     const abi = this.getEntrypointAbi();
     const selector = generateFunctionSelector(abi.name, abi.parameters);

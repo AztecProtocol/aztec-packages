@@ -41,7 +41,8 @@ type ORACLE_NAMES =
   | 'emitEncryptedLog'
   | 'emitUnencryptedLog'
   | 'getPublicKey'
-  | 'debugLog';
+  | 'debugLog'
+  | 'debugLogWithPrefix';
 
 /**
  * A type that does not require all keys to be present.
