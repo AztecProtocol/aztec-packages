@@ -1,9 +1,10 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, Fr, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import { Tuple } from '@aztec/foundation/serialize';
+import { MerkleTreeId } from '@aztec/types';
+
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
-import { MerkleTreeId } from '@aztec/types';
-import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.

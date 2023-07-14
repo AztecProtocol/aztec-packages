@@ -9,10 +9,12 @@ import {
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
-  mockTx,
   TxHash,
+  mockTx,
 } from '@aztec/types';
+
 import { jest } from '@jest/globals';
+
 import { HttpNode } from './http-node.js';
 
 const TEST_URL = 'http://aztec-node-url.com/';

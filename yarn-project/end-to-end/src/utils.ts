@@ -1,6 +1,5 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
+import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
   AccountContract,
@@ -16,19 +15,21 @@ import {
 import { CircuitsWasm, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
+import { TxStatus } from '@aztec/types';
+
 import { randomBytes } from 'crypto';
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { TxStatus } from '@aztec/types';
 
 /**
  * Sets up the environment for the end-to-end tests.

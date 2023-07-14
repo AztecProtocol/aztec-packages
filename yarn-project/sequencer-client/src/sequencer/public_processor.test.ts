@@ -30,14 +30,16 @@ import {
   EncodedContractFunction,
   ExecutionRequest,
   FunctionL2Logs,
-  mockTx,
   Tx,
   TxL2Logs,
+  mockTx,
 } from '@aztec/types';
 import { MerkleTreeOperations, TreeInfo } from '@aztec/world-state';
+
 import { MockProxy, mock } from 'jest-mock-extended';
 import pick from 'lodash.pick';
 import times from 'lodash.times';
+
 import { PublicProver } from '../prover/index.js';
 import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';

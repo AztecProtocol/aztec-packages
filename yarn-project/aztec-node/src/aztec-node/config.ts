@@ -1,6 +1,6 @@
 import { ArchiverConfig, getConfigEnvVars as getArchiverVars } from '@aztec/archiver';
-import { SequencerClientConfig, getConfigEnvVars as getSequencerVars } from '@aztec/sequencer-client';
 import { P2PConfig, getP2PConfigEnvVars } from '@aztec/p2p';
+import { SequencerClientConfig, getConfigEnvVars as getSequencerVars } from '@aztec/sequencer-client';
 
 /**
  * The configuration the aztec node.

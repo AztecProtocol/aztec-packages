@@ -1,9 +1,9 @@
 import { CircuitsWasm, Fr, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, TxStatus } from '@aztec/types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
 
 import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
 import {

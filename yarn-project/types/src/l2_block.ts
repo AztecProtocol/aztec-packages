@@ -1,23 +1,25 @@
 import {
   AppendOnlyTreeSnapshot,
+  GlobalVariables,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
-  GlobalVariables,
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { Fr } from '@aztec/foundation/fields';
-import times from 'lodash.times';
-import { ContractData } from './contract_data.js';
-import { L2Tx } from './l2_tx.js';
-import { PublicDataWrite } from './public_data_write.js';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
-import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
+import { Fr } from '@aztec/foundation/fields';
+
+import times from 'lodash.times';
+
+import { ContractData } from './contract_data.js';
 import { LogType, TxL2Logs } from './index.js';
+import { L2Tx } from './l2_tx.js';
+import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
+import { PublicDataWrite } from './public_data_write.js';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.

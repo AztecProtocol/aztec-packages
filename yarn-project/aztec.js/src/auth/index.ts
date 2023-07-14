@@ -1,4 +1,5 @@
 import { AztecAddress, Fr } from '@aztec/circuits.js';
+
 import { EntrypointPayload } from '../account_impl/account_contract.js';
 
 export * from './ecdsa.js';

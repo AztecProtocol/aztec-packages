@@ -31,8 +31,10 @@ import {
   WorldStateSynchroniser,
   computePublicDataTreeLeafIndex,
 } from '@aztec/world-state';
+
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
+
 import { AztecNode } from './aztec-node.js';
 import { AztecNodeConfig } from './config.js';
 

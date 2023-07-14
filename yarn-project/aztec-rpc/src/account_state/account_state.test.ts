@@ -1,8 +1,9 @@
 import { AztecNode } from '@aztec/aztec-node';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import {
   FunctionL2Logs,
   KeyPair,
@@ -13,11 +14,12 @@ import {
   NoteSpendingInfo,
   TxL2Logs,
 } from '@aztec/types';
+
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
+
 import { Database, MemoryDB } from '../database/index.js';
 import { AccountState } from './account_state.js';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 
 describe('Account State', () => {
   let grumpkin: Grumpkin;

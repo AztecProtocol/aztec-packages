@@ -1,11 +1,12 @@
+import { Fr } from '@aztec/foundation/fields';
 import {
   Tuple,
   assertLength,
   deserializeArrayFromVector,
   serializeBufferArrayToVector,
 } from '@aztec/foundation/serialize';
+
 import { Pedersen } from '../pedersen.js';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Contains functionality to compute and serialize/deserialize a sibling path.

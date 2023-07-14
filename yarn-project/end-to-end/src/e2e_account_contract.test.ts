@@ -1,4 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   AccountContract,
   AccountWallet,
@@ -10,15 +11,15 @@ import {
   Wallet,
   generatePublicKey,
 } from '@aztec/aztec.js';
+import { CircuitsWasm, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
-import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
-import { CircuitsWasm, getContractDeploymentInfo, Point } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { randomBytes } from 'crypto';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { PublicKey, TxStatus } from '@aztec/types';
+
+import { randomBytes } from 'crypto';
 
 import { privateKey2 } from './fixtures.js';
 import { setup } from './utils.js';

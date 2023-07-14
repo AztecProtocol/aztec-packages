@@ -1,11 +1,11 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
-import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
-import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
+import { CircuitError } from '@aztec/circuits.js';
+import { DebugLogger } from '@aztec/foundation/log';
+import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
 
 import { setup } from './utils.js';
-import { CircuitError } from '@aztec/circuits.js';
 
 describe('e2e_pending_commitments_contract', () => {
   let aztecNode: AztecNodeService;

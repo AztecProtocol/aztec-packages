@@ -9,8 +9,8 @@ import {
   Point,
   PrivateHistoricTreeRoots,
 } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
 import { siloCommitment } from '@aztec/circuits.js/abis';
+import { FunctionAbi } from '@aztec/foundation/abi';
 import { KeyPair, MerkleTreeId } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';

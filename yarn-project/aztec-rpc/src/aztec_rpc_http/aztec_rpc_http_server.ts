@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc';
 import { ContractData, ContractDeploymentTx, ContractPublicData, Tx, TxExecutionRequest, TxHash } from '@aztec/types';
+
 import { foundry } from 'viem/chains';
 
 import { EthAddress, createAztecRPCServer } from '../index.js';

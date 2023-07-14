@@ -1,12 +1,13 @@
-import partition from 'lodash.partition';
 import { AztecAddress, CircuitsWasm, Fr, FunctionData, PartialContractAddress, TxContext } from '@aztec/circuits.js';
+import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { sha256 } from '@aztec/foundation/crypto';
 import { ExecutionRequest, PackedArguments, PublicKey, TxExecutionRequest } from '@aztec/types';
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 
-import { AccountImplementation } from './index.js';
+import partition from 'lodash.partition';
+
 import { EcdsaAuthProvider, SchnorrAuthProvider } from '../auth/index.js';
+import { AccountImplementation } from './index.js';
 
 /**
  * Account backed by an account contract

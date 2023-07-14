@@ -1,8 +1,10 @@
+import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
+
 import { LevelUp, LevelUpChain } from 'levelup';
-import { SiblingPath } from './sibling_path/sibling_path.js';
+
 import { Hasher } from './hasher.js';
 import { MerkleTree } from './interfaces/merkle_tree.js';
-import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
+import { SiblingPath } from './sibling_path/sibling_path.js';
 
 const MAX_DEPTH = 254;
 

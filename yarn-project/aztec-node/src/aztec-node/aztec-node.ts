@@ -1,18 +1,18 @@
 import { CONTRACT_TREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import {
-  ContractPublicData,
-  ContractData,
-  L2Block,
-  MerkleTreeId,
-  L1ToL2MessageAndIndex,
-  L2BlockL2Logs,
-  TxHash,
-  Tx,
-  LogType,
-} from '@aztec/types';
-import { SiblingPath } from '@aztec/merkle-tree';
 import { Fr } from '@aztec/foundation/fields';
+import { SiblingPath } from '@aztec/merkle-tree';
+import {
+  ContractData,
+  ContractPublicData,
+  L1ToL2MessageAndIndex,
+  L2Block,
+  L2BlockL2Logs,
+  LogType,
+  MerkleTreeId,
+  Tx,
+  TxHash,
+} from '@aztec/types';
 
 /**
  * The aztec node.

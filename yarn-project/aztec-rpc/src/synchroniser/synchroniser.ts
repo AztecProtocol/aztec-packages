@@ -1,14 +1,15 @@
 import { AztecNode } from '@aztec/aztec-node';
 import { Fr, PartialContractAddress, Point } from '@aztec/circuits.js';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { KeyStore, L2BlockContext, LogType, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ContractAbi } from '@aztec/foundation/abi';
+import { KeyStore, L2BlockContext, LogType, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 
 import { AccountState } from '../account_state/index.js';
 import { Database, TxDao } from '../database/index.js';
+
 /**
  * The Synchroniser class manages the synchronization of account states and interacts with the Aztec node
  * to obtain encrypted logs, blocks, and other necessary information for the accounts.

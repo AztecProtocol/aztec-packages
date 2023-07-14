@@ -1,10 +1,12 @@
+import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation/abi';
+import { createLogger } from '@aztec/foundation/log';
+
 import { readFileSync, writeFileSync } from 'fs';
 import camelCase from 'lodash.camelcase';
 import snakeCase from 'lodash.snakecase';
 import upperFirst from 'lodash.upperfirst';
+
 import mockedKeys from './mockedKeys.json' assert { type: 'json' };
-import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation/abi';
-import { createLogger } from '@aztec/foundation/log';
 
 const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
 const log = createLogger('aztec:noir-contracts');

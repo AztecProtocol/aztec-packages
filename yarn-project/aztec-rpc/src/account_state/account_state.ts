@@ -33,6 +33,7 @@ import {
   TxExecutionRequest,
   TxL2Logs,
 } from '@aztec/types';
+
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database, NoteSpendingInfoDao, TxDao } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
