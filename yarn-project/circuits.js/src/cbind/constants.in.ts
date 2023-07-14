@@ -32,10 +32,10 @@ async function main(): Promise<void> {
   const resultNoir: string =
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js\n' +
     processConstantsNoir(constants) +
-    processConstantsNoir(generatorIndexEnum, "GENERATOR_INDEX__") + // Note: Noir doesn't support enums so we export them as constants
-    processConstantsNoir(storageSlotGeneratorIndexEnum, "STORAGE_SLOT_GENERATOR_INDEX__") +
-    processConstantsNoir(privateStateNoteGeneratorIndexEnum, "PRIVATE_STATE_NOTE_GENERATOR_INDEX__") +
-    processConstantsNoir(privateStateTypeEnum, "PRIVATE_STATE_TYPE__");
+    processEnumNoir(generatorIndexEnum, 'GENERATOR_INDEX__') +
+    processEnumNoir(storageSlotGeneratorIndexEnum, 'STORAGE_SLOT_GENERATOR_INDEX__') +
+    processEnumNoir(privateStateNoteGeneratorIndexEnum, 'PRIVATE_STATE_NOTE_GENERATOR_INDEX__') +
+    processEnumNoir(privateStateTypeEnum, 'PRIVATE_STATE_TYPE__');
 
   const noirTargetPath = join(__dirname, '../../../noir-contracts/src/libs/noir-aztec/src/constants_gen.nr');
   fs.writeFileSync(noirTargetPath, resultNoir);
@@ -83,10 +83,26 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
  * @param prefix - A prefix to add to the constant names.
  * @returns A string containing code that exports the constants as Noir constants.
  */
-function processConstantsNoir(constants: { [key: string]: number }, prefix = ""): string {
+function processConstantsNoir(constants: { [key: string]: number }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`global ${prefix}${key}: comptime Field = ${value};`);
+  });
+  return code.join('\n') + '\n';
+}
+
+/**
+ * Processes a collection of enums and generates code to export them as Noir constants prefixed with enum name.
+ *
+ * @param enumValues - An object containing key-value pairs representing enum values.
+ * @param enumPrefix - A prefix to add to the names of resulting Noir constants to communicate the constant was part
+ *                     of C++ enum.
+ * @returns A string containing code that exports the enums as Noir constants prefixed with enum name.
+ */
+function processEnumNoir(enumValues: { [key: string]: number }, enumPrefix: string): string {
+  const code: string[] = [];
+  Object.entries(enumValues).forEach(([key, value]) => {
+    code.push(`global ${enumPrefix}${key} = ${value};`);
   });
   return code.join('\n') + '\n';
 }

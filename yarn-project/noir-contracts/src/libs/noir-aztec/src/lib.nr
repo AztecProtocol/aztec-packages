@@ -1,6 +1,5 @@
 mod abi;
 mod context;
-mod generators;
 mod log;
 mod messaging;
 mod note;

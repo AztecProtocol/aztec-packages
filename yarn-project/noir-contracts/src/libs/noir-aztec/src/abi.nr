@@ -1,4 +1,3 @@
-use crate::generators;
 use crate::constants_gen::RETURN_VALUES_LENGTH;
 use crate::constants_gen::READ_REQUESTS_LENGTH;
 use crate::constants_gen::MAX_NEW_COMMITMENTS_PER_CALL;
@@ -9,13 +8,8 @@ use crate::constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
 use crate::constants_gen::NUM_FIELDS_PER_SHA256;
 use crate::constants_gen::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
 use crate::constants_gen::MAX_PUBLIC_DATA_READS_PER_CALL;
+use crate::constants_gen::GENERATOR_INDEX__FUNCTION_ARGS;
 use crate::types::vec::BoundedVec;
-
-// Please change these ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
-// In other words, if the structure/size of the public inputs of a function call changes then we 
-// should change these constants as well as the offsets in private_call_stack_item.nr
-// TADY
-global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
 
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
@@ -195,6 +189,11 @@ struct PrivateCircuitPublicInputs {
     version: Field,
 }
 
+// Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
+// In other words, if the structure/size of the public inputs of a function call changes then we 
+// should change this constant as well as the offsets in private_call_stack_item.nr
+global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
+
 impl PrivateCircuitPublicInputs {
     // TODO hash_index
     fn hash(self) -> Field {
@@ -332,9 +331,9 @@ fn hash_args<N>(args: [Field; N]) -> Field {
                     chunk_args[j] = args[item_index];
                 }
             }
-            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, generators::FUNCTION_ARGS)[0];
+            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
         }
         chunks_hashes[i] = chunk_hash;
     }
-    dep::std::hash::pedersen_with_separator(chunks_hashes, generators::FUNCTION_ARGS)[0]
+    dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
 }
