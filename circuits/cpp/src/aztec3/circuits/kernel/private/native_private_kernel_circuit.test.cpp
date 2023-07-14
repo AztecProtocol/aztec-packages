@@ -36,6 +36,10 @@ class native_private_kernel_tests : public ::testing::Test {
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 };
 
+
+// 1. We send transient read request on value 23 and pending commitment 12
+// 2. We send transient read request on value 12 and pending commitment 23
+// We expect both read requests and commitments to be completely chopped by the ordering circuit.
 TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests_and_choping_works)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
@@ -84,6 +88,9 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests_an
     ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 2);
 }
 
+// 1. We send transient read request on value 23 and pending commitment 10
+// 2. We send transient read request on value 12 and pending commitment 23
+// We expect the read request on value 12 to fail as there is no corresponding pending commitment.
 TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
