@@ -1,12 +1,12 @@
 import { AztecAddress, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
-import { encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { Signer } from '@aztec/circuits.js/barretenberg';
+import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
-
-import { Signer } from '@aztec/circuits.js/barretenberg';
-import { EcdsaAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { AccountImplementation } from './index.js';
+
+import EcdsaAccountContractAbi from '../abis/ecdsa_account_contract.json' assert { type: 'json' };
 
 /**
  * Account contract implementation that keeps a signing public key in storage, and is retrieved on
@@ -51,7 +51,7 @@ export class StoredKeyAccountContract implements AccountImplementation {
     // We use the EcdsaAccountContractAbi because it implements the interface we need, but ideally
     // we should have an interface that defines the entrypoint for StoredKeyAccountContracts and
     // load the abi from it.
-    const abi = EcdsaAccountContractAbi.functions.find(f => f.name === 'entrypoint');
+    const abi = (EcdsaAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }

@@ -1,13 +1,13 @@
 import { AztecAddress, CircuitsWasm, FunctionData, PartialContractAddress, TxContext } from '@aztec/circuits.js';
-import { encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { Signer } from '@aztec/circuits.js/barretenberg';
+import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 import partition from 'lodash.partition';
-
-import { Signer } from '@aztec/circuits.js/barretenberg';
-import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { generatePublicKey } from '../index.js';
-import { AccountImplementation } from './index.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
+import { AccountImplementation } from './index.js';
+
+import SchnorrAccountContractAbi from '../abis/schnorr_account_contract.json' assert { type: 'json' };
 
 /**
  * Account contract implementation that uses a single key for signing and encryption. This public key is not
@@ -59,7 +59,7 @@ export class SingleKeyAccountContract implements AccountImplementation {
     // We use the SchnorrAccountContract because it implements the interface we need, but ideally
     // we should have an interface that defines the entrypoint for SingleKeyAccountContracts and
     // load the abi from it.
-    const abi = SchnorrAccountContractAbi.functions.find(f => f.name === 'entrypoint');
+    const abi = (SchnorrAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }
