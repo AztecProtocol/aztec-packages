@@ -1,29 +1,42 @@
 use crate::abi;
 use crate::context::Context;
-use crate::note::note_getter_options::NoteGetterOptions;
-use crate::note::note_hash::compute_inner_note_hash;
-use crate::note::note_interface::NoteInterface;
+use crate::note::{
+    note_getter_options::NoteGetterOptions,
+    note_interface::NoteInterface,
+    utils::compute_unique_note_hash,
+};
 use crate::oracle;
 
 // TODO: Remove these when nested array is supported.
+// MAX_NOTE_FIELDS_SIZE + 1: the plus 1 is 1 extra field for nonce.
 // EXTRA_DATA: [number_of_return_notes, contract_address]
-global GET_NOTE_ORACLE_RETURN_SIZE = 322; // MAX_READ_REQUESTS * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 16 * 20 + 2
+global GET_NOTES_ORACLE_RETURN_SIZE = 338; // MAX_READ_REQUESTS * (MAX_NOTE_FIELDS_SIZE + 1) + EXTRA_DATA = 16 * (20 + 1) + 2
+global GET_NOTE_ORACLE_RETURN_SIZE = 23; // MAX_NOTE_FIELDS_SIZE + 1 + EXTRA_DATA = 20 + 1 + 2
 global MAX_NOTES_PER_PAGE = 10;
-global VIEW_NOTE_ORACLE_RETURN_SIZE = 202; // MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 10 * 20 + 2
+global VIEW_NOTE_ORACLE_RETURN_SIZE = 212; // MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_SIZE + 1) + EXTRA_DATA = 10 * (20 + 1) + 2
 
 fn ensure_note_exists<Note, N>(
     mut context: Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     note: Note,
-) -> Context {
-    let mut note_hash = 0;
+) -> (Context, Note) {
+    let mut note_with_header = note;
+    let mut unique_note_hash = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
-        let compute_note_hash = note_interface.compute_note_hash;
-        note_hash = compute_inner_note_hash(storage_slot, compute_note_hash(note));
+        let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
+        let saved_note = oracle::notes::get_note(storage_slot, note_interface, zero_fields);
+        assert(is_dummy(saved_note) == false);
+
+        let get_header = note_interface.get_header;
+        let set_header = note_interface.set_header;
+        let note_header = get_header(saved_note);
+        note_with_header = set_header(note, note_header);
+        unique_note_hash = compute_unique_note_hash(note_interface, note_with_header);
     };
-    context.push_read_request(note_hash)
+    context = context.push_read_request(unique_note_hash);
+    (context, note_with_header)
 }
 
 fn get_note<Note, N>(
@@ -31,8 +44,14 @@ fn get_note<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> (Context, Note) {
-    let note = oracle::notes::get_note(storage_slot, note_interface);
-    context = ensure_note_exists(context, storage_slot, note_interface, note);
+    let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
+    let note = oracle::notes::get_note(storage_slot, note_interface, zero_fields);
+    let mut unique_note_hash = 0;
+    let is_dummy = note_interface.is_dummy;
+    if is_dummy(note) == false {
+        unique_note_hash = compute_unique_note_hash(note_interface, note);
+    };
+    context = context.push_read_request(unique_note_hash);
     (context, note)
 }
 
@@ -46,14 +65,12 @@ fn get_notes<Note, N, S, P>(
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
-        let mut note_hash = 0;
+        let mut unique_note_hash = 0;
         if is_dummy(note) == false {
-            let compute_note_hash = note_interface.compute_note_hash;
-            note_hash = compute_inner_note_hash(storage_slot, compute_note_hash(note));
+            unique_note_hash = compute_unique_note_hash(note_interface, note);
         };
-        context = context.push_read_request(note_hash);
+        context = context.push_read_request(unique_note_hash);
     };
-
     (context, notes)
 }
 
@@ -73,7 +90,7 @@ fn get_notes_internal<Note, N, S, P>(
     };
     let offset = options.offset;
     let dummy_notes = [dummy(); abi::MAX_READ_REQUESTS];
-    let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
+    let zero_fields = [0; GET_NOTES_ORACLE_RETURN_SIZE];
     let notes = oracle::notes::get_notes(
         storage_slot,
         note_interface,

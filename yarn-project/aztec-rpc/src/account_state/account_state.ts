@@ -364,6 +364,7 @@ export class AccountState {
               userPertainingTxIndices.add(indexOfTxInABlock);
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
+                nonce: Fr.ZERO, // TODO #1019
                 nullifier: await this.computeSiloedNullifier(noteSpendingInfo),
                 index: BigInt(dataStartIndex + logIndexWithinBlock),
                 account: this.publicKey,

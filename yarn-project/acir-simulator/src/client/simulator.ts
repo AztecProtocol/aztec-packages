@@ -134,14 +134,16 @@ export class AcirSimulator {
       );
     }
 
-    const preimageLen = (abi.parameters[2].type as ArrayType).length;
+    const preimageLen = (abi.parameters[3].type as ArrayType).length;
     const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
+
+    const nonce = Fr.ZERO; // TODO #1019
 
     const execRequest: ExecutionRequest = {
       from: AztecAddress.ZERO,
       to: AztecAddress.ZERO,
       functionData: FunctionData.empty(),
-      args: encodeArguments(abi, [contractAddress, storageSlot, extendedPreimage]),
+      args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
     };
 
     const [result] = await this.runUnconstrained(

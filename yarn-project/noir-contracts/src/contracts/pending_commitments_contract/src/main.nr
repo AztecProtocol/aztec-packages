@@ -9,14 +9,10 @@ contract PendingCommitments {
     use dep::token_utils::{
         balance_utils,
         value_note::{
-            value_note::ValueNote,
+            value_note::{VALUE_NOTE_LEN, ValueNote},
             value_note::ValueNoteInterface,
             filter::get_2_notes,
         }
-    };
-    use dep::custom_notes::{
-        constants::MAX_NOTE_FIELDS_SIZE,
-        utils::compute_note_hash_and_nullifier,
     };
 
     use crate::storage::Storage;
@@ -24,8 +20,12 @@ contract PendingCommitments {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::note::note_getter::NoteGetterOptions;
-    use dep::aztec::note::note_getter_options::Sort;
+    use dep::aztec::note::{
+        note_getter::NoteGetterOptions,
+        note_getter_options::Sort,
+        note_header::NoteHeader,
+        utils::compute_note_hash_and_nullifier,
+    };
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
@@ -231,7 +231,8 @@ contract PendingCommitments {
     //}
 
     /// ABI stev type "unconstrained"
-    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_SIZE]) -> pub [Field; 2] {
-        compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 2] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }
 }

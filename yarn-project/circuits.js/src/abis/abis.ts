@@ -16,6 +16,7 @@ import {
   Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
+import { pedersenPlookupCommitInputs } from '../barretenberg/crypto/index.js';
 
 /**
  * Synchronously calls a wasm function.
@@ -234,6 +235,31 @@ export function computeContractAddressFromPartial(wasm: IWasmModule, pubKey: Poi
     32,
   );
   return new AztecAddress(result);
+}
+
+/**
+ * Computes a commitment nonce, which will be used to create a unique commitment.
+ * @param wasm - A module providing low-level wasm access.
+ * @param nullifierZero - The first nullifier in the tx.
+ * @param index - The index of the commitment.
+ * @returns A commitment nonce.
+ */
+export function computeCommitmentNonce(wasm: IWasmModule, _nullifierZero: Fr, _index: number): Fr {
+  wasm.call('pedersen__init');
+  // TODO #1019
+  return Fr.ZERO;
+}
+
+/**
+ * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
+ * @param wasm - A module providing low-level wasm access.
+ * @param nonce - The contract address.
+ * @param commitment - An inner commitment.
+ * @returns A siloed commitment.
+ */
+export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, commitment: Fr): Fr {
+  wasm.call('pedersen__init');
+  return Fr.fromBuffer(pedersenPlookupCommitInputs(wasm, [nonce.toBuffer(), commitment.toBuffer()]));
 }
 
 /**

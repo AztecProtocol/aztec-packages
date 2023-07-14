@@ -1,13 +1,13 @@
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
+    utils::compute_siloed_note_hash,
 };
 use dep::aztec::oracle::{
     rand::rand,
     get_secret_key::get_secret_key,
 };
 use dep::aztec::types::point::Point;
-use dep::custom_notes::utils::compute_siloed_note_hash;
 
 global VALUE_NOTE_LEN: Field = 6;
 

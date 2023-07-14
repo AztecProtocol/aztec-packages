@@ -18,7 +18,7 @@ impl<Note, N> Set<Note, N> {
         Set { storage_slot, note_interface }
     }
 
-    fn insert(self, context: Context, note: Note) -> Context {
+    fn insert(self, context: Context, mut note: Note) -> Context {
         create_note(context, self.storage_slot, note, self.note_interface)
     }
 
@@ -28,9 +28,8 @@ impl<Note, N> Set<Note, N> {
         create_commitment(note_hash);
     }
 
-    fn has(self, context: Context, note: Note) -> Context {
+    fn has(self, context: Context, note: Note) -> (Context, Note) {
         ensure_note_exists(context, self.storage_slot, self.note_interface, note)
-        // TODO: Check from oracle and early out if the note doesn't exist.
     }
 
     fn remove(self, context: Context, note: Note) -> Context {

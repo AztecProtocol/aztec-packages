@@ -51,18 +51,16 @@ describe('Unconstrained Execution test suite', () => {
 
       const historicRoots = PrivateHistoricTreeRoots.empty();
 
-      oracle.getNotes.mockImplementation(
-        (_contract, _storageSlot, _sortBy, _sortOrder, limit: number, offset: number) => {
-          const notes = preimages.slice(offset, offset + limit);
-          return Promise.resolve({
-            count: preimages.length,
-            notes: notes.map((preimage, index) => ({
-              preimage,
-              index: BigInt(index),
-            })),
-          });
-        },
-      );
+      oracle.getNotes.mockImplementation((_contract, _storageSlot, _sortBy, _sortOrder, limit: number) => {
+        const notes = preimages.slice(0, limit);
+        return Promise.resolve(
+          notes.map((preimage, index) => ({
+            nonce: Fr.random(),
+            preimage,
+            index: BigInt(index),
+          })),
+        );
+      });
 
       const execRequest: ExecutionRequest = {
         from: AztecAddress.random(),

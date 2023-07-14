@@ -10,7 +10,12 @@ import {
   PublicCallRequest,
   TxContext,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromPartial, computeSecretMessageHash, siloCommitment } from '@aztec/circuits.js/abis';
+import {
+  computeContractAddressFromPartial,
+  computeSecretMessageHash,
+  computeUniqueCommitment,
+  siloCommitment,
+} from '@aztec/circuits.js/abis';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -163,6 +168,7 @@ describe('Private Execution test suite', () => {
 
     it('should have an abi for computing note hash and nullifier', async () => {
       const storageSlot = Fr.random();
+      const nonce = Fr.ZERO;
       const note = buildNote(60n, owner);
 
       // Should be the same as how we compute the values for the ValueNote in the noir library.
@@ -170,12 +176,12 @@ describe('Private Execution test suite', () => {
         circuitsWasm,
         note.map(f => f.toBuffer()),
       );
-      const expectedNoteHash = Fr.fromBuffer(
+      const innerNoteHash = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [storageSlot.toBuffer(), valueNoteHash]),
       );
-
-      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, expectedNoteHash);
-      const expectedNullifier = Fr.fromBuffer(
+      const uniqueNoteHash = computeUniqueCommitment(circuitsWasm, nonce, innerNoteHash);
+      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, uniqueNoteHash);
+      const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [siloedNoteHash.toBuffer(), ownerPk]),
       );
 
@@ -185,8 +191,8 @@ describe('Private Execution test suite', () => {
         note,
       );
 
-      expect(noteHash).toEqual(expectedNoteHash);
-      expect(nullifier).toEqual(expectedNullifier);
+      expect(noteHash).toEqual(innerNoteHash);
+      expect(nullifier).toEqual(innerNullifier);
     });
 
     it('should a constructor with arguments that creates notes', async () => {
@@ -236,17 +242,13 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(leaves);
 
-      oracle.getNotes.mockImplementation(async () => {
-        return {
-          count: preimages.length,
-          notes: await Promise.all(
-            preimages.map((preimage, index) => ({
-              preimage,
-              index: BigInt(index),
-            })),
-          ),
-        };
-      });
+      oracle.getNotes.mockResolvedValue(
+        preimages.map((preimage, index) => ({
+          nonce: Fr.ZERO,
+          preimage,
+          index: BigInt(index),
+        })),
+      );
 
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });
@@ -278,10 +280,10 @@ describe('Private Execution test suite', () => {
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
-      const consumedNoteHashes = await asyncMap(preimages, preimage =>
-        acirSimulator.computeNoteHash(contractAddress, storageSlot, preimage),
-      );
-      expect(readRequests).toEqual(consumedNoteHashes);
+      const consumedNoteHashes = leaves;
+      const nonce = Fr.ZERO;
+      const uniqueNoteHashes = consumedNoteHashes.map(h => computeUniqueCommitment(circuitsWasm, nonce, h));
+      expect(readRequests).toEqual(uniqueNoteHashes);
     });
 
     it('should be able to transfer with dummy notes', async () => {
@@ -296,17 +298,13 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(leaves);
 
-      oracle.getNotes.mockImplementation(async () => {
-        return {
-          count: preimages.length,
-          notes: await Promise.all(
-            preimages.map((preimage, index) => ({
-              preimage,
-              index: BigInt(index),
-            })),
-          ),
-        };
-      });
+      oracle.getNotes.mockResolvedValue(
+        preimages.map((preimage, index) => ({
+          nonce: Fr.ZERO,
+          preimage,
+          index: BigInt(index),
+        })),
+      );
 
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });
@@ -326,9 +324,17 @@ describe('Private Execution test suite', () => {
       const secret = Fr.random();
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'claim')!;
 
+      oracle.getNotes.mockResolvedValue([
+        {
+          nonce: Fr.ZERO,
+          preimage: [new Fr(amount), secret],
+          index: BigInt(1),
+        },
+      ]);
+
       const storageSlot = 2n;
-      const innerNoteHash = hash([toBufferBE(amount, 32), secret.toBuffer()]);
-      const noteHash = Fr.fromBuffer(hash([toBufferBE(storageSlot, 32), innerNoteHash]));
+      const customNoteHash = hash([toBufferBE(amount, 32), secret.toBuffer()]);
+      const innerNoteHash = Fr.fromBuffer(hash([toBufferBE(storageSlot, 32), customNoteHash]));
 
       const result = await runSimulator({
         origin: contractAddress,
@@ -342,8 +348,9 @@ describe('Private Execution test suite', () => {
 
       // Check the read request was created successfully.
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
-      expect(readRequests).toHaveLength(1);
-      expect(readRequests[0]).toEqual(noteHash);
+      const nonce = Fr.ZERO;
+      const uniqueNoteHash = computeUniqueCommitment(circuitsWasm, nonce, innerNoteHash);
+      expect(readRequests).toEqual([uniqueNoteHash]);
     });
   });
 
@@ -519,12 +526,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to read pending commitments created in same function', async () => {
-      oracle.getNotes.mockImplementation(async () => {
-        return {
-          count: 0,
-          notes: await Promise.all([]),
-        };
-      });
+      oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -553,20 +555,16 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
+      const zeroNonce = Fr.ZERO;
       const readRequest = result.callStackItem.publicInputs.readRequests[0];
-      expect(readRequest).toEqual(commitment);
+      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, zeroNonce, commitment));
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
     });
 
     it('should be able to create and read pending commitments both in nested calls', async () => {
-      oracle.getNotes.mockImplementation(async () => {
-        return {
-          count: 0,
-          notes: await Promise.all([]),
-        };
-      });
+      oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
@@ -609,8 +607,9 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
+      const zeroNonce = Fr.ZERO;
       const readRequest = execGetAndCheck.callStackItem.publicInputs.readRequests[0];
-      expect(readRequest).toEqual(commitment);
+      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, zeroNonce, commitment));
 
       const gotNoteValue = execGetAndCheck.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
@@ -619,12 +618,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is created later in same function', async () => {
-      oracle.getNotes.mockImplementation(async () => {
-        return {
-          count: 0,
-          notes: await Promise.all([]),
-        };
-      });
+      oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
