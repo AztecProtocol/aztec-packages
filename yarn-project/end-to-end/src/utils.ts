@@ -2,13 +2,12 @@ import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/azte
 import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
-  AccountContract,
   AccountWallet,
   AztecAddress,
   Contract,
   ContractDeployer,
   EthAddress,
-  SchnorrAuthProvider,
+  SingleKeyAccountContract,
   Wallet,
   generatePublicKey,
 } from '@aztec/aztec.js';
@@ -80,7 +79,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode);
   const accountCollection = new AccountCollection();
-  const wasm = await CircuitsWasm.get();
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
@@ -113,13 +111,11 @@ export async function setup(numberOfAccounts = 1): Promise<{
     }
     accountCollection.registerAccount(
       deploymentData.address,
-      new AccountContract(
+      new SingleKeyAccountContract(
         deploymentData.address,
-        publicKey,
-        new SchnorrAuthProvider(await Schnorr.new(), privateKey),
         deploymentData.partialAddress,
-        SchnorrAccountContractAbi,
-        wasm,
+        privateKey,
+        await Schnorr.new(),
       ),
     );
     logger(`Created account ${deploymentData.address.toString()} with public key ${publicKey.toString()}`);
