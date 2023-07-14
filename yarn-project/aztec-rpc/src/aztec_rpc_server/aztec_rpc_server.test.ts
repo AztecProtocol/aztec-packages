@@ -21,7 +21,7 @@ describe('AztecRpcServer', function () {
     node = mock<AztecNode>();
     db = new MemoryDB();
     const config: RpcServerConfig = {
-      l2BlockPollingIntervalMS: 1000,
+      l2BlockPollingIntervalMS: 100,
     };
     rpcServer = new AztecRPCServer(keyStore, node, db, config);
     wasm = await CircuitsWasm.get();
