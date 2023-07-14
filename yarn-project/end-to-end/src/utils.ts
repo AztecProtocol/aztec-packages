@@ -1,36 +1,35 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
+import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
-  AccountContract,
   AccountWallet,
   AztecAddress,
   Contract,
   ContractDeployer,
   EthAddress,
-  SchnorrAuthProvider,
-  SentTx,
+  SingleKeyAccountContract,
   Wallet,
   generatePublicKey,
   DeployMethod,
+  SentTx,
 } from '@aztec/aztec.js';
 import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import { randomBytes } from 'crypto';
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC, localAnvil } from './fixtures.js';
 import { TxStatus } from '@aztec/types';
+import { MNEMONIC, localAnvil } from './fixtures.js';
 
 /**
  * Container to hold information about txs
@@ -110,7 +109,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
   const accountCollection = new AccountCollection();
-  const wasm = await CircuitsWasm.get();
   const txContexts: TxContext[] = [];
 
   for (let i = 0; i < numberOfAccounts; ++i) {
@@ -159,13 +157,11 @@ export async function setup(numberOfAccounts = 1): Promise<{
     }
     accountCollection.registerAccount(
       context.deploymentData.address,
-      new AccountContract(
+      new SingleKeyAccountContract(
         context.deploymentData.address,
-        publicKey,
-        new SchnorrAuthProvider(await Schnorr.new(), context.privateKey),
         context.deploymentData.partialAddress,
-        SchnorrAccountContractAbi,
-        wasm,
+        context.privateKey,
+        await Schnorr.new(),
       ),
     );
     logger(`Created account ${context.deploymentData.address.toString()} with public key ${publicKey.toString()}`);
