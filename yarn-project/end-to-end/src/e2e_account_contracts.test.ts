@@ -40,22 +40,22 @@ async function createNewAccount(
   aztecRpcServer: AztecRPCServer,
   abi: ContractAbi,
   args: any[],
-  privateKey: Buffer,
+  encryptionPrivateKey: Buffer,
   createWallet: CreateAccountImplFn,
 ) {
   const salt = Fr.random();
-  const publicKey = await generatePublicKey(privateKey);
+  const publicKey = await generatePublicKey(encryptionPrivateKey);
   const { address, partialAddress } = await getContractDeploymentInfo(abi, args, salt, publicKey);
-  await aztecRpcServer.addAccount(privateKey, address, partialAddress);
+  await aztecRpcServer.addAccount(encryptionPrivateKey, address, partialAddress);
   await deployContract(aztecRpcServer, publicKey, abi, args, salt);
-  const wallet = new AccountWallet(aztecRpcServer, await createWallet(address, partialAddress, privateKey));
+  const wallet = new AccountWallet(aztecRpcServer, await createWallet(address, partialAddress, encryptionPrivateKey));
   return { wallet, address, partialAddress };
 }
 
 type CreateAccountImplFn = (
   address: AztecAddress,
   partialAddress: PartialContractAddress,
-  privateKey: Buffer,
+  encryptionPrivateKey: Buffer,
 ) => Promise<AccountImplementation>;
 
 function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any[], createWallet: CreateAccountImplFn) {
@@ -68,13 +68,13 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
 
     beforeEach(async () => {
       context = await setup();
-      const privateKey = randomBytes(32);
+      const encryptionPrivateKey = randomBytes(32);
       const { aztecRpcServer } = context;
       ({ wallet, address, partialAddress } = await createNewAccount(
         aztecRpcServer,
         abi,
         argsFn(),
-        privateKey,
+        encryptionPrivateKey,
         createWallet,
       ));
 
@@ -117,15 +117,21 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
 
 describe('e2e_account_contracts', () => {
   describe('schnorr account', () => {
-    const createSchnorrWallet = async (address: AztecAddress, partial: PartialContractAddress, privateKey: Buffer) =>
-      new SingleKeyAccountContract(address, partial, privateKey, await Schnorr.new());
+    const createSchnorrWallet = async (
+      address: AztecAddress,
+      partial: PartialContractAddress,
+      encryptionPrivateKey: Buffer,
+    ) => new SingleKeyAccountContract(address, partial, encryptionPrivateKey, await Schnorr.new());
 
     itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, () => [], createSchnorrWallet);
   });
 
-  describe.skip('ecdsa account', () => {
-    const createEcdsaWallet = async (address: AztecAddress, _partial: PartialContractAddress, privateKey: Buffer) =>
-      new StoredKeyAccountContract(address, privateKey, await Ecdsa.new());
+  describe('ecdsa account', () => {
+    const createEcdsaWallet = async (
+      address: AztecAddress,
+      _partial: PartialContractAddress,
+      _encryptionPrivateKey: Buffer,
+    ) => new StoredKeyAccountContract(address, ecdsaPrivateKey, await Ecdsa.new());
 
     let ecdsaPrivateKey: Buffer;
     let ecdsaPublicKey: Buffer;
