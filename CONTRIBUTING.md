@@ -18,4 +18,6 @@ If you would like to contribute code or documentation you may do so by forking t
 
 Any non-trivial code contribution must be first discussed with the maintainers in an issue (see [Opening an issue](#opening-an-issue)). Only very minor changes are accepted without prior discussion.
 
-If you're looking for a good place to start, look for issues labelled ["good first issue"](https://github.com/OpenZeppelin/openzeppelin-contracts/labels/good%20first%20issue)!
+When opening the pull request you will be presented with a template and a series of instructions. Read through it carefully and follow all the steps. Expect a review and feedback from the maintainers afterward.
+
+If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/OpenZeppelin/openzeppelin-contracts/labels/good%20first%20issue)!
