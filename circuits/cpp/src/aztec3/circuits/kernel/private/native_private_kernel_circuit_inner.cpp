@@ -106,7 +106,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyBuilder& 
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    common_initialise_end_values(private_inputs.previous_kernel, public_inputs);
+    common_init_inner_initialise_end_values(private_inputs.previous_kernel, public_inputs);
 
     validate_inputs(builder, private_inputs);
 

@@ -76,7 +76,6 @@ void common_validate_read_requests(DummyBuilder& builder,
 {
     // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
     // we might get into trouble when accumulating them in public_inputs.end
-
     builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
                       format("mismatch array length between read_requests and witnesses - read_requests length: ",
                              array_length(read_requests),
@@ -325,9 +324,6 @@ void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
     auto& end = public_inputs.end;
     const auto& start = previous_kernel.public_inputs.end;
 
-    end.read_requests = start.read_requests;
-    end.read_request_membership_witnesses = start.read_request_membership_witnesses;
-
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
 
@@ -342,6 +338,20 @@ void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
     end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
 
     end.optionally_revealed_data = start.optionally_revealed_data;
+}
+
+void common_init_inner_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
+                                             KernelCircuitPublicInputs<NT>& public_inputs)
+{
+    common_initialise_end_values(previous_kernel, public_inputs);
+
+    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
+    // within this circuit:
+    auto& end = public_inputs.end;
+    const auto& start = previous_kernel.public_inputs.end;
+
+    end.read_requests = start.read_requests;
+    end.read_request_membership_witnesses = start.read_request_membership_witnesses;
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
