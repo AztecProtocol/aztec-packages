@@ -24,7 +24,7 @@ export class SimulatorOracle implements DBOracle {
     private contractDataOracle: ContractDataOracle,
     private db: Database,
     private keyStore: KeyStore,
-    private l1ToL1MessageProvider: L1ToL2MessageProvider,
+    private l1ToL2MessageProvider: L1ToL2MessageProvider,
     private dataTreeProvider: DataCommitmentProvider,
   ) {}
 
@@ -123,10 +123,10 @@ export class SimulatorOracle implements DBOracle {
    *          index of the message in the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const messageAndIndex = await this.l1ToL1MessageProvider.getL1ToL2MessageAndIndex(msgKey);
+    const messageAndIndex = await this.l1ToL2MessageProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.l1ToL1MessageProvider.getL1ToL2MessagesTreePath(index);
+    const siblingPath = await this.l1ToL2MessageProvider.getL1ToL2MessagesTreePath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
