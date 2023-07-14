@@ -1,6 +1,5 @@
-<<<<<<< HEAD
-import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
-import { getHttpRpcServer } from '@aztec/aztec-rpc';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -9,18 +8,6 @@ import http from 'http';
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-=======
-import http from 'http';
-import { foundry } from 'viem/chains';
-import { http as httpViemTransport, createPublicClient, HDAccount } from 'viem';
-
-import { mnemonicToAccount } from 'viem/accounts';
-import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
-import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { deployL1Contracts } from '@aztec/ethereum';
->>>>>>> master
 
 import { createApiRouter } from './routes.js';
 
