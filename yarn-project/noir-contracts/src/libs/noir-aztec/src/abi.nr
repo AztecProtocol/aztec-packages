@@ -9,12 +9,12 @@ use crate::constants_gen::NUM_FIELDS_PER_SHA256;
 use crate::constants_gen::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
 use crate::constants_gen::MAX_PUBLIC_DATA_READS_PER_CALL;
 use crate::constants_gen::GENERATOR_INDEX__FUNCTION_ARGS;
-use crate::constants_gen::COMMITMENT_TREES_ROOTS_SIZE;
-use crate::constants_gen::CONTRACT_DEPLOYMENT_DATA_SIZE;
-use crate::constants_gen::CALL_CONTEXT_SIZE;
+use crate::constants_gen::COMMITMENT_TREES_ROOTS_LENGTH;
+use crate::constants_gen::CONTRACT_DEPLOYMENT_DATA_LENGTH;
+use crate::constants_gen::CALL_CONTEXT_LENGTH;
 use crate::constants_gen::PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
-use crate::constants_gen::CONTRACT_STORAGE_UPDATE_REQUEST_SIZE;
-use crate::constants_gen::CONTRACT_STORAGE_READ_SIZE;
+use crate::constants_gen::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH;
+use crate::constants_gen::CONTRACT_STORAGE_READ_LENGTH;
 use crate::constants_gen::PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::types::vec::BoundedVec;
 
@@ -47,7 +47,7 @@ struct CallContext {
 }
 
 impl CallContext {
-    fn serialize(self) -> [Field; CALL_CONTEXT_SIZE] {
+    fn serialize(self) -> [Field; CALL_CONTEXT_LENGTH] {
         [
             self.msg_sender,
             self.storage_contract_address,
@@ -73,7 +73,7 @@ struct CommitmentTreesRoots {
 
 impl CommitmentTreesRoots {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_SIZE] {
+    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
@@ -97,7 +97,7 @@ struct ContractDeploymentData {
 }
 
 impl ContractDeploymentData {
-    fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_SIZE] {
+    fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
         [
             self.constructor_vk_hash,
             self.function_tree_root,
@@ -210,7 +210,7 @@ fn empty_contract_storage_read() -> ContractStorageRead {
 }
 
 impl ContractStorageRead {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_SIZE] {
+    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value]
     }
 }
@@ -222,7 +222,7 @@ struct ContractStorageUpdateRequest {
 }
 
 impl ContractStorageUpdateRequest {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_SIZE] {
+    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value]
     }
 }
@@ -275,18 +275,18 @@ impl PublicCircuitPublicInputs {
     }
 }
 
-global ARGS_HASH_CHUNK_SIZE: u32 = 32;
+global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
 fn hash_args<N>(args: [Field; N]) -> Field {
     let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
     for i in 0..ARGS_HASH_CHUNK_COUNT {
         let mut chunk_hash = 0;
-        let start_chunk_index = i * ARGS_HASH_CHUNK_SIZE;
+        let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
         if start_chunk_index < (args.len() as u32) {
-            let mut chunk_args = [0; ARGS_HASH_CHUNK_SIZE];
-            for j in 0..ARGS_HASH_CHUNK_SIZE {
-                let item_index = i * ARGS_HASH_CHUNK_SIZE + j;
+            let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
+            for j in 0..ARGS_HASH_CHUNK_LENGTH {
+                let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
                 if item_index < (args.len() as u32) {
                     chunk_args[j] = args[item_index];
                 }

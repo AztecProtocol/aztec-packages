@@ -1,7 +1,7 @@
 use crate::types::point::Point;
 use crate::messaging::l1_to_l2_message_getter_data::L1ToL2MessageGetterData;
 use crate::messaging::l1_to_l2_message_getter_data::make_l1_to_l2_message_getter_data;
-use crate::constants_gen::L1_TO_L2_MESSAGE_LEN;
+use crate::constants_gen::L1_TO_L2_MESSAGE_LENGTH;
 use crate::constants_gen::GENERATOR_INDEX__NULLIFIER;
 use crate::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 
@@ -35,7 +35,7 @@ impl L1ToL2Message {
     }
 
     fn deserialize(
-        fields: [Field; L1_TO_L2_MESSAGE_LEN],
+        fields: [Field; L1_TO_L2_MESSAGE_LENGTH],
         secret: Field,
         tree_index: Field
     ) -> L1ToL2Message {
