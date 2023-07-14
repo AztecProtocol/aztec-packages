@@ -1,0 +1,16 @@
+pub(crate) mod acir_gen;
+mod anchor;
+mod block;
+mod builtin;
+mod conditional;
+mod context;
+mod flatten;
+mod function;
+mod inline;
+mod integer;
+mod mem;
+pub(crate) mod node;
+mod optimizations;
+mod ssa_form;
+pub(crate) mod ssa_gen;
+mod value;
