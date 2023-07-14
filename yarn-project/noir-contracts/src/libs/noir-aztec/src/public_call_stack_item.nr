@@ -8,8 +8,11 @@ use crate::types::vec::BoundedVec;
 use crate::utils::arr_copy_slice;
 use crate::constants_gen::RETURN_VALUES_LENGTH;
 use crate::constants_gen::MAX_NEW_COMMITMENTS_PER_CALL;
+use crate::constants_gen::MAX_NEW_NULLIFIERS_PER_CALL;
 use crate::constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL;
+use crate::constants_gen::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
 use crate::constants_gen::MAX_PUBLIC_DATA_READS_PER_CALL;
+use crate::constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
 
 // oracles
 use crate::oracle::enqueue_public_function_call::enqueue_public_function_call_internal;
@@ -59,12 +62,12 @@ impl PublicCallStackItem {
                 },
                 args_hash: fields[10],
                 return_values: [0; RETURN_VALUES_LENGTH],
-                contract_storage_update_requests: [crate::abi::empty_contract_storage_update_request(); crate::abi::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                contract_storage_update_requests: [crate::abi::empty_contract_storage_update_request(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_read: [crate::abi::empty_contract_storage_read(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [0; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs:[0; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
+                new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 commitment_trees_roots: crate::abi::empty_commitment_trees_roots(),
                 historic_public_data_tree_root: 0,
                 prover_address: 0,

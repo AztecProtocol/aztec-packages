@@ -1,4 +1,4 @@
-use dep::aztec::abi::READ_REQUESTS_LENGTH;
+use dep::aztec::constants_gen::READ_REQUESTS_LENGTH;
 use crate::value_note::value_note::ValueNote;
 
 fn get_2_notes<P>(notes: [ValueNote; READ_REQUESTS_LENGTH], _x: P) -> [ValueNote; 2] {

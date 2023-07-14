@@ -1,9 +1,9 @@
-use crate::abi;
 use crate::context::Context;
 use crate::note::note_getter_options::NoteGetterOptions;
 use crate::note::note_hash::compute_inner_note_hash;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle;
+use crate::constants_gen::READ_REQUESTS_LENGTH;
 
 // TODO: Remove these when nested array is supported.
 // EXTRA_DATA: [number_of_return_notes, contract_address]
@@ -72,14 +72,14 @@ fn get_notes_internal<Note, N, S, P>(
         sort_order[i] = sort_by[i].order;
     };
     let offset = options.offset;
-    let dummy_notes = [dummy(); abi::READ_REQUESTS_LENGTH];
+    let dummy_notes = [dummy(); READ_REQUESTS_LENGTH];
     let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
     let notes = oracle::notes::get_notes(
         storage_slot,
         note_interface,
         sort_by_indices,
         sort_order,
-        abi::READ_REQUESTS_LENGTH as u32,
+        READ_REQUESTS_LENGTH as u32,
         offset,
         dummy_notes,
         zero_fields,
