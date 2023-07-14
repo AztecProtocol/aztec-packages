@@ -100,7 +100,7 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
       logger('Calling public function...');
       const tx = child.methods.pubStoreValue(42).send();
       expect(await tx.isMined(0, 0.1)).toBeTruthy();
-      expect(toBigInt((await aztecRpcServer.getStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
+      expect(toBigInt((await aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {

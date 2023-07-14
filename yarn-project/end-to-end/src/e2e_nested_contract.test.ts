@@ -49,7 +49,7 @@ describe('e2e_nested_contract', () => {
   const addressToField = (address: AztecAddress): bigint => Fr.fromBuffer(address.toBuffer()).value;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
-    aztecRpcServer.getStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
+    aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
   /**
    * Milestone 3.

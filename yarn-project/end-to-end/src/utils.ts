@@ -340,7 +340,7 @@ export async function expectAztecStorageSlot(
   expectedValue: bigint,
 ) {
   const storageSlot = await calculateAztecStorageSlot(slot, key);
-  const storageValue = await aztecRpc.getStorageAt(contract.address!, storageSlot);
+  const storageValue = await aztecRpc.getPublicStorageAt(contract.address!, storageSlot);
   if (storageValue === undefined) {
     throw new Error(`Storage slot ${storageSlot} not found`);
   }

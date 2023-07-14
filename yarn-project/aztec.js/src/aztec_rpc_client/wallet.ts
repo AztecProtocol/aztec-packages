@@ -63,6 +63,9 @@ export abstract class BaseWallet implements Wallet {
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.rpc.getStorageAt(contract, storageSlot);
   }
+  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
+    return this.rpc.getPublicStorageAt(contract, storageSlot);
+  }
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
     return this.rpc.viewTx(functionName, args, to, from);
   }

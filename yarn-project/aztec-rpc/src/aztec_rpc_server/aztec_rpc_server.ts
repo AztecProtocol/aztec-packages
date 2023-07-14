@@ -154,6 +154,18 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
+   * Retrieves the public storage data at a specified contract address and storage slot.
+   * The returned data is an array of note preimage items, with each item containing its value.
+   *
+   * @param contract - The AztecAddress of the target contract.
+   * @param storageSlot - The Fr representing the storage slot to be fetched.
+   * @returns A promise that resolves to an array of note preimage items, each containing its value.
+   */
+  public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
+    return await this.node.getStorageAt(contract, storageSlot.value);
+  }
+
+  /**
    * Is an L2 contract deployed at this address?
    * @param contractAddress - The contract data address.
    * @returns Whether the contract was deployed.

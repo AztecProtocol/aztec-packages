@@ -70,6 +70,7 @@ export interface AztecRPC {
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
+  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
   getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
