@@ -7,7 +7,7 @@ import { OutboxAbi } from '@aztec/l1-artifacts';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { TxStatus } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 import { PublicClient, HttpTransport, Chain, getContract } from 'viem';
 
 import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot } from '../utils.js';
@@ -19,8 +19,8 @@ import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot } 
 export class CrossChainTestHarness {
   static async new(
     initialBalance: bigint,
-    aztecNode: AztecNodeService,
-    aztecRpcServer: AztecRPCServer,
+    aztecNode: AztecNodeService | undefined,
+    aztecRpcServer: AztecRPC,
     deployL1ContractsValues: DeployL1Contracts,
     accounts: AztecAddress[],
     wallet: Wallet,
@@ -76,9 +76,9 @@ export class CrossChainTestHarness {
   }
   constructor(
     /** AztecNode. */
-    public aztecNode: AztecNodeService,
+    public aztecNode: AztecNodeService | undefined,
     /** AztecRpcServer. */
-    public aztecRpcServer: AztecRPCServer,
+    public aztecRpcServer: AztecRPC,
     /** Accounts. */
     public accounts: AztecAddress[],
     /** Logger. */
@@ -205,7 +205,7 @@ export class CrossChainTestHarness {
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint, publicBalanceSlot: bigint) {
     await expectAztecStorageSlot(
       this.logger,
-      this.aztecNode,
+      this.aztecRpcServer,
       this.l2Contract,
       publicBalanceSlot,
       owner.toField(),
@@ -215,7 +215,7 @@ export class CrossChainTestHarness {
 
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
-    const contractInfo = await this.aztecNode.getContractInfo(this.l2Contract.address);
+    const contractInfo = await this.aztecRpcServer.getContractInfo(this.l2Contract.address);
     // 0xb460af94, selector for "withdraw(uint256,address,address)"
     const content = sha256ToField(
       Buffer.concat([
@@ -288,6 +288,8 @@ export class CrossChainTestHarness {
 
   async stop() {
     await this.aztecNode?.stop();
-    await this.aztecRpcServer?.stop();
+    if (this.aztecRpcServer instanceof AztecRPCServer) {
+      await this.aztecRpcServer?.stop();
+    }
   }
 }

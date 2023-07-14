@@ -1,5 +1,5 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
   AccountWallet,
@@ -12,6 +12,7 @@ import {
   generatePublicKey,
   DeployMethod,
   SentTx,
+  createAztecRpcClient as createJsonRpcClient,
 } from '@aztec/aztec.js';
 import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
@@ -27,9 +28,24 @@ import { mnemonicToAccount } from 'viem/accounts';
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
 
-import { TxStatus } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { MNEMONIC, localAnvil } from './fixtures.js';
+
+const { SANDBOX_URL = '' } = process.env;
+
+const createRpcServer = async (
+  nodeConfig: AztecNodeConfig,
+  rpcConfig: RpcServerConfig,
+): Promise<[AztecNodeService | undefined, AztecRPC]> => {
+  console.log(`URL ${SANDBOX_URL}`);
+  if (SANDBOX_URL) {
+    const jsonClient = createJsonRpcClient(SANDBOX_URL);
+    return [undefined, jsonClient];
+  }
+  const aztecNode = await AztecNodeService.createAndSync(nodeConfig);
+  return [aztecNode, await createAztecRPCServer(aztecNode, rpcConfig)];
+};
 
 /**
  * Container to hold information about txs
@@ -65,13 +81,13 @@ type TxContext = {
  */
 export async function setup(numberOfAccounts = 1): Promise<{
   /**
-   * The Aztec Node service.
+   * The Aztec Node instance or undefined if one wasn't created.
    */
-  aztecNode: AztecNodeService;
+  aztecNode: AztecNodeService | undefined;
   /**
-   * The Aztec RPC server.
+   * The Aztec RPC instance.
    */
-  aztecRpcServer: AztecRPCServer;
+  aztecRpcServer: AztecRPC;
   /**
    * Return values from deployL1Contracts function.
    */
@@ -106,8 +122,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  const aztecNode = await AztecNodeService.createAndSync(config);
-  const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
+  const [aztecNode, aztecRpcServer] = await createRpcServer(config, rpcConfig);
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
 
@@ -319,14 +334,14 @@ export async function calculateAztecStorageSlot(slot: bigint, key: Fr): Promise<
  */
 export async function expectAztecStorageSlot(
   logger: Logger,
-  aztecNode: AztecNodeService,
+  aztecRpc: AztecRPC,
   contract: Contract,
   slot: bigint,
   key: Fr,
   expectedValue: bigint,
 ) {
   const storageSlot = await calculateAztecStorageSlot(slot, key);
-  const storageValue = await aztecNode.getStorageAt(contract.address!, storageSlot.value);
+  const storageValue = await aztecRpc.getStorageAt(contract.address!, storageSlot);
   if (storageValue === undefined) {
     throw new Error(`Storage slot ${storageSlot} not found`);
   }

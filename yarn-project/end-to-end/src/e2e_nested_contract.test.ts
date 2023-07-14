@@ -4,14 +4,14 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { TxStatus } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_nested_contract', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -27,8 +27,10 @@ describe('e2e_nested_contract', () => {
   }, 100_000);
 
   afterEach(async () => {
-    await aztecNode.stop();
-    await aztecRpcServer.stop();
+    await aztecNode?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   const deployContract = async (abi: ContractAbi) => {
@@ -47,7 +49,7 @@ describe('e2e_nested_contract', () => {
   const addressToField = (address: AztecAddress): bigint => Fr.fromBuffer(address.toBuffer()).value;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
-    aztecNode.getStorageAt(child.address, 1n).then(x => toBigInt(x!));
+    aztecRpcServer.getStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
 
   /**
    * Milestone 3.

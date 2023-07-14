@@ -2,15 +2,15 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecRPC, L2BlockL2Logs, TxStatus } from '@aztec/types';
 import times from 'lodash.times';
 
 import { expectAztecStorageSlot, setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_public_token_contract', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -34,8 +34,8 @@ describe('e2e_public_token_contract', () => {
   };
 
   const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
-    const l2BlockNum = await aztecNode.getBlockHeight();
-    const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
+    const l2BlockNum = await aztecRpcServer.getBlockNum();
+    const unencryptedLogs = await aztecRpcServer.getUnencryptedLogs(l2BlockNum, 1);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
@@ -47,8 +47,10 @@ describe('e2e_public_token_contract', () => {
   }, 100_000);
 
   afterEach(async () => {
-    await aztecNode.stop();
-    await aztecRpcServer.stop();
+    await aztecNode?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   it('should deploy a public token contract', async () => {
@@ -72,7 +74,14 @@ describe('e2e_public_token_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-    await expectAztecStorageSlot(logger, aztecNode, contract, balanceSlot, Fr.fromBuffer(PK.x.toBuffer()), mintAmount);
+    await expectAztecStorageSlot(
+      logger,
+      aztecRpcServer,
+      contract,
+      balanceSlot,
+      Fr.fromBuffer(PK.x.toBuffer()),
+      mintAmount,
+    );
     await expectLogsFromLastBlockToBe(['Coins minted']);
   }, 45_000);
 
@@ -98,7 +107,7 @@ describe('e2e_public_token_contract', () => {
 
     await expectAztecStorageSlot(
       logger,
-      aztecNode,
+      aztecRpcServer,
       contract,
       balanceSlot,
       Fr.fromBuffer(PK.x.toBuffer()),

@@ -6,11 +6,11 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 import { setup } from './utils.js';
 
-import { TxStatus } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 describe('e2e_pending_commitments_contract', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -23,7 +23,9 @@ describe('e2e_pending_commitments_contract', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   const deployContract = async () => {

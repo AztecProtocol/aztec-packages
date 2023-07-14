@@ -1,4 +1,3 @@
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   AccountImplementation,
   AccountWallet,
@@ -14,13 +13,14 @@ import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildAbi, EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { PublicKey } from '@aztec/types';
+import { AztecRPC, PublicKey } from '@aztec/types';
 import { randomBytes } from 'crypto';
 
 import { setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 async function deployContract(
-  aztecRpcServer: AztecRPCServer,
+  aztecRpcServer: AztecRPC,
   publicKey: PublicKey,
   abi: ContractAbi,
   args: any[],
@@ -36,7 +36,7 @@ async function deployContract(
 }
 
 async function createNewAccount(
-  aztecRpcServer: AztecRPCServer,
+  aztecRpcServer: AztecRPC,
   abi: ContractAbi,
   args: any[],
   privateKey: Buffer,
@@ -82,8 +82,10 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
     }, 60_000);
 
     afterEach(async () => {
-      await context.aztecNode.stop();
-      await context.aztecRpcServer.stop();
+      await context.aztecNode?.stop();
+      if (context.aztecRpcServer instanceof AztecRPCServer) {
+        await context.aztecRpcServer.stop();
+      }
     });
 
     it('calls a private function', async () => {
@@ -94,11 +96,11 @@ function itShouldBehaveLikeAnAccountContract(abi: ContractAbi, argsFn: () => any
     }, 60_000);
 
     it('calls a public function', async () => {
-      const { logger, aztecNode } = context;
+      const { logger, aztecRpcServer } = context;
       logger('Calling public function...');
       const tx = child.methods.pubStoreValue(42).send();
       expect(await tx.isMined(0, 0.1)).toBeTruthy();
-      expect(toBigInt((await aztecNode.getStorageAt(child.address, 1n))!)).toEqual(42n);
+      expect(toBigInt((await aztecRpcServer.getStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {

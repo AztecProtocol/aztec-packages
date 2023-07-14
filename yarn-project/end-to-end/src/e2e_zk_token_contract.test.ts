@@ -2,14 +2,14 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, Contract, ContractDeployer, Wallet } from '@aztec/aztec.js';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { DebugLogger } from '@aztec/foundation/log';
-import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_zk_token_contract', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -22,7 +22,9 @@ describe('e2e_zk_token_contract', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
@@ -33,6 +35,9 @@ describe('e2e_zk_token_contract', () => {
   };
 
   const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
+    if (!aztecNode) {
+      return;
+    }
     const l2BlockNum = await aztecNode.getBlockHeight();
     const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
@@ -40,6 +45,9 @@ describe('e2e_zk_token_contract', () => {
   };
 
   const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
+    if (!aztecNode) {
+      return;
+    }
     const l2BlockNum = await aztecNode.getBlockHeight();
     const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);

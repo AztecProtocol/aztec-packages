@@ -1,18 +1,18 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC, Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 import { Chain, HttpTransport, PublicClient } from 'viem';
 import { Archiver } from '@aztec/archiver';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('archiver integration with l1 to l2 messages', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let archiver: Archiver;
   let accounts: AztecAddress[];
@@ -64,7 +64,9 @@ describe('archiver integration with l1 to l2 messages', () => {
   afterEach(async () => {
     await archiver.stop();
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   }, 30_000);
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {

@@ -8,7 +8,7 @@ import { DeployL1Contracts } from '@aztec/ethereum';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { TxStatus } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
@@ -26,8 +26,8 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
   const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
@@ -146,8 +146,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   }, 100_000);
 
   afterEach(async () => {
-    await aztecNode.stop();
-    await aztecRpcServer.stop();
+    await aztecNode?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
     await wethCrossChainHarness.stop();
     await daiCrossChainHarness.stop();
   });

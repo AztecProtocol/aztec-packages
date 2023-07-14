@@ -1,15 +1,15 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { EthAddress } from '@aztec/circuits.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_public_to_private_messaging', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let logger: DebugLogger;
 
   let ethAccount: EthAddress;
@@ -52,7 +52,9 @@ describe('e2e_public_to_private_messaging', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
     await crossChainTestHarness?.stop();
   });
 
