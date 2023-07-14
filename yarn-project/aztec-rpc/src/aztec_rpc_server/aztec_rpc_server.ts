@@ -35,6 +35,7 @@ import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
+import { RpcServerConfig } from '../config/index.js';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -46,6 +47,7 @@ export class AztecRPCServer implements AztecRPC {
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: Database,
+    private config: RpcServerConfig,
     private log = createDebugLogger('aztec:rpc_server'),
   ) {
     this.synchroniser = new Synchroniser(node, db);
@@ -57,7 +59,7 @@ export class AztecRPCServer implements AztecRPC {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    await this.synchroniser.start();
+    await this.synchroniser.start(1, 1, this.config.l2BlockPollingIntervalMS);
   }
 
   /**
