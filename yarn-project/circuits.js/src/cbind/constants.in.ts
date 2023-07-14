@@ -11,6 +11,7 @@ async function main(): Promise<void> {
   const wasm = await CircuitsWasm.get();
   const constants = callCbind(wasm, 'get_circuit_constants', []);
   const generatorIndexEnum = callCbind(wasm, 'get_circuit_generator_index', []);
+  const storageSlotGeneratorIndexEnum = callCbind(wasm, 'get_circuit_storage_slot_generator_index', []);
   const privateStateNoteGeneratorIndexEnum = callCbind(wasm, 'get_circuit_private_state_note_generator_index', []);
   const privateStateTypeEnum = callCbind(wasm, 'get_circuit_private_state_type', []);
 
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     '/* eslint-disable */\n// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants\n' +
     processConstantsTS(constants) +
     processEnumTS('GeneratorIndex', generatorIndexEnum) +
+    processEnumTS('StorageSlotGeneratorIndex', storageSlotGeneratorIndexEnum) +
     processEnumTS('PrivateStateNoteGeneratorIndex', privateStateNoteGeneratorIndexEnum) +
     processEnumTS('PrivateStateType', privateStateTypeEnum);
 
@@ -30,11 +32,12 @@ async function main(): Promise<void> {
   const resultNoir: string =
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in circuits.js\n' +
     processConstantsNoir(constants) +
-    processConstantsNoir(generatorIndexEnum) + // Note: Noir doesn't support enums so we export them as constants
-    processConstantsNoir(privateStateNoteGeneratorIndexEnum) +
-    processConstantsNoir(privateStateTypeEnum);
+    processConstantsNoir(generatorIndexEnum, "GENERATOR_INDEX__") + // Note: Noir doesn't support enums so we export them as constants
+    processConstantsNoir(storageSlotGeneratorIndexEnum, "STORAGE_SLOT_GENERATOR_INDEX__") +
+    processConstantsNoir(privateStateNoteGeneratorIndexEnum, "PRIVATE_STATE_NOTE_GENERATOR_INDEX__") +
+    processConstantsNoir(privateStateTypeEnum, "PRIVATE_STATE_TYPE__");
 
-  const noirTargetPath = join(__dirname, '../../../noir-contracts/src/libs/noir-aztec/src/constants.gen.nr');
+  const noirTargetPath = join(__dirname, '../../../noir-contracts/src/libs/noir-aztec/src/constants_gen.nr');
   fs.writeFileSync(noirTargetPath, resultNoir);
 }
 
@@ -77,12 +80,13 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
  * Processes a collection of constants and generates code to export them as Noir constants.
  *
  * @param constants - An object containing key-value pairs representing constants.
+ * @param prefix - A prefix to add to the constant names.
  * @returns A string containing code that exports the constants as Noir constants.
  */
-function processConstantsNoir(constants: { [key: string]: number }): string {
+function processConstantsNoir(constants: { [key: string]: number }, prefix = ""): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    code.push(`global ${key}: comptime Field = ${value};`);
+    code.push(`global ${prefix}${key}: comptime Field = ${value};`);
   });
   return code.join('\n') + '\n';
 }
