@@ -3,13 +3,10 @@ use crate::note::note_getter_options::NoteGetterOptions;
 use crate::note::note_hash::compute_inner_note_hash;
 use crate::note::note_interface::NoteInterface;
 use crate::oracle;
-use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
-
-// TODO: Remove these when nested array is supported.
-// EXTRA_DATA: [number_of_return_notes, contract_address]
-global GET_NOTE_ORACLE_RETURN_SIZE = 322; // MAX_READ_REQUESTS_PER_CALL * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 16 * 20 + 2
-global MAX_NOTES_PER_PAGE = 10;
-global VIEW_NOTE_ORACLE_RETURN_SIZE = 202; // MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_SIZE + EXTRA_DATA = 10 * 20 + 2
+use crate::constants_gen::READ_REQUESTS_LENGTH;
+use crate::constants_gen::GET_NOTE_ORACLE_RETURN_SIZE;
+use crate::constants_gen::MAX_NOTES_PER_PAGE;
+use crate::constants_gen::VIEW_NOTE_ORACLE_RETURN_SIZE;
 
 fn ensure_note_exists<Note, N>(
     mut context: Context,

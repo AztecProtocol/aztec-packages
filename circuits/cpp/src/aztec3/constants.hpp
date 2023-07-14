@@ -185,4 +185,55 @@ enum PrivateStateNoteGeneratorIndex {
 // Note: When modifying, modify `PrivateStateTypePacker` in packer.hpp accordingly.
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
 
+////////////////////////////////////////////////////////////////////////////////
+// NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
+// --> Here because Noir doesn't yet support globals referencing other globals yet and doing so in C++ seems to be the
+// best thing to do for now. Move these constants to a noir file once the issue bellow is resolved:
+// https://github.com/noir-lang/noir/issues/1734
+constexpr size_t L1_TO_L2_MESSAGE_LEN = 8;
+// message length + sibling path (same size as tree height) + 1 field for root + 1 field for index
+constexpr size_t L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = L1_TO_L2_MESSAGE_LEN + L1_TO_L2_MSG_TREE_HEIGHT + 1 + 1;
+
+// TODO: Remove these when nested array is supported.
+constexpr size_t MAX_NOTE_FIELDS_SIZE = 20;
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t GET_NOTE_ORACLE_RETURN_SIZE = READ_REQUESTS_LENGTH * MAX_NOTE_FIELDS_SIZE + 2;
+constexpr size_t MAX_NOTES_PER_PAGE = 10;
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t VIEW_NOTE_ORACLE_RETURN_SIZE = MAX_NOTES_PER_PAGE * MAX_NOTE_FIELDS_SIZE + 2;
+
+constexpr size_t CALL_CONTEXT_SIZE = 6;
+constexpr size_t COMMITMENT_TREES_ROOTS_SIZE = 4;
+constexpr size_t FUNCTION_DATA_SIZE = 3;
+constexpr size_t CONTRACT_DEPLOYMENT_DATA_SIZE = 4;
+
+// PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH
+// CALL_CONTEXT_SIZE - 6
+// + ARGS_HASH - 1
+// + RETURN_VALUES_LENGTH - 4
+// + READ_REQUESTS_LENGTH - 4
+// + MAX_NEW_COMMITMENTS_PER_CALL - 4
+// + MAX_NEW_NULLIFIERS_PER_CALL - 4
+// + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL - 4
+// + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL - 4
+// + MAX_NEW_L2_TO_L1_MSGS_PER_CALL - 2
+// + encrypted_logs_hash - 2
+// + unencrypted_logs_hash - 2
+// + encrypted_log_preimages_length - 1
+// + unencrypted_log_preimages_length - 1
+// + commitment_trees_roots - 4
+// + contract_deployment_data - 4
+// + chain_id - 1
+// + version - 1
+// = 6 + 1 + 4 + 4 + 4 + 4 + 4 + 4 + 2 + 2 + 2 + 1 + 1 + 4 + 4 + 1 + 1
+// = 49
+// Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
+// In other words, if the structure/size of the public inputs of a function call changes then we
+// should change this constant as well as the offsets in private_call_stack_item.nr
+constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
+    CALL_CONTEXT_SIZE + 1 + RETURN_VALUES_LENGTH + READ_REQUESTS_LENGTH + MAX_NEW_COMMITMENTS_PER_CALL +
+    MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 1 + 1 +
+    COMMITMENT_TREES_ROOTS_SIZE + CONTRACT_DEPLOYMENT_DATA_SIZE + 1 + 1;
+
 }  // namespace aztec3

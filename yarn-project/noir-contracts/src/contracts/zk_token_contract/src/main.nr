@@ -11,7 +11,6 @@ contract ZkToken {
     };
     use dep::custom_notes::{
         claim_note::{ClaimNote, ClaimNoteInterface},
-        constants::MAX_NOTE_FIELDS_SIZE,
         utils::compute_note_hash_and_nullifier,
     };
 
@@ -24,6 +23,7 @@ contract ZkToken {
     use dep::aztec::state_vars::set::Set;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::log::emit_unencrypted_log;
+    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_SIZE;
 
     use crate::storage::Storage;
 
