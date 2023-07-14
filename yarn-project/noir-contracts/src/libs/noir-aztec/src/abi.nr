@@ -13,6 +13,9 @@ use crate::constants_gen::COMMITMENT_TREES_ROOTS_SIZE;
 use crate::constants_gen::CONTRACT_DEPLOYMENT_DATA_SIZE;
 use crate::constants_gen::CALL_CONTEXT_SIZE;
 use crate::constants_gen::PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+use crate::constants_gen::CONTRACT_STORAGE_UPDATE_REQUEST_SIZE;
+use crate::constants_gen::CONTRACT_STORAGE_READ_SIZE;
+use crate::constants_gen::PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::types::vec::BoundedVec;
 
 // PrivateContextInputs are expected to be provided to each private function
@@ -197,8 +200,6 @@ impl PrivateCircuitPublicInputs {
     }
 }
 
-global CONTRACT_STORAGE_READ_SIZE: comptime Field = 2;
-
 struct ContractStorageRead {
     storage_slot: Field,
     value: Field,
@@ -213,8 +214,6 @@ impl ContractStorageRead {
         [self.storage_slot, self.value]
     }
 }
-
-global CONTRACT_STORAGE_UPDATE_REQUEST_SIZE: comptime Field = 3;
 
 struct ContractStorageUpdateRequest {
     storage_slot: Field,
@@ -232,19 +231,6 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
     ContractStorageUpdateRequest { storage_slot: 0, old_value: 0, new_value: 0 }
 }
 
-// CALL_CONTEXT_SIZE
-// + ARGS_HASH 
-// + RETURN_VALUES_LENGTH 
-// + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
-// + MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_SIZE
-// + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL
-// + MAX_NEW_COMMITMENTS_PER_CALL
-// + MAX_NEW_NULLIFIERS_PER_CALL
-// + MAX_NEW_L2_TO_L1_MSGS_PER_CALL
-// + COMMITMENT_TREES_ROOTS_SIZE - 4
-// + 2;
-// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 4 + 2 + 4 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 51;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
@@ -267,8 +253,8 @@ impl PublicCircuitPublicInputs {
         dep::std::hash::pedersen(self.serialize())[0]
     }
 
-    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE] {
-        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE> = BoundedVec::new(0); 
+    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields = fields.push_array(self.call_context.serialize());   
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);

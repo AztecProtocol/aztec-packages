@@ -73,7 +73,10 @@ struct ConstantsPacker {
                  COMMITMENT_TREES_ROOTS_SIZE,
                  FUNCTION_DATA_SIZE,
                  CONTRACT_DEPLOYMENT_DATA_SIZE,
-                 PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH));  // <-- Add names of new constants here
+                 PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+                 CONTRACT_STORAGE_UPDATE_REQUEST_SIZE,
+                 CONTRACT_STORAGE_READ_SIZE,
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));  // <-- Add names of new constants here
     }
 };
 
