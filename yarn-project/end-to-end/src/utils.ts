@@ -60,6 +60,7 @@ const createRpcServer = async (
 
 const setupL1Contracts = async (config: AztecNodeConfig, account: HDAccount, logger: Logger) => {
   if (SANDBOX_URL) {
+    logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
     const l1Contracts = await getL1ContractAddresses(SANDBOX_URL);
 
     const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
@@ -151,9 +152,13 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const rpcConfig = getRpcConfigEnvVars();
   const logger = getLogger();
 
+  logger('Setting up L1 contracts...');
+
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
   const deployL1ContractsValues = await setupL1Contracts(config, hdAccount, logger);
+
+  logger('L1 contract setup completed, creating RPC server...');
 
   config.publisherPrivateKey = Buffer.from(privKey!);
   config.rollupContract = deployL1ContractsValues.rollupAddress;
@@ -163,6 +168,8 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const [aztecNode, aztecRpcServer] = await createRpcServer(config, rpcConfig);
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
+
+  logger('RPC server created, deploying accounts...');
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,

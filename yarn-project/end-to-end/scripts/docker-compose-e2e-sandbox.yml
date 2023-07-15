@@ -25,6 +25,8 @@ services:
       RPC_SERVER_BLOCK_POLLING_INTERVAL_MS: 50
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       SEARCH_START_BLOCK: ${FORK_BLOCK_NUMBER:-0}
+    ports:
+      - '8080:8080'
 
   end-to-end:
     image: aztecprotocol/end-to-end:latest
