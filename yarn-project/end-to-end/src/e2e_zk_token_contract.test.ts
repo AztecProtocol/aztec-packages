@@ -36,6 +36,8 @@ describe('e2e_zk_token_contract', () => {
 
   const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
     if (!aztecNode) {
+      // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
+      // This means we can't perform this check if there is no node
       return;
     }
     const l2BlockNum = await aztecNode.getBlockHeight();
@@ -46,6 +48,8 @@ describe('e2e_zk_token_contract', () => {
 
   const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
     if (!aztecNode) {
+      // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
+      // This means we can't perform this check if there is no node
       return;
     }
     const l2BlockNum = await aztecNode.getBlockHeight();

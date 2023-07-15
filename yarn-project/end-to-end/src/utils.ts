@@ -147,6 +147,8 @@ export async function setup(numberOfAccounts = 1): Promise<{
     });
   }
 
+  // We do this in a seperate loop to try and get all transactions into the same rollup.
+  // Doing this here will submit the transactions with minimal delay between them.
   for (const context of txContexts) {
     context.tx = context.deployMethod.send();
   }

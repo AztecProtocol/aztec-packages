@@ -8,6 +8,7 @@ import {
   TxExecutionRequest,
   TxHash,
   Tx,
+  TxReceipt,
 } from '@aztec/types';
 
 export const createAztecRpcClient = (url: string): AztecRPC =>
@@ -23,6 +24,6 @@ export const createAztecRpcClient = (url: string): AztecRPC =>
       Point,
       Fr,
     },
-    { Tx, ContractDeploymentTx },
+    { Tx, ContractDeploymentTx, TxReceipt },
     false,
   );
