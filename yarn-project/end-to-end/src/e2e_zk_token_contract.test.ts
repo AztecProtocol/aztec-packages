@@ -5,7 +5,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 
 describe('e2e_zk_token_contract', () => {
   let aztecNode: AztecNodeService | undefined;

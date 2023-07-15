@@ -6,15 +6,15 @@ import {
   getConfigEnvVars as getRpcConfig,
 } from '@aztec/aztec-rpc';
 import { AztecRPC, TxStatus } from '@aztec/types';
-import { CircuitsWasm, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
-import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
+import { ContractDeployer, SentTx } from '@aztec/aztec.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;

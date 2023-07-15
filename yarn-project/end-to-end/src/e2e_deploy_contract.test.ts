@@ -7,7 +7,6 @@ import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
 import { getContractDeploymentInfo } from '@aztec/circuits.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_deploy_contract', () => {
   let aztecNode: AztecNodeService | undefined;

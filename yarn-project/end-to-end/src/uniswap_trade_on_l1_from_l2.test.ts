@@ -7,7 +7,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { getContract, parseEther } from 'viem';

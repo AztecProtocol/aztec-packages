@@ -6,9 +6,7 @@ import {
   AztecAddress,
   Contract,
   ContractDeployer,
-  DeployMethod,
   EthAddress,
-  SentTx,
   SingleKeyAccountContract,
   Wallet,
   generatePublicKey,
@@ -42,11 +40,8 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 
 import { AztecRPC, TxStatus } from '@aztec/types';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;

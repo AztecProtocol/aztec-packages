@@ -6,7 +6,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { delay, setup } from './utils.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService | undefined;

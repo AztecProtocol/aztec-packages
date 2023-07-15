@@ -8,7 +8,6 @@ import {
   Tx,
   TxExecutionRequest,
   TxHash,
-  Tx,
   TxReceipt,
 } from '@aztec/types';
 

@@ -3,12 +3,10 @@ import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPC, Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DeployL1Contracts } from '@aztec/ethereum';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
-import { Archiver } from '@aztec/archiver';
 
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
 import { AztecRPCServer } from '@aztec/aztec-rpc';

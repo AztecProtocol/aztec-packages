@@ -7,9 +7,6 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
-import { sha256ToField } from '@aztec/foundation/crypto';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecRPC, TxStatus } from '@aztec/types';
 import { PublicClient, HttpTransport, Chain, getContract } from 'viem';
 

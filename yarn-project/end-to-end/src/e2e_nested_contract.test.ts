@@ -7,7 +7,7 @@ import { toBigInt } from '@aztec/foundation/serialize';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 
 describe('e2e_nested_contract', () => {
   let aztecNode: AztecNodeService | undefined;

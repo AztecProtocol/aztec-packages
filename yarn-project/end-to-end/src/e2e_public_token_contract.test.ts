@@ -7,7 +7,6 @@ import { AztecRPC, L2BlockL2Logs, TxStatus } from '@aztec/types';
 import times from 'lodash.times';
 
 import { expectAztecStorageSlot, setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_public_token_contract', () => {
   let aztecNode: AztecNodeService | undefined;
