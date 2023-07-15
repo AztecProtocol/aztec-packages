@@ -1,8 +1,4 @@
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, ContractDeployer, Fr, SentTx } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/examples';
-import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 import {
   AztecRPCServer,
   ConstantKeyPair,
@@ -13,6 +9,10 @@ import { AztecRPC, TxStatus } from '@aztec/types';
 import { CircuitsWasm, Point, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { DebugLogger } from '@aztec/foundation/log';
+import { TestContractAbi } from '@aztec/noir-contracts/examples';
+import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
+import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
 

@@ -5,6 +5,7 @@ import {
   ContractData,
   ContractDeploymentTx,
   ContractPublicData,
+  Tx,
   TxExecutionRequest,
   TxHash,
   Tx,

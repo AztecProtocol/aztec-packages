@@ -1,8 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
-import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
-import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
+import { DebugLogger } from '@aztec/foundation/log';
+import { PendingCommitmentsContractAbi } from '@aztec/noir-contracts/examples';
+import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
 
