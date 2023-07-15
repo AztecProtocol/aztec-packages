@@ -16,6 +16,14 @@ export type L1ContractAddresses = {
    * Address of the L1/L2 messaging inbox contract.
    */
   inbox: EthAddress;
+  /**
+   * Address of the L1/L2 messaging outbox contract.
+   */
+  outbox: EthAddress;
+  /**
+   * Address of the decoder helper contract
+   */
+  decoderHelper?: EthAddress;
 
   /**
    * Registry Address.
