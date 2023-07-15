@@ -50,7 +50,7 @@ export const getL1ContractAddresses = async (url: string): Promise<L1ContractAdd
       }
     },
     'isSandboxReady',
-    30,
+    120,
     1,
   );
   const result = Object.fromEntries(
