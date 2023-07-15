@@ -49,7 +49,7 @@ export const getL1ContractAddresses = async (url: string): Promise<L1ContractAdd
         // do nothing
       }
     },
-    'isEthRpcReady',
+    'isSandboxReady',
     30,
     1,
   );
