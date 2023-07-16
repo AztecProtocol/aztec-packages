@@ -2,19 +2,20 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { isArrayEmpty } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
-import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { CallContext } from './call_context.js';
+
 import {
-  MAX_PUBLIC_DATA_READS_PER_CALL,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
-} from './constants.js';
+} from '../cbind/constants.gen.js';
+import { FieldsOf, assertMemberLength, makeTuple } from '../utils/jsUtils.js';
+import { serializeToBuffer } from '../utils/serialize.js';
+import { CallContext } from './call_context.js';
 
 /**
  * Contract storage read operation on a specific contract.

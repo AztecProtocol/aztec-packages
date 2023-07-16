@@ -22,7 +22,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
@@ -34,10 +34,11 @@ import {
   ZkTokenContractAbi,
 } from '@aztec/noir-contracts/examples';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
+
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
@@ -664,14 +665,14 @@ describe('Private Execution test suite', () => {
 
       // Generate a partial address, pubkey, and resulting address
       const partialAddress = Fr.random();
-      const pubKey = new Point(new Coordinate([Fr.random(), Fr.ZERO]), new Coordinate([Fr.random(), Fr.ZERO]));
+      const pubKey = Point.random();
       const wasm = await CircuitsWasm.get();
       const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
       const args = [address];
 
       oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
-      expect(result.returnValues).toEqual([pubKey.x.toBigInt(), pubKey.y.toBigInt()]);
+      expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });
   });
 });

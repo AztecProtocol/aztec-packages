@@ -1,6 +1,8 @@
 #pragma once
 #include <stddef.h>
 
+// NOTE: When modifying names of constants or enums do the changes in `src/aztec3/circuits/abis/packers.hpp` as well
+
 namespace aztec3 {
 
 /**
@@ -14,10 +16,8 @@ constexpr size_t log2(size_t input)
     return (input < 2) ? 0 : 1 + log2(input / 2);
 }
 
-// Note: must be kept in sync with ts/structs/constants.ts
 constexpr size_t ARGS_LENGTH = 16;
 constexpr size_t RETURN_VALUES_LENGTH = 4;
-constexpr size_t READ_REQUESTS_LENGTH = 4;
 
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
@@ -47,6 +47,8 @@ constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_CALL = 2;
 constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 4;
 constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 4;
+constexpr size_t MAX_READ_REQUESTS_PER_CALL = 4;
+
 
 // "PER TRANSACTION" CONSTANTS
 constexpr size_t MAX_NEW_COMMITMENTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_NEW_COMMITMENTS_PER_CALL;
@@ -58,8 +60,10 @@ constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 4;
 constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 4;
 constexpr size_t MAX_NEW_CONTRACTS_PER_TX = 1;
 constexpr size_t MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
+constexpr size_t MAX_READ_REQUESTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_READ_REQUESTS_PER_CALL;
 constexpr size_t NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
 constexpr size_t NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
+
 
 // ROLLUP CONSTANTS
 constexpr size_t NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
@@ -95,6 +99,7 @@ constexpr size_t L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH = L1_TO_L2_MSG_TREE_HE
 
 // MISC CONSTANTS
 constexpr size_t FUNCTION_SELECTOR_NUM_BYTES = 4;  // must be <= 31
+constexpr size_t MAPPING_SLOT_PEDERSEN_SEPARATOR = 4;
 // sha256 hash is stored in two fields to accommodate all 256-bits of the hash
 constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
 
@@ -111,6 +116,7 @@ constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
  * | HIGH      | 16 < n ≤ 44                   | 40 < hash_index ≤ 44 |
  * +-----------+-------------------------------+----------------------+
  *
+ * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
  */
 enum GeneratorIndex {
     /**
@@ -156,6 +162,7 @@ enum GeneratorIndex {
     FUNCTION_ARGS,                  // Size ≤ 40
 };
 
+// Note: When modifying, modify `StorageSlotGeneratorIndexPacker` in packer.hpp accordingly.
 enum StorageSlotGeneratorIndex {
     BASE_SLOT,
     MAPPING_SLOT,
@@ -164,6 +171,7 @@ enum StorageSlotGeneratorIndex {
 
 // Enumerate the hash_sub_indices which are used for committing to private state note preimages.
 // Start from 1.
+// Note: When modifying, modify `PrivateStateNoteGeneratorIndexPacker` in packer.hpp accordingly.
 enum PrivateStateNoteGeneratorIndex {
     VALUE = 1,
     OWNER,
@@ -174,6 +182,53 @@ enum PrivateStateNoteGeneratorIndex {
     IS_DUMMY,
 };
 
+// Note: When modifying, modify `PrivateStateTypePacker` in packer.hpp accordingly.
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
+
+////////////////////////////////////////////////////////////////////////////////
+// NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
+// --> Here because Noir doesn't yet support globals referencing other globals yet and doing so in C++ seems to be the
+// best thing to do for now. Move these constants to a noir file once the issue bellow is resolved:
+// https://github.com/noir-lang/noir/issues/1734
+constexpr size_t L1_TO_L2_MESSAGE_LENGTH = 8;
+// message length + sibling path (same size as tree height) + 1 field for root + 1 field for index
+constexpr size_t L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = L1_TO_L2_MESSAGE_LENGTH + L1_TO_L2_MSG_TREE_HEIGHT + 1 + 1;
+
+// TODO: Remove these when nested array is supported.
+constexpr size_t MAX_NOTE_FIELDS_LENGTH = 20;
+// MAX_NOTE_FIELDS_LENGTH + 1: the plus 1 is 1 extra field for nonce.
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t GET_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTE_FIELDS_LENGTH + 1 + 2;
+constexpr size_t GET_NOTES_ORACLE_RETURN_LENGTH = MAX_READ_REQUESTS_PER_CALL * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
+constexpr size_t MAX_NOTES_PER_PAGE = 10;
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
+
+constexpr size_t CALL_CONTEXT_LENGTH = 6;
+constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 4;
+constexpr size_t FUNCTION_DATA_LENGTH = 3;
+constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 4;
+
+// Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
+// In other words, if the structure/size of the public inputs of a function call changes then we
+// should change this constant as well as the offsets in private_call_stack_item.nr
+constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
+    CALL_CONTEXT_LENGTH + 1  // +1 for args_hash
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL +
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
+    NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2                       // + 2 for logs preimage lengths
+    + COMMITMENT_TREES_ROOTS_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;  // + 2 for chain_id and version
+
+
+constexpr size_t CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
+constexpr size_t CONTRACT_STORAGE_READ_LENGTH = 2;
+
+// Change this ONLY if you have changed the PublicCircuitPublicInputs structure in C++.
+constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
+    CALL_CONTEXT_LENGTH + 1 + RETURN_VALUES_LENGTH +  // + 1 for args_hash
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH +
+    MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
+    COMMITMENT_TREES_ROOTS_LENGTH + 2;  // + 2 for chain_id and version
 
 }  // namespace aztec3

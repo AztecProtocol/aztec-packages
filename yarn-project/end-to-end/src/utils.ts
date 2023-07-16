@@ -1,34 +1,64 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
+import { AztecRPCServer, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
-  AccountContract,
   AccountWallet,
   AztecAddress,
   Contract,
   ContractDeployer,
+  DeployMethod,
   EthAddress,
-  SchnorrAuthProvider,
+  SentTx,
+  SingleKeyAccountContract,
   Wallet,
   generatePublicKey,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { AztecRPCServer, createAztecRPCServer } from '@aztec/aztec-rpc';
-import { randomBytes } from 'crypto';
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { TxStatus } from '@aztec/types';
+
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { TxStatus } from '@aztec/types';
+
+/**
+ * Container to hold information about txs
+ */
+type TxContext = {
+  /**
+   * The fully built and sent transaction.
+   */
+  tx: SentTx | undefined;
+  /**
+   * The deploy method.
+   */
+  deployMethod: DeployMethod;
+
+  /**
+   * Contract address salt.
+   */
+  salt: Fr;
+
+  /**
+   * The user's private key.
+   */
+  privateKey: Buffer;
+  /**
+   * The fully derived deployment data.
+   */
+  deploymentData: DeploymentInfo;
+};
 
 /**
  * Sets up the environment for the end-to-end tests.
@@ -65,6 +95,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   logger: DebugLogger;
 }> {
   const config = getConfigEnvVars();
+  const rpcConfig = getRpcConfigEnvVars();
   const logger = getLogger();
 
   const hdAccount = mnemonicToAccount(MNEMONIC);
@@ -77,9 +108,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const aztecNode = await AztecNodeService.createAndSync(config);
-  const aztecRpcServer = await createAztecRPCServer(aztecNode);
+  const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
   const accountCollection = new AccountCollection();
-  const wasm = await CircuitsWasm.get();
+  const txContexts: TxContext[] = [];
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
@@ -89,39 +120,47 @@ export async function setup(numberOfAccounts = 1): Promise<{
     const publicKey = await generatePublicKey(privateKey);
     const salt = Fr.random();
     const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
-    await aztecRpcServer.addAccount(
-      privateKey,
-      deploymentData.address,
-      deploymentData.partialAddress,
-      SchnorrAccountContractAbi,
-    );
+    await aztecRpcServer.addAccount(privateKey, deploymentData.address, deploymentData.partialAddress);
 
     const contractDeployer = new ContractDeployer(SchnorrAccountContractAbi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
-    const tx = deployMethod.send({ contractAddressSalt: salt });
-    await tx.isMined(0, 0.1);
-    const receipt = await tx.getReceipt();
+    await deployMethod.simulate({ contractAddressSalt: salt });
+    txContexts.push({
+      tx: undefined,
+      deployMethod,
+      salt,
+      privateKey,
+      deploymentData,
+    });
+  }
+
+  for (const context of txContexts) {
+    context.tx = context.deployMethod.send();
+  }
+
+  for (const context of txContexts) {
+    const publicKey = await generatePublicKey(context.privateKey);
+    await context.tx!.isMined(0, 0.1);
+    const receipt = await context.tx!.getReceipt();
     if (receipt.status !== TxStatus.MINED) {
       throw new Error(`Deployment tx not mined (status is ${receipt.status})`);
     }
     const receiptAddress = receipt.contractAddress!;
-    if (!receiptAddress.equals(deploymentData.address)) {
+    if (!receiptAddress.equals(context.deploymentData.address)) {
       throw new Error(
-        `Deployment address does not match for account contract (expected ${deploymentData.address} got ${receiptAddress})`,
+        `Deployment address does not match for account contract (expected ${context.deploymentData.address} got ${receiptAddress})`,
       );
     }
     accountCollection.registerAccount(
-      deploymentData.address,
-      new AccountContract(
-        deploymentData.address,
-        publicKey,
-        new SchnorrAuthProvider(await Schnorr.new(), privateKey),
-        deploymentData.partialAddress,
-        SchnorrAccountContractAbi,
-        wasm,
+      context.deploymentData.address,
+      new SingleKeyAccountContract(
+        context.deploymentData.address,
+        context.deploymentData.partialAddress,
+        context.privateKey,
+        await Schnorr.new(),
       ),
     );
-    logger(`Created account ${deploymentData.address.toString()} with public key ${publicKey.toString()}`);
+    logger(`Created account ${context.deploymentData.address.toString()} with public key ${publicKey.toString()}`);
   }
 
   const accounts = await aztecRpcServer.getAccounts();

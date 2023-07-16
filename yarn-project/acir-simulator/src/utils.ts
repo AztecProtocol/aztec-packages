@@ -1,6 +1,6 @@
-import { Fr, Point } from '@aztec/foundation/fields';
-import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { CircuitsWasm } from '@aztec/circuits.js';
+import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { Fr, Point } from '@aztec/foundation/fields';
 
 /**
  * A point in the format that noir uses.
@@ -41,7 +41,7 @@ export function toPublicKey(privateKey: Buffer, grumpkin: Grumpkin): NoirPoint {
   const buf = grumpkin.mul(Grumpkin.generator, privateKey);
   const point = Point.fromBuffer(buf);
   return {
-    x: point.x.toBigInt(),
-    y: point.y.toBigInt(),
+    x: point.x.value,
+    y: point.y.value,
   };
 }

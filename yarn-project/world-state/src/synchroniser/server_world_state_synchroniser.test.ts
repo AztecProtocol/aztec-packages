@@ -1,20 +1,29 @@
 import {
   AppendOnlyTreeSnapshot,
   CircuitsWasm,
+  Fr,
   GlobalVariables,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
-import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, L2BlockL2Logs, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
-import { jest } from '@jest/globals';
-import { Fr } from '@aztec/foundation/fields';
-import { sleep } from '@aztec/foundation/sleep';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
+import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
+import {
+  ContractData,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  MerkleTreeId,
+  PublicDataWrite,
+  SiblingPath,
+} from '@aztec/types';
+
+import { jest } from '@jest/globals';
 import times from 'lodash.times';
 
 import { MerkleTreeDb } from '../index.js';
