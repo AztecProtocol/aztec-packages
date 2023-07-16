@@ -46,16 +46,22 @@ fn compute_note_hash_and_nullifier<Note, N, S>(
     note_interface: NoteInterface<Note, N>,
     note_header: NoteHeader,
     preimage: [Field; S],
-) -> [Field; 2] {
+) -> [Field; 4] {
     let deserialise = note_interface.deserialise;
     let set_header = note_interface.set_header;
     let mut note = deserialise(arr_copy_slice(preimage, [0; N], 0));
     note = set_header(note, note_header);
 
-    let inner_note_hash = compute_inner_note_hash(note_interface, note);
+    let compute_note_hash = note_interface.compute_note_hash;
+    let note_hash = compute_note_hash(note);
+    let inner_note_hash = compute_inner_hash(note_header.storage_slot, note_hash);
+
+    let unique_note_hash = compute_unique_hash(note_header.nonce, inner_note_hash);
+
+    let siloed_note_hash = compute_siloed_hash(note_header.contract_address, unique_note_hash);
     
     let compute_nullifier = note_interface.compute_nullifier;
     let inner_nullifier = compute_nullifier(note);
 
-    [inner_note_hash, inner_nullifier]
+    [inner_note_hash, unique_note_hash, siloed_note_hash, inner_nullifier]
 }

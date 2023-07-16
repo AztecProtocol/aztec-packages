@@ -330,7 +330,7 @@ contract NonNativeToken {
     }
 
     /// ABI stev type "unconstrained"
-    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 2] {
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }

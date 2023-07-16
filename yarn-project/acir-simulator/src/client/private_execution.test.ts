@@ -147,10 +147,20 @@ describe('Private Execution test suite', () => {
     const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
     let owner: NoirPoint;
     let recipient: NoirPoint;
-    let currentNonce = 0n;
+    let currentNoteIndex = 0n;
 
     const buildNote = (amount: bigint, owner: NoirPoint) => {
-      return [new Fr(amount), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(currentNonce++), new Fr(1n)];
+      const nonce = new Fr(currentNoteIndex);
+      currentNoteIndex++;
+      const preimage = [
+        new Fr(amount),
+        new Fr(owner.x),
+        new Fr(owner.y),
+        Fr.random(),
+        new Fr(currentNoteIndex), // TODO: remove it
+        new Fr(1n),
+      ];
+      return { index: currentNoteIndex, nonce, preimage };
     };
 
     beforeAll(() => {
@@ -169,31 +179,33 @@ describe('Private Execution test suite', () => {
 
     it('should have an abi for computing note hash and nullifier', async () => {
       const storageSlot = Fr.random();
-      const nonce = Fr.ZERO;
       const note = buildNote(60n, owner);
 
       // Should be the same as how we compute the values for the ValueNote in the noir library.
       const valueNoteHash = pedersenPlookupCommitInputs(
         circuitsWasm,
-        note.map(f => f.toBuffer()),
+        note.preimage.map(f => f.toBuffer()),
       );
       const innerNoteHash = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [storageSlot.toBuffer(), valueNoteHash]),
       );
-      const uniqueNoteHash = computeUniqueCommitment(circuitsWasm, nonce, innerNoteHash);
+      const uniqueNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, innerNoteHash);
       const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, uniqueNoteHash);
-      const innerNullifier = Fr.fromBuffer(
-        pedersenPlookupCommitInputs(circuitsWasm, [siloedNoteHash.toBuffer(), ownerPk]),
-      );
+      const nullifier = Fr.fromBuffer(pedersenPlookupCommitInputs(circuitsWasm, [siloedNoteHash.toBuffer(), ownerPk]));
 
-      const { noteHash, nullifier } = await acirSimulator.computeNoteHashAndNullifier(
+      const result = await acirSimulator.computeNoteHashAndNullifier(
         contractAddress,
+        note.nonce,
         storageSlot,
-        note,
+        note.preimage,
       );
 
-      expect(noteHash).toEqual(innerNoteHash);
-      expect(nullifier).toEqual(innerNullifier);
+      expect(result).toEqual({
+        innerNoteHash,
+        uniqueNoteHash,
+        siloedNoteHash,
+        nullifier,
+      });
     });
 
     it('should a constructor with arguments that creates notes', async () => {
@@ -210,7 +222,7 @@ describe('Private Execution test suite', () => {
 
       const [commitment] = newCommitments;
       expect(commitment).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
+        await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
 
@@ -228,7 +240,7 @@ describe('Private Execution test suite', () => {
 
       const [commitment] = newCommitments;
       expect(commitment).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
+        await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
 
@@ -236,30 +248,22 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer')!;
 
-      const preimages = [buildNote(60n, owner), buildNote(80n, owner)];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      const leaves = await asyncMap(preimages, preimage =>
-        acirSimulator.computeNoteHash(contractAddress, storageSlot, preimage),
-      );
-      await insertLeaves(leaves);
 
-      oracle.getNotes.mockResolvedValue(
-        preimages.map((preimage, index) => ({
-          nonce: Fr.ZERO,
-          preimage,
-          index: BigInt(index),
-        })),
+      const notes = [buildNote(60n, owner), buildNote(80n, owner)];
+      oracle.getNotes.mockResolvedValue(notes);
+
+      const consumedNotes = await asyncMap(notes, ({ nonce, preimage }) =>
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage),
       );
+      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      const expectedNullifiers = await asyncMap(preimages, preimage =>
-        acirSimulator.computeNullifier(contractAddress, storageSlot, preimage),
-      );
-      expect(newNullifiers).toEqual(expectedNullifiers);
+      expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -271,20 +275,17 @@ describe('Private Execution test suite', () => {
       const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
       const recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
       expect(recipientNoteCommitment).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, recipientStorageSlot, recipientNote.preimage),
+        await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, recipientNote.preimage),
       );
       expect(changeNoteCommitment).toEqual(
-        await acirSimulator.computeNoteHash(contractAddress, storageSlot, changeNote.preimage),
+        await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, changeNote.preimage),
       );
 
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
-      const consumedNoteHashes = leaves;
-      const nonce = Fr.ZERO;
-      const uniqueNoteHashes = consumedNoteHashes.map(h => computeUniqueCommitment(circuitsWasm, nonce, h));
-      expect(readRequests).toEqual(uniqueNoteHashes);
+      expect(readRequests).toEqual(consumedNotes.map(n => n.uniqueNoteHash));
     });
 
     it('should be able to transfer with dummy notes', async () => {
@@ -292,26 +293,21 @@ describe('Private Execution test suite', () => {
       const balance = 160n;
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'transfer')!;
 
-      const preimages = [buildNote(balance, owner)];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      const leaves = await asyncMap(preimages, preimage =>
-        acirSimulator.computeNoteHash(contractAddress, storageSlot, preimage),
-      );
-      await insertLeaves(leaves);
 
-      oracle.getNotes.mockResolvedValue(
-        preimages.map((preimage, index) => ({
-          nonce: Fr.ZERO,
-          preimage,
-          index: BigInt(index),
-        })),
+      const notes = [buildNote(balance, owner)];
+      oracle.getNotes.mockResolvedValue(notes);
+
+      const consumedNotes = await asyncMap(notes, ({ nonce, preimage }) =>
+        acirSimulator.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, preimage),
       );
+      await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [amountToTransfer, owner, recipient];
       const result = await runSimulator({ args, abi });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toEqual([await acirSimulator.computeNullifier(contractAddress, storageSlot, preimages[0])]);
+      expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -554,7 +550,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const zeroNonce = Fr.ZERO;
       const readRequest = result.callStackItem.publicInputs.readRequests[0];
@@ -606,7 +602,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const zeroNonce = Fr.ZERO;
       const readRequest = execGetAndCheck.callStackItem.publicInputs.readRequests[0];
@@ -646,7 +642,7 @@ describe('Private Execution test suite', () => {
 
       const commitment = newCommitments[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
-      expect(commitment).toEqual(await acirSimulator.computeNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read requests should be empty
       const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
       expect(readRequest).toEqual(0n);
