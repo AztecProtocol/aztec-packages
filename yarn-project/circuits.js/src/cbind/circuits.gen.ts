@@ -1,47 +1,44 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
-import { IWasmModule } from '@aztec/foundation/wasm';
-
 import { Buffer } from 'buffer';
-import mapValues from 'lodash.mapvalues';
-
 import { callCbind } from './cbind.js';
+import { IWasmModule } from '@aztec/foundation/wasm';
 import {
-  Address,
-  CallContext,
-  CircuitError,
-  CombinedAccumulatedData,
-  CombinedConstantData,
-  CombinedHistoricTreeRoots,
-  ContractDeploymentData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Fq,
-  Fr,
-  FunctionData,
-  G1AffineElement,
-  KernelCircuitPublicInputs,
-  NativeAggregationState,
-  NewContractData,
-  OptionallyRevealedData,
-  Point,
-  PreviousKernelData,
-  PrivateHistoricTreeRoots,
-  Proof,
-  PublicCallData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  PublicDataRead,
-  PublicDataUpdateRequest,
-  PublicKernelInputs,
-  ReadRequestMembershipWitness,
-  TxContext,
-  VerificationKeyData,
-  isCircuitError,
   toBuffer,
+  Fr,
+  Address,
+  Fq,
+  G1AffineElement,
+  NativeAggregationState,
+  ReadRequestMembershipWitness,
+  NewContractData,
+  FunctionData,
+  OptionallyRevealedData,
+  PublicDataUpdateRequest,
+  PublicDataRead,
+  CombinedAccumulatedData,
+  PrivateHistoricTreeRoots,
+  CombinedHistoricTreeRoots,
+  Point,
+  ContractDeploymentData,
+  TxContext,
+  CombinedConstantData,
+  KernelCircuitPublicInputs,
+  Proof,
+  VerificationKeyData,
+  PreviousKernelData,
+  CircuitError,
+  isCircuitError,
+  CallContext,
+  ContractStorageUpdateRequest,
+  ContractStorageRead,
+  PublicCircuitPublicInputs,
+  PublicCallStackItem,
+  PublicCallData,
+  PublicKernelInputs,
 } from './types.js';
-
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import mapValues from 'lodash.mapvalues';
 interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
@@ -1430,10 +1427,10 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
 }
 
 export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [arg0.toBuffer(), arg1.toBuffer()]));
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function abisComputeUniqueCommitment(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_commitment', [arg0.toBuffer(), arg1.toBuffer()]));
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_commitment', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [toBuffer(arg0), toBuffer(arg1)]));

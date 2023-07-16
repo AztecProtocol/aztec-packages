@@ -7,6 +7,7 @@ use crate::note::{
 use crate::oracle;
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
 use crate::constants_gen::GET_NOTE_ORACLE_RETURN_LENGTH;
+use crate::constants_gen::GET_NOTES_ORACLE_RETURN_LENGTH;
 use crate::constants_gen::MAX_NOTES_PER_PAGE;
 use crate::constants_gen::VIEW_NOTE_ORACLE_RETURN_LENGTH;
 
@@ -20,7 +21,7 @@ fn ensure_note_exists<Note, N>(
     let mut unique_note_hash = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
-        let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
+        let zero_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
         let saved_note = oracle::notes::get_note(storage_slot, note_interface, zero_fields);
         assert(is_dummy(saved_note) == false);
 
@@ -39,7 +40,7 @@ fn get_note<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> (Context, Note) {
-    let zero_fields = [0; GET_NOTE_ORACLE_RETURN_SIZE];
+    let zero_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     let note = oracle::notes::get_note(storage_slot, note_interface, zero_fields);
     let mut unique_note_hash = 0;
     let is_dummy = note_interface.is_dummy;
@@ -85,7 +86,7 @@ fn get_notes_internal<Note, N, S, P>(
     };
     let offset = options.offset;
     let dummy_notes = [dummy(); MAX_READ_REQUESTS_PER_CALL];
-    let zero_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
+    let zero_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let notes = oracle::notes::get_notes(
         storage_slot,
         note_interface,

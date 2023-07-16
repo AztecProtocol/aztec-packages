@@ -67,7 +67,6 @@ struct ConstantsPacker {
                  L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH,
                  MAX_NOTE_FIELDS_LENGTH,
                  GET_NOTE_ORACLE_RETURN_LENGTH,
-                 GET_NOTES_ORACLE_RETURN_LENGTH,
                  MAX_NOTES_PER_PAGE,
                  VIEW_NOTE_ORACLE_RETURN_LENGTH,
                  CALL_CONTEXT_LENGTH,
@@ -77,7 +76,8 @@ struct ConstantsPacker {
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
                  CONTRACT_STORAGE_READ_LENGTH,
-                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));  // <-- Add names of new constants here
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH),
+             NVP(GET_NOTES_ORACLE_RETURN_LENGTH));  // <-- Add names of new constants here
     }
 };
 
