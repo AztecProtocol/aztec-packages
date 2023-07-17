@@ -71,8 +71,8 @@ export class SimulatorOracle implements DBOracle {
       sortOrder,
       limit,
     });
-    return noteDaos.map(({ notePreimage, index }) => ({
-      nonce: Fr.ZERO, // TODO
+    return noteDaos.map(({ nonce, notePreimage, index }) => ({
+      nonce,
       preimage: notePreimage.items,
       // RPC Client can use this index to get full MembershipWitness
       index,
