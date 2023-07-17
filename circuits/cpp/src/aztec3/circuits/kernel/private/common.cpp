@@ -99,33 +99,31 @@ void common_validate_read_requests(DummyBuilder& builder,
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a transient read.
-        if (read_request != 0) {
-            if (!witness.is_transient) {
-                const auto& root_for_read_request =
-                    root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
-                builder.do_assert(root_for_read_request == historic_private_data_tree_root,
-                                  format("private data tree root mismatch at read_request[",
-                                         rr_idx,
-                                         "]",
-                                         "\n\texpected root:    ",
-                                         historic_private_data_tree_root,
-                                         "\n\tbut got root*:    ",
-                                         root_for_read_request,
-                                         "\n\tread_request:     ",
-                                         read_request,
-                                         "\n\tsiloed-rr (leaf): ",
-                                         leaf,
-                                         "\n\tleaf_index: ",
-                                         witness.leaf_index,
-                                         "\n\tis_transient: ",
-                                         witness.is_transient,
-                                         "\n\thint_to_commitment: ",
-                                         witness.hint_to_commitment,
-                                         "\n\t* got root by siloing read_request (compressing with "
-                                         "storage_contract_address to get leaf) "
-                                         "and merkle-hashing to a root using membership witness"),
-                                  CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
-            }
+        if (read_request != 0 && !witness.is_transient) {
+            const auto& root_for_read_request =
+                root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
+            builder.do_assert(root_for_read_request == historic_private_data_tree_root,
+                              format("private data tree root mismatch at read_request[",
+                                     rr_idx,
+                                     "]",
+                                     "\n\texpected root:    ",
+                                     historic_private_data_tree_root,
+                                     "\n\tbut got root*:    ",
+                                     root_for_read_request,
+                                     "\n\tread_request:     ",
+                                     read_request,
+                                     "\n\tsiloed-rr (leaf): ",
+                                     leaf,
+                                     "\n\tleaf_index: ",
+                                     witness.leaf_index,
+                                     "\n\tis_transient: ",
+                                     witness.is_transient,
+                                     "\n\thint_to_commitment: ",
+                                     witness.hint_to_commitment,
+                                     "\n\t* got root by siloing read_request (compressing with "
+                                     "storage_contract_address to get leaf) "
+                                     "and merkle-hashing to a root using membership witness"),
+                              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
     }
 }
