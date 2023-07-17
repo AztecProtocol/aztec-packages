@@ -29,6 +29,16 @@ void match_reads_to_commitments(DummyBuilder& builder,
                                            MAX_READ_REQUESTS_PER_TX> const& read_request_membership_witnesses,
                                 std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
+    // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
+    // we might get into trouble when accumulating them in public_inputs.end
+    builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
+                      format("[private ordering circuit] mismatch array length between read_requests and witnesses - "
+                             "read_requests length: ",
+                             array_length(read_requests),
+                             " witnesses length: ",
+                             array_length(read_request_membership_witnesses)),
+                      CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+
     // match reads to commitments from the previous call(s)
     for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
@@ -134,8 +144,8 @@ void match_reads_to_commitments(DummyBuilder& builder,
 //        // public inputs (used later by base rollup circuit)
 //    }
 //    // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
-//    array_rearrange<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>(new_commitments);
-//    array_rearrange<NT::fr, MAX_NEW_NULLIFIERS_PER_TX>(new_nullifiers);
+//    array_rearrange(new_commitments);
+//    array_rearrange(new_nullifiers);
 //}
 
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilder& builder,
@@ -145,7 +155,11 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilde
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    common_initialise_end_values(previous_kernel, public_inputs);
+    common_inner_ordering_initialise_end_values(previous_kernel, public_inputs);
+
+    common_validate_previous_kernel_read_requests(builder,
+                                                  previous_kernel.public_inputs.end.read_requests,
+                                                  previous_kernel.public_inputs.end.read_request_membership_witnesses);
 
     // Matching read requests to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match reads against new_commitments in
