@@ -7,11 +7,11 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { DebugLogger } from '@aztec/foundation/log';
 import { OutboxAbi } from '@aztec/l1-artifacts';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot } from '../utils.js';
 
 /**

@@ -23,6 +23,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
@@ -31,7 +32,6 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
 /**
  * Container to hold information about txs

@@ -9,9 +9,10 @@ import {
   DeployMethod,
   Wallet,
 } from '@aztec/aztec.js';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC } from '@aztec/types';
-import { ContractAbi } from '@aztec/foundation/abi';
+
 import { PublicTokenContractAbi } from '../examples/index.js';
 
 /**

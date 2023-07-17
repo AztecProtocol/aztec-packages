@@ -5,11 +5,11 @@ import { DeployL1Contracts, deployL1Contract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
+import { UniswapContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import { getContract, parseEther } from 'viem';
 
-import { UniswapContract } from '@aztec/noir-contracts/types';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
 

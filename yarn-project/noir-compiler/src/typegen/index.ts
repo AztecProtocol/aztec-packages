@@ -1,4 +1,5 @@
 import { ABIParameter, ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
+
 import compact from 'lodash.compact';
 
 /**

@@ -13,11 +13,11 @@ import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildContract } from '@aztec/noir-contracts/types';
 import { PublicKey } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 
-import { ChildContract } from '@aztec/noir-contracts/types';
 import { setup } from './utils.js';
 
 async function deployContract(

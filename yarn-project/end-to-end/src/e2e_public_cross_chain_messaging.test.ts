@@ -3,9 +3,9 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
 

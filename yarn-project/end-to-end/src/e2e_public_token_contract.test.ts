@@ -2,11 +2,11 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
+import { PublicTokenContract } from '@aztec/noir-contracts/types';
 import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
-import { PublicTokenContract } from '@aztec/noir-contracts/types';
 import { expectAztecStorageSlot, setup } from './utils.js';
 
 describe('e2e_public_token_contract', () => {

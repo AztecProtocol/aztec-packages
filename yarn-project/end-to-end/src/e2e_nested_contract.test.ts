@@ -5,10 +5,10 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContractAbi, ParentContractAbi } from '@aztec/noir-contracts/examples';
+import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
-import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
 
 describe('e2e_nested_contract', () => {
   let aztecNode: AztecNodeService;

@@ -6,10 +6,10 @@ import { DeployL1Contracts } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
 
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
 
 describe('archiver integration with l1 to l2 messages', () => {

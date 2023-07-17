@@ -4,9 +4,9 @@ import { AztecAddress } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
 

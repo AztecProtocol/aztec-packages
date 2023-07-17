@@ -2,9 +2,9 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
+import { PendingCommitmentsContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
-import { PendingCommitmentsContract } from '@aztec/noir-contracts/types';
 import { setup } from './utils.js';
 
 describe('e2e_pending_commitments_contract', () => {
