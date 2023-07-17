@@ -486,6 +486,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts@workspace:noir-contracts"
   dependencies:
+    "@aztec/aztec.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@jest/globals": ^29.5.0
