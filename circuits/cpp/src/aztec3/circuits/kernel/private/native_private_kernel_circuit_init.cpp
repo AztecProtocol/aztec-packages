@@ -130,8 +130,14 @@ void update_end_values(DummyBuilder& builder,
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
+    builder.do_assert(is_array_empty(public_inputs.end.new_commitments),
+                      "public_inputs.end.new_commitments must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
                       "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.nullified_commitments),
+                      "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.encrypted_logs_hash),
                       "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration",

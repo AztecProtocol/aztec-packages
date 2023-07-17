@@ -172,6 +172,7 @@ void common_update_end_values(DummyBuilder& builder,
 
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
+    const auto& nullified_commitments = private_call_public_inputs.nullified_commitments;
 
     const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
 
@@ -214,7 +215,7 @@ void common_update_end_values(DummyBuilder& builder,
     {
         // nullifiers
         std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
-        for (size_t i = 0; i < new_nullifiers.size(); ++i) {
+        for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
             siloed_new_nullifiers[i] =
                 new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
         }
@@ -239,6 +240,20 @@ void common_update_end_values(DummyBuilder& builder,
             siloed_new_commitments,
             public_inputs.end.new_commitments,
             format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
+
+        // nullified commitments
+        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_commitments{};
+        for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
+            siloed_nullified_commitments[i] =
+                nullified_commitments[i] == 0 ? 0
+                                              : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
+        }
+
+        push_array_to_array(
+            builder,
+            siloed_nullified_commitments,
+            public_inputs.end.nullified_commitments,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullified commitments in one tx"));
     }
 
     {  // call stacks
@@ -418,6 +433,7 @@ void common_inner_ordering_initialise_end_values(PreviousKernelData<NT> const& p
 
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
+    end.nullified_commitments = start.nullified_commitments;
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;
