@@ -31,6 +31,7 @@ import { Account, Chain, HttpTransport, PublicClient, WalletClient, getContract 
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
 /**
  * Container to hold information about txs
@@ -267,7 +268,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   await tx.isMined(0, 0.1);
   const receipt = await tx.getReceipt();
   if (receipt.status !== TxStatus.MINED) throw new Error(`Tx status is ${receipt.status}`);
-  const l2Contract = new Contract(receipt.contractAddress!, NonNativeTokenContractAbi, wallet);
+  const l2Contract = new NonNativeTokenContract(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 

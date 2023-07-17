@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
@@ -11,6 +11,7 @@ import { TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { deployAndInitializeNonNativeL2TokenContracts, expectAztecStorageSlot } from '../utils.js';
 
 /**
@@ -86,7 +87,7 @@ export class CrossChainTestHarness {
     public logger: DebugLogger,
 
     /** Testing aztec contract. */
-    public l2Contract: Contract,
+    public l2Contract: NonNativeTokenContract,
     /** Eth account to interact with. */
     public ethAccount: EthAddress,
 
