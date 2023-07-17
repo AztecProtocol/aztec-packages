@@ -71,12 +71,12 @@ void match_reads_to_commitments(DummyBuilder& builder,
                        "outputs because kernel iterations gradually remove non-transient read_requests as "
                        "membership checks are resolved."),
                 CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
-        } else if (rr_idx < array_length(read_requests)) {
+        } else {
             // This if-condition means it is a non-empty read request and it is flagged as transient....
             // NON-transient reads MUST be membership-checked and removed during standard kernel iterations
             // NONE should be here in (let alone output from) the ordering circuit.
             builder.do_assert(
-                false,  // is_transient_read,  // (and is a non-empty array entry)
+                read_request == NT::fr(0),  // basically: assert(is_transient_read || empty)
                 format("read_request at position [",
                        rr_idx,
                        "]* is NOT transient but is still unresolved in the final kernel stage! This implies invalid "
