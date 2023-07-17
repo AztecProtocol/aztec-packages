@@ -253,7 +253,8 @@
       "^yarn-project/noir-contracts/"
     ],
     "dependencies": [
-      "foundation"
+      "foundation",
+      "noir-compiler"
     ]
   },
   "noir-compiler": {
