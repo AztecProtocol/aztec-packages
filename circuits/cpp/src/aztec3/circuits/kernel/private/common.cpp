@@ -125,7 +125,6 @@ void common_validate_read_requests(DummyBuilder& builder,
                                          "storage_contract_address to get leaf) "
                                          "and merkle-hashing to a root using membership witness"),
                                   CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
-                info("Failed? ", builder.failed());
             }
         }
     }
