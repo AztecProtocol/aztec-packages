@@ -2,8 +2,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash } from '../abis/abis.js';
-import { SchnorrSignature } from '../barretenberg/index.js';
+import { computeCallStackItemHash, computeContractAddressFromPartial } from '../abis/abis.js';
+import { Grumpkin, SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -92,6 +92,7 @@ import {
   range,
 } from '../index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
+import { randomBytes } from 'crypto';
 
 /**
  * Creates an arbitrary tx context with the given seed.
@@ -948,4 +949,19 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * Computes a valid address, partial address, and public key out of a private key.
+ * @param privateKey - A private encryption key (optional, will use a random one if not set).
+ * @returns A valid address, partial address, and public key.
+ */
+export async function makeAddressFromPrivateKey(privateKey?: Buffer) {
+  privateKey = privateKey ?? randomBytes(32);
+  const wasm = await CircuitsWasm.get();
+  const grumpkin = new Grumpkin(wasm);
+  const publicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
+  const partialAddress = Fr.random();
+  const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
+  return { address, partialAddress, publicKey, privateKey };
 }

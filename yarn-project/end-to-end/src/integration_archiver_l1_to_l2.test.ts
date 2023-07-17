@@ -70,8 +70,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   }, 30_000);
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -122,13 +121,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   it('archiver handles l1 to l2 message correctly even when l2block has no such messages', async () => {
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
-    l2Contract.methods
-      .transfer(
-        transferAmount,
-        (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts(),
-        (await aztecRpcServer.getAccountPublicKey(receiver)).toBigInts(),
-      )
-      .send({ origin: accounts[0] });
+    l2Contract.methods.transfer(transferAmount, ownerAddress, receiver).send({ origin: accounts[0] });
 
     expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
     expect(() => archiver.getConfirmedL1ToL2Message(Fr.ZERO)).toThrow();

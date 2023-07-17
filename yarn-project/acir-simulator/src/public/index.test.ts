@@ -22,7 +22,7 @@ import {
 } from '@aztec/noir-contracts/examples';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown, type MemDown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
@@ -326,14 +326,12 @@ describe('ACIR public execution simulator', () => {
 
       const bridgedAmount = 20n;
       const secret = new Fr(1n);
-      const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
-      const grumpkin = new Grumpkin(circuitsWasm);
-      const recipient = toPublicKey(recipientPk, grumpkin);
+      const recipient = AztecAddress.random();
 
       // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
         'eeb73071',
-        [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
+        [new Fr(bridgedAmount), recipient.toField(), canceller.toField()],
         contractAddress,
         secret,
       );
@@ -342,7 +340,7 @@ describe('ACIR public execution simulator', () => {
       const messageKey = Fr.random();
       const args = encodeArguments(mintPublicAbi, [
         bridgedAmount,
-        recipient.x,
+        recipient.toField(),
         messageKey,
         secret,
         canceller.toField(),

@@ -19,6 +19,7 @@ import {
   siloCommitment,
 } from '@aztec/circuits.js/abis';
 import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { makeAddressFromPrivateKey } from '@aztec/circuits.js/factories';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -27,25 +28,23 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
-import {
-  ChildContractAbi,
-  NonNativeTokenContractAbi,
-  ParentContractAbi,
-  PendingCommitmentsContractAbi,
-  TestContractAbi,
-  ZkTokenContractAbi,
-} from '@aztec/noir-contracts/examples';
+import { ChildContractAbi, NonNativeTokenContractAbi, ParentContractAbi, PendingCommitmentsContractAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
+
+
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown, type MemDown } from 'memdown';
+
+
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
+
 
 jest.setTimeout(60_000);
 
@@ -66,6 +65,7 @@ describe('Private Execution test suite', () => {
     privateData: PRIVATE_DATA_TREE_HEIGHT,
     l1ToL2Messages: L1_TO_L2_MSG_TREE_HEIGHT,
   };
+
   const trees: { [name: keyof typeof treeHeights]: AppendOnlyTree } = {};
   const txContext = new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(69), new Fr(420));
 
@@ -160,17 +160,18 @@ describe('Private Execution test suite', () => {
       return { index: currentNoteIndex++, nonce, preimage };
     };
 
-    const calculateAddress = (privateKey: Buffer) => {
-      const grumpkin = new Grumpkin(circuitsWasm);
-      const pubKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
-      const partialAddress = Fr.random();
-      const address = computeContractAddressFromPartial(circuitsWasm, pubKey, partialAddress);
-      return [address, partialAddress, pubKey] as const;
-    };
+    beforeEach(async () => {
+      const {
+        address: ownerAddress,
+        partialAddress: ownerPartialAddress,
+        publicKey: ownerPubKey,
+      } = await makeAddressFromPrivateKey(ownerPk);
 
-    beforeEach(() => {
-      const [ownerAddress, ownerPartialAddress, ownerPubKey] = calculateAddress(ownerPk);
-      const [recipientAddress, recipientPartialAddress, recipientPubKey] = calculateAddress(recipientPk);
+      const {
+        address: recipientAddress,
+        partialAddress: recipientPartialAddress,
+        publicKey: recipientPubKey,
+      } = await makeAddressFromPrivateKey(recipientPk);
 
       owner = ownerAddress;
       recipient = recipientAddress;
@@ -399,11 +400,16 @@ describe('Private Execution test suite', () => {
   describe('consuming Messages', () => {
     const contractAddress = defaultContractAddress;
     const recipientPk = Buffer.from('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec', 'hex');
-    let recipient: NoirPoint;
 
-    beforeAll(() => {
-      const grumpkin = new Grumpkin(circuitsWasm);
-      recipient = toPublicKey(recipientPk, grumpkin);
+    let recipient: AztecAddress;
+
+    beforeEach(async () => {
+      const { address, partialAddress, publicKey } = await makeAddressFromPrivateKey(recipientPk);
+      recipient = address;
+      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
+        if (address.equals(recipient)) return Promise.resolve([publicKey, partialAddress]);
+        throw new Error(`Unknown address ${address}`);
+      });
     });
 
     it('Should be able to consume a dummy cross chain message', async () => {
@@ -415,7 +421,7 @@ describe('Private Execution test suite', () => {
       // Function selector: 0xeeb73071 keccak256('mint(uint256,bytes32,address)')
       const preimage = await buildL1ToL2Message(
         'eeb73071',
-        [new Fr(bridgedAmount), new Fr(recipient.x), canceller.toField()],
+        [new Fr(bridgedAmount), recipient.toField(), canceller.toField()],
         contractAddress,
         secret,
       );
@@ -432,7 +438,7 @@ describe('Private Execution test suite', () => {
         });
       });
 
-      const args = [bridgedAmount, recipient, recipient.x, messageKey, secret, canceller.toField()];
+      const args = [bridgedAmount, recipient, messageKey, secret, canceller.toField()];
       const result = await runSimulator({ origin: contractAddress, contractAddress, abi, args });
 
       // Check a nullifier has been created
