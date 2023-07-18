@@ -25,39 +25,40 @@ contract NoAccount {
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
     use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
 
     use crate::storage::Storage;
     use crate::point_note::PointNote;
 
 
-    // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
+    // Constructs the contract and sets `initial_supply` which is fully owned by `sender`.
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         initial_supply: Field, 
-        owner: Point,
+        sender: Point,
         recipient: Point,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner.x, owner.y, recipient.x, recipient.y]));
+        let mut context = Context::new(inputs, abi::hash_args([initial_supply, sender.x, sender.y, recipient.x, recipient.y]));
 
-        let owner_note = PointNote::new(owner.x, owner.y);
+        let sender_note = PointNote::new(sender.x, sender.y);
         let recipient_note = PointNote::new(recipient.x, recipient.y);
 
-        context = storage.owner.initialise(context, owner_note);
+        context = storage.sender.initialise(context, sender_note);
         context = storage.recipient.initialise(context, recipient_note);
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
-        let owner_balance = storage.balances.at(owner.x);
-        context = send_note(context, owner_balance, initial_supply, owner);
+        let sender_balance = storage.balances.at(sender.x);
+        context = send_note(context, sender_balance, initial_supply, sender);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
     }
 
-    // Transfers full balance of tokens from `owner` to a `recipient`.
+    // Transfers full balance of tokens from `sender` to a `recipient`.
     fn poke(
         //*********************************/
         // Should eventually be hidden:
@@ -67,17 +68,17 @@ contract NoAccount {
         let storage = Storage::init();
         let mut context = Context::new(inputs, abi::hash_args([]));
 
-        let (context_1, owner) = storage.owner.get_note(context);
+        let (context_1, sender) = storage.sender.get_note(context);
         context = context_1;
 
         let (context_2, recipient) = storage.recipient.get_note(context);
         context = context_2;
 
-        // Pick from the set of owner's notes.
-        let owner_balance = storage.balances.at(owner.x);
+        // Pick from the set of sender's notes.
+        let sender_balance = storage.balances.at(sender.x);
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
-        let (mut new_context, notes) = owner_balance.get_notes(context, options);
+        let (mut new_context, notes) = sender_balance.get_notes(context, options);
         context = new_context;
 
         let note1 = notes[0];
@@ -85,9 +86,9 @@ contract NoAccount {
 
         let note_sum = note1.value + note2.value;
 
-        // Removes the 2 notes from the owner's set of notes.
-        context = owner_balance.remove(context, note1);
-        context = owner_balance.remove(context, note2);
+        // Removes the 2 notes from the sender's set of notes.
+        context = sender_balance.remove(context, note1);
+        context = sender_balance.remove(context, note2);
 
         // Creates new note for the recipient.
         let recipient_point = Point::new(recipient.x, recipient.y);
@@ -101,14 +102,23 @@ contract NoAccount {
     /// ABI getBalance type "unconstrained"
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
-        owner: Point,
+        sender: Point,
     ) -> pub Field {
         let storage = Storage::init();
 
         // Get the set of notes owned by the user.
-        let owner_balance = storage.balances.at(owner.x);
+        let sender_balance = storage.balances.at(sender.x);
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance.storage_slot)
+        balance_utils::get_balance(sender_balance.storage_slot)
+    }
+
+    /// ABI stev type "unconstrained"
+    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
+        if (storage_slot == 2) {
+            compute_note_hash_and_nullifier(contract_address, storage_slot, ClaimNoteInterface, preimage)
+        } else {
+            compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
+        }
     }
 }

@@ -15,7 +15,7 @@ use dep::token_utils::value_note::{
 };
 
 struct Storage {
-    owner: ImmutableSingleton<PointNote, POINT_NOTE_LEN>,
+    sender: ImmutableSingleton<PointNote, POINT_NOTE_LEN>,
     recipient: ImmutableSingleton<PointNote, POINT_NOTE_LEN>,
     balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
 }
@@ -23,7 +23,7 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            owner: ImmutableSingleton::new(1, PointNoteInterface),
+            sender: ImmutableSingleton::new(1, PointNoteInterface),
             recipient: ImmutableSingleton::new(2, PointNoteInterface),
             balances: Map::new(1, |s| Set::new(s, ValueNoteInterface)),
         }
