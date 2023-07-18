@@ -49,7 +49,7 @@ export class CrossChainTestHarness {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      ownerPub.toBigInts(),
+      ownerAddress,
     );
     const l2Contract = contracts.l2Contract;
     const underlyingERC20 = contracts.underlyingERC20;

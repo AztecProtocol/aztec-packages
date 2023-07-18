@@ -43,7 +43,6 @@ describe('archiver integration with l1 to l2 messages', () => {
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
-    const ownerPub = (await aztecRpcServer.getAccountPublicKey(ownerAddress)).toBigInts();
 
     // Deploy and initialize all required contracts
     logger('Deploying Portal, initializing and deploying l2 contract...');
@@ -53,7 +52,7 @@ describe('archiver integration with l1 to l2 messages', () => {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      ownerPub,
+      ownerAddress,
     );
     l2Contract = contracts.l2Contract;
     underlyingERC20 = contracts.underlyingERC20;

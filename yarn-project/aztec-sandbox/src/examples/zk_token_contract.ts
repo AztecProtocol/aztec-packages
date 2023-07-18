@@ -1,7 +1,8 @@
-import { Contract, ContractDeployer, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
+import { Contract, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
 import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { SchnorrAccountContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ZkTokenContract } from '@aztec/noir-contracts/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
@@ -22,10 +23,9 @@ const SECONDARY_AMOUNT = 33n;
  */
 async function deployZKContract(owner: AztecAddress) {
   logger('Deploying L2 contract...');
-  const deployer = new ContractDeployer(ZkTokenContractAbi, aztecRpcClient);
-  const tx = deployer.deploy(INITIAL_BALANCE, owner).send();
+  const tx = ZkTokenContract.deploy(aztecRpcClient, INITIAL_BALANCE, owner).send();
   const receipt = await tx.getReceipt();
-  const contract = new Contract(receipt.contractAddress!, ZkTokenContractAbi, wallet);
+  const contract = new ZkTokenContract(receipt.contractAddress!, wallet);
   await tx.isMined();
   await tx.getReceipt();
   logger('L2 contract deployed');
