@@ -331,7 +331,7 @@ WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* poin
     Point<NT> deployer_public_key;
     NT::fr partial_address;
 
-    read(point_data_buf, deployer_public_key);
+    serialize::read(point_data_buf, deployer_public_key);
     read(partial_address_data_buf, partial_address);
 
     NT::fr const contract_address =
