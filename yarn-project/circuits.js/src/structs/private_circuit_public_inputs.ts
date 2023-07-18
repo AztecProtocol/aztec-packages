@@ -117,6 +117,7 @@ export class PrivateCircuitPublicInputs {
     assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
+    assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
     assertMemberLength(this, 'encryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
   }
