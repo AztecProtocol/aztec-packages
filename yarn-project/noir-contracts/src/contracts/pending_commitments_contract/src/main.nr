@@ -1,6 +1,6 @@
 mod storage;
 
-// Test contract to confirm that notes can be created and then later
+// Test contract to confirm that notes can be inserted and then later
 // read (eventually even nullified) in the same TX. This contract
 // also contains some "bad" test cases to ensure that notes cannot
 // be read/nullified before their creation etc.
@@ -51,7 +51,7 @@ contract PendingCommitments {
 
     // Confirm can access pending commitments by creating / inserting a note and then
     // getting / reading that note all in the same contract function
-    fn test_insert_then_read_flat(
+    fn test_insert_then_get_then_nullify_flat(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
@@ -85,11 +85,13 @@ contract PendingCommitments {
 
         context.return_values = context.return_values.push(got_notes[0].value);
 
+        context = owner_balance.remove(context, got_notes[0]);
+
         context.finish()
     }
 
-    // Confirm cannot access commitments created later in same function
-    fn test_bad_read_then_insert_flat(
+    // Confirm cannot access commitments inserted later in same function
+    fn test_bad_get_then_insert_flat(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
@@ -111,7 +113,7 @@ contract PendingCommitments {
         let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
-        // get note (note created at bottom of function shouldn't exist yet)
+        // get note (note inserted at bottom of function shouldn't exist yet)
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
@@ -129,7 +131,7 @@ contract PendingCommitments {
     }
 
     // Nested/inner function to create and insert a note
-    fn create_note(
+    fn insert_note(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
@@ -150,7 +152,7 @@ contract PendingCommitments {
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
-    fn get_and_check_note(
+    fn get_then_nullify_note(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
@@ -180,22 +182,24 @@ contract PendingCommitments {
 
         context.return_values = context.return_values.push(got_notes[0].value);
 
+        context = owner_balance.remove(context, got_notes[0]);
+
         context.finish()
     }
 
     // Test pending commitments with note insertion done in a nested call
     // and "read" / get of that pending note/commitment in another nested call
-    fn test_insert_then_read_both_in_nested_calls(
+    fn test_insert_then_get_then_nullify_all_in_nested_calls(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
         owner: Point,
-        createFnSelector: Field,
-        getAndCheckFnSelector: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, createFnSelector, getAndCheckFnSelector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, insert_fn_selector, get_then_nullify_fn_selector]));
 
         // args for nested calls
         let mut args = [0; ARGS_LENGTH];
@@ -204,10 +208,10 @@ contract PendingCommitments {
         args[2] = owner.y;
 
         // nested call to create/insert note
-        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context);
+        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, insert_fn_selector, args, context);
         context = context_tmp0;
         // nested call to read that note / pending commitment
-        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, getAndCheckFnSelector, args, context);
+        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args, context);
         context = context_tmp1;
 
         context.finish()
@@ -220,14 +224,14 @@ contract PendingCommitments {
     // nested call (later kernel iteration) should not be able to read the commitment despite
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
-    //fn test_bad_read_in_nested_call_then_insert(
+    //fn test_bad_get_in_nested_call_then_insert(
     //    //*********************************/
     //    // Should eventually be hidden:
     //    inputs: PrivateContextInputs,
     //    //*********************************/
     //    amount: Field,
     //    owner: Point,
-    //    getAndCheckFnSelector: Field,
+    //    get_then_nullify_fn_selector: Field,
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
 

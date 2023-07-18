@@ -44,7 +44,7 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods.test_insert_then_read_flat(mintAmount, ownerPublicKey).send({ origin: owner });
+    const tx = deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, ownerPublicKey).send({ origin: owner });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -60,11 +60,11 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     const tx = deployedContract.methods
-      .test_insert_then_read_both_in_nested_calls(
+      .test_insert_then_get_then_nullify_all_in_nested_calls(
         mintAmount,
         ownerPublicKey,
-        Fr.fromBuffer(deployedContract.methods.create_note.selector),
-        Fr.fromBuffer(deployedContract.methods.get_and_check_note.selector),
+        Fr.fromBuffer(deployedContract.methods.insert_note.selector),
+        Fr.fromBuffer(deployedContract.methods.get_then_nullify_note.selector),
       )
       .send({ origin: owner });
 
