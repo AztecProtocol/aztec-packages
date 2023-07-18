@@ -223,7 +223,7 @@ TEST_F(native_private_kernel_init_tests, contract_deployment_args_hash_mismatch_
     EXPECT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
     EXPECT_EQ(builder.get_first_failure().message,
-              "user's intent does not match initial private call (args passed to tx_request must match "
+              "user's intent does not match initial private call (noir function args passed to tx_request must match "
               "args in the call_stack_item)");
 }
 
@@ -297,8 +297,7 @@ TEST_F(native_private_kernel_init_tests, private_function_incorrect_storage_cont
     // Assertion checks
     EXPECT_TRUE(builder.failed());
     EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
-    EXPECT_EQ(builder.get_first_failure().message,
-              "contract address in the call_context must be that of the called contract");
+    EXPECT_EQ(builder.get_first_failure().message, "Storage contract address must be that of the called contract");
 }
 
 TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)

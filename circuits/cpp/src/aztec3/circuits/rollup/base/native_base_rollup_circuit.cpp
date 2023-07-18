@@ -151,9 +151,11 @@ void perform_historical_private_data_tree_membership_checks(DummyBuilder& builde
             historic_root_witness.leaf_index,
             historic_root_witness.sibling_path,
             historic_root,
-            format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                   "historical root in rollup constants not in historic private data tree roots at kernel index ",
-                   i));
+            format(
+                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                "historical root is in rollup constants but not in historic private data tree roots at kernel input ",
+                i,
+                " to this base rollup circuit"));
     }
 }
 
@@ -175,9 +177,11 @@ void perform_historical_contract_data_tree_membership_checks(DummyBuilder& build
             historic_root_witness.leaf_index,
             historic_root_witness.sibling_path,
             historic_root,
-            format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                   "historical root in rollup constants not in historic contract data tree roots at kernel index ",
-                   i));
+            format(
+                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                "historical root is in rollup constants but not in historic contract data tree roots at kernel input ",
+                i,
+                " to this base rollup circuit"));
     }
 }
 
@@ -199,9 +203,11 @@ void perform_historical_l1_to_l2_message_tree_membership_checks(DummyBuilder& bu
             historic_root_witness.leaf_index,
             historic_root_witness.sibling_path,
             historic_root,
-            format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                   "historical root in rollup constants not in historic l1 to l2 data tree roots at kernel index ",
-                   i));
+            format(
+                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                "historical root is in rollup constants but not in historic l1 to l2 data tree roots at kernel input ",
+                i,
+                " to this base rollup circuit"));
     }
 }
 

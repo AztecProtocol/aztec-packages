@@ -87,10 +87,11 @@ void validate_this_private_call_against_tx_request(DummyBuilder& builder,
                       "call_stack_item.function_data)",
                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
-    builder.do_assert(tx_request.args_hash == call_stack_item.public_inputs.args_hash,
-                      "user's intent does not match initial private call (args passed to tx_request must match "
-                      "args in the call_stack_item)",
-                      CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
+    builder.do_assert(
+        tx_request.args_hash == call_stack_item.public_inputs.args_hash,
+        "user's intent does not match initial private call (noir function args passed to tx_request must match "
+        "args in the call_stack_item)",
+        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
 void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
@@ -119,7 +120,7 @@ void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& p
     // The below also prevents delegatecall/staticcall in the base case
     builder.do_assert(this_call_stack_item.public_inputs.call_context.storage_contract_address ==
                           this_call_stack_item.contract_address,
-                      "contract address in the call_context must be that of the called contract",
+                      "Storage contract address must be that of the called contract",
                       CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
@@ -157,8 +158,7 @@ void update_end_values(DummyBuilder& builder,
                public_inputs.end.new_nullifiers,
                private_inputs.tx_request.hash(),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                      "could not push tx hash nullifier into new_nullifiers array. Could happen because there are too "
-                      "many nullifiers already"));
+                      "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 
     // Note that we do not need to nullify the transaction request nonce anymore.
     // Should an account want to additionally use nonces for replay protection or handling cancellations,

@@ -179,10 +179,10 @@ void common_update_end_values(DummyBuilder& builder,
         // No state changes are allowed for static calls:
         builder.do_assert(is_array_empty(new_commitments) == true,
                           "new_commitments must be empty for static calls",
-                          CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_NOT_EMPTY_FOR_STATIC_CALL);
+                          CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
         builder.do_assert(is_array_empty(new_nullifiers) == true,
                           "new_nullifiers must be empty for static calls",
-                          CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_FOR_STATIC_CALL);
+                          CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
     }
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
@@ -199,12 +199,13 @@ void common_update_end_values(DummyBuilder& builder,
                 array_push(builder,
                            public_inputs.end.read_requests,
                            siloed_read_request,
-                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many read requests in one tx"));
+                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                                  "too many transient read requests in one tx"));
                 array_push(builder,
                            public_inputs.end.read_request_membership_witnesses,
                            witness,
                            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                                  "too many read request membership witnesses in one tx"));
+                                  "too many transient read request membership witnesses in one tx"));
             }
         }
     }

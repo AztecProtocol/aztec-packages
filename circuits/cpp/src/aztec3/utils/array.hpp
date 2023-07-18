@@ -98,7 +98,7 @@ void array_push(Builder& builder, std::array<T, SIZE>& arr, T const& value, std:
         }
     }
     builder.do_assert(false,
-                      format(error_message, "array_push: capacity exceeded. Limit: ", arr.size()),
+                      format(error_message, " - array_push: capacity exceeded. Limit: ", arr.size()),
                       CircuitErrorCode::ARRAY_OVERFLOW);
 };
 
@@ -176,7 +176,7 @@ void push_array_to_array(Builder& builder,
 
     builder.do_assert(source_size <= size_2 - target_size,
                       format(error_message,
-                             "push_array_to_array exceeded capacity. Limit: ",
+                             " - push_array_to_array exceeded capacity. Limit: ",
                              size_2 - target_size,
                              " but required size: ",
                              source_size),
@@ -184,9 +184,10 @@ void push_array_to_array(Builder& builder,
 
     // Ensure that there are no non-zero values in the `target` array after the first zero-valued index
     for (size_t i = target_size; i < size_2; i++) {
-        builder.do_assert(is_empty(target[i]),
-                          format(error_message, "push_array_to_array inserting into a non empty space at index, ", i),
-                          CircuitErrorCode::ARRAY_OVERFLOW);
+        builder.do_assert(
+            is_empty(target[i]),
+            format(error_message, " - push_array_to_array inserting into a non empty space at index, ", i),
+            CircuitErrorCode::ARRAY_OVERFLOW);
     }
     // Copy the non-zero elements of the `source` array to the `target` array at the first zero-valued index
     auto zero_index = target_size;
