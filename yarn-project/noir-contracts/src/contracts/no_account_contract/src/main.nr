@@ -111,6 +111,9 @@ contract NoAccount {
     }
 
     /// ABI stev type "unconstrained"
+    // stev function needs to be defined by every contract producing logs. Having it in all the contracts gives us the ability to
+    // compute the note hash and nullifier differently for different kind of notes.
+    // Note: "stev" is just a placeholder name before we come up with a better one.
     fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
         compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
     }
