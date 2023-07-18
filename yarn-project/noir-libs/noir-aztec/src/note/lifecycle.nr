@@ -5,6 +5,7 @@ use crate::note::{
     utils::compute_inner_note_hash,
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
+use crate::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
 
 fn create_note<Note, N>(
     mut context: Context,
@@ -42,6 +43,7 @@ fn destroy_note<Note, N>(
     note_interface: NoteInterface<Note, N>,
 ) -> Context {
     let mut nullifier = 0;
+    let mut nullified_commitment = EMPTY_NULLIFIED_COMMITMENT;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
         let compute_nullifier = note_interface.compute_nullifier;
@@ -50,7 +52,13 @@ fn destroy_note<Note, N>(
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
         assert(notify_nullified_note(storage_slot, nullifier, preimage) == 0);
+        
+        // We also need the note commitment corresponding to the "nullifier"
+        let compute_note_hash = note_interface.compute_note_hash;
+        let note_hash = compute_note_hash(note);
+        let nullified_commitment = compute_inner_note_hash(storage_slot, note_hash);
     }
 
-    context.push_new_nullifier(nullifier)
+
+    context.push_new_nullifier(nullifier, nullified_commitment)
 }

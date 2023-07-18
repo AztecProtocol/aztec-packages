@@ -75,7 +75,7 @@ impl PrivateCallStackItem {
                 read_requests: arr_copy_slice(fields, [0; constants_gen::MAX_READ_REQUESTS_PER_CALL], 15),
                 new_commitments: arr_copy_slice(fields, [0; constants_gen::MAX_NEW_COMMITMENTS_PER_CALL], 19),
                 new_nullifiers: arr_copy_slice(fields, [0; constants_gen::MAX_NEW_NULLIFIERS_PER_CALL], 23),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 27),
+                nullified_commitments: arr_copy_slice(fields, [0; constants_gen::MAX_NEW_NULLIFIERS_PER_CALL], 27),
                 private_call_stack: arr_copy_slice(fields, [0; constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 31),
                 public_call_stack: arr_copy_slice(fields, [0; constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 35),
                 new_l2_to_l1_msgs: arr_copy_slice(fields, [0; constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 39),
