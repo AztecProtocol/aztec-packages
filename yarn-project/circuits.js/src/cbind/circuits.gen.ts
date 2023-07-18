@@ -1,10 +1,8 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { Buffer } from 'buffer';
-import mapValues from 'lodash.mapvalues';
 
 import { callCbind } from './cbind.js';
 import {
