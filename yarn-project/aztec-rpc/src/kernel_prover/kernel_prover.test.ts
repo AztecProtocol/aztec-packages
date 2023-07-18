@@ -1,12 +1,12 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
   KernelCircuitPublicInputs,
-  MembershipWitness,
+  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
+  MembershipWitness,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  READ_REQUESTS_LENGTH,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -18,7 +18,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 import { FunctionL2Logs } from '@aztec/types';
+
 import { mock } from 'jest-mock-extended';
+
 import { KernelProver, OutputNoteData } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -53,7 +55,7 @@ describe('Kernel Prover', () => {
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
       // TODO(dbanks12): should test kernel prover with non-transient reads.
       // This will be necessary once kernel actually checks (attempts to match) transient reads.
-      readRequestPartialWitnesses: Array.from({ length: READ_REQUESTS_LENGTH }, () =>
+      readRequestPartialWitnesses: Array.from({ length: MAX_READ_REQUESTS_PER_CALL }, () =>
         ReadRequestMembershipWitness.emptyTransient(),
       ),
       returnValues: [],

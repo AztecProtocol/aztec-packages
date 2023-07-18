@@ -1,5 +1,6 @@
 import { L2Block } from '@aztec/types';
-import { mock, MockProxy } from 'jest-mock-extended';
+
+import { MockProxy, mock } from 'jest-mock-extended';
 
 import { sleep } from '../utils.js';
 import { L1Publisher, L1PublisherTxSender, MinimalTransactionReceipt } from './l1-publisher.js';
@@ -24,7 +25,7 @@ describe('L1Publisher', () => {
     txSender.sendProcessTx.mockResolvedValueOnce(txHash);
     txSender.getTransactionReceipt.mockResolvedValueOnce(txReceipt);
 
-    publisher = new L1Publisher(txSender, { retryIntervalMs: 1 });
+    publisher = new L1Publisher(txSender, { l1BlockPublishRetryIntervalMS: 1 });
   });
 
   it('publishes l2 block to l1', async () => {

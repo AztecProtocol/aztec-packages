@@ -31,6 +31,8 @@ enum CircuitErrorCode : uint16_t {
     PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM = 2017,
     PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH = 2018,
     PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH = 2019,
+    PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH = 2020,
+    PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST = 2021,
 
     // Public kernel related errors
     PUBLIC_KERNEL_CIRCUIT_FAILED = 3000,
@@ -113,21 +115,6 @@ template <typename T> struct CircuitResult {
     void msgpack_unpack(auto obj) { result = obj; }
     // for schema serialization: delegate to msgpack std::variant support
     void msgpack_schema(auto& packer) const { packer.pack_schema(result); }
-};
-
-inline void read(uint8_t const*& it, CircuitError& obj)
-{
-    using serialize::read;
-    read(it, obj.code);
-    read(it, obj.message);
-};
-
-inline void write(std::vector<uint8_t>& buf, CircuitError const& obj)
-{
-    using serialize::write;
-
-    write(buf, obj.code);
-    write(buf, obj.message);
 };
 
 inline std::ostream& operator<<(std::ostream& os, CircuitError const& obj)

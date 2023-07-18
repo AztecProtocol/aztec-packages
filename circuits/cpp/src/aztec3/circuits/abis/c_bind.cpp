@@ -17,6 +17,7 @@
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/packers.hpp"
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
@@ -33,10 +34,15 @@ using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
 using aztec3::circuits::compute_partial_contract_address;
 using aztec3::circuits::abis::CallStackItem;
+using aztec3::circuits::abis::ConstantsPacker;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using aztec3::circuits::abis::GeneratorIndexPacker;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::Point;
+using aztec3::circuits::abis::PrivateStateNoteGeneratorIndexPacker;
+using aztec3::circuits::abis::PrivateStateTypePacker;
+using aztec3::circuits::abis::StorageSlotGeneratorIndexPacker;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using NT = aztec3::utils::types::NativeTypes;
@@ -90,6 +96,7 @@ static const char* bbmalloc_copy_string(const char* data, size_t len)
  * For testing only. Take this object, write it to a buffer, then output it. */
 template <typename T> static const char* as_string_output(uint8_t const* input_buf, uint32_t* size)
 {
+    using serialize::read;
     T obj;
     read(input_buf, obj);
     std::ostringstream stream;
@@ -103,6 +110,7 @@ template <typename T> static const char* as_string_output(uint8_t const* input_b
  * For testing only. Take this object, write it to a buffer, then output it. */
 template <typename T> static const char* as_string_output_msgpack(T obj)
 {
+<<<<<<< HEAD
     std::ostringstream stream;
     stream << obj;
     std::string const str = stream.str();
@@ -114,6 +122,15 @@ template <typename T> static const char* as_string_output_msgpack(T obj)
 template <typename T> T as_serialized_output(const T& obj)
 {
     return obj;
+=======
+    using serialize::read;
+    T obj;
+    read(input_buf, obj);
+    std::vector<uint8_t> stream;
+    write(stream, obj);
+    *size = static_cast<uint32_t>(stream.size());
+    return bbmalloc_copy_string(reinterpret_cast<char*>(stream.data()), *size);
+>>>>>>> ad/chore/reduce-redundancy-msgpack
 }
 
 // WASM Cbinds
@@ -252,7 +269,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
     NT::fr args_hash;
     NT::fr constructor_vk_hash;
 
-    read(function_data_buf, function_data);
+    serialize::read(function_data_buf, function_data);
     read(args_hash_buf, args_hash);
     read(constructor_vk_hash_buf, constructor_vk_hash);
 
@@ -285,7 +302,7 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* point_data_buf,
     NT::fr function_tree_root;
     NT::fr constructor_hash;
 
-    read(point_data_buf, deployer_public_key);
+    serialize::read(point_data_buf, deployer_public_key);
     read(contract_address_salt_buf, contract_address_salt);
     read(function_tree_root_buf, function_tree_root);
     read(constructor_hash_buf, constructor_hash);
@@ -382,7 +399,7 @@ WASM_EXPORT void abis__compute_var_args_hash(uint8_t const* args_buf, uint8_t* o
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output)
 {
     NewContractData<NT> leaf_preimage;
-    read(contract_leaf_preimage_buf, leaf_preimage);
+    serialize::read(contract_leaf_preimage_buf, leaf_preimage);
     // as per the circuit implementation, if contract address == zero then return a zero leaf
     auto to_write = leaf_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
@@ -402,7 +419,7 @@ CBIND(abis__compute_transaction_hash, [](TxRequest<NT> tx_request_preimage) { re
 WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
 {
     CallStackItem<NT, PublicTypes> call_stack_item;
-    read(call_stack_item_buf, call_stack_item);
+    serialize::read(call_stack_item_buf, call_stack_item);
     NT::fr::serialize_to_buffer(get_call_stack_item_hash(call_stack_item), output);
 }
 
@@ -565,3 +582,14 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
+
+
+// When we return a packer from packers.hpp, we call its msgpack_pack method (as that is what is used
+// internally in msgpack) and thus can get a JSON-like object of all our constants in Typescript. We explicitly do not
+// want a schema here as our ConstantsPacker is not meant to be used in a Typescript function. (if it were, it would
+// need to implement msgpack_schema, but as we handle it specially not much value).
+CBIND_NOSCHEMA(get_circuit_constants, [] { return ConstantsPacker{}; });
+CBIND_NOSCHEMA(get_circuit_generator_index, [] { return GeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_private_state_note_generator_index, [] { return PrivateStateNoteGeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_storage_slot_generator_index, [] { return StorageSlotGeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_private_state_type, [] { return PrivateStateTypePacker{}; });

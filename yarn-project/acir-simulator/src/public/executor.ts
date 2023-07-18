@@ -10,6 +10,7 @@ import {
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs } from '@aztec/types';
+
 import {
   ZERO_ACVM_FIELD,
   acvm,
@@ -23,11 +24,11 @@ import {
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
+import { oracleDebugCallToFormattedStr } from '../client/debug.js';
+import { PackedArgsCache } from '../packed_args_cache.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
-import { oracleDebugCallToFormattedStr } from '../client/debug.js';
-import { PackedArgsCache } from '../packed_args_cache.js';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -149,7 +150,7 @@ export class PublicExecutor {
       },
       emitUnencryptedLog: args => {
         // https://github.com/AztecProtocol/aztec-packages/issues/885
-        const log = Buffer.concat(args.map(charBuffer => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
+        const log = Buffer.concat(args.map((charBuffer: any) => convertACVMFieldToBuffer(charBuffer).subarray(-1)));
         unencryptedLogs.logs.push(log);
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);

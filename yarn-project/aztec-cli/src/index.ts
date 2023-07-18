@@ -1,8 +1,4 @@
 #!/usr/bin/env -S node --no-warnings
-import { Command } from 'commander';
-import { mnemonicToAccount } from 'viem/accounts';
-import { createLogger } from '@aztec/foundation/log';
-import { createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecAddress,
   Contract,
@@ -16,7 +12,13 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { ContractData, TxHash, L2BlockL2Logs } from '@aztec/types';
+import { createLogger } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
+
+import { Command } from 'commander';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
 import { deployAztecContracts, getContractAbi, getTxSender, prepTx } from './utils.js';
@@ -90,7 +92,7 @@ async function main() {
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
       const privateKey = options.privateKey && Buffer.from(options.privateKey.replace(/^0x/i, ''), 'hex');
-      const wallet = await createAccounts(client, privateKey, accountCreationSalt, 1);
+      const wallet = await createAccounts(client, SchnorrAccountContractAbi, privateKey, accountCreationSalt, 1);
       const accounts = await wallet.getAccounts();
       const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
       log(`\nCreated account(s).`);
@@ -270,7 +272,12 @@ async function main() {
       );
 
       const client = createAztecRpcClient(options.rpcUrl);
-      const wallet = await getAccountWallet(client, Buffer.from(options.privateKey, 'hex'), accountCreationSalt);
+      const wallet = await getAccountWallet(
+        client,
+        SchnorrAccountContractAbi,
+        Buffer.from(options.privateKey, 'hex'),
+        accountCreationSalt,
+      );
       const contract = new Contract(contractAddress, contractAbi, wallet);
       const origin = (await wallet.getAccounts()).find(addr => addr.equals(wallet.getAddress()));
       const tx = contract.methods[functionName](...functionArgs).send({

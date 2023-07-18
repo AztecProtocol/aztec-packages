@@ -63,7 +63,8 @@ template <typename NCT> struct PreviousKernelData {
 template <typename B> inline void read(B& buf, verification_key& key)
 {
     using serialize::read;
-    // Note this matches write() below
+    // TODO(AD): We read this as if it were verification_key_data.
+    // TODO(AD): This seems like it could be rethought.
     verification_key_data data;
     read(buf, data);
     key = verification_key{ std::move(data), barretenberg::srs::get_crs_factory()->get_verifier_crs() };

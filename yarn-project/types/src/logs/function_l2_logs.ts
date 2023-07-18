@@ -1,6 +1,7 @@
-import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
-import { randomBytes } from 'crypto';
 import { sha256 } from '@aztec/foundation/crypto';
+import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
+
+import { randomBytes } from 'crypto';
 
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
@@ -71,5 +72,13 @@ export class FunctionL2Logs {
       logs.push(randomBytes(144));
     }
     return new FunctionL2Logs(logs);
+  }
+
+  /**
+   * Creates an empty L2Logs object with no logs.
+   * @returns A new FunctionL2Logs object with no logs.
+   */
+  public static empty(): FunctionL2Logs {
+    return new FunctionL2Logs([]);
   }
 }

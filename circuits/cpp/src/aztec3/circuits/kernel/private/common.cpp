@@ -24,6 +24,7 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 
+using aztec3::utils::array_length;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
@@ -60,22 +61,33 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param read_requests the commitments being read by this private call
- * @param read_request_membership_witnesses used to compute the private data root
- * for a given request which is essentially a membership check.
+ * @param storage_contract_address Contract address to use when siloing read requests
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
+ * @param read_requests the commitments being read by this private call
+ * @param read_request_membership_witnesses used to compute the private data root
+ * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
                                    NT::fr const& storage_contract_address,
-                                   std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
+                                   NT::fr const& historic_private_data_tree_root,
+                                   std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
-                                              READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
-                                   NT::fr const& historic_private_data_tree_root)
+                                              MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
+    // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
+    // we might get into trouble when accumulating them in public_inputs.end
+    builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
+                      format("[private kernel circuit] mismatch array length between read_requests and witnesses - "
+                             "read_requests length: ",
+                             array_length(read_requests),
+                             " witnesses length: ",
+                             array_length(read_request_membership_witnesses)),
+                      CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
-    for (size_t rr_idx = 0; rr_idx < aztec3::READ_REQUESTS_LENGTH; rr_idx++) {
+    for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
         // the read request comes un-siloed from the app circuit so we must silo it here
         // so that it matches the private data tree leaf that we are membership checking
@@ -90,39 +102,62 @@ void common_validate_read_requests(DummyBuilder& builder,
         if (read_request != 0 && !witness.is_transient) {
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
-            builder.do_assert(
-                root_for_read_request == historic_private_data_tree_root,
-                format("private data tree root mismatch at read_request[",
-                       rr_idx,
-                       "]",
-                       "\n\texpected root:    ",
-                       historic_private_data_tree_root,
-                       "\n\tbut got root*:    ",
-                       root_for_read_request,
-                       "\n\tread_request:     ",
-                       read_request,
-                       "\n\tsiloed-rr (leaf): ",
-                       leaf,
-                       "\n\t* got root by siloing read_request (compressing with storage_contract_address to get leaf) "
-                       "and merkle-hashing to a root using membership witness"),
-                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+            builder.do_assert(root_for_read_request == historic_private_data_tree_root,
+                              format("private data tree root mismatch at read_request[",
+                                     rr_idx,
+                                     "]",
+                                     "\n\texpected root:    ",
+                                     historic_private_data_tree_root,
+                                     "\n\tbut got root*:    ",
+                                     root_for_read_request,
+                                     "\n\tread_request:     ",
+                                     read_request,
+                                     "\n\tsiloed-rr (leaf): ",
+                                     leaf,
+                                     "\n\tleaf_index: ",
+                                     witness.leaf_index,
+                                     "\n\tis_transient: ",
+                                     witness.is_transient,
+                                     "\n\thint_to_commitment: ",
+                                     witness.hint_to_commitment,
+                                     "\n\t* got root by siloing read_request (compressing with "
+                                     "storage_contract_address to get leaf) "
+                                     "and merkle-hashing to a root using membership witness"),
+                              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
         }
-        if (witness.is_transient) {
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906):
-            // kernel must ensure that transient reads are either matched to a
-            // commitment or forwarded to the next iteration to handle it.
-            builder.do_assert(
-                false,
-                format("kernel could not match read_request[",
-                       rr_idx,
-                       "] with a commitment and does not yet support forwarding read requests.",
-                       "\n\tread_request:      ",
-                       read_request,
-                       "\n\tsiloed-rr* (leaf): ",
-                       leaf,
-                       "\n\t* got leaf by siloing read_request (compressing with storage_contract_address)"),
-                CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
-        }
+    }
+}
+
+
+/**
+ * @brief Ensure that all read requests from previous kernel are transient.
+ *
+ * @param builder
+ * @param read_requests from previous kernel's public inputs
+ * @param read_request_membership_witnesses from previous kernel's public inputs
+ */
+void common_validate_previous_kernel_read_requests(
+    DummyBuilder& builder,
+    std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX> const&
+        read_request_membership_witnesses)
+{
+    for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
+        const auto& read_request = read_requests[rr_idx];
+        const auto& witness = read_request_membership_witnesses[rr_idx];
+        builder.do_assert(read_request == 0 || witness.is_transient,  // rr == 0 means empty
+                          format("Previous kernel's read request[",
+                                 rr_idx,
+                                 "] is not transient, but kernel should only forward transient reads.",
+                                 "\n\tread_request: ",
+                                 read_request,
+                                 "\n\tleaf_index: ",
+                                 witness.leaf_index,
+                                 "\n\tis_transient: ",
+                                 witness.is_transient,
+                                 "\n\thint_to_commitment: ",
+                                 witness.hint_to_commitment),
+                          CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
     }
 }
 
@@ -131,6 +166,9 @@ void common_update_end_values(DummyBuilder& builder,
                               KernelCircuitPublicInputs<NT>& public_inputs)
 {
     const auto private_call_public_inputs = private_call.call_stack_item.public_inputs;
+
+    const auto& read_requests = private_call_public_inputs.read_requests;
+    const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
@@ -149,8 +187,20 @@ void common_update_end_values(DummyBuilder& builder,
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
-    // TODO(dbanks12): (spending pending commitments) don't want to silo and output new commitments
-    // that have been matched to a new nullifier
+    // Transient read requests and witnessess are accumulated in public_inputs.end
+    // We silo the read requests (domain separation per contract address)
+    {
+        for (size_t i = 0; i < read_requests.size(); ++i) {
+            const auto& read_request = read_requests[i];
+            const auto& witness = read_request_membership_witnesses[i];
+            if (witness.is_transient) {  // only forward transient to public inputs
+                const auto siloed_read_request =
+                    read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
+                array_push(builder, public_inputs.end.read_requests, siloed_read_request);
+                array_push(builder, public_inputs.end.read_request_membership_witnesses, witness);
+            }
+        }
+    }
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {  // commitments & nullifiers
@@ -307,13 +357,13 @@ void common_contract_logic(DummyBuilder& builder,
     }
 }
 
-void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
-                                  KernelCircuitPublicInputs<NT>& public_inputs)
+void common_inner_ordering_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
+                                                 KernelCircuitPublicInputs<NT>& public_inputs)
 {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
+    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
+    // functions within this circuit:
     auto& end = public_inputs.end;
     const auto& start = previous_kernel.public_inputs.end;
 

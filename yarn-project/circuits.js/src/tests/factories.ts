@@ -1,7 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
+
 import { computeCallStackItemHash } from '../abis/abis.js';
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -11,50 +13,51 @@ import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CallContext,
+  CircuitType,
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   CombinedHistoricTreeRoots,
-  CircuitType,
   ConstantBaseRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  Coordinate,
   FUNCTION_TREE_HEIGHT,
   Fq,
   Fr,
   FunctionData,
   G1AffineElement,
+  KernelCircuitPublicInputs,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  MAX_PUBLIC_DATA_READS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
-  KernelCircuitPublicInputs,
-  L1_TO_L2_MSG_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_READ_REQUESTS_PER_CALL,
+  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_CALL,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -73,7 +76,6 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelInputs,
-  READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
   ReadRequestMembershipWitness,
@@ -89,7 +91,6 @@ import {
   makeTuple,
   range,
 } from '../index.js';
-import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 
 /**
@@ -204,6 +205,8 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero), // private call stack must be empty
@@ -230,6 +233,8 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x300),
@@ -386,8 +391,8 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
  */
 export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
   return new ReadRequestMembershipWitness(
-    BigInt(start),
-    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start),
+    new Fr(start),
+    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
     false,
     new Fr(0),
   );
@@ -416,7 +421,7 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return Point.fromCoordinates(Coordinate.fromField(new Fr(seed)), Coordinate.fromField(new Fr(seed + 1)));
+  return new Point(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -588,7 +593,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x =>
+    readRequestMembershipWitnesses: range(MAX_READ_REQUESTS_PER_CALL, seed + 0x70).map(x =>
       makeReadRequestMembershipWitness(x),
     ),
     portalContractAddress: makeEthAddress(seed + 0x40),
@@ -626,7 +631,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    readRequests: makeTuple(READ_REQUESTS_LENGTH, fr, seed + 0x300),
+    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
     privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
@@ -799,7 +804,7 @@ export function makeRootRollupInputs(seed = 0, blockNumber: number | undefined =
     makeTuple(CONTRACT_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeTuple(L1_TO_L2_MSG_ROOTS_TREE_HEIGHT, fr, 0x2100),
+    makeTuple(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2300),
   );
@@ -909,8 +914,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     ];
   const historicL1ToL2MsgTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] =
     [
-      makeMembershipWitness(L1_TO_L2_MSG_ROOTS_TREE_HEIGHT, seed + 0xa000),
-      makeMembershipWitness(L1_TO_L2_MSG_ROOTS_TREE_HEIGHT, seed + 0xb000),
+      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xa000),
+      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xb000),
     ];
 
   const constants = makeConstantBaseRollupData(0x100);

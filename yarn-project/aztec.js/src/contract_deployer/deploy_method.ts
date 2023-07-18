@@ -86,10 +86,8 @@ export class DeployMethod extends ContractFunctionInteraction {
    * @returns A Promise resolving to an object containing the signed transaction data and other relevant information.
    */
   public async create(options: DeployOptions = {}) {
-    const { portalContract, contractAddressSalt } = Object.assign(
-      { portalContract: EthAddress.ZERO, contractAddressSalt: Fr.random() },
-      options,
-    );
+    const portalContract = options.portalContract ?? EthAddress.ZERO;
+    const contractAddressSalt = options.contractAddressSalt ?? Fr.random();
 
     const { address, constructorHash, functionTreeRoot, partialAddress } = await getContractDeploymentInfo(
       this.abi,
@@ -142,17 +140,7 @@ export class DeployMethod extends ContractFunctionInteraction {
   public async simulate(options: DeployOptions): Promise<Tx> {
     const txRequest = this.txRequest ?? (await this.create(options));
 
-    // We need to tell the rpc server which account state to use to simulate
-    // the tx. In the context of a deployment, we need to use an account state
-    // that matches the account contract being deployed. But if what we deploy is
-    // an "application" contract, then there's no account state associated with it,
-    // so we just let the rpc server use whichever it wants. This is an accident
-    // of all simulations happening over an account state, which should not be necessary.
-    const rpcServerRegisteredAccounts = await this.wallet.getAccounts();
-    const deploymentAddress = this.completeContractAddress!;
-    const accountStateAddress = rpcServerRegisteredAccounts.includes(deploymentAddress) ? deploymentAddress : undefined;
-
-    this.tx = await this.wallet.simulateTx(txRequest, accountStateAddress);
+    this.tx = await this.wallet.simulateTx(txRequest);
     return this.tx;
   }
 

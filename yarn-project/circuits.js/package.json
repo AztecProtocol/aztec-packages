@@ -22,7 +22,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "remake-bindings": "DEBUG=wasm ts-node-esm src/cbind/circuits.in.ts && prettier -w src/cbind/circuits.gen.ts ",
+    "remake-bindings": "DEBUG=wasm ts-node-esm src/cbind/circuits.in.ts && prettier -w src/cbind/circuits.gen.ts",
+    "remake-constants": "ts-node-esm src/cbind/constants.in.ts && prettier -w src/cbind/constants.gen.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -39,7 +40,6 @@
   "dependencies": {
     "@aztec/foundation": "workspace:^",
     "@msgpack/msgpack": "^3.0.0-beta2",
-    "@noble/curves": "^1.0.0",
     "@types/lodash.camelcase": "^4.3.7",
     "@types/lodash.times": "^4.3.7",
     "cross-fetch": "^3.1.5",
@@ -73,5 +73,8 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts"
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=18"
+  }
 }

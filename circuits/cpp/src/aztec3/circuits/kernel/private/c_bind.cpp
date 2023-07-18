@@ -7,7 +7,6 @@
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/kernel/public/common.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -24,7 +23,7 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_inner;
-using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering_rr_dummy;
+using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 }  // namespace
@@ -81,7 +80,7 @@ static auto private_kernel__sim_init_helper(PrivateKernelInputsInit<NT> private_
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
+    serialize::write(public_inputs_vec, public_inputs);
     // copy public inputs to output buffer
     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
@@ -102,5 +101,7 @@ static auto private_kernel__sim_inner_helper(PrivateKernelInputsInner<NT> privat
 CBIND(private_kernel__sim_inner, private_kernel__sim_inner_helper);
 
 CBIND(private_kernel__sim_ordering, [](PreviousKernelData<NT> previous_kernel) {
-    return native_private_kernel_circuit_ordering_rr_dummy(previous_kernel);
+    DummyBuilder builder = DummyBuilder("private_kernel__sim_ordering");
+    auto const& public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
+    return builder.result_or_error(public_inputs);
 });

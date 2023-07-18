@@ -1,7 +1,7 @@
 import { CallContext, FunctionData } from '@aztec/circuits.js';
-import { decodeReturnValues, FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionAbi, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Coordinate, Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
 import { extractReturnWitness, frToAztecAddress } from '../acvm/deserialize.js';
@@ -35,24 +35,15 @@ export class UnconstrainedFunctionExecution {
       )}`,
     );
 
-    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
-      getSecretKey: async ([ownerX, ownerY]) =>
-        toACVMField(
-          await this.context.db.getSecretKey(
-            this.contractAddress,
-            Point.fromCoordinates(
-              Coordinate.fromField(fromACVMField(ownerX)),
-              Coordinate.fromField(fromACVMField(ownerY)),
-            ),
-          ),
-        ),
+      getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
         const [pubKey, partialContractAddress] = await this.context.db.getPublicKey(address);
-        return [pubKey.x.toBigInt(), pubKey.y.toBigInt(), partialContractAddress].map(toACVMField);
+        return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),

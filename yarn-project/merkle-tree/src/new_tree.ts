@@ -1,5 +1,7 @@
+import { Hasher } from '@aztec/types';
+
 import { LevelUp } from 'levelup';
-import { Hasher } from './hasher.js';
+
 import { TreeBase } from './tree_base.js';
 
 /**

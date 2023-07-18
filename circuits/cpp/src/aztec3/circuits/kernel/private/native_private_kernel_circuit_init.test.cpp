@@ -5,7 +5,6 @@
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
@@ -24,6 +23,8 @@ using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call
 using aztec3::circuits::kernel::private_kernel::testing_harness::get_random_reads;
 using aztec3::circuits::kernel::private_kernel::testing_harness::validate_deployed_contract_address;
 using aztec3::circuits::kernel::private_kernel::testing_harness::validate_no_new_deployed_contract;
+
+using aztec3::utils::array_length;
 using aztec3::utils::CircuitErrorCode;
 
 
@@ -320,7 +321,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)
 
     validate_no_new_deployed_contract(public_inputs);
 
-    ASSERT(builder.failed());
+    ASSERT_TRUE(builder.failed());
     ASSERT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
@@ -348,7 +349,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_leaf_index)
 
     validate_no_new_deployed_contract(public_inputs);
 
-    ASSERT(builder.failed());
+    ASSERT_TRUE(builder.failed());
     ASSERT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
@@ -376,7 +377,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_sibling_path)
 
     validate_no_new_deployed_contract(public_inputs);
 
-    ASSERT(builder.failed());
+    ASSERT_TRUE(builder.failed());
     ASSERT_EQ(builder.get_first_failure().code,
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
@@ -395,8 +396,8 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
     auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
-    std::array<NT::fr, READ_REQUESTS_LENGTH> bad_requests{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> bad_witnesses;
+    std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
     bad_requests[1] = read_requests0[1];
@@ -429,8 +430,8 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
     // empty requests
-    std::array<fr, READ_REQUESTS_LENGTH> const read_requests{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH> const
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -448,6 +449,9 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+    // non-transient read requests are NOT forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
 }
 
 TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
@@ -477,6 +481,9 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+    // non-transient read requests are NOT forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
 }
 
 TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
@@ -506,6 +513,9 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+    // non-transient read requests are NOT forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
 }
 
 TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
@@ -518,7 +528,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -536,16 +546,64 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
 
     // Check the first nullifier is hash of the signed tx request
     ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+
+    // non-transient read requests are NOT forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
 }
 
 // TODO(dbanks12): more tests of read_requests for multiple iterations.
 // Check enforcement that inner iterations' read_requests match root in constants
 // https://github.com/AztecProtocol/aztec-packages/issues/786
 
+TEST_F(native_private_kernel_init_tests, native_read_requests_less_than_witnesses)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): re-enable once kernel supports forwarding/matching
-// of transient reads.
-TEST_F(native_private_kernel_init_tests, skip_native_one_transient_read_requests_works)
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+
+    read_requests[MAX_READ_REQUESTS_PER_CALL - 1] = fr(0);
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_init_tests__native_read_requests_less_than_witnesses");
+    auto const& public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
+
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+}
+
+TEST_F(native_private_kernel_init_tests, native_read_requests_more_than_witnesses)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
+
+    auto const& contract_address =
+        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
+
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+
+    read_request_membership_witnesses[MAX_READ_REQUESTS_PER_CALL - 1] =
+        ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>{};
+
+    private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_init_tests__native_read_requests_more_than_witnesses");
+    auto const& public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
+
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().code,
+              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+}
+
+TEST_F(native_private_kernel_init_tests, native_one_transient_read_requests_works)
 {
     // one transient read request should work
 
@@ -574,21 +632,22 @@ TEST_F(native_private_kernel_init_tests, skip_native_one_transient_read_requests
         info("failure: ", failure);
     }
     ASSERT_FALSE(builder.failed());
+
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 1);  // transient read request gets forwarded
 }
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): re-enable once kernel supports forwarding/matching
 // of transient reads.
-TEST_F(native_private_kernel_init_tests, skip_native_max_read_requests_one_transient_works)
+TEST_F(native_private_kernel_init_tests, native_max_read_requests_one_transient_works)
 {
     // max read requests with one transient should work
-
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, READ_REQUESTS_LENGTH);
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
@@ -609,34 +668,47 @@ TEST_F(native_private_kernel_init_tests, skip_native_max_read_requests_one_trans
         info("failure: ", failure);
     }
     ASSERT_FALSE(builder.failed());
+
+    // transient read request gets forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), 1);
 }
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/906): remove/rework once kernel supports
-// forwarding/matching of transient reads.
-TEST_F(native_private_kernel_init_tests, native_expect_error_transient_read_request_no_match)
+TEST_F(native_private_kernel_init_tests, native_max_read_requests_all_transient_works)
 {
-    // read request without match should fail
+    // max read requests with all transient should work
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    auto [read_requests, read_request_membership_witnesses, root] =
+        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
-    // Make the read request transient
-    read_request_membership_witnesses[0].leaf_index = NT::fr(0);
-    read_request_membership_witnesses[0].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
-    read_request_membership_witnesses[0].is_transient = true;
+
+    // Make the read request at position 1 transient
+    for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_CALL; ++rr_idx) {
+        read_request_membership_witnesses[rr_idx].leaf_index = NT::fr(0);
+        read_request_membership_witnesses[rr_idx].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
+        read_request_membership_witnesses[rr_idx].is_transient = true;
+    }
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =
-        DummyBuilder("native_private_kernel_init_tests__native_expect_error_transient_read_request_no_match");
+        DummyBuilder("native_private_kernel_init_tests__native_max_read_requests_all_transient_works");
     auto const& public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
 
-    ASSERT(builder.failed());
-    EXPECT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
+    validate_no_new_deployed_contract(public_inputs);
+
+    auto failure = builder.get_first_failure();
+    if (failure.code != CircuitErrorCode::NO_ERROR) {
+        info("failure: ", failure);
+    }
+    ASSERT_FALSE(builder.failed());
+
+    // transient read request all get forwarded
+    ASSERT_EQ(array_length(public_inputs.end.read_requests), MAX_READ_REQUESTS_PER_CALL);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

@@ -1,4 +1,3 @@
-export * from './aztec_rpc.js';
 export * from './constants.js';
 export * from './contract_dao.js';
 export * from './contract_database.js';
@@ -11,6 +10,7 @@ export * from './l2_block.js';
 export * from './l2_block_context.js';
 export * from './l2_block_downloader/index.js';
 export * from './l2_block_source.js';
+export * from './l2_tx.js';
 export * from './logs/index.js';
 export * from './merkle_tree_id.js';
 export * from './mocks.js';
@@ -18,3 +18,5 @@ export * from './public_data_write.js';
 export * from './tx/index.js';
 export * from './tx_execution_request.js';
 export * from './packed_arguments.js';
+export * from './interfaces/index.js';
+export * from './sibling_path.js';
