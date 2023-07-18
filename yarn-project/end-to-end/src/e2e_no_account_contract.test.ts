@@ -81,11 +81,17 @@ describe('e2e_no_account_contract', () => {
     await expectBalance(recipient, 0n);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
 
-    // const accountImpl = new PassThroughWallet(aztecRpcServer);
-    await wallet.addAccount(pokerPrivKey, poker, new Fr(0n));
+    
+
+    const accountImpl = new PassThroughWallet(aztecRpcServer);
+    await accountImpl.addAccount(pokerPrivKey, poker, new Fr(0n))
+    
+    // await aztecRpcServer.addAccount(pokerPrivKey, poker, new Fr(0n));
+
+    const contractWithNoContractWallet = new NoAccountContract(contract.address, accountImpl);
 
     // Finally check that arbitrary non-contract address can call the poke function
-    const tx = contract.methods
+    const tx = contractWithNoContractWallet.methods
       .poke()
       .send({ origin: poker });
 
