@@ -64,7 +64,6 @@ impl TransparentNote {
     fn emit_nullifier(_self: Self, mut context: Context, secret: Field, siloed_commitment: Field, index: Field) -> Context {
         // Create a nullifier for the message based on its index in the tree
         
-        // TODO: we're coupling nullifier with siloed_commitment, is that okay?
         let nullifier = pedersen([secret, siloed_commitment, index])[0];
         context.push_new_nullifier(nullifier, siloed_commitment)
     }
