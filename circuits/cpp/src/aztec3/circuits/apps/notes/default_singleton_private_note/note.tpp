@@ -228,4 +228,21 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
         compressed_storage_slot_point, owner_private_key, is_dummy);
 };
 
+template <typename Builder, typename V>
+typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialisation_commitment()
+{
+    // We prevent this storage slot from even being initialised again:
+    auto& storage_slot_point = state_var->storage_slot_point;
+
+    const std::vector<fr> hash_inputs{
+        storage_slot_point.x,
+        storage_slot_point.y,
+    };
+
+    // We compress the hash_inputs with Pedersen, because that's cheap.
+    const fr compressed_storage_slot_point = CT::compress(hash_inputs, GeneratorIndex::INITIALISATION_NULLIFIER);
+
+    return compressed_storage_slot_point;
+};
+
 }  // namespace aztec3::circuits::apps::notes
