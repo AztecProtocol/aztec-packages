@@ -38,22 +38,6 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     }
 };
 
-template <typename NCT, unsigned int N> void read(uint8_t const*& it, MembershipWitness<NCT, N>& obj)
-{
-    using serialize::read;
-
-    read(it, obj.leaf_index);
-    read(it, obj.sibling_path);
-};
-
-template <typename NCT, unsigned int N> void write(std::vector<uint8_t>& buf, MembershipWitness<NCT, N> const& obj)
-{
-    using serialize::write;
-
-    write(buf, obj.leaf_index);
-    write(buf, obj.sibling_path);
-};
-
 template <typename NCT, unsigned int N> std::ostream& operator<<(std::ostream& os, MembershipWitness<NCT, N> const& obj)
 {
     return os << "leaf_index: " << obj.leaf_index << "\n"
