@@ -12,7 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { SchnorrAccountContractAbi, UniswapContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrSingleKeyAccountContractAbi, UniswapContractAbi } from '@aztec/noir-contracts/examples';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';
@@ -186,7 +186,7 @@ const transferWethOnL2 = async (
 async function main() {
   logger('Running L1/L2 messaging test on HTTP interface.');
 
-  wallet = await createAccounts(aztecRpcClient, SchnorrAccountContractAbi, privateKey!, Fr.random(), 2);
+  wallet = await createAccounts(aztecRpcClient, SchnorrSingleKeyAccountContractAbi, privateKey!, Fr.random(), 2);
   const accounts = await wallet.getAccounts();
   const [owner, receiver] = accounts;
   const ownerPub = (await aztecRpcClient.getAccountPublicKey(owner)).toBigInts();

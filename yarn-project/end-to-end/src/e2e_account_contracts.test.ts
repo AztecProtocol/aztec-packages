@@ -12,7 +12,11 @@ import { AztecAddress, PartialContractAddress, Point, getContractDeploymentInfo 
 import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import {
+  EcdsaAccountContractAbi,
+  SchnorrMultiKeyAccountContractAbi,
+  SchnorrSingleKeyAccountContractAbi,
+} from '@aztec/noir-contracts/examples';
 import { ChildContract } from '@aztec/noir-contracts/types';
 import { PublicKey } from '@aztec/types';
 
@@ -49,16 +53,16 @@ async function createNewAccount(
   const { address, partialAddress } = await getContractDeploymentInfo(abi, args, salt, publicKey);
   await aztecRpcServer.addAccount(encryptionPrivateKey, address, partialAddress);
   await deployContract(aztecRpcServer, publicKey, abi, args, salt);
-  const account = await createAccountImpl(address, partialAddress, encryptionPrivateKey, useProperKey);
+  const account = await createAccountImpl(address, useProperKey, partialAddress, encryptionPrivateKey);
   const wallet = new AccountWallet(aztecRpcServer, account);
   return { wallet, address, partialAddress };
 }
 
 type CreateAccountImplFn = (
   address: AztecAddress,
+  useProperKey: boolean,
   partialAddress: PartialContractAddress,
   encryptionPrivateKey: Buffer,
-  useProperKey: boolean,
 ) => Promise<AccountImplementation>;
 
 function itShouldBehaveLikeAnAccountContract(
@@ -114,7 +118,7 @@ function itShouldBehaveLikeAnAccountContract(
     it('fails to call a function using an invalid signature', async () => {
       const invalidWallet = new AccountWallet(
         context.aztecRpcServer,
-        await createAccountImpl(address, partialAddress, encryptionPrivateKey, false),
+        await createAccountImpl(address, false, partialAddress, encryptionPrivateKey),
       );
       const childWithInvalidWallet = new ChildContract(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
@@ -125,34 +129,43 @@ function itShouldBehaveLikeAnAccountContract(
 }
 
 describe('e2e_account_contracts', () => {
-  describe('schnorr account', () => {
-    const createSchnorrWallet = async (
+  describe('schnorr single-key account', () => {
+    const createWallet = async (
       address: AztecAddress,
-      partial: PartialContractAddress,
-      encryptionPrivateKey: Buffer,
       useProperKey: boolean,
+      partial: PartialContractAddress,
+      privateKey: Buffer,
     ) =>
-      new SingleKeyAccountContract(
-        address,
-        partial,
-        useProperKey ? encryptionPrivateKey : randomBytes(32),
-        await Schnorr.new(),
-      );
+      new SingleKeyAccountContract(address, partial, useProperKey ? privateKey : randomBytes(32), await Schnorr.new());
 
-    itShouldBehaveLikeAnAccountContract(SchnorrAccountContractAbi, () => [], createSchnorrWallet);
+    itShouldBehaveLikeAnAccountContract(SchnorrSingleKeyAccountContractAbi, () => [], createWallet);
   });
 
-  describe('ecdsa account', () => {
-    const createEcdsaWallet = async (
-      address: AztecAddress,
-      _partial: PartialContractAddress,
-      _encryptionPrivateKey: Buffer,
-      useProperKey: boolean,
-    ) => new StoredKeyAccountContract(address, useProperKey ? ecdsaPrivateKey : randomBytes(32), await Ecdsa.new());
+  describe('schnorr multi-key account', () => {
+    let signingPrivateKey: Buffer;
+    let signingPublicKey: Buffer;
+    let createArgs: any[];
 
+    const createWallet = async (address: AztecAddress, useProperKey: boolean) =>
+      new StoredKeyAccountContract(address, useProperKey ? signingPrivateKey : randomBytes(32), await Schnorr.new());
+
+    beforeAll(async () => {
+      signingPrivateKey = randomBytes(32);
+      const schnorr = await Schnorr.new();
+      signingPublicKey = schnorr.computePublicKey(signingPrivateKey);
+      createArgs = [Fr.fromBuffer(signingPublicKey.subarray(0, 32)), Fr.fromBuffer(signingPublicKey.subarray(32, 64))];
+    });
+
+    itShouldBehaveLikeAnAccountContract(SchnorrMultiKeyAccountContractAbi, () => createArgs, createWallet);
+  });
+
+  describe('ecdsa stored-key account', () => {
     let ecdsaPrivateKey: Buffer;
     let ecdsaPublicKey: Buffer;
     let ecdsaCreateArgs: any[];
+
+    const createWallet = async (address: AztecAddress, useProperKey: boolean) =>
+      new StoredKeyAccountContract(address, useProperKey ? ecdsaPrivateKey : randomBytes(32), await Ecdsa.new());
 
     beforeAll(async () => {
       ecdsaPrivateKey = randomBytes(32);
@@ -161,6 +174,6 @@ describe('e2e_account_contracts', () => {
       ecdsaCreateArgs = [ecdsaPublicKey.subarray(0, 32), ecdsaPublicKey.subarray(32, 64)];
     });
 
-    itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createEcdsaWallet);
+    itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createWallet);
   });
 });

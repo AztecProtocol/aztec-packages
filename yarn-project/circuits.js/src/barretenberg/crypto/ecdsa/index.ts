@@ -1,10 +1,12 @@
-import { IWasmModule } from '@aztec/foundation/wasm';
-import { EcdsaSignature } from './signature.js';
-import { CircuitsWasm } from '../../../index.js';
-import { Signer } from '../index.js';
-import { secp256k1 } from '@noble/curves/secp256k1';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
+import { IWasmModule } from '@aztec/foundation/wasm';
+
+import { secp256k1 } from '@noble/curves/secp256k1';
+
+import { CircuitsWasm } from '../../../index.js';
+import { Signer } from '../index.js';
+import { EcdsaSignature } from './signature.js';
 
 export * from './signature.js';
 

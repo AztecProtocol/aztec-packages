@@ -1,11 +1,11 @@
 import { AztecAddress, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';
 
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import EcdsaAccountContractAbi from '../abis/ecdsa_account_contract.json' assert { type: 'json' };
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { AccountImplementation } from './index.js';
