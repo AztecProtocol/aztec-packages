@@ -118,6 +118,7 @@ template <typename T, size_t SIZE> void array_rearrange(std::array<T, SIZE>& arr
         } else {
             if (!arr[i].is_empty()) {
                 arr[target_pos] = arr[i];
+                target_pos++;
             }
         }
     }

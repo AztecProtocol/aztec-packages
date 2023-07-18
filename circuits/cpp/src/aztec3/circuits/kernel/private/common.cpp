@@ -191,8 +191,8 @@ void common_update_end_values(DummyBuilder& builder,
     // We silo the read requests (domain separation per contract address)
     {
         for (size_t i = 0; i < read_requests.size(); ++i) {
-            const auto read_request = read_requests[i];
-            const auto witness = read_request_membership_witnesses[i];
+            const auto& read_request = read_requests[i];
+            const auto& witness = read_request_membership_witnesses[i];
             if (witness.is_transient) {  // only forward transient to public inputs
                 const auto siloed_read_request =
                     read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
