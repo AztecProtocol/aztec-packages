@@ -12,10 +12,7 @@ contract NoAccount {
             value_note::ValueNote,
         },
     };
-    use dep::custom_notes::{
-        claim_note::{ClaimNote, ClaimNoteInterface},
-        utils::compute_note_hash_and_nullifier,
-    };
+    use dep::custom_notes::utils::compute_note_hash_and_nullifier;
 
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
@@ -115,10 +112,6 @@ contract NoAccount {
 
     /// ABI stev type "unconstrained"
     fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
-        if (storage_slot == 2) {
-            compute_note_hash_and_nullifier(contract_address, storage_slot, ClaimNoteInterface, preimage)
-        } else {
-            compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
-        }
+        compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
     }
 }
