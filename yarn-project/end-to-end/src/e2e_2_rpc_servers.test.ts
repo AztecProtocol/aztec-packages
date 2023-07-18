@@ -1,15 +1,14 @@
-import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
-import { setup, setupWithoutDeployingContracts } from './utils.js';
+import { setup, setupWithoutDeployingContractsAndAztecNode } from './utils.js';
 
 describe('e2e_2_rpc_servers', () => {
-  let aztecNode1: AztecNodeService;
-  let aztecNode2: AztecNodeService;
+  let aztecNode: AztecNodeService;
   let aztecRpcServer1: AztecRPCServer;
   let aztecRpcServer2: AztecRPCServer;
   let wallet1: Wallet;
@@ -21,21 +20,18 @@ describe('e2e_2_rpc_servers', () => {
   let contract: ZkTokenContract;
 
   beforeEach(async () => {
-    let config: AztecNodeConfig;
-    ({ aztecNode: aztecNode1, aztecRpcServer: aztecRpcServer1, accounts: accounts1, config, wallet: wallet1, logger } = await setup(1));
+    ({ aztecNode, aztecRpcServer: aztecRpcServer1, accounts: accounts1, wallet: wallet1, logger } = await setup(1));
     ({
-      aztecNode: aztecNode2,
       aztecRpcServer: aztecRpcServer2,
       accounts: accounts2,
       wallet: wallet2,
-    } = await setupWithoutDeployingContracts(1, config));
+    } = await setupWithoutDeployingContractsAndAztecNode(1, aztecNode));
   }, 100_000);
 
   afterEach(async () => {
-    await aztecNode1?.stop();
-    // await aztecNode2?.stop();
+    await aztecNode?.stop();
     await aztecRpcServer1?.stop();
-    // await aztecRpcServer2?.stop();
+    await aztecRpcServer2?.stop();
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
@@ -46,15 +42,15 @@ describe('e2e_2_rpc_servers', () => {
   };
 
   const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (numEncryptedLogs: number) => {
-    const l2BlockNum = await aztecNode1.getBlockHeight();
-    const encryptedLogs = await aztecNode1.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
+    const l2BlockNum = await aztecNode.getBlockHeight();
+    const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
     expect(unrolledLogs.length).toBe(numEncryptedLogs);
   };
 
   const expectUnencryptedLogsFromLastBlockToBe = async (logMessages: string[]) => {
-    const l2BlockNum = await aztecNode1.getBlockHeight();
-    const unencryptedLogs = await aztecNode1.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
+    const l2BlockNum = await aztecNode.getBlockHeight();
+    const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
@@ -82,7 +78,7 @@ describe('e2e_2_rpc_servers', () => {
     const [owner] = accounts1;
     const [receiver] = accounts2;
 
-    aztecRpcServer1.addAccount()
+    // aztecRpcServer1.addAccount()
 
     await deployContract(initialBalance, (await aztecRpcServer1.getAccountPublicKey(owner)).toBigInts());
 
@@ -96,7 +92,7 @@ describe('e2e_2_rpc_servers', () => {
       .transfer(
         transferAmount,
         (await aztecRpcServer1.getAccountPublicKey(owner)).toBigInts(),
-        (await aztecRpcServer1.getAccountPublicKey(receiver)).toBigInts(),
+        (await aztecRpcServer2.getAccountPublicKey(receiver)).toBigInts(),
       )
       .send({ origin: accounts1[0] });
 
