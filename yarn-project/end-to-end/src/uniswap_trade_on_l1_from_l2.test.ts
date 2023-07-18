@@ -8,6 +8,8 @@ import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
+
+
 import { getContract, parseEther } from 'viem';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
@@ -190,7 +192,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         daiCrossChainHarness.l2Contract.address.toField(),
         daiCrossChainHarness.tokenPortalAddress.toField(),
         new Fr(minimumOutputAmount),
-        ownerPub,
+        ownerAddress,
         ownerAddress,
         secretHash,
         new Fr(2 ** 32 - 1),
