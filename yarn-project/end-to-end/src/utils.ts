@@ -62,10 +62,18 @@ type TxContext = {
 };
 
 /**
- * Sets up the environment for the end-to-end tests.
+ * Sets up the environment for the end-to-end tests without deploying contracts.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ * @param config - The aztec node config.
+ * @param firstPrivKey - The private key of the first account to be created.
+ * @param logger - The logger to be used.
  */
-export async function setup(numberOfAccounts = 1): Promise<{
+export async function setupWithoutDeployingContracts(
+  numberOfAccounts: number,
+  config: AztecNodeConfig,
+  firstPrivKey: Uint8Array | null = null,
+  logger = getLogger(),
+): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -75,17 +83,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   aztecRpcServer: AztecRPCServer;
   /**
-   * Return values from deployL1Contracts function.
-   */
-  deployL1ContractsValues: DeployL1Contracts;
-  /**
    * The accounts created by the RPC server.
    */
   accounts: AztecAddress[];
-  /**
-   * The Aztec Node configuration.
-   */
-  config: AztecNodeConfig;
   /**
    * The wallet to be used.
    */
@@ -95,18 +95,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   logger: DebugLogger;
 }> {
-  const config = getConfigEnvVars();
   const rpcConfig = getRpcConfigEnvVars();
-  const logger = getLogger();
-
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKey = hdAccount.getHdKey().privateKey;
-  const deployL1ContractsValues = await deployL1Contracts(config.rpcUrl, hdAccount, localAnvil, logger);
-
-  config.publisherPrivateKey = Buffer.from(privKey!);
-  config.rollupContract = deployL1ContractsValues.rollupAddress;
-  config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
-  config.inboxContract = deployL1ContractsValues.inboxAddress;
 
   const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
@@ -117,7 +106,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random key pairs for the rest.
     // TODO(#662): Let the aztec rpc server generate the key pair rather than hardcoding the private key
-    const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
+    const privateKey = i === 0 && firstPrivKey !== null ? Buffer.from(firstPrivKey!) : randomBytes(32);
     const publicKey = await generatePublicKey(privateKey);
     const salt = Fr.random();
     const deploymentData = await getContractDeploymentInfo(SchnorrSingleKeyAccountContractAbi, [], salt, publicKey);
@@ -166,6 +155,74 @@ export async function setup(numberOfAccounts = 1): Promise<{
 
   const accounts = await aztecRpcServer.getAccounts();
   const wallet = new AccountWallet(aztecRpcServer, accountCollection);
+
+  return {
+    aztecNode,
+    aztecRpcServer,
+    accounts,
+    wallet,
+    logger,
+  };
+}
+
+/**
+ * Sets up the environment for the end-to-end tests.
+ * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ */
+export async function setup(numberOfAccounts = 1): Promise<{
+  /**
+   * The Aztec Node service.
+   */
+  aztecNode: AztecNodeService;
+  /**
+   * The Aztec RPC server.
+   */
+  aztecRpcServer: AztecRPCServer;
+  /**
+   * Return values from deployL1Contracts function.
+   */
+  deployL1ContractsValues: DeployL1Contracts;
+  /**
+   * The accounts created by the RPC server.
+   */
+  accounts: AztecAddress[];
+  /**
+   * The Aztec Node configuration.
+   */
+  config: AztecNodeConfig;
+  /**
+   * The wallet to be used.
+   */
+  wallet: Wallet;
+  /**
+   * Logger instance named as the current test.
+   */
+  logger: DebugLogger;
+}> {
+  const config = getConfigEnvVars();
+  const logger = getLogger();
+
+  const deployL1ContractsValues = await deployL1Contracts(
+    config.rpcUrl,
+    mnemonicToAccount(MNEMONIC),
+    localAnvil,
+    logger,
+  );
+
+  const hdAccount = mnemonicToAccount(MNEMONIC);
+  const privKey = hdAccount.getHdKey().privateKey;
+
+  config.publisherPrivateKey = Buffer.from(privKey!);
+  config.rollupContract = deployL1ContractsValues.rollupAddress;
+  config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
+  config.inboxContract = deployL1ContractsValues.inboxAddress;
+
+  const { aztecNode, aztecRpcServer, accounts, wallet } = await setupWithoutDeployingContracts(
+    numberOfAccounts,
+    config,
+    privKey,
+    logger,
+  );
 
   return {
     aztecNode,
