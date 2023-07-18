@@ -110,6 +110,8 @@ impl PrivateCallStackItem {
         assert(item.public_inputs.call_context.is_delegate_call == false);
         assert(item.public_inputs.call_context.is_static_call == false);
         assert(item.public_inputs.call_context.is_contract_deployment == false);
+        assert(item.public_inputs.call_context.msg_sender == context.inputs.call_context.storage_contract_address);
+        assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
         context.private_call_stack = context.private_call_stack.push(item.hash());
 
