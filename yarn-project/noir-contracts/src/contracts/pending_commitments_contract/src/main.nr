@@ -74,8 +74,8 @@ contract PendingCommitments {
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
@@ -108,8 +108,8 @@ contract PendingCommitments {
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         // get note (note created at bottom of function shouldn't exist yet)
@@ -169,8 +169,8 @@ contract PendingCommitments {
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);

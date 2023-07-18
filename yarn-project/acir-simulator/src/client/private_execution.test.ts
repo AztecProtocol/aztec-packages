@@ -156,16 +156,8 @@ describe('Private Execution test suite', () => {
 
     const buildNote = (amount: bigint, owner: NoirPoint) => {
       const nonce = new Fr(currentNoteIndex);
-      currentNoteIndex++;
-      const preimage = [
-        new Fr(amount),
-        new Fr(owner.x),
-        new Fr(owner.y),
-        Fr.random(),
-        new Fr(currentNoteIndex), // TODO: remove it
-        new Fr(1n),
-      ];
-      return { index: currentNoteIndex, nonce, preimage };
+      const preimage = [new Fr(amount), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(1n)];
+      return { index: currentNoteIndex++, nonce, preimage };
     };
 
     beforeAll(() => {

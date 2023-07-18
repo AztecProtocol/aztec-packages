@@ -23,7 +23,6 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
 type ORACLE_NAMES =
   | 'packArguments'
   | 'getSecretKey'
-  | 'getNote'
   | 'getNotes'
   | 'getRandomField'
   | 'notifyCreatedNote'
