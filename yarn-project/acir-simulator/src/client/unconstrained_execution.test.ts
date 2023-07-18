@@ -1,4 +1,5 @@
 import { CircuitsWasm, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -9,7 +10,6 @@ import { ExecutionRequest } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 

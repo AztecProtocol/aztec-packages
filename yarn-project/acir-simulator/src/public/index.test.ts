@@ -22,7 +22,7 @@ import {
 } from '@aztec/noir-contracts/examples';
 
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';

@@ -28,23 +28,25 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
-import { ChildContractAbi, NonNativeTokenContractAbi, ParentContractAbi, PendingCommitmentsContractAbi, TestContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
+import {
+  ChildContractAbi,
+  NonNativeTokenContractAbi,
+  ParentContractAbi,
+  PendingCommitmentsContractAbi,
+  TestContractAbi,
+  ZkTokenContractAbi,
+} from '@aztec/noir-contracts/examples';
 import { PackedArguments, TxExecutionRequest } from '@aztec/types';
-
-
 
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 
-
-
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-
 
 jest.setTimeout(60_000);
 
