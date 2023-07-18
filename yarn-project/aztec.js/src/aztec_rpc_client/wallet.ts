@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, Point, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialContractAddress, Point, PublicKey, TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   AztecRPC,
@@ -38,6 +38,11 @@ export abstract class BaseWallet implements Wallet {
     abi?: ContractAbi | undefined,
   ): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
+  }
+  addPublicKey(
+    address: AztecAddress, publicKey: PublicKey, partialAddress: PartialContractAddress
+  ): Promise<void> {
+    return this.rpc.addPublicKey(address, publicKey, partialAddress);
   }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();
