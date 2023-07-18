@@ -36,7 +36,7 @@ class private_kernel_tests : public ::testing::Test {
  * @note The choice of app circuit (currently 'deposit') is entirely arbitrary and can be replaced with any other valid
  * app circuit.
  */
-TEST_F(private_kernel_tests, basic)
+TEST_F(private_kernel_tests, circuit_basic)
 {
     NT::fr const& amount = 5;
     NT::fr const& asset_id = 1;
@@ -60,7 +60,7 @@ TEST_F(private_kernel_tests, basic)
 
     // Execute and prove the first kernel iteration
     Builder private_kernel_builder;
-    auto const& public_inputs = private_kernel_circuit(private_kernel_builder, private_inputs, true);
+    private_kernel_circuit(private_kernel_builder, private_inputs, true);
 
     // Check the private kernel circuit
     EXPECT_TRUE(private_kernel_builder.check_circuit());

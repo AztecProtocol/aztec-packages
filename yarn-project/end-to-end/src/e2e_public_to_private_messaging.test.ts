@@ -1,6 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, EthAddress } from '@aztec/aztec.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
+
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
 
@@ -24,6 +27,7 @@ describe('e2e_public_to_private_messaging', () => {
       aztecRpcServer: aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger: logger_,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
@@ -32,6 +36,7 @@ describe('e2e_public_to_private_messaging', () => {
       aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger_,
     );
 
@@ -88,5 +93,5 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
     await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
-  }, 120_000);
+  }, 200_000);
 });

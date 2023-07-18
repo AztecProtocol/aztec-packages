@@ -1,17 +1,18 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { PrivateCallStackItem } from '../call_stack_item.js';
+
 import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
-  PRIVATE_CALL_STACK_LENGTH,
-  PRIVATE_DATA_TREE_HEIGHT,
-  READ_REQUESTS_LENGTH,
-} from '../constants.js';
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
+} from '../../cbind/constants.gen.js';
+import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
+import { PrivateCallStackItem } from '../call_stack_item.js';
 import { Fr } from '../index.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
+import { ReadRequestMembershipWitness } from '../read_request_membership_witness.js';
 import { TxRequest } from '../tx_request.js';
 import { VerificationKey } from '../verification_key.js';
 import { PreviousKernelData } from './previous_kernel_data.js';
@@ -50,7 +51,7 @@ export class PrivateCallData {
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
-    public readRequestMembershipWitnesses: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>[],
+    public readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
     /**
      * The address of the portal contract corresponding to the contract on which the function is being invoked.
      */
@@ -60,8 +61,8 @@ export class PrivateCallData {
      */
     public acirHash: Fr,
   ) {
-    assertMemberLength(this, 'privateCallStackPreimages', PRIVATE_CALL_STACK_LENGTH);
-    assertMemberLength(this, 'readRequestMembershipWitnesses', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'privateCallStackPreimages', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
+    assertMemberLength(this, 'readRequestMembershipWitnesses', MAX_READ_REQUESTS_PER_CALL);
   }
 
   /**

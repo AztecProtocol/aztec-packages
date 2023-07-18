@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
-import { BufferReader } from '../serialize/buffer_reader.js';
+
 import { toBigIntBE, toBufferBE, toHex } from '../bigint-buffer/index.js';
+import { BufferReader } from '../serialize/buffer_reader.js';
 
 /**
  * Fr represents a field of integers modulo the prime number MODULUS.
@@ -16,7 +17,7 @@ export class Fr {
   /**
    * The numeric value of the field element as a bigint.
    */
-  public readonly value;
+  public readonly value: bigint;
 
   constructor(value: bigint | number) {
     this.value = BigInt(value);
@@ -92,6 +93,15 @@ export class Fr {
    */
   toString(padTo32 = false): `0x${string}` {
     return toHex(this.value, padTo32);
+  }
+
+  /**
+   * Retrieves the underlying bigint.
+   * This method mostly exists to match user expectations, as value is already public.
+   * @returns The underlying bigint.
+   */
+  public toBigInt(): bigint {
+    return this.value;
   }
 
   /**

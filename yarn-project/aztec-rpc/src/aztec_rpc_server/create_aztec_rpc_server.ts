@@ -1,5 +1,8 @@
-import { AztecNode } from '@aztec/aztec-node';
-import { KeyStore, TestKeyStore } from '@aztec/key-store';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { TestKeyStore } from '@aztec/key-store';
+import { AztecNode, KeyStore } from '@aztec/types';
+
+import { RpcServerConfig } from '../config/index.js';
 import { Database, MemoryDB } from '../database/index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
@@ -23,14 +26,19 @@ interface CreateAztecRPCServerOptions {
  * Returns a Promise that resolves to the started AztecRPCServer instance.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
+ * @param config - The Rpc Server Config to use
  * @param options - (Optional) Optional information for creating an AztecRPCServer.
  * @returns A Promise that resolves to the started AztecRPCServer instance.
  */
-export async function createAztecRPCServer(aztecNode: AztecNode, { keyStore, db }: CreateAztecRPCServerOptions = {}) {
-  keyStore = keyStore || new TestKeyStore();
+export async function createAztecRPCServer(
+  aztecNode: AztecNode,
+  config: RpcServerConfig,
+  { keyStore, db }: CreateAztecRPCServerOptions = {},
+) {
+  keyStore = keyStore || new TestKeyStore(await Grumpkin.new());
   db = db || new MemoryDB();
 
-  const server = new AztecRPCServer(keyStore, aztecNode, db);
+  const server = new AztecRPCServer(keyStore, aztecNode, db, config);
   await server.start();
   return server;
 }

@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <tuple>
 #include <vector>
@@ -23,7 +24,8 @@ namespace aztec3::circuits::rollup::components {
  */
 NT::fr calculate_empty_tree_root(const size_t depth)
 {
-    stdlib::merkle_tree::MemoryTree const empty_tree = stdlib::merkle_tree::MemoryTree(depth);
+    MemoryStore empty_tree_store;
+    MerkleTree const empty_tree = MerkleTree(empty_tree_store, depth);
     return empty_tree.root();
 }
 
@@ -102,17 +104,18 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
 {
     // Compute calldata hashes
     // Consist of 2 kernels
-    // 2 * KERNEL_NEW_COMMITMENTS_LENGTH fields for commitments
-    // 2 * KERNEL_NEW_NULLIFIERS_LENGTH fields for nullifiers
+    // 2 * MAX_NEW_COMMITMENTS_PER_TX fields for commitments
+    // 2 * MAX_NEW_NULLIFIERS_PER_TX fields for nullifiers
     // 8 public data update requests (4 per kernel) -> 16 fields
     // 4 l2 -> l1 messages (2 per kernel) -> 4 fields
     // 2 contract deployments (1 per kernel) -> 6 fields
     // 2 encrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     // 2 unencrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     auto const number_of_inputs =
-        (KERNEL_NEW_COMMITMENTS_LENGTH + KERNEL_NEW_NULLIFIERS_LENGTH + KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 +
-         KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + KERNEL_NEW_CONTRACTS_LENGTH * 3 + KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 +
-         KERNEL_NUM_UNENCRYPTED_LOGS_HASHES * 2) *
+        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
+         MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
+         NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 +
+         NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256) *
         2;
     std::array<NT::fr, number_of_inputs> calldata_hash_inputs{};
 
@@ -126,57 +129,67 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
 
         size_t offset = 0;
 
-        for (size_t j = 0; j < KERNEL_NEW_COMMITMENTS_LENGTH; j++) {
-            calldata_hash_inputs[offset + i * KERNEL_NEW_COMMITMENTS_LENGTH + j] = new_commitments[j];
+        for (size_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_NEW_COMMITMENTS_PER_TX + j] = new_commitments[j];
         }
-        offset += KERNEL_NEW_COMMITMENTS_LENGTH * 2;
+        offset += MAX_NEW_COMMITMENTS_PER_TX * 2;
 
-        for (size_t j = 0; j < KERNEL_NEW_NULLIFIERS_LENGTH; j++) {
-            calldata_hash_inputs[offset + i * KERNEL_NEW_NULLIFIERS_LENGTH + j] = new_nullifiers[j];
+        for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers[j];
         }
-        offset += KERNEL_NEW_NULLIFIERS_LENGTH * 2;
+        offset += MAX_NEW_NULLIFIERS_PER_TX * 2;
 
-        for (size_t j = 0; j < KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH; j++) {
-            calldata_hash_inputs[offset + i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 + j * 2] =
+        for (size_t j = 0; j < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + j * 2] =
                 public_data_update_requests[j].leaf_index;
-            calldata_hash_inputs[offset + i * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 + j * 2 + 1] =
+            calldata_hash_inputs[offset + i * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 + j * 2 + 1] =
                 public_data_update_requests[j].new_value;
         }
-        offset += KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH * 2 * 2;
+        offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 * 2;
 
-        for (size_t j = 0; j < KERNEL_NEW_L2_TO_L1_MSGS_LENGTH; j++) {
-            calldata_hash_inputs[offset + i * KERNEL_NEW_L2_TO_L1_MSGS_LENGTH + j] = newL2ToL1msgs[j];
+        for (size_t j = 0; j < MAX_NEW_L2_TO_L1_MSGS_PER_TX; j++) {
+            calldata_hash_inputs[offset + i * MAX_NEW_L2_TO_L1_MSGS_PER_TX + j] = newL2ToL1msgs[j];
         }
-        offset += KERNEL_NEW_L2_TO_L1_MSGS_LENGTH * 2;
+        offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
 
         auto const contract_leaf = kernel_data[i].public_inputs.end.new_contracts[0];
         calldata_hash_inputs[offset + i] = contract_leaf.hash();
 
-        offset += KERNEL_NEW_CONTRACTS_LENGTH * 2;
+        offset += MAX_NEW_CONTRACTS_PER_TX * 2;
 
         auto new_contracts = kernel_data[i].public_inputs.end.new_contracts;
         calldata_hash_inputs[offset + i * 2] = new_contracts[0].contract_address;
         calldata_hash_inputs[offset + i * 2 + 1] = new_contracts[0].portal_contract_address;
 
-        offset += KERNEL_NEW_CONTRACTS_LENGTH * 2 * 2;
+        offset += MAX_NEW_CONTRACTS_PER_TX * 2 * 2;
 
-        calldata_hash_inputs[offset + i * 2] = encryptedLogsHash[0];
-        calldata_hash_inputs[offset + i * 2 + 1] = encryptedLogsHash[1];
+        for (size_t j = 0; j < NUM_FIELDS_PER_SHA256; j++) {
+            calldata_hash_inputs[offset + i * 2 + j] = encryptedLogsHash[j];
+        }
 
-        offset += KERNEL_NUM_ENCRYPTED_LOGS_HASHES * 2 * 2;
+        offset += NUM_ENCRYPTED_LOGS_HASHES_PER_TX * NUM_FIELDS_PER_SHA256 * 2;
 
-        calldata_hash_inputs[offset + i * 2] = unencryptedLogsHash[0];
-        calldata_hash_inputs[offset + i * 2 + 1] = unencryptedLogsHash[1];
+        for (size_t j = 0; j < NUM_FIELDS_PER_SHA256; j++) {
+            calldata_hash_inputs[offset + i * 2 + j] = unencryptedLogsHash[j];
+        }
     }
 
-    // We subtract 4 from inputs size because 1 logs hash is stored in 2 fields and those 2 fields get converted only
-    // to 256 bits and there are 4 logs hashes in total.
-    constexpr auto num_bytes = (calldata_hash_inputs.size() - 4) * 32;
-    std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes;
-    // Convert all into a buffer, then copy into the array, then hash
-    for (size_t i = 0; i < calldata_hash_inputs.size() - 4; i++) {  // -4 because logs are processed out of the loop
-        auto as_bytes = calldata_hash_inputs[i].to_buffer();
+    // OPTIMIZE DATA OVERHEAD
+    // The data structure calldata_hash_inputs contains 2 * 2 * NUM_FIELDS_PER_SHA256 fr entries for logsHashes. (2
+    // kernels and 2 types of log per kernel). One sha-256 hash value represented in fr array is actually splitted into
+    // 2 fields because fr is 254 bits (smaller than 256 bits). By serializing such a (fr-based) hash value back into
+    // bytes, we only need 32 bytes (256 bits), while the standard fr-array to bytes serialization would return 64
+    // bytes. For the unencryptedlogs and encryptedlogs, we therefore need 2 * NUM_FIELDS_PER_SHA256 * 32 bytes instead
+    // of 2 * 2 * NUM_FIELDS_PER_SHA256 * 32 bytes (half of this is saved).
 
+    // We subtract 2 * NUM_FIELDS_PER_SHA256 * 32 bytes as explained above.
+    constexpr auto num_bytes = (calldata_hash_inputs.size() - NUM_FIELDS_PER_SHA256 * 2) * 32;
+    std::array<uint8_t, num_bytes> calldata_hash_inputs_bytes{};
+
+    // Serialize everything from calldata_hash_inputs except the logs at this stage and copy into
+    // calldata_hash_inputs_bytes;
+    for (size_t i = 0; i < calldata_hash_inputs.size() - NUM_FIELDS_PER_SHA256 * 2 * 2; i++) {
+        auto as_bytes = calldata_hash_inputs[i].to_buffer();
         auto offset = i * 32;
         std::copy(as_bytes.begin(), as_bytes.end(), calldata_hash_inputs_bytes.begin() + offset);
     }
@@ -184,8 +197,10 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     // Copy the 4 fields of 2 encrypted logs to 64 bytes
     // Modified version of:
     // https://github.com/AztecProtocol/aztec-packages/blob/01080c7f1d2956512b6a9cff0582b43be25b3cc2/circuits/cpp/src/aztec3/circuits/hash.hpp#L350
-    const uint32_t encrypted_logs_start_index = calldata_hash_inputs.size() - 8;
-    const uint32_t first_modified_byte_encrypted = num_bytes - 128;  // 128 = num bytes occupied by all the logs hashes
+    const uint32_t encrypted_logs_start_index = calldata_hash_inputs.size() - NUM_FIELDS_PER_SHA256 * 2 * 2;
+    const uint32_t first_modified_byte_encrypted =
+        num_bytes - NUM_FIELDS_PER_SHA256 * 2 *
+                        32;  // offsetting by number of bytes occupied by all the logs hashes (in the optimized form)
     for (uint8_t i = 0; i < 4; i++) {
         auto half = calldata_hash_inputs[encrypted_logs_start_index + i].to_buffer();
         for (uint8_t j = 0; j < 16; j++) {
@@ -194,9 +209,9 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     }
 
     // Do the same for the unencrypted logs
-    const uint32_t unencrypted_logs_start_index = calldata_hash_inputs.size() - 4;
+    const uint32_t unencrypted_logs_start_index = calldata_hash_inputs.size() - NUM_FIELDS_PER_SHA256 * 2;
     const uint32_t first_modified_byte_unencrypted =
-        num_bytes - 64;  // 64 = num bytes occupied by unencrypted logs hashes
+        num_bytes - NUM_FIELDS_PER_SHA256 * 32;  // offsetting num bytes occupied by unencrypted logs hashes
     for (uint8_t i = 0; i < 4; i++) {
         auto half = calldata_hash_inputs[unencrypted_logs_start_index + i].to_buffer();
         for (uint8_t j = 0; j < 16; j++) {

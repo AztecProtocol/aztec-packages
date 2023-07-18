@@ -1,10 +1,11 @@
 {
   "name": "@aztec/noir-contracts",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./examples": "./dest/examples/index.js"
+    "./examples": "./dest/examples/index.js",
+    "./types": "./dest/types/index.js"
   },
   "typedoc": {
     "entryPoint": "./src/index.ts",
@@ -35,14 +36,18 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/aztec.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "lodash.omit": "^4.5.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/noir-compiler": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.camelcase": "^4.3.7",
+    "@types/lodash.omit": "^4.5.7",
     "@types/lodash.snakecase": "^4.1.7",
     "@types/lodash.upperfirst": "^4.3.7",
     "@types/node": "^18.7.23",
@@ -59,5 +64,8 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts"
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=18"
+  }
 }

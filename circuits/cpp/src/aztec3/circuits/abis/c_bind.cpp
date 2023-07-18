@@ -17,6 +17,7 @@
 
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
+#include "aztec3/circuits/abis/packers.hpp"
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
@@ -33,10 +34,15 @@ using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
 using aztec3::circuits::compute_partial_contract_address;
 using aztec3::circuits::abis::CallStackItem;
+using aztec3::circuits::abis::ConstantsPacker;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
+using aztec3::circuits::abis::GeneratorIndexPacker;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::Point;
+using aztec3::circuits::abis::PrivateStateNoteGeneratorIndexPacker;
+using aztec3::circuits::abis::PrivateStateTypePacker;
+using aztec3::circuits::abis::StorageSlotGeneratorIndexPacker;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using NT = aztec3::utils::types::NativeTypes;
@@ -323,6 +329,33 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* point_data_buf,
 }
 
 /**
+ * @brief Compute a contract address from its partial contract address
+ * This is a WASM-export that can be called from Typescript.
+ *
+ * @details Computes a contract address by hashing the deployers public key along with the previously computed partial
+ * address Return the serialized results in the `output` buffer.
+ *
+ * @param point_data_buf point data struct as a buffer of bytes
+ * @param partial_address_data_buf partial contract address
+ * @param output buffer that will contain the output. The serialized contract address.
+ */
+WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* point_data_buf,
+                                                             uint8_t const* partial_address_data_buf,
+                                                             uint8_t* output)
+{
+    Point<NT> deployer_public_key;
+    NT::fr partial_address;
+
+    read(point_data_buf, deployer_public_key);
+    read(partial_address_data_buf, partial_address);
+
+    NT::fr const contract_address =
+        aztec3::circuits::compute_contract_address_from_partial(deployer_public_key, partial_address);
+
+    NT::fr::serialize_to_buffer(contract_address, output);
+}
+
+/**
  * @brief Compute a partial contract address
  * This is a WASM-export that can be called from Typescript.
  *
@@ -391,6 +424,11 @@ WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preima
  * @brief Generates a siloed commitment tree leaf from the contract and the commitment.
  */
 CBIND(abis__silo_commitment, aztec3::circuits::silo_commitment<NT>);
+
+/**
+ * @brief Generates a siloed nullifier from the contract and the nullifier.
+ */
+CBIND(abis__silo_nullifier, aztec3::circuits::silo_nullifier<NT>);
 
 /**
  * @brief Generates a signed tx request hash from it's pre-image
@@ -542,3 +580,14 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_function_leaf_preimage(ui
 {
     return as_string_output<aztec3::circuits::abis::FunctionLeafPreimage<NT>>(function_leaf_preimage_buf, size);
 }
+
+
+// When we return a packer from packers.hpp, we call its msgpack_pack method (as that is what is used
+// internally in msgpack) and thus can get a JSON-like object of all our constants in Typescript. We explicitly do not
+// want a schema here as our ConstantsPacker is not meant to be used in a Typescript function. (if it were, it would
+// need to implement msgpack_schema, but as we handle it specially not much value).
+CBIND_NOSCHEMA(get_circuit_constants, [] { return ConstantsPacker{}; });
+CBIND_NOSCHEMA(get_circuit_generator_index, [] { return GeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_private_state_note_generator_index, [] { return PrivateStateNoteGeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_storage_slot_generator_index, [] { return StorageSlotGeneratorIndexPacker{}; });
+CBIND_NOSCHEMA(get_circuit_private_state_type, [] { return PrivateStateTypePacker{}; });

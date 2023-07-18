@@ -6,16 +6,18 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { P2P, P2PClientState } from '@aztec/p2p';
-import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx, TxHash, mockTx } from '@aztec/types';
 import { MerkleTreeOperations, WorldStateRunningState, WorldStateSynchroniser } from '@aztec/world-state';
+
 import { MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
+
 import { BlockBuilder } from '../block_builder/index.js';
-import { L1Publisher, makeTx } from '../index.js';
+import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import { L1Publisher } from '../index.js';
 import { makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { PublicProcessor, PublicProcessorFactory } from './public_processor.js';
 import { Sequencer } from './sequencer.js';
-import { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 
 describe('sequencer', () => {
   let publisher: MockProxy<L1Publisher>;
@@ -87,7 +89,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of a single tx', async () => {
-    const tx = makeTx();
+    const tx = mockTx();
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();
 
@@ -112,7 +114,7 @@ describe('sequencer', () => {
   });
 
   it('builds a block out of several txs rejecting double spends', async () => {
-    const txs = [makeTx(0x10000), makeTx(0x20000), makeTx(0x30000)];
+    const txs = [mockTx(0x10000), mockTx(0x20000), mockTx(0x30000)];
     const doubleSpendTx = txs[1];
     const block = L2Block.random(lastBlockNumber + 1);
     const proof = makeEmptyProof();

@@ -8,6 +8,7 @@
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
@@ -15,6 +16,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 #include <array>
+#include <cstdint>
 
 namespace {
 
@@ -22,9 +24,9 @@ using aztec3::circuits::compute_empty_sibling_path;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
-using aztec3::circuits::abis::MembershipWitness;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
+using aztec3::circuits::abis::ReadRequestMembershipWitness;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
@@ -47,9 +49,9 @@ using aztec3::circuits::compute_empty_sibling_path;
 constexpr size_t MAX_FUNCTION_LEAVES = 1 << aztec3::FUNCTION_TREE_HEIGHT;  // 2^(height-1)
 // NOTE: *DO NOT* call hashes in static initializers and assign them to constants. This will fail. Instead, use
 // lazy initialization or functions. Lambdas were introduced here.
-const auto EMPTY_FUNCTION_LEAF = [] { return FunctionLeafPreimage<NT>{}.hash(); };      // hash of empty/0 preimage
-const auto EMPTY_CONTRACT_LEAF = [] { return NewContractData<NT>{}.hash(); };           // hash of empty/0 preimage
-constexpr size_t PRIVATE_DATA_TREE_NUM_LEAVES = 1 << aztec3::PRIVATE_DATA_TREE_HEIGHT;  // 2^(height-1)
+const auto EMPTY_FUNCTION_LEAF = [] { return FunctionLeafPreimage<NT>{}.hash(); };           // hash of empty/0 preimage
+const auto EMPTY_CONTRACT_LEAF = [] { return NewContractData<NT>{}.hash(); };                // hash of empty/0 preimage
+constexpr uint64_t PRIVATE_DATA_TREE_NUM_LEAVES = 1ULL << aztec3::PRIVATE_DATA_TREE_HEIGHT;  // 2^(height-1)
 
 inline const auto& get_empty_function_siblings()
 {
@@ -79,8 +81,8 @@ inline const auto& get_empty_contract_siblings()
  * @param num_read_requests if negative, use random num
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
-std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
 get_random_reads(NT::fr const& contract_address, int num_read_requests);
 

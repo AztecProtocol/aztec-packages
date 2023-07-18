@@ -10,6 +10,9 @@
       "path": "../aztec-node"
     },
     {
+      "path": "../aztec-rpc"
+    },
+    {
       "path": "../aztec.js"
     },
     {
@@ -31,10 +34,7 @@
       "path": "../p2p"
     },
     {
-      "path": "../sequencer-client"
-    },
-    {
-      "path": "../world-state"
+      "path": "../types"
     }
   ],
   "include": ["src"]

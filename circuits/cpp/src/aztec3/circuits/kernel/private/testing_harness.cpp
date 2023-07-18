@@ -51,21 +51,21 @@ using aztec3::utils::array_length;
  * inserted into mock private data tree
  *
  * @param contract_address address to use when siloing read requests
- * @param num_read_requests if negative, use random num. Must be < READ_REQUESTS_LENGTH
+ * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
-std::tuple<std::array<NT::fr, READ_REQUESTS_LENGTH>,
-           std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>,
+std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
 get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 {
-    std::array<fr, READ_REQUESTS_LENGTH> read_requests{};
-    std::array<fr, READ_REQUESTS_LENGTH> leaves{};
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> leaves{};
 
     // randomize the number of read requests with a configurable minimum
     const auto final_num_rr = num_read_requests >= 0
-                                  ? std::min(static_cast<size_t>(num_read_requests), READ_REQUESTS_LENGTH)
-                                  : numeric::random::get_engine().get_random_uint8() % (READ_REQUESTS_LENGTH + 1);
+                                  ? std::min(static_cast<size_t>(num_read_requests), MAX_READ_REQUESTS_PER_CALL)
+                                  : numeric::random::get_engine().get_random_uint8() % (MAX_READ_REQUESTS_PER_CALL + 1);
     // randomize private app circuit's read requests
     for (size_t rr = 0; rr < final_num_rr; rr++) {
         // randomize commitment and its leaf index
@@ -82,7 +82,8 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     // set -> vector without collisions
     std::vector<NT::uint32> rr_leaf_indices(rr_leaf_indices_set.begin(), rr_leaf_indices_set.end());
 
-    MerkleTree private_data_tree = MerkleTree(PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore private_data_tree_store;
+    MerkleTree private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
     // add the commitments to the private data tree for each read request
     // add them at their corresponding index in the tree
@@ -93,12 +94,13 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     }
 
     // compute the merkle sibling paths for each request
-    std::array<MembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, READ_REQUESTS_LENGTH>
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>
         read_request_membership_witnesses{};
     for (size_t i = 0; i < array_length(read_requests); i++) {
         read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
-                                                     private_data_tree, rr_leaf_indices[i], 0) };
+                                                     private_data_tree, rr_leaf_indices[i], 0),
+                                                 .hint_to_commitment = 0 };
     }
 
 
@@ -128,7 +130,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     const NT::fr acir_hash = 12341234;
 
     const NT::fr msg_sender_private_key = 123456789;
-    const Point<NT> msg_sender_pub_key = { .x = { 123456789, 123456789 }, .y = { 123456789, 123456789 } };
+    const Point<NT> msg_sender_pub_key = { .x = 123456789, .y = 123456789 };
 
     FunctionData<NT> const function_data{
         .function_selector = 1,  // TODO(suyash): deduce this from the contract, somehow.
@@ -447,7 +449,7 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     // We mock a kernel circuit proof to initialize ipnut required by an inner call
     //***************************************************************************
 
-    std::array<NT::fr, KERNEL_PRIVATE_CALL_STACK_LENGTH> initial_kernel_private_call_stack{};
+    std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> initial_kernel_private_call_stack{};
     initial_kernel_private_call_stack[0] = private_call_data.call_stack_item.hash();
 
     auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;

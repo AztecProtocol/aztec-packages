@@ -1,4 +1,5 @@
 use crate::types::vec::BoundedVec;
+use crate::constants_gen;
 use crate::abi;
 
 // l1 to l2 messaging
@@ -7,20 +8,23 @@ use crate::messaging::process_l1_to_l2_message;
 // When finished, one can call .finish() to convert back to the abi
 struct Context {
     inputs: abi::PrivateContextInputs,
+    // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
+    oracle_connector: Field,  // for forcing dependencies between oracle calls
+
     args_hash : Field,
-    return_values : BoundedVec<Field, abi::MAX_RETURN_VALUES>,
+    return_values : BoundedVec<Field, constants_gen::RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, abi::MAX_READ_REQUESTS>,
+    read_requests: BoundedVec<Field, constants_gen::MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, abi::MAX_NEW_COMMITMENTS>,
-    new_nullifiers: BoundedVec<Field, abi::MAX_NEW_NULLIFIERS>,
+    new_commitments: BoundedVec<Field, constants_gen::MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<Field, constants_gen::MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack : BoundedVec<Field, abi::MAX_PRIVATE_CALL_STACK>,
-    public_call_stack : BoundedVec<Field, abi::MAX_PUBLIC_CALL_STACK>,
-    new_l2_to_l1_msgs : BoundedVec<Field, abi::MAX_L2_TO_L1_MSGS>,
+    private_call_stack : BoundedVec<Field, constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack : BoundedVec<Field, constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<Field, constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    encrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
-    unencrypted_logs_hash : [Field; abi::LOGS_HASH_SIZE],
+    encrypted_logs_hash : [Field; constants_gen::NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash : [Field; constants_gen::NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length : Field,
     unencrypted_log_preimages_length : Field,
 }
@@ -29,6 +33,9 @@ impl Context {
     fn new(inputs: abi::PrivateContextInputs, args_hash: Field) -> Context {
         Context {
             inputs: inputs,
+            // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
+            oracle_connector: 0,
+
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
@@ -41,8 +48,8 @@ impl Context {
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            encrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
-            unencrypted_logs_hash: [0; abi::LOGS_HASH_SIZE],
+            encrypted_logs_hash: [0; constants_gen::NUM_FIELDS_PER_SHA256],
+            unencrypted_logs_hash: [0; constants_gen::NUM_FIELDS_PER_SHA256],
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
         }
@@ -100,7 +107,7 @@ impl Context {
         self.push_new_nullifier(nullifier)
     }
 
-    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; abi::LOGS_HASH_SIZE]) -> Self {
+    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; constants_gen::NUM_FIELDS_PER_SHA256]) -> Self {
         self.encrypted_logs_hash = hash;
         self
     }
@@ -110,7 +117,7 @@ impl Context {
         self
     }
 
-    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; abi::LOGS_HASH_SIZE]) -> Self {
+    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; constants_gen::NUM_FIELDS_PER_SHA256]) -> Self {
         self.unencrypted_logs_hash = hash;
         self
     }

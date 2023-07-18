@@ -1,14 +1,16 @@
-import { AztecRPC, DeployedContract, generateFunctionSelector } from '@aztec/aztec-rpc';
-import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
-import { ContractFunctionInteraction } from './contract_function_interaction.js';
+import { ContractAbi, FunctionAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { DeployedContract } from '@aztec/types';
+
+import { Wallet } from '../aztec_rpc_client/wallet.js';
+import { ContractFunctionInteraction } from './contract_function_interaction.js';
 
 /**
  * Type representing a contract method that returns a ContractFunctionInteraction instance
  * and has a readonly 'selector' property of type Buffer. Takes any number of arguments.
  */
-type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) & {
+export type ContractMethod = ((...args: any[]) => ContractFunctionInteraction) & {
   /**
    * The unique identifier for a contract function in bytecode.
    */
@@ -37,16 +39,19 @@ export class Contract {
      * The Application Binary Interface for the contract.
      */
     public readonly abi: ContractAbi,
-    private arc: AztecRPC,
+    /**
+     * The wallet.
+     */
+    protected wallet: Wallet,
   ) {
     abi.functions.forEach((f: FunctionAbi) => {
       const interactionFunction = (...args: any[]) => {
-        return new ContractFunctionInteraction(this.arc, this.address!, f.name, args, f.functionType);
+        return new ContractFunctionInteraction(this.wallet, this.address!, f, args);
       };
+
       this.methods[f.name] = Object.assign(interactionFunction, {
         /**
          * A getter for users to fetch the function selector.
-         *
          * @returns Selector of the function.
          */
         get selector() {
@@ -71,6 +76,6 @@ export class Contract {
       address: this.address,
       portalContract,
     };
-    return this.arc.addContracts([deployedContract, ...dependencies]);
+    return this.wallet.addContracts([deployedContract, ...dependencies]);
   }
 }

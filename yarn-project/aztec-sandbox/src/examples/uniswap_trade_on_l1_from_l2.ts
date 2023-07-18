@@ -1,28 +1,30 @@
 import {
-  AztecRPC,
+  AztecAddress,
   Contract,
   ContractDeployer,
-  TxStatus,
+  EthAddress,
+  Fr,
+  Wallet,
+  computeMessageSecretHash,
   createAccounts,
   createAztecRpcClient,
   getL1ContractAddresses,
-  pointToPublicKey,
-  AztecAddress,
-  EthAddress,
-  Fr,
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
+import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
+import { SchnorrAccountContractAbi, UniswapContractAbi } from '@aztec/noir-contracts/examples';
+import { AztecRPC, TxStatus } from '@aztec/types';
+
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
+
 import { delay, deployAndInitializeNonNativeL2TokenContracts, deployL1Contract } from './util.js';
-import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 
 /**
  * Type representation of a Public key's coordinates.
  */
-type PublicKey = {
+type BigIntPublicKey = {
   /** Public key X coord */
   x: bigint;
   /** Public key Y coord */
@@ -64,16 +66,17 @@ if (Number(await publicClient.getBlockNumber()) < EXPECTED_FORKED_BLOCK) {
 const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
 
 const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
+let wallet: Wallet;
 
 /**
  * Deploys all l1 / l2 contracts
  * @param ownerPub - Public key of deployer.
  */
-async function deployAllContracts(ownerPub: PublicKey) {
+async function deployAllContracts(ownerPub: BigIntPublicKey) {
   const l1ContractsAddresses = await getL1ContractAddresses(aztecRpcUrl);
   logger('Deploying DAI Portal, initializing and deploying l2 contract...');
   const daiContracts = await deployAndInitializeNonNativeL2TokenContracts(
-    aztecRpcClient,
+    wallet,
     walletClient,
     publicClient,
     l1ContractsAddresses!.registry,
@@ -87,7 +90,7 @@ async function deployAllContracts(ownerPub: PublicKey) {
 
   logger('Deploying WETH Portal, initializing and deploying l2 contract...');
   const wethContracts = await deployAndInitializeNonNativeL2TokenContracts(
-    aztecRpcClient,
+    wallet,
     walletClient,
     publicClient,
     l1ContractsAddresses!.registry,
@@ -115,11 +118,11 @@ async function deployAllContracts(ownerPub: PublicKey) {
   });
 
   // deploy l2 uniswap contract and attach to portal
-  const deployer = new ContractDeployer(UniswapContractAbi, aztecRpcClient);
-  const tx = deployer.deploy().send({ portalContract: uniswapPortalAddress });
+  const deployer = new ContractDeployer(UniswapContractAbi, aztecRpcClient).deploy();
+  const tx = deployer.send({ portalContract: uniswapPortalAddress });
   await tx.isMined(0, 0.5);
   const receipt = await tx.getReceipt();
-  const uniswapL2Contract = new Contract(receipt.contractAddress!, UniswapContractAbi, aztecRpcClient);
+  const uniswapL2Contract = new Contract(receipt.contractAddress!, UniswapContractAbi, wallet);
   await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
@@ -143,7 +146,7 @@ async function deployAllContracts(ownerPub: PublicKey) {
 
 const getL2BalanceOf = async (aztecRpcClient: AztecRPC, owner: AztecAddress, l2Contract: any) => {
   const ownerPublicKey = await aztecRpcClient.getAccountPublicKey(owner);
-  const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPublicKey)).view({ from: owner });
+  const [balance] = await l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
   return balance;
 };
 
@@ -167,10 +170,10 @@ const transferWethOnL2 = async (
   const transferTx = wethL2Contract.methods
     .transfer(
       transferAmount,
-      pointToPublicKey(await aztecRpcClient.getAccountPublicKey(ownerAddress)),
-      pointToPublicKey(await aztecRpcClient.getAccountPublicKey(receiver)),
+      (await aztecRpcClient.getAccountPublicKey(ownerAddress)).toBigInts(),
+      (await aztecRpcClient.getAccountPublicKey(receiver)).toBigInts(),
     )
-    .send({ from: ownerAddress });
+    .send({ origin: ownerAddress });
   await transferTx.isMined(0, 0.5);
   const transferReceipt = await transferTx.getReceipt();
   // expect(transferReceipt.status).toBe(TxStatus.MINED);
@@ -183,9 +186,10 @@ const transferWethOnL2 = async (
 async function main() {
   logger('Running L1/L2 messaging test on HTTP interface.');
 
-  const accounts = await createAccounts(aztecRpcClient, privateKey!, 2);
-  const [[owner], [receiver]] = accounts;
-  const ownerPub = pointToPublicKey(await aztecRpcClient.getAccountPublicKey(owner));
+  wallet = await createAccounts(aztecRpcClient, SchnorrAccountContractAbi, privateKey!, Fr.random(), 2);
+  const accounts = await wallet.getAccounts();
+  const [owner, receiver] = accounts;
+  const ownerPub = (await aztecRpcClient.getAccountPublicKey(owner)).toBigInts();
 
   const result = await deployAllContracts(ownerPub);
   const {
@@ -212,7 +216,7 @@ async function main() {
   // 2. Deposit weth into the portal and move to L2
   // generate secret
   const secret = Fr.random();
-  const secretHash = await aztecRpcClient.getMessageHash(secret);
+  const secretHash = await computeMessageSecretHash(secret);
   const secretString = `0x${secretHash.toBuffer().toString('hex')}` as `0x${string}`;
   const deadline = 2 ** 32 - 1; // max uint32 - 1
   logger('Sending messages to L1 portal');
@@ -238,7 +242,7 @@ async function main() {
   // Call the mint tokens function on the noir contract
   const consumptionTx = wethL2Contract.methods
     .mint(wethAmountToBridge, ownerPub, owner, messageKey, secret, ethAccount.toField())
-    .send({ from: owner });
+    .send({ origin: owner });
   await consumptionTx.isMined(0, 0.5);
   const consumptionReceipt = await consumptionTx.getReceipt();
   // expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -273,7 +277,7 @@ async function main() {
       uniswapPortalAddress,
       ethAccount.toField(),
     )
-    .send({ from: owner });
+    .send({ origin: owner });
   await withdrawTx.isMined(0, 0.5);
   const withdrawReceipt = await withdrawTx.getReceipt();
   // expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -324,7 +328,7 @@ async function main() {
   // Call the mint tokens function on the noir contract
   const daiMintTx = daiL2Contract.methods
     .mint(daiAmountToBridge, ownerPub, owner, depositDaiMessageKey, secret, ethAccount.toField())
-    .send({ from: owner });
+    .send({ origin: owner });
   await daiMintTx.isMined(0, 0.5);
   const daiMintTxReceipt = await daiMintTx.getReceipt();
   // expect(daiMintTxReceipt.status).toBe(TxStatus.MINED);

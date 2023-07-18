@@ -1,4 +1,4 @@
-use crate::abi::MAX_READ_REQUESTS;
+use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
 
 struct SortOrderEnum {
     DESC: u8,
@@ -29,33 +29,33 @@ impl Sort {
 
 struct NoteGetterOptions<Note, N, S, P> {
     sort_by: [Sort; N],
-    skip: u32,
-    filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
+    offset: u32,
+    filter: fn ([Note; MAX_READ_REQUESTS_PER_CALL], P) -> [Note; S],
     filter_args: P,
 }
 
 impl<Note, N, S, P> NoteGetterOptions<Note, N, S, P> {
     fn new(
-        filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
+        filter: fn ([Note; MAX_READ_REQUESTS_PER_CALL], P) -> [Note; S],
         filter_args: P,
         sort_by: [Sort; N],
-        skip: u32,
+        offset: u32,
     ) -> Self {
         NoteGetterOptions {
             sort_by,
-            skip,
+            offset,
             filter,
             filter_args,
         }
     }
 
     fn with_filter(
-        filter: fn ([Note; MAX_READ_REQUESTS], P) -> [Note; S],
+        filter: fn ([Note; MAX_READ_REQUESTS_PER_CALL], P) -> [Note; S],
         filter_args: P,
     ) -> Self {
          NoteGetterOptions {
             sort_by: [Sort::nada(); N],
-            skip: 0,
+            offset: 0,
             filter,
             filter_args,
         }

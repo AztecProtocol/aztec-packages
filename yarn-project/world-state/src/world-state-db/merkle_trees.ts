@@ -1,29 +1,36 @@
 import {
+  BaseRollupInputs,
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
-  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { SerialQueue } from '@aztec/foundation/fifo';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { IWasmModule } from '@aztec/foundation/wasm';
 import {
   AppendOnlyTree,
   IndexedTree,
   LeafData,
   LowLeafWitnessData,
   Pedersen,
-  SiblingPath,
   SparseTree,
   StandardIndexedTree,
   StandardTree,
   UpdateOnlyTree,
   newTree,
 } from '@aztec/merkle-tree';
+import { L2Block, MerkleTreeId, SiblingPath, merkleTreeIds } from '@aztec/types';
+
 import { default as levelup } from 'levelup';
+
+import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
   CurrentCommitmentTreeRoots,
   INITIAL_NULLIFIER_TREE_SIZE,
@@ -33,11 +40,6 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
-import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
-import { L2Block, MerkleTreeId, merkleTreeIds } from '@aztec/types';
-import { SerialQueue } from '@aztec/foundation/fifo';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { IWasmModule } from '@aztec/foundation/wasm';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -103,14 +105,14 @@ export class MerkleTrees implements MerkleTreeDb {
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
-      L1_TO_L2_MESSAGES_TREE_HEIGHT,
+      L1_TO_L2_MSG_TREE_HEIGHT,
     );
     const l1Tol2MessagesRootsTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
       hasher,
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]}`,
-      L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+      L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
     );
     this.trees = [
       contractTree,
@@ -359,7 +361,6 @@ export class MerkleTrees implements MerkleTreeDb {
    * Batch insert multiple leaves into the tree.
    * @param treeId - The ID of the tree.
    * @param leaves - Leaves to insert into the tree.
-   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
@@ -370,7 +371,6 @@ export class MerkleTrees implements MerkleTreeDb {
   >(
     treeId: MerkleTreeId,
     leaves: Buffer[],
-    treeHeight: TreeHeight,
     subtreeHeight: SubtreeHeight,
   ): Promise<
     | [LowLeafWitnessData<TreeHeight>[], SiblingPath<SubtreeSiblingPathHeight>]
@@ -380,7 +380,7 @@ export class MerkleTrees implements MerkleTreeDb {
     if (!('batchInsert' in tree)) {
       throw new Error('Tree does not support `batchInsert` method');
     }
-    return await this.synchronise(() => tree.batchInsert(leaves, treeHeight, subtreeHeight));
+    return await this.synchronise(() => tree.batchInsert(leaves, subtreeHeight));
   }
 
   /**
@@ -513,7 +513,6 @@ export class MerkleTrees implements MerkleTreeDb {
 
       for (const [tree, leaves] of [
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
-        [MerkleTreeId.NULLIFIER_TREE, l2Block.newNullifiers],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
         [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
@@ -522,6 +521,11 @@ export class MerkleTrees implements MerkleTreeDb {
           leaves.map(fr => fr.toBuffer()),
         );
       }
+
+      await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
+        l2Block.newNullifiers.map(fr => fr.toBuffer()),
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      );
 
       for (const dataWrite of l2Block.newPublicDataWrites) {
         if (dataWrite.isEmpty()) continue;

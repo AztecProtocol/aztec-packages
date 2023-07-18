@@ -1,6 +1,7 @@
-import { LeafData, MerkleTreeDb, TreeInfo, MerkleTreeOperations, CurrentCommitmentTreeRoots } from '../index.js';
-import { L2Block, MerkleTreeId } from '@aztec/types';
-import { LowLeafWitnessData, SiblingPath } from '@aztec/merkle-tree';
+import { LowLeafWitnessData } from '@aztec/merkle-tree';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
+
+import { CurrentCommitmentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -149,16 +150,14 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * Batch insert multiple leaves into the tree.
    * @param treeId - The ID of the tree.
    * @param leaves - Leaves to insert into the tree.
-   * @param treeHeight - Height of the tree.
    * @param subtreeHeight - Height of the subtree.
    * @returns The data for the leaves to be updated when inserting the new ones.
    */
   public batchInsert(
     treeId: MerkleTreeId,
     leaves: Buffer[],
-    treeHeight: number,
     subtreeHeight: number,
   ): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]> {
-    return this.trees.batchInsert(treeId, leaves, treeHeight, subtreeHeight);
+    return this.trees.batchInsert(treeId, leaves, subtreeHeight);
   }
 }

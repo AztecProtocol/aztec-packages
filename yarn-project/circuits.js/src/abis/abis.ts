@@ -1,7 +1,10 @@
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { IWasmModule } from '@aztec/foundation/wasm';
+
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
-import { abisSiloCommitment } from '../cbind/circuits.gen.js';
+
+import { abisSiloCommitment, abisSiloNullifier } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
@@ -15,7 +18,6 @@ import {
   Vector,
 } from '../index.js';
 import { serializeBufferArrayToVector } from '../utils/serialize.js';
-import { padArrayEnd } from '@aztec/foundation/collection';
 
 /**
  * Synchronously calls a wasm function.
@@ -170,7 +172,7 @@ export function hashConstructor(
 /**
  * Computes a contract address.
  * @param wasm - A module providing low-level wasm access.
- * @param deployerAddr - The address of the contract deployer.
+ * @param deployerPubKey - The pubkey of the contract deployer.
  * @param contractAddrSalt - The salt used as 1 one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
@@ -187,7 +189,7 @@ export function computeContractAddress(
   const result = inputBuffersToOutputBuffer(
     wasm,
     'abis__compute_contract_address',
-    [deployerPubKey.toFieldsBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
+    [deployerPubKey.toBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
     32,
   );
   return new AztecAddress(result);
@@ -218,6 +220,25 @@ export function computePartialContractAddress(
 }
 
 /**
+ * Computes a contract address from its partial address and the pubkey.
+ * @param wasm - A module providing low-level wasm access.
+ * @param partial - The salt used as 1 one of the inputs of the contract address computation.
+ * @param fnTreeRoot - The function tree root of the contract being deployed.
+ * @param constructorHash - The hash of the constructor.
+ * @returns The partially constructed contract address.
+ */
+export function computeContractAddressFromPartial(wasm: IWasmModule, pubKey: Point, partialAddress: Fr): AztecAddress {
+  wasm.call('pedersen__init');
+  const result = inputBuffersToOutputBuffer(
+    wasm,
+    'abis__compute_contract_address_from_partial',
+    [pubKey.toBuffer(), partialAddress.toBuffer()],
+    32,
+  );
+  return new AztecAddress(result);
+}
+
+/**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
@@ -228,6 +249,19 @@ export function computePartialContractAddress(
 export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, commitment: Fr): Fr {
   wasm.call('pedersen__init');
   return abisSiloCommitment(wasm, contract, commitment);
+}
+
+/**
+ * Computes a siloed nullifier, given the contract address and the inner nullifier.
+ * A siloed nullifier effectively namespaces a nullifier to a specific contract.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contract - The contract address.
+ * @param innerNullifier - The nullifier to silo.
+ * @returns A siloed nullifier.
+ */
+export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
+  wasm.call('pedersen__init');
+  return abisSiloNullifier(wasm, contract, innerNullifier);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;

@@ -1,21 +1,22 @@
-use crate::generators;
+use crate::constants_gen::RETURN_VALUES_LENGTH;
+use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+use crate::constants_gen::MAX_NEW_COMMITMENTS_PER_CALL;
+use crate::constants_gen::MAX_NEW_NULLIFIERS_PER_CALL;
+use crate::constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL;
+use crate::constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL;
+use crate::constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL;
+use crate::constants_gen::NUM_FIELDS_PER_SHA256;
+use crate::constants_gen::MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL;
+use crate::constants_gen::MAX_PUBLIC_DATA_READS_PER_CALL;
+use crate::constants_gen::GENERATOR_INDEX__FUNCTION_ARGS;
+use crate::constants_gen::COMMITMENT_TREES_ROOTS_LENGTH;
+use crate::constants_gen::CONTRACT_DEPLOYMENT_DATA_LENGTH;
+use crate::constants_gen::CALL_CONTEXT_LENGTH;
+use crate::constants_gen::PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH;
+use crate::constants_gen::CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH;
+use crate::constants_gen::CONTRACT_STORAGE_READ_LENGTH;
+use crate::constants_gen::PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 use crate::types::vec::BoundedVec;
-
-// Please change these ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
-// In other words, if the structure/size of the public inputs of a function call changes then we 
-// should change these constants as well as the offsets in private_call_stack_item.nr
-global MAX_ARGS: comptime Field = 16;
-global MAX_RETURN_VALUES: comptime Field = 4;
-global MAX_READ_REQUESTS: comptime Field = 4;
-global MAX_NEW_COMMITMENTS: comptime Field = 4;
-global MAX_NEW_NULLIFIERS: comptime Field = 4;
-global MAX_PRIVATE_CALL_STACK : comptime Field = 4;
-global MAX_PUBLIC_CALL_STACK: comptime Field = 4;
-global MAX_L2_TO_L1_MSGS : comptime Field = 2;
-global PUBLIC_INPUTS_LENGTH : comptime Field = 49;
-global LOGS_HASH_SIZE: comptime Field = 2; // Stored in  2 fields in order to fit in all of the 256 bits of sha256 hash.
-global CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH : comptime Field = 4;
-global CONTRACT_STORAGE_READS_LENGTH : comptime Field = 4;
 
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
@@ -35,8 +36,6 @@ struct PublicContextInputs {
     public_global_variables: PublicGlobalVariables,
 }
 
-global CALL_CONTEXT_SIZE: comptime Field = 6;
-
 struct CallContext {
     msg_sender : Field,
     storage_contract_address : Field,
@@ -48,7 +47,7 @@ struct CallContext {
 }
 
 impl CallContext {
-    fn serialize(self) -> [Field; CALL_CONTEXT_SIZE] {
+    fn serialize(self) -> [Field; CALL_CONTEXT_LENGTH] {
         [
             self.msg_sender,
             self.storage_contract_address,
@@ -65,8 +64,6 @@ impl CallContext {
     }
 }
 
-global COMMITMENT_TREES_ROOTS_SIZE: comptime Field = 4;
-
 struct CommitmentTreesRoots {
     private_data_tree_root : Field,
     nullifier_tree_root : Field,
@@ -76,7 +73,7 @@ struct CommitmentTreesRoots {
 
 impl CommitmentTreesRoots {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_SIZE] {
+    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
@@ -100,7 +97,7 @@ struct ContractDeploymentData {
 }
 
 impl ContractDeploymentData {
-    fn serialize(self) -> [Field; 4] {
+    fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
         [
             self.constructor_vk_hash,
             self.function_tree_root,
@@ -134,8 +131,6 @@ impl PublicGlobalVariables {
     }
 }
 
-global FUNCTION_DATA_SIZE: comptime Field = 3;
-
 struct FunctionData {
     function_selector: Field,
     is_private: bool,
@@ -153,40 +148,21 @@ impl FunctionData {
     }
 }
 
-// PUBLIC_INPUTS
-// CALL_CONTEXT_SIZE - 6
-// + ARGS_HASH - 1
-// + MAX_RETURN_VALUES - 4
-// + MAX_READ_REQUESTS - 4
-// + MAX_NEW_COMMITMENTS - 4
-// + MAX_NEW_NULLIFIERS - 4
-// + MAX_PRIVATE_CALL_STACK - 4
-// + MAX_PUBLIC_CALL_STACK - 4
-// + MAX_L2_TO_L1_MSGS - 2
-// + historic_private_data_tree_root - 1
-// + historic_private_nullifier_tree_root - 1
-// + historic_contract_tree_root - 1
-// + historic_l1_to_l2_messages_tree_root - 1
-// + contract_deployment_data - 4
-// + chain_id - 1
-// + version - 1
-// = 6 + 1 + 4 + 4 + 4 + 4 + 4  + 4 + 2 + 1 + 1 + 1 + 1 + 4 + 1 + 1
-// = 43
 struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
-    return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    read_requests: [Field; crate::abi::MAX_READ_REQUESTS],
-    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
-    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
-    private_call_stack: [Field; crate::abi::MAX_PRIVATE_CALL_STACK],
-    public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    return_values: [Field; RETURN_VALUES_LENGTH],
+    read_requests: [Field; crate::abi::MAX_READ_REQUESTS_PER_CALL],
+    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    private_call_stack: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     // TODO #588, relevant issue: https://github.com/AztecProtocol/aztec-packages/issues/588
     // Explore introducing a new type like uint256 (similar to Point), so it's more explicit that
     // we're talking about a single number backed by two field elements.
-    encrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
-    unencrypted_logs_hash: [Field; crate::abi::LOGS_HASH_SIZE],
+    encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
     commitment_trees_roots: CommitmentTreesRoots,
@@ -201,8 +177,8 @@ impl PrivateCircuitPublicInputs {
         dep::std::hash::pedersen(self.serialize())[0]
     }
 
-    fn serialize(self) -> [Field; PUBLIC_INPUTS_LENGTH] {
-        let mut fields: BoundedVec<Field, PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
+    fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields = fields.push_array(self.call_context.serialize());
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
@@ -224,8 +200,6 @@ impl PrivateCircuitPublicInputs {
     }
 }
 
-global CONTRACT_STORAGE_READ_SIZE: comptime Field = 2;
-
 struct ContractStorageRead {
     storage_slot: Field,
     value: Field,
@@ -236,12 +210,10 @@ fn empty_contract_storage_read() -> ContractStorageRead {
 }
 
 impl ContractStorageRead {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_SIZE] {
+    fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value]
     }
 }
-
-global CONTRACT_STORAGE_UPDATE_REQUEST_SIZE: comptime Field = 3;
 
 struct ContractStorageUpdateRequest {
     storage_slot: Field,
@@ -250,7 +222,7 @@ struct ContractStorageUpdateRequest {
 }
 
 impl ContractStorageUpdateRequest {
-    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_SIZE] {
+    fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
         [self.storage_slot, self.old_value, self.new_value]
     }
 }
@@ -259,30 +231,17 @@ fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
     ContractStorageUpdateRequest { storage_slot: 0, old_value: 0, new_value: 0 }
 }
 
-// CALL_CONTEXT_SIZE
-// + ARGS_HASH 
-// + MAX_RETURN_VALUES 
-// + CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH * CONTRACT_STORAGE_UPDATE_REQUEST_SIZE
-// + CONTRACT_STORAGE_READS_LENGTH * CONTRACT_STORAGE_READ_SIZE
-// + MAX_PUBLIC_CALL_STACK
-// + MAX_NEW_COMMITMENTS
-// + MAX_NEW_NULLIFIERS
-// + MAX_L2_TO_L1_MSGS
-// + COMMITMENT_TREES_ROOTS_SIZE - 4
-// + 2;
-// = 6 + 1 + 4 + 4 * 3 + 4 * 2 + 4 + 4 + 4 + 2 + 4 + 2
-global PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE: comptime Field = 51;
 
 struct PublicCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
-    return_values: [Field; crate::abi::MAX_RETURN_VALUES],
-    contract_storage_update_requests: [ContractStorageUpdateRequest; crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH],
-    contract_storage_read: [ContractStorageRead; crate::abi::CONTRACT_STORAGE_READS_LENGTH],
-    public_call_stack: [Field; crate::abi::MAX_PUBLIC_CALL_STACK],
-    new_commitments: [Field; crate::abi::MAX_NEW_COMMITMENTS],
-    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_L2_TO_L1_MSGS],
+    return_values: [Field; RETURN_VALUES_LENGTH],
+    contract_storage_update_requests: [ContractStorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+    contract_storage_read: [ContractStorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
+    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
+    new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     commitment_trees_roots: CommitmentTreesRoots,
     historic_public_data_tree_root: Field,
     prover_address: Field,
@@ -294,15 +253,15 @@ impl PublicCircuitPublicInputs {
         dep::std::hash::pedersen(self.serialize())[0]
     }
 
-    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE] {
-        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_SIZE> = BoundedVec::new(0); 
+    fn serialize(self) -> [Field; PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
+        let mut fields: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH> = BoundedVec::new(0); 
         fields = fields.push_array(self.call_context.serialize());   
         fields = fields.push(self.args_hash);
         fields = fields.push_array(self.return_values);
-        for i in 0..crate::abi::CONTRACT_STORAGE_UPDATE_REQUESTS_LENGTH {
+        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
             fields = fields.push_array(self.contract_storage_update_requests[i].serialize());
         }
-        for i in 0..crate::abi::CONTRACT_STORAGE_READS_LENGTH {
+        for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             fields = fields.push_array(self.contract_storage_read[i].serialize());
         }
         fields = fields.push_array(self.public_call_stack);
@@ -316,23 +275,25 @@ impl PublicCircuitPublicInputs {
     }
 }
 
-global ARGS_HASH_CHUNK_SIZE = 32;
-global ARGS_HASH_CHUNK_COUNT = 16;
+global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
+global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
 fn hash_args<N>(args: [Field; N]) -> Field {
     let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
     for i in 0..ARGS_HASH_CHUNK_COUNT {
         let mut chunk_hash = 0;
-        if i * ARGS_HASH_CHUNK_SIZE < args.len() {
-            let mut chunk_args = [0; ARGS_HASH_CHUNK_SIZE];
-            for j in 0..ARGS_HASH_CHUNK_SIZE {
-                if (i * ARGS_HASH_CHUNK_COUNT + j) as u32 < args.len() as u32 {
-                    chunk_args[j] = args[i * ARGS_HASH_CHUNK_SIZE + j];
+        let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
+        if start_chunk_index < (args.len() as u32) {
+            let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
+            for j in 0..ARGS_HASH_CHUNK_LENGTH {
+                let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
+                if item_index < (args.len() as u32) {
+                    chunk_args[j] = args[item_index];
                 }
             }
-            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, generators::FUNCTION_ARGS)[0];
+            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
         }
         chunks_hashes[i] = chunk_hash;
     }
-    dep::std::hash::pedersen_with_separator(chunks_hashes, generators::FUNCTION_ARGS)[0]
+    dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
 }

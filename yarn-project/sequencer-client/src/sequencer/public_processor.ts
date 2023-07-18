@@ -6,14 +6,14 @@ import {
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
+  MAX_NEW_COMMITMENTS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
   MembershipWitness,
-  NEW_COMMITMENTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
-  PUBLIC_CALL_STACK_LENGTH,
   PreviousKernelData,
   Proof,
   PublicCallData,
@@ -30,6 +30,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { Tuple, mapTuple, to2Fields } from '@aztec/foundation/serialize';
 import { ContractDataSource, FunctionL2Logs, L1ToL2MessageSource, MerkleTreeId, Tx } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
+
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
@@ -210,19 +211,19 @@ export class PublicProcessor {
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.random(),
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
-      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, NEW_COMMITMENTS_LENGTH),
-      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, NEW_NULLIFIERS_LENGTH),
-      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, NEW_L2_TO_L1_MSGS_LENGTH),
+      newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
+      newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
+      newL2ToL1Msgs: padArrayEnd(result.newL2ToL1Messages, Fr.ZERO, MAX_NEW_L2_TO_L1_MSGS_PER_CALL),
       returnValues: padArrayEnd(result.returnValues, Fr.ZERO, RETURN_VALUES_LENGTH),
       contractStorageReads: padArrayEnd(
         result.contractStorageReads,
         ContractStorageRead.empty(),
-        KERNEL_PUBLIC_DATA_READS_LENGTH,
+        MAX_PUBLIC_DATA_READS_PER_CALL,
       ),
       contractStorageUpdateRequests: padArrayEnd(
         result.contractStorageUpdateRequests,
         ContractStorageUpdateRequest.empty(),
-        KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
+        MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
       ),
       publicCallStack,
       unencryptedLogsHash,
@@ -243,12 +244,14 @@ export class PublicProcessor {
   protected async getPublicCallStackPreimages(result: PublicExecutionResult) {
     const nested = result.nestedExecutions;
     const preimages: PublicCallStackItem[] = await Promise.all(nested.map(n => this.getPublicCallStackItem(n)));
-    if (preimages.length > PUBLIC_CALL_STACK_LENGTH) {
-      throw new Error(`Public call stack size exceeded (max ${PUBLIC_CALL_STACK_LENGTH}, got ${preimages.length})`);
+    if (preimages.length > MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL) {
+      throw new Error(
+        `Public call stack size exceeded (max ${MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL}, got ${preimages.length})`,
+      );
     }
 
     // Top of the stack is at the end of the array, so we padStart
-    return padArrayStart(preimages, PublicCallStackItem.empty(), PUBLIC_CALL_STACK_LENGTH);
+    return padArrayStart(preimages, PublicCallStackItem.empty(), MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   }
 
   protected getBytecodeHash(_result: PublicExecutionResult) {
@@ -268,7 +271,7 @@ export class PublicProcessor {
    */
   protected async getPublicCallData(
     result: PublicExecutionResult,
-    preimages: Tuple<PublicCallStackItem, typeof PUBLIC_CALL_STACK_LENGTH>,
+    preimages: Tuple<PublicCallStackItem, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);

@@ -90,9 +90,9 @@
     "dependencies": [
       "circuits.js",
       "foundation",
+      "types",
       "merkle-tree",
-      "noir-contracts",
-      "types"
+      "noir-contracts"
     ]
   },
   "archiver": {
@@ -117,11 +117,9 @@
       "^yarn-project/aztec-cli/"
     ],
     "dependencies": [
-      "aztec-node",
       "aztec.js",
       "ethereum",
       "foundation",
-      "l1-artifacts",
       "noir-contracts"
     ]
   },
@@ -134,11 +132,9 @@
     ],
     "dependencies": [
       "acir-simulator",
-      "aztec-node",
       "circuits.js",
       "foundation",
       "key-store",
-      "noir-contracts",
       "types"
     ]
   },
@@ -165,10 +161,9 @@
       "^yarn-project/aztec.js/"
     ],
     "dependencies": [
-      "aztec-rpc",
       "circuits.js",
       "foundation",
-      "noir-contracts"
+      "types"
     ]
   },
   "circuits.js": {
@@ -176,11 +171,11 @@
     "projectDir": "yarn-project/circuits.js",
     "dockerfile": "circuits.js/Dockerfile",
     "rebuildPatterns": [
+      "^circuits/",
       "^yarn-project/circuits.js/"
     ],
     "dependencies": [
-      "foundation",
-      "yarn-project-base"
+      "foundation"
     ]
   },
   "end-to-end": {
@@ -192,6 +187,7 @@
     ],
     "dependencies": [
       "aztec-node",
+      "aztec-rpc",
       "aztec.js",
       "circuits.js",
       "ethereum",
@@ -199,8 +195,7 @@
       "l1-artifacts",
       "noir-contracts",
       "p2p",
-      "sequencer-client",
-      "world-state"
+      "types"
     ]
   },
   "ethereum": {
@@ -246,7 +241,8 @@
     ],
     "dependencies": [
       "circuits.js",
-      "foundation"
+      "foundation",
+      "types"
     ]
   },
   "noir-contracts": {
@@ -257,7 +253,9 @@
       "^yarn-project/noir-contracts/"
     ],
     "dependencies": [
-      "foundation"
+      "aztec.js",
+      "foundation",
+      "noir-compiler"
     ]
   },
   "noir-compiler": {
@@ -329,7 +327,6 @@
       "circuits.js",
       "foundation",
       "l1-artifacts",
-      "merkle-tree",
       "p2p",
       "sequencer-client",
       "types",
@@ -364,8 +361,7 @@
     ],
     "dependencies": [
       "circuits.js",
-      "foundation",
-      "l1-artifacts"
+      "foundation"
     ]
   },
   "world-state": {

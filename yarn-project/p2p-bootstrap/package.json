@@ -1,6 +1,6 @@
 {
   "name": "@aztec/p2p-bootstrap",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
@@ -51,5 +51,8 @@
     },
     "testRegex": "./src/.*\\.test\\.ts$",
     "rootDir": "./src"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

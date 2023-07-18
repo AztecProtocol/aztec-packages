@@ -1,12 +1,20 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, Point, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
-import { KeyPair } from '@aztec/key-store';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  EthAddress,
+  Fr,
+  PartialContractAddress,
+  Point,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
+import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
+import { KeyStore, MerkleTreeId } from '@aztec/types';
+import { DataCommitmentProvider, L1ToL2MessageProvider } from '@aztec/types';
+
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
-import { MerkleTreeId } from '@aztec/types';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -15,9 +23,9 @@ export class SimulatorOracle implements DBOracle {
   constructor(
     private contractDataOracle: ContractDataOracle,
     private db: Database,
-    private keyPair: KeyPair,
-    private address: AztecAddress,
-    private node: AztecNode,
+    private keyStore: KeyStore,
+    private l1ToL2MessageProvider: L1ToL2MessageProvider,
+    private dataTreeProvider: DataCommitmentProvider,
   ) {}
 
   /**
@@ -31,13 +39,18 @@ export class SimulatorOracle implements DBOracle {
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
   getSecretKey(_contractAddress: AztecAddress, pubKey: Point): Promise<Buffer> {
-    const thisPubKey = this.keyPair.getPublicKey();
-    if (!thisPubKey.equals(pubKey)) {
-      throw new Error(
-        `Only allow access to the secret keys of the tx creator (requested keys for ${pubKey}, expected ${thisPubKey}).`,
-      );
-    }
-    return this.keyPair.getPrivateKey();
+    return this.keyStore.getAccountPrivateKey(pubKey);
+  }
+
+  /**
+   * Retrieve the public key associated to a given address.
+   * @param address - Address to fetch the pubkey for.
+   * @returns A public key and the corresponding partial contract address, such that the hash of the two resolves to the input address.
+   */
+  async getPublicKey(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
+    const result = await this.db.getPublicKey(address);
+    if (!result) throw new Error(`Unknown public key for address ${address.toString()}`);
+    return result;
   }
 
   /**
@@ -48,23 +61,33 @@ export class SimulatorOracle implements DBOracle {
    *
    * @param contractAddress - The AztecAddress instance representing the contract address.
    * @param storageSlot - The Fr instance representing the storage slot of the notes.
+   * @param sortBy - An array of indices of the fields to sort.
+   * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query (pagination limit).
    * @param offset - The starting index for pagination.
    * @returns A Promise that resolves to an object with properties 'count' and 'notes'.
    */
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, limit: number, offset: number) {
-    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
+  async getNotes(
+    contractAddress: AztecAddress,
+    storageSlot: Fr,
+    sortBy: number[],
+    sortOrder: number[],
+    limit: number,
+    offset: number,
+  ) {
+    const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot, {
+      sortBy,
+      sortOrder,
+      limit,
+      offset,
+    });
     return {
       count: noteDaos.length,
-      notes: await Promise.all(
-        noteDaos.slice(offset, offset + limit).map(noteDao => {
-          return {
-            preimage: noteDao.notePreimage.items,
-            // RPC Client can use this index to get full MembershipWitness
-            index: noteDao.index,
-          };
-        }),
-      ),
+      notes: noteDaos.map(({ notePreimage, index }) => ({
+        preimage: notePreimage.items,
+        // RPC Client can use this index to get full MembershipWitness
+        index,
+      })),
     };
   }
 
@@ -100,10 +123,10 @@ export class SimulatorOracle implements DBOracle {
    *          index of the message in the l1ToL2MessagesTree
    */
   async getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs> {
-    const messageAndIndex = await this.node.getL1ToL2MessageAndIndex(msgKey);
+    const messageAndIndex = await this.l1ToL2MessageProvider.getL1ToL2MessageAndIndex(msgKey);
     const message = messageAndIndex.message.toFieldArray();
     const index = messageAndIndex.index;
-    const siblingPath = await this.node.getL1ToL2MessagesTreePath(index);
+    const siblingPath = await this.l1ToL2MessageProvider.getL1ToL2MessagesTreePath(index);
     return {
       message,
       siblingPath: siblingPath.toFieldArray(),
@@ -120,10 +143,10 @@ export class SimulatorOracle implements DBOracle {
    */
   async getCommitmentOracle(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
     const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, commitment);
-    const index = await this.node.findCommitmentIndex(siloedCommitment.toBuffer());
+    const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
     if (!index) throw new Error('Commitment not found');
 
-    const siblingPath = await this.node.getDataTreePath(index);
+    const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
     return await Promise.resolve({
       commitment: siloedCommitment,
       siblingPath: siblingPath.toFieldArray(),

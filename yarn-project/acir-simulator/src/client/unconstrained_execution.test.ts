@@ -1,13 +1,14 @@
 import { CircuitsWasm, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-
+import { encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
 import { ExecutionRequest } from '@aztec/types';
+
 import { mock } from 'jest-mock-extended';
-import { encodeArguments } from '../abi_coder/index.js';
+
 import { NoirPoint, toPublicKey } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
@@ -51,16 +52,18 @@ describe('Unconstrained Execution test suite', () => {
 
       const historicRoots = PrivateHistoricTreeRoots.empty();
 
-      oracle.getNotes.mockImplementation((_, __, limit: number, offset: number) => {
-        const notes = preimages.slice(offset, offset + limit);
-        return Promise.resolve({
-          count: preimages.length,
-          notes: notes.map((preimage, index) => ({
-            preimage,
-            index: BigInt(index),
-          })),
-        });
-      });
+      oracle.getNotes.mockImplementation(
+        (_contract, _storageSlot, _sortBy, _sortOrder, limit: number, offset: number) => {
+          const notes = preimages.slice(offset, offset + limit);
+          return Promise.resolve({
+            count: preimages.length,
+            notes: notes.map((preimage, index) => ({
+              preimage,
+              index: BigInt(index),
+            })),
+          });
+        },
+      );
 
       const execRequest: ExecutionRequest = {
         from: AztecAddress.random(),

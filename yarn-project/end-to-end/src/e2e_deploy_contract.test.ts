@@ -1,7 +1,10 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, ContractDeployer, Fr } from '@aztec/aztec.js';
+import { getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
+import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
 
@@ -25,16 +28,19 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
    */
   it('should deploy a contract', async () => {
-    const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
+    const publicKey = await aztecRpcServer.getAccountPublicKey(accounts[0]);
+    const salt = Fr.random();
+    const deploymentData = await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey);
+    const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer, publicKey);
+    const tx = deployer.deploy().send({ contractAddressSalt: salt });
     logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
     expect(receipt).toEqual(
       expect.objectContaining({
-        from: accounts[0],
-        to: undefined,
+        origin: deploymentData.address,
         status: TxStatus.PENDING,
         error: '',
+        contractAddress: deploymentData.address,
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);

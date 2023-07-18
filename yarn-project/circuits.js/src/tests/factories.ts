@@ -1,7 +1,9 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
+
 import { computeCallStackItemHash } from '../abis/abis.js';
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -11,48 +13,51 @@ import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CallContext,
+  CircuitType,
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
   CombinedHistoricTreeRoots,
-  CircuitType,
   ConstantBaseRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  Coordinate,
   FUNCTION_TREE_HEIGHT,
   Fq,
   Fr,
   FunctionData,
   G1AffineElement,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_L2_TO_L1_MSGS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH,
-  KERNEL_PRIVATE_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_CALL_STACK_LENGTH,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
   KernelCircuitPublicInputs,
-  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_CALL,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_CALL,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_CALL,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+  MAX_READ_REQUESTS_PER_CALL,
+  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   MergeRollupInputs,
-  NEW_COMMITMENTS_LENGTH,
-  NEW_L2_TO_L1_MSGS_LENGTH,
-  NEW_NULLIFIERS_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_FIELDS_PER_SHA256,
   NewContractData,
   NullifierLeafPreimage,
   OptionallyRevealedData,
-  PRIVATE_CALL_STACK_LENGTH,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-  PUBLIC_CALL_STACK_LENGTH,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -71,9 +76,9 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelInputs,
-  READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
   ROLLUP_VK_TREE_HEIGHT,
+  ReadRequestMembershipWitness,
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
@@ -86,7 +91,6 @@ import {
   makeTuple,
   range,
 } from '../index.js';
-import { SchnorrSignature } from '../barretenberg/index.js';
 import { GlobalVariables } from '../structs/global_variables.js';
 
 /**
@@ -201,19 +205,21 @@ export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumu
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, Fr.zero), // private call stack must be empty
-    tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero), // private call stack must be empty
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x500),
     tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
     fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
-    tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
-    tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
-    tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeEmptyPublicDataRead, seed + 0xd00),
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
+    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xb00),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makeEmptyPublicDataRead, seed + 0xd00),
   );
 }
 
@@ -227,19 +233,21 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(KERNEL_NEW_COMMITMENTS_LENGTH, fr, seed + 0x100),
-    tupleGenerator(KERNEL_NEW_NULLIFIERS_LENGTH, fr, seed + 0x200),
-    tupleGenerator(KERNEL_PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x300),
-    tupleGenerator(KERNEL_PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x400),
-    tupleGenerator(KERNEL_NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x500),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x300),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x500),
     tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
     fr(seed + 0x800), // encrypted_log_preimages_length
     fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(KERNEL_NEW_CONTRACTS_LENGTH, makeNewContractData, seed + 0xa00),
-    tupleGenerator(KERNEL_OPTIONALLY_REVEALED_DATA_LENGTH, makeOptionallyRevealedData, seed + 0xb00),
-    tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makePublicDataUpdateRequest, seed + 0xc00),
-    tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makePublicDataRead, seed + 0xd00),
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
+    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xb00),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xc00),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xd00),
   );
 }
 
@@ -311,12 +319,12 @@ export function makePublicCircuitPublicInputs(
     makeCallContext(seed, storageContractAddress),
     fr(seed + 0x100),
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    tupleGenerator(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, makeContractStorageUpdateRequest, seed + 0x400),
-    tupleGenerator(KERNEL_PUBLIC_DATA_READS_LENGTH, makeContractStorageRead, seed + 0x500),
-    tupleGenerator(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x600),
-    tupleGenerator(NEW_COMMITMENTS_LENGTH, fr, seed + 0x700),
-    tupleGenerator(NEW_NULLIFIERS_LENGTH, fr, seed + 0x800),
-    tupleGenerator(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x900),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x800),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
     fr(seed + 0xa00),
@@ -377,6 +385,20 @@ export function makeMembershipWitness<N extends number>(size: N, start: number):
 }
 
 /**
+ * Creates arbitrary/mocked membership witness where the sibling paths is an array of fields in an ascending order starting from `start`.
+ * @param start - The start of the membership witness.
+ * @returns A non-transient read request membership witness.
+ */
+export function makeReadRequestMembershipWitness(start: number): ReadRequestMembershipWitness {
+  return new ReadRequestMembershipWitness(
+    new Fr(start),
+    makeTuple(PRIVATE_DATA_TREE_HEIGHT, fr, start + 1),
+    false,
+    new Fr(0),
+  );
+}
+
+/**
  * Creates arbitrary/mocked verification key.
  * @returns A verification key.
  */
@@ -399,7 +421,7 @@ export function makeVerificationKey(): VerificationKey {
  * @returns A point.
  */
 export function makePoint(seed = 1): Point {
-  return Point.fromCoordinates(Coordinate.fromField(new Fr(seed)), Coordinate.fromField(new Fr(seed + 1)));
+  return new Point(fr(seed), fr(seed + 1));
 }
 
 /**
@@ -470,7 +492,7 @@ export function makePublicCallStackItem(seed = 1, full = false): PublicCallStack
 export async function makePublicCallData(seed = 1, full = false): Promise<PublicCallData> {
   const publicCallData = new PublicCallData(
     makePublicCallStackItem(seed, full),
-    makeTuple(PUBLIC_CALL_STACK_LENGTH, makePublicCallStackItem, seed + 0x300),
+    makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, makePublicCallStackItem, seed + 0x300),
     makeProof(),
     fr(seed + 1),
     fr(seed + 2),
@@ -509,10 +531,10 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
 export async function makeWitnessedPublicCallData(seed = 1): Promise<WitnessedPublicCallData> {
   return new WitnessedPublicCallData(
     await makePublicCallData(seed),
-    range(KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH, seed + 0x100).map(x =>
+    range(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x100).map(x =>
       makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x),
     ),
-    makeTuple(KERNEL_PUBLIC_DATA_READS_LENGTH, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
+    makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, x => makeMembershipWitness(PUBLIC_DATA_TREE_HEIGHT, x), seed + 0x200),
     fr(seed + 0x300),
   );
 }
@@ -539,7 +561,7 @@ export async function makePublicKernelInputsWithEmptyOutput(seed = 1): Promise<P
   );
   //Set the call stack item for this circuit iteration at the top of the call stack
   const wasm = await CircuitsWasm.get();
-  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[KERNEL_PUBLIC_CALL_STACK_LENGTH - 1] =
+  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
     computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
   return publicKernelInputs;
 }
@@ -566,13 +588,13 @@ export function makeTxRequest(seed = 1): TxRequest {
 export function makePrivateCallData(seed = 1): PrivateCallData {
   return PrivateCallData.from({
     callStackItem: makePrivateCallStackItem(seed),
-    privateCallStackPreimages: makeTuple(PRIVATE_CALL_STACK_LENGTH, makePrivateCallStackItem, seed + 0x10),
+    privateCallStackPreimages: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, makePrivateCallStackItem, seed + 0x10),
     proof: new Proof(Buffer.alloc(16).fill(seed + 0x50)),
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    readRequestMembershipWitnesses: range(READ_REQUESTS_LENGTH, seed + 0x70).map(x =>
-      makeMembershipWitness(PRIVATE_DATA_TREE_HEIGHT, x),
+    readRequestMembershipWitnesses: range(MAX_READ_REQUESTS_PER_CALL, seed + 0x70).map(x =>
+      makeReadRequestMembershipWitness(x),
     ),
     portalContractAddress: makeEthAddress(seed + 0x40),
     acirHash: fr(seed + 0x60),
@@ -609,12 +631,12 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    readRequests: makeTuple(READ_REQUESTS_LENGTH, fr, seed + 0x300),
-    newCommitments: makeTuple(NEW_COMMITMENTS_LENGTH, fr, seed + 0x400),
-    newNullifiers: makeTuple(NEW_NULLIFIERS_LENGTH, fr, seed + 0x500),
-    privateCallStack: makeTuple(PRIVATE_CALL_STACK_LENGTH, fr, seed + 0x600),
-    publicCallStack: makeTuple(PUBLIC_CALL_STACK_LENGTH, fr, seed + 0x700),
-    newL2ToL1Msgs: makeTuple(NEW_L2_TO_L1_MSGS_LENGTH, fr, seed + 0x800),
+    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
+    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
+    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
+    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
+    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
+    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
     encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
@@ -781,8 +803,8 @@ export function makeRootRollupInputs(seed = 0, blockNumber: number | undefined =
     makeTuple(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, fr, 0x2000),
     makeTuple(CONTRACT_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
-    makeTuple(L1_TO_L2_MESSAGES_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeTuple(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, fr, 0x2100),
+    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
+    makeTuple(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2300),
   );
@@ -848,11 +870,11 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
   const startContractTreeSnapshot = makeAppendOnlyTreeSnapshot(seed + 0x300);
   const startPublicDataTreeRoot = fr(seed + 0x400);
 
-  const lowNullifierLeafPreimages = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x1000).map(
+  const lowNullifierLeafPreimages = range(2 * MAX_NEW_NULLIFIERS_PER_TX, seed + 0x1000).map(
     x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), x + 0x200),
   );
 
-  const lowNullifierMembershipWitness = range(2 * KERNEL_NEW_NULLIFIERS_LENGTH, seed + 0x2000).map(x =>
+  const lowNullifierMembershipWitness = range(2 * MAX_NEW_NULLIFIERS_PER_TX, seed + 0x2000).map(x =>
     makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
   );
 
@@ -871,12 +893,11 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     seed + 0x5000,
   ).map(x => fr(x));
 
-  const newPublicDataUpdateRequestsSiblingPaths = range(
-    2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-    seed + 0x6000,
-  ).map(x => range(PUBLIC_DATA_TREE_HEIGHT, x).map(fr));
+  const newPublicDataUpdateRequestsSiblingPaths = range(2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, seed + 0x6000).map(
+    x => range(PUBLIC_DATA_TREE_HEIGHT, x).map(fr),
+  );
 
-  const newPublicDataReadsSiblingPaths = range(2 * KERNEL_PUBLIC_DATA_READS_LENGTH, seed + 0x6000).map(x =>
+  const newPublicDataReadsSiblingPaths = range(2 * MAX_PUBLIC_DATA_READS_PER_TX, seed + 0x6000).map(x =>
     range(PUBLIC_DATA_TREE_HEIGHT, x).map(fr),
   );
 
@@ -893,8 +914,8 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     ];
   const historicL1ToL2MsgTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] =
     [
-      makeMembershipWitness(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, seed + 0xa000),
-      makeMembershipWitness(L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT, seed + 0xb000),
+      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xa000),
+      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xb000),
     ];
 
   const constants = makeConstantBaseRollupData(0x100);

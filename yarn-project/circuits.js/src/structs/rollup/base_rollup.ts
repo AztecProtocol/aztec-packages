@@ -1,26 +1,27 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { assertItemsLength, assertMemberLength, FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
+
 import {
   CONTRACT_TREE_HEIGHT,
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  KERNEL_NEW_COMMITMENTS_LENGTH,
-  KERNEL_NEW_CONTRACTS_LENGTH,
-  KERNEL_NEW_NULLIFIERS_LENGTH,
-  KERNEL_PUBLIC_DATA_READS_LENGTH,
-  KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH,
-  L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
+  MAX_PUBLIC_DATA_READS_PER_TX,
+  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '../constants.js';
+} from '../../cbind/constants.gen.js';
+import { FieldsOf, assertItemsLength, assertMemberLength } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
+import { GlobalVariables } from '../global_variables.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { GlobalVariables } from '../global_variables.js';
 
 /**
  * Class containing the data of a preimage of a single leaf in the nullifier tree.
@@ -135,15 +136,15 @@ export class BaseRollupInputs {
    * Height of the private data subtree which is to be inserted into the private data tree.
    * Note: There are notes from 2 kernels being processed here so kernel new commitments length is multiplied by 2.
    */
-  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_COMMITMENTS_LENGTH * 2);
+  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(MAX_NEW_COMMITMENTS_PER_TX * 2);
   /**
    * Height of the contract subtree which is to be inserted into the contract tree.
    */
-  public static CONTRACT_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_CONTRACTS_LENGTH * 2);
+  public static CONTRACT_SUBTREE_HEIGHT = Math.log2(MAX_NEW_CONTRACTS_PER_TX * 2);
   /**
    * Height of the nullifier subtree which is to be inserted into the nullifier tree.
    */
-  public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(KERNEL_NEW_NULLIFIERS_LENGTH * 2);
+  public static NULLIFIER_SUBTREE_HEIGHT = Math.log2(MAX_NEW_NULLIFIERS_PER_TX * 2);
 
   constructor(
     /**
@@ -169,7 +170,7 @@ export class BaseRollupInputs {
     public startPublicDataTreeRoot: Fr,
 
     /**
-     * The nullifiers which need to be udpated to perform the batch insertion of the new nullifiers.
+     * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
      * See `StandardIndexedTree.batchInsert` function for more details.
      */
     public lowNullifierLeafPreimages: NullifierLeafPreimage[],
@@ -221,8 +222,8 @@ export class BaseRollupInputs {
      * Membership witnesses of L1-to-L2 message tree roots referred by each of the 2 kernels.
      */
     public historicL1ToL2MsgTreeRootMembershipWitnesses: [
-      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
-      MembershipWitness<typeof L1_TO_L2_MESSAGES_ROOTS_TREE_HEIGHT>,
+      MembershipWitness<typeof L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>,
+      MembershipWitness<typeof L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>,
     ],
 
     /**
@@ -230,8 +231,8 @@ export class BaseRollupInputs {
      */
     public constants: ConstantBaseRollupData,
   ) {
-    assertMemberLength(this, 'lowNullifierLeafPreimages', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
-    assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * KERNEL_NEW_NULLIFIERS_LENGTH);
+    assertMemberLength(this, 'lowNullifierLeafPreimages', 2 * MAX_NEW_NULLIFIERS_PER_TX);
+    assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(
       this,
       'newCommitmentsSubtreeSiblingPath',
@@ -247,8 +248,8 @@ export class BaseRollupInputs {
       'newContractsSubtreeSiblingPath',
       CONTRACT_TREE_HEIGHT - BaseRollupInputs.CONTRACT_SUBTREE_HEIGHT,
     );
-    assertMemberLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_UPDATE_REQUESTS_LENGTH);
-    assertMemberLength(this, 'newPublicDataReadsSiblingPaths', 2 * KERNEL_PUBLIC_DATA_READS_LENGTH);
+    assertMemberLength(this, 'newPublicDataUpdateRequestsSiblingPaths', 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
+    assertMemberLength(this, 'newPublicDataReadsSiblingPaths', 2 * MAX_PUBLIC_DATA_READS_PER_TX);
     assertItemsLength(this, 'newPublicDataUpdateRequestsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
     assertItemsLength(this, 'newPublicDataReadsSiblingPaths', PUBLIC_DATA_TREE_HEIGHT);
   }

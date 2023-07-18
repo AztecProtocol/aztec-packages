@@ -1,4 +1,4 @@
-import { KernelCircuitPublicInputs, Proof, CombinedHistoricTreeRoots, makeEmptyProof, Fr } from '@aztec/circuits.js';
+import { CombinedHistoricTreeRoots, Fr, KernelCircuitPublicInputs, Proof, makeEmptyProof } from '@aztec/circuits.js';
 import { Tx, TxHash, TxL2Logs } from '@aztec/types';
 
 /**
@@ -35,10 +35,10 @@ export async function makeProcessedTx(
 ): Promise<ProcessedTx>;
 
 /**
- * Makes a processed tx out of a private or public tx.
+ * Makes a processed tx out of source tx.
  * @param tx - Source tx.
- * @param kernelOutput - Output of the public kernel circuit simulation for this tx if private.
- * @param proof - Proof of the public kernel circuit for this tx if private.
+ * @param kernelOutput - Output of the kernel circuit simulation for this tx.
+ * @param proof - Proof of the kernel circuit for this tx.
  */
 export async function makeProcessedTx(
   tx: Tx,

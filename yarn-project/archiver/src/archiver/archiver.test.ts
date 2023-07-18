@@ -1,14 +1,23 @@
-import { InboxAbi, RollupAbi, ContractDeploymentEmitterAbi } from '@aztec/l1-artifacts';
-import { ContractData, ContractPublicData, EncodedContractFunction, L2Block, L2BlockL2Logs } from '@aztec/types';
-import { MockProxy, mock } from 'jest-mock-extended';
-import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
-import { Archiver } from './archiver.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import { sleep } from '@aztec/foundation/sleep';
+import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import {
+  ContractData,
+  ContractPublicData,
+  EncodedContractFunction,
+  L2Block,
+  L2BlockL2Logs,
+  LogType,
+} from '@aztec/types';
+
+import { MockProxy, mock } from 'jest-mock-extended';
+import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
+
+import { Archiver } from './archiver.js';
+import { ArchiverDataStore, MemoryArchiverStore } from './archiver_store.js';
 
 describe('Archiver', () => {
   const rollupAddress = '0x0000000000000000000000000000000000000000';
@@ -104,7 +113,7 @@ describe('Archiver', () => {
     expect(expectedPendingMessageKeys).toEqual(actualPendingMessageKeys);
 
     // Expect logs to correspond to what is set by L2Block.random(...)
-    const encryptedLogs = await archiver.getEncryptedLogs(1, 100);
+    const encryptedLogs = await archiver.getLogs(1, 100, LogType.ENCRYPTED);
     expect(encryptedLogs.length).toEqual(blockNums.length);
 
     for (const [index, x] of blockNums.entries()) {
@@ -113,7 +122,7 @@ describe('Archiver', () => {
       expect(totalNumEncryptedLogs).toEqual(expectedTotalNumEncryptedLogs);
     }
 
-    const unencryptedLogs = await archiver.getUnencryptedLogs(1, 100);
+    const unencryptedLogs = await archiver.getLogs(1, 100, LogType.UNENCRYPTED);
     expect(unencryptedLogs.length).toEqual(blockNums.length);
 
     blockNums.forEach((x, index) => {

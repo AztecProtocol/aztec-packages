@@ -1,5 +1,6 @@
 import request from 'supertest';
-import { TestState, TestNote } from '../fixtures/test_state.js';
+
+import { TestNote, TestState } from '../fixtures/test_state.js';
 import { JsonRpcServer } from './json_rpc_server.js';
 
 test('test an RPC function with a primitive parameter', async () => {
@@ -8,7 +9,7 @@ test('test an RPC function with a primitive parameter', async () => {
     .post('/getNote')
     .send({ params: [0] });
   expect(response.status).toBe(200);
-  expect(response.text).toBe(JSON.stringify({ result: JSON.stringify({ type: 'TestNote', data: 'a' }) }));
+  expect(response.text).toBe(JSON.stringify({ result: { type: 'TestNote', data: 'a' } }));
 });
 
 test('test an RPC function with an array of classes', async () => {
@@ -19,5 +20,5 @@ test('test an RPC function with an array of classes', async () => {
       params: [[{ data: 'a' }, { data: 'b' }, { data: 'c' }]],
     });
   expect(response.status).toBe(200);
-  expect(response.text).toBe(JSON.stringify({ result: JSON.stringify([{ data: 'a' }, { data: 'b' }, { data: 'c' }]) }));
+  expect(response.text).toBe(JSON.stringify({ result: [{ data: 'a' }, { data: 'b' }, { data: 'c' }] }));
 });

@@ -3,14 +3,14 @@ import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { SiblingPath } from '@aztec/merkle-tree';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
 import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
 import {
+  AztecNode,
   ContractData,
   ContractDataSource,
   ContractPublicData,
@@ -20,7 +20,9 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
+  LogType,
   MerkleTreeId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/types';
@@ -30,9 +32,10 @@ import {
   WorldStateSynchroniser,
   computePublicDataTreeLeafIndex,
 } from '@aztec/world-state';
+
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
-import { AztecNode } from './aztec-node.js';
+
 import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -51,8 +54,8 @@ export class AztecNodeService implements AztecNode {
     protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
-    protected chainId: Fr,
-    protected version: Fr,
+    protected chainId: number,
+    protected version: number,
   ) {}
 
   /**
@@ -97,8 +100,8 @@ export class AztecNodeService implements AztecNode {
       merkleTreeDB,
       worldStateSynchroniser,
       sequencer,
-      new Fr(config.chainId),
-      new Fr(config.version),
+      config.chainId,
+      config.version,
     );
   }
 
@@ -132,7 +135,7 @@ export class AztecNodeService implements AztecNode {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  public getVersion(): Promise<Fr> {
+  public getVersion(): Promise<number> {
     return Promise.resolve(this.version);
   }
 
@@ -140,7 +143,7 @@ export class AztecNodeService implements AztecNode {
    * Method to fetch the chain id of the base-layer for the rollup.
    * @returns The chain id.
    */
-  public getChainId(): Promise<Fr> {
+  public getChainId(): Promise<number> {
     return Promise.resolve(this.chainId);
   }
 
@@ -165,23 +168,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets the `take` amount of encrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first encrypted log to be returned.
-   * @param take - The number of encrypted logs to return.
-   * @returns The requested encrypted logs.
+   * Gets the `take` amount of logs starting from `from`.
+   * @param from - Number of the L2 block to which corresponds the first logs to be returned.
+   * @param take - The number of logs to return.
+   * @param logType - Specifies whether to return encrypted or unencrypted logs.
+   * @returns The requested logs.
    */
-  public getEncryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return this.encryptedLogsSource.getEncryptedLogs(from, take);
-  }
-
-  /**
-   * Gets the `take` amount of unencrypted logs starting from `from`.
-   * @param from - Number of the L2 block to which corresponds the first unencrypted log to be returned.
-   * @param take - The number of unencrypted logs to return.
-   * @returns The requested unencrypted logs.
-   */
-  public getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]> {
-    return this.unencryptedLogsSource.getUnencryptedLogs(from, take);
+  public getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+    const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
+    return logSource.getLogs(from, take, logType);
   }
 
   /**
@@ -283,7 +278,7 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MESSAGES_TREE_HEIGHT>> {
+  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
     return this.merkleTreeDB.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex, false);
   }
 

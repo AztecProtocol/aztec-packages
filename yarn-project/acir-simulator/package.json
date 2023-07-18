@@ -1,6 +1,6 @@
 {
   "name": "@aztec/acir-simulator",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
   "typedoc": {
@@ -32,15 +32,15 @@
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/merkle-tree": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
-    "acvm-simulator": "github:sirasistant/acvm-simulator-wasm#180bc5bec8b79034e9e3a508a959cac3fe801ed1",
+    "acvm_js": "github:sirasistant/acvm-simulator-wasm#32f7765a9c19d6099c2a46861dec356a075ab53c",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/merkle-tree": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
@@ -57,5 +57,8 @@
     "src",
     "!*.test.*"
   ],
-  "types": "./dest/index.d.ts"
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=18"
+  }
 }

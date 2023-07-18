@@ -21,11 +21,7 @@ export class TxDao {
     /**
      * The sender's Aztec address.
      */
-    public readonly from: AztecAddress,
-    /**
-     * The contract address involved in the transaction. Undefined if the transaction is for deployinig a new contract.
-     */
-    public readonly to: AztecAddress | undefined,
+    public readonly origin: AztecAddress,
     /**
      * The address of the contract deployed by the transaction. Undefined if the transaction does not deploy a new contract.
      */
@@ -33,10 +29,42 @@ export class TxDao {
     /**
      * Description of any error encountered during the transaction.
      */
-    public readonly error: string,
+    public readonly error: string | undefined,
     /**
      * The deployed contract bytecode. Undefined if the transaction does not deploy a new contract.
      */
-    public readonly contractBytecoe?: Buffer,
+    public readonly contractBytecode?: Buffer,
   ) {}
+
+  /**
+   * Creates a new instance.
+   * @param args - the arguments to the new instance.
+   * @returns A new instance.
+   */
+  static from(args: {
+    /** The unique identifier of a transaction. */
+    txHash: TxHash;
+    /** The unique identifier of the block containing the transaction. */
+    blockHash?: Buffer | undefined;
+    /** The block number in which the transaction was included. */
+    blockNumber?: number | undefined;
+    /** The sender's Aztec address. */
+    origin: AztecAddress;
+    /** The address of the contract deployed by the transaction. Undefined if the transaction does not deploy a new contract. */
+    contractAddress: AztecAddress | undefined;
+    /** Description of any error encountered during the transaction. */
+    error?: string;
+    /** The deployed contract bytecode. Undefined if the transaction does not deploy a new contract. */
+    contractBytecode?: Buffer;
+  }) {
+    return new TxDao(
+      args.txHash,
+      args.blockHash,
+      args.blockNumber,
+      args.origin,
+      args.contractAddress,
+      args.error,
+      args.contractBytecode,
+    );
+  }
 }

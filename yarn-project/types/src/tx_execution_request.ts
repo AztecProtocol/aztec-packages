@@ -1,5 +1,6 @@
 import { AztecAddress, FieldsOf, Fr, FunctionData, TxContext, TxRequest, Vector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
+
 import { PackedArguments } from './packed_arguments.js';
 
 /**
@@ -58,6 +59,14 @@ export class TxExecutionRequest {
   }
 
   /**
+   * Serialize as a string.
+   * @returns The string.
+   */
+  toString() {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer to read from.
    * @returns The deserialised TxRequest object.
@@ -71,5 +80,14 @@ export class TxExecutionRequest {
       reader.readObject(TxContext),
       reader.readVector(PackedArguments),
     );
+  }
+
+  /**
+   * Deserializes from a string, corresponding to a write in cpp.
+   * @param str - String to read from.
+   * @returns The deserialised TxRequest object.
+   */
+  static fromString(str: string): TxExecutionRequest {
+    return TxExecutionRequest.fromBuffer(Buffer.from(str, 'hex'));
   }
 }

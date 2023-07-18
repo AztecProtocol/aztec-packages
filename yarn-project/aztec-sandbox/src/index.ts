@@ -1,13 +1,13 @@
-import http from 'http';
-import { foundry } from 'viem/chains';
-import { http as httpViemTransport, createPublicClient, HDAccount } from 'viem';
-
-import { mnemonicToAccount } from 'viem/accounts';
-import { getHttpRpcServer } from '@aztec/aztec-rpc';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
-import { deployL1Contracts } from '@aztec/ethereum';
+
+import http from 'http';
+import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { createApiRouter } from './routes.js';
 
@@ -55,6 +55,7 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
  */
 async function main() {
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+  const rpcConfig = getRpcConfigEnvVars();
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
@@ -64,7 +65,10 @@ async function main() {
   aztecNodeConfig.contractDeploymentEmitterContract = deployedL1Contracts.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
 
-  const rpcServer = await getHttpRpcServer(aztecNodeConfig);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
+
+  const rpcServer = getHttpRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
   const apiRouter = createApiRouter(deployedL1Contracts);

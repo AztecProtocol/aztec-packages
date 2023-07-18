@@ -1,18 +1,21 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, TxStatus } from '@aztec/aztec.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
-
 import { Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
-import { delay, pointToPublicKey, setup } from './utils.js';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
+import { TxStatus } from '@aztec/types';
+
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
+import { delay, setup } from './utils.js';
 
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;
 
-  let l2Contract: Contract;
+  let l2Contract: NonNativeTokenContract;
   let ethAccount: EthAddress;
 
   let underlyingERC20: any;
@@ -30,6 +33,7 @@ describe('e2e_cross_chain_messaging', () => {
       aztecRpcServer: aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger: logger_,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
@@ -38,6 +42,7 @@ describe('e2e_cross_chain_messaging', () => {
       aztecRpcServer_,
       deployL1ContractsValues,
       accounts,
+      wallet,
       logger_,
     );
 
@@ -60,7 +65,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const [balance] = await l2Contract.methods.getBalance(pointToPublicKey(ownerPub)).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(ownerPub.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -69,7 +74,7 @@ describe('e2e_cross_chain_messaging', () => {
     logger('Send L2 tx to withdraw funds');
     const withdrawTx = l2Contract.methods
       .withdraw(withdrawAmount, ownerPub, ethAccount, EthAddress.ZERO.toField())
-      .send({ from: ownerAddress });
+      .send({ origin: ownerAddress });
 
     await withdrawTx.isMined(0, 0.1);
     const withdrawReceipt = await withdrawTx.getReceipt();

@@ -1,12 +1,13 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
-  KERNEL_NEW_COMMITMENTS_LENGTH,
   KernelCircuitPublicInputs,
+  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
   MembershipWitness,
-  PRIVATE_CALL_STACK_LENGTH,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  READ_REQUESTS_LENGTH,
+  ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
@@ -17,7 +18,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 import { FunctionL2Logs } from '@aztec/types';
+
 import { mock } from 'jest-mock-extended';
+
 import { KernelProver, OutputNoteData } from './kernel_prover.js';
 import { ProofCreator } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -50,7 +53,11 @@ describe('Kernel Prover', () => {
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
-      readRequestCommitmentIndices: Array(READ_REQUESTS_LENGTH).map(() => BigInt(0)),
+      // TODO(dbanks12): should test kernel prover with non-transient reads.
+      // This will be necessary once kernel actually checks (attempts to match) transient reads.
+      readRequestPartialWitnesses: Array.from({ length: MAX_READ_REQUESTS_PER_CALL }, () =>
+        ReadRequestMembershipWitness.emptyTransient(),
+      ),
       returnValues: [],
       acir: Buffer.alloc(0),
       partialWitness: new Map(),
@@ -64,7 +71,7 @@ describe('Kernel Prover', () => {
     const publicInputs = KernelCircuitPublicInputs.empty();
     const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof KERNEL_NEW_COMMITMENTS_LENGTH>;
+    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -97,6 +104,7 @@ describe('Kernel Prover', () => {
     txRequest = makeTxRequest();
 
     oracle = mock<ProvingDataOracle>();
+    // TODO(dbanks12): will need to mock oracle.getNoteMembershipWitness() to test non-transient reads
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
@@ -141,7 +149,7 @@ describe('Kernel Prover', () => {
   });
 
   it('should throw if call stack is too deep', async () => {
-    dependencies.a = Array(PRIVATE_CALL_STACK_LENGTH + 1)
+    dependencies.a = Array(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + 1)
       .fill(0)
       .map((_, i) => `${i}`);
     const executionResult = createExecutionResult('a');

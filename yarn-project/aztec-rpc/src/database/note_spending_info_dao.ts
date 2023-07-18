@@ -13,6 +13,10 @@ export interface NoteSpendingInfoDao {
    */
   contractAddress: AztecAddress;
   /**
+   * The owner of the note.
+   */
+  ownerAddress: AztecAddress;
+  /**
    * The specific storage location of the note on the contract.
    */
   storageSlot: Fr;
@@ -25,11 +29,29 @@ export interface NoteSpendingInfoDao {
    */
   nullifier: Fr;
   /**
-   * The location in the tree.
+   * The location of the relevant note in the private data tree.
    */
   index: bigint;
   /**
    * The public key that was used to encrypt the data.
    */
-  account: Point;
+  publicKey: Point;
 }
+
+export const createRandomNoteSpendingInfoDao = ({
+  contractAddress = AztecAddress.random(),
+  ownerAddress = AztecAddress.random(),
+  storageSlot = Fr.random(),
+  notePreimage = NotePreimage.random(),
+  nullifier = Fr.random(),
+  index = Fr.random().value,
+  publicKey = Point.random(),
+}: Partial<NoteSpendingInfoDao> = {}): NoteSpendingInfoDao => ({
+  contractAddress,
+  ownerAddress,
+  storageSlot,
+  notePreimage,
+  nullifier,
+  index,
+  publicKey,
+});

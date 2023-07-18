@@ -1,33 +1,34 @@
-import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import {
   CallContext,
-  FunctionData,
   CircuitsWasm,
-  PrivateHistoricTreeRoots,
-  L1_TO_L2_MESSAGES_TREE_HEIGHT,
+  FunctionData,
   GlobalVariables,
+  L1_TO_L2_MSG_TREE_HEIGHT,
+  PrivateHistoricTreeRoots,
 } from '@aztec/circuits.js';
+import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { keccak } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { toBigInt } from '@aztec/foundation/serialize';
 import {
-  ChildAbi,
+  ChildContractAbi,
   NonNativeTokenContractAbi,
-  ParentAbi,
+  ParentContractAbi,
   PublicTokenContractAbi,
   TestContractAbi,
 } from '@aztec/noir-contracts/examples';
+
 import { MockProxy, mock } from 'jest-mock-extended';
-import { default as memdown, type MemDown } from 'memdown';
-import { encodeArguments } from '../abi_coder/encoder.js';
+import { type MemDown, default as memdown } from 'memdown';
+
+import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
-import { toBigInt } from '@aztec/foundation/serialize';
-import { keccak } from '@aztec/foundation/crypto';
-import { buildL1ToL2Message } from '../test/utils.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
 
@@ -78,7 +79,7 @@ describe('ACIR public execution simulator', () => {
           isStaticCall: false,
         });
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintAbi.bytecode, 'hex'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintAbi.bytecode, 'base64'));
 
         // Mock the old value for the recipient balance to be 20
         const previousBalance = new Fr(20n);
@@ -129,7 +130,7 @@ describe('ACIR public execution simulator', () => {
         recipientStorageSlot = computeSlotForMapping(new Fr(1n), recipient, circuitsWasm);
         senderStorageSlot = computeSlotForMapping(new Fr(1n), Fr.fromBuffer(sender.toBuffer()), circuitsWasm);
 
-        publicContracts.getBytecode.mockResolvedValue(Buffer.from(abi.bytecode, 'hex'));
+        publicContracts.getBytecode.mockResolvedValue(Buffer.from(abi.bytecode, 'base64'));
 
         execution = { contractAddress, functionData, args, callContext };
       });
@@ -192,11 +193,11 @@ describe('ACIR public execution simulator', () => {
   describe('Parent/Child contracts', () => {
     it('calls the public entry point in the parent', async () => {
       const parentContractAddress = AztecAddress.random();
-      const parentEntryPointFn = ParentAbi.functions.find(f => f.name === 'pubEntryPoint')!;
+      const parentEntryPointFn = ParentContractAbi.functions.find(f => f.name === 'pubEntryPoint')!;
       const parentEntryPointFnSelector = keccak(Buffer.from(parentEntryPointFn.name)).subarray(0, 4);
 
       const childContractAddress = AztecAddress.random();
-      const childValueFn = ChildAbi.functions.find(f => f.name === 'pubValue')!;
+      const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubValue')!;
       const childValueFnSelector = keccak(Buffer.from(childValueFn.name)).subarray(0, 4);
 
       const initialValue = 3n;
@@ -220,9 +221,9 @@ describe('ACIR public execution simulator', () => {
       // eslint-disable-next-line require-await
       publicContracts.getBytecode.mockImplementation(async (addr: AztecAddress, selector: Buffer) => {
         if (addr.equals(parentContractAddress) && selector.equals(parentEntryPointFnSelector)) {
-          return Buffer.from(parentEntryPointFn.bytecode, 'hex');
+          return Buffer.from(parentEntryPointFn.bytecode, 'base64');
         } else if (addr.equals(childContractAddress) && selector.equals(childValueFnSelector)) {
-          return Buffer.from(childValueFn.bytecode, 'hex');
+          return Buffer.from(childValueFn.bytecode, 'base64');
         } else {
           return undefined;
         }
@@ -272,7 +273,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(shieldAbi.bytecode, 'base64'));
       // mock initial balance to be greater than the amount being sent
       publicState.storageRead.mockResolvedValue(amount);
 
@@ -302,7 +303,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createL2ToL1MessagePublicAbi.bytecode, 'base64'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.execute(execution, GlobalVariables.empty());
@@ -356,7 +357,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(mintPublicAbi.bytecode, 'base64'));
       publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
       // Mock response
@@ -364,7 +365,7 @@ describe('ACIR public execution simulator', () => {
         return await Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,
-          siblingPath: Array(L1_TO_L2_MESSAGES_TREE_HEIGHT).fill(Fr.random()),
+          siblingPath: Array(L1_TO_L2_MSG_TREE_HEIGHT).fill(Fr.random()),
         });
       });
 
@@ -388,7 +389,7 @@ describe('ACIR public execution simulator', () => {
         isStaticCall: false,
       });
 
-      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'hex'));
+      publicContracts.getBytecode.mockResolvedValue(Buffer.from(createNullifierPublicAbi.bytecode, 'base64'));
 
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.execute(execution, GlobalVariables.empty());

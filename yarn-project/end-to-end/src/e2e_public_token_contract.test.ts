@@ -1,38 +1,41 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPCServer, Contract, ContractDeployer, Fr, TxStatus } from '@aztec/aztec.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { PublicTokenContractAbi } from '@aztec/noir-contracts/examples';
+import { PublicTokenContract } from '@aztec/noir-contracts/types';
+import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
-import { expectAztecStorageSlot, pointToPublicKey, setup } from './utils.js';
-import { L2BlockL2Logs } from '@aztec/types';
+
+import { expectAztecStorageSlot, setup } from './utils.js';
 
 describe('e2e_public_token_contract', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
+  let wallet: Wallet;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let contract: Contract;
+  let contract: PublicTokenContract;
   const balanceSlot = 1n;
 
   const deployContract = async () => {
     logger(`Deploying L2 public contract...`);
-    const deployer = new ContractDeployer(PublicTokenContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
+    const tx = PublicTokenContract.deploy(aztecRpcServer).send();
 
     logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
-    contract = new Contract(receipt.contractAddress!, PublicTokenContractAbi, aztecRpcServer);
+    contract = new PublicTokenContract(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     const txReceipt = await tx.getReceipt();
+    expect(txReceipt.status).toEqual(TxStatus.MINED);
     logger(`L2 contract deployed at ${receipt.contractAddress}`);
     return { contract, tx, txReceipt };
   };
 
   const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
     const l2BlockNum = await aztecNode.getBlockHeight();
-    const unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
+    const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
     const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
     const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
@@ -40,7 +43,7 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, accounts, logger } = await setup());
+    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup());
   }, 100_000);
 
   afterEach(async () => {
@@ -63,7 +66,7 @@ describe('e2e_public_token_contract', () => {
 
     const PK = await aztecRpcServer.getAccountPublicKey(recipient);
 
-    const tx = deployedContract.methods.mint(mintAmount, pointToPublicKey(PK)).send({ from: recipient });
+    const tx = deployedContract.methods.mint(mintAmount, PK.toBigInts()).send({ origin: recipient });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
@@ -83,8 +86,8 @@ describe('e2e_public_token_contract', () => {
     const { contract: deployedContract } = await deployContract();
 
     // Assemble two mint txs sequentially (no parallel calls to circuits!) and send them simultaneously
-    const methods = times(3, () => deployedContract.methods.mint(mintAmount, pointToPublicKey(PK)));
-    for (const method of methods) await method.create({ from: recipient });
+    const methods = times(3, () => deployedContract.methods.mint(mintAmount, PK.toBigInts()));
+    for (const method of methods) await method.simulate({ origin: recipient });
     const txs = await Promise.all(methods.map(method => method.send()));
 
     // Check that all txs got mined in the same block
