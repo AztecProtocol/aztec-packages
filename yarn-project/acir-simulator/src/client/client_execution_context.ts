@@ -2,6 +2,7 @@ import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, T
 import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+
 import {
   ACVMField,
   fromACVMField,

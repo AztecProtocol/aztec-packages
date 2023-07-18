@@ -3,6 +3,7 @@ import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
+
 import {
   abisComputeCommitmentNonce,
   abisComputeUniqueCommitment,

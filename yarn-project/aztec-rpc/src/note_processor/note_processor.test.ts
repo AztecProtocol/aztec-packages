@@ -1,3 +1,4 @@
+import { AcirSimulator } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
@@ -19,7 +20,6 @@ import { MockProxy, mock } from 'jest-mock-extended';
 
 import { Database, MemoryDB } from '../database/index.js';
 import { NoteProcessor } from './note_processor.js';
-import { AcirSimulator } from '@aztec/acir-simulator';
 
 const TXS_PER_BLOCK = 4;
 
