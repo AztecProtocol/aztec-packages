@@ -39,7 +39,7 @@ export class ClientTxExecutionContext {
     /**  The database oracle. */
     public db: DBOracle,
     /** The tx nullifier, which is also the first nullifier. This will be used to compute the nonces for pending notes. */
-    public txNullifier: Fr,
+    private txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
     /** The old roots. */

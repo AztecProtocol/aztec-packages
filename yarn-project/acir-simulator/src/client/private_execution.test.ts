@@ -11,8 +11,10 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 import {
+  computeCommitmentNonce,
   computeContractAddressFromPartial,
   computeSecretMessageHash,
+  computeTxHash,
   computeUniqueCommitment,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
@@ -38,7 +40,7 @@ import { PackedArguments, TxExecutionRequest } from '@aztec/types';
 import { jest } from '@jest/globals';
 import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
-import { type MemDown, default as memdown } from 'memdown';
+import { default as memdown, type MemDown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
@@ -53,6 +55,7 @@ describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
+  let txNullifier: Fr;
   let historicRoots = PrivateHistoricTreeRoots.empty();
   let logger: DebugLogger;
 
@@ -87,6 +90,8 @@ describe('Private Execution test suite', () => {
       txContext,
       packedArguments: [packedArguments],
     });
+
+    txNullifier = computeTxHash(circuitsWasm, txRequest.toTxRequest());
 
     return acirSimulator.run(
       txRequest,
@@ -552,9 +557,9 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
-      const zeroNonce = Fr.ZERO;
+      const nonce = computeCommitmentNonce(circuitsWasm, txNullifier, 0);
       const readRequest = result.callStackItem.publicInputs.readRequests[0];
-      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, zeroNonce, commitment));
+      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, nonce, commitment));
 
       const gotNoteValue = result.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
@@ -604,9 +609,9 @@ describe('Private Execution test suite', () => {
       const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
-      const zeroNonce = Fr.ZERO;
+      const nonce = computeCommitmentNonce(circuitsWasm, txNullifier, 0);
       const readRequest = execGetAndCheck.callStackItem.publicInputs.readRequests[0];
-      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, zeroNonce, commitment));
+      expect(readRequest).toEqual(computeUniqueCommitment(circuitsWasm, nonce, commitment));
 
       const gotNoteValue = execGetAndCheck.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
