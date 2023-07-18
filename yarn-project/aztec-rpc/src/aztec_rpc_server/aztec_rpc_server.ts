@@ -3,7 +3,13 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
-import { AztecAddress, FunctionData, PartialContractAddress, PrivateHistoricTreeRoots, PublicKey } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  FunctionData,
+  PartialContractAddress,
+  PrivateHistoricTreeRoots,
+  PublicKey,
+} from '@aztec/circuits.js';
 import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -106,7 +112,11 @@ export class AztecRPCServer implements AztecRPC {
    * @param partialAddress - The partially computed address of the account contract.
    * @returns A Promise that resolves once the public key has been added to the database.
    */
-  public async addPublicKey(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialContractAddress): Promise<void> {
+  public async addPublicKey(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
     await this.db.addPublicKey(address, publicKey, partialAddress);
   }
 
