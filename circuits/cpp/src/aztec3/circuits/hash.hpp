@@ -95,7 +95,7 @@ typename NCT::fr compute_commitment_nonce(typename NCT::fr first_nullifier, type
         commitment_index,
     };
 
-    return NCT::hash(inputs);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::COMMITMENT_NONCE);
 }
 
 template <typename NCT>
@@ -108,7 +108,7 @@ typename NCT::fr compute_unique_commitment(typename NCT::fr nonce, typename NCT:
         inner_commitment,
     };
 
-    return NCT::hash(inputs);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::UNIQUE_COMMITMENT);
 }
 
 template <typename NCT>

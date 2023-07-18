@@ -89,9 +89,9 @@ struct GeneratorIndexPacker {
         };
 
         int COMMITMENT = GeneratorIndex::COMMITMENT;
-        int COMMITMENT_PLACEHOLDER = GeneratorIndex::COMMITMENT_PLACEHOLDER;
+        int COMMITMENT_NONCE = GeneratorIndex::COMMITMENT_NONCE;
+        int UNIQUE_COMMITMENT = GeneratorIndex::UNIQUE_COMMITMENT;
         int OUTER_COMMITMENT = GeneratorIndex::OUTER_COMMITMENT;
-        int NULLIFIER_HASHED_PRIVATE_KEY = GeneratorIndex::NULLIFIER_HASHED_PRIVATE_KEY;
         int NULLIFIER = GeneratorIndex::NULLIFIER;
         int INITIALISATION_NULLIFIER = GeneratorIndex::INITIALISATION_NULLIFIER;
         int OUTER_NULLIFIER = GeneratorIndex::OUTER_NULLIFIER;
@@ -125,9 +125,9 @@ struct GeneratorIndexPacker {
         // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(COMMITMENT,
-                 COMMITMENT_PLACEHOLDER,
+                 COMMITMENT_NONCE,
+                 UNIQUE_COMMITMENT,
                  OUTER_COMMITMENT,
-                 NULLIFIER_HASHED_PRIVATE_KEY,
                  NULLIFIER,
                  INITIALISATION_NULLIFIER,
                  OUTER_NULLIFIER,
