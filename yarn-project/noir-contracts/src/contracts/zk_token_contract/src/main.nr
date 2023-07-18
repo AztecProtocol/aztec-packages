@@ -13,7 +13,6 @@ contract ZkToken {
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
     use dep::aztec::note::{
-        note_getter::NoteGetterOptions,
         note_header::{NoteHeader},
         utils::compute_note_hash_and_nullifier,
     };
