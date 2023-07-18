@@ -24,7 +24,7 @@ import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
-import { TxStatus } from '@aztec/types';
+import { AztecNode, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
@@ -64,20 +64,16 @@ type TxContext = {
 /**
  * Sets up the environment for the end-to-end tests without deploying contracts.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
- * @param config - The aztec node config.
+ * @param aztecNode - Instance of AztecNode implementation.
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  */
-export async function setupWithoutDeployingContracts(
+export async function setupWithoutDeployingContractsAndAztecNode(
   numberOfAccounts: number,
-  config: AztecNodeConfig,
+  aztecNode: AztecNode,
   firstPrivKey: Uint8Array | null = null,
   logger = getLogger(),
 ): Promise<{
-  /**
-   * The Aztec Node service.
-   */
-  aztecNode: AztecNodeService;
   /**
    * The Aztec RPC server.
    */
@@ -97,7 +93,6 @@ export async function setupWithoutDeployingContracts(
 }> {
   const rpcConfig = getRpcConfigEnvVars();
 
-  const aztecNode = await AztecNodeService.createAndSync(config);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
@@ -125,6 +120,7 @@ export async function setupWithoutDeployingContracts(
   }
 
   for (const context of txContexts) {
+    logger(`Deploying account contract for ${context.deploymentData.address.toString()}`);
     context.tx = context.deployMethod.send();
   }
 
@@ -157,7 +153,6 @@ export async function setupWithoutDeployingContracts(
   const wallet = new AccountWallet(aztecRpcServer, accountCollection);
 
   return {
-    aztecNode,
     aztecRpcServer,
     accounts,
     wallet,
@@ -217,9 +212,11 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  const { aztecNode, aztecRpcServer, accounts, wallet } = await setupWithoutDeployingContracts(
+  const aztecNode = await AztecNodeService.createAndSync(config);
+
+  const { aztecRpcServer, accounts, wallet } = await setupWithoutDeployingContractsAndAztecNode(
     numberOfAccounts,
-    config,
+    aztecNode,
     privKey,
     logger,
   );
