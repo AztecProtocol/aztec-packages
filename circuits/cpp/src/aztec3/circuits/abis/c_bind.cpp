@@ -110,7 +110,6 @@ template <typename T> static const char* as_string_output(uint8_t const* input_b
  * For testing only. Take this object, write it to a buffer, then output it. */
 template <typename T> static const char* as_string_output_msgpack(T obj)
 {
-<<<<<<< HEAD
     std::ostringstream stream;
     stream << obj;
     std::string const str = stream.str();
@@ -119,10 +118,14 @@ template <typename T> static const char* as_string_output_msgpack(T obj)
 
 /**
  * For testing only. Now with msgpack, this is the identity (x => x) function. */
-template <typename T> T as_serialized_output(const T& obj)
+template <typename T> T as_serialized_output_msgpack(const T& obj)
 {
     return obj;
-=======
+}
+/**
+ * For testing serialization roundtrip. */
+template <typename T> T as_serialized_output(const T& obj)
+{
     using serialize::read;
     T obj;
     read(input_buf, obj);
@@ -130,7 +133,6 @@ template <typename T> T as_serialized_output(const T& obj)
     write(stream, obj);
     *size = static_cast<uint32_t>(stream.size());
     return bbmalloc_copy_string(reinterpret_cast<char*>(stream.data()), *size);
->>>>>>> ad/chore/reduce-redundancy-msgpack
 }
 
 // WASM Cbinds
