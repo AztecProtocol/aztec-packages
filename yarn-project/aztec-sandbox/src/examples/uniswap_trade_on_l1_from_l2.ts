@@ -12,7 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { SchnorrAccountContractAbi, UniswapContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrAccountContractAbi, UniswapContractAbi } from '@aztec/noir-contracts/artifacts';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';

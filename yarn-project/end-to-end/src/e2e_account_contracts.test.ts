@@ -12,7 +12,7 @@ import { AztecAddress, PartialContractAddress, Point, getContractDeploymentInfo 
 import { Ecdsa, Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { EcdsaAccountContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ChildContract } from '@aztec/noir-contracts/types';
 import { PublicKey } from '@aztec/types';
 
