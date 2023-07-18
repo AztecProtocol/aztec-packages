@@ -18,7 +18,7 @@ import {
   computeUniqueCommitment,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
-import { Grumpkin, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { makeAddressFromPrivateKey } from '@aztec/circuits.js/factories';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -44,7 +44,7 @@ import { default as levelup } from 'levelup';
 import { default as memdown, type MemDown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
-import { NoirPoint, computeSlotForMapping, toPublicKey } from '../utils.js';
+import { computeSlotForMapping } from '../utils.js';
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -524,11 +524,15 @@ describe('Private Execution test suite', () => {
   });
 
   describe('pending commitments contract', () => {
-    let owner: NoirPoint;
+    let owner: AztecAddress;
 
-    beforeAll(() => {
-      const grumpkin = new Grumpkin(circuitsWasm);
-      owner = toPublicKey(ownerPk, grumpkin);
+    beforeEach(async () => {
+      const { address, partialAddress, publicKey } = await makeAddressFromPrivateKey(ownerPk);
+      owner = address;
+      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve([publicKey, partialAddress]);
+        throw new Error(`Unknown address ${address}`);
+      });
     });
 
     beforeEach(() => {
@@ -559,7 +563,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const note = result.preimages.newNotes[0];
-      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
@@ -568,7 +572,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const nonce = computeCommitmentNonce(circuitsWasm, txNullifier, 0);
@@ -609,7 +613,7 @@ describe('Private Execution test suite', () => {
 
       expect(execCreate.preimages.newNotes).toHaveLength(1);
       const note = execCreate.preimages.newNotes[0];
-      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
@@ -620,7 +624,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read request should match commitment
       const nonce = computeCommitmentNonce(circuitsWasm, txNullifier, 0);
@@ -651,7 +655,7 @@ describe('Private Execution test suite', () => {
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const note = result.preimages.newNotes[0];
-      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner, circuitsWasm));
+      expect(note.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
@@ -660,7 +664,7 @@ describe('Private Execution test suite', () => {
       expect(newCommitments).toHaveLength(1);
 
       const commitment = newCommitments[0];
-      const storageSlot = computeSlotForMapping(new Fr(1n), owner, circuitsWasm);
+      const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
       // read requests should be empty
       const readRequest = result.callStackItem.publicInputs.readRequests[0].value;
