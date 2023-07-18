@@ -44,8 +44,10 @@ contract ZkToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner.x);
-        context = send_note(context, owner_balance, initial_supply, owner);
-        context = emit_unencrypted_log(context, "Balance set in constructor");
+        if (initial_supply != 0) {
+            context = send_note(context, owner_balance, initial_supply, owner);
+            context = emit_unencrypted_log(context, "Balance set in constructor");
+        }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()

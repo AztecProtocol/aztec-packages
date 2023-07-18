@@ -1,4 +1,5 @@
-import { CallContext, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -6,7 +7,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
-
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
@@ -62,9 +62,12 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
+    const wasm = await CircuitsWasm.get();
+    const txNullifier = computeTxHash(wasm, request.toTxRequest());
     const execution = new PrivateFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
+        txNullifier,
         request.txContext,
         historicRoots,
         await PackedArgsCache.create(request.packedArguments),
@@ -109,7 +112,13 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, await PackedArgsCache.create([])),
+      new ClientTxExecutionContext(
+        this.db,
+        Fr.ZERO,
+        TxContext.empty(),
+        historicRoots,
+        await PackedArgsCache.create([]),
+      ),
       entryPointABI,
       contractAddress,
       request.functionData,

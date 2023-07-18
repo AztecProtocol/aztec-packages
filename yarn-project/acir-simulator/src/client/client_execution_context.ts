@@ -1,7 +1,7 @@
-import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
-
 import {
   ACVMField,
   fromACVMField,
@@ -22,6 +22,8 @@ export type PendingNoteData = {
   contractAddress: AztecAddress;
   /** The storage slot of the commitment. */
   storageSlot: Fr;
+  /** The nonce of the commitment. */
+  nonce: Fr;
 };
 
 /**
@@ -36,6 +38,8 @@ export class ClientTxExecutionContext {
   constructor(
     /**  The database oracle. */
     public db: DBOracle,
+    /** The tx nullifier, which is also the first nullifier. This will be used to compute the nonces for pending notes. */
+    public txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
     /** The old roots. */
@@ -53,6 +57,7 @@ export class ClientTxExecutionContext {
   public extend() {
     return new ClientTxExecutionContext(
       this.db,
+      this.txNullifier,
       this.txContext,
       this.historicRoots,
       this.packedArgsCache,
@@ -121,10 +126,7 @@ export class ClientTxExecutionContext {
     offset: number,
     returnSize: number,
   ): Promise<ACVMField[]> {
-    const pendingNotes = this.getPendingNotes(contractAddress, storageSlot, sortBy, sortOrder, limit).map(note => ({
-      ...note,
-      nonce: Fr.ZERO,
-    }));
+    const pendingNotes = this.getPendingNotes(contractAddress, storageSlot, sortBy, sortOrder, limit);
 
     const dbNotes = await this.db.getNotes(
       contractAddress,
@@ -177,11 +179,14 @@ export class ClientTxExecutionContext {
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
    */
-  public pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
+  public async pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
+    const wasm = await CircuitsWasm.get();
+    const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
     const pendingNoteData: PendingNoteData = {
       contractAddress,
       storageSlot: fromACVMField(storageSlot),
       preimage: preimage.map(f => fromACVMField(f)),
+      nonce,
     };
     this.pendingNotes.push(pendingNoteData);
   }
