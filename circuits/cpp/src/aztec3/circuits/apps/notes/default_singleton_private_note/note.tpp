@@ -259,7 +259,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
     };
 
     // We compress the hash_inputs with Pedersen, because that's cheap.
-    const fr compressed_storage_slot_point = CT::compress(hash_inputs, GeneratorIndex::INITIALISATION_NULLIFIER);
+    fr compressed_storage_slot_point = CT::compress(hash_inputs, GeneratorIndex::INITIALISATION_NULLIFIER);
 
     return compressed_storage_slot_point;
 };
