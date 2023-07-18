@@ -1,6 +1,5 @@
 import {
   AztecAddress,
-  Contract,
   EthAddress,
   Fr,
   Wallet,
@@ -12,7 +11,7 @@ import {
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
-import { UniswapContract } from '@aztec/noir-contracts/types';
+import { NonNativeTokenContract, UniswapContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';
@@ -133,9 +132,8 @@ async function deployAllContracts(owner: AztecAddress) {
   };
 }
 
-const getL2BalanceOf = async (aztecRpcClient: AztecRPC, owner: AztecAddress, l2Contract: any) => {
-  const ownerPublicKey = await aztecRpcClient.getAccountPublicKey(owner);
-  const [balance] = await l2Contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
+const getL2BalanceOf = async (aztecRpcClient: AztecRPC, owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
+  const [balance] = await l2Contract.methods.getBalance(owner).view({ from: owner });
   return balance;
 };
 
@@ -143,25 +141,21 @@ const logExpectedBalanceOnL2 = async (
   aztecRpcClient: AztecRPC,
   owner: AztecAddress,
   expectedBalance: bigint,
-  l2Contract: any,
+  l2Contract: NonNativeTokenContract,
 ) => {
   const balance = await getL2BalanceOf(aztecRpcClient, owner, l2Contract);
   logger(`Account ${owner} balance: ${balance}. Expected to be: ${expectedBalance}`);
 };
 
 const transferWethOnL2 = async (
-  aztecRpcClient: AztecRPC,
-  wethL2Contract: Contract,
+  _aztecRpcClient: AztecRPC,
+  wethL2Contract: NonNativeTokenContract,
   ownerAddress: AztecAddress,
   receiver: AztecAddress,
   transferAmount: bigint,
 ) => {
   const transferTx = wethL2Contract.methods
-    .transfer(
-      transferAmount,
-      (await aztecRpcClient.getAccountPublicKey(ownerAddress)).toBigInts(),
-      (await aztecRpcClient.getAccountPublicKey(receiver)).toBigInts(),
-    )
+    .transfer(transferAmount, ownerAddress, receiver)
     .send({ origin: ownerAddress });
   await transferTx.isMined(0, 0.5);
   const transferReceipt = await transferTx.getReceipt();
