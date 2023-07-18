@@ -7,10 +7,7 @@ import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
-
-
 import { expectAztecStorageSlot, setup } from './utils.js';
-
 
 describe('e2e_public_token_contract', () => {
   let aztecNode: AztecNodeService;

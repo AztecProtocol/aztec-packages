@@ -8,8 +8,6 @@ import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { UniswapContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
-
-
 import { getContract, parseEther } from 'viem';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
