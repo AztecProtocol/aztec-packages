@@ -1,5 +1,6 @@
 import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
+import { generateType } from '@aztec/noir-compiler';
 
 import { readFileSync, writeFileSync } from 'fs';
 import camelCase from 'lodash.camelcase';
@@ -58,7 +59,7 @@ function getFunction(type: FunctionType, params: ABIParameter[], returns: ABITyp
     parameters: params,
     // If the function is secret, the return is the public inputs, which should be omitted
     returnTypes: type === FunctionType.SECRET ? [] : returns,
-    bytecode: Buffer.from(fn.bytecode).toString('hex'),
+    bytecode: fn.bytecode,
     // verificationKey: Buffer.from(fn.verification_key).toString('hex'),
     verificationKey: mockedKeys.verificationKey,
   };
@@ -116,8 +117,13 @@ const main = () => {
 
   const exampleFile = `${examples}/${snakeCase(name)}_contract.json`;
   writeFileSync(exampleFile, JSON.stringify(abi, null, 2) + '\n');
-  writeToProject(abi);
   log(`Written ${exampleFile}`);
+
+  writeToProject(abi);
+
+  const typeFile = `src/types/${name}.ts`;
+  writeFileSync(typeFile, generateType(abi, '../examples/index.js'));
+  log(`Written ${typeFile}`);
 };
 
 try {

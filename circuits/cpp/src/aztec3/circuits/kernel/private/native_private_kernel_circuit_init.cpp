@@ -129,13 +129,28 @@ void update_end_values(DummyBuilder& builder,
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
-    ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
-    ASSERT(is_array_empty(public_inputs.end.encrypted_logs_hash));
-    ASSERT(is_array_empty(public_inputs.end.unencrypted_logs_hash));
-    ASSERT(is_array_empty(public_inputs.end.read_requests));
-    ASSERT(is_array_empty(public_inputs.end.read_request_membership_witnesses));
-    ASSERT(public_inputs.end.encrypted_log_preimages_length == fr(0));
-    ASSERT(public_inputs.end.unencrypted_log_preimages_length == fr(0));
+    builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
+                      "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.encrypted_logs_hash),
+                      "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.unencrypted_logs_hash),
+                      "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.read_requests),
+                      "public_inputs.end.read_requests must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(
+        is_array_empty(public_inputs.end.read_request_membership_witnesses),
+        "public_inputs.end.read_request_membership_witnesses must start as empty in initial kernel iteration",
+        CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == fr(0),
+                      "public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == fr(0),
+                      "public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
     array_push(builder, public_inputs.end.new_nullifiers, private_inputs.tx_request.hash());
@@ -171,9 +186,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder
     common_validate_read_requests(
         builder,
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
-        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
-        private_inputs.private_call.read_request_membership_witnesses,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
+        private_inputs.private_call.read_request_membership_witnesses);
 
     // TODO(dbanks12): feels like update_end_values should happen after contract logic
     update_end_values(builder, private_inputs, public_inputs);
