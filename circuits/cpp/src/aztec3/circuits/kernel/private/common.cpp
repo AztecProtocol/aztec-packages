@@ -196,8 +196,15 @@ void common_update_end_values(DummyBuilder& builder,
             if (witness.is_transient) {  // only forward transient to public inputs
                 const auto siloed_read_request =
                     read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
-                array_push(builder, public_inputs.end.read_requests, siloed_read_request);
-                array_push(builder, public_inputs.end.read_request_membership_witnesses, witness);
+                array_push(builder,
+                           public_inputs.end.read_requests,
+                           siloed_read_request,
+                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many read requests in one tx"));
+                array_push(builder,
+                           public_inputs.end.read_request_membership_witnesses,
+                           witness,
+                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                                  "too many read request membership witnesses in one tx"));
             }
         }
     }
@@ -210,7 +217,11 @@ void common_update_end_values(DummyBuilder& builder,
             siloed_new_nullifiers[i] =
                 new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
         }
-        push_array_to_array(builder, siloed_new_nullifiers, public_inputs.end.new_nullifiers);
+        push_array_to_array(
+            builder,
+            siloed_new_nullifiers,
+            public_inputs.end.new_nullifiers,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullifiers in one tx"));
 
         // commitments
         std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
@@ -222,15 +233,27 @@ void common_update_end_values(DummyBuilder& builder,
             siloed_new_commitments[i] =
                 new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, unique_commitment);
         }
-        push_array_to_array(builder, siloed_new_commitments, public_inputs.end.new_commitments);
+        push_array_to_array(
+            builder,
+            siloed_new_commitments,
+            public_inputs.end.new_commitments,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
     }
 
     {  // call stacks
         const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
-        push_array_to_array(builder, this_private_call_stack, public_inputs.end.private_call_stack);
+        push_array_to_array(
+            builder,
+            this_private_call_stack,
+            public_inputs.end.private_call_stack,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many private call stacks in one tx"));
 
         const auto& this_public_call_stack = private_call_public_inputs.public_call_stack;
-        push_array_to_array(builder, this_public_call_stack, public_inputs.end.public_call_stack);
+        push_array_to_array(
+            builder,
+            this_public_call_stack,
+            public_inputs.end.public_call_stack,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many public call stacks in one tx"));
     }
 
     {  // new l2 to l1 messages
@@ -246,7 +269,11 @@ void common_update_end_values(DummyBuilder& builder,
                                                                            new_l2_to_l1_msgs[i]);
             }
         }
-        push_array_to_array(builder, new_l2_to_l1_msgs_to_insert, public_inputs.end.new_l2_to_l1_msgs);
+        push_array_to_array(
+            builder,
+            new_l2_to_l1_msgs_to_insert,
+            public_inputs.end.new_l2_to_l1_msgs,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new l2 to l1 messages in one tx"));
     }
 
     {  // logs hashes
@@ -305,7 +332,11 @@ void common_contract_logic(DummyBuilder& builder,
                                                             portal_contract_address,
                                                             contract_dep_data.function_tree_root };
 
-        array_push(builder, public_inputs.end.new_contracts, native_new_contract_data);
+        array_push(builder,
+                   public_inputs.end.new_contracts,
+                   native_new_contract_data,
+                   format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many contracts created in one tx"));
+
         builder.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
                           "constructor_vk_hash doesn't match private_call_vk_hash",
                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
@@ -320,7 +351,11 @@ void common_contract_logic(DummyBuilder& builder,
         auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake3s(blake_input).data());
 
         // push the contract address nullifier to nullifier vector
-        array_push(builder, public_inputs.end.new_nullifiers, new_contract_address_nullifier);
+        array_push(builder,
+                   public_inputs.end.new_nullifiers,
+                   new_contract_address_nullifier,
+                   format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                          "too many nullifiers in one tx to add the new contract address"));
     } else {
         // non-contract deployments must specify contract address being interacted with
         builder.do_assert(storage_contract_address != 0,
