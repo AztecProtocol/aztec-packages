@@ -1,8 +1,10 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
 import { Buffer } from 'buffer';
+import mapValues from 'lodash.mapvalues';
 
 import { callCbind } from './cbind.js';
 import {
@@ -40,8 +42,6 @@ import {
   toBuffer,
 } from './types.js';
 
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
-import mapValues from 'lodash.mapvalues';
 interface MsgpackG1AffineElement {
   x: Buffer;
   y: Buffer;
