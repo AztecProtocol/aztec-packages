@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr, PartialContractAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialContractAddress, PublicKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import {
@@ -76,4 +76,5 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
   getBlockNum(): Promise<number>;
   getNodeInfo(): Promise<NodeInfo>;
+  addPublicKey(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialContractAddress): Promise<void>;
 }
