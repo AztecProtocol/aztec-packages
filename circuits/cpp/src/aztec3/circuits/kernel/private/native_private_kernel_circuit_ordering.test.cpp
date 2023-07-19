@@ -48,16 +48,11 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
     private_inputs.previous_kernel.public_inputs.end.read_request_membership_witnesses =
         read_request_membership_witnesses;
 
-
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_one_read_request_to_commitment_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
-    auto failure = builder.get_first_failure();
-    if (failure.code != CircuitErrorCode::NO_ERROR) {
-        info("failure: ", failure);
-    }
-    ASSERT_FALSE(builder.failed());
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
     ASSERT_TRUE(public_inputs.end.new_commitments[0] == fr(1282));
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1074): read_request*s
@@ -95,10 +90,6 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_some_read_requests_to_commitments_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
-    auto failure = builder.get_first_failure();
-    if (failure.code != CircuitErrorCode::NO_ERROR) {
-        info("failure: ", failure);
-    }
     ASSERT_FALSE(builder.failed());
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 4);
     ASSERT_TRUE(public_inputs.end.new_commitments[0] == fr(1285));
@@ -199,10 +190,36 @@ TEST_F(native_private_kernel_ordering_tests, native_nullifier_matching_transient
         DummyBuilder("native_private_kernel_ordering_tests__native_nullifier_matching_transient_commitments_works");
     auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
-    ASSERT_FALSE(builder.failed());
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
     ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);
 }
 
+TEST_F(native_private_kernel_ordering_tests, native_transient_nullifier_commitment_no_match)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    new_commitments[0] = fr(763);
+    new_commitments[1] = fr(213);
+
+    new_nullifiers[0] = fr(32);
+    nullifier_commitments[0] = fr(213);
+    nullifier_commitments[1] = fr(218);
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_transient_nullifier_commitment_no_match");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_TRUE(builder.failed());
+    ASSERT_EQ(builder.get_first_failure().code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
+}
 
 }  // namespace aztec3::circuits::kernel::private_kernel
