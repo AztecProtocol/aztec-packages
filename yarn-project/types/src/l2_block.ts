@@ -17,6 +17,7 @@ import times from 'lodash.times';
 
 import { ContractData, L2Tx, LogType, PublicDataWrite, TxL2Logs } from './index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.
@@ -40,6 +41,8 @@ export class L2Block {
    *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
    */
   public newUnencryptedLogs?: L2BlockL2Logs;
+
+  private logger: DebugLogger;
 
   constructor(
     /**
@@ -148,6 +151,8 @@ export class L2Block {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
     }
+
+    this.logger = createDebugLogger('aztec:l2_block:number_' + number);
 
     if (newEncryptedLogs) {
       this.attachLogs(newEncryptedLogs, LogType.ENCRYPTED);
@@ -491,8 +496,16 @@ export class L2Block {
     const logFieldName = logType === LogType.ENCRYPTED ? 'newEncryptedLogs' : 'newUnencryptedLogs';
 
     if (this[logFieldName]) {
-      throw new Error(`L2 block already has ${logFieldName} attached.`);
+      if (this[logFieldName] === logs) {
+        // Comparing objects only by references is enough in this case since this should occur only when exactly
+        // the same object is passed in and not a copy.
+        this.logger(`${logFieldName} logs already attached`);
+        return;
+      }
+      throw new Error(`Trying to attach different ${logFieldName} logs to block ${this.number}.`);
     }
+
+    this.logger(`Attaching ${logFieldName} logs`);
 
     const numTxs = this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX;
 
