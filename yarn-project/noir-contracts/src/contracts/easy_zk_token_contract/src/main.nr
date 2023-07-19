@@ -36,13 +36,10 @@ contract EasyZkToken {
         initial_supply: u120, 
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let balances = storage.balances;
         let mut context = Context::new(inputs, abi::hash_args([initial_supply as Field, owner]));
+        let { balances } = Storage::init();
 
-        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
-        let owner_balance = balances.at(owner);
-        context = owner_balance.add(context, initial_supply, owner);
+        context = balances.at(owner).add(context, initial_supply, owner);
 
         context = emit_unencrypted_log(context, "Balance set in constructor");
 
@@ -59,13 +56,10 @@ contract EasyZkToken {
         amount: u120, 
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let balances = storage.balances;
         let mut context = Context::new(inputs, abi::hash_args([amount as Field, owner]));
+        let { balances } = Storage::init();
 
-        // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
-        let owner_balance = balances.at(owner);
-        context = owner_balance.add(context, amount, owner);
+        context = balances.at(owner).add(context, amount, owner);
 
         context = emit_unencrypted_log(context, "Coins minted");
 
@@ -83,17 +77,12 @@ contract EasyZkToken {
         sender: Field, 
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let balances = storage.balances;
         let mut context = Context::new(inputs, abi::hash_args([amount as Field, sender, recipient]));
+        let { balances } = Storage::init();
 
-        // Pick from the set of sender's notes to spend amount.
-        let sender_balance = balances.at(sender);
-        context = sender_balance.sub(context, amount, sender);
+        context = balances.at(sender).sub(context, amount, sender);
 
-        // Creates new note for the recipient.
-        let recipient_balance = storage.balances.at(recipient);
-        context = recipient_balance.add(context, amount, recipient);
+        context = balances.at(recipient).add(context, amount, recipient);
         
         context = emit_unencrypted_log(context, "Coins transferred");
 
@@ -106,13 +95,10 @@ contract EasyZkToken {
     fn getBalance(
         owner: Field,
     ) -> pub Field {
-        let storage = Storage::init();
-
-        // Get the set of notes owned by the user.
-        let owner_balance = storage.balances.at(owner);
+        let { balances } = Storage::init();
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance.storage_slot)
+        balance_utils::get_balance(balances.at(owner).storage_slot)
     }
 
     /// ABI stev type "unconstrained"
