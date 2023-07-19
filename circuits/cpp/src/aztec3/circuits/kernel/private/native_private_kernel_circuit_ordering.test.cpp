@@ -2,6 +2,7 @@
 
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -175,5 +176,33 @@ TEST_F(native_private_kernel_ordering_tests, native_unresolved_non_transient_rea
     auto failure = builder.get_first_failure();
     ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
 }
+
+TEST_F(native_private_kernel_ordering_tests, native_nullifier_matching_transient_commitments_works)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    new_commitments[0] = fr(763);
+    new_commitments[1] = fr(213);
+
+    new_nullifiers[0] = fr(32);
+    nullifier_commitments[0] = fr(213);
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_nullifier_matching_transient_commitments_works");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_FALSE(builder.failed());
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);
+}
+
 
 }  // namespace aztec3::circuits::kernel::private_kernel
