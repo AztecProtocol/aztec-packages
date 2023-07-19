@@ -20,6 +20,10 @@ describe('e2e_2_rpc_servers', () => {
   let contractWithWalletA: ZkTokenContract;
   let contractWithWalletB: ZkTokenContract;
 
+  const initialBalance = 987n;
+  const transferAmount1 = 654n;
+  const transferAmount2 = 323n;
+
   beforeEach(async () => {
     let accounts: AztecAddress[] = [];
     ({ aztecNode, aztecRpcServer: aztecRpcServerA, accounts, wallet: walletA, logger } = await setup(1));
@@ -31,6 +35,17 @@ describe('e2e_2_rpc_servers', () => {
       wallet: walletB,
     } = await setupWithoutDeployingContractsAndAztecNode(1, aztecNode));
     [userB] = accounts;
+
+    logger(`Deploying L2 contract...`);
+    const tx = ZkTokenContract.deploy(aztecRpcServerA, initialBalance, userA).send();
+    const receipt = await tx.getReceipt();
+    contractWithWalletA = new ZkTokenContract(receipt.contractAddress!, walletA);
+    contractWithWalletB = new ZkTokenContract(receipt.contractAddress!, walletB);
+
+    await tx.isMined(0, 0.1);
+    const minedReceipt = await tx.getReceipt();
+    expect(minedReceipt.status).toEqual(TxStatus.MINED);
+    logger('L2 contract deployed');
   }, 100_000);
 
   afterEach(async () => {
@@ -62,27 +77,7 @@ describe('e2e_2_rpc_servers', () => {
     expect(asciiLogs).toStrictEqual(logMessages);
   };
 
-  const deployContract = async (initialBalance: bigint, from: AztecAddress) => {
-    logger(`Deploying L2 contract...`);
-    const tx = ZkTokenContract.deploy(aztecRpcServerA, initialBalance, from).send();
-    const receipt = await tx.getReceipt();
-    contractWithWalletA = new ZkTokenContract(receipt.contractAddress!, walletA);
-    contractWithWalletB = new ZkTokenContract(receipt.contractAddress!, walletB);
-    await tx.isMined(0, 0.1);
-    const minedReceipt = await tx.getReceipt();
-    expect(minedReceipt.status).toEqual(TxStatus.MINED);
-    logger('L2 contract deployed');
-    return contractWithWalletA;
-  };
-
   it('transfers fund from user A to B via RPC Server A followed by transfer from B to A via RPC Server B', async () => {
-    const initialBalance = 987n;
-    const transferAmount1 = 654n;
-    const transferAmount2 = 323n;
-
-    // Deploy ZkToken contract with walletA
-    await deployContract(initialBalance, userA);
-
     // Add account B pub key and partial address to wallet A
     const [accountBPubKey, accountBPartialAddress] = (await aztecRpcServerB.getPublicKeyAndPartialAddress(userB))!;
     await aztecRpcServerA.addPublicKeyAndPartialAddress(userB, accountBPubKey, accountBPartialAddress);
