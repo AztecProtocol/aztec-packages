@@ -62,13 +62,14 @@ type TxContext = {
 };
 
 /**
- * Sets up the environment for the end-to-end tests without deploying contracts.
+ * Sets up Aztec RPC Server.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  * @param aztecNode - Instance of AztecNode implementation.
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
+ * @returns Aztec RPC server, accounts, wallets and logger.
  */
-export async function setupWithoutDeployingContractsAndAztecNode(
+export async function setupAztecRPCServer(
   numberOfAccounts: number,
   aztecNode: AztecNode,
   firstPrivKey: Uint8Array | null = null,
@@ -214,12 +215,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
 
   const aztecNode = await AztecNodeService.createAndSync(config);
 
-  const { aztecRpcServer, accounts, wallet } = await setupWithoutDeployingContractsAndAztecNode(
-    numberOfAccounts,
-    aztecNode,
-    privKey,
-    logger,
-  );
+  const { aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(numberOfAccounts, aztecNode, privKey, logger);
 
   return {
     aztecNode,

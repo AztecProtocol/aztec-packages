@@ -5,7 +5,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
-import { setup, setupWithoutDeployingContractsAndAztecNode } from './utils.js';
+import { setup, setupAztecRPCServer } from './utils.js';
 
 describe('e2e_2_rpc_servers', () => {
   let aztecNode: AztecNodeService;
@@ -33,7 +33,7 @@ describe('e2e_2_rpc_servers', () => {
       aztecRpcServer: aztecRpcServerB,
       accounts: accounts,
       wallet: walletB,
-    } = await setupWithoutDeployingContractsAndAztecNode(1, aztecNode));
+    } = await setupAztecRPCServer(1, aztecNode));
     [userB] = accounts;
 
     logger(`Deploying L2 contract...`);
