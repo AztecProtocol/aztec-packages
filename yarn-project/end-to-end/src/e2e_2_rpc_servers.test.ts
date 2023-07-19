@@ -78,7 +78,8 @@ describe('e2e_2_rpc_servers', () => {
     const [owner] = accounts1;
     const [receiver] = accounts2;
 
-    // aztecRpcServer1.addAccount()
+    const [receiverPubKey, receiverPartialAddress] = (await aztecRpcServer2.getPublicKeyAndPartialAddress(receiver))!;
+    aztecRpcServer1.addPublicKeyAndPartialAddress(receiver, receiverPubKey, receiverPartialAddress);
 
     await deployContract(initialBalance, (await aztecRpcServer1.getAccountPublicKey(owner)).toBigInts());
 

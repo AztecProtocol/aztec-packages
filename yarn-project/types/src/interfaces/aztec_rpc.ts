@@ -76,5 +76,10 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
   getBlockNum(): Promise<number>;
   getNodeInfo(): Promise<NodeInfo>;
-  addPublicKey(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialContractAddress): Promise<void>;
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void>;
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress] | undefined>;
 }

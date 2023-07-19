@@ -173,12 +173,16 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  addPublicKey(address: AztecAddress, publicKey: Point, partialAddress: PartialContractAddress): Promise<void> {
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: Point,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
     this.publicKeys.set(address.toBigInt(), [publicKey, partialAddress]);
     return Promise.resolve();
   }
 
-  getPublicKey(address: AztecAddress): Promise<[Point, Fr] | undefined> {
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, Fr] | undefined> {
     return Promise.resolve(this.publicKeys.get(address.toBigInt()));
   }
 

@@ -180,7 +180,7 @@ export class Synchroniser {
    * @returns True if the account is fully synched, false otherwise
    */
   public async isAccountSynchronised(account: AztecAddress) {
-    const result = await this.db.getPublicKey(account);
+    const result = await this.db.getPublicKeyAndPartialAddress(account);
     if (!result) {
       return false;
     }

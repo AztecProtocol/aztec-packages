@@ -100,24 +100,24 @@ export class AztecRPCServer implements AztecRPC {
     //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
     //   );
     // }
-    await this.db.addPublicKey(address, pubKey, partialContractAddress);
+    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialContractAddress);
     this.synchroniser.addAccount(pubKey, address, this.keyStore);
     return address;
   }
 
   /**
-   * Adds public key to database.
-   * @param address - Address of the account contract.
-   * @param publicKey - Public key of the corresponding user master public key.
+   * Adds public key and partial address to a database.
+   * @param address - Address of the account to add public key and partial address for.
+   * @param publicKey - Public key of the corresponding user.
    * @param partialAddress - The partially computed address of the account contract.
    * @returns A Promise that resolves once the public key has been added to the database.
    */
-  public async addPublicKey(
+  public async addPublicKeyAndPartialAddress(
     address: AztecAddress,
     publicKey: PublicKey,
     partialAddress: PartialContractAddress,
   ): Promise<void> {
-    await this.db.addPublicKey(address, publicKey, partialAddress);
+    await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
   }
 
   /**
@@ -160,6 +160,23 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Unable to public key for address ${address.toString()}`);
     }
     return Promise.resolve(result[0]);
+  }
+
+  /**
+   * Retrieve the public key and partial contract address associated with an address.
+   * Throws an error if the account is not found in the key store.
+   *
+   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
+   * @returns A Promise resolving to the Point instance representing the public key.
+   */
+  public async getPublicKeyAndPartialAddress(
+    address: AztecAddress,
+  ): Promise<[Point, PartialContractAddress] | undefined> {
+    const result = await this.db.getPublicKeyAndPartialAddress(address);
+    if (!result) {
+      throw new Error(`Unable to get public key for address ${address.toString()}`);
+    }
+    return Promise.resolve(result);
   }
 
   /**

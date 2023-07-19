@@ -39,8 +39,12 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
   }
-  addPublicKey(address: AztecAddress, publicKey: PublicKey, partialAddress: PartialContractAddress): Promise<void> {
-    return this.rpc.addPublicKey(address, publicKey, partialAddress);
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
+    return this.rpc.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
   }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();
@@ -83,6 +87,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
+  }
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress] | undefined> {
+    return this.rpc.getPublicKeyAndPartialAddress(address);
   }
 }
 
