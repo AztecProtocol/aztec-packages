@@ -42,7 +42,9 @@ describe('e2e_pending_commitments_contract', () => {
 
     const deployedContract = await deployContract();
 
-    const tx = deployedContract.methods.test_insert_then_get_then_nullify_flat(mintAmount, owner).send({ origin: owner });
+    const tx = deployedContract.methods
+      .test_insert_then_get_then_nullify_flat(mintAmount, owner)
+      .send({ origin: owner });
 
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();

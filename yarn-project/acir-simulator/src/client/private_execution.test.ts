@@ -585,7 +585,9 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
-      expect(nullifier).toEqual(await acirSimulator.computeNullifier(contractAddress, nonce, note.storageSlot, note.preimage));
+      expect(nullifier).toEqual(
+        await acirSimulator.computeNullifier(contractAddress, nonce, note.storageSlot, note.preimage),
+      );
     });
 
     it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
@@ -640,7 +642,9 @@ describe('Private Execution test suite', () => {
       expect(gotNoteValue).toEqual(amountToTransfer);
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
-      expect(nullifier).toEqual(await acirSimulator.computeNullifier(contractAddress, nonce, note.storageSlot, note.preimage));
+      expect(nullifier).toEqual(
+        await acirSimulator.computeNullifier(contractAddress, nonce, note.storageSlot, note.preimage),
+      );
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
