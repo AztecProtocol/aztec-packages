@@ -957,7 +957,7 @@ export function fr(n: number): Fr {
  * @param privateKey - A private encryption key (optional, will use a random one if not set).
  * @returns A valid address, partial address, and public key.
  */
-export async function makeAddressFromPrivateKey(privateKey?: Buffer) {
+export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: Buffer) {
   privateKey = privateKey ?? randomBytes(32);
   const wasm = await CircuitsWasm.get();
   const grumpkin = new Grumpkin(wasm);

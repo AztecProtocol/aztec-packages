@@ -19,7 +19,7 @@ import {
   siloCommitment,
 } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { makeAddressFromPrivateKey } from '@aztec/circuits.js/factories';
+import { makeAddressWithPreimagesFromPrivateKey } from '@aztec/circuits.js/factories';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -167,13 +167,13 @@ describe('Private Execution test suite', () => {
         address: ownerAddress,
         partialAddress: ownerPartialAddress,
         publicKey: ownerPubKey,
-      } = await makeAddressFromPrivateKey(ownerPk);
+      } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
 
       const {
         address: recipientAddress,
         partialAddress: recipientPartialAddress,
         publicKey: recipientPubKey,
-      } = await makeAddressFromPrivateKey(recipientPk);
+      } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
 
       owner = ownerAddress;
       recipient = recipientAddress;
@@ -406,7 +406,7 @@ describe('Private Execution test suite', () => {
     let recipient: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressFromPrivateKey(recipientPk);
+      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
       recipient = address;
       oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
         if (address.equals(recipient)) return Promise.resolve([publicKey, partialAddress]);
@@ -527,7 +527,7 @@ describe('Private Execution test suite', () => {
     let owner: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressFromPrivateKey(ownerPk);
+      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
       owner = address;
       oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) return Promise.resolve([publicKey, partialAddress]);
