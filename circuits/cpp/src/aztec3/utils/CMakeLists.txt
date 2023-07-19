@@ -1,6 +1,6 @@
 add_subdirectory(types)
 
-barretenberg_module(
+circuits_cpp_module(
     aztec3_utils
     barretenberg
 )
