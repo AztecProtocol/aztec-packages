@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
@@ -34,9 +34,10 @@ describe('e2e_2_rpc_servers', () => {
     await aztecRpcServer2?.stop();
   });
 
-  const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer1.getPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
+  const expectBalance = async (wallet: Wallet, owner: AztecAddress, expectedBalance: bigint) => {
+    const ownerPublicKey = await wallet.getPublicKey(owner);
+    const contractWithWallet = new ZkTokenContract(contract.address, wallet);
+    const [balance] = await contractWithWallet.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -69,10 +70,7 @@ describe('e2e_2_rpc_servers', () => {
     return contract;
   };
 
-  /**
-   * Milestone 1.5.
-   */
-  it('1.5 should call transfer and increase balance of another account', async () => {
+  it('should call transfer and increase balance of another account', async () => {
     const initialBalance = 987n;
     const transferAmount = 654n;
     const [owner] = accounts1;
@@ -81,10 +79,18 @@ describe('e2e_2_rpc_servers', () => {
     const [receiverPubKey, receiverPartialAddress] = (await aztecRpcServer2.getPublicKeyAndPartialAddress(receiver))!;
     aztecRpcServer1.addPublicKeyAndPartialAddress(receiver, receiverPubKey, receiverPartialAddress);
 
-    await deployContract(initialBalance, (await aztecRpcServer1.getAccountPublicKey(owner)).toBigInts());
+    await deployContract(initialBalance, (await aztecRpcServer1.getPublicKey(owner)).toBigInts());
 
-    await expectBalance(owner, initialBalance);
-    await expectBalance(receiver, 0n);
+    await aztecRpcServer2.addContracts([
+      {
+        abi: ZkTokenContract.abi,
+        address: contract.address,
+        portalContract: EthAddress.ZERO,
+      },
+    ]);
+
+    await expectBalance(wallet1, owner, initialBalance);
+    await expectBalance(wallet2, receiver, 0n);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
     await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
@@ -102,8 +108,8 @@ describe('e2e_2_rpc_servers', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectBalance(owner, initialBalance - transferAmount);
-    await expectBalance(receiver, transferAmount);
+    await expectBalance(wallet1, owner, initialBalance - transferAmount);
+    await expectBalance(wallet2, receiver, transferAmount);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(2);
     await expectUnencryptedLogsFromLastBlockToBe(['Coins transferred']);
