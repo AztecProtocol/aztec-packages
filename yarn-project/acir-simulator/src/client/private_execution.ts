@@ -29,7 +29,7 @@ import {
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
 import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
-import { ClientTxExecutionContext, PendingNoteData } from './client_execution_context.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
 import { oracleDebugCallToFormattedStr } from './debug.js';
 
 /**
@@ -56,7 +56,7 @@ export class PrivateFunctionExecution {
     const selector = this.functionData.functionSelectorBuffer.toString('hex');
     this.log(`Executing external function ${this.contractAddress.toString()}:${selector}`);
 
-    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = this.writeInputs();
 
     // TODO: Move to ClientTxExecutionContext.
@@ -78,23 +78,18 @@ export class PrivateFunctionExecution {
         return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
-        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
+        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: ([storageSlot], acvmPreimage) => {
-        const pendingNoteData: PendingNoteData = {
-          preimage: acvmPreimage,
-          contractAddress: this.contractAddress,
-          storageSlot: fromACVMField(storageSlot),
-        };
-        this.context.pendingNotes.push(pendingNoteData);
+      notifyCreatedNote: async ([storageSlot], preimage) => {
+        await this.context.pushNewNote(this.contractAddress, storageSlot, preimage);
 
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
         // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
-          preimage: acvmPreimage.map(f => fromACVMField(f)),
+          preimage: preimage.map(f => fromACVMField(f)),
         });
-        return Promise.resolve(ZERO_ACVM_FIELD);
+        return ZERO_ACVM_FIELD;
       },
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes

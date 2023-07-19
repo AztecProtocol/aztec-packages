@@ -35,7 +35,7 @@ export class UnconstrainedFunctionExecution {
       )}`,
     );
 
-    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(acir, initialWitness, {
@@ -46,7 +46,7 @@ export class UnconstrainedFunctionExecution {
         return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
-        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
+        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       debugLog: (...params) => {
         this.log(oracleDebugCallToFormattedStr(params));

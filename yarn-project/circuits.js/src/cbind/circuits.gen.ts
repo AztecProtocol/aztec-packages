@@ -8,7 +8,6 @@ import mapValues from 'lodash.mapvalues';
 
 import { callCbind } from './cbind.js';
 import {
-  toBuffer,
   Address,
   CallContext,
   CircuitError,
@@ -24,7 +23,6 @@ import {
   G1AffineElement,
   KernelCircuitPublicInputs,
   NativeAggregationState,
-  ReadRequestMembershipWitness,
   NewContractData,
   OptionallyRevealedData,
   Point,
@@ -37,9 +35,11 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelInputs,
+  ReadRequestMembershipWitness,
   TxContext,
   VerificationKeyData,
   isCircuitError,
+  toBuffer,
 } from './types.js';
 
 interface MsgpackG1AffineElement {
@@ -1429,6 +1429,12 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
+export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [toBuffer(arg0), toBuffer(arg1)]));
+}
+export function abisComputeUniqueCommitment(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_commitment', [toBuffer(arg0), toBuffer(arg1)]));
+}
 export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [toBuffer(arg0), toBuffer(arg1)]));
 }

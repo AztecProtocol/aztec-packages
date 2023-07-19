@@ -2,6 +2,7 @@ import { ContractFunctionDao } from '@aztec/circuits.js';
 import { ContractAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
+
 import { EncodedContractFunction } from './contract_data.js';
 
 /**
@@ -56,6 +57,9 @@ export function getNewContractPublicFunctions(newContract: ContractDao) {
     .filter(c => c.functionType === FunctionType.OPEN)
     .map(
       fn =>
-        new EncodedContractFunction(generateFunctionSelector(fn.name, fn.parameters), Buffer.from(fn.bytecode, 'hex')),
+        new EncodedContractFunction(
+          generateFunctionSelector(fn.name, fn.parameters),
+          Buffer.from(fn.bytecode, 'base64'),
+        ),
     );
 }

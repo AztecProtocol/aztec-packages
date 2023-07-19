@@ -1,12 +1,13 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract } from '@aztec/aztec.js';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Point } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
+import { TxStatus, AztecRPC } from '@aztec/types';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { AztecRPC, TxStatus } from '@aztec/types';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { delay, setup } from './utils.js';
 
 describe('e2e_cross_chain_messaging', () => {
@@ -14,7 +15,7 @@ describe('e2e_cross_chain_messaging', () => {
   let aztecRpcServer: AztecRPC;
   let logger: DebugLogger;
 
-  let l2Contract: Contract;
+  let l2Contract: NonNativeTokenContract;
   let ethAccount: EthAddress;
 
   let underlyingERC20: any;

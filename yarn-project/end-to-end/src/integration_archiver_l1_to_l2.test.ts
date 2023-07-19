@@ -1,15 +1,16 @@
 import { Archiver } from '@aztec/archiver';
 import { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, AztecRPC, Contract, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPC, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { DeployL1Contracts } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
 import { Chain, HttpTransport, PublicClient } from 'viem';
 
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setNextBlockTimestamp, setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('archiver integration with l1 to l2 messages', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -20,7 +21,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   let logger: DebugLogger;
   let config: AztecNodeConfig;
 
-  let l2Contract: Contract;
+  let l2Contract: NonNativeTokenContract;
   let ethAccount: EthAddress;
 
   let tokenPortalAddress: EthAddress;
