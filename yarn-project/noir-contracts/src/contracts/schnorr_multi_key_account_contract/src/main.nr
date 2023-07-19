@@ -2,7 +2,7 @@ mod storage;
 mod public_key_note;
 
 // Account contract that uses Schnorr signatures for authentication.
-// The signing key is stored in an immutable private note and should be different from the signing key.
+// The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrMultiKeyAccount {
     use dep::std;
     use dep::aztec::entrypoint;
@@ -42,7 +42,7 @@ contract SchnorrMultiKeyAccount {
 
         // Load public key from storage
         let storage = Storage::init();
-        let (context_1, public_key) = storage.public_key.get_note(context);
+        let (context_1, public_key) = storage.signing_public_key.get_note(context);
         context = context_1;
 
         // Verify payload signature
@@ -72,12 +72,12 @@ contract SchnorrMultiKeyAccount {
         
         let this = inputs.call_context.storage_contract_address;
         let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        context = storage.public_key.initialise(context, pub_key_note);
+        context = storage.signing_public_key.initialise(context, pub_key_note);
         
         context = emit_encrypted_log(
             context,
             this,
-            storage.public_key.storage_slot,
+            storage.signing_public_key.storage_slot,
             get_public_key(this),
             pub_key_note.serialise(),
         );

@@ -9,13 +9,13 @@ use crate::public_key_note::{
 };
 
 struct Storage {
-    public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
+    signing_public_key: ImmutableSingleton<PublicKeyNote, PUBLIC_KEY_NOTE_LEN>,
 }
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            public_key: ImmutableSingleton::new(1, PublicKeyNoteInterface)
+            signing_public_key: ImmutableSingleton::new(1, PublicKeyNoteInterface)
         }
     }
 }
