@@ -92,7 +92,9 @@ export class JsonRpcServer {
     } else {
       // "JSON RPC mode" where a single endpoint is used and the method is given in the request body
       router.post('/', async (ctx: Koa.Context) => {
+        this.log(`RECEIVED RPC CALL `);
         const { params = [], jsonrpc, id, method } = ctx.request.body as any;
+        this.log(`RECEIVED RPC CALL ${method}`);
         // Ignore if not a function
         if (
           method === 'constructor' ||
