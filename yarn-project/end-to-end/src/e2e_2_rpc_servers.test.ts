@@ -106,13 +106,7 @@ describe('e2e_2_rpc_servers', () => {
     await expectUnencryptedLogsFromLastBlockToBe(['Balance set in constructor']);
 
     // Transfer funds from A to B via rpc server A
-    const txAToB = contractWithWalletA.methods
-      .transfer(
-        transferAmount1,
-        userA,
-        userB,
-      )
-      .send({ origin: userA });
+    const txAToB = contractWithWalletA.methods.transfer(transferAmount1, userA, userB).send({ origin: userA });
 
     await txAToB.isMined(0, 0.1);
     const receiptAToB = await txAToB.getReceipt();
@@ -126,13 +120,7 @@ describe('e2e_2_rpc_servers', () => {
     await expectUnencryptedLogsFromLastBlockToBe(['Coins transferred']);
 
     // Transfer funds from B to A via rpc server B
-    const txBToA = contractWithWalletB.methods
-      .transfer(
-        transferAmount2,
-        userB,
-        userA,
-      )
-      .send({ origin: userB });
+    const txBToA = contractWithWalletB.methods.transfer(transferAmount2, userB, userA).send({ origin: userB });
 
     await txBToA.isMined(0, 0.1);
     const receiptBToA = await txBToA.getReceipt();
