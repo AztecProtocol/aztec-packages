@@ -55,12 +55,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
         let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
@@ -93,12 +93,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
@@ -133,12 +133,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
         let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
@@ -154,12 +154,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         expected_value: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
@@ -189,17 +189,16 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
         createFnSelector: Field,
         getAndCheckFnSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, createFnSelector, getAndCheckFnSelector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, createFnSelector, getAndCheckFnSelector]));
 
         // args for nested calls
         let mut args = [0; ARGS_LENGTH];
         args[0] = amount;
-        args[1] = owner.x;
-        args[2] = owner.y;
+        args[1] = owner;
 
         // nested call to create/insert note
         let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context);
@@ -224,7 +223,7 @@ contract PendingCommitments {
     //    inputs: PrivateContextInputs,
     //    //*********************************/
     //    amount: Field,
-    //    owner: Point,
+    //    owner: Field,
     //    getAndCheckFnSelector: Field,
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
