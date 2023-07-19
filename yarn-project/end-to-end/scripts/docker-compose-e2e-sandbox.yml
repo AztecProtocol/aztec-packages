@@ -31,7 +31,7 @@ services:
   end-to-end:
     image: aztecprotocol/end-to-end:latest
     environment:
-      DEBUG: 'aztec:*'
+      DEBUG: 'aztec:*,json-rpc:*'
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       SANDBOX_URL: http://sandbox:8080
