@@ -23,6 +23,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
@@ -45,7 +46,6 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { retryUntil } from '@aztec/foundation/retry';
 
 const { SANDBOX_URL = '' } = process.env;
 
@@ -54,7 +54,7 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
     try {
       await rpcServer.getNodeInfo();
     } catch (error) {
-      logger('Waiting for RPC Server to come online');
+      logger('Waiting for RPC Server to come online...');
     }
   }, 'RPC Get Block Number');
 };
