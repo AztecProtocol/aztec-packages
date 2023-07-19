@@ -81,5 +81,5 @@ export interface AztecRPC {
     publicKey: PublicKey,
     partialAddress: PartialContractAddress,
   ): Promise<void>;
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress] | undefined>;
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]>;
 }

@@ -171,9 +171,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param address - The AztecAddress instance representing the account to get public key and partial address for.
    * @returns A Promise resolving to the Point instance representing the public key.
    */
-  public async getPublicKeyAndPartialAddress(
-    address: AztecAddress,
-  ): Promise<[Point, PartialContractAddress] | undefined> {
+  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result) {
       throw new Error(`Unable to get public key for address ${address.toString()}`);
