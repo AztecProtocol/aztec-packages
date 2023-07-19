@@ -530,7 +530,9 @@ describe('Private Execution test suite', () => {
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'test_insert_then_get_then_nullify_flat')!;
+      const abi = PendingCommitmentsContractAbi.functions.find(
+        f => f.name === 'test_insert_then_get_then_nullify_flat',
+      )!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
