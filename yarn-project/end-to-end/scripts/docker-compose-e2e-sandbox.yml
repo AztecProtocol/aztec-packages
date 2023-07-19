@@ -13,8 +13,8 @@ services:
       - '8545:8545'
 
   sandbox:
-    #image: $ECR_URL/aztec-sandbox:cache-$COMMIT_HASH
-    image: aztecprotocol/aztec-sandbox
+    image: $ECR_URL/aztec-sandbox:cache-$COMMIT_HASH
+    #image: aztecprotocol/aztec-sandbox
     environment:
       DEBUG: '*'
       ETHEREUM_HOST: http://fork:8545
@@ -32,7 +32,7 @@ services:
   end-to-end:
     image: aztecprotocol/end-to-end:latest
     environment:
-      DEBUG: 'aztec:*,json-rpc:*'
+      DEBUG: '*'
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       SANDBOX_URL: http://sandbox:8080
