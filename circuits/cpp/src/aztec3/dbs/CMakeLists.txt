@@ -27,7 +27,7 @@ if(NOT WASM)
     link_libraries(leveldb)
 endif()
 
-circuits_cpp_module(
+circuits_cmake_module(
     aztec3_dbs
     barretenberg
 )
