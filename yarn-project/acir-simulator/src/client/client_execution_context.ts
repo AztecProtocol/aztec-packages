@@ -12,7 +12,7 @@ import {
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { DBOracle, NoteData } from './db_oracle.js';
-import { getNotes } from './get_notes.js';
+import { pickNotes } from './pick_notes.js';
 
 /**
  * The execution context for a client tx simulation.
@@ -121,7 +121,7 @@ export class ClientTxExecutionContext {
 
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
-    const notes = getNotes([...pendingNotes, ...dbNotes], {
+    const notes = pickNotes([...pendingNotes, ...dbNotes], {
       sortBy: sortBy.map(field => +field),
       sortOrder: sortOrder.map(field => +field),
       limit,
