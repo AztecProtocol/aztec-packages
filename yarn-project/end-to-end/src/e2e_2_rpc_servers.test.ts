@@ -86,10 +86,10 @@ describe('e2e_2_rpc_servers', () => {
 
     // Add account B pub key and partial address to wallet A
     const [accountBPubKey, accountBPartialAddress] = (await aztecRpcServerB.getPublicKeyAndPartialAddress(userB))!;
-    aztecRpcServerA.addPublicKeyAndPartialAddress(userB, accountBPubKey, accountBPartialAddress);
+    await aztecRpcServerA.addPublicKeyAndPartialAddress(userB, accountBPubKey, accountBPartialAddress);
     // Add account A pub key and partial address to wallet B
     const [accountAPubKey, accountAPartialAddress] = (await aztecRpcServerA.getPublicKeyAndPartialAddress(userA))!;
-    aztecRpcServerB.addPublicKeyAndPartialAddress(userA, accountAPubKey, accountAPartialAddress);
+    await aztecRpcServerB.addPublicKeyAndPartialAddress(userA, accountAPubKey, accountAPartialAddress);
 
     // Add zkToken to rpc server B
     await aztecRpcServerB.addContracts([
