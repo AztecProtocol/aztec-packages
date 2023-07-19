@@ -68,6 +68,16 @@ async function main() {
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
+  const shutdown = async () => {
+    logger('Shutting down...');
+    await aztecRpcServer.stop();
+    await aztecNode.stop();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const rpcServer = getHttpRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
