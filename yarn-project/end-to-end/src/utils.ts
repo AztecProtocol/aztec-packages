@@ -45,15 +45,30 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
+import { retryUntil } from '@aztec/foundation/retry';
 
 const { SANDBOX_URL = '' } = process.env;
+
+const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
+  await retryUntil(async () => {
+    try {
+      await rpcServer.getNodeInfo();
+    } catch (error) {
+      logger('Waiting for RPC Server to come online');
+    }
+  }, 'RPC Get Block Number');
+};
 
 const createRpcServer = async (
   nodeConfig: AztecNodeConfig,
   rpcConfig: RpcServerConfig,
+  logger: Logger,
 ): Promise<[AztecNodeService | undefined, AztecRPC]> => {
   if (SANDBOX_URL) {
+    logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
     const jsonClient = createJsonRpcClient(SANDBOX_URL);
+    await waitForRPCServer(jsonClient, logger);
+    logger('JSON RPC client connected to RPC Server');
     return [undefined, jsonClient];
   }
   const aztecNode = await AztecNodeService.createAndSync(nodeConfig);
@@ -167,7 +182,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  const [aztecNode, aztecRpcServer] = await createRpcServer(config, rpcConfig);
+  const [aztecNode, aztecRpcServer] = await createRpcServer(config, rpcConfig, logger);
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
 
