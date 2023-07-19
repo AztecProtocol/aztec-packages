@@ -151,11 +151,11 @@ export class AztecRPCServer implements AztecRPC {
    * Retrieve the public key associated with an address.
    * Throws an error if the account is not found in the key store.
    *
-   * @param address - The AztecAddress instance representing the account.
+   * @param address - The AztecAddress instance representing the account to get public key for.
    * @returns A Promise resolving to the Point instance representing the public key.
    */
-  public async getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    const result = await this.db.getPublicKey(address);
+  public async getPublicKey(address: AztecAddress): Promise<Point> {
+    const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result) {
       throw new Error(`Unable to public key for address ${address.toString()}`);
     }

@@ -35,7 +35,7 @@ describe('e2e_2_rpc_servers', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer1.getAccountPublicKey(owner);
+    const ownerPublicKey = await aztecRpcServer1.getPublicKey(owner);
     const [balance] = await contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
@@ -91,8 +91,8 @@ describe('e2e_2_rpc_servers', () => {
     const tx = contract.methods
       .transfer(
         transferAmount,
-        (await aztecRpcServer1.getAccountPublicKey(owner)).toBigInts(),
-        (await aztecRpcServer2.getAccountPublicKey(receiver)).toBigInts(),
+        (await aztecRpcServer1.getPublicKey(owner)).toBigInts(),
+        (await aztecRpcServer1.getPublicKey(receiver)).toBigInts(),
       )
       .send({ origin: accounts1[0] });
 

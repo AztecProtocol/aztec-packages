@@ -58,7 +58,7 @@ export interface AztecRPC {
     abi?: ContractAbi,
   ): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
-  getAccountPublicKey(address: AztecAddress): Promise<Point>;
+  getPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
   /**
    * Is an L2 contract deployed at this address?
