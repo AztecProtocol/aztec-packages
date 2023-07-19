@@ -17,9 +17,9 @@ using aztec3::circuits::rollup::merge::merge_rollup_circuit;
 
 auto merge_rollup__sim_helper(MergeRollupInputs<NT> merge_rollup_inputs)
 {
-    DummyComposer composer = DummyComposer("merge_rollup__sim");
-    BaseOrMergeRollupPublicInputs const result = merge_rollup_circuit(composer, merge_rollup_inputs);
-    return composer.result_or_error(result);
+    DummyBuilder builder{ "merge_rollup__sim" };
+    BaseOrMergeRollupPublicInputs const result = merge_rollup_circuit(builder, merge_rollup_inputs);
+    return builder.result_or_error(result);
 }
 
 CBIND(merge_rollup__sim, merge_rollup__sim_helper);

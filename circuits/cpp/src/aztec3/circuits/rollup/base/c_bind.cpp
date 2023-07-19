@@ -51,14 +51,14 @@ WASM_EXPORT size_t base_rollup__init_verification_key(uint8_t const* pk_buf, uin
 
 static auto base_rollup__sim_helper(BaseRollupInputs<NT> base_rollup_inputs)
 {
-    DummyBuilder builder = DummyBuilder("base_rollup__sim");
+    DummyBuilder builder{ "base_rollup__sim" };
     // TODO accept proving key and use that to initialize builders
     // this info is just to prevent error for unused pk_buf
     // TODO do we want to accept it or just get it from our factory?
     // auto crs_factory = std::make_shared<EnvReferenceStringFactory>();
 
-    BaseOrMergeRollupPublicInputs<NT> const result = base_rollup_circuit(composer, base_rollup_inputs);
-    return composer.result_or_error(result);
+    BaseOrMergeRollupPublicInputs<NT> const result = base_rollup_circuit(builder, base_rollup_inputs);
+    return builder.result_or_error(result);
 }
 
 CBIND(base_rollup__sim, base_rollup__sim_helper);

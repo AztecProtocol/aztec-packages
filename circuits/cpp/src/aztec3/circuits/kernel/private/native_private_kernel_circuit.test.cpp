@@ -48,7 +48,7 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
     private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_accumulate_transient_read_requests");
+    DummyBuilder builder{ "native_private_kernel_tests__native_accumulate_transient_read_requests" };
     auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs_init);
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
@@ -100,7 +100,7 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_transient_read_requests_no_match");
+    DummyBuilder builder{ "native_private_kernel_tests__native_transient_read_requests_no_match" };
     auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs_init);
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()

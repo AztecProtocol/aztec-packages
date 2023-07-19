@@ -124,9 +124,10 @@ template <typename T> T as_serialized_output_msgpack(const T& obj)
 }
 /**
  * For testing serialization roundtrip. */
-template <typename T> T as_serialized_output(const T& obj)
+template <typename T> const char* as_serialized_output(uint8_t const* input_buf, uint32_t* size)
 {
     using serialize::read;
+    using serialize::write;
     T obj;
     read(input_buf, obj);
     std::vector<uint8_t> stream;
@@ -442,38 +443,40 @@ WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_
 }
 
 /* Typescript test helpers that call as_string_output() to stress serialization.*/
-CBIND(abis__test_roundtrip_serialize_tx_context, as_string_output_msgpack<TxContext<NT>>);
-CBIND(abis__test_roundtrip_serialize_tx_request, as_string_output_msgpack<TxRequest<NT>>);
-CBIND(abis__test_roundtrip_serialize_call_context, as_string_output_msgpack<aztec3::circuits::abis::CallContext<NT>>);
-CBIND(abis__test_roundtrip_serialize_private_circuit_public_inputs,
+CBIND(abis__test_roundtrip_serialize_tx_context_msgpack, as_string_output_msgpack<TxContext<NT>>);
+CBIND(abis__test_roundtrip_serialize_tx_request_msgpack, as_string_output_msgpack<TxRequest<NT>>);
+CBIND(abis__test_roundtrip_serialize_call_context_msgpack,
+      as_string_output_msgpack<aztec3::circuits::abis::CallContext<NT>>);
+CBIND(abis__test_roundtrip_serialize_private_circuit_public_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_function_data, as_string_output_msgpack<aztec3::circuits::abis::FunctionData<NT>>);
-CBIND(abis__test_roundtrip_serialize_base_rollup_inputs,
+CBIND(abis__test_roundtrip_serialize_function_data_msgpack,
+      as_string_output_msgpack<aztec3::circuits::abis::FunctionData<NT>>);
+CBIND(abis__test_roundtrip_serialize_base_rollup_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::BaseRollupInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_previous_kernel_data,
+CBIND(abis__test_roundtrip_serialize_previous_kernel_data_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::PreviousKernelData<NT>>);
-CBIND(abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs,
+CBIND(abis__test_roundtrip_serialize_base_or_merge_rollup_public_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs,
-      as_serialized_output<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_root_rollup_inputs,
+CBIND(abis__test_roundtrip_reserialize_base_or_merge_rollup_public_inputs_msgpack,
+      as_serialized_output_msgpack<aztec3::circuits::abis::BaseOrMergeRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_root_rollup_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::RootRollupInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_root_rollup_public_inputs,
+CBIND(abis__test_roundtrip_serialize_root_rollup_public_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_reserialize_root_rollup_public_inputs,
-      as_serialized_output<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_combined_accumulated_data,
+CBIND(abis__test_roundtrip_reserialize_root_rollup_public_inputs_msgpack,
+      as_serialized_output_msgpack<aztec3::circuits::abis::RootRollupPublicInputs<NT>>);
+CBIND(abis__test_roundtrip_serialize_combined_accumulated_data_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::CombinedAccumulatedData<NT>>);
-CBIND(abis__test_roundtrip_serialize_signature, as_string_output_msgpack<NT::ecdsa_signature>);
-CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_inner,
+CBIND(abis__test_roundtrip_serialize_signature_msgpack, as_string_output_msgpack<NT::ecdsa_signature>);
+CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_inner_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner<NT>>);
-CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_init,
+CBIND(abis__test_roundtrip_serialize_private_kernel_inputs_init_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit<NT>>);
-CBIND(abis__test_roundtrip_serialize_kernel_circuit_public_inputs,
+CBIND(abis__test_roundtrip_serialize_kernel_circuit_public_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::KernelCircuitPublicInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_public_kernel_inputs,
+CBIND(abis__test_roundtrip_serialize_public_kernel_inputs_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::public_kernel::PublicKernelInputs<NT>>);
-CBIND(abis__test_roundtrip_serialize_function_leaf_preimage,
+CBIND(abis__test_roundtrip_serialize_function_leaf_preimage_msgpack,
       as_string_output_msgpack<aztec3::circuits::abis::FunctionLeafPreimage<NT>>);
 
 /* Typescript test helpers that call as_string_output() to stress serialization.

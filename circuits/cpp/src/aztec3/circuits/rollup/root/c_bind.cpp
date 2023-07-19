@@ -43,23 +43,11 @@ WASM_EXPORT size_t root_rollup__init_verification_key(uint8_t const* pk_buf, uin
     return vk_vec.size();
 }
 
-static auto root_rollup__sim_helper(RootRollupInputs root_rollup_inputs)
+static auto root_rollup__sim_helper(const RootRollupInputs& root_rollup_inputs)
 {
-    RootRollupInputs root_rollup_inputs;
-    read(root_rollup_inputs_buf, root_rollup_inputs);
-
-    DummyBuilder builder = DummyBuilder("root_rollup__sim");
-    RootRollupPublicInputs const public_inputs = root_rollup_circuit(builder, root_rollup_inputs);
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *root_rollup_public_inputs_buf = raw_public_inputs_buf;
-    *root_rollup_public_inputs_size_out = public_inputs_vec.size();
-    return builder.alloc_and_serialize_first_failure();
+    DummyBuilder builder{ "root_rollup__sim" };
+    RootRollupPublicInputs result = root_rollup_circuit(builder, root_rollup_inputs);
+    return builder.result_or_error(result);
 }
 
 CBIND(root_rollup__sim, root_rollup__sim_helper)

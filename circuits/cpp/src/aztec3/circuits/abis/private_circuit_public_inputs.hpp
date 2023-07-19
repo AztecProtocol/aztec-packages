@@ -51,7 +51,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     ContractDeploymentData<NCT> contract_deployment_data{};
 
-    // for serialization, update with new fields
+    fr chain_id = 0;
+    fr version = 0;
     MSGPACK_FIELDS(call_context,
                    args_hash,
                    return_values,
@@ -69,11 +70,26 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    historic_nullifier_tree_root,
                    historic_contract_tree_root,
                    historic_l1_to_l2_messages_tree_root,
-                   contract_deployment_data)
+                   contract_deployment_data,
+                   chain_id,
+                   version);
 
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
-        return utils::msgpack_derived_equals<boolean>(*this, other);
+        return call_context == other.call_context && args_hash == other.args_hash &&
+               return_values == other.return_values && read_requests == other.read_requests &&
+               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
+               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
+               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
+               unencrypted_logs_hash == other.unencrypted_logs_hash &&
+               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
+               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
+               historic_private_data_tree_root == other.historic_private_data_tree_root &&
+               historic_nullifier_tree_root == other.historic_nullifier_tree_root &&
+               historic_contract_tree_root == other.historic_contract_tree_root &&
+               historic_l1_to_l2_messages_tree_root == other.historic_l1_to_l2_messages_tree_root &&
+               contract_deployment_data == other.contract_deployment_data && chain_id == other.chain_id &&
+               version == other.version;
     };
 
     template <typename Builder>
@@ -209,6 +225,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
 template <typename NCT>
 std::ostream& operator<<(std::ostream& os, PrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
+
 {
     utils::msgpack_derived_output(os, private_circuit_public_inputs);
     return os;
@@ -250,7 +267,10 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::optional<ContractDeploymentData<NCT>> contract_deployment_data;
 
-    // for serialization, update with new fields
+    opt_fr chain_id;
+    opt_fr version;
+
+    // For serialization, update with new fields
     MSGPACK_FIELDS(call_context,
                    args_hash,
                    return_values,
@@ -268,7 +288,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    historic_nullifier_tree_root,
                    historic_contract_tree_root,
                    historic_l1_to_l2_messages_tree_root,
-                   contract_deployment_data)
+                   contract_deployment_data,
+                   chain_id,
+                   version);
 
     OptionalPrivateCircuitPublicInputs<NCT>() = default;
 
@@ -697,9 +719,29 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
 template <typename NCT>
 std::ostream& operator<<(std::ostream& os, OptionalPrivateCircuitPublicInputs<NCT> const& private_circuit_public_inputs)
+
 {
-    utils::msgpack_derived_output(os, private_circuit_public_inputs);
-    return os;
+    OptionalPrivateCircuitPublicInputs<NCT> const& pis = private_circuit_public_inputs;
+    return os << "call_context: " << pis.call_context << "\n"
+              << "args_hash: " << pis.args_hash << "\n"
+              << "return_values: " << pis.return_values << "\n"
+              << "read_requests: " << pis.read_requests << "\n"
+              << "new_commitments: " << pis.new_commitments << "\n"
+              << "new_nullifiers: " << pis.new_nullifiers << "\n"
+              << "private_call_stack: " << pis.private_call_stack << "\n"
+              << "public_call_stack: " << pis.public_call_stack << "\n"
+              << "new_l2_to_l1_msgs: " << pis.new_l2_to_l1_msgs << "\n"
+              << "encrypted_logs_hash: " << pis.encrypted_logs_hash << "\n"
+              << "unencrypted_logs_hash: " << pis.unencrypted_logs_hash << "\n"
+              << "encrypted_log_preimages_length: " << pis.encrypted_log_preimages_length << "\n"
+              << "unencrypted_log_preimages_length: " << pis.unencrypted_log_preimages_length << "\n"
+              << "historic_private_data_tree_root: " << pis.historic_private_data_tree_root << "\n"
+              << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
+              << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
+              << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
+              << "contract_deployment_data: " << pis.contract_deployment_data << "\n"
+              << "chain_id: " << pis.chain_id << "\n"
+              << "version: " << pis.version << "\n";
 }
 
 }  // namespace aztec3::circuits::abis

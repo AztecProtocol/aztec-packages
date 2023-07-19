@@ -48,7 +48,7 @@ WASM_EXPORT size_t public_kernel__init_verification_key(uint8_t const* pk_buf, u
 }
 
 CBIND(public_kernel__sim, [](PublicKernelInputs<NT> public_kernel_inputs) {
-    DummyBuilder builder = DummyBuilder("public_kernel__sim");
+    DummyBuilder builder{ "public_kernel__sim" };
     KernelCircuitPublicInputs<NT> const result =
         public_kernel_inputs.previous_kernel.public_inputs.is_private
             ? native_public_kernel_circuit_private_previous_kernel(builder, public_kernel_inputs)

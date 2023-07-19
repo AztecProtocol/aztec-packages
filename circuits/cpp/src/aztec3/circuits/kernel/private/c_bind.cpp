@@ -61,47 +61,26 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
 
 CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel(); });
 
-static auto private_kernel__sim_init_helper(PrivateKernelInputsInit<NT> private_inputs)
+static auto private_kernel__sim_init_helper(const PrivateKernelInputsInit<NT>& private_inputs)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_init");
-
-    PrivateCallData<NT> private_call_data;
-    read(private_call_buf, private_call_data);
-
-    TxRequest<NT> tx_request;
-    read(tx_request_buf, tx_request);
-
-    PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
-        .tx_request = tx_request,
-        .private_call = private_call_data,
-    };
-
-    auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    serialize::write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *private_kernel_public_inputs_buf = raw_public_inputs_buf;
-    *private_kernel_public_inputs_size_out = public_inputs_vec.size();
-    return builder.alloc_and_serialize_first_failure();
+    DummyBuilder builder{ "private_kernel__sim_init" };
+    auto result = native_private_kernel_circuit_initial(builder, private_inputs);
+    return builder.result_or_error(result);
 }
 
 CBIND(private_kernel__sim_init, private_kernel__sim_init_helper);
 
-static auto private_kernel__sim_inner_helper(PrivateKernelInputsInner<NT> private_inputs)
+static auto private_kernel__sim_inner_helper(const PrivateKernelInputsInner<NT>& private_inputs)
 {
-    DummyComposer composer = DummyComposer("private_kernel__sim_inner");
-    KernelCircuitPublicInputs<NT> const result = native_private_kernel_circuit_inner(composer, private_inputs);
-    return composer.result_or_error(result);
+    DummyBuilder builder{ "private_kernel__sim_inner" };
+    KernelCircuitPublicInputs<NT> const result = native_private_kernel_circuit_inner(builder, private_inputs);
+    return builder.result_or_error(result);
 }
 
 CBIND(private_kernel__sim_inner, private_kernel__sim_inner_helper);
 
 CBIND(private_kernel__sim_ordering, [](PreviousKernelData<NT> previous_kernel) {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_ordering");
+    DummyBuilder builder{ "private_kernel__sim_ordering" };
     auto const& public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
     return builder.result_or_error(public_inputs);
 });

@@ -140,7 +140,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
         read_request_membership_witnesses;
 
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
+    DummyBuilder builder{ "native_private_kernel_ordering_tests__native_read_request_unknown_fails" };
     native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
     auto failure = builder.get_first_failure();

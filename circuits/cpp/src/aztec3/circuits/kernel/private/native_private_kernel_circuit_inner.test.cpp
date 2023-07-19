@@ -54,7 +54,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_zero_storage_contract
         private_inputs.private_call.call_stack_item.hash();
 
     // Invoke the native private kernel circuit
-    DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_zero_storage_contract_address_fails");
+    DummyBuilder builder{ "private_kernel_tests__private_function_zero_storage_contract_address_fails" };
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     // Assertion checks
@@ -73,7 +73,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_tr
         .contract_tree_root = NT::fr::random_element();
 
     // Invoke the native private kernel circuit
-    DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_incorrect_contract_tree_root_fails");
+    DummyBuilder builder{ "private_kernel_tests__private_function_incorrect_contract_tree_root_fails" };
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     // Assertion checks
@@ -94,7 +94,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_le
     private_inputs.private_call.contract_leaf_membership_witness.leaf_index = wrong_idx;
 
     // Invoke the native private kernel circuit
-    DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_incorrect_contract_leaf_index_fails");
+    DummyBuilder builder{ "private_kernel_tests__private_function_incorrect_contract_leaf_index_fails" };
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     // Assertion checks
@@ -134,7 +134,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_function_le
     private_inputs.private_call.function_leaf_membership_witness.leaf_index = wrong_idx;
 
     // Invoke the native private kernel circuit
-    DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_incorrect_contract_leaf_index_fails");
+    DummyBuilder builder{ "private_kernel_tests__private_function_incorrect_contract_leaf_index_fails" };
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     // Assertion checks
@@ -174,7 +174,7 @@ TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_ca
     private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[0] = NT::fr::random_element();
 
     // Invoke the native private kernel circuit
-    DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_incorrect_call_stack_item_hash_fails");
+    DummyBuilder builder{ "private_kernel_tests__private_function_incorrect_call_stack_item_hash_fails" };
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     // Assertion checks
@@ -188,7 +188,7 @@ TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_ca
 TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
 {
     // Negative test to check if push_array_to_array fails if two many commitments are merged together
-    DummyBuilder builder = DummyBuilder("should_fail_if_aggregating_too_many_commitments");
+    DummyBuilder builder{ "should_fail_if_aggregating_too_many_commitments" };
 
     PrivateKernelInputsInner<NT> private_inputs =
         do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
@@ -238,7 +238,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_request");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_request_bad_request" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -265,7 +265,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_leaf_index");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_request_bad_leaf_index" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -292,7 +292,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_sibling_path");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_request_bad_sibling_path" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -329,7 +329,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = bad_requests;
     private_inputs.private_call.read_request_membership_witnesses = bad_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_root_mismatch");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_request_root_mismatch" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -352,7 +352,7 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_no_read_requests_works");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_no_read_requests_works" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -383,7 +383,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_read_requests_works");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_one_read_requests_works" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -414,7 +414,7 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_two_read_requests_works");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_two_read_requests_works" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -446,7 +446,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_max_read_requests_works");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_max_read_requests_works" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -478,7 +478,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_less_than_witness
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_requests_less_than_witnesses");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_requests_less_than_witnesses" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     ASSERT_TRUE(builder.failed());
@@ -505,7 +505,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_more_than_witness
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_requests_more_than_witnesses");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_read_requests_more_than_witnesses" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     ASSERT_TRUE(builder.failed());
@@ -532,7 +532,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_wor
     read_request_membership_witnesses[0].is_transient = true;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_transient_read_requests_works");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_one_transient_read_requests_works" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     validate_no_new_deployed_contract(public_inputs);
@@ -647,7 +647,7 @@ TEST_F(native_private_kernel_inner_tests, native_logs_are_hashed_as_expected)
                                                                   public_inputs_encrypted_log_preimages_length,
                                                                   public_inputs_unencrypted_log_preimages_length);
 
-    DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_logs_are_hashed_as_expected");
+    DummyBuilder builder{ "native_private_kernel_inner_tests__native_logs_are_hashed_as_expected" };
     auto const& public_inputs = native_private_kernel_circuit_inner(builder, private_inputs);
 
     ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length,
