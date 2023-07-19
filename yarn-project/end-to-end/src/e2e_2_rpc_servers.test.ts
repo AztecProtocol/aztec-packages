@@ -40,9 +40,8 @@ describe('e2e_2_rpc_servers', () => {
   });
 
   const expectBalance = async (wallet: Wallet, owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await wallet.getPublicKey(owner);
     const contractWithWallet = new ZkTokenContract(contractWithWalletA.address, wallet);
-    const [balance] = await contractWithWallet.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
+    const [balance] = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -63,9 +62,9 @@ describe('e2e_2_rpc_servers', () => {
     expect(asciiLogs).toStrictEqual(logMessages);
   };
 
-  const deployContract = async (initialBalance = 0n, owner = { x: 0n, y: 0n }) => {
+  const deployContract = async (initialBalance: bigint, from: AztecAddress) => {
     logger(`Deploying L2 contract...`);
-    const tx = ZkTokenContract.deploy(aztecRpcServerA, initialBalance, owner).send();
+    const tx = ZkTokenContract.deploy(aztecRpcServerA, initialBalance, from).send();
     const receipt = await tx.getReceipt();
     contractWithWalletA = new ZkTokenContract(receipt.contractAddress!, walletA);
     contractWithWalletB = new ZkTokenContract(receipt.contractAddress!, walletB);
@@ -82,7 +81,7 @@ describe('e2e_2_rpc_servers', () => {
     const transferAmount2 = 323n;
 
     // Deploy ZkToken contract with walletA
-    await deployContract(initialBalance, (await aztecRpcServerA.getPublicKey(userA)).toBigInts());
+    await deployContract(initialBalance, userA);
 
     // Add account B pub key and partial address to wallet A
     const [accountBPubKey, accountBPartialAddress] = (await aztecRpcServerB.getPublicKeyAndPartialAddress(userB))!;
@@ -110,8 +109,8 @@ describe('e2e_2_rpc_servers', () => {
     const txAToB = contractWithWalletA.methods
       .transfer(
         transferAmount1,
-        (await aztecRpcServerA.getPublicKey(userA)).toBigInts(),
-        (await aztecRpcServerA.getPublicKey(userB)).toBigInts(),
+        userA,
+        userB,
       )
       .send({ origin: userA });
 
@@ -130,8 +129,8 @@ describe('e2e_2_rpc_servers', () => {
     const txBToA = contractWithWalletB.methods
       .transfer(
         transferAmount2,
-        (await aztecRpcServerB.getPublicKey(userB)).toBigInts(),
-        (await aztecRpcServerB.getPublicKey(userA)).toBigInts(),
+        userB,
+        userA,
       )
       .send({ origin: userB });
 
