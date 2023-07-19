@@ -1,3 +1,4 @@
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   AccountImplementation,
   AccountWallet,
@@ -18,7 +19,6 @@ import { AztecRPC, PublicKey } from '@aztec/types';
 import { randomBytes } from 'crypto';
 
 import { setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 async function deployContract(
   aztecRpcServer: AztecRPC,

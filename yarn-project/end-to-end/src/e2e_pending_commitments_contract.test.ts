@@ -3,7 +3,7 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PendingCommitmentsContract } from '@aztec/noir-contracts/types';
-import { TxStatus, AztecRPC } from '@aztec/types';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
 

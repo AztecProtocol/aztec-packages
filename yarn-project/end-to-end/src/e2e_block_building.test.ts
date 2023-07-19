@@ -4,6 +4,7 @@ import { ContractDeployer, Fr } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { AztecRPC, TxStatus } from '@aztec/types';
+
 import times from 'lodash.times';
 
 import { setup } from './utils.js';

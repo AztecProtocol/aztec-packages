@@ -6,13 +6,13 @@ import {
   AztecAddress,
   Contract,
   ContractDeployer,
+  DeployMethod,
   EthAddress,
+  SentTx,
   SingleKeyAccountContract,
   Wallet,
-  generatePublicKey,
-  DeployMethod,
-  SentTx,
   createAztecRpcClient as createJsonRpcClient,
+  generatePublicKey,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
 import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
@@ -30,9 +30,21 @@ import { AztecRPC, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
+import {
+  Account,
+  Chain,
+  HDAccount,
+  HttpTransport,
+  PublicClient,
+  WalletClient,
+  createPublicClient,
+  createWalletClient,
+  getContract,
+  http,
+} from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC, localAnvil } from './fixtures.js';
-import { Chain, HDAccount, HttpTransport, createPublicClient, createWalletClient, http } from 'viem';
 
 const { SANDBOX_URL = '' } = process.env;
 

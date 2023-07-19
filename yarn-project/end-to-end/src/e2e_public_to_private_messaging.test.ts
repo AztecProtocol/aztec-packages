@@ -1,11 +1,11 @@
 import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
 import { EthAddress } from '@aztec/circuits.js';
+import { DebugLogger } from '@aztec/foundation/log';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, setup } from './utils.js';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
 
 describe('e2e_public_to_private_messaging', () => {
   let aztecNode: AztecNodeService | undefined;

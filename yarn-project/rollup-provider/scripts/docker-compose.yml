@@ -1,0 +1,22 @@
+version: '3'
+services:
+  rollup-provider:
+    image: philwindle/aztec-node:latest
+    environment:
+      DEBUG: 'aztec:*'
+      ETHEREUM_HOST: testnet
+      ARCHIVER_POLLING_INTERVAL: 10000
+      SEQ_RETRY_INTERVAL: 10000
+      SEQ_MAX_TX_PER_BLOCK: 32
+      SEQ_PUBLISHER_PRIVATE_KEY: 'caaff87b825d9fa6f7842a8da5caa48465fbe591f66d8ebf6e898c4d7d04fd64'
+      UNVERIFIED_DATA_EMITTER_ADDRESS: '0xe359bf154325ea03e74f103b69cff4695675f917'
+      ROLLUP_CONTRACT_ADDRESS: '0xc019e9a5e4975b99d4e2e62f4339aeaa6e7e8b15'
+      API_KEY: 6cc8f5cd170abccfc090c6cf51d50ec7
+      SEARCH_START_BLOCK: 15918000
+      P2P_TCP_LISTEN_PORT: 40401
+      BOOTSTRAP_NODES: '/ip4/44.201.46.75/tcp/40400/p2p/12D3KooWGBpbC6qQFkaCYphjNeY6sV99o4SnEWyTeBigoVriDn4D'
+      PORT: 9000
+    ports:
+      - '40401:40401'
+      - '9000:9000'
+    command: start

@@ -25,6 +25,7 @@ export class JsonProxy {
    * @returns The remote result.
    */
   public async call(methodName: string, jsonParams: any[] = []) {
+    debug(`JsonProxy:call`, methodName, jsonParams);
     // Get access to our class members
     const proto = Object.getPrototypeOf(this.handler);
     assert(hasOwnProperty(proto, methodName), `JsonProxy: Method ${methodName} not found!`);

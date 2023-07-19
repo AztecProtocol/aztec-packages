@@ -10,6 +10,7 @@ import {
   TxHash,
   TxReceipt,
 } from '@aztec/types';
+
 import { foundry } from 'viem/chains';
 
 import { AztecRPCServer, EthAddress } from '../index.js';
