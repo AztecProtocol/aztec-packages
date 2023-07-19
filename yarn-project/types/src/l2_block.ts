@@ -12,12 +12,12 @@ import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 import times from 'lodash.times';
 
 import { ContractData, L2Tx, LogType, PublicDataWrite, TxL2Logs } from './index.js';
 import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * The data that makes up the rollup proof, with encoder decoder functions.

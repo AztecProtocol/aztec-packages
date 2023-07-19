@@ -1,6 +1,7 @@
 import { PartialContractAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
@@ -19,6 +20,10 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private publicKeys: Map<bigint, [PublicKey, PartialContractAddress]> = new Map();
+
+  constructor(logSuffix = '0') {
+    super(createDebugLogger('aztec:memory_db_' + logSuffix));
+  }
 
   /**
    * Retrieve a transaction from the MemoryDB using its transaction hash.

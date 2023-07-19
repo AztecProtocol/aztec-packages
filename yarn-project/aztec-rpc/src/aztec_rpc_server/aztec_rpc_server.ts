@@ -12,7 +12,7 @@ import {
 } from '@aztec/circuits.js';
 import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   AztecRPC,
@@ -49,15 +49,17 @@ import { Synchroniser } from '../synchroniser/index.js';
  */
 export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
+  private log: DebugLogger;
 
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: Database,
     private config: RpcServerConfig,
-    private log = createDebugLogger('aztec:rpc_server'),
+    logSuffix = '0',
   ) {
-    this.synchroniser = new Synchroniser(node, db);
+    this.log = createDebugLogger('aztec:rpc_server_' + logSuffix);
+    this.synchroniser = new Synchroniser(node, db, logSuffix);
   }
 
   /**

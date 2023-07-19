@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { AztecNode, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 
@@ -20,12 +20,11 @@ export class Synchroniser {
   private running = false;
   private initialSyncBlockHeight = 0;
   private synchedToBlock = 0;
+  private log: DebugLogger;
 
-  constructor(
-    private node: AztecNode,
-    private db: Database,
-    private log = createDebugLogger('aztec:aztec_rpc_synchroniser'),
-  ) {}
+  constructor(private node: AztecNode, private db: Database, logSuffix = '') {
+    this.log = createDebugLogger('aztec:aztec_rpc_synchroniser_' + logSuffix);
+  }
 
   /**
    * Starts the synchronisation process by fetching encrypted logs and blocks from a specified position.
