@@ -13,7 +13,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC } from '@aztec/types';
 
-import { EcdsaAccountContractAbi } from '../examples/index.js';
+import { EcdsaAccountContractAbi } from '../artifacts/index.js';
 
 /**
  * Type-safe interface for contract EcdsaAccount;
@@ -65,6 +65,15 @@ export class EcdsaAccountContract extends Contract {
         nonce: Fr | bigint | number | { toField: () => Fr };
       },
       signature: (bigint | number)[],
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** stev(contract_address: field, nonce: field, storage_slot: field, preimage: array) */
+    stev: ((
+      contract_address: Fr | bigint | number | { toField: () => Fr },
+      nonce: Fr | bigint | number | { toField: () => Fr },
+      storage_slot: Fr | bigint | number | { toField: () => Fr },
+      preimage: (Fr | bigint | number | { toField: () => Fr })[],
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
   };

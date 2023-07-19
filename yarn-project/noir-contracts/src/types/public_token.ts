@@ -13,7 +13,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC } from '@aztec/types';
 
-import { PublicTokenContractAbi } from '../examples/index.js';
+import { PublicTokenContractAbi } from '../artifacts/index.js';
 
 /**
  * Type-safe interface for contract PublicToken;
@@ -51,17 +51,17 @@ export class PublicTokenContract extends Contract {
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
-    /** mint(amount: field, recipient: struct) */
+    /** mint(amount: field, recipient: field) */
     mint: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      recipient: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      recipient: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** transfer(amount: field, recipient: struct) */
+    /** transfer(amount: field, recipient: field) */
     transfer: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      recipient: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      recipient: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
   };
