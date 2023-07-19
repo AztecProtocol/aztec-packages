@@ -46,10 +46,7 @@ export class UnconstrainedFunctionExecution {
         return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
-        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
-      getNote: async ([slot], [returnSize]) => {
-        return await this.context.getNotes(this.contractAddress, slot, [], [], '1', '0', returnSize);
-      },
+        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       debugLog: (...params) => {
         this.log(oracleDebugCallToFormattedStr(params));

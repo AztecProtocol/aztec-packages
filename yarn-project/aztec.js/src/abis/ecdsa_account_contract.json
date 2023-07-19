@@ -111,6 +111,13 @@
           "visibility": "private"
         },
         {
+          "name": "nonce",
+          "type": {
+            "kind": "field"
+          },
+          "visibility": "private"
+        },
+        {
           "name": "storage_slot",
           "type": {
             "kind": "field"
@@ -121,7 +128,7 @@
           "name": "preimage",
           "type": {
             "kind": "array",
-            "length": 20,
+            "length": 5,
             "type": {
               "kind": "field"
             }
@@ -132,7 +139,7 @@
       "returnTypes": [
         {
           "kind": "array",
-          "length": 2,
+          "length": 4,
           "type": {
             "kind": "field"
           }

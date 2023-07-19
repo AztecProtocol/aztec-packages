@@ -51,48 +51,49 @@ export class PendingCommitmentsContract extends Contract {
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
-    /** create_note(amount: field, owner: struct) */
+    /** create_note(amount: field, owner: field) */
     create_note: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      owner: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      owner: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** get_and_check_note(expected_value: field, owner: struct) */
+    /** get_and_check_note(expected_value: field, owner: field) */
     get_and_check_note: ((
       expected_value: Fr | bigint | number | { toField: () => Fr },
-      owner: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      owner: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** stev(contract_address: field, storage_slot: field, preimage: array) */
+    /** stev(contract_address: field, nonce: field, storage_slot: field, preimage: array) */
     stev: ((
       contract_address: Fr | bigint | number | { toField: () => Fr },
+      nonce: Fr | bigint | number | { toField: () => Fr },
       storage_slot: Fr | bigint | number | { toField: () => Fr },
       preimage: (Fr | bigint | number | { toField: () => Fr })[],
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** test_bad_read_then_insert_flat(amount: field, owner: struct) */
+    /** test_bad_read_then_insert_flat(amount: field, owner: field) */
     test_bad_read_then_insert_flat: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      owner: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      owner: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** test_insert_then_read_both_in_nested_calls(amount: field, owner: struct, createFnSelector: field, getAndCheckFnSelector: field) */
+    /** test_insert_then_read_both_in_nested_calls(amount: field, owner: field, createFnSelector: field, getAndCheckFnSelector: field) */
     test_insert_then_read_both_in_nested_calls: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      owner: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      owner: Fr | bigint | number | { toField: () => Fr },
       createFnSelector: Fr | bigint | number | { toField: () => Fr },
       getAndCheckFnSelector: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** test_insert_then_read_flat(amount: field, owner: struct) */
+    /** test_insert_then_read_flat(amount: field, owner: field) */
     test_insert_then_read_flat: ((
       amount: Fr | bigint | number | { toField: () => Fr },
-      owner: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+      owner: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
   };

@@ -18,15 +18,15 @@ contract SchnorrMultiKeyAccount {
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
     use dep::aztec::oracle::debug_log::debug_log_format;
-
-    use dep::custom_notes::utils::compute_note_hash_and_nullifier;
-
+    use dep::aztec::note::utils::compute_note_hash_and_nullifier;
+    use dep::aztec::note::note_header::NoteHeader;
     use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
     use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
 
     use crate::storage::Storage;
     use crate::public_key_note::PublicKeyNote;
     use crate::public_key_note::PublicKeyNoteInterface;
+    use crate::public_key_note::PUBLIC_KEY_NOTE_LEN;
 
     fn entrypoint(
         inputs: pub PrivateContextInputs,
@@ -86,8 +86,9 @@ contract SchnorrMultiKeyAccount {
     }
 
     /// ABI stev type "unconstrained"
-    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; PUBLIC_KEY_NOTE_LEN]) -> pub [Field; 4] {
         assert(storage_slot == 1);
-        compute_note_hash_and_nullifier(contract_address, storage_slot, PublicKeyNoteInterface, preimage)
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        compute_note_hash_and_nullifier(PublicKeyNoteInterface, note_header, preimage)
     }
 }

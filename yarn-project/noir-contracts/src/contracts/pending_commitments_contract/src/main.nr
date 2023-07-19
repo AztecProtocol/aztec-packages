@@ -9,13 +9,10 @@ contract PendingCommitments {
     use dep::token_utils::{
         balance_utils,
         value_note::{
-            value_note::ValueNote,
+            value_note::{VALUE_NOTE_LEN, ValueNote},
             value_note::ValueNoteInterface,
             filter::get_2_notes,
         }
-    };
-    use dep::custom_notes::{
-        utils::compute_note_hash_and_nullifier,
     };
 
     use crate::storage::Storage;
@@ -24,8 +21,12 @@ contract PendingCommitments {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::note::note_getter::NoteGetterOptions;
-    use dep::aztec::note::note_getter_options::Sort;
+    use dep::aztec::note::{
+        note_getter::NoteGetterOptions,
+        note_getter_options::Sort,
+        note_header::NoteHeader,
+        utils::compute_note_hash_and_nullifier,
+    };
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
@@ -57,12 +58,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
         let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
@@ -73,8 +74,8 @@ contract PendingCommitments {
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
@@ -95,20 +96,20 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         // get note (note created at bottom of function shouldn't exist yet)
@@ -135,12 +136,12 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
         let note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
@@ -156,20 +157,20 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         expected_value: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
         // Hack: we add the return value from `notifyCreatedNote` oracle call
         // to the sort option to `getNotes` oracle call to force a dependency
         // and therefore ordering between these two oracles
         // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
         // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
+        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
+        sorting[0] = Sort::new(0, context.oracle_connector as u8);
         let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
 
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
@@ -191,17 +192,16 @@ contract PendingCommitments {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
         createFnSelector: Field,
         getAndCheckFnSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, createFnSelector, getAndCheckFnSelector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, createFnSelector, getAndCheckFnSelector]));
 
         // args for nested calls
         let mut args = [0; ARGS_LENGTH];
         args[0] = amount;
-        args[1] = owner.x;
-        args[2] = owner.y;
+        args[1] = owner;
 
         // nested call to create/insert note
         let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context);
@@ -226,13 +226,14 @@ contract PendingCommitments {
     //    inputs: PrivateContextInputs,
     //    //*********************************/
     //    amount: Field,
-    //    owner: Point,
+    //    owner: Field,
     //    getAndCheckFnSelector: Field,
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
 
     /// ABI stev type "unconstrained"
-    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
-        compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }
 }

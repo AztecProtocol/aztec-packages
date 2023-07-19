@@ -20,11 +20,13 @@ contract EcdsaAccount {
     use dep::aztec::types::point::Point;
 
     use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
-    use dep::custom_notes::utils::compute_note_hash_and_nullifier;
+    use dep::aztec::note::utils::compute_note_hash_and_nullifier;
+    use dep::aztec::note::note_header::NoteHeader;
 
     use crate::storage::Storage;
     use crate::ecdsa_public_key_note::EcdsaPublicKeyNote;
     use crate::ecdsa_public_key_note::EcdsaPublicKeyNoteInterface;
+    use crate::ecdsa_public_key_note::ECDSA_PUBLIC_KEY_NOTE_LEN;
 
     // All calls made by this account will be routed through this entrypoint
     fn entrypoint(  
@@ -90,8 +92,9 @@ contract EcdsaAccount {
     }
 
     /// ABI stev type "unconstrained"
-    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> pub [Field; 4] {
         assert(storage_slot == 1);
-        compute_note_hash_and_nullifier(contract_address, storage_slot, EcdsaPublicKeyNoteInterface, preimage)
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        compute_note_hash_and_nullifier(EcdsaPublicKeyNoteInterface, note_header, preimage)
     }
 }
