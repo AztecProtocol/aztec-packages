@@ -12,7 +12,7 @@ import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import times from 'lodash.times';
 
@@ -24,6 +24,9 @@ import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
  * TODO: Reuse data types and serialization functions from circuits package.
  */
 export class L2Block {
+  /* Having logger static to avoid issues with comparing 2 block */
+  private static logger = createDebugLogger('aztec:l2_block');
+
   /**
    * Encrypted logs emitted by txs in this block.
    * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
@@ -41,8 +44,6 @@ export class L2Block {
    *          `newUnencryptedLogs.txLogs.functionLogs` is equal to the number of all function invocations in the tx.
    */
   public newUnencryptedLogs?: L2BlockL2Logs;
-
-  private logger: DebugLogger;
 
   constructor(
     /**
@@ -151,8 +152,6 @@ export class L2Block {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
     }
-
-    this.logger = createDebugLogger('aztec:l2_block:number_' + number);
 
     if (newEncryptedLogs) {
       this.attachLogs(newEncryptedLogs, LogType.ENCRYPTED);
@@ -499,13 +498,13 @@ export class L2Block {
       if (this[logFieldName] === logs) {
         // Comparing objects only by references is enough in this case since this should occur only when exactly
         // the same object is passed in and not a copy.
-        this.logger(`${logFieldName} logs already attached`);
+        L2Block.logger(`${logFieldName} logs already attached`);
         return;
       }
       throw new Error(`Trying to attach different ${logFieldName} logs to block ${this.number}.`);
     }
 
-    this.logger(`Attaching ${logFieldName} logs`);
+    L2Block.logger(`Attaching ${logFieldName} logs`);
 
     const numTxs = this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX;
 
