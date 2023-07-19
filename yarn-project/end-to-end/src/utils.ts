@@ -52,10 +52,13 @@ const { SANDBOX_URL = '' } = process.env;
 const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
   await retryUntil(async () => {
     try {
+      logger('Attmpting to contact RPC Server...');
       await rpcServer.getNodeInfo();
+      return true;
     } catch (error) {
-      logger('Waiting for RPC Server to come online...');
+      logger('Failed to contact RPC Server!');
     }
+    return undefined;
   }, 'RPC Get Block Number');
 };
 
