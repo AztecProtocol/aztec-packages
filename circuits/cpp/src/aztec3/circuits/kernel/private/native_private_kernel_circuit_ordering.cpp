@@ -156,7 +156,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilde
     KernelCircuitPublicInputs<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    common_inner_ordering_initialise_end_values(previous_kernel, public_inputs);
+    common_initialise_end_values(previous_kernel, public_inputs);
 
     common_validate_previous_kernel_read_requests(builder,
                                                   previous_kernel.public_inputs.end.read_requests,

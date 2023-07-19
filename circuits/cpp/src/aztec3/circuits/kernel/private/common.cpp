@@ -421,8 +421,8 @@ void common_contract_logic(DummyBuilder& builder,
     }
 }
 
-void common_inner_ordering_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
-                                                 KernelCircuitPublicInputs<NT>& public_inputs)
+void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
+                                  KernelCircuitPublicInputs<NT>& public_inputs)
 {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 

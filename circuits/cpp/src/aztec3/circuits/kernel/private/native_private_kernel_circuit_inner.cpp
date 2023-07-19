@@ -43,7 +43,7 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 // }
 void initialise_end_values(PreviousKernelData<NT> const& previous_kernel, KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    common_inner_ordering_initialise_end_values(previous_kernel, public_inputs);
+    common_initialise_end_values(previous_kernel, public_inputs);
 
     // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
     // functions within this circuit:

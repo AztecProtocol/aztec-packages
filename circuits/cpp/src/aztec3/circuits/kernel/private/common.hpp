@@ -48,7 +48,7 @@ void common_contract_logic(DummyBuilder& builder,
                            ContractDeploymentData<NT> const& contract_dep_data,
                            FunctionData<NT> const& function_data);
 
-void common_inner_ordering_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
-                                                 KernelCircuitPublicInputs<NT>& public_inputs);
+void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
+                                  KernelCircuitPublicInputs<NT>& public_inputs);
 
 }  // namespace aztec3::circuits::kernel::private_kernel
