@@ -16,6 +16,7 @@ using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 
 using aztec3::utils::array_length;
+using aztec3::utils::array_rearrange;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
@@ -24,10 +25,10 @@ using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 // regarding matching a read request to a commitment
 // i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
 void match_reads_to_commitments(DummyBuilder& builder,
-                                std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
+                                std::array<fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
                                 std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                            MAX_READ_REQUESTS_PER_TX> const& read_request_membership_witnesses,
-                                std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
+                                std::array<fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
     // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
     // we might get into trouble when accumulating them in public_inputs.end
@@ -76,7 +77,7 @@ void match_reads_to_commitments(DummyBuilder& builder,
             // NON-transient reads MUST be membership-checked and removed during standard kernel iterations
             // NONE should be here in (let alone output from) the ordering circuit.
             builder.do_assert(
-                read_request == NT::fr(0),  // basically: assert(is_transient_read || empty)
+                read_request == fr(0),  // basically: assert(is_transient_read || empty)
                 format("read_request at position [",
                        rr_idx,
                        "]* is NOT transient but is still unresolved in the final kernel stage! This implies invalid "
@@ -98,55 +99,55 @@ void match_reads_to_commitments(DummyBuilder& builder,
     }
 }
 
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): match_nullifiers_to_commitments_and_squash
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): optimized based on hints
 // regarding matching a nullifier to a commitment
 // i.e., we get pairs i,j such that new_nullifiers[i] == new_commitments[j]
-// void match_nullifiers_to_commitments_and_squash(
-//    DummyBuilder& builder,
-//    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
-//    // std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullifier_hints, // ???
-//    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
-//{
-//    // match reads to commitments from the previous call(s)
-//    for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
-//        const auto& nullifier = new_nullifiers[n_idx];  // new_nullifiers[n_idx].nullifier
-//        const auto& nullified_commitment = NT::fr(0);   // new_nullifiers[n_idx].commitment
-//        const auto is_transient_nullifier = false;      // nullifier_hints[n_idx].is_transient;
-//        // const auto& hint_to_commitment = nullifier_hints[n_idx].hint_to_commitment;
-//
-//        if (is_transient_nullifier) {
-//            size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
-//            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
-//            // O(n^2) inner loop will be optimized via matching hints
-//            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-//                match_pos = (nullified_commitment == new_commitments[c_idx]) ? c_idx : match_pos;
-//            }
-//
-//            if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
-//                new_commitments[match_pos] = fr(0);
-//            } else {
-//                // Transient nullifiers MUST match a pending commitment
-//                builder.do_assert(false,  // match_pos != MAX_NEW_COMMITMENTS_PER_TX,
-//                                  format("new_nullifier at position [",
-//                                         n_idx,
-//                                         "]* is transient but does not match any new commitment.",
-//                                         "\n\tnullifier: ",
-//                                         nullifier,
-//                                         "\n\tnullified_commitment: ",
-//                                         nullified_commitment),
-//                                  //"\n\thint_to_commitment: ",
-//                                  // hint_to_commitment,
-//                                  CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
-//            }
-//        }
-//        // non-transient nullifiers are just kept in new_nullifiers array and forwarded to
-//        // public inputs (used later by base rollup circuit)
-//    }
-//    // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
-//    array_rearrange(new_commitments);
-//    array_rearrange(new_nullifiers);
-//}
+
+// A non-zero entry in nullified_commitments at position i implies that
+// 1) new_commitments array contains at least an occurence of nullified_commitments[i]
+// 2) this commitment is nullified by new_nullifiers[i] (according to app circuit, the kernel cannot check this on its
+// own.)
+// Remark: We do not check that new_nullifiers[i] is non-empty. (app circuit responsibility)
+void match_nullifiers_to_commitments_and_squash(DummyBuilder& builder,
+                                                std::array<fr, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
+                                                std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullified_commitments,
+                                                std::array<fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
+{
+    // match reads to commitments from the previous call(s)
+    for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
+        if (nullified_commitments[n_idx] != fr(0) && nullified_commitments[n_idx] != fr(EMPTY_NULLIFIED_COMMITMENT)) {
+            size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
+            // O(n^2) inner loop will be optimized via matching hints
+            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
+                match_pos = (nullified_commitments[n_idx] == new_commitments[c_idx]) ? c_idx : match_pos;
+            }
+
+            if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
+                new_commitments[match_pos] = fr(0);
+                new_nullifiers[n_idx] = fr(0);
+            } else {
+                // Transient nullifiers MUST match a pending commitment
+                builder.do_assert(false,
+                                  format("new_nullifier at position [",
+                                         n_idx,
+                                         "]* is transient but does not match any new commitment.",
+                                         "\n\tnullifier: ",
+                                         new_nullifiers[n_idx],
+                                         "\n\tnullified_commitment: ",
+                                         nullified_commitments[n_idx]),
+                                  //"\n\thint_to_commitment: ",
+                                  // hint_to_commitment,
+                                  CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
+            }
+        }
+        // non-transient nullifiers are just kept in new_nullifiers array and forwarded to
+        // public inputs (used later by base rollup circuit)
+    }
+    // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
+    array_rearrange(new_commitments);
+    array_rearrange(new_nullifiers);
+}
 
 KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilder& builder,
                                                                      PreviousKernelData<NT> const& previous_kernel)
@@ -172,15 +173,14 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyBuilde
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1074): ideally final public_inputs
     // shouldn't even include read_requests and read_request_membership_witnesses as they should be empty.
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): match_nullifiers_to_commitments_and_squash
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match reads against new_commitments in public_inputs.end
     // which has been initialized to previous_kernel.public_inputs.end in common_initialise_*() above.
     // Remark: The commitments in public_inputs.end have already been SILOED!
-    // match_nullifiers_to_commitments_and_squash(builder,
-    //                                           public_inputs.end.new_nullifiers,
-    //                                           // public_inputs.end.nullifier_hints,
-    //                                           public_inputs.end.new_commitments);
+    match_nullifiers_to_commitments_and_squash(builder,
+                                               public_inputs.end.new_nullifiers,
+                                               public_inputs.end.nullified_commitments,
+                                               public_inputs.end.new_commitments);
 
     return public_inputs;
 };
