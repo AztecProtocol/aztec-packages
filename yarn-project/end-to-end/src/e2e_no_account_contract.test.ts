@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, Point } from '@aztec/aztec-rpc';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, BaseWallet, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { NoAccountContract } from '@aztec/noir-contracts/types';
@@ -16,19 +16,32 @@ describe('e2e_no_account_contract', () => {
   let wallet: Wallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;
-  let senderPubKey: Point;
-  let recipientPubKey: Point;
   let logger: DebugLogger;
 
   let contract: NoAccountContract;
+
+  const initialBalance = 987n;
 
   beforeEach(async () => {
     let accounts: AztecAddress[];
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
     sender = accounts[0];
     recipient = accounts[1];
-    senderPubKey = await aztecRpcServer.getPublicKey(sender);
-    recipientPubKey = await aztecRpcServer.getPublicKey(recipient);
+
+    logger(`Deploying L2 contract...`);
+    const tx = NoAccountContract.deploy(
+      aztecRpcServer,
+      initialBalance,
+      sender,
+      recipient,
+    ).send();
+    const receipt = await tx.getReceipt();
+    contract = new NoAccountContract(receipt.contractAddress!, wallet);
+    await tx.isMined(0, 0.1);
+    const minedReceipt = await tx.getReceipt();
+    expect(minedReceipt.status).toEqual(TxStatus.MINED);
+    logger('L2 contract deployed');
+    return contract;
   }, 100_000);
 
   afterEach(async () => {
@@ -49,38 +62,17 @@ describe('e2e_no_account_contract', () => {
     expect(unrolledLogs.length).toBe(numEncryptedLogs);
   };
 
-  const deployContract = async (initialBalance: bigint, sender: Point, recipient: Point) => {
-    logger(`Deploying L2 contract...`);
-    const tx = NoAccountContract.deploy(
-      aztecRpcServer,
-      initialBalance,
-      sender.toBigInts(),
-      recipient.toBigInts(),
-    ).send();
-    const receipt = await tx.getReceipt();
-    contract = new NoAccountContract(receipt.contractAddress!, wallet);
-    await tx.isMined(0, 0.1);
-    const minedReceipt = await tx.getReceipt();
-    expect(minedReceipt.status).toEqual(TxStatus.MINED);
-    logger('L2 contract deployed');
-    return contract;
-  };
-
-  it('Arbitrary non-contract account can call a private function on a contract', async () => {
-    const initialBalance = 987n;
-    
+  it('Arbitrary non-contract account can call a private function on a contract', async () => {    
     const pokerPrivKey = randomBytes(32);
     const pokerPubKey = await generatePublicKey(pokerPrivKey);
     const poker = AztecAddress.fromBuffer(pokerPubKey.x.toBuffer());
-  
-    await deployContract(initialBalance, senderPubKey, recipientPubKey);
+
+    await aztecRpcServer.addAccount(pokerPrivKey, poker, new Fr(0n));
 
     // Check that all the balances are correct and that exactly 1 encrypted log was emitted
     await expectBalance(sender, initialBalance);
     await expectBalance(recipient, 0n);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
-
-    
 
     const accountImpl = new PassThroughWallet(aztecRpcServer);
     await accountImpl.addAccount(pokerPrivKey, poker, new Fr(0n))

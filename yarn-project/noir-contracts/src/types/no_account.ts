@@ -34,8 +34,8 @@ export class NoAccountContract extends Contract {
   public static deploy(
     rpc: AztecRPC,
     initial_supply: Fr | bigint | number | { toField: () => Fr },
-    sender: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
-    recipient: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+    sender: Fr | bigint | number | { toField: () => Fr },
+    recipient: Fr | bigint | number | { toField: () => Fr },
   ) {
     return new DeployMethod(Point.ZERO, rpc, NoAccountContractAbi, Array.from(arguments).slice(1));
   }
@@ -47,8 +47,8 @@ export class NoAccountContract extends Contract {
     rpc: AztecRPC,
     publicKey: Point,
     initial_supply: Fr | bigint | number | { toField: () => Fr },
-    sender: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
-    recipient: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
+    sender: Fr | bigint | number | { toField: () => Fr },
+    recipient: Fr | bigint | number | { toField: () => Fr },
   ) {
     return new DeployMethod(publicKey, rpc, NoAccountContractAbi, Array.from(arguments).slice(2));
   }

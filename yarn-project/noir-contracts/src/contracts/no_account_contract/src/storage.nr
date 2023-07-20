@@ -3,10 +3,10 @@ use dep::aztec::state_vars::{
     map::Map,
     set::Set
 };
-use crate::point_note::{
-    PointNote,
-    PointNoteInterface,
-    POINT_NOTE_LEN,
+use crate::address_note::{
+    AddressNote,
+    AddressNoteInterface,
+    ADDRESS_NOTE_LEN,
 };
 use dep::value_note::value_note::{
     ValueNote,
@@ -15,16 +15,16 @@ use dep::value_note::value_note::{
 };
 
 struct Storage {
-    sender: ImmutableSingleton<PointNote, POINT_NOTE_LEN>,
-    recipient: ImmutableSingleton<PointNote, POINT_NOTE_LEN>,
+    sender: ImmutableSingleton<AddressNote, ADDRESS_NOTE_LEN>,
+    recipient: ImmutableSingleton<AddressNote, ADDRESS_NOTE_LEN>,
     balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
 }
 
 impl Storage {
     fn init() -> Self {
         Storage {
-            sender: ImmutableSingleton::new(1, PointNoteInterface),
-            recipient: ImmutableSingleton::new(2, PointNoteInterface),
+            sender: ImmutableSingleton::new(1, AddressNoteInterface),
+            recipient: ImmutableSingleton::new(2, AddressNoteInterface),
             balances: Map::new(1, |s| Set::new(s, ValueNoteInterface)),
         }
     }
