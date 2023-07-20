@@ -177,10 +177,8 @@ export class NoteProcessor {
     const wasm = await CircuitsWasm.get();
     let nonce: Fr | undefined;
     let innerNullifier: Fr | undefined;
-    let commitmentIndex = 0;
+    let commitmentIndex = commitmentStartIndex;
     for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      if (commitmentIndex < commitmentStartIndex) continue;
-
       const commitment = commitments[commitmentIndex];
       if (commitment.equals(Fr.ZERO)) break;
 
