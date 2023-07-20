@@ -79,8 +79,7 @@ const createRpcServer = async (
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = await Promise.resolve(createJsonRpcClient(SANDBOX_URL, mustSucceedFetch));
-    logger('TYPE', jsonClient);
+    const jsonClient = createJsonRpcClient(SANDBOX_URL, mustSucceedFetch);
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return jsonClient;
