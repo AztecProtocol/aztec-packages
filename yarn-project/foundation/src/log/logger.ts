@@ -1,6 +1,6 @@
 import debug from 'debug';
-
-
+import isNode from 'detect-node';
+import { isatty } from 'tty';
 
 import { LogFn } from './index.js';
 
@@ -58,10 +58,23 @@ function logWithDebug(debug: debug.Debugger, level: LogLevel, args: any[]) {
   if (debug.enabled) {
     debug(args[0], ...args.slice(1));
   } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
-    if (currentLevel !== level) args = [level.toUpperCase(), ...args];
-    const prefix = `  ${debug.namespace.replace(/^aztec:/, '')}`;
-    printLog([prefix, ...args]);
+    printLog([getPrefix(debug, level), ...args]);
   }
+}
+
+/**
+ * Returns a log prefix that emulates that of npm debug. Uses colors if in node and in a tty.
+ * @param debugLogger - Instance of npm debug logger.
+ * @param level - Intended log level (printed out if strictly above current log level).
+ * @returns Log prefix.
+ */
+function getPrefix(debugLogger: debug.Debugger, level: LogLevel) {
+  const levelLabel = currentLevel !== level ? ` ${level.toUpperCase}` : '';
+  const prefix = `${debugLogger.namespace.replace(/^aztec:/, '')}${levelLabel}`;
+  if (!isNode || !isatty(process.stderr.fd)) return prefix;
+  const colorIndex = debug.selectColor(debugLogger.namespace) as number;
+  const colorCode = '\u001B[3' + (colorIndex < 8 ? colorIndex : '8;5;' + colorIndex);
+  return `  ${colorCode};1m${prefix}\u001B[0m`;
 }
 
 /**
