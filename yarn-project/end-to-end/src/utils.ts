@@ -60,7 +60,7 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
       logger('Failed to contact RPC Server!');
     }
     return undefined;
-  }, 'RPC Get Block Number');
+  }, 'RPC Get Node Info');
 };
 
 const createRpcServer = async (
@@ -191,8 +191,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const txContexts: TxContext[] = [];
 
   logger('RPC server created, deploying accounts...');
-
-  await aztecRpcServer.getNodeInfo();
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // We use the well-known private key and the validating account contract for the first account,
