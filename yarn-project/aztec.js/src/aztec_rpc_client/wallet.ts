@@ -31,13 +31,8 @@ export abstract class BaseWallet implements Wallet {
     executions: ExecutionRequest[],
     txContext: TxContext,
   ): Promise<TxExecutionRequest>;
-  addAccount(
-    privKey: Buffer,
-    address: AztecAddress,
-    partialContractAddress: Fr,
-    abi?: ContractAbi | undefined,
-  ): Promise<AztecAddress> {
-    return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
+  addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
+    return this.rpc.addAccount(privKey, address, partialContractAddress);
   }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();

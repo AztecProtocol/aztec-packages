@@ -232,6 +232,11 @@ export async function setup(numberOfAccounts = 1): Promise<{
         `Deployment address does not match for account contract (expected ${context.deploymentData.address} got ${receiptAddress})`,
       );
     }
+    await aztecRpcServer.addAccount(
+      context.privateKey,
+      context.deploymentData.address,
+      context.deploymentData.partialAddress,
+    );
     accountCollection.registerAccount(
       context.deploymentData.address,
       new SingleKeyAccountContract(

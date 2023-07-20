@@ -55,7 +55,6 @@ export interface AztecRPC {
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    abi?: ContractAbi,
   ): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
   getAccountPublicKey(address: AztecAddress): Promise<Point>;
