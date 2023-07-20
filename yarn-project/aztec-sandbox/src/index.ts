@@ -10,6 +10,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createApiRouter } from './routes.js';
+import { github, splash } from './splash.js';
 
 const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
@@ -91,6 +92,7 @@ async function main() {
 
 main()
   .then(() => logger(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
+  .then(() => logger(`${splash}\n${github}`))
   .catch(err => {
     logger(err);
     process.exit(1);
