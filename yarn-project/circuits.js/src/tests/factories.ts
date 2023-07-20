@@ -2,8 +2,10 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash } from '../abis/abis.js';
-import { SchnorrSignature } from '../barretenberg/index.js';
+import { randomBytes } from 'crypto';
+
+import { computeCallStackItemHash, computeContractAddressFromPartial } from '../abis/abis.js';
+import { Grumpkin, SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -634,6 +636,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
     newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
+    nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
     privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
@@ -948,4 +951,19 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * Computes a valid address, partial address, and public key out of a private key.
+ * @param privateKey - A private encryption key (optional, will use a random one if not set).
+ * @returns A valid address, partial address, and public key.
+ */
+export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: Buffer) {
+  privateKey = privateKey ?? randomBytes(32);
+  const wasm = await CircuitsWasm.get();
+  const grumpkin = new Grumpkin(wasm);
+  const publicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
+  const partialAddress = Fr.random();
+  const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
+  return { address, partialAddress, publicKey, privateKey };
 }

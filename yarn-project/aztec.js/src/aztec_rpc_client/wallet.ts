@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, Point, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialContractAddress, Point, PublicKey, TxContext } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
@@ -33,11 +33,18 @@ export abstract class BaseWallet implements Wallet {
   addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress);
   }
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
+    return this.rpc.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
+  }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();
   }
-  getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    return this.rpc.getAccountPublicKey(address);
+  getPublicKey(address: AztecAddress): Promise<Point> {
+    return this.rpc.getPublicKey(address);
   }
   addContracts(contracts: DeployedContract[]): Promise<void> {
     return this.rpc.addContracts(contracts);
@@ -77,6 +84,12 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
+  }
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
+    return this.rpc.getPublicKeyAndPartialAddress(address);
+  }
+  isAccountSynchronised(account: AztecAddress) {
+    return this.rpc.isAccountSynchronised(account);
   }
 }
 

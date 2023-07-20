@@ -26,7 +26,7 @@ import { mustSucceedFetch } from '@aztec/foundation/json-rpc';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import { NonNativeTokenContractAbi, SchnorrAccountContractAbi } from '@aztec/noir-contracts/examples';
+import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
@@ -64,8 +64,8 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
 };
 
 const createRpcServer = async (
-  nodeConfig: AztecNodeConfig,
   rpcConfig: RpcServerConfig,
+  nodeConfig: AztecNodeConfig | undefined,
   logger: Logger,
 ): Promise<[AztecNodeService | undefined, AztecRPC]> => {
   if (SANDBOX_URL) {
@@ -74,6 +74,8 @@ const createRpcServer = async (
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return [undefined, jsonClient];
+  } else if (!nodeConfig) {
+    throw new Error('Invalid aztec node config');
   }
   const aztecNode = await AztecNodeService.createAndSync(nodeConfig);
   return [aztecNode, await createAztecRPCServer(aztecNode, rpcConfig)];
@@ -136,12 +138,21 @@ type TxContext = {
 };
 
 /**
- * Sets up the environment for the end-to-end tests.
+ * Sets up Aztec RPC Server.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ * @param nodeConfig - The configuration for the aztec node.
+ * @param firstPrivKey - The private key of the first account to be created.
+ * @param logger - The logger to be used.
+ * @returns Aztec RPC server, accounts, wallets and logger.
  */
-export async function setup(numberOfAccounts = 1): Promise<{
+export async function setupAztecRPCServer(
+  numberOfAccounts: number,
+  nodeConfig: AztecNodeConfig,
+  firstPrivKey: Uint8Array | null = null,
+  logger = getLogger(),
+): Promise<{
   /**
-   * The Aztec Node instance or undefined if one wasn't created.
+   * The Aztec Node service.
    */
   aztecNode: AztecNodeService | undefined;
   /**
@@ -149,17 +160,9 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   aztecRpcServer: AztecRPC;
   /**
-   * Return values from deployL1Contracts function.
-   */
-  deployL1ContractsValues: DeployL1Contracts;
-  /**
    * The accounts created by the RPC server.
    */
   accounts: AztecAddress[];
-  /**
-   * The Aztec Node configuration.
-   */
-  config: AztecNodeConfig;
   /**
    * The wallet to be used.
    */
@@ -169,24 +172,10 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   logger: DebugLogger;
 }> {
-  const config = getConfigEnvVars();
   const rpcConfig = getRpcConfigEnvVars();
-  const logger = getLogger();
 
-  logger('Setting up L1 contracts...');
+  const [aztecNode, aztecRpcServer] = await createRpcServer(rpcConfig, nodeConfig, logger);
 
-  const hdAccount = mnemonicToAccount(MNEMONIC);
-  const privKey = hdAccount.getHdKey().privateKey;
-  const deployL1ContractsValues = await setupL1Contracts(config, hdAccount, logger);
-
-  logger('L1 contract setup completed, creating RPC server...');
-
-  config.publisherPrivateKey = Buffer.from(privKey!);
-  config.rollupContract = deployL1ContractsValues.rollupAddress;
-  config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
-  config.inboxContract = deployL1ContractsValues.inboxAddress;
-
-  const [aztecNode, aztecRpcServer] = await createRpcServer(config, rpcConfig, logger);
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
 
@@ -196,11 +185,12 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // We use the well-known private key and the validating account contract for the first account,
     // and generate random key pairs for the rest.
     // TODO(#662): Let the aztec rpc server generate the key pair rather than hardcoding the private key
-    const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
+    const privateKey = i === 0 && firstPrivKey !== null ? Buffer.from(firstPrivKey!) : randomBytes(32);
     const publicKey = await generatePublicKey(privateKey);
     const salt = Fr.random();
-    const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
-    const contractDeployer = new ContractDeployer(SchnorrAccountContractAbi, aztecRpcServer, publicKey);
+    const deploymentData = await getContractDeploymentInfo(SchnorrSingleKeyAccountContractAbi, [], salt, publicKey);
+
+    const contractDeployer = new ContractDeployer(SchnorrSingleKeyAccountContractAbi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
     await deployMethod.simulate({ contractAddressSalt: salt });
     txContexts.push({
@@ -215,6 +205,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   // We do this in a seperate loop to try and get all transactions into the same rollup.
   // Doing this here will submit the transactions with minimal delay between them.
   for (const context of txContexts) {
+    logger(`Deploying account contract for ${context.deploymentData.address.toString()}`);
     context.tx = context.deployMethod.send();
   }
 
@@ -250,6 +241,68 @@ export async function setup(numberOfAccounts = 1): Promise<{
 
   const accounts = await aztecRpcServer.getAccounts();
   const wallet = new AccountWallet(aztecRpcServer, accountCollection);
+
+  return {
+    aztecNode,
+    aztecRpcServer,
+    accounts,
+    wallet,
+    logger,
+  };
+}
+
+/**
+ * Sets up the environment for the end-to-end tests.
+ * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ */
+export async function setup(numberOfAccounts = 1): Promise<{
+  /**
+   * The Aztec Node service.
+   */
+  aztecNode: AztecNodeService | undefined;
+  /**
+   * The Aztec RPC server.
+   */
+  aztecRpcServer: AztecRPC;
+  /**
+   * Return values from deployL1Contracts function.
+   */
+  deployL1ContractsValues: DeployL1Contracts;
+  /**
+   * The accounts created by the RPC server.
+   */
+  accounts: AztecAddress[];
+  /**
+   * The Aztec Node configuration.
+   */
+  config: AztecNodeConfig;
+  /**
+   * The wallet to be used.
+   */
+  wallet: Wallet;
+  /**
+   * Logger instance named as the current test.
+   */
+  logger: DebugLogger;
+}> {
+  const config = getConfigEnvVars();
+  const logger = getLogger();
+  const hdAccount = mnemonicToAccount(MNEMONIC);
+
+  const deployL1ContractsValues = await setupL1Contracts(config, hdAccount, logger);
+  const privKey = hdAccount.getHdKey().privateKey;
+
+  config.publisherPrivateKey = Buffer.from(privKey!);
+  config.rollupContract = deployL1ContractsValues.rollupAddress;
+  config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
+  config.inboxContract = deployL1ContractsValues.inboxAddress;
+
+  const { aztecNode, aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(
+    numberOfAccounts,
+    config,
+    privKey,
+    logger,
+  );
 
   return {
     aztecNode,
@@ -320,7 +373,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   publicClient: PublicClient<HttpTransport, Chain>,
   rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
-  owner = { x: 0n, y: 0n },
+  owner = AztecAddress.ZERO,
   underlyingERC20Address?: EthAddress,
 ) {
   // deploy underlying contract if no address supplied
@@ -344,8 +397,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
 
   // deploy l2 contract and attach to portal
-  const deployer = new ContractDeployer(NonNativeTokenContractAbi, wallet);
-  const tx = deployer.deploy(initialBalance, owner).send({
+  const tx = NonNativeTokenContract.deploy(wallet, initialBalance, owner).send({
     portalContract: tokenPortalAddress,
     contractAddressSalt: Fr.random(),
   });
