@@ -76,6 +76,7 @@ const createRpcServer = async (
   rpcConfig: RpcServerConfig,
   aztecNode: AztecNodeService | undefined,
   logger: DebugLogger,
+  useLogSuffix?: boolean | string
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
@@ -86,7 +87,7 @@ const createRpcServer = async (
   } else if (!aztecNode) {
     throw new Error('Invalid aztec node when creating RPC server');
   }
-  return createAztecRPCServer(aztecNode, rpcConfig);
+  return createAztecRPCServer(aztecNode, rpcConfig, {}, useLogSuffix);
 };
 
 const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: DebugLogger) => {
@@ -151,6 +152,7 @@ type TxContext = {
  * @param aztecNode - The instance of an aztec node, if one is required
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
+ * @param useLogSuffix - Whether to add a randomly generated suffix to the RPC server debug logs.
  * @returns Aztec RPC server, accounts, wallets and logger.
  */
 export async function setupAztecRPCServer(
@@ -158,6 +160,7 @@ export async function setupAztecRPCServer(
   aztecNode: AztecNodeService | undefined,
   firstPrivKey: Uint8Array | null = null,
   logger = getLogger(),
+  useLogSuffix = false,
 ): Promise<{
   /**
    * The Aztec RPC instance.
@@ -178,7 +181,7 @@ export async function setupAztecRPCServer(
 }> {
   const rpcConfig = getRpcConfigEnvVars();
 
-  const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger);
+  const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
 
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];

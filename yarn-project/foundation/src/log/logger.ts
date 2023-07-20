@@ -1,5 +1,7 @@
 import debug from 'debug';
 
+
+
 import { LogFn } from './index.js';
 
 const LogLevels = ['silent', 'fatal', 'error', 'warn', 'info', 'debug'] as const;
@@ -54,10 +56,11 @@ export function createDebugLogger(name: string): DebugLogger {
  */
 function logWithDebug(debug: debug.Debugger, level: LogLevel, args: any[]) {
   if (debug.enabled) {
-    debug(args);
+    debug(args[0], ...args.slice(1));
   } else if (LogLevels.indexOf(level) <= LogLevels.indexOf(currentLevel)) {
     if (currentLevel !== level) args = [level.toUpperCase(), ...args];
-    printLog(args);
+    const prefix = `  ${debug.namespace.replace(/^aztec:/, '')}`;
+    printLog([prefix, ...args]);
   }
 }
 
