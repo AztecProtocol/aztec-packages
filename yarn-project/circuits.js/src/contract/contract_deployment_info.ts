@@ -1,6 +1,14 @@
-import { ContractAbi } from '@aztec/foundation/abi';
+import {
+  computeContractAddress,
+  computeFunctionTreeRoot,
+  computePartialContractAddress,
+  computeVarArgsHash,
+  hashConstructor,
+} from '@aztec/circuits.js/abis';
+import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 
-import { AztecAddress, DeploymentInfo, Fr, PublicKey } from '../index.js';
+import { CircuitsWasm, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
+import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 
 /**
  * Generates the deployment info for a contract
@@ -16,45 +24,43 @@ export async function getContractDeploymentInfo(
   contractAddressSalt: Fr,
   publicKey: PublicKey,
 ): Promise<DeploymentInfo> {
-  // const constructorAbi = abi.functions.find(isConstructor);
-  // if (!constructorAbi) {
-  //   throw new Error('Cannot find constructor in the ABI.');
-  // }
-  // if (!constructorAbi.verificationKey) {
-  //   throw new Error('Missing verification key for the constructor.');
-  // }
+  const constructorAbi = abi.functions.find(isConstructor);
+  if (!constructorAbi) {
+    throw new Error('Cannot find constructor in the ABI.');
+  }
+  if (!constructorAbi.verificationKey) {
+    throw new Error('Missing verification key for the constructor.');
+  }
 
-  // const wasm = await CircuitsWasm.get();
-  // const vkHash = hashVKStr(constructorAbi.verificationKey, wasm);
-  // const constructorVkHash = Fr.fromBuffer(vkHash);
-  // const functions = abi.functions.map(f => ({
-  //   ...f,
-  //   selector: generateFunctionSelector(f.name, f.parameters),
-  // }));
-  // const leaves = generateFunctionLeaves(functions, wasm);
-  // const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
-  // const constructorSelector = generateFunctionSelector(constructorAbi.name, constructorAbi.parameters);
-  // const functionData = new FunctionData(constructorSelector, true, true);
-  // const flatArgs = encodeArguments(constructorAbi, args);
-  // const argsHash = await computeVarArgsHash(wasm, flatArgs);
-  // const constructorHash = hashConstructor(wasm, functionData, argsHash, constructorVkHash.toBuffer());
+  const wasm = await CircuitsWasm.get();
+  const vkHash = hashVKStr(constructorAbi.verificationKey, wasm);
+  const constructorVkHash = Fr.fromBuffer(vkHash);
+  const functions = abi.functions.map(f => ({
+    ...f,
+    selector: generateFunctionSelector(f.name, f.parameters),
+  }));
+  const leaves = generateFunctionLeaves(functions, wasm);
+  const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
+  const constructorSelector = generateFunctionSelector(constructorAbi.name, constructorAbi.parameters);
+  const functionData = new FunctionData(constructorSelector, true, true);
+  const flatArgs = encodeArguments(constructorAbi, args);
+  const argsHash = await computeVarArgsHash(wasm, flatArgs);
+  const constructorHash = hashConstructor(wasm, functionData, argsHash, constructorVkHash.toBuffer());
 
-  // const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
-  // const contractAddress = computeContractAddress(
-  //   wasm,
-  //   publicKey,
-  //   contractAddressSalt,
-  //   functionTreeRoot,
-  //   constructorHash,
-  // );
-
-  await Promise.resolve();
+  const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
+  const contractAddress = computeContractAddress(
+    wasm,
+    publicKey,
+    contractAddressSalt,
+    functionTreeRoot,
+    constructorHash,
+  );
 
   return {
-    address: AztecAddress.random(),
-    partialAddress: Fr.random(),
-    constructorHash: Fr.random(),
-    functionTreeRoot: Fr.random(),
+    address: contractAddress,
+    partialAddress,
+    constructorHash: constructorVkHash,
+    functionTreeRoot,
     publicKey,
   };
 }

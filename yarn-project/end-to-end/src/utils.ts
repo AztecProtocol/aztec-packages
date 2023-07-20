@@ -205,7 +205,14 @@ export async function setup(numberOfAccounts = 1): Promise<{
     await aztecRpcServer.getNodeInfo();
     const salt = Fr.random();
     logger('Generating contract deployment info...');
-    const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
+    //const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
+    const deploymentData = {
+      address: AztecAddress.random(),
+      partialAddress: Fr.random(),
+      publicKey,
+      functionTreeRoot: Fr.random(),
+      constructorHash: Fr.random(),
+    };
     const nodeInfo = await aztecRpcServer.getNodeInfo();
     logger(`Retrieved node info`, nodeInfo);
     const blockNumber = await aztecRpcServer.getBlockNum();
