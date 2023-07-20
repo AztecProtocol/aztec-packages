@@ -26,5 +26,4 @@ export const createAztecRpcClient = (url: string): AztecRPC =>
     },
     { Tx, ContractDeploymentTx, TxReceipt },
     false,
-    mustSucceedFetch,
   );
