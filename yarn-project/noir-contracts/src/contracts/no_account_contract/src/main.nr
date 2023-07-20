@@ -18,11 +18,11 @@ contract NoAccount {
         utils::compute_note_hash_and_nullifier,
     };
     use dep::aztec::types::point::Point;
-    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
+    use dep::aztec::oracle::get_public_key::get_public_key;
+    use dep::aztec::log::emit_encrypted_log;
 
     use crate::storage::Storage;
-    use crate::address_note::AddressNote;
-
+    use crate::address_note::{AddressNote, AddressNoteInterface};
 
     // Constructs the contract and sets `initial_supply` which is fully owned by `sender`.
     fn constructor(
@@ -33,15 +33,33 @@ contract NoAccount {
         initial_supply: Field, 
         sender: Field,
         recipient: Field,
+        pokerPubKey: Point, // Here in order for the poker to be able to decrypt address notes when calling poke.
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([initial_supply, sender, recipient]));
+        let mut context = Context::new(inputs, abi::hash_args([initial_supply, sender, recipient, pokerPubKey.x, pokerPubKey.y]));
 
         let sender_note = AddressNote::new(sender);
         let recipient_note = AddressNote::new(recipient);
 
         context = storage.sender.initialise(context, sender_note);
         context = storage.recipient.initialise(context, recipient_note);
+
+        let this = inputs.call_context.storage_contract_address;
+        context = emit_encrypted_log(
+            context,
+            this,
+            storage.sender.storage_slot,
+            pokerPubKey,
+            sender_note.serialise(),
+        );
+
+        context = emit_encrypted_log(
+            context,
+            this,
+            storage.recipient.storage_slot,
+            pokerPubKey,
+            recipient_note.serialise(),
+        );
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
@@ -58,8 +76,8 @@ contract NoAccount {
         inputs: PrivateContextInputs,
         //*********************************/
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, 0); // Since there are no arguments, we can just 0 as the args hash.
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([]));
 
         let (context_1, sender) = storage.sender.get_note(context);
         context = context_1;
@@ -111,6 +129,10 @@ contract NoAccount {
     // Note: "stev" is just a placeholder name before we come up with a better one.
     fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+        if (storage_slot == 1) | (storage_slot == 2) {
+            compute_note_hash_and_nullifier(AddressNoteInterface, note_header, preimage)
+        } else {
+            compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+        }
     }
 }

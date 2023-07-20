@@ -1,14 +1,39 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, BaseWallet, Wallet, generatePublicKey } from '@aztec/aztec.js';
+import { CircuitsWasm, Fr, TxContext } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { NoAccountContract } from '@aztec/noir-contracts/types';
 import { ExecutionRequest, L2BlockL2Logs, LogType, PackedArguments, TxExecutionRequest, TxStatus } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 
 import { setup } from './utils.js';
-import { CircuitsWasm, Fr, TxContext } from '@aztec/circuits.js';
+
+/**
+ * Wallet implementation which creates a simple transaction request without any signing.
+ * @remarks Based on DeployerWallet
+ */
+class SignerlessWallet extends BaseWallet {
+  getAddress(): AztecAddress {
+    return AztecAddress.ZERO;
+  }
+  async createAuthenticatedTxRequest(
+    executions: ExecutionRequest[],
+    txContext: TxContext,
+  ): Promise<TxExecutionRequest> {
+    if (executions.length !== 1) {
+      throw new Error(`Unexpected number of executions. Expected 1, received ${executions.length})`);
+    }
+    const [execution] = executions;
+    const wasm = await CircuitsWasm.get();
+    const packedArguments = await PackedArguments.fromArgs(execution.args, wasm);
+    return Promise.resolve(
+      new TxExecutionRequest(execution.to, execution.functionData, packedArguments.hash, txContext, [packedArguments]),
+    );
+  }
+}
 
 describe('e2e_no_account_contract', () => {
   let aztecNode: AztecNodeService;
@@ -16,6 +41,9 @@ describe('e2e_no_account_contract', () => {
   let wallet: Wallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;
+  let poker: AztecAddress;
+  let pokerWallet: Wallet;
+
   let logger: DebugLogger;
 
   let contract: NoAccountContract;
@@ -28,13 +56,14 @@ describe('e2e_no_account_contract', () => {
     sender = accounts[0];
     recipient = accounts[1];
 
+    const pokerPrivKey = randomBytes(32);
+    const pokerPubKey = await generatePublicKey(pokerPrivKey);
+    poker = AztecAddress.fromBuffer(pokerPubKey.x.toBuffer());
+    pokerWallet = new SignerlessWallet(aztecRpcServer);
+    await pokerWallet.addAccount(pokerPrivKey, poker, new Fr(0n));
+
     logger(`Deploying L2 contract...`);
-    const tx = NoAccountContract.deploy(
-      aztecRpcServer,
-      initialBalance,
-      sender,
-      recipient,
-    ).send();
+    const tx = NoAccountContract.deploy(aztecRpcServer, initialBalance, sender, recipient, pokerPubKey).send();
     const receipt = await tx.getReceipt();
     contract = new NoAccountContract(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
@@ -62,61 +91,30 @@ describe('e2e_no_account_contract', () => {
     expect(unrolledLogs.length).toBe(numEncryptedLogs);
   };
 
-  it('Arbitrary non-contract account can call a private function on a contract', async () => {    
-    const pokerPrivKey = randomBytes(32);
-    const pokerPubKey = await generatePublicKey(pokerPrivKey);
-    const poker = AztecAddress.fromBuffer(pokerPubKey.x.toBuffer());
-
-    await aztecRpcServer.addAccount(pokerPrivKey, poker, new Fr(0n));
-
+  it('Arbitrary non-contract account can call a private function on a contract', async () => {
     // Check that all the balances are correct and that exactly 1 encrypted log was emitted
     await expectBalance(sender, initialBalance);
     await expectBalance(recipient, 0n);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(3);
 
-    const accountImpl = new PassThroughWallet(aztecRpcServer);
-    await accountImpl.addAccount(pokerPrivKey, poker, new Fr(0n))
-    
-    // await aztecRpcServer.addAccount(pokerPrivKey, poker, new Fr(0n));
+    const contractWithNoContractWallet = new NoAccountContract(contract.address, pokerWallet);
 
-    const contractWithNoContractWallet = new NoAccountContract(contract.address, accountImpl);
+    const isUserSynchronised = async () => {
+      return await wallet.isAccountSynchronised(poker);
+    };
+    await retryUntil(isUserSynchronised, poker.toString(), 5);
 
-    // Finally check that arbitrary non-contract address can call the poke function
-    const tx = contractWithNoContractWallet.methods
-      .poke()
-      .send({ origin: poker });
+    // Send transaction as poker (arbitrary non-contract account)
+    const tx = contractWithNoContractWallet.methods.poke().send({ origin: poker });
 
     await tx.isMined(0, 0.1);
-    // const receipt = await tx.getReceipt();
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
 
-    // expect(receipt.status).toBe(TxStatus.MINED);
+    // Initial balance should be fully transferred to the recipient
+    await expectBalance(sender, 0n);
+    await expectBalance(recipient, initialBalance);
 
-    // await expectBalance(senderPubKey, initialBalance - transferAmount);
-    // await expectBalance(recipientPubKey, transferAmount);
-
-    // await expectsNumOfEncryptedLogsInTheLastBlockToBe(2);
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(1);
   }, 60_000);
 });
-
-/**
- * Simple wallet implementation for use when deploying contracts only.
- */
-class PassThroughWallet extends BaseWallet {
-  getAddress(): AztecAddress {
-    return AztecAddress.ZERO;
-  }
-  async createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
-  ): Promise<TxExecutionRequest> {
-    if (executions.length !== 1) {
-      throw new Error(`Deployer wallet can only run one execution at a time (requested ${executions.length})`);
-    }
-    const [execution] = executions;
-    const wasm = await CircuitsWasm.get();
-    const packedArguments = await PackedArguments.fromArgs(execution.args, wasm);
-    return Promise.resolve(
-      new TxExecutionRequest(execution.to, execution.functionData, packedArguments.hash, txContext, [packedArguments]),
-    );
-  }
-}
