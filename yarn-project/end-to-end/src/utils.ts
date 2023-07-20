@@ -200,9 +200,11 @@ export async function setup(numberOfAccounts = 1): Promise<{
     // TODO(#662): Let the aztec rpc server generate the key pair rather than hardcoding the private key
     const privateKey = i === 0 ? Buffer.from(privKey!) : randomBytes(32);
     await aztecRpcServer.getNodeInfo();
+    logger('Generating public key...');
     const publicKey = await generatePublicKey(privateKey);
     await aztecRpcServer.getNodeInfo();
     const salt = Fr.random();
+    logger('Generating contract deployment info...');
     const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
     const nodeInfo = await aztecRpcServer.getNodeInfo();
     logger(`Retrieved node info`, nodeInfo);
