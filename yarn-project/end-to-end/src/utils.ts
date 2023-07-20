@@ -63,7 +63,10 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   }, 'RPC Get Node Info');
 };
 
-const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: DebugLogger): Promise<AztecNodeService | undefined> => {
+const createAztecNode = async (
+  nodeConfig: AztecNodeConfig,
+  logger: DebugLogger,
+): Promise<AztecNodeService | undefined> => {
   if (SANDBOX_URL) {
     logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
     return undefined;
@@ -76,7 +79,7 @@ const createRpcServer = async (
   rpcConfig: RpcServerConfig,
   aztecNode: AztecNodeService | undefined,
   logger: DebugLogger,
-  useLogSuffix?: boolean | string
+  useLogSuffix?: boolean | string,
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
