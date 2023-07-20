@@ -28,7 +28,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import every from 'lodash.every';
 import zipWith from 'lodash.zipwith';
@@ -63,25 +63,31 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
   }, 'RPC Get Node Info');
 };
 
+const createAztecNode = async (nodeConfig: AztecNodeConfig): Promise<AztecNodeService | undefined> => {
+  if (SANDBOX_URL) {
+    return undefined;
+  }
+  return await AztecNodeService.createAndSync(nodeConfig);
+};
+
 const createRpcServer = async (
   rpcConfig: RpcServerConfig,
-  nodeConfig: AztecNodeConfig | undefined,
+  aztecNode: AztecNodeService | undefined,
   logger: Logger,
-): Promise<[AztecNodeService | undefined, AztecRPC]> => {
+): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
     const jsonClient = createJsonRpcClient(SANDBOX_URL, mustSucceedFetch);
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
-    return [undefined, jsonClient];
-  } else if (!nodeConfig) {
-    throw new Error('Invalid aztec node config');
+    return jsonClient;
+  } else if (!aztecNode) {
+    throw new Error('Invalid aztec node when creating RPC server');
   }
-  const aztecNode = await AztecNodeService.createAndSync(nodeConfig);
-  return [aztecNode, await createAztecRPCServer(aztecNode, rpcConfig)];
+  return await createAztecRPCServer(aztecNode, rpcConfig);
 };
 
-const setupL1Contracts = async (config: AztecNodeConfig, account: HDAccount, logger: Logger) => {
+const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: Logger) => {
   if (SANDBOX_URL) {
     logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
     const l1Contracts = await getL1ContractAddresses(SANDBOX_URL);
@@ -89,11 +95,11 @@ const setupL1Contracts = async (config: AztecNodeConfig, account: HDAccount, log
     const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
       account,
       chain: localAnvil,
-      transport: http(config.rpcUrl),
+      transport: http(l1RpcUrl),
     });
     const publicClient = createPublicClient({
       chain: localAnvil,
-      transport: http(config.rpcUrl),
+      transport: http(l1RpcUrl),
     });
     return {
       rollupAddress: l1Contracts.rollup,
@@ -106,7 +112,7 @@ const setupL1Contracts = async (config: AztecNodeConfig, account: HDAccount, log
       publicClient,
     };
   }
-  return await deployL1Contracts(config.rpcUrl, account, localAnvil, logger);
+  return await deployL1Contracts(l1RpcUrl, account, localAnvil, logger);
 };
 
 /**
@@ -140,21 +146,17 @@ type TxContext = {
 /**
  * Sets up Aztec RPC Server.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
- * @param nodeConfig - The configuration for the aztec node.
+ * @param aztecNode - The instance of an aztec node, if one is required
  * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @returns Aztec RPC server, accounts, wallets and logger.
  */
 export async function setupAztecRPCServer(
   numberOfAccounts: number,
-  nodeConfig: AztecNodeConfig,
+  aztecNode: AztecNodeService | undefined,
   firstPrivKey: Uint8Array | null = null,
   logger = getLogger(),
 ): Promise<{
-  /**
-   * The Aztec Node service.
-   */
-  aztecNode: AztecNodeService | undefined;
   /**
    * The Aztec RPC instance.
    */
@@ -174,7 +176,7 @@ export async function setupAztecRPCServer(
 }> {
   const rpcConfig = getRpcConfigEnvVars();
 
-  const [aztecNode, aztecRpcServer] = await createRpcServer(rpcConfig, nodeConfig, logger);
+  const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger);
 
   const accountCollection = new AccountCollection();
   const txContexts: TxContext[] = [];
@@ -243,7 +245,6 @@ export async function setupAztecRPCServer(
   const wallet = new AccountWallet(aztecRpcServer, accountCollection);
 
   return {
-    aztecNode,
     aztecRpcServer,
     accounts,
     wallet,
@@ -289,20 +290,17 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const logger = getLogger();
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
-  const deployL1ContractsValues = await setupL1Contracts(config, hdAccount, logger);
+  const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKey = hdAccount.getHdKey().privateKey;
+
+  const aztecNode = await createAztecNode(config);
 
   config.publisherPrivateKey = Buffer.from(privKey!);
   config.rollupContract = deployL1ContractsValues.rollupAddress;
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
 
-  const { aztecNode, aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(
-    numberOfAccounts,
-    config,
-    privKey,
-    logger,
-  );
+  const { aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(numberOfAccounts, aztecNode, privKey, logger);
 
   return {
     aztecNode,
@@ -474,3 +472,46 @@ export async function expectAztecStorageSlot(
   logger(`Account ${key.toShortString()} balance: ${balance}`);
   expect(balance).toBe(expectedValue);
 }
+
+/**
+ * Checks the number of encrypted logs in the last block is as expected.
+ * @param aztecNode - The instance of aztec node for retrieving the logs.
+ * @param numEncryptedLogs - The number of expected logs.
+ */
+export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
+  aztecNode: AztecNodeService | undefined,
+  numEncryptedLogs: number,
+) => {
+  if (!aztecNode) {
+    // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
+    // This means we can't perform this check if there is no node
+    return;
+  }
+  const l2BlockNum = await aztecNode.getBlockHeight();
+  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
+  const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
+  expect(unrolledLogs.length).toBe(numEncryptedLogs);
+};
+
+/**
+ * Checks that the last block contains the given expected unencrypted log messages.
+ * @param aztecNode - The instance of aztec node for retrieving the logs.
+ * @param logMessages - The set of expected log messages.
+ * @returns
+ */
+export const expectUnencryptedLogsFromLastBlockToBe = async (
+  aztecNode: AztecNodeService | undefined,
+  logMessages: string[],
+) => {
+  if (!aztecNode) {
+    // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
+    // This means we can't perform this check if there is no node
+    return;
+  }
+  const l2BlockNum = await aztecNode.getBlockHeight();
+  const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
+  const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
+  const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
+
+  expect(asciiLogs).toStrictEqual(logMessages);
+};
