@@ -46,7 +46,7 @@ export class PrivateCircuitPublicInputs {
      */
     public newNullifiers: Fr[],
     /**
-     * The objects those were nullified by the above newNullifiers.
+     * The commitments those were nullified by the above newNullifiers.
      */
     public nullifiedCommitments: Fr[],
     /**
