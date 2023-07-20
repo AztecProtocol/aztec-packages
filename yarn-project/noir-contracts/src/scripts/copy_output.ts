@@ -1,18 +1,21 @@
-import { readFileSync, writeFileSync } from 'fs';
-import camelCase from 'lodash.camelcase';
-import snakeCase from 'lodash.snakecase';
-import upperFirst from 'lodash.upperfirst';
-import mockedKeys from './mockedKeys.json' assert { type: 'json' };
 import { ABIParameter, ABIType, FunctionType } from '@aztec/foundation/abi';
 import { createLogger } from '@aztec/foundation/log';
-import { join as pathJoin } from 'path';
+import { generateType } from '@aztec/noir-compiler';
+
+import { readFileSync, writeFileSync } from 'fs';
+import camelCase from 'lodash.camelcase';
 import omit from 'lodash.omit';
+import snakeCase from 'lodash.snakecase';
+import upperFirst from 'lodash.upperfirst';
+import { join as pathJoin } from 'path';
+
+import mockedKeys from './mockedKeys.json' assert { type: 'json' };
 
 const STATEMENT_TYPES = ['type', 'params', 'return'] as const;
 const log = createLogger('aztec:noir-contracts');
 
 const PROJECT_CONTRACTS = [
-  { name: 'SchnorrAccount', target: '../aztec.js/src/abis/', exclude: ['bytecode', 'verificationKey'] },
+  { name: 'SchnorrSingleKeyAccount', target: '../aztec.js/src/abis/', exclude: ['bytecode', 'verificationKey'] },
   { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: ['bytecode', 'verificationKey'] },
 ];
 
@@ -56,7 +59,7 @@ function getFunction(type: FunctionType, params: ABIParameter[], returns: ABITyp
     parameters: params,
     // If the function is secret, the return is the public inputs, which should be omitted
     returnTypes: type === FunctionType.SECRET ? [] : returns,
-    bytecode: Buffer.from(fn.bytecode).toString('hex'),
+    bytecode: fn.bytecode,
     // verificationKey: Buffer.from(fn.verification_key).toString('hex'),
     verificationKey: mockedKeys.verificationKey,
   };
@@ -105,17 +108,22 @@ const main = () => {
   const source = readFileSync(`${folder}/src/main.nr`).toString();
   const contractName = process.argv[3] ?? upperFirst(camelCase(name));
   const build = JSON.parse(readFileSync(`${folder}/target/main-${contractName}.json`).toString());
-  const examples = `src/examples`;
+  const artifacts = `src/artifacts`;
 
   const abi = {
     name: build.name,
     functions: getFunctions(source, build),
   };
 
-  const exampleFile = `${examples}/${snakeCase(name)}_contract.json`;
+  const exampleFile = `${artifacts}/${snakeCase(name)}_contract.json`;
   writeFileSync(exampleFile, JSON.stringify(abi, null, 2) + '\n');
-  writeToProject(abi);
   log(`Written ${exampleFile}`);
+
+  writeToProject(abi);
+
+  const typeFile = `src/types/${name}.ts`;
+  writeFileSync(typeFile, generateType(abi, '../artifacts/index.js'));
+  log(`Written ${typeFile}`);
 };
 
 try {

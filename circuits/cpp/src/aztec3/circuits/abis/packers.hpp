@@ -19,7 +19,6 @@ struct ConstantsPacker {
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(ARGS_LENGTH,
                  RETURN_VALUES_LENGTH,
-                 READ_REQUESTS_LENGTH,
                  MAX_NEW_COMMITMENTS_PER_CALL,
                  MAX_NEW_NULLIFIERS_PER_CALL,
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -27,6 +26,7 @@ struct ConstantsPacker {
                  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
                  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
                  MAX_PUBLIC_DATA_READS_PER_CALL,
+                 MAX_READ_REQUESTS_PER_CALL,
                  MAX_NEW_COMMITMENTS_PER_TX,
                  MAX_NEW_NULLIFIERS_PER_TX,
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -36,8 +36,9 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_READS_PER_TX,
                  MAX_NEW_CONTRACTS_PER_TX,
                  MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
-                 NUM_ENCRYPTED_LOGS_HASHES_PER_TX),
-             NVP(NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
+                 MAX_READ_REQUESTS_PER_TX),
+             NVP(NUM_ENCRYPTED_LOGS_HASHES_PER_TX,
+                 NUM_UNENCRYPTED_LOGS_HASHES_PER_TX,
                  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
                  KERNELS_PER_ROLLUP,
                  VK_TREE_HEIGHT,
@@ -55,13 +56,29 @@ struct ConstantsPacker {
                  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
                  PRIVATE_DATA_SUBTREE_HEIGHT,
                  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-                 NULLIFIER_SUBTREE_HEIGHT,
-                 NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH),
-             NVP(L1_TO_L2_MSG_SUBTREE_HEIGHT,
+                 NULLIFIER_SUBTREE_HEIGHT),
+             NVP(NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
+                 L1_TO_L2_MSG_SUBTREE_HEIGHT,
                  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
                  FUNCTION_SELECTOR_NUM_BYTES,
                  MAPPING_SLOT_PEDERSEN_SEPARATOR,
-                 NUM_FIELDS_PER_SHA256));  // <-- Add names of new constants here
+                 NUM_FIELDS_PER_SHA256,
+                 L1_TO_L2_MESSAGE_LENGTH,
+                 L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH,
+                 MAX_NOTE_FIELDS_LENGTH,
+                 GET_NOTE_ORACLE_RETURN_LENGTH,
+                 MAX_NOTES_PER_PAGE,
+                 VIEW_NOTE_ORACLE_RETURN_LENGTH,
+                 CALL_CONTEXT_LENGTH,
+                 COMMITMENT_TREES_ROOTS_LENGTH,
+                 FUNCTION_DATA_LENGTH,
+                 CONTRACT_DEPLOYMENT_DATA_LENGTH,
+                 PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+                 CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
+                 CONTRACT_STORAGE_READ_LENGTH,
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH),
+             NVP(GET_NOTES_ORACLE_RETURN_LENGTH,
+                 EMPTY_NULLIFIED_COMMITMENT));  // <-- Add names of new constants here
     }
 };
 
@@ -73,9 +90,9 @@ struct GeneratorIndexPacker {
         };
 
         int COMMITMENT = GeneratorIndex::COMMITMENT;
-        int COMMITMENT_PLACEHOLDER = GeneratorIndex::COMMITMENT_PLACEHOLDER;
+        int COMMITMENT_NONCE = GeneratorIndex::COMMITMENT_NONCE;
+        int UNIQUE_COMMITMENT = GeneratorIndex::UNIQUE_COMMITMENT;
         int OUTER_COMMITMENT = GeneratorIndex::OUTER_COMMITMENT;
-        int NULLIFIER_HASHED_PRIVATE_KEY = GeneratorIndex::NULLIFIER_HASHED_PRIVATE_KEY;
         int NULLIFIER = GeneratorIndex::NULLIFIER;
         int INITIALISATION_NULLIFIER = GeneratorIndex::INITIALISATION_NULLIFIER;
         int OUTER_NULLIFIER = GeneratorIndex::OUTER_NULLIFIER;
@@ -109,9 +126,9 @@ struct GeneratorIndexPacker {
         // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(COMMITMENT,
-                 COMMITMENT_PLACEHOLDER,
+                 COMMITMENT_NONCE,
+                 UNIQUE_COMMITMENT,
                  OUTER_COMMITMENT,
-                 NULLIFIER_HASHED_PRIVATE_KEY,
                  NULLIFIER,
                  INITIALISATION_NULLIFIER,
                  OUTER_NULLIFIER,

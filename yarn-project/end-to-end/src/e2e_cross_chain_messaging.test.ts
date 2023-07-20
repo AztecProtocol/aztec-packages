@@ -1,20 +1,20 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract } from '@aztec/aztec.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { Point } from '@aztec/foundation/fields';
-import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-
-import { delay, setup } from './utils.js';
-import { CrossChainTestHarness } from './cross_chain/test_harness.js';
+import { AztecAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { DebugLogger } from '@aztec/foundation/log';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
+
+import { CrossChainTestHarness } from './cross_chain/test_harness.js';
+import { delay, setup } from './utils.js';
 
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let logger: DebugLogger;
 
-  let l2Contract: Contract;
+  let l2Contract: NonNativeTokenContract;
   let ethAccount: EthAddress;
 
   let underlyingERC20: any;
@@ -22,7 +22,6 @@ describe('e2e_cross_chain_messaging', () => {
 
   const initialBalance = 10n;
   let ownerAddress: AztecAddress;
-  let ownerPub: Point;
 
   let crossChainTestHarness: CrossChainTestHarness;
 
@@ -51,7 +50,6 @@ describe('e2e_cross_chain_messaging', () => {
     underlyingERC20 = crossChainTestHarness.underlyingERC20;
     outbox = crossChainTestHarness.outbox;
     aztecRpcServer = crossChainTestHarness.aztecRpcServer;
-    ownerPub = crossChainTestHarness.ownerPub;
 
     logger = logger_;
     logger('Successfully deployed contracts and initialized portal');
@@ -64,7 +62,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const [balance] = await l2Contract.methods.getBalance(ownerPub.toBigInts()).view({ from: owner });
+    const [balance] = await l2Contract.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -72,7 +70,7 @@ describe('e2e_cross_chain_messaging', () => {
   const withdrawFundsFromAztec = async (withdrawAmount: bigint) => {
     logger('Send L2 tx to withdraw funds');
     const withdrawTx = l2Contract.methods
-      .withdraw(withdrawAmount, ownerPub, ethAccount, EthAddress.ZERO.toField())
+      .withdraw(withdrawAmount, ownerAddress, ethAccount, EthAddress.ZERO.toField())
       .send({ origin: ownerAddress });
 
     await withdrawTx.isMined(0, 0.1);

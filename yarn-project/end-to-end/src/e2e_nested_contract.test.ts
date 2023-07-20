@@ -1,10 +1,11 @@
 import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger } from '@aztec/foundation/log';
-import { ChildAbi, ParentAbi } from '@aztec/noir-contracts/examples';
 import { toBigInt } from '@aztec/foundation/serialize';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { ChildContractAbi, ParentContractAbi } from '@aztec/noir-contracts/artifacts';
+import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
 
 import { setup } from './utils.js';
@@ -16,14 +17,14 @@ describe('e2e_nested_contract', () => {
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let parentContract: Contract;
-  let childContract: Contract;
+  let parentContract: ParentContract;
+  let childContract: ChildContract;
 
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup());
 
-    parentContract = await deployContract(ParentAbi);
-    childContract = await deployContract(ChildAbi);
+    parentContract = (await deployContract(ParentContractAbi)) as ParentContract;
+    childContract = (await deployContract(ChildContractAbi)) as ChildContract;
   }, 100_000);
 
   afterEach(async () => {

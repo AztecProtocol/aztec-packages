@@ -1,10 +1,10 @@
-import { AztecNode } from '@aztec/aztec-node';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
-import { KeyStore } from '@aztec/types';
+import { AztecNode, KeyStore } from '@aztec/types';
 
-import { AztecRPCServer } from './aztec_rpc_server.js';
+import { RpcServerConfig } from '../config/index.js';
 import { Database, MemoryDB } from '../database/index.js';
+import { AztecRPCServer } from './aztec_rpc_server.js';
 
 /**
  * Optional information for creating an AztecRPCServer.
@@ -26,14 +26,20 @@ interface CreateAztecRPCServerOptions {
  * Returns a Promise that resolves to the started AztecRPCServer instance.
  *
  * @param aztecNode - The AztecNode instance to be used by the server.
+ * @param config - The Rpc Server Config to use
  * @param options - (Optional) Optional information for creating an AztecRPCServer.
  * @returns A Promise that resolves to the started AztecRPCServer instance.
  */
-export async function createAztecRPCServer(aztecNode: AztecNode, { keyStore, db }: CreateAztecRPCServerOptions = {}) {
+export async function createAztecRPCServer(
+  aztecNode: AztecNode,
+  config: RpcServerConfig,
+  { keyStore, db }: CreateAztecRPCServerOptions = {},
+) {
+  const logSuffix = Math.random().toString(16).slice(2, 8);
   keyStore = keyStore || new TestKeyStore(await Grumpkin.new());
-  db = db || new MemoryDB();
+  db = db || new MemoryDB(logSuffix);
 
-  const server = new AztecRPCServer(keyStore, aztecNode, db);
+  const server = new AztecRPCServer(keyStore, aztecNode, db, config, logSuffix);
   await server.start();
   return server;
 }

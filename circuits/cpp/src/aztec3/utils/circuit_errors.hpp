@@ -15,8 +15,8 @@ enum CircuitErrorCode : uint16_t {
     PRIVATE_KERNEL__INVALID_CONTRACT_ADDRESS = 2002,
     PRIVATE_KERNEL__PURPORTED_CONTRACT_TREE_ROOT_AND_PREVIOUS_KERNEL_CONTRACT_TREE_ROOT_MISMATCH = 2003,
     PRIVATE_KERNEL__COMPUTED_CONTRACT_TREE_ROOT_AND_PURPORTED_CONTRACT_TREE_ROOT_MISMATCH = 2004,
-    PRIVATE_KERNEL__NEW_COMMITMENTS_NOT_EMPTY_FOR_STATIC_CALL = 2005,
-    PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_FOR_STATIC_CALL = 2006,
+    PRIVATE_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL = 2005,
+    PRIVATE_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL = 2006,
     PRIVATE_KERNEL__CALCULATED_PRIVATE_CALL_HASH_AND_PROVIDED_PRIVATE_CALL_HASH_MISMATCH = 2007,
     PRIVATE_KERNEL__PRIVATE_CALL_STACK_ITEM_HASH_MISMATCH = 2008,
     PRIVATE_KERNEL__NON_PRIVATE_FUNCTION_EXECUTED_WITH_PRIVATE_KERNEL = 2009,
@@ -30,6 +30,8 @@ enum CircuitErrorCode : uint16_t {
     PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM = 2017,
     PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH = 2018,
     PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH = 2019,
+    PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH = 2020,
+    PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST = 2021,
 
     // Public kernel related errors
     PUBLIC_KERNEL_CIRCUIT_FAILED = 3000,
@@ -60,7 +62,7 @@ enum CircuitErrorCode : uint16_t {
     PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL = 3026,
     PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL = 3027,
 
-    BASE_FAILED = 4000,
+    BASE__CIRCUIT_FAILED = 4000,
     BASE__KERNEL_PROOF_VERIFICATION_FAILED = 4001,
     BASE__INCORRECT_NUM_OF_NEW_COMMITMENTS = 4002,
     BASE__INVALID_NULLIFIER_SUBTREE = 4003,
@@ -112,21 +114,6 @@ template <typename T> struct CircuitResult {
     void msgpack_unpack(auto obj) { result = obj; }
     // for schema serialization: delegate to msgpack std::variant support
     void msgpack_schema(auto& packer) const { packer.pack_schema(result); }
-};
-
-inline void read(uint8_t const*& it, CircuitError& obj)
-{
-    using serialize::read;
-    read(it, obj.code);
-    read(it, obj.message);
-};
-
-inline void write(std::vector<uint8_t>& buf, CircuitError const& obj)
-{
-    using serialize::write;
-
-    write(buf, obj.code);
-    write(buf, obj.message);
 };
 
 inline std::ostream& operator<<(std::ostream& os, CircuitError const& obj)

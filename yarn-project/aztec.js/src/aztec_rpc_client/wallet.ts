@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, Point, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialContractAddress, Point, PublicKey, TxContext } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   AztecRPC,
@@ -39,14 +39,18 @@ export abstract class BaseWallet implements Wallet {
   ): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress, abi);
   }
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
+    return this.rpc.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
+  }
   getAccounts(): Promise<AztecAddress[]> {
     return this.rpc.getAccounts();
   }
-  getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    return this.rpc.getAccountPublicKey(address);
-  }
-  getAccountAddress(publicKey: Point): Promise<AztecAddress> {
-    return this.rpc.getAccountAddress(publicKey);
+  getPublicKey(address: AztecAddress): Promise<Point> {
+    return this.rpc.getPublicKey(address);
   }
   addContracts(contracts: DeployedContract[]): Promise<void> {
     return this.rpc.addContracts(contracts);
@@ -54,8 +58,8 @@ export abstract class BaseWallet implements Wallet {
   isContractDeployed(contract: AztecAddress): Promise<boolean> {
     return this.rpc.isContractDeployed(contract);
   }
-  simulateTx(txRequest: TxExecutionRequest, optionalFromAddress?: AztecAddress | undefined): Promise<Tx> {
-    return this.rpc.simulateTx(txRequest, optionalFromAddress);
+  simulateTx(txRequest: TxExecutionRequest): Promise<Tx> {
+    return this.rpc.simulateTx(txRequest);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.rpc.sendTx(tx);
@@ -83,6 +87,12 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
+  }
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
+    return this.rpc.getPublicKeyAndPartialAddress(address);
+  }
+  isAccountSynchronised(account: AztecAddress) {
+    return this.rpc.isAccountSynchronised(account);
   }
 }
 

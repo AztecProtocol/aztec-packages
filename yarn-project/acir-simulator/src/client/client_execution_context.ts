@@ -1,6 +1,8 @@
-import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+
 import {
   ACVMField,
   fromACVMField,
@@ -9,19 +11,8 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
-import { DBOracle } from './db_oracle.js';
-
-/**
- * Information about a note created during execution.
- */
-export type PendingNoteData = {
-  /** The preimage of the created note */
-  preimage: ACVMField[];
-  /** The contract address of the commitment. */
-  contractAddress: AztecAddress;
-  /** The storage slot of the commitment. */
-  storageSlot: Fr;
-};
+import { DBOracle, NoteData } from './db_oracle.js';
+import { pickNotes } from './pick_notes.js';
 
 /**
  * The execution context for a client tx simulation.
@@ -35,6 +26,8 @@ export class ClientTxExecutionContext {
   constructor(
     /**  The database oracle. */
     public db: DBOracle,
+    /** The tx nullifier, which is also the first nullifier. This will be used to compute the nonces for pending notes. */
+    private txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
     /** The old roots. */
@@ -42,7 +35,7 @@ export class ClientTxExecutionContext {
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending commitments created (and not nullified) up to current point in execution **/
-    public pendingNotes: PendingNoteData[] = [],
+    private pendingNotes: NoteData[] = [],
   ) {}
 
   /**
@@ -52,6 +45,7 @@ export class ClientTxExecutionContext {
   public extend() {
     return new ClientTxExecutionContext(
       this.db,
+      this.txNullifier,
       this.txContext,
       this.historicRoots,
       this.packedArgsCache,
@@ -87,8 +81,6 @@ export class ClientTxExecutionContext {
    * @remarks
    *
    * Check for pending notes with matching address/slot.
-   * If limit isn't reached after pending notes are checked/retrieved,
-   * fetchNotes from DB with modified limit.
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the private data tree.
    *
@@ -100,13 +92,14 @@ export class ClientTxExecutionContext {
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param sortBy - The sort by fields.
-   * @param sortOrder - The sort order fields.
-   * @param limit - The limit.
-   * @param offset - The offset.
+   * @param sortBy - An array of indices of the fields to sort.
+   * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
+   * @param limit - The number of notes to retrieve per query.
+   * @param offset - The starting index for pagination.
    * @param returnSize - The return size.
    * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
    * count - number of real (non-padding) notes retrieved,
+   * contractAddress - the contract address,
    * preimages - the real note preimages retrieved, and
    * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
    */
@@ -115,40 +108,39 @@ export class ClientTxExecutionContext {
     storageSlot: ACVMField,
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
-    limit: ACVMField,
-    offset: ACVMField,
-    returnSize: ACVMField,
+    limit: number,
+    offset: number,
+    returnSize: number,
   ): Promise<ACVMField[]> {
-    const { pendingCount, pendingPreimages } = this.getPendingNotes(
-      contractAddress,
-      storageSlot,
-      sortBy,
-      sortOrder,
+    const storageSlotField = fromACVMField(storageSlot);
+
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): don't 'get' notes nullified in pendingNullifiers
+    const pendingNotes = this.pendingNotes.filter(
+      n => n.contractAddress.equals(contractAddress) && n.storageSlot.equals(storageSlotField),
+    );
+
+    const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
+
+    const notes = pickNotes([...pendingNotes, ...dbNotes], {
+      sortBy: sortBy.map(field => +field),
+      sortOrder: sortOrder.map(field => +field),
       limit,
       offset,
-    );
-
-    const dbLimit = +limit - pendingCount;
-    const { count: dbCount, notes: dbNotes } = await this.db.getNotes(
-      contractAddress,
-      fromACVMField(storageSlot),
-      sortBy.map(field => +field),
-      sortOrder.map(field => +field),
-      dbLimit,
-      +offset,
-    );
-    // Noir (ACVM) expects a flattened (basically serialized) array of ACVMFields
-    const dbPreimages = dbNotes.flatMap(({ preimage }) => preimage).map(f => toACVMField(f));
+    });
 
     // Combine pending and db preimages into a single flattened array.
-    const preimages = [...pendingPreimages, ...dbPreimages];
+    const preimages = notes.flatMap(({ nonce, preimage }) => [nonce, ...preimage]);
 
-    // Add a partial witness for each note from the db containing only the note index.
-    // By default they will be flagged as non-transient.
-    this.readRequestPartialWitnesses.push(...dbNotes.map(note => ReadRequestMembershipWitness.empty(note.index)));
+    // Add a partial witness for each note.
+    // It contains the note index for db notes. And flagged as transient for pending notes.
+    notes.forEach(({ index }) => {
+      this.readRequestPartialWitnesses.push(
+        index !== undefined ? ReadRequestMembershipWitness.empty(index) : ReadRequestMembershipWitness.emptyTransient(),
+      );
+    });
 
-    const paddedZeros = Array(+returnSize - 2 - preimages.length).fill(toACVMField(Fr.ZERO));
-    return [toACVMField(pendingCount + dbCount), toACVMField(contractAddress), ...preimages, ...paddedZeros];
+    const paddedZeros = Array(Math.max(0, returnSize - 2 - preimages.length)).fill(Fr.ZERO);
+    return [notes.length, contractAddress, ...preimages, ...paddedZeros].map(v => toACVMField(v));
   }
 
   /**
@@ -175,52 +167,19 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Gets some pending notes for a contract address and storage slot.
-   * Returns number of notes retrieved and a flattened array of fields representing pending notes.
-   *
-   * Details:
-   * Check for pending notes with matching address/slot.
-   * Pending notes will have no leaf index and will be flagged
-   * as transient since they don't exist (yet) in the private data tree.
-   *
-   * This function will partially populate this.readRequestPartialWitnesses solely
-   * to flag these reads as "transient" since they correspond to pending commitments.
-   * The KernelProver will use this to fill in hints to the kernel regarding which
-   * commitments each transient read request corresponds to.
-   *
+   * Process new note created during execution.
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param _sortBy - The sort by fields.
-   * @param _sortOrder - The sort order fields.
-   * @param limit - The limit.
-   * @param _offset - The offset.
-   * @returns pendingCount - number of pending notes retrieved, and
-   * pendingPreimages - flattened array of ACVMFields (format expected by Noir/ACVM)
-   * containing the retrieved note preimages
+   * @param preimage - new note preimage.
    */
-  private getPendingNotes(
-    contractAddress: AztecAddress,
-    storageSlot: ACVMField,
-    _sortBy: ACVMField[],
-    _sortOrder: ACVMField[],
-    limit: ACVMField,
-    _offset: ACVMField,
-  ) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): don't 'get' notes nullified in pendingNullifiers
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1030): enforce sorting and offset for pending notes
-    let pendingCount = 0;
-    // Noir (ACVM) expects a flattened (basically serialized) array of ACVMFields
-    const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages
-    for (const note of this.pendingNotes) {
-      if (pendingCount == +limit) {
-        break;
-      }
-      if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(fromACVMField(storageSlot))) {
-        pendingCount++;
-        pendingPreimages.push(...note.preimage); // flattened
-        this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.emptyTransient());
-      }
-    }
-    return { pendingCount, pendingPreimages };
+  public async pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
+    const wasm = await CircuitsWasm.get();
+    const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
+    this.pendingNotes.push({
+      contractAddress,
+      storageSlot: fromACVMField(storageSlot),
+      nonce,
+      preimage: preimage.map(f => fromACVMField(f)),
+    });
   }
 }

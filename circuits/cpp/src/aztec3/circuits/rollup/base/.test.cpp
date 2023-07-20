@@ -82,7 +82,7 @@ class base_rollup_tests : public ::testing::Test {
         // info("Verification key size: ", vk_size);
 
         std::vector<uint8_t> base_rollup_inputs_vec;
-        write(base_rollup_inputs_vec, base_rollup_inputs);
+        serialize::write(base_rollup_inputs_vec, base_rollup_inputs);
 
         // uint8_t const* proof_data;
         // size_t proof_data_size;
@@ -658,7 +658,10 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_private_data_negati
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().message, "Membership check failed: historic private data tree roots 0");
+    ASSERT_EQ(
+        builder.get_first_failure().message,
+        "Membership check failed: base_rollup_circuit: historical root is in rollup constants but not in historic "
+        "private data tree roots at kernel input 0 to this base rollup circuit");
 }
 
 TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negative)
@@ -687,7 +690,10 @@ TEST_F(base_rollup_tests, native_compute_membership_historic_contract_tree_negat
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, inputs);
 
     ASSERT_TRUE(builder.failed());
-    ASSERT_EQ(builder.get_first_failure().message, "Membership check failed: historic contract data tree roots 0");
+    ASSERT_EQ(
+        builder.get_first_failure().message,
+        "Membership check failed: base_rollup_circuit: historical root is in rollup constants but not in historic "
+        "contract data tree roots at kernel input 0 to this base rollup circuit");
 }
 
 TEST_F(base_rollup_tests, native_constants_dont_change)

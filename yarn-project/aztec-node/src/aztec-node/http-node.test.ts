@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
+import { Pedersen } from '@aztec/merkle-tree';
 import {
   ContractData,
   ContractPublicData,
@@ -9,10 +9,13 @@ import {
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
-  mockTx,
+  SiblingPath,
   TxHash,
+  mockTx,
 } from '@aztec/types';
+
 import { jest } from '@jest/globals';
+
 import { HttpNode } from './http-node.js';
 
 const TEST_URL = 'http://aztec-node-url.com/';

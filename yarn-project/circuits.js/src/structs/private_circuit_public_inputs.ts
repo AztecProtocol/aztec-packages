@@ -1,17 +1,18 @@
 import { Fr } from '@aztec/foundation/fields';
-import { assertMemberLength, FieldsOf } from '../utils/jsUtils.js';
-import { serializeToBuffer } from '../utils/serialize.js';
-import { CallContext } from './call_context.js';
+
 import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
-  READ_REQUESTS_LENGTH,
+  MAX_READ_REQUESTS_PER_CALL,
+  NUM_FIELDS_PER_SHA256,
   RETURN_VALUES_LENGTH,
 } from '../cbind/constants.gen.js';
+import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
+import { serializeToBuffer } from '../utils/serialize.js';
+import { CallContext } from './call_context.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -44,6 +45,10 @@ export class PrivateCircuitPublicInputs {
      * New nullifiers created by the corresponding function call.
      */
     public newNullifiers: Fr[],
+    /**
+     * The commitments those were nullified by the above newNullifiers.
+     */
+    public nullifiedCommitments: Fr[],
     /**
      * Private call stack at the current kernel iteration.
      */
@@ -106,9 +111,10 @@ export class PrivateCircuitPublicInputs {
     public version: Fr,
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
-    assertMemberLength(this, 'readRequests', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_CALL);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
+    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
@@ -137,8 +143,9 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       frArray(RETURN_VALUES_LENGTH),
-      frArray(READ_REQUESTS_LENGTH),
+      frArray(MAX_READ_REQUESTS_PER_CALL),
       frArray(MAX_NEW_COMMITMENTS_PER_CALL),
+      frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_NEW_NULLIFIERS_PER_CALL),
       frArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL),
       frArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL),
@@ -170,6 +177,7 @@ export class PrivateCircuitPublicInputs {
       fields.readRequests,
       fields.newCommitments,
       fields.newNullifiers,
+      fields.nullifiedCommitments,
       fields.privateCallStack,
       fields.publicCallStack,
       fields.newL2ToL1Msgs,

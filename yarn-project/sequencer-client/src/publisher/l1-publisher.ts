@@ -1,9 +1,9 @@
+import { createDebugLogger } from '@aztec/foundation/log';
+import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { ContractPublicData, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
-import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { createDebugLogger } from '@aztec/foundation/log';
 
 /**
  * Minimal information from a tx receipt returned by an L1PublisherTxSender.
@@ -90,7 +90,7 @@ export class L1Publisher implements L2BlockReceiver {
   private log = createDebugLogger('aztec:sequencer');
 
   constructor(private txSender: L1PublisherTxSender, config?: PublisherConfig) {
-    this.sleepTimeMs = config?.retryIntervalMs ?? 60_000;
+    this.sleepTimeMs = config?.l1BlockPublishRetryIntervalMS ?? 60_000;
   }
 
   /**

@@ -1,14 +1,14 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, Contract, ContractDeployer, Fr, Wallet } from '@aztec/aztec.js';
-import { deployL1Contract } from '@aztec/ethereum';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
+import { DeployL1Contracts, deployL1Contract } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DebugLogger } from '@aztec/foundation/log';
-import { getContract, parseEther } from 'viem';
-import { DeployL1Contracts } from '@aztec/ethereum';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { UniswapContractAbi } from '@aztec/noir-contracts/examples';
-import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { UniswapContract } from '@aztec/noir-contracts/types';
 import { TxStatus } from '@aztec/types';
+
+import { getContract, parseEther } from 'viem';
 
 import { CrossChainTestHarness } from './cross_chain/test_harness.js';
 import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './utils.js';
@@ -35,7 +35,6 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   let ethAccount: EthAddress;
   let ownerAddress: AztecAddress;
   let receiver: AztecAddress;
-  let ownerPub: { x: bigint; y: bigint };
   const initialBalance = 10n;
   const wethAmountToBridge = parseEther('1');
 
@@ -44,7 +43,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
   let uniswapPortal: any;
   let uniswapPortalAddress: EthAddress;
-  let uniswapL2Contract: Contract;
+  let uniswapL2Contract: UniswapContract;
 
   beforeEach(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
@@ -59,8 +58,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     [ownerAddress, receiver] = accounts;
-    const ownerPubPoint = await aztecRpcServer.getAccountPublicKey(ownerAddress);
-    ownerPub = ownerPubPoint.toBigInts();
+    const ownerPubPoint = await aztecRpcServer.getPublicKey(ownerAddress);
 
     logger('Deploying DAI Portal, initializing and deploying l2 contract...');
     const daiContracts = await deployAndInitializeNonNativeL2TokenContracts(
@@ -69,7 +67,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      ownerPub,
+      ownerAddress,
       DAI_ADDRESS,
     );
     daiCrossChainHarness = new CrossChainTestHarness(
@@ -97,7 +95,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       publicClient,
       deployL1ContractsValues!.registryAddress,
       initialBalance,
-      ownerPub,
+      ownerAddress,
       WETH9_ADDRESS,
     );
     wethCrossChainHarness = new CrossChainTestHarness(
@@ -127,12 +125,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       publicClient,
     });
     // deploy l2 uniswap contract and attach to portal
-    const deployer = new ContractDeployer(UniswapContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send({ portalContract: uniswapPortalAddress });
+    const tx = UniswapContract.deploy(aztecRpcServer).send({ portalContract: uniswapPortalAddress });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     expect(receipt.status).toEqual(TxStatus.MINED);
-    uniswapL2Contract = new Contract(receipt.contractAddress!, UniswapContractAbi, wallet);
+    uniswapL2Contract = new UniswapContract(receipt.contractAddress!, wallet);
     await uniswapL2Contract.attach(uniswapPortalAddress);
 
     await uniswapPortal.write.initialize(
@@ -191,7 +188,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         daiCrossChainHarness.l2Contract.address.toField(),
         daiCrossChainHarness.tokenPortalAddress.toField(),
         new Fr(minimumOutputAmount),
-        ownerPub,
+        ownerAddress,
         ownerAddress,
         secretHash,
         new Fr(2 ** 32 - 1),

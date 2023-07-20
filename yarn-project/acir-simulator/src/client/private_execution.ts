@@ -16,6 +16,7 @@ import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
+
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
 import {
   ZERO_ACVM_FIELD,
@@ -28,8 +29,8 @@ import {
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
 import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
-import { ClientTxExecutionContext, PendingNoteData } from './client_execution_context.js';
-import { oracleDebugCallToFormattedStr } from './debug.js';
+import { ClientTxExecutionContext } from './client_execution_context.js';
+import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 
 /**
  * The private function execution class.
@@ -55,7 +56,7 @@ export class PrivateFunctionExecution {
     const selector = this.functionData.functionSelectorBuffer.toString('hex');
     this.log(`Executing external function ${this.contractAddress.toString()}:${selector}`);
 
-    const acir = Buffer.from(this.abi.bytecode, 'hex');
+    const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = this.writeInputs();
 
     // TODO: Move to ClientTxExecutionContext.
@@ -77,23 +78,18 @@ export class PrivateFunctionExecution {
         return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
-        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, limit, offset, returnSize),
+        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: ([storageSlot], acvmPreimage) => {
-        const pendingNoteData: PendingNoteData = {
-          preimage: acvmPreimage,
-          contractAddress: this.contractAddress,
-          storageSlot: fromACVMField(storageSlot),
-        };
-        this.context.pendingNotes.push(pendingNoteData);
+      notifyCreatedNote: async ([storageSlot], preimage) => {
+        await this.context.pushNewNote(this.contractAddress, storageSlot, preimage);
 
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
         // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
         newNotePreimages.push({
           storageSlot: fromACVMField(storageSlot),
-          preimage: acvmPreimage.map(f => fromACVMField(f)),
+          preimage: preimage.map(f => fromACVMField(f)),
         });
-        return Promise.resolve(ZERO_ACVM_FIELD);
+        return ZERO_ACVM_FIELD;
       },
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes
@@ -131,6 +127,10 @@ export class PrivateFunctionExecution {
         this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      debugLogWithPrefix: (arg0, ...args) => {
+        this.log(`${acvmFieldMessageToString(arg0)}: ${oracleDebugCallToFormattedStr(args)}`);
+        return Promise.resolve(ZERO_ACVM_FIELD);
+      },
       enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
@@ -152,11 +152,12 @@ export class PrivateFunctionExecution {
       },
       emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
+        const ownerAddress = AztecAddress.ZERO; // TODO(#1021): Needs to be emitted
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
-        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
+        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, ownerAddress, storageSlot);
         const ownerPublicKey = new Point(fromACVMField(ownerX), fromACVMField(ownerY));
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);

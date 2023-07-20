@@ -18,7 +18,6 @@ constexpr size_t log2(size_t input)
 
 constexpr size_t ARGS_LENGTH = 16;
 constexpr size_t RETURN_VALUES_LENGTH = 4;
-constexpr size_t READ_REQUESTS_LENGTH = 4;
 
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
@@ -48,6 +47,8 @@ constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_CALL = 2;
 constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 4;
 constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 4;
+constexpr size_t MAX_READ_REQUESTS_PER_CALL = 4;
+
 
 // "PER TRANSACTION" CONSTANTS
 constexpr size_t MAX_NEW_COMMITMENTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_NEW_COMMITMENTS_PER_CALL;
@@ -59,8 +60,10 @@ constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 4;
 constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 4;
 constexpr size_t MAX_NEW_CONTRACTS_PER_TX = 1;
 constexpr size_t MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
+constexpr size_t MAX_READ_REQUESTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_READ_REQUESTS_PER_CALL;
 constexpr size_t NUM_ENCRYPTED_LOGS_HASHES_PER_TX = 1;
 constexpr size_t NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
+
 
 // ROLLUP CONSTANTS
 constexpr size_t NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
@@ -119,33 +122,33 @@ enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
-    COMMITMENT = 1,                // Size = 7 (unused)
-    COMMITMENT_PLACEHOLDER,        // Size = 1 (unused), for omitting some elements of commitment when partially comm
-    OUTER_COMMITMENT,              // Size = 2
-    NULLIFIER_HASHED_PRIVATE_KEY,  // Size = 1 (unused)
-    NULLIFIER,                     // Size = 4 (unused)
-    INITIALISATION_NULLIFIER,      // Size = 2 (unused)
-    OUTER_NULLIFIER,               // Size = 2
-    PUBLIC_DATA_READ,              // Size = 2
-    PUBLIC_DATA_UPDATE_REQUEST,    // Size = 3
-    FUNCTION_DATA,                 // Size = 3
-    FUNCTION_LEAF,                 // Size = 4
-    CONTRACT_DEPLOYMENT_DATA,      // Size = 4
-    CONSTRUCTOR,                   // Size = 3
-    CONSTRUCTOR_ARGS,              // Size = 8
-    CONTRACT_ADDRESS,              // Size = 4
-    CONTRACT_LEAF,                 // Size = 3
-    CALL_CONTEXT,                  // Size = 6
-    CALL_STACK_ITEM,               // Size = 3
-    CALL_STACK_ITEM_2,             // Size = ? (unused), // TODO see function where it's used for explanation
-    L1_TO_L2_MESSAGE_SECRET,       // Size = 1 (wrongly used)
-    L2_TO_L1_MSG,                  // Size = 2 (unused)
-    TX_CONTEXT,                    // Size = 4
-    PUBLIC_LEAF_INDEX,             // Size = 2 (unused)
-    PUBLIC_DATA_LEAF,              // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
-    SIGNED_TX_REQUEST,             // Size = 7
-    GLOBAL_VARIABLES,              // Size = 4
-    PARTIAL_CONTRACT_ADDRESS,      // Size = 7
+    COMMITMENT = 1,              // Size = 7 (unused)
+    COMMITMENT_NONCE,            // Size = 2
+    UNIQUE_COMMITMENT,           // Size = 2
+    OUTER_COMMITMENT,            // Size = 2
+    NULLIFIER,                   // Size = 4 (unused)
+    INITIALISATION_NULLIFIER,    // Size = 2 (unused)
+    OUTER_NULLIFIER,             // Size = 2
+    PUBLIC_DATA_READ,            // Size = 2
+    PUBLIC_DATA_UPDATE_REQUEST,  // Size = 3
+    FUNCTION_DATA,               // Size = 3
+    FUNCTION_LEAF,               // Size = 4
+    CONTRACT_DEPLOYMENT_DATA,    // Size = 4
+    CONSTRUCTOR,                 // Size = 3
+    CONSTRUCTOR_ARGS,            // Size = 8
+    CONTRACT_ADDRESS,            // Size = 4
+    CONTRACT_LEAF,               // Size = 3
+    CALL_CONTEXT,                // Size = 6
+    CALL_STACK_ITEM,             // Size = 3
+    CALL_STACK_ITEM_2,           // Size = ? (unused), // TODO see function where it's used for explanation
+    L1_TO_L2_MESSAGE_SECRET,     // Size = 1 (wrongly used)
+    L2_TO_L1_MSG,                // Size = 2 (unused)
+    TX_CONTEXT,                  // Size = 4
+    PUBLIC_LEAF_INDEX,           // Size = 2 (unused)
+    PUBLIC_DATA_LEAF,            // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
+    SIGNED_TX_REQUEST,           // Size = 7
+    GLOBAL_VARIABLES,            // Size = 4
+    PARTIAL_CONTRACT_ADDRESS,    // Size = 7
     /**
      * Indices with size ≤ 16
      */
@@ -181,5 +184,53 @@ enum PrivateStateNoteGeneratorIndex {
 
 // Note: When modifying, modify `PrivateStateTypePacker` in packer.hpp accordingly.
 enum PrivateStateType { PARTITIONED = 1, WHOLE };
+
+////////////////////////////////////////////////////////////////////////////////
+// NOIR CONSTANTS - constants used only in yarn-packages/noir-contracts
+// --> Here because Noir doesn't yet support globals referencing other globals yet and doing so in C++ seems to be the
+// best thing to do for now. Move these constants to a noir file once the issue bellow is resolved:
+// https://github.com/noir-lang/noir/issues/1734
+constexpr size_t L1_TO_L2_MESSAGE_LENGTH = 8;
+// message length + sibling path (same size as tree height) + 1 field for root + 1 field for index
+constexpr size_t L1_TO_L2_MESSAGE_ORACLE_CALL_LENGTH = L1_TO_L2_MESSAGE_LENGTH + L1_TO_L2_MSG_TREE_HEIGHT + 1 + 1;
+
+// TODO: Remove these when nested array is supported.
+constexpr size_t MAX_NOTE_FIELDS_LENGTH = 20;
+// MAX_NOTE_FIELDS_LENGTH + 1: the plus 1 is 1 extra field for nonce.
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t GET_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTE_FIELDS_LENGTH + 1 + 2;
+constexpr size_t GET_NOTES_ORACLE_RETURN_LENGTH = MAX_READ_REQUESTS_PER_CALL * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
+constexpr size_t MAX_NOTES_PER_PAGE = 10;
+// + 2 for EXTRA_DATA: [number_of_return_notes, contract_address]
+constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
+
+constexpr size_t CALL_CONTEXT_LENGTH = 6;
+constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 4;
+constexpr size_t FUNCTION_DATA_LENGTH = 3;
+constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 4;
+
+// Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
+// In other words, if the structure/size of the public inputs of a function call changes then we
+// should change this constant as well as the offsets in private_call_stack_item.nr
+constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
+    CALL_CONTEXT_LENGTH + 1  // +1 for args_hash
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
+    2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
+    + COMMITMENT_TREES_ROOTS_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;              // + 2 for chain_id and version
+
+
+constexpr size_t CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
+constexpr size_t CONTRACT_STORAGE_READ_LENGTH = 2;
+
+// Change this ONLY if you have changed the PublicCircuitPublicInputs structure in C++.
+constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
+    CALL_CONTEXT_LENGTH + 1 + RETURN_VALUES_LENGTH +  // + 1 for args_hash
+    MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH +
+    MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
+    COMMITMENT_TREES_ROOTS_LENGTH + 2;  // + 2 for chain_id and version
+
+constexpr size_t EMPTY_NULLIFIED_COMMITMENT = 1000000;
 
 }  // namespace aztec3

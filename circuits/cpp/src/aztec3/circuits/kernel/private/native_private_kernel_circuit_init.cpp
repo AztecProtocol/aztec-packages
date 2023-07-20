@@ -78,8 +78,8 @@ void validate_this_private_call_against_tx_request(DummyBuilder& builder,
     const auto& call_stack_item = private_inputs.private_call.call_stack_item;
 
     builder.do_assert(tx_request.origin == call_stack_item.contract_address,
-                      "user's intent does not match initial private call (tx_request.origin must match "
-                      "call_stack_item.contract_address)",
+                      "user's intent does not match initial private call (origin address of tx_request must match "
+                      "call_stack_item's contract_address)",
                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
     builder.do_assert(tx_request.function_data.hash() == call_stack_item.function_data.hash(),
@@ -87,10 +87,11 @@ void validate_this_private_call_against_tx_request(DummyBuilder& builder,
                       "call_stack_item.function_data)",
                       CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 
-    builder.do_assert(tx_request.args_hash == call_stack_item.public_inputs.args_hash,
-                      "user's intent does not match initial private call (tx_request.args must match "
-                      "call_stack_item.public_inputs.args)",
-                      CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
+    builder.do_assert(
+        tx_request.args_hash == call_stack_item.public_inputs.args_hash,
+        "user's intent does not match initial private call (noir function args passed to tx_request must match "
+        "args in the call_stack_item)",
+        CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
 void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
@@ -129,16 +130,35 @@ void update_end_values(DummyBuilder& builder,
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
-    ASSERT(is_array_empty(public_inputs.end.new_nullifiers));
-    ASSERT(public_inputs.end.encrypted_logs_hash[0] == fr(0));
-    ASSERT(public_inputs.end.encrypted_logs_hash[1] == fr(0));
-    ASSERT(public_inputs.end.unencrypted_logs_hash[0] == fr(0));
-    ASSERT(public_inputs.end.unencrypted_logs_hash[1] == fr(0));
-    ASSERT(public_inputs.end.encrypted_log_preimages_length == fr(0));
-    ASSERT(public_inputs.end.unencrypted_log_preimages_length == fr(0));
+    builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
+                      "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.encrypted_logs_hash),
+                      "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.unencrypted_logs_hash),
+                      "public_inputs.end.unencrypted_logs_hash must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.read_requests),
+                      "public_inputs.end.read_requests must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(
+        is_array_empty(public_inputs.end.read_request_membership_witnesses),
+        "public_inputs.end.read_request_membership_witnesses must start as empty in initial kernel iteration",
+        CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == fr(0),
+                      "public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == fr(0),
+                      "public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
-    array_push(builder, public_inputs.end.new_nullifiers, private_inputs.tx_request.hash());
+    array_push(builder,
+               public_inputs.end.new_nullifiers,
+               private_inputs.tx_request.hash(),
+               format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                      "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 
     // Note that we do not need to nullify the transaction request nonce anymore.
     // Should an account want to additionally use nonces for replay protection or handling cancellations,
@@ -171,9 +191,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder
     common_validate_read_requests(
         builder,
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
-        private_inputs.private_call.call_stack_item.public_inputs.read_requests,
-        private_inputs.private_call.read_request_membership_witnesses,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root);
+        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
+        private_inputs.private_call.read_request_membership_witnesses);
 
     // TODO(dbanks12): feels like update_end_values should happen after contract logic
     update_end_values(builder, private_inputs, public_inputs);

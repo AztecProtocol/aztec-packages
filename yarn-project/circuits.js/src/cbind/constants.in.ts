@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { callCbind } from './cbind.js';
+
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
+import { callCbind } from './cbind.js';
 
 /**
  * Convert the C++ constants to TypeScript and Noir.
@@ -37,7 +38,7 @@ async function main(): Promise<void> {
     processEnumNoir(privateStateNoteGeneratorIndexEnum, 'PRIVATE_STATE_NOTE_GENERATOR_INDEX__') +
     processEnumNoir(privateStateTypeEnum, 'PRIVATE_STATE_TYPE__');
 
-  const noirTargetPath = join(__dirname, '../../../noir-contracts/src/libs/noir-aztec/src/constants_gen.nr');
+  const noirTargetPath = join(__dirname, '../../../noir-libs/noir-aztec/src/constants_gen.nr');
   fs.writeFileSync(noirTargetPath, resultNoir);
 }
 
