@@ -5,16 +5,7 @@ import { CircuitsWasm, Fr, TxContext } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PokeableTokenContract } from '@aztec/noir-contracts/types';
-import {
-  AztecNode,
-  AztecRPC,
-  ExecutionRequest,
-  L2BlockL2Logs,
-  LogType,
-  PackedArguments,
-  TxExecutionRequest,
-  TxStatus,
-} from '@aztec/types';
+import { AztecRPC, ExecutionRequest, PackedArguments, TxExecutionRequest, TxStatus } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
 
