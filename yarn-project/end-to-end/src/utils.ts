@@ -295,12 +295,12 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKey = hdAccount.getHdKey().privateKey;
 
-  const aztecNode = await createAztecNode(config, logger);
-
   config.publisherPrivateKey = Buffer.from(privKey!);
   config.rollupContract = deployL1ContractsValues.rollupAddress;
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
+
+  const aztecNode = await createAztecNode(config, logger);
 
   const { aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(numberOfAccounts, aztecNode, privKey, logger);
 
