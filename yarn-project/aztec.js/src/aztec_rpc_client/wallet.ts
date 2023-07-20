@@ -1,5 +1,4 @@
 import { AztecAddress, Fr, Point, TxContext } from '@aztec/circuits.js';
-import { ContractAbi } from '@aztec/foundation/abi';
 import {
   AztecRPC,
   ContractData,
