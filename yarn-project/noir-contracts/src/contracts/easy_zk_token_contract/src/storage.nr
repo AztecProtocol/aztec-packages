@@ -1,9 +1,6 @@
-use dep::aztec::state_vars::{
-    map::Map,
-};
+use dep::aztec::state_vars::map::Map;
 
 use dep::easy_private_state::easy_private_state::EasyPrivateUint;
-
 
 struct Storage {
     balances: Map<EasyPrivateUint>,

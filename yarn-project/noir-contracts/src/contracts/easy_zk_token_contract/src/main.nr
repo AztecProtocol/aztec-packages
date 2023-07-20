@@ -10,16 +10,12 @@ contract EasyZkToken {
             },
     };
 
-    // use dep::easy_private_state::easy_private_state::EasyPrivateUint;
-
     use dep::aztec::{
         abi,
         abi::PrivateContextInputs,
-        constants_gen::MAX_NOTE_FIELDS_LENGTH,
         context::Context,
         log::emit_unencrypted_log,
         note::{
-            note_getter::NoteGetterOptions,
             note_header::NoteHeader,
             utils::compute_note_hash_and_nullifier,
         },
@@ -37,7 +33,8 @@ contract EasyZkToken {
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([initial_supply as Field, owner]));
-        let { balances } = Storage::init();
+        let storage = Storage::init();
+        let balances = storage.balances;
 
         context = balances.at(owner).add(context, initial_supply, owner);
 
@@ -57,7 +54,8 @@ contract EasyZkToken {
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([amount as Field, owner]));
-        let { balances } = Storage::init();
+        let storage = Storage::init();
+        let balances = storage.balances;
 
         context = balances.at(owner).add(context, amount, owner);
 
@@ -78,7 +76,8 @@ contract EasyZkToken {
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([amount as Field, sender, recipient]));
-        let { balances } = Storage::init();
+        let storage = Storage::init();
+        let balances = storage.balances;
 
         context = balances.at(sender).sub(context, amount, sender);
 
@@ -95,7 +94,8 @@ contract EasyZkToken {
     fn getBalance(
         owner: Field,
     ) -> pub Field {
-        let { balances } = Storage::init();
+        let storage = Storage::init();
+        let balances = storage.balances;
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(balances.at(owner).storage_slot)
