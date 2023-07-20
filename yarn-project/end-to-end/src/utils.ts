@@ -15,7 +15,7 @@ import {
   generatePublicKey,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, DeploymentInfo } from '@aztec/circuits.js';
+import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
@@ -131,7 +131,7 @@ type TxContext = {
   /**
    * The fully derived deployment data.
    */
-  deploymentData: DeploymentInfo;
+  deploymentData: DeploymentInfo | undefined;
 };
 
 /**
@@ -168,7 +168,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   logger: DebugLogger;
 }> {
-  await CircuitsWasm.get();
+  const wasm = await CircuitsWasm.get();
   const config = getConfigEnvVars();
   const rpcConfig = getRpcConfigEnvVars();
   const logger = getLogger();
@@ -203,21 +203,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
     logger('Generating public key...');
     const publicKey = await generatePublicKey(privateKey);
     await aztecRpcServer.getNodeInfo();
-    const salt = Fr.random();
-    logger('Generating contract deployment info...');
-    //const deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
-    const deploymentData = {
-      address: AztecAddress.random(),
-      partialAddress: Fr.random(),
-      publicKey,
-      functionTreeRoot: Fr.random(),
-      constructorHash: Fr.random(),
-    };
-    const nodeInfo = await aztecRpcServer.getNodeInfo();
-    logger(`Retrieved node info`, nodeInfo);
-    const blockNumber = await aztecRpcServer.getBlockNum();
-    logger(`Retrieved block number ${blockNumber}`);
-    await aztecRpcServer.addAccount(privateKey, deploymentData.address, deploymentData.partialAddress);
+    const salt = new Fr(0);
 
     const contractDeployer = new ContractDeployer(SchnorrAccountContractAbi, aztecRpcServer, publicKey);
     const deployMethod = contractDeployer.deploy();
@@ -227,7 +213,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
       deployMethod,
       salt,
       privateKey,
-      deploymentData,
+      deploymentData: undefined,
     });
   }
 
@@ -241,6 +227,8 @@ export async function setup(numberOfAccounts = 1): Promise<{
     const publicKey = await generatePublicKey(context.privateKey);
     await context.tx!.isMined(0, 0.1);
     const receipt = await context.tx!.getReceipt();
+    const salt = new Fr(0);
+    context.deploymentData = await getContractDeploymentInfo(SchnorrAccountContractAbi, [], salt, publicKey);
     if (receipt.status !== TxStatus.MINED) {
       throw new Error(`Deployment tx not mined (status is ${receipt.status})`);
     }
