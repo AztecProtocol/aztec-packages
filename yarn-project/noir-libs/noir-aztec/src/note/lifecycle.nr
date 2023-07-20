@@ -54,9 +54,8 @@ fn destroy_note<Note, N>(
         assert(notify_nullified_note(storage_slot, nullifier, preimage) == 0);
         
         // We also need the note commitment corresponding to the "nullifier"
-        let compute_note_hash = note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
-        let nullified_commitment = compute_inner_note_hash(storage_slot, note_hash);
+        // TODO(suyash): We're re-computing the note commitment, ideally we can reuse the one already computed.
+        let nullified_commitment = compute_inner_note_hash(note_interface, note);
     }
 
 
