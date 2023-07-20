@@ -63,10 +63,12 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
   }, 'RPC Get Node Info');
 };
 
-const createAztecNode = async (nodeConfig: AztecNodeConfig): Promise<AztecNodeService | undefined> => {
+const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: Logger): Promise<AztecNodeService | undefined> => {
   if (SANDBOX_URL) {
+    logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
     return undefined;
   }
+  logger('Creating and synching an aztec node...');
   return await AztecNodeService.createAndSync(nodeConfig);
 };
 
@@ -293,7 +295,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKey = hdAccount.getHdKey().privateKey;
 
-  const aztecNode = await createAztecNode(config);
+  const aztecNode = await createAztecNode(config, logger);
 
   config.publisherPrivateKey = Buffer.from(privKey!);
   config.rollupContract = deployL1ContractsValues.rollupAddress;
