@@ -22,6 +22,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { mustSucceedFetch } from '@aztec/foundation/json-rpc';
 import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
@@ -69,7 +70,7 @@ const createRpcServer = async (
 ): Promise<[AztecNodeService | undefined, AztecRPC]> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createJsonRpcClient(SANDBOX_URL);
+    const jsonClient = createJsonRpcClient(SANDBOX_URL, mustSucceedFetch);
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return [undefined, jsonClient];
