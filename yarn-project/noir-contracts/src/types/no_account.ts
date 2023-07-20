@@ -62,11 +62,8 @@ export class NoAccountContract extends Contract {
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
-    /** getBalance(sender: struct) */
-    getBalance: ((sender: {
-      x: Fr | bigint | number | { toField: () => Fr };
-      y: Fr | bigint | number | { toField: () => Fr };
-    }) => ContractFunctionInteraction) &
+    /** getBalance(sender: field) */
+    getBalance: ((sender: Fr | bigint | number | { toField: () => Fr }) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
     /** poke() */

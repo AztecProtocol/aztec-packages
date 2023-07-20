@@ -97,12 +97,12 @@ contract NoAccount {
     /// ABI getBalance type "unconstrained"
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     fn getBalance(
-        sender: Point,
+        sender: Field,
     ) -> pub Field {
         let storage = Storage::init();
 
         // Get the set of notes owned by the user.
-        let sender_balance = storage.balances.at(sender.x);
+        let sender_balance = storage.balances.at(sender);
 
         // Return the sum of all notes in the set.
         balance_utils::get_balance(sender_balance.storage_slot)

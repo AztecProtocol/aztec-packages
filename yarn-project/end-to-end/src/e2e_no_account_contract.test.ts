@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Point } from '@aztec/aztec-rpc';
-import { AztecAddress, BaseWallet, Contract, Wallet, generatePublicKey } from '@aztec/aztec.js';
+import { AztecAddress, BaseWallet, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { NoAccountContract } from '@aztec/noir-contracts/types';
 import { ExecutionRequest, L2BlockL2Logs, LogType, PackedArguments, TxExecutionRequest, TxStatus } from '@aztec/types';
@@ -27,8 +27,8 @@ describe('e2e_no_account_contract', () => {
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
     sender = accounts[0];
     recipient = accounts[1];
-    senderPubKey = await aztecRpcServer.getAccountPublicKey(sender);
-    recipientPubKey = await aztecRpcServer.getAccountPublicKey(recipient);
+    senderPubKey = await aztecRpcServer.getPublicKey(sender);
+    recipientPubKey = await aztecRpcServer.getPublicKey(recipient);
   }, 100_000);
 
   afterEach(async () => {
@@ -37,8 +37,7 @@ describe('e2e_no_account_contract', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const ownerPublicKey = await aztecRpcServer.getAccountPublicKey(owner);
-    const [balance] = await contract.methods.getBalance(ownerPublicKey.toBigInts()).view({ from: owner });
+    const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
