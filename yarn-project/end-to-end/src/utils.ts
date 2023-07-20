@@ -79,14 +79,15 @@ const createRpcServer = async (
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createJsonRpcClient(SANDBOX_URL, mustSucceedFetch);
+    const jsonClient = await Promise.resolve(createJsonRpcClient(SANDBOX_URL, mustSucceedFetch));
+    logger('TYPE', jsonClient);
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return jsonClient;
   } else if (!aztecNode) {
     throw new Error('Invalid aztec node when creating RPC server');
   }
-  return await createAztecRPCServer(aztecNode, rpcConfig);
+  return createAztecRPCServer(aztecNode, rpcConfig);
 };
 
 const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: Logger) => {
@@ -194,7 +195,7 @@ export async function setupAztecRPCServer(
     const salt = Fr.random();
     const deploymentData = await getContractDeploymentInfo(SchnorrSingleKeyAccountContractAbi, [], salt, publicKey);
 
-    const contractDeployer = new ContractDeployer(SchnorrSingleKeyAccountContractAbi, aztecRpcServer, publicKey);
+    const contractDeployer = new ContractDeployer(SchnorrSingleKeyAccountContractAbi, aztecRpcServer!, publicKey);
     const deployMethod = contractDeployer.deploy();
     await deployMethod.simulate({ contractAddressSalt: salt });
     txContexts.push({
@@ -226,7 +227,7 @@ export async function setupAztecRPCServer(
         `Deployment address does not match for account contract (expected ${context.deploymentData.address} got ${receiptAddress})`,
       );
     }
-    await aztecRpcServer.addAccount(
+    await aztecRpcServer!.addAccount(
       context.privateKey,
       context.deploymentData.address,
       context.deploymentData.partialAddress,
@@ -243,11 +244,11 @@ export async function setupAztecRPCServer(
     logger(`Created account ${context.deploymentData.address.toString()} with public key ${publicKey.toString()}`);
   }
 
-  const accounts = await aztecRpcServer.getAccounts();
-  const wallet = new AccountWallet(aztecRpcServer, accountCollection);
+  const accounts = await aztecRpcServer!.getAccounts();
+  const wallet = new AccountWallet(aztecRpcServer!, accountCollection);
 
   return {
-    aztecRpcServer,
+    aztecRpcServer: aztecRpcServer!,
     accounts,
     wallet,
     logger,
