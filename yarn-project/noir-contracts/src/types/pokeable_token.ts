@@ -13,19 +13,19 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC } from '@aztec/types';
 
-import { NoAccountContractAbi } from '../artifacts/index.js';
+import { PokeableTokenContractAbi } from '../artifacts/index.js';
 
 /**
- * Type-safe interface for contract NoAccount;
+ * Type-safe interface for contract PokeableToken;
  */
-export class NoAccountContract extends Contract {
+export class PokeableTokenContract extends Contract {
   constructor(
     /** The deployed contract's address. */
     address: AztecAddress,
     /** The wallet. */
     wallet: Wallet,
   ) {
-    super(address, NoAccountContractAbi, wallet);
+    super(address, PokeableTokenContractAbi, wallet);
   }
 
   /**
@@ -38,7 +38,7 @@ export class NoAccountContract extends Contract {
     recipient: Fr | bigint | number | { toField: () => Fr },
     pokerPubKey: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
   ) {
-    return new DeployMethod(Point.ZERO, rpc, NoAccountContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod(Point.ZERO, rpc, PokeableTokenContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
@@ -52,14 +52,14 @@ export class NoAccountContract extends Contract {
     recipient: Fr | bigint | number | { toField: () => Fr },
     pokerPubKey: { x: Fr | bigint | number | { toField: () => Fr }; y: Fr | bigint | number | { toField: () => Fr } },
   ) {
-    return new DeployMethod(publicKey, rpc, NoAccountContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod(publicKey, rpc, PokeableTokenContractAbi, Array.from(arguments).slice(2));
   }
 
   /**
    * Returns this contract's ABI.
    */
   public static get abi(): ContractAbi {
-    return NoAccountContractAbi;
+    return PokeableTokenContractAbi;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

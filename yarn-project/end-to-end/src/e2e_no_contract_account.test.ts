@@ -4,7 +4,7 @@ import { AztecAddress, BaseWallet, Wallet, generatePublicKey } from '@aztec/azte
 import { CircuitsWasm, Fr, TxContext } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { NoAccountContract } from '@aztec/noir-contracts/types';
+import { PokeableTokenContract } from '@aztec/noir-contracts/types';
 import { ExecutionRequest, L2BlockL2Logs, LogType, PackedArguments, TxExecutionRequest, TxStatus } from '@aztec/types';
 
 import { randomBytes } from 'crypto';
@@ -13,7 +13,7 @@ import { setup } from './utils.js';
 
 /**
  * Wallet implementation which creates a simple transaction request without any signing.
- * @remarks Based on DeployerWallet
+ * @remarks Based on DeployerWallet. Used only for testing.
  */
 class SignerlessWallet extends BaseWallet {
   getAddress(): AztecAddress {
@@ -35,18 +35,18 @@ class SignerlessWallet extends BaseWallet {
   }
 }
 
-describe('e2e_no_account_contract', () => {
+describe('e2e_no_contract_account', () => {
   let aztecNode: AztecNodeService;
   let aztecRpcServer: AztecRPCServer;
   let wallet: Wallet;
   let sender: AztecAddress;
   let recipient: AztecAddress;
-  let poker: AztecAddress;
+  let poker: AztecAddress; // Arbitrary non-contract account
   let pokerWallet: Wallet;
 
   let logger: DebugLogger;
 
-  let contract: NoAccountContract;
+  let contract: PokeableTokenContract;
 
   const initialBalance = 987n;
 
@@ -63,9 +63,9 @@ describe('e2e_no_account_contract', () => {
     await pokerWallet.addAccount(pokerPrivKey, poker, new Fr(0n));
 
     logger(`Deploying L2 contract...`);
-    const tx = NoAccountContract.deploy(aztecRpcServer, initialBalance, sender, recipient, pokerPubKey).send();
+    const tx = PokeableTokenContract.deploy(aztecRpcServer, initialBalance, sender, recipient, pokerPubKey).send();
     const receipt = await tx.getReceipt();
-    contract = new NoAccountContract(receipt.contractAddress!, wallet);
+    contract = new PokeableTokenContract(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     const minedReceipt = await tx.getReceipt();
     expect(minedReceipt.status).toEqual(TxStatus.MINED);
@@ -92,12 +92,11 @@ describe('e2e_no_account_contract', () => {
   };
 
   it('Arbitrary non-contract account can call a private function on a contract', async () => {
-    // Check that all the balances are correct and that exactly 1 encrypted log was emitted
     await expectBalance(sender, initialBalance);
     await expectBalance(recipient, 0n);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(3);
 
-    const contractWithNoContractWallet = new NoAccountContract(contract.address, pokerWallet);
+    const contractWithNoContractWallet = new PokeableTokenContract(contract.address, pokerWallet);
 
     const isUserSynchronised = async () => {
       return await wallet.isAccountSynchronised(poker);

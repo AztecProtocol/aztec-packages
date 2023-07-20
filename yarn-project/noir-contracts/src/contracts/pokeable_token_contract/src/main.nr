@@ -1,7 +1,7 @@
 mod storage;
 mod address_note;
 
-contract NoAccount {
+contract PokeableToken {
     // Libs
     use dep::value_note::{
         balance_utils,
