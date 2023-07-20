@@ -168,7 +168,6 @@ export async function setup(numberOfAccounts = 1): Promise<{
    */
   logger: DebugLogger;
 }> {
-  const wasm = await CircuitsWasm.get();
   const config = getConfigEnvVars();
   const rpcConfig = getRpcConfigEnvVars();
   const logger = getLogger();
