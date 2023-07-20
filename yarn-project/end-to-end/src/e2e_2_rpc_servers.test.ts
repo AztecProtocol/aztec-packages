@@ -2,6 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 import { L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
@@ -55,6 +56,13 @@ describe('e2e_2_rpc_servers', () => {
   });
 
   const expectBalance = async (wallet: Wallet, owner: AztecAddress, expectedBalance: bigint) => {
+    // First wait until the corresponding RPC server has synchronised the account
+    const isUserSynchronised = async () => {
+      return await wallet.isAccountSynchronised(owner);
+    };
+    await retryUntil(isUserSynchronised, owner.toString(), 5);
+
+    // Then check the balance
     const contractWithWallet = new ZkTokenContract(contractWithWalletA.address, wallet);
     const [balance] = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);

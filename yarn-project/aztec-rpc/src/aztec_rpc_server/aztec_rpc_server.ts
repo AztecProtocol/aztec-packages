@@ -557,4 +557,13 @@ export class AztecRPCServer implements AztecRPC {
       enqueuedPublicFunctions,
     );
   }
+
+  /**
+   * Returns true if the account specified by the given address is synched to the latest block
+   * @param account - The aztec address for which to query the sync status
+   * @returns True if the account is fully synched, false otherwise
+   */
+  public async isAccountSynchronised(account: AztecAddress) {
+    return await this.synchroniser.isAccountSynchronised(account);
+  }
 }

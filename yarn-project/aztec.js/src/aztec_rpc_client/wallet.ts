@@ -91,6 +91,9 @@ export abstract class BaseWallet implements Wallet {
   getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
     return this.rpc.getPublicKeyAndPartialAddress(address);
   }
+  isAccountSynchronised(account: AztecAddress) {
+    return this.rpc.isAccountSynchronised(account);
+  }
 }
 
 /**
