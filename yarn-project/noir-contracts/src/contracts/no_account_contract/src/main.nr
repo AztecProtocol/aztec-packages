@@ -3,21 +3,20 @@ mod point_note;
 
 contract NoAccount {
     // Libs
-    use dep::token_utils::{
+    use dep::value_note::{
         balance_utils,
-        value_note::{
-            filter::get_2_notes,
-            value_note::ValueNoteInterface,
-            utils::send_note,
-            value_note::ValueNote,
-        },
+        utils::{send_note, spend_notes},
+        value_note::{VALUE_NOTE_LEN, ValueNoteInterface},
+        filter::get_2_notes,
     };
-    use dep::custom_notes::utils::compute_note_hash_and_nullifier;
-
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::note::note_getter::NoteGetterOptions;
+    use dep::aztec::note::{
+        note_getter::NoteGetterOptions,
+        note_header::{NoteHeader},
+        utils::compute_note_hash_and_nullifier,
+    };
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
     use dep::aztec::state_vars::set::Set;
@@ -49,7 +48,7 @@ contract NoAccount {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender.x);
-        context = send_note(context, sender_balance, initial_supply, sender);
+        context = send_note(context, sender_balance, initial_supply, sender.x);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -87,10 +86,9 @@ contract NoAccount {
         context = sender_balance.remove(context, note1);
         context = sender_balance.remove(context, note2);
 
-        // Creates new note for the recipient.
-        let recipient_point = Point::new(recipient.x, recipient.y);
+        // Create new note for the recipient.
         let recipient_balance = storage.balances.at(recipient.x);
-        context = send_note(context, recipient_balance, note_sum, recipient_point);
+        context = send_note(context, recipient_balance, note_sum, recipient.x);
         
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -114,7 +112,8 @@ contract NoAccount {
     // stev function needs to be defined by every contract producing logs. Having it in all the contracts gives us the ability to
     // compute the note hash and nullifier differently for different kind of notes.
     // Note: "stev" is just a placeholder name before we come up with a better one.
-    fn stev(contract_address: Field, storage_slot: Field, preimage: [Field; MAX_NOTE_FIELDS_LENGTH]) -> pub [Field; 2] {
-        compute_note_hash_and_nullifier(contract_address, storage_slot, ValueNoteInterface, preimage)
+    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }
 }

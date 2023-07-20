@@ -13,7 +13,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC } from '@aztec/types';
 
-import { NoAccountContractAbi } from '../examples/index.js';
+import { NoAccountContractAbi } from '../artifacts/index.js';
 
 /**
  * Type-safe interface for contract NoAccount;
@@ -72,9 +72,10 @@ export class NoAccountContract extends Contract {
     /** poke() */
     poke: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** stev(contract_address: field, storage_slot: field, preimage: array) */
+    /** stev(contract_address: field, nonce: field, storage_slot: field, preimage: array) */
     stev: ((
       contract_address: Fr | bigint | number | { toField: () => Fr },
+      nonce: Fr | bigint | number | { toField: () => Fr },
       storage_slot: Fr | bigint | number | { toField: () => Fr },
       preimage: (Fr | bigint | number | { toField: () => Fr })[],
     ) => ContractFunctionInteraction) &
