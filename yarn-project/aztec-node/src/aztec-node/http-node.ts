@@ -5,7 +5,7 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { Logger, createLogger } from '@aztec/foundation/log';
+import { Logger, createConsoleLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   ContractData,
@@ -28,7 +28,7 @@ export class HttpNode implements AztecNode {
   private baseUrl: string;
   private log: Logger;
 
-  constructor(baseUrl: string, log = createLogger('aztec:http-node')) {
+  constructor(baseUrl: string, log = createConsoleLogger('aztec:http-node')) {
     this.baseUrl = baseUrl.toString().replace(/\/$/, '');
     this.log = log;
   }

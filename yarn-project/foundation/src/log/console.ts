@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 
 /**
- * Logger is a utility type that represents a logging function that accepts any number of arguments.
+ * Logger is a utility type that represents a console logging function that accepts any number of arguments.
  * It is used to provide customizable logging functionality, allowing developers to easily log messages
  * with optional prefixes and custom formatting or output destinations.
  */
@@ -36,7 +36,7 @@ class ConsoleLogger {
  * @param prefix - The optional string to prepend to each log message.
  * @returns A Logger function that accepts any number of arguments and logs them with the specified prefix.
  */
-export function createLogger(prefix?: string): Logger {
+export function createConsoleLogger(prefix?: string): Logger {
   if (prefix) {
     const logger = new ConsoleLogger(prefix, console.log);
     return (...args: any[]) => logger.log(...args);

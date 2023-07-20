@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { createConsoleLogger } from '@aztec/foundation/log';
 
 import { fileURLToPath } from 'url';
 import { createPublicClient, http } from 'viem';
@@ -9,7 +9,7 @@ import { Archiver, getConfigEnvVars } from './archiver/index.js';
 
 export * from './archiver/index.js';
 
-const log = createLogger('aztec:archiver_init');
+const log = createConsoleLogger('aztec:archiver_init');
 
 /**
  * A function which instantiates and starts Archiver.
