@@ -23,7 +23,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { mustSucceedFetch } from '@aztec/foundation/json-rpc';
-import { DebugLogger, Logger, createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -50,7 +50,7 @@ import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
-const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
+const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
       logger('Attmpting to contact RPC Server...');
@@ -63,7 +63,7 @@ const waitForRPCServer = async (rpcServer: AztecRPC, logger: Logger) => {
   }, 'RPC Get Node Info');
 };
 
-const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: Logger): Promise<AztecNodeService | undefined> => {
+const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: DebugLogger): Promise<AztecNodeService | undefined> => {
   if (SANDBOX_URL) {
     logger(`Not creating Aztec Node as we are running against a sandbox at ${SANDBOX_URL}`);
     return undefined;
@@ -75,7 +75,7 @@ const createAztecNode = async (nodeConfig: AztecNodeConfig, logger: Logger): Pro
 const createRpcServer = async (
   rpcConfig: RpcServerConfig,
   aztecNode: AztecNodeService | undefined,
-  logger: Logger,
+  logger: DebugLogger,
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
@@ -89,7 +89,7 @@ const createRpcServer = async (
   return createAztecRPCServer(aztecNode, rpcConfig);
 };
 
-const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: Logger) => {
+const setupL1Contracts = async (l1RpcUrl: string, account: HDAccount, logger: DebugLogger) => {
   if (SANDBOX_URL) {
     logger(`Retrieving contract addresses from ${SANDBOX_URL}`);
     const l1Contracts = await getL1ContractAddresses(SANDBOX_URL);
@@ -456,7 +456,7 @@ export async function calculateAztecStorageSlot(slot: bigint, key: Fr): Promise<
  * @param expectedValue - The expected value of the mapping.
  */
 export async function expectAztecStorageSlot(
-  logger: Logger,
+  logger: DebugLogger,
   aztecRpc: AztecRPC,
   contract: Contract,
   slot: bigint,
