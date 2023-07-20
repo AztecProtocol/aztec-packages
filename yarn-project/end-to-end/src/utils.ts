@@ -15,7 +15,7 @@ import {
   generatePublicKey,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, DeploymentInfo, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { CircuitsWasm, DeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
