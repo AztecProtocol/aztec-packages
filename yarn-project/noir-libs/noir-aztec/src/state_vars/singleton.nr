@@ -1,3 +1,4 @@
+use dep::std::hash::pedersen_with_separator;
 use crate::context::Context;
 use crate::oracle;
 use crate::note::lifecycle::create_note;
@@ -30,11 +31,7 @@ impl<Note, N> Singleton<Note, N> {
     }
 
     fn compute_initialisation_nullifier(self) -> Field {
-        let storage_slot = self.storage_slot;
-        dep::std::hash::pedersen([
-            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
-            storage_slot,
-        ])[0]
+        pedersen_with_separator([self.storage_slot], GENERATOR_INDEX__INITIALISATION_NULLIFIER)[0]
     }
 
     fn replace(self, mut context: Context, new_note: Note) -> (Context, Note) {
