@@ -1,0 +1,27 @@
+name: Push to docs-mirror-test branch
+
+on:
+  push:
+    branches:
+      - ad/docs-mirror
+    paths:
+      - 'docs/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+
+      - name: Push to branch
+        run: |
+          ./scripts/git_subrepo.sh push docs ad/docs-mirror
