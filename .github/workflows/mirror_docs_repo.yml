@@ -38,7 +38,7 @@ jobs:
             if [ "$timestamp_cached" -gt "$timestamp_current" ]
             then
               git checkout origin/$HISTORY_BRANCH $SUBREPO_PATH/.gitrepo
-              git commit -am "fetch previous $SUBREPO_PATH/.gitrepo"
+              git commit -am "fetch previous $SUBREPO_PATH/.gitrepo" || true
             fi
           fi
           # push to subrepo, commit locally
