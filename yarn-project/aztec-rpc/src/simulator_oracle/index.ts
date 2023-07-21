@@ -10,8 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { KeyStore, MerkleTreeId } from '@aztec/types';
-import { DataCommitmentProvider, L1ToL2MessageProvider } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -98,10 +97,10 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retreives the L1ToL2Message associated with a specific message key
+   * Retrieves the L1ToL2Message associated with a specific message key
    * Throws an error if the message key is not found
    *
-   * @param msgKey - The key of the message to be retreived
+   * @param msgKey - The key of the message to be retrieved
    * @returns A promise that resolves to the message data, a sibling path and the
    *          index of the message in the l1ToL2MessagesTree
    */
