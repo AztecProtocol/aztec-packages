@@ -1,4 +1,3 @@
-
 # Aztec Protocol Documentation
 
 You can view the latest successful build here. https://docs.aztec.network
