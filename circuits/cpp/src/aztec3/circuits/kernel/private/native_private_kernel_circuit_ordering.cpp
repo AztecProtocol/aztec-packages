@@ -115,7 +115,7 @@ void match_nullifiers_to_commitments_and_squash(DummyBuilder& builder,
 {
     // match reads to commitments from the previous call(s)
     for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
-        if (nullified_commitments[n_idx] != fr(0) && nullified_commitments[n_idx] != fr(EMPTY_NULLIFIED_COMMITMENT)) {
+        if (nullified_commitments[n_idx] != fr(0)) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
             // O(n^2) inner loop will be optimized via matching hints

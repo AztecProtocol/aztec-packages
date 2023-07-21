@@ -151,4 +151,42 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 0);
 }
 
+// Testing that the special value EMPTY_NULLIFIED_COMMITMENT is treated as empty.
+TEST_F(native_private_kernel_tests, native_skip_empty_nullified_commitment)
+{
+    auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[1] = fr(33);
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[0] = fr(11);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[1] = fr(18);
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[0] =
+        fr(EMPTY_NULLIFIED_COMMITMENT);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(23);
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_skip_empty_nullified_commitment");
+
+    auto public_inputs = native_private_kernel_circuit_inner(builder, private_inputs_inner);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
+                                   << " with code: " << builder.get_first_failure().code;
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 2);
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 2);
+    ASSERT_TRUE(array_length(public_inputs.end.nullified_commitments) == 1);
+
+    auto& previous_kernel = private_inputs_inner.previous_kernel;
+    previous_kernel.public_inputs = public_inputs;
+
+    public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
+                                   << " with code: " << builder.get_first_failure().code;
+
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);  // 1 commitment squashed
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);
+}
+
+
 }  // namespace aztec3::circuits::kernel::private_kernel

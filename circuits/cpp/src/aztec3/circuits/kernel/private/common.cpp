@@ -245,8 +245,9 @@ void common_update_end_values(DummyBuilder& builder,
         std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_commitments{};
         for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
             siloed_nullified_commitments[i] =
-                nullified_commitments[i] == 0 ? 0
-                                              : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
+                (nullified_commitments[i] == fr(0) || nullified_commitments[i] == fr(EMPTY_NULLIFIED_COMMITMENT))
+                    ? fr(0)
+                    : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
         }
 
         push_array_to_array(
