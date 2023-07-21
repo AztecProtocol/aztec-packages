@@ -89,6 +89,9 @@ describe('Note Processor', () => {
       block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
 
       const newNotes = Array(numCommitmentsPerBlock).fill(0).map(NoteSpendingInfo.random);
+      // Set the note owners to ownerAddress.
+      newNotes.forEach(n => (n.ownerAddress = ownerAddress));
+
       block.newCommitments = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));
 
       const isTargetBlock = i === prependedBlocks;
