@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
@@ -41,7 +41,6 @@ export class NoteProcessor {
      * The public counterpart to the private key to be used in note decryption.
      */
     public readonly publicKey: PublicKey,
-    private address: AztecAddress, // TODO: Remove once owner addreses are emitted by contracts
     private keyStore: KeyStore,
     private db: Database,
     private node: AztecNode,
@@ -110,11 +109,11 @@ export class NoteProcessor {
           for (const logs of functionLogs.logs) {
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
+              // We have successfully decrypted the data.
               const newNullifiers = block.newNullifiers.slice(
                 indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
                 (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
               );
-              // We have successfully decrypted the data.
               userPertainingTxIndices.add(indexOfTxInABlock);
               const { index, nonce, nullifier } = await this.findNoteIndexAndNullifier(
                 dataStartIndexForTx,
@@ -228,7 +227,7 @@ export class NoteProcessor {
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          origin: this.address,
+          origin: noteSpendingInfo.ownerAddress,
           contractAddress,
           error: '',
         });

@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr, PartialContractAddress } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialContractAddress, PublicKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Point } from '@aztec/foundation/fields';
 import {
@@ -55,10 +55,9 @@ export interface AztecRPC {
     privKey: Buffer,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
-    abi?: ContractAbi,
   ): Promise<AztecAddress>;
   getAccounts(): Promise<AztecAddress[]>;
-  getAccountPublicKey(address: AztecAddress): Promise<Point>;
+  getPublicKey(address: AztecAddress): Promise<Point>;
   addContracts(contracts: DeployedContract[]): Promise<void>;
   /**
    * Is an L2 contract deployed at this address?
@@ -70,10 +69,18 @@ export interface AztecRPC {
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
+  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
   getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
   getUnencryptedLogs(from: number, take: number): Promise<L2BlockL2Logs[]>;
   getBlockNum(): Promise<number>;
   getNodeInfo(): Promise<NodeInfo>;
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void>;
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]>;
+  isAccountSynchronised(account: AztecAddress): Promise<boolean>;
 }

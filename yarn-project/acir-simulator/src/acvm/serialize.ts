@@ -50,6 +50,8 @@ export function toACVMCallContext(callContext: CallContext): ACVMField[] {
  */
 export function toACVMContractDeploymentData(contractDeploymentData: ContractDeploymentData): ACVMField[] {
   return [
+    toACVMField(contractDeploymentData.deployerPublicKey.x),
+    toACVMField(contractDeploymentData.deployerPublicKey.y),
     toACVMField(contractDeploymentData.constructorVkHash),
     toACVMField(contractDeploymentData.functionTreeRoot),
     toACVMField(contractDeploymentData.contractAddressSalt),
@@ -71,6 +73,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.readRequests.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
+    ...publicInputs.nullifiedCommitments.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),

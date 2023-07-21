@@ -150,15 +150,22 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [ownerX], [ownerY], acvmPreimage) => {
+      emitEncryptedLog: (
+        [acvmContractAddress],
+        [acvmStorageSlot],
+        [owner],
+        [encPubKeyX],
+        [encPubKeyY],
+        acvmPreimage,
+      ) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
-        const ownerAddress = AztecAddress.ZERO; // TODO(#1021): Needs to be emitted
+        const ownerAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(owner));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
         const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, ownerAddress, storageSlot);
-        const ownerPublicKey = new Point(fromACVMField(ownerX), fromACVMField(ownerY));
+        const ownerPublicKey = new Point(fromACVMField(encPubKeyX), fromACVMField(encPubKeyY));
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
 
@@ -189,10 +196,6 @@ export class PrivateFunctionExecution {
       Fr.ZERO,
       MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
     );
-
-    // TODO: This should be set manually by the circuit
-    publicInputs.contractDeploymentData.deployerPublicKey =
-      this.context.txContext.contractDeploymentData.deployerPublicKey;
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);
 
@@ -238,6 +241,8 @@ export class PrivateFunctionExecution {
       this.context.historicRoots.contractTreeRoot,
       this.context.historicRoots.l1ToL2MessagesTreeRoot,
 
+      contractDeploymentData.deployerPublicKey.x,
+      contractDeploymentData.deployerPublicKey.y,
       contractDeploymentData.constructorVkHash,
       contractDeploymentData.functionTreeRoot,
       contractDeploymentData.contractAddressSalt,

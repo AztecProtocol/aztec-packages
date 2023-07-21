@@ -12,7 +12,7 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import { createConsoleLogger } from '@aztec/foundation/log';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
@@ -26,7 +26,7 @@ import { deployAztecContracts, getContractAbi, getTxSender, prepTx } from './uti
 const accountCreationSalt = Fr.ZERO;
 
 const debugLogger = createDebugLogger('aztec:cli');
-const log = createLogger();
+const log = createConsoleLogger();
 
 const program = new Command();
 
@@ -100,7 +100,7 @@ async function main() {
         1,
       );
       const accounts = await wallet.getAccounts();
-      const pubKeys = await Promise.all(accounts.map(acc => wallet.getAccountPublicKey(acc)));
+      const pubKeys = await Promise.all(accounts.map(acc => wallet.getPublicKey(acc)));
       log(`\nCreated account(s).`);
       accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
     });
@@ -129,7 +129,7 @@ async function main() {
         if (!accounts) {
           throw new Error('No public key provided or found in Aztec RPC.');
         }
-        publicKey = await client.getAccountPublicKey(accounts[0]);
+        publicKey = await client.getPublicKey(accounts[0]);
       }
 
       log(`Using Public Key: ${publicKey.toString()}`);
@@ -238,7 +238,7 @@ async function main() {
         log('No accounts found.');
       } else {
         log(`Accounts found: \n`);
-        accounts.forEach(async acc => log(`Address: ${acc}\nPublic Key: ${await client.getAccountPublicKey(acc)}\n`));
+        accounts.forEach(async acc => log(`Address: ${acc}\nPublic Key: ${await client.getPublicKey(acc)}\n`));
       }
     });
 
@@ -250,7 +250,7 @@ async function main() {
     .action(async (_address, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_address);
-      const pk = await client.getAccountPublicKey(address);
+      const pk = await client.getPublicKey(address);
       if (!pk) {
         log(`Unkown account ${_address}`);
       } else {

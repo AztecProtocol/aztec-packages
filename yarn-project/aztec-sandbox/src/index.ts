@@ -10,6 +10,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { createApiRouter } from './routes.js';
+import { github, splash } from './splash.js';
 
 const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
@@ -68,6 +69,16 @@ async function main() {
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
+  const shutdown = async () => {
+    logger('Shutting down...');
+    await aztecRpcServer.stop();
+    await aztecNode.stop();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
   const rpcServer = getHttpRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
@@ -80,8 +91,9 @@ async function main() {
 }
 
 main()
-  .then(() => logger(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
+  .then(() => logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
+  .then(() => logger.info(`${splash}\n${github}\n\n`))
   .catch(err => {
-    logger(err);
+    logger.fatal(err);
     process.exit(1);
   });

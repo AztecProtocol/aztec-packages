@@ -207,17 +207,17 @@ constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE
 constexpr size_t CALL_CONTEXT_LENGTH = 6;
 constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 4;
 constexpr size_t FUNCTION_DATA_LENGTH = 3;
-constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 4;
+constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
 
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.
 // In other words, if the structure/size of the public inputs of a function call changes then we
 // should change this constant as well as the offsets in private_call_stack_item.nr
 constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     CALL_CONTEXT_LENGTH + 1  // +1 for args_hash
-    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL +
-    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
-    NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2                       // + 2 for logs preimage lengths
-    + COMMITMENT_TREES_ROOTS_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;  // + 2 for chain_id and version
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
+    2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
+    + COMMITMENT_TREES_ROOTS_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;              // + 2 for chain_id and version
 
 
 constexpr size_t CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
@@ -230,5 +230,11 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
     COMMITMENT_TREES_ROOTS_LENGTH + 2;  // + 2 for chain_id and version
+
+// Size of the return value of a private function call,
+constexpr size_t CALL_PRIVATE_FUNCTION_RETURN_SIZE =
+    1 + FUNCTION_DATA_LENGTH + PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH + 1;
+
+constexpr size_t EMPTY_NULLIFIED_COMMITMENT = 1000000;
 
 }  // namespace aztec3

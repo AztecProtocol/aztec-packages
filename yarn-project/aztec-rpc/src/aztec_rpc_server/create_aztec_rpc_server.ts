@@ -34,11 +34,19 @@ export async function createAztecRPCServer(
   aztecNode: AztecNode,
   config: RpcServerConfig,
   { keyStore, db }: CreateAztecRPCServerOptions = {},
+  useLogSuffix: string | boolean | undefined = undefined,
 ) {
-  keyStore = keyStore || new TestKeyStore(await Grumpkin.new());
-  db = db || new MemoryDB();
+  const logSuffix =
+    typeof useLogSuffix === 'boolean'
+      ? useLogSuffix
+        ? Math.random().toString(16).slice(2, 8)
+        : undefined
+      : useLogSuffix;
 
-  const server = new AztecRPCServer(keyStore, aztecNode, db, config);
+  keyStore = keyStore || new TestKeyStore(await Grumpkin.new());
+  db = db || new MemoryDB(logSuffix);
+
+  const server = new AztecRPCServer(keyStore, aztecNode, db, config, logSuffix);
   await server.start();
   return server;
 }

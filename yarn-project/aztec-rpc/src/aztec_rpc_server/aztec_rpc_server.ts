@@ -3,10 +3,16 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
-import { AztecAddress, FunctionData, PartialContractAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  FunctionData,
+  PartialContractAddress,
+  PrivateHistoricTreeRoots,
+  PublicKey,
+} from '@aztec/circuits.js';
 import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   AztecRPC,
@@ -43,15 +49,17 @@ import { Synchroniser } from '../synchroniser/index.js';
  */
 export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
+  private log: DebugLogger;
 
   constructor(
     private keyStore: KeyStore,
     private node: AztecNode,
     private db: Database,
     private config: RpcServerConfig,
-    private log = createDebugLogger('aztec:rpc_server'),
+    logSuffix?: string,
   ) {
-    this.synchroniser = new Synchroniser(node, db);
+    this.log = createDebugLogger(logSuffix ? `aztec:rpc_server_${logSuffix}` : `aztec:rpc_server`);
+    this.synchroniser = new Synchroniser(node, db, logSuffix);
   }
 
   /**
@@ -61,6 +69,8 @@ export class AztecRPCServer implements AztecRPC {
    */
   public async start() {
     await this.synchroniser.start(1, 1, this.config.l2BlockPollingIntervalMS);
+    const info = await this.getNodeInfo();
+    this.log.info(`Started RPC server connected to chain ${info.chainId} version ${info.version}`);
   }
 
   /**
@@ -72,7 +82,7 @@ export class AztecRPCServer implements AztecRPC {
    */
   public async stop() {
     await this.synchroniser.stop();
-    this.log('Stopped.');
+    this.log.info('Stopped');
   }
 
   /**
@@ -94,9 +104,26 @@ export class AztecRPCServer implements AztecRPC {
     //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
     //   );
     // }
-    await this.db.addPublicKey(address, pubKey, partialContractAddress);
-    this.synchroniser.addAccount(pubKey, address, this.keyStore);
+    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialContractAddress);
+    this.synchroniser.addAccount(pubKey, this.keyStore);
+    this.log.info(`Added account ${address.toString()}`);
     return address;
+  }
+
+  /**
+   * Adds public key and partial address to a database.
+   * @param address - Address of the account to add public key and partial address for.
+   * @param publicKey - Public key of the corresponding user.
+   * @param partialAddress - The partially computed address of the account contract.
+   * @returns A Promise that resolves once the public key has been added to the database.
+   */
+  public async addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialContractAddress,
+  ): Promise<void> {
+    await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
+    this.log.info(`Added public key for ${address.toString()}`);
   }
 
   /**
@@ -110,9 +137,9 @@ export class AztecRPCServer implements AztecRPC {
     const contractDaos = contracts.map(c => toContractDao(c.abi, c.address, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
-      this.log(
-        `Added contract ${contract.name} at ${contract.address} with portal ${contract.portalContract} to the local db`,
-      );
+      const portalInfo =
+        contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
+      this.log.info(`Added contract ${contract.name} at ${contract.address}${portalInfo}`);
     }
   }
 
@@ -130,15 +157,30 @@ export class AztecRPCServer implements AztecRPC {
    * Retrieve the public key associated with an address.
    * Throws an error if the account is not found in the key store.
    *
-   * @param address - The AztecAddress instance representing the account.
+   * @param address - The AztecAddress instance representing the account to get public key for.
    * @returns A Promise resolving to the Point instance representing the public key.
    */
-  public async getAccountPublicKey(address: AztecAddress): Promise<Point> {
-    const result = await this.db.getPublicKey(address);
+  public async getPublicKey(address: AztecAddress): Promise<Point> {
+    const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result) {
-      throw new Error(`Unable to public key for address ${address.toString()}`);
+      throw new Error(`Unable to retrieve public key for address ${address.toString()}`);
     }
     return Promise.resolve(result[0]);
+  }
+
+  /**
+   * Retrieve the public key and partial contract address associated with an address.
+   * Throws an error if the account is not found in the key store.
+   *
+   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
+   * @returns A Promise resolving to the Point instance representing the public key.
+   */
+  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[Point, PartialContractAddress]> {
+    const result = await this.db.getPublicKeyAndPartialAddress(address);
+    if (!result) {
+      throw new Error(`Unable to get public key for address ${address.toString()}`);
+    }
+    return Promise.resolve(result);
   }
 
   /**
@@ -152,6 +194,18 @@ export class AztecRPCServer implements AztecRPC {
   public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
     const noteSpendingInfo = await this.db.getNoteSpendingInfo(contract, storageSlot);
     return noteSpendingInfo.map(d => d.notePreimage.items.map(item => item.value));
+  }
+
+  /**
+   * Retrieves the public storage data at a specified contract address and storage slot.
+   * The returned data is an array of note preimage items, with each item containing its value.
+   *
+   * @param contract - The AztecAddress of the target contract.
+   * @param storageSlot - The Fr representing the storage slot to be fetched.
+   * @returns A promise that resolves to an array of note preimage items, each containing its value.
+   */
+  public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
+    return await this.node.getStorageAt(contract, storageSlot.value);
   }
 
   /**
@@ -191,6 +245,7 @@ export class AztecRPCServer implements AztecRPC {
       }),
     );
 
+    this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
     return tx;
   }
 
@@ -200,8 +255,10 @@ export class AztecRPCServer implements AztecRPC {
    * @returns A hash of the transaction, used to identify it.
    */
   public async sendTx(tx: Tx): Promise<TxHash> {
+    const txHash = await tx.getTxHash();
+    this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
-    return tx.getTxHash();
+    return txHash;
   }
 
   /**
@@ -226,34 +283,30 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Fetchs a transaction receipt for a tx.
+   * Fetches a transaction receipt for a tx.
    * @param txHash - The transaction hash.
-   * @returns A recipt of the transaction.
+   * @returns A receipt of the transaction.
    */
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     const localTx = await this.#getTxByHash(txHash);
-    const partialReceipt = {
-      txHash: txHash,
-      blockHash: localTx?.blockHash,
-      blockNumber: localTx?.blockNumber,
-      origin: localTx?.origin,
-      contractAddress: localTx?.contractAddress,
-      error: '',
-    };
+    const partialReceipt = new TxReceipt(
+      txHash,
+      TxStatus.PENDING,
+      '',
+      localTx?.blockHash,
+      localTx?.blockNumber,
+      localTx?.origin,
+      localTx?.contractAddress,
+    );
 
     if (localTx?.blockHash) {
-      return {
-        ...partialReceipt,
-        status: TxStatus.MINED,
-      };
+      partialReceipt.status = TxStatus.MINED;
+      return partialReceipt;
     }
 
     const pendingTx = await this.node.getPendingTxByHash(txHash);
     if (pendingTx) {
-      return {
-        ...partialReceipt,
-        status: TxStatus.PENDING,
-      };
+      return partialReceipt;
     }
 
     // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
@@ -262,19 +315,13 @@ export class AztecRPCServer implements AztecRPC {
     const isSynchronised = await this.synchroniser.isSynchronised();
     if (!isSynchronised) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
-      return {
-        ...partialReceipt,
-        status: TxStatus.PENDING,
-      };
+      return partialReceipt;
     }
 
     // TODO we should refactor this once the node can store transactions. At that point we should query the node and not deal with block heights.
-
-    return {
-      ...partialReceipt,
-      status: TxStatus.DROPPED,
-      error: 'Tx dropped by P2P node.',
-    };
+    partialReceipt.status = TxStatus.DROPPED;
+    partialReceipt.error = 'Tx dropped by P2P node.';
+    return partialReceipt;
   }
 
   /**
@@ -518,5 +565,14 @@ export class AztecRPCServer implements AztecRPC {
       newContractPublicFunctions,
       enqueuedPublicFunctions,
     );
+  }
+
+  /**
+   * Returns true if the account specified by the given address is synched to the latest block
+   * @param account - The aztec address for which to query the sync status
+   * @returns True if the account is fully synched, false otherwise
+   */
+  public async isAccountSynchronised(account: AztecAddress) {
+    return await this.synchroniser.isAccountSynchronised(account);
   }
 }

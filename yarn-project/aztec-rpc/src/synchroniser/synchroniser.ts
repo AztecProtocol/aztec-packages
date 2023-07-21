@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { AztecNode, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 
@@ -20,12 +20,13 @@ export class Synchroniser {
   private running = false;
   private initialSyncBlockHeight = 0;
   private synchedToBlock = 0;
+  private log: DebugLogger;
 
-  constructor(
-    private node: AztecNode,
-    private db: Database,
-    private log = createDebugLogger('aztec:aztec_rpc_synchroniser'),
-  ) {}
+  constructor(private node: AztecNode, private db: Database, logSuffix = '') {
+    this.log = createDebugLogger(
+      logSuffix ? `aztec:aztec_rpc_synchroniser_${logSuffix}` : 'aztec:aztec_rpc_synchroniser',
+    );
+  }
 
   /**
    * Starts the synchronisation process by fetching encrypted logs and blocks from a specified position.
@@ -162,16 +163,15 @@ export class Synchroniser {
    * The method resolves immediately after pushing the new note processor.
    *
    * @param publicKey - The public key for the account.
-   * @param address - The address for the account.
    * @param keyStore - The key store.
    * @returns A promise that resolves once the account is added to the Synchroniser.
    */
-  public addAccount(publicKey: PublicKey, address: AztecAddress, keyStore: KeyStore) {
+  public addAccount(publicKey: PublicKey, keyStore: KeyStore) {
     const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
     if (processor) {
       return;
     }
-    this.noteProcessors.push(new NoteProcessor(publicKey, address, keyStore, this.db, this.node));
+    this.noteProcessors.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
   }
 
   /**
@@ -180,7 +180,7 @@ export class Synchroniser {
    * @returns True if the account is fully synched, false otherwise
    */
   public async isAccountSynchronised(account: AztecAddress) {
-    const result = await this.db.getPublicKey(account);
+    const result = await this.db.getPublicKeyAndPartialAddress(account);
     if (!result) {
       return false;
     }
