@@ -90,6 +90,18 @@ module.exports = {
         ],
       },
     ],
+    'import/no-unresolved': [
+      'error',
+      {
+        ignore: [
+          // See https://github.com/import-js/eslint-plugin-import/issues/2703
+          '@libp2p/bootstrap',
+          // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
+          '@aztec/l1-artifacts',
+        ],
+      },
+    ],
+    'import/no-extraneous-dependencies': 'error',
     'tsdoc/syntax': JSDOC_RULES_LEVEL,
     'jsdoc/require-jsdoc': [
       JSDOC_RULES_LEVEL,
