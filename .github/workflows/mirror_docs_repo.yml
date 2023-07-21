@@ -18,11 +18,6 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
-      - name: Setup Git
-        run: |
-          git config --global user.email "tech@aztecprotocol.com"
-          git config --global user.name "AztecBot"
-
       - name: Push to branch
         run: |
           ./scripts/git_subrepo.sh push docs ad/docs-mirror
