@@ -20,4 +20,4 @@ jobs:
 
       - name: Push to branch
         run: |
-          ./scripts/git_subrepo.sh push docs ad/docs-mirror --branch=main
+          ./scripts/git_subrepo.sh push docs --branch=main
