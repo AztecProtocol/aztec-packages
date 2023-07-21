@@ -3,9 +3,9 @@ name: Push to docs-mirror-test branch
 on:
   push:
     branches:
-      - master
-    paths:
-      - 'docs/**'
+      - ad/fix/mirror-runner
+    #paths:
+    #  - 'docs/**'
 
 jobs:
   build:
@@ -20,4 +20,28 @@ jobs:
 
       - name: Push to branch
         run: |
-          ./scripts/git_subrepo.sh push docs --branch=main
+          # constants for easy changes
+          HISTORY_BRANCH=aztec-bot/docs-git-subrepo-history
+          SUBREPO=docs
+          SUBREPO_PATH=docs
+          # identify ourselves, needed to commit
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+          # create a new history branch based on ours
+          git checkout -b $HISTORY_BRANCH
+          # if previous history exists, and we have a newer .gitrepo file there
+          # than in master, selectively check it out
+          if git rev-parse --verify --quiet origin/$HISTORY_BRANCH ; then
+            # Get the subrepo file timestamps
+            timestamp_current=$(git log -1 --format="%ct" $HISTORY_BRANCH -- "$SUBREPO_PATH"/.gitrepo)
+            timestamp_cached=$(git log -1 --format="%ct" origin/$HISTORY_BRANCH -- "$SUBREPO_PATH"/.gitrepo)
+            if [ "$timestamp_cached" -gt "$timestamp_current" ]
+            then
+              git checkout origin/$HISTORY_BRANCH $SUBREPO_PATH/.gitrepo
+              git commit -am "fetch previous $SUBREPO_PATH/.gitrepo"
+            fi
+          fi
+          # push to subrepo, commit locally
+          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main
+          # push new commit to the history branch, overwrite during conflicts
+          git push origin $HISTORY_BRANCH --force

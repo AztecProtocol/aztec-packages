@@ -4,7 +4,6 @@
 You can view the latest successful build here. https://docs.aztec.network
 
 Built with docusaurus.
-
 ## Files
 
 - `.gitignore` - This specifies which files Git should ignore when committing and pushing to remote repositories.
