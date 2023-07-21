@@ -35,7 +35,7 @@ class SignerlessWallet extends BaseWallet {
   }
 }
 
-describe('e2e_no_contract_account', () => {
+describe('e2e_non_contract_account', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
