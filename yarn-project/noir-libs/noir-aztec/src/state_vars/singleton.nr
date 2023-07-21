@@ -50,16 +50,16 @@ impl<Note, N> Singleton<Note, N> {
         (context, prev_note)
     }
 
-    fn get_note(self, mut context: Context, replicate: fn (Note) -> Note) -> (Context, Note) {
+    fn get_note(self, mut context: Context) -> (Context, Note) {
         let (new_context, note) = get_note(context, self.storage_slot, self.note_interface);
         context = new_context;
 
-        // Nullify current note.
+        // Nullify current note to make sure it's reading the latest note.
         context = destroy_note(context, self.storage_slot, note, self.note_interface);
 
-        // Add replica.
-        let new_note = replicate(note);
-        context = create_note(context, self.storage_slot, new_note, self.note_interface);
+        // Add the same note again.
+        // Because a nonce is added to every note in the kernel, its nullifier will be different.
+        context = create_note(context, self.storage_slot, note, self.note_interface);
 
         (context, note)
     }
