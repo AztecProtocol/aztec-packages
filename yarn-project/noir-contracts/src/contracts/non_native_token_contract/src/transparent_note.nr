@@ -35,18 +35,26 @@ impl TransparentNote {
         pedersen([self.amount, self.secretHash])[0]
     }
 
-    fn consume_in_secret(self: Self, mut context: Context, root: Field, secret: Field) -> Context {
+    fn consume_in_secret(self: Self, mut context: Context, secret: Field) -> Context {
         // Get the commitment value (before silo)
         let commitment = self.get_commitment();
 
         // Let the kernel perform the read.
         context = context.push_read_request(commitment);
 
-        // Get the commitment data, (where it is in the db)
-        let commitment_oracle_call = get_commitment(commitment);
-        let commitment_data = make_commitment_getter_data(commitment_oracle_call, 0);
-        // Do we still need to do this with read requests?
-        assert(root == commitment_data.root);
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1142): can probably replace
+        // get_commitment here with a simple "check_commitment_exists" oracle that just throws an
+        // error in simulator if commitment isn't found
+
+        // Get the commitment data (leaf index and root in private data tree)
+        // if it returns the commitment, then it does in fact exist in DB
+        let serialized_commitment_data = get_commitment(commitment);
+        let commitment_data = make_commitment_getter_data(serialized_commitment_data, 0);
+        // membership check happens in kernel, so just make sure the oracle call
+        // was successful to confirm that the commitment exists
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1142): just assert
+        // that oracle was successful (result == 0) if we switch to "check_commitment_exists"
+        assert(commitment_data.message == commitment);
 
         // Calculate the nullifier
         self.emit_nullifier(context, secret, commitment, commitment_data.leaf_index)
@@ -63,7 +71,7 @@ impl TransparentNote {
 
     fn emit_nullifier(_self: Self, mut context: Context, secret: Field, siloed_commitment: Field, index: Field) -> Context {
         // Create a nullifier for the message based on its index in the tree
-        
+
         let nullifier = pedersen([secret, siloed_commitment, index])[0];
         context.push_new_nullifier(nullifier, siloed_commitment)
     }

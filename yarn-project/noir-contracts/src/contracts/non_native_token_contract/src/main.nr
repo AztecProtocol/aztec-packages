@@ -266,7 +266,7 @@ contract NonNativeToken {
 
         // Assert that the note exists within the tree
         let public_note = TransparentNote::new_from_secret(amount, secret);
-        context = public_note.consume_in_secret(context, inputs.roots.private_data_tree_root, secret);
+        context = public_note.consume_in_secret(context, secret);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);
