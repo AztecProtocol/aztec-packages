@@ -15,6 +15,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_READS_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     NUM_FIELDS_PER_SHA256,
+    GENERATOR_INDEX__CALL_STACK_ITEM,
 };
 
 // oracles
@@ -74,6 +75,8 @@ impl PublicCallStackItem {
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 commitment_trees_roots: crate::abi::empty_commitment_trees_roots(),
+                unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
+                unencrypted_log_preimages_length: 0,
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
@@ -101,13 +104,11 @@ impl PublicCallStackItem {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen([
-            // TODO hash_index
-            // FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+        dep::std::hash::pedersen_with_separator([
             self.contract_address,
             self.function_data.hash(),
             self.public_inputs.hash(),
-        ])[0]
+        ], GENERATOR_INDEX__CALL_STACK_ITEM)[0]
     }
 }
 
