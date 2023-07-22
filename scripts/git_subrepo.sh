@@ -35,6 +35,7 @@ if [ -d "$SUBREPO_PATH" ] ; then
 
         # Commit this change
         git add "$SUBREPO_PATH/.gitrepo"
+        # This commit should only go into squashed PRs
         git commit -m "git_subrepo.sh: Fix parent in .gitrepo file."
     fi
 fi
