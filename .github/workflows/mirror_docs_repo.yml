@@ -2,8 +2,8 @@ name: Push to docs-mirror-test branch
 
 on:
   push:
-    #branches:
-    #  - master
+    branches:
+      - master
     paths:
       - 'docs/**'
 
