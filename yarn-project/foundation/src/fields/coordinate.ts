@@ -28,11 +28,7 @@ export class Coordinate {
     return this.fields;
   }
 
-  /**
-   * Generates a random coordinate value
-   * @returns The random coordinate
-   */
-  static random(): Coordinate {
+  static random(_a: number): Coordinate {
     return this.fromField(Fr.random());
   }
 
