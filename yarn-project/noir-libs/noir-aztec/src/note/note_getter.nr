@@ -43,7 +43,7 @@ fn ensure_note_exists<Note, N>(
         // Only copy over the header to the original note to make sure the preimage is the same.
         let get_header = note_interface.get_header;
         let set_header = note_interface.set_header;
-        let header = get_header(note);
+        let header = get_header(saved_note);
         note_with_header = set_header(note, header);
 
         check_note_header(context, storage_slot, note_interface, note_with_header);
