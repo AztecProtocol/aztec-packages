@@ -1,4 +1,4 @@
-import { PartialContractAddress } from '@aztec/circuits.js';
+import { PartialContractAddress, PublicKey } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -61,8 +61,8 @@ export interface CommitmentDataOracleInputs {
  * The database oracle interface.
  */
 export interface DBOracle extends CommitmentsDB {
-  getPublicKey(address: AztecAddress): Promise<[Point, PartialContractAddress]>;
-  getSecretKey(contractAddress: AztecAddress, pubKey: Point): Promise<Buffer>;
+  getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
+  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<Buffer>;
   getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteData[]>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
