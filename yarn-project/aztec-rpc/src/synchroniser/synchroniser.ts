@@ -139,6 +139,7 @@ export class Synchroniser {
       [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
       [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: block.endTreeOfHistoricContractTreeRootsSnapshot.root,
       [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
+      [MerkleTreeId.HISTORIC_BLOCKS_TREE]: block.endHistoricBlocksTreeSnapshot.root,
     };
     await this.db.setTreeRoots(roots);
   }
