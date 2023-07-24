@@ -12,7 +12,7 @@
 #include <array>
 
 namespace {
-using Builder = UltraCircuitBuilder;
+using Builder = CircuitSimulatorBN254;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::PreviousKernelData;

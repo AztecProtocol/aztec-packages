@@ -8,8 +8,8 @@
 
 namespace aztec3::circuits::recursion {
 // Builder
-// using Flavor = proof_system::plonk::flavor::SimulatorBN254;
-using Flavor = proof_system::plonk::flavor::Ultra;
+using Flavor = proof_system::plonk::flavor::SimulatorBN254;
+// using Flavor = proof_system::plonk::flavor::Ultra;
 using Builder = typename Flavor::CircuitBuilder;
 
 // Generic types:

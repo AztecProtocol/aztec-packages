@@ -10,7 +10,7 @@
 
 namespace aztec3::circuits::kernel::public_kernel {
 
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = proof_system::CircuitSimulatorBN254;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 

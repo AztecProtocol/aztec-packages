@@ -18,7 +18,7 @@ namespace aztec3::circuits::apps::test_apps::escrow {
 
 // Builder
 // WORKTODO: this is coupled to the circuit builder in the private kernel.
-using C = UltraCircuitBuilder;
+using C = CircuitSimulatorBN254;
 
 // Native and circuit types
 using CT = aztec3::utils::types::CircuitTypes<C>;

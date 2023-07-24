@@ -17,7 +17,7 @@ namespace aztec3::circuits::apps::test_apps::basic_contract_deployment {
 
 // Builder
 
-using C = UltraCircuitBuilder;
+using C = CircuitSimulatorBN254;
 
 // Native and circuit types
 using CT = aztec3::utils::types::CircuitTypes<C>;

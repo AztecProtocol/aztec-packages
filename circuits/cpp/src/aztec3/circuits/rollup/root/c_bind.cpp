@@ -9,7 +9,7 @@
 #include <barretenberg/barretenberg.hpp>
 
 namespace {
-using Builder = UltraCircuitBuilder;
+using Builder = CircuitSimulatorBN254;
 using NT = aztec3::utils::types::NativeTypes;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::rollup::native_root_rollup::root_rollup_circuit;
