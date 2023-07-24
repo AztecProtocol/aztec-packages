@@ -530,7 +530,8 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
     // TODO(MADDIAA): Currently stubbed until logic is implemented
     // https://github.com/AztecProtocol/aztec-packages/issues/1162
-    return this.makeEmptyMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT);
+    void tx;
+    return Promise.resolve(this.makeEmptyMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT));
     // return this.getMembershipWitnessFor(
     //   tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.historicBlocksTreeRoot,
     //   MerkleTreeId.HISTORIC_BLOCKS_TREE,
