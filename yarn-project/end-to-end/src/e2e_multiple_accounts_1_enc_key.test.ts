@@ -105,7 +105,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const contractWithWallet = new ZkTokenContract(zkTokenAddress, wallets[senderIndex]);
 
-    const tx = contractWithWallet.methods.transfer(transferAmount, sender, receiver).send({ origin: accounts[0] });
+    const tx = contractWithWallet.methods.transfer(transferAmount, sender, receiver).send({ origin: sender });
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
 
