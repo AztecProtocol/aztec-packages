@@ -82,6 +82,7 @@ constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
 constexpr size_t PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 16;
 constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 16;
 constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 16;
+constexpr size_t HISTORIC_BLOCKS_TREE_HEIGHT = 16;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 
 

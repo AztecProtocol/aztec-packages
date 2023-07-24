@@ -1,46 +1,45 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { Buffer } from 'buffer';
+import { callCbind } from './cbind.js';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
-import { Buffer } from 'buffer';
-import mapValues from 'lodash.mapvalues';
-
-import { callCbind } from './cbind.js';
 import {
-  Address,
-  CallContext,
-  CircuitError,
-  CombinedAccumulatedData,
-  CombinedConstantData,
-  CombinedHistoricTreeRoots,
-  ContractDeploymentData,
-  ContractStorageRead,
-  ContractStorageUpdateRequest,
-  Fq,
-  Fr,
-  FunctionData,
-  G1AffineElement,
-  KernelCircuitPublicInputs,
-  NativeAggregationState,
-  NewContractData,
-  OptionallyRevealedData,
-  Point,
-  PreviousKernelData,
-  PrivateHistoricTreeRoots,
-  Proof,
-  PublicCallData,
-  PublicCallStackItem,
-  PublicCircuitPublicInputs,
-  PublicDataRead,
-  PublicDataUpdateRequest,
-  PublicKernelInputs,
-  ReadRequestMembershipWitness,
-  TxContext,
-  VerificationKeyData,
-  isCircuitError,
   toBuffer,
+  Fr,
+  Address,
+  Fq,
+  G1AffineElement,
+  NativeAggregationState,
+  ReadRequestMembershipWitness,
+  NewContractData,
+  FunctionData,
+  OptionallyRevealedData,
+  PublicDataUpdateRequest,
+  PublicDataRead,
+  CombinedAccumulatedData,
+  PrivateHistoricTreeRoots,
+  CombinedHistoricTreeRoots,
+  Point,
+  ContractDeploymentData,
+  TxContext,
+  CombinedConstantData,
+  KernelCircuitPublicInputs,
+  Proof,
+  VerificationKeyData,
+  PreviousKernelData,
+  CircuitError,
+  isCircuitError,
+  CallContext,
+  ContractStorageUpdateRequest,
+  ContractStorageRead,
+  PublicCircuitPublicInputs,
+  PublicCallStackItem,
+  PublicCallData,
+  PublicKernelInputs,
 } from './types.js';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import mapValues from 'lodash.mapvalues';
 
 interface MsgpackG1AffineElement {
   x: Buffer;
@@ -576,6 +575,7 @@ interface MsgpackPrivateHistoricTreeRoots {
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   l1_to_l2_messages_tree_root: Buffer;
+  historic_blocks_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
 }
 
@@ -592,6 +592,9 @@ export function toPrivateHistoricTreeRoots(o: MsgpackPrivateHistoricTreeRoots): 
   if (o.l1_to_l2_messages_tree_root === undefined) {
     throw new Error('Expected l1_to_l2_messages_tree_root in PrivateHistoricTreeRoots deserialization');
   }
+  if (o.historic_blocks_tree_root === undefined) {
+    throw new Error('Expected historic_blocks_tree_root in PrivateHistoricTreeRoots deserialization');
+  }
   if (o.private_kernel_vk_tree_root === undefined) {
     throw new Error('Expected private_kernel_vk_tree_root in PrivateHistoricTreeRoots deserialization');
   }
@@ -600,6 +603,7 @@ export function toPrivateHistoricTreeRoots(o: MsgpackPrivateHistoricTreeRoots): 
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
     Fr.fromBuffer(o.l1_to_l2_messages_tree_root),
+    Fr.fromBuffer(o.historic_blocks_tree_root),
     Fr.fromBuffer(o.private_kernel_vk_tree_root),
   );
 }
@@ -617,6 +621,9 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
   if (o.l1ToL2MessagesTreeRoot === undefined) {
     throw new Error('Expected l1ToL2MessagesTreeRoot in PrivateHistoricTreeRoots serialization');
   }
+  if (o.historicBlocksTreeRoot === undefined) {
+    throw new Error('Expected historicBlocksTreeRoot in PrivateHistoricTreeRoots serialization');
+  }
   if (o.privateKernelVkTreeRoot === undefined) {
     throw new Error('Expected privateKernelVkTreeRoot in PrivateHistoricTreeRoots serialization');
   }
@@ -625,6 +632,7 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
     nullifier_tree_root: toBuffer(o.nullifierTreeRoot),
     contract_tree_root: toBuffer(o.contractTreeRoot),
     l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
+    historic_blocks_tree_root: toBuffer(o.historicBlocksTreeRoot),
     private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
   };
 }

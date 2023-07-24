@@ -39,6 +39,7 @@ global CONTRACT_SUBTREE_SIBLING_PATH_LENGTH: comptime Field = 15;
 global PRIVATE_DATA_SUBTREE_HEIGHT: comptime Field = 5;
 global PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH: comptime Field = 27;
 global NULLIFIER_SUBTREE_HEIGHT: comptime Field = 5;
+global HISTORIC_BLOCKS_TREE_HEIGHT: comptime Field = 16;
 global NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH: comptime Field = 11;
 global L1_TO_L2_MSG_SUBTREE_HEIGHT: comptime Field = 4;
 global L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH: comptime Field = 12;

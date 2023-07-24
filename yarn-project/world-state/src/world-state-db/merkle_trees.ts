@@ -4,6 +4,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
+  HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
@@ -114,6 +115,13 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]}`,
       L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
     );
+    const historicBlocksTree: AppendOnlyTree = await newTree(
+      StandardTree,
+      this.db,
+      hasher,
+      `${MerkleTreeId[MerkleTreeId.HISTORIC_BLOCKS_TREE]}`,
+      HISTORIC_BLOCKS_TREE_HEIGHT,
+    );
     this.trees = [
       contractTree,
       contractTreeRootsTree,
@@ -123,6 +131,7 @@ export class MerkleTrees implements MerkleTreeDb {
       publicDataTree,
       l1Tol2MessagesTree,
       l1Tol2MessagesRootsTree,
+      historicBlocksTree
     ];
 
     this.jobQueue.start();
