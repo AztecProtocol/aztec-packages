@@ -17,7 +17,7 @@ export class ContractDeploymentData {
   constructor(
     /** Public key of the contract deployer (used when deploying account contracts). */
     public deployerPublicKey: PublicKey,
-    /** Hash of the constuctor verification key. */
+    /** Hash of the constructor verification key. */
     public constructorVkHash: Fr,
     /** Function tree root. */
     public functionTreeRoot: Fr,
