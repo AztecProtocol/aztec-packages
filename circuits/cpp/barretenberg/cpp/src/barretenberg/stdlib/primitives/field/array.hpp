@@ -34,7 +34,7 @@ template <typename Composer, size_t SIZE> field_t<Composer> array_length(std::ar
 template <typename Composer, size_t SIZE> field_t<Composer> array_pop(std::array<field_t<Composer>, SIZE> const& arr)
 {
     field_t<Composer> popped_value = 0;
-    bool_t<Composer> already_popped = false;
+    bool_t<Composer> already_popped = { arr[0].context, false };
     for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {
         bool_t<Composer> is_non_zero = arr[i] != 0;
         popped_value = field_t<Composer>::conditional_assign(!already_popped && is_non_zero, arr[i], popped_value);

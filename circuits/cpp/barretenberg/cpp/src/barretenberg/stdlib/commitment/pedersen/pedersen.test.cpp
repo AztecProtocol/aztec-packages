@@ -387,9 +387,10 @@ template <typename Composer> class stdlib_pedersen : public testing::Test {
     }
 };
 
-typedef testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>
-        CircuitTypes;
+using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
+                                    proof_system::StandardCircuitBuilder,
+                                    proof_system::TurboCircuitBuilder,
+                                    proof_system::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_pedersen, CircuitTypes);
 
@@ -415,17 +416,29 @@ TYPED_TEST(stdlib_pedersen, compress_byte_array)
 
 TYPED_TEST(stdlib_pedersen, multi_compress)
 {
-    TestFixture::test_multi_compress();
+    if constexpr (proof_system::IsSimulator<TypeParam>) {
+        GTEST_SKIP() << "Hack; chose plookup";
+    } else {
+        TestFixture::test_multi_compress();
+    }
 };
 
 TYPED_TEST(stdlib_pedersen, compress_eight)
 {
-    TestFixture::test_compress_eight();
+    if constexpr (proof_system::IsSimulator<TypeParam>) {
+        GTEST_SKIP() << "Hack; chose plookup";
+    } else {
+        TestFixture::test_compress_eight();
+    }
 };
 
 TYPED_TEST(stdlib_pedersen, compress_constants)
 {
-    TestFixture::test_compress_constants();
+    if constexpr (proof_system::IsSimulator<TypeParam>) {
+        GTEST_SKIP() << "Hack; chose plookup";
+    } else {
+        TestFixture::test_compress_constants();
+    }
 };
 
 } // namespace test_stdlib_pedersen

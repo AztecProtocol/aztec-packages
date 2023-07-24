@@ -70,8 +70,6 @@ template <typename Curve> struct aggregation_state {
 
         auto* context = P0.get_context();
 
-        context->check_circuit();
-        info("checked circuit before add_recursive_proof");
         context->add_recursive_proof(proof_witness_indices);
     }
 };

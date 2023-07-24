@@ -65,6 +65,7 @@ template <typename Composer> inline std::ostream& operator<<(std::ostream& os, p
 }
 
 EXTERN_STDLIB_TYPE(packed_byte_array);
+EXTERN_STDLIB_SIMULATOR_TYPE(packed_byte_array);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

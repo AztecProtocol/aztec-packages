@@ -420,6 +420,7 @@ template <typename ComposerContext> inline std::ostream& operator<<(std::ostream
 }
 
 EXTERN_STDLIB_TYPE(field_t);
+EXTERN_STDLIB_SIMULATOR_TYPE(field_t);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

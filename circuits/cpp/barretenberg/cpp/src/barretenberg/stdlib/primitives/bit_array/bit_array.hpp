@@ -8,6 +8,7 @@ namespace stdlib {
 
 template <typename ComposerContext> class bit_array {
   public:
+    // WORKTODO: are all of these tested?
     bit_array(ComposerContext* parent_context, const size_t n);
     bit_array(ComposerContext* parent_context, const std::string& input);
     bit_array(ComposerContext* parent_context, const std::vector<uint8_t>& input);
@@ -180,7 +181,7 @@ template <typename ComposerContext> class bit_array {
     std::vector<bool_t<ComposerContext>> values;
 };
 
-EXTERN_STDLIB_TYPE(bit_array);
+EXTERN_STDLIB_SIMULATOR_TYPE(bit_array);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

@@ -10,6 +10,7 @@ template <typename Composer> byte_array<Composer> blake2s(const byte_array<Compo
 #define BLAKE2S(circuit_type) byte_array<circuit_type> blake2s(const byte_array<circuit_type>& input)
 
 EXTERN_STDLIB_METHOD(BLAKE2S)
+EXTERN_STDLIB_SIMULATOR_METHOD(BLAKE2S)
 
 } // namespace stdlib
 } // namespace proof_system::plonk

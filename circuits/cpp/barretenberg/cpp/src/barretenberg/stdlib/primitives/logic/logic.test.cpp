@@ -29,8 +29,10 @@ using namespace proof_system::plonk;
 
 template <class Composer> class LogicTest : public testing::Test {};
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::CircuitSimulatorBN254,
+                                      proof_system::StandardCircuitBuilder,
+                                      proof_system::TurboCircuitBuilder,
+                                      proof_system::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(LogicTest, CircuitTypes);
 
@@ -96,6 +98,9 @@ TYPED_TEST(LogicTest, TestCorrectLogic)
 TYPED_TEST(LogicTest, LargeOperands)
 {
     STDLIB_TYPE_ALIASES
+    if constexpr (proof_system::IsSimulator<Composer>) {
+        GTEST_SKIP() << "This doesn't apply to the simulator?";
+    }
     auto composer = Composer();
 
     uint256_t mask = (uint256_t(1) << 48) - 1;

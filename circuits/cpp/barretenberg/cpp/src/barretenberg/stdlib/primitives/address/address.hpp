@@ -7,6 +7,7 @@
 #include "barretenberg/stdlib/primitives/point/point.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
+// TODO: This does not belong in barretenberg.
 namespace proof_system::plonk {
 namespace stdlib {
 
@@ -89,9 +90,13 @@ template <typename Composer> class address_t {
         : address_(address)
         , context_(nullptr){};
 
-    address_t(int const& address)
+    address_t(int const& address) // WORKTODO: signed type here? why?
         : address_(address)
         , context_(nullptr){};
+
+    address_t(Composer* context, int const& address) // WORKTODO: And here
+        : address_(address)
+        , context_(context){};
 
     address_t(witness_t<Composer> const& witness)
     {
@@ -136,8 +141,8 @@ template <typename Composer> class address_t {
 
     static address_t<Composer> derive_from_private_key(field_t<Composer> const& private_key)
     {
-        // TODO: Dummy logic, for now. Proper derivation undecided.
-        point<Composer> public_key = group<Composer>::template fixed_base_scalar_mul_g1<254>(private_key);
+        // TODO: Dummy logic, for now. Proper derivation undecided.  // WORKTODO
+        point<Composer> public_key = group<Composer>::template fixed_base_scalar_mul<254>(private_key, 0);
         return address_t<Composer>(public_key.x);
     }
 

@@ -182,6 +182,7 @@ field_t<C> pedersen_plookup_hash<C>::hash_multiple(const std::vector<field_t>& i
 }
 
 INSTANTIATE_STDLIB_ULTRA_TYPE(pedersen_plookup_hash);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(pedersen_plookup_hash);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

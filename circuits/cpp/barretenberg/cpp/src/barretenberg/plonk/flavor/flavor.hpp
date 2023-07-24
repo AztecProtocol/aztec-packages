@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
@@ -154,4 +155,14 @@ class Ultra {
         return output;
     }
 };
+
+class SimulatorBN254 {
+  public:
+    using CircuitBuilder = proof_system::CircuitSimulatorBN254;
+    static transcript::Manifest create_manifest(const size_t num_public_inputs)
+    {
+        return Ultra::create_manifest(num_public_inputs);
+    }
+};
+
 } // namespace proof_system::plonk::flavor

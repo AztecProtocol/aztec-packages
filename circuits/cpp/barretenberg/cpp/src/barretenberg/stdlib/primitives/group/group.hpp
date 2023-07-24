@@ -15,23 +15,36 @@ using namespace crypto::generators;
 
 template <typename ComposerContext> class group {
   public:
-    template <size_t num_bits> static auto fixed_base_scalar_mul_g1(const field_t<ComposerContext>& in);
-    static auto fixed_base_scalar_mul(const field_t<ComposerContext>& lo, const field_t<ComposerContext>& hi);
+    template <size_t num_bits>
+    static point<ComposerContext> fixed_base_scalar_mul_g1(const field_t<ComposerContext>& in);
+    static point<ComposerContext> fixed_base_scalar_mul(const field_t<ComposerContext>& lo,
+                                                        const field_t<ComposerContext>& hi);
 
     template <size_t num_bits>
-    static auto fixed_base_scalar_mul(const field_t<ComposerContext>& in, const size_t generator_index);
+    static point<ComposerContext> fixed_base_scalar_mul(const field_t<ComposerContext>& in,
+                                                        const size_t generator_index);
 
   private:
     template <size_t num_bits>
-    static auto fixed_base_scalar_mul_internal(const field_t<ComposerContext>& in,
-                                               grumpkin::g1::affine_element const& generator,
-                                               fixed_base_ladder const* ladder);
+    static point<ComposerContext> fixed_base_scalar_mul_internal(const field_t<ComposerContext>& in,
+                                                                 grumpkin::g1::affine_element const& generator,
+                                                                 fixed_base_ladder const* ladder);
 };
 
 template <typename ComposerContext>
 template <size_t num_bits>
-auto group<ComposerContext>::fixed_base_scalar_mul_g1(const field_t<ComposerContext>& in)
+point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul_g1(const field_t<ComposerContext>& in)
 {
+    if constexpr (IsSimulator<ComposerContext>) {
+        if (in.get_value() == barretenberg::fr(0)) {
+            in.context->failure("input scalar to fixed_base_scalar_mul_internal cannot be 0");
+            return { 0, 0 };
+        }
+        auto result =
+            crypto::generators::fixed_base_scalar_mul<num_bits>(in.get_value(), 0); // WORKTODO: is g1::one generator 0?
+        result = result.normalize();
+        return { witness_t<ComposerContext>(in.context, result.x), witness_t<ComposerContext>(in.context, result.y) };
+    }
     const auto ladder = get_g1_ladder(num_bits);
     auto generator = grumpkin::g1::one;
     return group<ComposerContext>::fixed_base_scalar_mul_internal<num_bits>(in, generator, ladder);
@@ -39,8 +52,18 @@ auto group<ComposerContext>::fixed_base_scalar_mul_g1(const field_t<ComposerCont
 
 template <typename ComposerContext>
 template <size_t num_bits>
-auto group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext>& in, const size_t generator_index)
+point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext>& in,
+                                                                     const size_t generator_index)
 {
+    if constexpr (IsSimulator<ComposerContext>) {
+        if (in.get_value() == barretenberg::fr(0)) {
+            in.context->failure("input scalar to fixed_base_scalar_mul_internal cannot be 0");
+            return { 0, 0 }; // WORKTODO: std::optional?
+        }
+        auto result = crypto::generators::fixed_base_scalar_mul<num_bits>(in.get_value(), generator_index);
+        result = result.normalize();
+        return { witness_t<ComposerContext>(in.context, result.x), witness_t<ComposerContext>(in.context, result.y) };
+    }
     // we assume for fixed_base_scalar_mul we're interested in the gen at subindex 0
     generator_index_t index = { generator_index, 0 };
     auto gen_data = get_generator_data(index);
@@ -58,9 +81,15 @@ auto group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext
  * maximum value is (2^257 + 2^129). Further range constraints are required for more precision
  **/
 template <typename ComposerContext>
-auto group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext>& lo,
-                                                   const field_t<ComposerContext>& hi)
+point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext>& lo,
+                                                                     const field_t<ComposerContext>& hi)
 {
+    if constexpr (IsSimulator<ComposerContext>) {
+        auto scalar = static_cast<uint256_t>(lo.get_value()) + (static_cast<uint256_t>(hi.get_value()) << 128);
+        auto result = grumpkin::g1::one * scalar;
+        result = result.normalize();
+        return { result.x, result.y };
+    }
     // This method does not work if lo or hi are 0. We don't apply the extra constraints to handle this edge case
     // (merely rule it out), because we can assume the scalar multipliers for schnorr are uniformly randomly distributed
     (lo * hi).assert_is_not_zero();
@@ -82,9 +111,8 @@ auto group<ComposerContext>::fixed_base_scalar_mul(const field_t<ComposerContext
 
 template <typename ComposerContext>
 template <size_t num_bits>
-auto group<ComposerContext>::fixed_base_scalar_mul_internal(const field_t<ComposerContext>& in,
-                                                            grumpkin::g1::affine_element const& generator,
-                                                            fixed_base_ladder const* ladder)
+point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul_internal(
+    const field_t<ComposerContext>& in, grumpkin::g1::affine_element const& generator, fixed_base_ladder const* ladder)
 {
     auto scalar = in.normalize();
     scalar.assert_is_not_zero("input scalar to fixed_base_scalar_mul_internal cannot be 0");

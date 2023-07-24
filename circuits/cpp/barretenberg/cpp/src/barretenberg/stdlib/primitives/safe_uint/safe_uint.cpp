@@ -100,6 +100,7 @@ std::array<safe_uint_t<ComposerContext>, 3> safe_uint_t<ComposerContext>::slice(
 }
 
 INSTANTIATE_STDLIB_TYPE(safe_uint_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(safe_uint_t);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

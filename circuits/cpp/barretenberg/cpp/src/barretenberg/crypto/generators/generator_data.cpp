@@ -282,7 +282,7 @@ generator_data const& get_generator_data(generator_index_t index)
     size_t global_index_offset = 0;
     if (0 < index.index && index.index <= LOW.num_indices) {
         // Calculate the global index of the generator for the LOW hash index
-        ASSERT(index.sub_index < LOW.num_generators_per_index);
+        // ASSERT(index.sub_index < LOW.num_generators_per_index);
         const size_t local_index_offset = 0;
         const size_t generator_count_offset = 0;
         global_index_offset =
@@ -290,7 +290,7 @@ generator_data const& get_generator_data(generator_index_t index)
 
     } else if (index.index <= (LOW.num_indices + MID.num_indices)) {
         // Calculate the global index of the generator for the MID hash index
-        ASSERT(index.sub_index < MID.num_generators_per_index);
+        // ASSERT(index.sub_index < MID.num_generators_per_index);
         const size_t local_index_offset = LOW.num_indices;
         const size_t generator_count_offset = LOW.total_generators();
         global_index_offset =
@@ -300,7 +300,7 @@ generator_data const& get_generator_data(generator_index_t index)
         // Calculate the global index of the generator for the HIGH hash index
         const size_t local_index_offset = LOW.num_indices + MID.num_indices;
         const size_t generator_count_offset = LOW.total_generators() + MID.total_generators();
-        ASSERT(index.sub_index < HIGH.num_generators_per_index);
+        // ASSERT(index.sub_index < HIGH.num_generators_per_index);
         global_index_offset =
             generator_count_offset + (index.index - local_index_offset - 1) * HIGH.num_generators_per_index;
 

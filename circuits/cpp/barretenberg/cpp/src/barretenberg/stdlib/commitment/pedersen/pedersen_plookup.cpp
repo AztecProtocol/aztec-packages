@@ -206,6 +206,7 @@ field_t<C> pedersen_plookup_commitment<C>::compress(const std::vector<std::pair<
 }
 
 INSTANTIATE_STDLIB_ULTRA_TYPE(pedersen_plookup_commitment);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(pedersen_plookup_commitment);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

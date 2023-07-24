@@ -1,5 +1,6 @@
 #include "barretenberg/crypto/blake2s/blake2s.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
+// #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "blake2s.hpp"
 #include "blake2s_plookup.hpp"
 #include <gtest/gtest.h>
@@ -7,7 +8,7 @@
 using namespace barretenberg;
 using namespace proof_system::plonk::stdlib;
 
-using Builder = proof_system::UltraCircuitBuilder;
+using Builder = proof_system::CircuitSimulatorBN254;
 
 using field_ct = field_t<Builder>;
 using witness_ct = witness_t<Builder>;

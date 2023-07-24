@@ -97,46 +97,50 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::operator*(const u
 {
     Composer* ctx = (context == nullptr) ? other.context : context;
 
-    if (is_constant() && other.is_constant()) {
+    if constexpr (IsSimulator<Composer>) {
         return uint_plookup<Composer, Native>(context, (additive_constant * other.additive_constant) & MASK);
+    } else {
+        if (is_constant() && other.is_constant()) {
+            return uint_plookup<Composer, Native>(context, (additive_constant * other.additive_constant) & MASK);
+        }
+        if (is_constant() && !other.is_constant()) {
+            return other * (*this);
+        }
+
+        const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
+
+        const uint256_t lhs = ctx->variables[witness_index];
+        const uint256_t rhs = ctx->variables[rhs_idx];
+
+        const uint256_t product = (lhs * rhs) + (lhs * other.additive_constant) + (rhs * additive_constant);
+        const uint256_t overflow = product >> width;
+        const uint256_t remainder = product & MASK;
+
+        const mul_quad gate{
+            witness_index,
+            rhs_idx,
+            ctx->add_variable(remainder),
+            ctx->add_variable(overflow),
+            fr::one(),
+            other.additive_constant,
+            additive_constant,
+            fr::neg_one(),
+            -fr(CIRCUIT_UINT_MAX_PLUS_ONE),
+            0,
+        };
+
+        ctx->create_big_mul_gate(gate);
+
+        // discard the high bits
+        ctx->decompose_into_default_range(gate.d, width);
+
+        uint_plookup<Composer, Native> result(ctx);
+        result.accumulators = constrain_accumulators(ctx, gate.c);
+        result.witness_index = gate.c;
+        result.witness_status = WitnessStatus::OK;
+
+        return result;
     }
-    if (is_constant() && !other.is_constant()) {
-        return other * (*this);
-    }
-
-    const uint32_t rhs_idx = other.is_constant() ? ctx->zero_idx : other.witness_index;
-
-    const uint256_t lhs = ctx->variables[witness_index];
-    const uint256_t rhs = ctx->variables[rhs_idx];
-
-    const uint256_t product = (lhs * rhs) + (lhs * other.additive_constant) + (rhs * additive_constant);
-    const uint256_t overflow = product >> width;
-    const uint256_t remainder = product & MASK;
-
-    const mul_quad gate{
-        witness_index,
-        rhs_idx,
-        ctx->add_variable(remainder),
-        ctx->add_variable(overflow),
-        fr::one(),
-        other.additive_constant,
-        additive_constant,
-        fr::neg_one(),
-        -fr(CIRCUIT_UINT_MAX_PLUS_ONE),
-        0,
-    };
-
-    ctx->create_big_mul_gate(gate);
-
-    // discard the high bits
-    ctx->decompose_into_default_range(gate.d, width);
-
-    uint_plookup<Composer, Native> result(ctx);
-    result.accumulators = constrain_accumulators(ctx, gate.c);
-    result.witness_index = gate.c;
-    result.witness_status = WitnessStatus::OK;
-
-    return result;
 }
 
 template <typename Composer, typename Native>
@@ -181,8 +185,11 @@ std::pair<uint_plookup<Composer, Native>, uint_plookup<Composer, Native>> uint_p
     if (other.is_constant() && other.get_value() == 0) {
         // TODO: should have an actual error handler!
         const uint32_t one = ctx->add_variable(fr::one());
-        ctx->assert_equal_constant(one, fr::zero());
-        ctx->failure("plookup_arithmetic: divide by zero!");
+        if constexpr (IsSimulator<Composer>) {
+            ctx->assert_equal_constant(fr::one(), fr::zero(), "plookup_arithmetic: divide by zero!");
+        } else {
+            ctx->assert_equal_constant(one, fr::zero(), "plookup_arithmetic: divide by zero!");
+        }
     } else if (!other.is_constant()) {
         const bool_t<Composer> is_divisor_zero = field_t<Composer>(other).is_zero();
         ctx->assert_equal_constant(is_divisor_zero.witness_index, fr::zero(), "plookup_arithmetic: divide by zero!");
@@ -257,5 +264,10 @@ INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
+
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint8_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint16_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint32_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint64_t);
 } // namespace stdlib
 } // namespace proof_system::plonk

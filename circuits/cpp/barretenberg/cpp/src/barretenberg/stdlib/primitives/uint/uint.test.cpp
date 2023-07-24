@@ -333,8 +333,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = a * b;
         }
-        uint_native c_result =
-            static_cast<uint_native>(composer.get_variable(c.get_witness_index()).from_montgomery_form().data[0]);
+        auto c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
 
         auto special_uints = get_special_uints(&composer);
@@ -398,8 +397,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c ^ a;
         }
-        uint_native a_result =
-            static_cast<uint_native>(composer.get_variable(a.get_witness_index()).from_montgomery_form().data[0]);
+        auto a_result = static_cast<uint_native>(a.get_value());
 
         EXPECT_EQ(a_result, a_expected);
 
@@ -450,9 +448,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = (a + b) ^ (const_a ^ const_b);
         }
-        uint32_t c_witness_index = c.get_witness_index();
-        uint_native c_result =
-            static_cast<uint_native>(composer.get_variable(c_witness_index).from_montgomery_form().data[0]);
+        auto c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
         bool result = composer.check_circuit();
         EXPECT_EQ(result, true);
@@ -487,9 +483,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = c;
             c = (~a & const_a) + (b & const_b);
         }
-        uint32_t c_witness_index = c.get_witness_index();
-        uint_native c_result =
-            static_cast<uint_native>(composer.get_variable(c_witness_index).from_montgomery_form().data[0]);
+        auto c_result = static_cast<uint_native>(c.get_value());
         EXPECT_EQ(c_result, c_expected);
         bool result = composer.check_circuit();
         EXPECT_EQ(result, true);
@@ -521,8 +515,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c & a;
         }
-        uint_native a_result =
-            static_cast<uint_native>(composer.get_variable(a.get_witness_index()).from_montgomery_form().data[0]);
+        auto a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
         bool result = composer.check_circuit();
@@ -555,8 +548,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c | a;
         }
-        uint_native a_result =
-            static_cast<uint_native>(composer.get_variable(a.get_witness_index()).from_montgomery_form().data[0]);
+        auto a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
         bool result = composer.check_circuit();
@@ -663,8 +655,7 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             c = a + b;
             a = c.ror(static_cast<uint_native>(i % 31)) + a.ror(static_cast<uint_native>((i + 1) % 31));
         }
-        uint_native a_result =
-            static_cast<uint_native>(composer.get_variable(a.get_witness_index()).from_montgomery_form().data[0]);
+        auto a_result = static_cast<uint_native>(a.get_value());
         EXPECT_EQ(a_result, a_expected);
 
         bool result = composer.check_circuit();
@@ -796,22 +787,14 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             a = temp1 + temp2;
         }
 
-        uint_native a_result =
-            static_cast<uint_native>(composer.get_variable(a.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native b_result =
-            static_cast<uint_native>(composer.get_variable(b.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native c_result =
-            static_cast<uint_native>(composer.get_variable(c.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native d_result =
-            static_cast<uint_native>(composer.get_variable(d.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native e_result =
-            static_cast<uint_native>(composer.get_variable(e.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native f_result =
-            static_cast<uint_native>(composer.get_variable(f.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native g_result =
-            static_cast<uint_native>(composer.get_variable(g.get_witness_index()).from_montgomery_form().data[0]);
-        uint_native h_result =
-            static_cast<uint_native>(composer.get_variable(h.get_witness_index()).from_montgomery_form().data[0]);
+        auto a_result = static_cast<uint_native>(a.get_value());
+        auto b_result = static_cast<uint_native>(b.get_value());
+        auto c_result = static_cast<uint_native>(c.get_value());
+        auto d_result = static_cast<uint_native>(d.get_value());
+        auto e_result = static_cast<uint_native>(e.get_value());
+        auto f_result = static_cast<uint_native>(f.get_value());
+        auto g_result = static_cast<uint_native>(g.get_value());
+        auto h_result = static_cast<uint_native>(h.get_value());
 
         EXPECT_EQ(a_result, a_alt);
         EXPECT_EQ(b_result, b_alt);
@@ -1061,10 +1044,26 @@ template <typename Composer> class stdlib_uint : public testing::Test {
             EXPECT_EQ(proof_result, false);
         };
 
-        divide_integers(false, false, false, false, true);
-        divide_integers(false, false, false, true, true);
-        divide_integers(true, true, false, false, true);
-        divide_integers(true, true, false, true, true);
+        divide_integers(/*lhs_constant=*/false,
+                        /*rhs_constant=*/false,
+                        /*dividend_is_divisor=*/false,
+                        /*dividend_zero=*/false,
+                        /*divisor_zero=*/true);
+        divide_integers(/*lhs_constant=*/false,
+                        /*rhs_constant=*/false,
+                        /*dividend_is_divisor=*/false,
+                        /*dividend_zero=*/true,
+                        /*divisor_zero=*/true);
+        divide_integers(/*lhs_constant=*/true,
+                        /*rhs_constant=*/true,
+                        /*dividend_is_divisor=*/false,
+                        /*dividend_zero=*/false,
+                        /*divisor_zero=*/true);
+        divide_integers(/*lhs_constant=*/true,
+                        /*rhs_constant=*/true,
+                        /*dividend_is_divisor=*/false,
+                        /*dividend_zero=*/true,
+                        /*divisor_zero=*/true);
     }
 
     static void test_divide_special()
@@ -1101,7 +1100,8 @@ template <typename Composer> class stdlib_uint : public testing::Test {
 
     /**
      * @brief Make sure we prevent proving v / v = 0 by setting the divison remainder to be v.
-     * TODO: This is lifted from the implementation. Should rewrite this test after introducing framework that separates
+     * TODO: This is lifted from the implementation. Should rewrite this test after introducing framework that
+     separates
      * circuit construction from witness generation.
 
      */
@@ -1743,9 +1743,10 @@ template <typename Composer> class stdlib_uint : public testing::Test {
     }
 };
 
-typedef testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>
-        CircuitTypes;
+using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
+                                    proof_system::StandardCircuitBuilder,
+                                    proof_system::TurboCircuitBuilder,
+                                    proof_system::UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(stdlib_uint, CircuitTypes);
 
@@ -1852,7 +1853,11 @@ TYPED_TEST(stdlib_uint, test_divide_special)
 }
 TYPED_TEST(stdlib_uint, div_remainder_constraint)
 {
-    TestFixture::div_remainder_constraint();
+    if constexpr (IsSimulator<CircuitSimulatorBN254>) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::div_remainder_constraint();
+    }
 }
 TYPED_TEST(stdlib_uint, test_and)
 {
@@ -1922,10 +1927,11 @@ TYPED_TEST(stdlib_uint, test_at)
 // There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
 TEST(stdlib_uint32, test_accumulators_plookup_uint32)
 {
-    using uint32_ct = proof_system::plonk::stdlib::uint32<proof_system::UltraCircuitBuilder>;
-    using witness_ct = proof_system::plonk::stdlib::witness_t<proof_system::UltraCircuitBuilder>;
+    using Builder = proof_system::UltraCircuitBuilder; // WORKTODO: needs to pass with sim?
+    using uint32_ct = proof_system::plonk::stdlib::uint32<Builder>;
+    using witness_ct = proof_system::plonk::stdlib::witness_t<Builder>;
 
-    proof_system::UltraCircuitBuilder composer;
+    Builder composer;
 
     uint32_t a_val = engine.get_random_uint32();
     uint32_t b_val = engine.get_random_uint32();

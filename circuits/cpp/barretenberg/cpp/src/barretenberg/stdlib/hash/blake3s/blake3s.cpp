@@ -258,5 +258,6 @@ template <typename Composer> byte_array<Composer> blake3s(const byte_array<Compo
 }
 
 INSTANTIATE_STDLIB_METHOD(BLAKE3S)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(BLAKE3S)
 } // namespace stdlib
 } // namespace proof_system::plonk

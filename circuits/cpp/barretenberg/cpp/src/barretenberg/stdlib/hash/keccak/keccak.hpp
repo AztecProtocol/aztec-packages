@@ -196,6 +196,7 @@ template <typename Composer> class keccak {
 };
 
 EXTERN_STDLIB_ULTRA_TYPE(keccak)
+EXTERN_STDLIB_SIMULATOR_TYPE(keccak)
 
 } // namespace stdlib
 } // namespace proof_system::plonk

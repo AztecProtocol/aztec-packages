@@ -36,12 +36,18 @@ std::vector<uint32_t> uint<Composer, Native>::constrain_accumulators(Composer* c
 template <typename Composer, typename Native>
 uint<Composer, Native>::uint(const witness_t<Composer>& witness)
     : context(witness.context)
-    , additive_constant(0)
     , witness_status(WitnessStatus::OK)
-    , accumulators(constrain_accumulators(
-          context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness"))
-    , witness_index(accumulators[num_accumulators() - 1])
-{}
+{
+    if constexpr (IsSimulator<Composer>) {
+        additive_constant = witness.witness;
+        witness_index = IS_CONSTANT;
+    } else {
+        additive_constant = 0;
+        accumulators = constrain_accumulators(
+            context, witness.witness_index, width, "uint: range constraint fails in constructor of uint from witness");
+        witness_index = accumulators[num_accumulators() - 1];
+    }
+}
 
 template <typename Composer, typename Native>
 uint<Composer, Native>::uint(const field_t<Composer>& value)
@@ -403,6 +409,11 @@ INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint8_t);
 INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint16_t);
 INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint32_t);
 INSTANTIATE_STDLIB_BASIC_TYPE_VA(uint, uint64_t);
+
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint, uint8_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint, uint16_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint, uint32_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint, uint64_t);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

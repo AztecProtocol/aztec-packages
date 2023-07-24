@@ -67,6 +67,7 @@
 #include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <concepts>
@@ -298,6 +299,10 @@ concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Turbo
 
 template <typename T> 
 concept IsHonkFlavor = IsAnyOf<T, honk::flavor::Standard, honk::flavor::Ultra, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
+
+// WORKTODO: move? smart way of not referring to instances?
+template <typename T> 
+concept IsSimulator = IsAnyOf<T, proof_system::CircuitSimulatorBN254>; // WORKTODO: move this
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
 

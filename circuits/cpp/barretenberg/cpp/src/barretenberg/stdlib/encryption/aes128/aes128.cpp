@@ -303,6 +303,7 @@ std::vector<field_t<Composer>> encrypt_buffer_cbc(const std::vector<field_t<Comp
         const std::vector<field_t<circuit_type>>&, const field_t<circuit_type>&, const field_t<circuit_type>&)
 
 INSTANTIATE_STDLIB_ULTRA_METHOD(ENCRYPT_BUFFER_CBC)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(ENCRYPT_BUFFER_CBC)
 } // namespace aes128
 } // namespace stdlib
 } // namespace proof_system::plonk

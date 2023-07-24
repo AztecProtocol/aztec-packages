@@ -76,5 +76,6 @@ template <typename T> inline std::ostream& operator<<(std::ostream& os, bool_t<T
 }
 
 EXTERN_STDLIB_TYPE(bool_t);
+EXTERN_STDLIB_SIMULATOR_TYPE(bool_t);
 
 } // namespace proof_system::plonk::stdlib
