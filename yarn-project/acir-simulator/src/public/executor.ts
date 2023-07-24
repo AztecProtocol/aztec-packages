@@ -232,6 +232,7 @@ function getInitialWitness(
     historicTreeRoots.nullifierTreeRoot,
     historicTreeRoots.contractTreeRoot,
     historicTreeRoots.l1ToL2MessagesTreeRoot,
+    historicTreeRoots.historicBlocksTreeRoot,
 
     globalVariables.chainId,
     globalVariables.version,
