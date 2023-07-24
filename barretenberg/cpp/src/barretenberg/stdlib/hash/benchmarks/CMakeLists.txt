@@ -1,2 +1,0 @@
-add_subdirectory(sha256)
-add_subdirectory(external)

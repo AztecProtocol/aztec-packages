@@ -1,1 +1,0 @@
-barretenberg_module(stdlib_keccak stdlib_primitives crypto_keccak)
