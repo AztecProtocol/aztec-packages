@@ -353,6 +353,15 @@ export async function deployContract(
   return { address: receipt.contractAddress!, partialContractAddress: deployMethod.partialContractAddress! };
 }
 
+/**
+ * Represents a function that creates an AccountImplementation object asynchronously.
+ *
+ * @param address - The Aztec address associated with the account.
+ * @param useProperKey - A flag indicating whether the proper key should be used during account creation.
+ * @param partialAddress - The partial contract address associated with the account.
+ * @param encryptionPrivateKey - The encryption private key used during account creation.
+ * @returns A Promise that resolves to an AccountImplementation object.
+ */
 export type CreateAccountImplFn = (
   address: AztecAddress,
   useProperKey: boolean,
@@ -360,6 +369,16 @@ export type CreateAccountImplFn = (
   encryptionPrivateKey: Buffer,
 ) => Promise<AccountImplementation>;
 
+/**
+ * Creates a new account.
+ * @param aztecRpcServer - The AztecRPC server to interact with.
+ * @param abi - The ABI (Application Binary Interface) of the account contract.
+ * @param args - The arguments to pass to the account contract's constructor.
+ * @param encryptionPrivateKey - The encryption private key used by the account.
+ * @param useProperKey - A flag indicating whether the proper key should be used during account creation.
+ * @param createAccountImpl - A function that creates an AccountImplementation object.
+ * @returns A Promise that resolves to an object containing the created wallet, account address, and partial address.
+ */
 export async function createNewAccount(
   aztecRpcServer: AztecRPC,
   abi: ContractAbi,
