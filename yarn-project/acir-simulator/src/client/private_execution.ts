@@ -14,7 +14,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
 import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
@@ -178,12 +177,6 @@ export class PrivateFunctionExecution {
     const publicInputs = extractPublicInputs(partialWitness, acir);
 
     const wasm = await CircuitsWasm.get();
-
-    // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
-    publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
-    publicInputs.encryptedLogPreimagesLength = new Fr(encryptedLogs.getSerializedLength());
-    publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
-    publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
     const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
