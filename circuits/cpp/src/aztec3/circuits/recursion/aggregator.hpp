@@ -14,7 +14,7 @@ class Aggregator {
         const CT::AggregationObject& previous_aggregation_output = CT::AggregationObject())
     {
         CT::AggregationObject result =
-            verify_proof<plonk::flavor::Ultra>(builder, vk, proof, previous_aggregation_output);
+            plonk::stdlib::recursion::verify_proof<Flavor>(builder, vk, proof, previous_aggregation_output);
 
         return result;
     }

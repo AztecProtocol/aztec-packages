@@ -7,6 +7,8 @@
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+
 namespace aztec3::circuits::kernel::private_kernel {
 
 using Builder = UltraCircuitBuilder;

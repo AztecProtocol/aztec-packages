@@ -56,7 +56,8 @@ TEST(private_to_private_function_call_tests, circuit_private_to_private_function
     // info("variables: ", fn1_builder.variables);
     info("failed?: ", fn1_builder.failed());
     info("err: ", fn1_builder.err());
-    info("n: ", fn1_builder.num_gates);
+    // info("n: ", fn1_builder.num_gates);
+    // WORKTODO: this test leads to a failing composer, but there are no expectations in the test.
 }
 
 }  // namespace aztec3::circuits::apps::test_apps::private_to_private_function_call

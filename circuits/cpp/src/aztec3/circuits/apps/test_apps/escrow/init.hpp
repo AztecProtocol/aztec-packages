@@ -11,9 +11,13 @@
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
+#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+
 namespace aztec3::circuits::apps::test_apps::escrow {
 
 // Builder
+// WORKTODO: this is coupled to the circuit builder in the private kernel.
 using C = UltraCircuitBuilder;
 
 // Native and circuit types

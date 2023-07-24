@@ -41,7 +41,7 @@ void function_2_1(FunctionExecutionContext& exec_ctx, std::vector<NT::fr> const&
 
     auto product = a * b * c;
 
-    CT::address const unique_person_who_may_initialise = 999999;
+    CT::address const unique_person_who_may_initialise = { msg_sender.context_, 999999 };
 
     unique_person_who_may_initialise.assert_equal(msg_sender);
 
