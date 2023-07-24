@@ -907,6 +907,7 @@ job_defaults:
         ignore:
           - /^barretenberg\/.*/
           - /^circuits\/.*/
+          - /^docs\/.*/
     context:
       - build
       - slack
@@ -944,6 +945,7 @@ job_defaults:
       branches:
         ignore:
           - /^barretenberg\/.*/
+          - /^docs\/.*/
     context:
       - build
       - slack
@@ -958,6 +960,7 @@ job_defaults:
       branches:
         ignore:
           - /^circuits\/.*/
+          - /^docs\/.*/
     context:
       - build
       - slack
