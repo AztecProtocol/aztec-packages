@@ -20,14 +20,21 @@ describe('e2e_block_building', () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup());
   }, 100_000);
 
+  /// docs:start:hello
   afterEach(async () => {
+    // this-will-error
     await aztecNode?.stop();
     if (aztecRpcServer instanceof AztecRPCServer) {
+      // highlight-next-line
       await aztecRpcServer?.stop();
     }
   });
+  // highlight-start
 
   it('should assemble a block with multiple txs', async () => {
+    // highlight-end
+    /// docs:end:hello
+
     // Assemble N contract deployment txs
     // We need to create them sequentially since we cannot have parallel calls to a circuit
     const TX_COUNT = 8;

@@ -4,7 +4,7 @@ import Highlight, { defaultProps } from "prism-react-renderer";
 import github from "prism-react-renderer/themes/github";
 //import vsDark from 'prism-react-renderer/themes/vsDark';
 
-const GitHubCode = ({
+const GithubCode = ({
   owner,
   repo,
   branch = "master",
@@ -70,4 +70,4 @@ const GitHubCode = ({
   return highlightedCode;
 };
 
-export default GitHubCode;
+export default GithubCode;

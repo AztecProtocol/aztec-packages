@@ -1,6 +1,5 @@
 ---
 title: Vision
-slug: "/"
 ---
 
 ## The world's encrypted ledger

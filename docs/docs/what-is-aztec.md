@@ -1,4 +1,5 @@
 ---
+slug: "/"
 id: intro
 title: What is Aztec?
 ---
@@ -11,6 +12,12 @@ In the real world, people enjoy privacy.
 
 Aztec brings privacy to Ethereum.
 
+<!-- include_code typescript /yarn-project/end-to-end/src/e2e_block_building.test.ts hello -->
+
+<!-- import GithubCode from '../src/components/GithubCode';
+
+<GithubCode owner="AztecProtocol" repo="aztec-packages" language="typescript" filePath="/yarn-project/end-to-end/src/e2e_block_building.test.ts" startLine='10' endLine='21'/> -->
+  
 ---
 
 # Build with confidence.
@@ -35,7 +42,7 @@ Plus:
 - Cheap, public persistent state, if you need it
 
 
----
+--- 
 
 # Play!
 

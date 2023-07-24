@@ -16,6 +16,8 @@ const sidebars = {
   docsSidebar: [
     "intro",
 
+    "embedding-github-code",
+
     "vision",
 
     {
