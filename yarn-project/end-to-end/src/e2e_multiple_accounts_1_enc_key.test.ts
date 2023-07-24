@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Fr } from '@aztec/aztec-rpc';
-import { AztecAddress, StoredKeyAccountContract, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, StoredKeyAccountContract, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -27,12 +27,13 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   let zkTokenAddress: AztecAddress;
 
   const initialBalance = 987n;
+  const numAccounts = 3;
 
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup(0));
 
     const encryptionPrivateKey = randomBytes(32);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < numAccounts; i++) {
       logger(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = randomBytes(32);
       const createWallet = async (address: AztecAddress, useProperKey: boolean) =>
@@ -57,6 +58,13 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       accounts.push(address);
     }
     logger('Account contracts deployed');
+
+    // Verify that all accounts use the same encryption key
+    const encryptionPublicKey = await generatePublicKey(encryptionPrivateKey);
+    for (let i = 0; i < numAccounts; i++) {
+      const accountEncryptionPublicKey = await aztecRpcServer.getPublicKey(accounts[i]);
+      expect(accountEncryptionPublicKey).toEqual(encryptionPublicKey);
+    }
 
     logger(`Deploying ZK Token...`);
     const tx = ZkTokenContract.deploy(aztecRpcServer, initialBalance, accounts[0]).send();
