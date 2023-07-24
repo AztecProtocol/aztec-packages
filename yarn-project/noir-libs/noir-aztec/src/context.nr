@@ -1,5 +1,15 @@
 use crate::types::vec::BoundedVec;
-use crate::constants_gen;
+use crate::constants_gen::{
+    RETURN_VALUES_LENGTH,
+    MAX_READ_REQUESTS_PER_CALL,
+    MAX_NEW_COMMITMENTS_PER_CALL,
+    MAX_NEW_NULLIFIERS_PER_CALL,
+    MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+    MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+    MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+    EMPTY_NULLIFIED_COMMITMENT,
+    NUM_FIELDS_PER_SHA256,
+};
 use crate::abi;
 
 // l1 to l2 messaging
@@ -12,20 +22,20 @@ struct Context {
     oracle_connector: Field,  // for forcing dependencies between oracle calls
 
     args_hash : Field,
-    return_values : BoundedVec<Field, constants_gen::RETURN_VALUES_LENGTH>,
+    return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, constants_gen::MAX_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, constants_gen::MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, constants_gen::MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, constants_gen::MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack : BoundedVec<Field, constants_gen::MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack : BoundedVec<Field, constants_gen::MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, constants_gen::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    encrypted_logs_hash : [Field; constants_gen::NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash : [Field; constants_gen::NUM_FIELDS_PER_SHA256],
+    encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
+    unencrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length : Field,
     unencrypted_log_preimages_length : Field,
 }
@@ -50,8 +60,8 @@ impl Context {
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            encrypted_logs_hash: [0; constants_gen::NUM_FIELDS_PER_SHA256],
-            unencrypted_logs_hash: [0; constants_gen::NUM_FIELDS_PER_SHA256],
+            encrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
+            unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
             encrypted_log_preimages_length: 0,
             unencrypted_log_preimages_length: 0,
         }
@@ -108,10 +118,10 @@ impl Context {
         let nullifier = process_l1_to_l2_message(inputs.roots.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, constants_gen::EMPTY_NULLIFIED_COMMITMENT)
+        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
     }
 
-    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; constants_gen::NUM_FIELDS_PER_SHA256]) -> Self {
+    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; NUM_FIELDS_PER_SHA256]) -> Self {
         self.encrypted_logs_hash = hash;
         self
     }
@@ -121,7 +131,7 @@ impl Context {
         self
     }
 
-    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; constants_gen::NUM_FIELDS_PER_SHA256]) -> Self {
+    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; NUM_FIELDS_PER_SHA256]) -> Self {
         self.unencrypted_logs_hash = hash;
         self
     }
