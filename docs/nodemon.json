@@ -9,7 +9,7 @@
     ],
     "watch": [
         "./src/",
-        "./draft-docs-here/"
+        "./draft-docs/"
     ],
     "ext": "js, css, md, mdx"
   }

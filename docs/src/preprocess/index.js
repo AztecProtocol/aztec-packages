@@ -4,8 +4,6 @@ const path = require("path");
 function extractCodeSnippet(filePath, identifier) {
   const fileContent = fs.readFileSync(filePath, "utf-8");
 
-  console.log("\nHERE'S THE FILE WE'RE LOOKING UP:", fileContent);
-
   const startTag = `// docs:start:${identifier}`;
   const endTag = `// docs:end:${identifier}`;
   const startIndex = fileContent.indexOf(startTag);
@@ -27,8 +25,6 @@ function extractCodeSnippet(filePath, identifier) {
   const startLine = getLineNumberFromIndex(fileContent, startIndex) + 1;
   const endLine = getLineNumberFromIndex(fileContent, endIndex) - 1;
 
-  console.log("\nHERE'S THE SLICED CONTENT:", slicedContent);
-
   return [slicedContent, startLine, endLine];
 }
 
@@ -39,8 +35,6 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   for (const file of files) {
     const filePath = path.join(docsDir, file);
     const stat = fs.statSync(filePath);
-
-    console.log("going into file:", filePath);
 
     if (stat.isDirectory()) {
       contentPromises.push(processMarkdownFilesInDir(rootDir, filePath, regex));
@@ -58,8 +52,6 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
         const language = match[1];
         const codeFilePath = match[2]; // Relative path to the code file from the root of the Docusaurus project
         const identifier = match[3];
-
-        // const matchStart = match.index;
 
         try {
           const absoluteCodeFilePath = path.join(rootDir, codeFilePath);
@@ -113,8 +105,7 @@ async function writeProcessedFiles(docsDir, destDir, content) {
         )
       );
     } else {
-      console.log("empty dir");
-      console.log(content);
+      // empty dir
     }
   } else if (!content.filepath) {
     // Do nothing
@@ -124,7 +115,7 @@ async function writeProcessedFiles(docsDir, destDir, content) {
     const relPath = path.relative(docsDir, content.filepath);
     const destFilePath = path.resolve(destDir, relPath);
     const destDirName = path.dirname(destFilePath);
-    console.log("I would have pushed to", destFilePath);
+
     if (!fs.existsSync(destDirName)) {
       fs.mkdirSync(destDirName, { recursive: true });
     }
@@ -142,12 +133,8 @@ async function writeProcessedFiles(docsDir, destDir, content) {
 
 async function run() {
   const rootDir = path.join(__dirname, "../../../");
-  const docsDir = path.join(rootDir, "docs", "draft-docs-here");
+  const docsDir = path.join(rootDir, "docs", "draft-docs");
   const destDir = path.join(rootDir, "docs", "docs");
-
-  console.log(rootDir);
-  console.log(docsDir);
-  console.log(destDir);
 
   // E.g. `include_code cpp ../src/my_code.cpp snippet_identifier`
   // `\s+`: one or more whitespace characters (space or tab) after `include_code` command.
@@ -159,10 +146,9 @@ async function run() {
 
   const content = await processMarkdownFilesInDir(rootDir, docsDir, regex);
 
-  console.log("FINAL CONTENT");
-  console.dir(content, { depth: 7 });
-
   await writeProcessedFiles(docsDir, destDir, content);
+
+  console.log("Preprocessing complete");
 }
 
 run();

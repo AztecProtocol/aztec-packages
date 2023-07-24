@@ -4,7 +4,7 @@ title: Embedding Github Code
 
 # Copied directly from the local codebase, when building the docs:
 
-Here's an example of some code: POTATO
+Here's an example of some code:
 
 include_code typescript /yarn-project/end-to-end/src/e2e_block_building.test.ts hello
 

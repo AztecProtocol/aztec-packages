@@ -5,14 +5,15 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "start:dev:mainframe": "concurrently \"yarn preprocess\" \"docusaurus start --host 0.0.0.0\"",
-    "start:dev:local": "concurrently \"yarn preprocess\" \"docusaurus start\"",
+    "start:dev": "concurrently \"yarn preprocess:dev\" \"docusaurus start --host 0.0.0.0\"",
+    "start:dev:local": "concurrently \"yarn preprocess:dev\" \"docusaurus start\"",
     "build": "yarn preprocess && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
     "serve": "docusaurus serve",
-    "preprocess": "nodemon --watch draft-docs-here ./src/preprocess/index.js",
+    "preprocess": "yarn node ./src/preprocess/index.js",
+    "preprocess:dev": "nodemon --watch draft-docs ./src/preprocess/index.js",
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "update-specs": "./scripts/update_specs.sh"
