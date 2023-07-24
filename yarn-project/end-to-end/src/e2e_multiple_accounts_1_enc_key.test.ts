@@ -3,7 +3,6 @@ import { AztecRPCServer, Fr } from '@aztec/aztec-rpc';
 import { AztecAddress, StoredKeyAccountContract, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { SchnorrMultiKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
@@ -86,12 +85,6 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   const expectBalance = async (userIndex: number, expectedBalance: bigint) => {
     const wallet = wallets[userIndex];
     const owner = accounts[userIndex];
-
-    // First wait until the corresponding RPC server has synchronised the account
-    const isUserSynchronised = async () => {
-      return await wallet.isAccountSynchronised(owner);
-    };
-    await retryUntil(isUserSynchronised, owner.toString(), 5);
 
     // Then check the balance
     const contractWithWallet = new ZkTokenContract(zkTokenAddress, wallet);
