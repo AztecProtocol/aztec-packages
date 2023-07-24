@@ -92,7 +92,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricContractTreeRootsSnapshot,
       startL1ToL2MessageTreeSnapshot,
       startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      startHistoricBlocksTreeSnapshot,
+      // startHistoricBlocksTreeSnapshot,
     ] = await Promise.all(
       [
         MerkleTreeId.PRIVATE_DATA_TREE,
@@ -122,7 +122,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endTreeOfHistoricContractTreeRootsSnapshot,
       endL1ToL2MessageTreeSnapshot,
       endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      endHistoricBlocksTreeSnapshot
+      // endHistoricBlocksTreeSnapshot
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -169,8 +169,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       endL1ToL2MessageTreeSnapshot,
       startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      startHistoricBlocksTreeSnapshot,
-      endHistoricBlocksTreeSnapshot,
       newCommitments,
       newNullifiers,
       newL2ToL1Msgs,
