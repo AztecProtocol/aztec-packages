@@ -1,0 +1,1 @@
+Beautiful cryptography docs can go in this directory :)

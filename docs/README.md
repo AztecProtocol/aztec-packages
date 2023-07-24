@@ -31,11 +31,15 @@ $ yarn
 
 ### Local Development
 
+To build; serve to `localhost:3000`; and watch for changes:
+
 ```
 $ yarn start
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+> Note: if building from a remote server (mainframe) use `yarn start --host 0.0.0.0` to reliably port-forward to your `localhost:3000`.
+
+This command builds, then starts a local development server and opens up a browser window (at `localhost:3000`, by default). Most changes are reflected live without having to restart the server.
 
 ### Build
 
