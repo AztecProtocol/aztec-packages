@@ -13,19 +13,19 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
-import { PokeableTokenContractAbi } from '../artifacts/index.js';
+import { EasyZkTokenContractAbi } from '../artifacts/index.js';
 
 /**
- * Type-safe interface for contract PokeableToken;
+ * Type-safe interface for contract EasyZkToken;
  */
-export class PokeableTokenContract extends Contract {
+export class EasyZkTokenContract extends Contract {
   constructor(
     /** The deployed contract's address. */
     address: AztecAddress,
     /** The wallet. */
     wallet: Wallet,
   ) {
-    super(address, PokeableTokenContractAbi, wallet);
+    super(address, EasyZkTokenContractAbi, wallet);
   }
 
   /**
@@ -33,12 +33,10 @@ export class PokeableTokenContract extends Contract {
    */
   public static deploy(
     rpc: AztecRPC,
-    initial_supply: Fr | bigint | number | { toField: () => Fr },
-    sender: Fr | bigint | number | { toField: () => Fr },
-    recipient: Fr | bigint | number | { toField: () => Fr },
-    poker: Fr | bigint | number | { toField: () => Fr },
+    initial_supply: bigint | number,
+    owner: Fr | bigint | number | { toField: () => Fr },
   ) {
-    return new DeployMethod(Point.ZERO, rpc, PokeableTokenContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod(Point.ZERO, rpc, EasyZkTokenContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
@@ -47,29 +45,31 @@ export class PokeableTokenContract extends Contract {
   public static deployWithPublicKey(
     rpc: AztecRPC,
     publicKey: PublicKey,
-    initial_supply: Fr | bigint | number | { toField: () => Fr },
-    sender: Fr | bigint | number | { toField: () => Fr },
-    recipient: Fr | bigint | number | { toField: () => Fr },
-    poker: Fr | bigint | number | { toField: () => Fr },
+    initial_supply: bigint | number,
+    owner: Fr | bigint | number | { toField: () => Fr },
   ) {
-    return new DeployMethod(publicKey, rpc, PokeableTokenContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod(publicKey, rpc, EasyZkTokenContractAbi, Array.from(arguments).slice(2));
   }
 
   /**
    * Returns this contract's ABI.
    */
   public static get abi(): ContractAbi {
-    return PokeableTokenContractAbi;
+    return EasyZkTokenContractAbi;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public methods!: {
-    /** getBalance(sender: field) */
-    getBalance: ((sender: Fr | bigint | number | { toField: () => Fr }) => ContractFunctionInteraction) &
+    /** getBalance(owner: field) */
+    getBalance: ((owner: Fr | bigint | number | { toField: () => Fr }) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
 
-    /** poke() */
-    poke: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint(amount: integer, owner: field) */
+    mint: ((
+      amount: bigint | number,
+      owner: Fr | bigint | number | { toField: () => Fr },
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
 
     /** stev(contract_address: field, nonce: field, storage_slot: field, preimage: array) */
     stev: ((
@@ -77,6 +77,14 @@ export class PokeableTokenContract extends Contract {
       nonce: Fr | bigint | number | { toField: () => Fr },
       storage_slot: Fr | bigint | number | { toField: () => Fr },
       preimage: (Fr | bigint | number | { toField: () => Fr })[],
+    ) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+
+    /** transfer(amount: integer, sender: field, recipient: field) */
+    transfer: ((
+      amount: bigint | number,
+      sender: Fr | bigint | number | { toField: () => Fr },
+      recipient: Fr | bigint | number | { toField: () => Fr },
     ) => ContractFunctionInteraction) &
       Pick<ContractMethod, 'selector'>;
   };

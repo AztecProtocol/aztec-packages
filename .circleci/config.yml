@@ -652,6 +652,28 @@ jobs:
           name: "Build"
           command: build rollup-provider
 
+  e2e-2-rpc-servers:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_2_rpc_servers.test.ts
+
+  e2e-multiple-accounts-1-enc-key:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_multiple_accounts_1_enc_key.test.ts
+
   e2e-deploy-contract:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -695,6 +717,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_nested_contract.test.ts
+
+  e2e-non-contract-account:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_non_contract_account.test.ts
 
   e2e-cross-chain-messaging:
     docker:
@@ -806,6 +839,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
 
+  e2e-uniswap-sandbox:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
+
   e2e-join:
     docker:
       - image: cimg/base:current
@@ -879,7 +923,12 @@ jobs:
           command: |
             deploy_ecr aztec-cli
             deploy_npm aztec-cli
-
+      - run:
+          name: "aztec-sandbox"
+          working_directory: aztec-sandbox
+          command: |
+            deploy_ecr aztec-sandbox
+            deploy_npm aztec-sandbox
   deploy-dockerhub:
     machine:
       image: ubuntu-2004:202010-01
@@ -1060,12 +1109,16 @@ workflows:
             - types
             - circuits-js
             - rollup-provider
+            - aztec-sandbox
           <<: *defaults
 
+      - e2e-2-rpc-servers: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
+      - e2e-non-contract-account: *e2e_test
+      - e2e-multiple-accounts-1-enc-key: *e2e_test
       - e2e-public-token-contract: *e2e_test
       - e2e-cross-chain-messaging: *e2e_test
       - e2e-public-cross-chain-messaging: *e2e_test
@@ -1076,13 +1129,17 @@ workflows:
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
+      - e2e-uniswap-sandbox: *e2e_test
 
       - e2e-end:
           requires:
+            - e2e-2-rpc-servers
             - e2e-deploy-contract
             - e2e-zk-token-contract
             - e2e-block-building
             - e2e-nested-contract
+            - e2e-non-contract-account
+            - e2e-multiple-accounts-1-enc-key
             - e2e-public-token-contract
             - e2e-cross-chain-messaging
             - e2e-public-cross-chain-messaging
@@ -1093,6 +1150,7 @@ workflows:
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
+            - e2e-uniswap-sandbox
           <<: *defaults
 
       - deploy-dockerhub:
