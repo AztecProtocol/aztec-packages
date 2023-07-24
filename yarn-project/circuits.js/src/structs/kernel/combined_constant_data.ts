@@ -29,7 +29,7 @@ export class PrivateHistoricTreeRoots {
     /**
      * Root of the historic blocks tree at the time of when this information was assembled.
      */
-    public historicBlocksTreeRoot: Fr, 
+    public historicBlocksTreeRoot: Fr,
     /**
      * Root of the private kernel vk tree at the time of when this information was assembled.
      */

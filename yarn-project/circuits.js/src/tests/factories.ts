@@ -926,11 +926,10 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
       makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xa000),
       makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xb000),
     ];
-  const historicBlocksTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] =
-    [
-      makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xc000),
-      makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xd000),
-    ];
+  const historicBlocksTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] = [
+    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xc000),
+    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xd000),
+  ];
 
   const constants = makeConstantBaseRollupData(0x100);
 

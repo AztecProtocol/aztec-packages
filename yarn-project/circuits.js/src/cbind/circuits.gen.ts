@@ -1,45 +1,46 @@
 /* eslint-disable */
 // GENERATED FILE DO NOT EDIT, RUN yarn remake-bindings
-import { Buffer } from 'buffer';
-import { callCbind } from './cbind.js';
+import { Tuple, mapTuple } from '@aztec/foundation/serialize';
 import { IWasmModule } from '@aztec/foundation/wasm';
 
-import {
-  toBuffer,
-  Fr,
-  Address,
-  Fq,
-  G1AffineElement,
-  NativeAggregationState,
-  ReadRequestMembershipWitness,
-  NewContractData,
-  FunctionData,
-  OptionallyRevealedData,
-  PublicDataUpdateRequest,
-  PublicDataRead,
-  CombinedAccumulatedData,
-  PrivateHistoricTreeRoots,
-  CombinedHistoricTreeRoots,
-  Point,
-  ContractDeploymentData,
-  TxContext,
-  CombinedConstantData,
-  KernelCircuitPublicInputs,
-  Proof,
-  VerificationKeyData,
-  PreviousKernelData,
-  CircuitError,
-  isCircuitError,
-  CallContext,
-  ContractStorageUpdateRequest,
-  ContractStorageRead,
-  PublicCircuitPublicInputs,
-  PublicCallStackItem,
-  PublicCallData,
-  PublicKernelInputs,
-} from './types.js';
-import { Tuple, mapTuple } from '@aztec/foundation/serialize';
+import { Buffer } from 'buffer';
 import mapValues from 'lodash.mapvalues';
+
+import { callCbind } from './cbind.js';
+import {
+  Address,
+  CallContext,
+  CircuitError,
+  CombinedAccumulatedData,
+  CombinedConstantData,
+  CombinedHistoricTreeRoots,
+  ContractDeploymentData,
+  ContractStorageRead,
+  ContractStorageUpdateRequest,
+  Fq,
+  Fr,
+  FunctionData,
+  G1AffineElement,
+  KernelCircuitPublicInputs,
+  NativeAggregationState,
+  NewContractData,
+  OptionallyRevealedData,
+  Point,
+  PreviousKernelData,
+  PrivateHistoricTreeRoots,
+  Proof,
+  PublicCallData,
+  PublicCallStackItem,
+  PublicCircuitPublicInputs,
+  PublicDataRead,
+  PublicDataUpdateRequest,
+  PublicKernelInputs,
+  ReadRequestMembershipWitness,
+  TxContext,
+  VerificationKeyData,
+  isCircuitError,
+  toBuffer,
+} from './types.js';
 
 interface MsgpackG1AffineElement {
   x: Buffer;

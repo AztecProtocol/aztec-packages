@@ -529,7 +529,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   protected getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
     // TODO(MADDIAA): Currently stubbed until logic is implemented
-    // https://github.com/AztecProtocol/aztec-packages/issues/1162 
+    // https://github.com/AztecProtocol/aztec-packages/issues/1162
     return this.makeEmptyMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT);
     // return this.getMembershipWitnessFor(
     //   tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.historicBlocksTreeRoot,
@@ -551,9 +551,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(
         MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
       ),
-      startHistoricBlocksTreeRootsSnapshot: await this.getTreeSnapshot(
-        MerkleTreeId.HISTORIC_BLOCKS_TREE,
-      ),
+      startHistoricBlocksTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.HISTORIC_BLOCKS_TREE),
       globalVariables,
     });
   }

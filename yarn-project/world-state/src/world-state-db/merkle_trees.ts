@@ -131,7 +131,7 @@ export class MerkleTrees implements MerkleTreeDb {
       publicDataTree,
       l1Tol2MessagesTree,
       l1Tol2MessagesRootsTree,
-      historicBlocksTree
+      historicBlocksTree,
     ];
 
     this.jobQueue.start();
