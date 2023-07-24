@@ -1,7 +1,6 @@
 #pragma once
 #include "private_historic_tree_roots.hpp"
 
-#include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -27,7 +26,7 @@ template <typename NCT> struct CombinedHistoricTreeRoots {
 
     boolean operator==(CombinedHistoricTreeRoots<NCT> const& other) const
     {
-        return private_historic_tree_roots == other.private_historic_tree_root;
+        return private_historic_tree_roots == other.private_historic_tree_roots;
     };
 
     template <typename Builder> CombinedHistoricTreeRoots<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const

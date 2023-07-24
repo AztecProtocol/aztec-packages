@@ -20,9 +20,6 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
     fr nullifier_tree_root = 0;
     fr contract_tree_root = 0;
     fr l1_to_l2_messages_tree_root = 0;
-    // !!!
-    // TODO(MADDIAA): It may make sense to store this higher up.
-
     fr historic_blocks_tree_root = 0;
     fr private_kernel_vk_tree_root = 0;  // TODO: future enhancement
 
