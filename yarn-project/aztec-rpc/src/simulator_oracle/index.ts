@@ -6,7 +6,7 @@ import {
   Fr,
   PartialContractAddress,
   PrivateHistoricTreeRoots,
-  PublicKey
+  PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';

@@ -1,7 +1,7 @@
+import { PublicKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 
 import { Point } from '../index.js';
-import { PublicKey } from '@aztec/circuits.js';
 
 /**
  * Method for generating a public grumpkin key from a private key.

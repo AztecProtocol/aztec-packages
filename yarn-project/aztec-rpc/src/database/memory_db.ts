@@ -1,6 +1,6 @@
 import { PartialContractAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 

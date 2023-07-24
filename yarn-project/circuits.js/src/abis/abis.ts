@@ -17,7 +17,6 @@ import {
   FunctionData,
   FunctionLeafPreimage,
   NewContractData,
-  Point,
   PublicCallStackItem,
   PublicKey,
   TxRequest,
@@ -233,7 +232,11 @@ export function computePartialContractAddress(
  * @param constructorHash - The hash of the constructor.
  * @returns The partially constructed contract address.
  */
-export function computeContractAddressFromPartial(wasm: IWasmModule, pubKey: PublicKey, partialAddress: Fr): AztecAddress {
+export function computeContractAddressFromPartial(
+  wasm: IWasmModule,
+  pubKey: PublicKey,
+  partialAddress: Fr,
+): AztecAddress {
   wasm.call('pedersen__init');
   const result = inputBuffersToOutputBuffer(
     wasm,
