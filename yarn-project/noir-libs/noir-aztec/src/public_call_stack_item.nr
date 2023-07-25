@@ -75,8 +75,6 @@ impl PublicCallStackItem {
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 commitment_trees_roots: crate::abi::empty_commitment_trees_roots(),
-                unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
-                unencrypted_log_preimages_length: 0,
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
