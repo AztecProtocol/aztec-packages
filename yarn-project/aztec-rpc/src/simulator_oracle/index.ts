@@ -48,7 +48,7 @@ export class SimulatorOracle implements DBOracle {
    */
   async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) throw new Error(`Unknown public key for address ${address.toString()}`);
+    if (!result) throw new Error(`Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addPublicKeyAndPartialAddress(...)`);
     return result;
   }
 
