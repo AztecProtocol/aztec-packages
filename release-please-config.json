@@ -9,14 +9,7 @@
       ".": {
         "release-type": "simple",
         "component": "aztec-sandbox",
-        "include-component-in-tag": false,
-        "extra-files": [
-          {
-            "type": "json",
-            "path": "yarn-project/aztec-sandbox/package.json",
-            "jsonpath": "$.version"
-          }
-        ]
+        "include-component-in-tag": false
       }
     }
   }
