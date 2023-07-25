@@ -13,40 +13,40 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
-import { YoloContractAbi } from '../artifacts/index.js';
+import { LendingContractAbi } from '../artifacts/index.js';
 
 /**
- * Type-safe interface for contract Yolo;
+ * Type-safe interface for contract Lending;
  */
-export class YoloContract extends Contract {
+export class LendingContract extends Contract {
   constructor(
     /** The deployed contract's address. */
     address: AztecAddress,
     /** The wallet. */
     wallet: Wallet,
   ) {
-    super(address, YoloContractAbi, wallet);
+    super(address, LendingContractAbi, wallet);
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(rpc: AztecRPC) {
-    return new DeployMethod(Point.ZERO, rpc, YoloContractAbi, Array.from(arguments).slice(1));
+    return new DeployMethod(Point.ZERO, rpc, LendingContractAbi, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public key to derive the address.
    */
   public static deployWithPublicKey(rpc: AztecRPC, publicKey: PublicKey) {
-    return new DeployMethod(publicKey, rpc, YoloContractAbi, Array.from(arguments).slice(2));
+    return new DeployMethod(publicKey, rpc, LendingContractAbi, Array.from(arguments).slice(2));
   }
 
   /**
    * Returns this contract's ABI.
    */
   public static get abi(): ContractAbi {
-    return YoloContractAbi;
+    return LendingContractAbi;
   }
 
   /** Type-safe wrappers for the public methods exposed by the contract. */

@@ -1,6 +1,6 @@
 mod storage;
 
-contract Yolo {
+contract Lending {
     use dep::aztec::{
         abi,
         abi::PrivateContextInputs,

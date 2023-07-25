@@ -4,12 +4,12 @@ import { AztecAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { YoloContract } from '@aztec/noir-contracts/types';
+import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { calculateAztecStorageSlot, setup } from './utils.js';
 
-describe('e2e_yolo_contract', () => {
+describe('e2e_lending_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
@@ -20,11 +20,11 @@ describe('e2e_yolo_contract', () => {
 
   const deployContract = async () => {
     logger(`Deploying L2 public contract...`);
-    const tx = YoloContract.deploy(aztecRpcServer).send();
+    const tx = LendingContract.deploy(aztecRpcServer).send();
 
     logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
-    contract = new YoloContract(receipt.contractAddress!, wallet);
+    contract = new LendingContract(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     const txReceipt = await tx.getReceipt();
     logger(`L2 contract deployed at ${receipt.contractAddress}`);
