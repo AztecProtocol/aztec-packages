@@ -77,18 +77,6 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  *  |---                                                     |---         | ---
  */
 library Decoder {
-  // Where the start of trees metadata begins in the block
-  uint256 constant START_TREES_BLOCK_HEADER_OFFSET = 0x80;
-
-  // Where the end of trees metadata begns in the block
-  uint256 constant END_TREES_BLOCK_HEADER_OFFSET = 0x01c0;
-
-  // The size of the block header elements
-  uint256 constant TREES_HEADER_SIZE = 0x140;
-
-  // Where the metadata ends and the block data begins.
-  uint256 constant METADATA_OFFSET = 0x0300;
-
   struct ArrayLengths {
     uint256 commitmentCount;
     uint256 nullifierCount;
@@ -122,6 +110,19 @@ library Decoder {
     bytes32 unencryptedLogsHashKernel1;
     bytes32 unencryptedLogsHashKernel2;
   }
+
+  // DECODING OFFSET CONSTANTS
+  // Where the start of trees metadata begins in the block
+  uint256 private constant START_TREES_BLOCK_HEADER_OFFSET = 0x80;
+
+  // Where the end of trees metadata begns in the block
+  uint256 private constant END_TREES_BLOCK_HEADER_OFFSET = 0x01c0;
+
+  // The size of the block header elements
+  uint256 private constant TREES_HEADER_SIZE = 0x140;
+
+  // Where the metadata ends and the block data begins.
+  uint256 private constant METADATA_OFFSET = 0x0300;
 
   /**
    * @notice Decodes the inputs and computes values to check state against

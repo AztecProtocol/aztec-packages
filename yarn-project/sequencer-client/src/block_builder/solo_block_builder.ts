@@ -122,7 +122,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endTreeOfHistoricContractTreeRootsSnapshot,
       endL1ToL2MessageTreeSnapshot,
       endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      endHistoricBlocksTreeSnapshot
+      endHistoricBlocksTreeSnapshot,
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
