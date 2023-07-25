@@ -174,7 +174,7 @@ describe('Private Execution test suite', () => {
     const buildNote = (amount: bigint, owner: AztecAddress, storageSlot = Fr.random()) => {
       const nonce = new Fr(currentNoteIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random(), new Fr(1n)];
-      return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, preimage };
+      return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, nullifier: new Fr(0), preimage };
     };
 
     beforeEach(async () => {
@@ -359,6 +359,7 @@ describe('Private Execution test suite', () => {
           storageSlot,
           nonce,
           preimage: [new Fr(amount), secret],
+          nullifier: new Fr(0),
           index: 1n,
         },
       ]);

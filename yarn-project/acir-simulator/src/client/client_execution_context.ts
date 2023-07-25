@@ -11,7 +11,7 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
-import { DBOracle, NoteData } from './db_oracle.js';
+import { DBOracle, PendingNoteData } from './db_oracle.js';
 import { pickNotes } from './pick_notes.js';
 
 /**
@@ -35,7 +35,12 @@ export class ClientTxExecutionContext {
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending commitments created (and not nullified) up to current point in execution **/
-    private pendingNotes: NoteData[] = [],
+    private pendingNotes: PendingNoteData[] = [],
+    /** The list of nullifiers created in this transaction. The commitment/note which is nullified
+     *  might be pending or not (i.e., was generated in a previous transaction) */
+    private pendingNullifiers: Set<Fr> = new Set<Fr>(),
+    /** The list of commitments which were nullified during this transaction. */
+    private nullifiedCommitments: Set<Fr> = new Set<Fr>(),
   ) {}
 
   /**
@@ -50,6 +55,7 @@ export class ClientTxExecutionContext {
       this.historicRoots,
       this.packedArgsCache,
       this.pendingNotes,
+      this.pendingNullifiers,
     );
   }
 
@@ -114,14 +120,17 @@ export class ClientTxExecutionContext {
   ): Promise<ACVMField[]> {
     const storageSlotField = fromACVMField(storageSlot);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): don't 'get' notes nullified in pendingNullifiers
     const pendingNotes = this.pendingNotes.filter(
       n => n.contractAddress.equals(contractAddress) && n.storageSlot.equals(storageSlotField),
     );
 
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
-    const notes = pickNotes([...pendingNotes, ...dbNotes], {
+    // Remove notes which were already nullified during this transaction.
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
+    const pendingNotesFiltered = pendingNotes.filter(n => !this.nullifiedCommitments.has(n.innerNoteHash));
+
+    const notes = pickNotes([...dbNotesFiltered, ...pendingNotesFiltered], {
       sortBy: sortBy.map(field => +field),
       sortOrder: sortOrder.map(field => +field),
       limit,
@@ -171,15 +180,36 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
+   * @param nullifier - note nullifier
+   * @param innerNoteHash - inner note hash
    */
-  public async pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
+  public async pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
     const wasm = await CircuitsWasm.get();
     const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
     this.pendingNotes.push({
       contractAddress,
-      storageSlot: fromACVMField(storageSlot),
+      storageSlot: storageSlot,
       nonce,
-      preimage: preimage.map(f => fromACVMField(f)),
+      preimage,
+      innerNoteHash,
     });
+  }
+
+  /**
+   * Adding a nullifier into the current set of all pending nullifiers created
+   * within the current transaction/execution.
+   * @param nullifier - The pending nullifier to add in the list.
+   */
+  public pushPendingNullifier(nullifier: Fr) {
+    this.pendingNullifiers.add(nullifier);
+  }
+
+  /**
+   * Adding a nullified commitment into the current set of all nullified commitments created
+   * within the current transaction/execution.
+   * @param nullifiedCommitment - The nullified commitment to add in the list.
+   */
+  public pushNullifiedCommitment(nullifiedCommitment: Fr) {
+    this.nullifiedCommitments.add(nullifiedCommitment);
   }
 }
