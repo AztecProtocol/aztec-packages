@@ -11,3 +11,4 @@ jobs:
         with:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
+          manifestBranch: janb/integrating-release-please
