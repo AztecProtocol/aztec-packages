@@ -8,6 +8,7 @@ on:
       - reopened
       - edited
       - synchronize
+      - converted_to_draft
 
 permissions:
   pull-requests: read
