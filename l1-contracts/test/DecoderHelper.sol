@@ -8,7 +8,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 contract DecoderHelper {
   function decode(bytes calldata _l2Block)
     external
-    view
+    pure
     returns (uint256, bytes32, bytes32, bytes32, bytes32[] memory, bytes32[] memory)
   {
     return Decoder.decode(_l2Block);
@@ -16,7 +16,7 @@ contract DecoderHelper {
 
   function computeDiffRootAndMessagesHash(bytes calldata _l2Block)
     external
-    view
+    pure
     returns (bytes32, bytes32)
   {
     (bytes32 diffRoot, bytes32 l1ToL2MessagesHash,,) = Decoder.computeConsumables(_l2Block);
@@ -25,7 +25,7 @@ contract DecoderHelper {
 
   function computeKernelLogsHash(bytes calldata _kernelLogs)
     external
-    view
+    pure
     returns (bytes32, uint256)
   {
     (bytes32 logsHash, uint256 offset) = Decoder.computeKernelLogsHash(0, _kernelLogs);
