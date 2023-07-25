@@ -40,7 +40,6 @@ template <typename NCT> struct PrivateCallData {
     std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>
         read_request_membership_witnesses{};
 
-    boolean is_internal = false;
     fr portal_contract_address = 0;  // an ETH address
     fr acir_hash = 0;
 
@@ -52,8 +51,7 @@ template <typename NCT> struct PrivateCallData {
                function_leaf_membership_witness == other.function_leaf_membership_witness &&
                contract_leaf_membership_witness == other.contract_leaf_membership_witness &&
                read_request_membership_witnesses == other.read_request_membership_witnesses &&
-               is_internal == other.is_internal && portal_contract_address == other.portal_contract_address &&
-               acir_hash == other.acir_hash;
+               portal_contract_address == other.portal_contract_address && acir_hash == other.acir_hash;
     };
 
     // WARNING: the `proof` does NOT get converted! (because the current implementation of `verify_proof` takes a proof
@@ -82,7 +80,6 @@ template <typename NCT> struct PrivateCallData {
             aztec3::utils::types::to_ct<Builder, ReadRequestMembershipWitness<CT, PRIVATE_DATA_TREE_HEIGHT>>(
                 builder, read_request_membership_witnesses),
 
-            to_ct(is_internal),
             to_ct(portal_contract_address),
             to_ct(acir_hash),
         };
@@ -102,7 +99,6 @@ template <typename NCT> void read(uint8_t const*& it, PrivateCallData<NCT>& obj)
     read(it, obj.function_leaf_membership_witness);
     read(it, obj.contract_leaf_membership_witness);
     read(it, obj.read_request_membership_witnesses);
-    read(it, obj.is_internal);
     read(it, obj.portal_contract_address);
     read(it, obj.acir_hash);
 };
@@ -118,7 +114,6 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, PrivateCallData<NC
     write(buf, obj.function_leaf_membership_witness);
     write(buf, obj.contract_leaf_membership_witness);
     write(buf, obj.read_request_membership_witnesses);
-    write(buf, obj.is_internal);
     write(buf, obj.portal_contract_address);
     write(buf, obj.acir_hash);
 };
@@ -139,7 +134,6 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateCallDa
               << obj.contract_leaf_membership_witness << "\n"
               << "read_request_membership_witnesses:\n"
               << obj.read_request_membership_witnesses << "\n"
-              << "is_internal: " << obj.is_internal << "\n"
               << "portal_contract_address: " << obj.portal_contract_address << "\n"
               << "acir_hash: " << obj.acir_hash << "\n";
 }

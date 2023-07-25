@@ -144,6 +144,7 @@ impl PublicGlobalVariables {
 
 struct FunctionData {
     function_selector: Field,
+    is_internal: bool,
     is_private: bool,
     is_constructor: bool,
 }
@@ -152,6 +153,7 @@ impl FunctionData {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator([
             self.function_selector,
+            self.is_internal as Field,
             self.is_private as Field,
             self.is_constructor as Field,
         ], GENERATOR_INDEX__FUNCTION_DATA)[0]

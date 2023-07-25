@@ -372,7 +372,7 @@ void common_contract_logic(DummyBuilder& builder,
          */
 
         // Ensures that if the function is internal, only the contract itself can call it
-        if (private_call.is_internal) {
+        if (private_call.call_stack_item.function_data.is_internal) {
             builder.do_assert(
                 storage_contract_address == private_call.call_stack_item.public_inputs.call_context.msg_sender,
                 "call is internal, but msg_sender is not self",
@@ -382,7 +382,7 @@ void common_contract_logic(DummyBuilder& builder,
         // The logic below ensures that the contract exists in the contracts tree
         auto const& computed_function_tree_root =
             function_tree_root_from_siblings<NT>(private_call.call_stack_item.function_data.function_selector,
-                                                 private_call.is_internal,
+                                                 private_call.call_stack_item.function_data.is_internal,
                                                  true,  // is_private
                                                  private_call_vk_hash,
                                                  private_call.acir_hash,

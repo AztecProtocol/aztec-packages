@@ -206,7 +206,7 @@ constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE
 
 constexpr size_t CALL_CONTEXT_LENGTH = 6;
 constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 4;
-constexpr size_t FUNCTION_DATA_LENGTH = 3;
+constexpr size_t FUNCTION_DATA_LENGTH = 4;
 constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
 
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.

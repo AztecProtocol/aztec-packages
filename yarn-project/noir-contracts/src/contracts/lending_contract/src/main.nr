@@ -29,7 +29,7 @@ contract Lending {
 
     open fn init(
         inputs: PublicContextInputs
-    ) -> Field {
+    ) -> pub Field {
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
