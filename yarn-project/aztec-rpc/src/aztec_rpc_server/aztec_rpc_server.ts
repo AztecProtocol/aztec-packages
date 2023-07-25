@@ -229,6 +229,9 @@ export class AztecRPCServer implements AztecRPC {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
+    if (txRequest.functionData.isInternal === undefined) {
+      throw new Error(`Unspecified internal are not allowed`);
+    }
 
     // We get the contract address from origin, since contract deployments are signalled as origin from their own address
     // TODO: Is this ok? Should it be changed to be from ZERO?
@@ -541,6 +544,7 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
+    this.log(`#simulateAndProve`);
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
 

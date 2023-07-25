@@ -5,7 +5,7 @@ import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/ty
 
 import partition from 'lodash.partition';
 
-import SchnorrSingleKeyAccountContractAbi from '../abis/schnorr_account_contract.json' assert { type: 'json' };
+import SchnorrSingleKeyAccountContractAbi from '../abis/schnorr_single_key_account_contract.json' assert { type: 'json' };
 import { generatePublicKey } from '../index.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { AccountImplementation } from './index.js';
@@ -48,7 +48,7 @@ export class SingleKeyAccountContract implements AccountImplementation {
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,
-      functionData: new FunctionData(selector, true, false),
+      functionData: new FunctionData(selector, abi.isInternal, true, false),
       txContext,
       packedArguments: [...callsPackedArguments, packedArgs],
     });
