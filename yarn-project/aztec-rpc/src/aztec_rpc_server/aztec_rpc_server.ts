@@ -544,7 +544,6 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
-    this.log(`#simulateAndProve`);
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
 
