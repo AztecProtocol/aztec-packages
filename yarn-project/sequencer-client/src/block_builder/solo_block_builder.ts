@@ -103,7 +103,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
         MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
         MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-        MerkleTreeId.HISTORIC_BLOCKS_TREE,
+        MerkleTreeId.BLOCKS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
@@ -552,7 +552,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(
         MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
       ),
-      startHistoricBlocksTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.HISTORIC_BLOCKS_TREE),
+      startHistoricBlocksTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE),
       globalVariables,
     });
   }
@@ -627,7 +627,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
     const startPublicDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PUBLIC_DATA_TREE);
-    const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.HISTORIC_BLOCKS_TREE);
+    const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 
     // Get the subtree sibling paths for the circuit
     const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(

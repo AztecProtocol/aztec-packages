@@ -20,7 +20,7 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
     fr nullifier_tree_root = 0;
     fr contract_tree_root = 0;
     fr l1_to_l2_messages_tree_root = 0;
-    fr historic_blocks_tree_root = 0;
+    fr blocks_tree_root = 0;
     fr private_kernel_vk_tree_root = 0;  // TODO: future enhancement
 
     // for serialization: update up with new fields
@@ -28,7 +28,7 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
                    nullifier_tree_root,
                    contract_tree_root,
                    l1_to_l2_messages_tree_root,
-                   historic_blocks_tree_root,
+                   blocks_tree_root,
                    private_kernel_vk_tree_root);
 
     boolean operator==(PrivateHistoricTreeRoots<NCT> const& other) const
@@ -36,7 +36,7 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
         return private_data_tree_root == other.private_data_tree_root &&
                nullifier_tree_root == other.nullifier_tree_root && contract_tree_root == other.contract_tree_root &&
                l1_to_l2_messages_tree_root == other.l1_to_l2_messages_tree_root &&
-               private_kernel_vk_tree_root == other.historic_block_root &&
+               blocks_tree_root == other.historic_block_root &&
                private_kernel_vk_tree_root == other.private_kernel_vk_tree_root;
     };
 
@@ -48,8 +48,8 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         PrivateHistoricTreeRoots<CircuitTypes<Builder>> data = {
-            to_ct(private_data_tree_root),      to_ct(nullifier_tree_root),       to_ct(contract_tree_root),
-            to_ct(l1_to_l2_messages_tree_root), to_ct(historic_blocks_tree_root), to_ct(private_kernel_vk_tree_root),
+            to_ct(private_data_tree_root),      to_ct(nullifier_tree_root), to_ct(contract_tree_root),
+            to_ct(l1_to_l2_messages_tree_root), to_ct(blocks_tree_root),    to_ct(private_kernel_vk_tree_root),
         };
 
         return data;
@@ -61,8 +61,8 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
         PrivateHistoricTreeRoots<NativeTypes> data = {
-            to_nt(private_data_tree_root),      to_nt(nullifier_tree_root),       to_nt(contract_tree_root),
-            to_nt(l1_to_l2_messages_tree_root), to_nt(historic_blocks_tree_root), to_nt(private_kernel_vk_tree_root),
+            to_nt(private_data_tree_root),      to_nt(nullifier_tree_root), to_nt(contract_tree_root),
+            to_nt(l1_to_l2_messages_tree_root), to_nt(blocks_tree_root),    to_nt(private_kernel_vk_tree_root),
         };
 
         return data;
@@ -76,7 +76,7 @@ template <typename NCT> struct PrivateHistoricTreeRoots {
         nullifier_tree_root.set_public();
         contract_tree_root.set_public();
         l1_to_l2_messages_tree_root.set_public();
-        historic_blocks_tree_root.set_public();
+        blocks_tree_root.set_public();
         private_kernel_vk_tree_root.set_public();
     }
 };
@@ -88,7 +88,7 @@ std::ostream& operator<<(std::ostream& os, PrivateHistoricTreeRoots<NCT> const& 
               << "nullifier_tree_root: " << historic_tree_roots.nullifier_tree_root << "\n"
               << "contract_tree_root: " << historic_tree_roots.contract_tree_root << "\n"
               << "l1_to_l2_messages_tree_root: " << historic_tree_roots.l1_to_l2_messages_tree_root << "\n"
-              << "historic_blocks_tree_root: " << historic_tree_roots.historic_blocks_tree_root << "\n"
+              << "blocks_tree_root: " << historic_tree_roots.blocks_tree_root << "\n"
               << "private_kernel_vk_tree_root: " << historic_tree_roots.private_kernel_vk_tree_root << "\n";
 }
 

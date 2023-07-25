@@ -29,7 +29,7 @@ export class PrivateHistoricTreeRoots {
     /**
      * Root of the historic blocks tree at the time of when this information was assembled.
      */
-    public historicBlocksTreeRoot: Fr,
+    public blocksTreeRoot: Fr,
     /**
      * Root of the private kernel vk tree at the time of when this information was assembled.
      */
@@ -46,7 +46,7 @@ export class PrivateHistoricTreeRoots {
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
-      fields.historicBlocksTreeRoot,
+      fields.blocksTreeRoot,
       fields.privateKernelVkTreeRoot,
     ] as const;
   }
@@ -65,7 +65,7 @@ export class PrivateHistoricTreeRoots {
       this.nullifierTreeRoot.isZero() &&
       this.contractTreeRoot.isZero() &&
       this.l1ToL2MessagesTreeRoot.isZero() &&
-      this.historicBlocksTreeRoot.isZero() &&
+      this.blocksTreeRoot.isZero() &&
       this.privateKernelVkTreeRoot.isZero()
     );
   }

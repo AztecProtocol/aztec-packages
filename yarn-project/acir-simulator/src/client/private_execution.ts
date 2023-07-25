@@ -240,7 +240,7 @@ export class PrivateFunctionExecution {
       this.context.historicRoots.nullifierTreeRoot,
       this.context.historicRoots.contractTreeRoot,
       this.context.historicRoots.l1ToL2MessagesTreeRoot,
-      this.context.historicRoots.historicBlocksTreeRoot,
+      this.context.historicRoots.blocksTreeRoot,
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,

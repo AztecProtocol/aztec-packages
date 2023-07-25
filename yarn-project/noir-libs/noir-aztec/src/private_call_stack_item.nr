@@ -90,7 +90,7 @@ impl PrivateCallStackItem {
                     nullifier_tree_root : fields[48],
                     contract_tree_root : fields[49],
                     l1_to_l2_messages_tree_root : fields[50],
-                    historic_blocks_tree_root : fields[51],
+                    blocks_tree_root : fields[51],
                 },
                 contract_deployment_data: ContractDeploymentData {
                     deployer_public_key: Point::new(fields[52], fields[53]),

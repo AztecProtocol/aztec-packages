@@ -119,7 +119,7 @@ export class MerkleTrees implements MerkleTreeDb {
       StandardTree,
       this.db,
       hasher,
-      `${MerkleTreeId[MerkleTreeId.HISTORIC_BLOCKS_TREE]}`,
+      `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,
       HISTORIC_BLOCKS_TREE_HEIGHT,
     );
     this.trees = [
@@ -214,7 +214,7 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.CONTRACT_TREE,
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       MerkleTreeId.NULLIFIER_TREE,
-      MerkleTreeId.HISTORIC_BLOCKS_TREE,
+      MerkleTreeId.BLOCKS_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
 
     return {
@@ -222,7 +222,7 @@ export class MerkleTrees implements MerkleTreeDb {
       contractDataTreeRoot: roots[1],
       l1Tol2MessagesTreeRoot: roots[2],
       nullifierTreeRoot: roots[3],
-      historicBlocksTreeRoot: roots[4],
+      blocksTreeRoot: roots[4],
     };
   }
 

@@ -70,7 +70,7 @@ struct CommitmentTreesRoots {
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
-    historic_blocks_tree_root: Field,
+    blocks_tree_root: Field,
 }
 
 impl CommitmentTreesRoots {
@@ -81,13 +81,13 @@ impl CommitmentTreesRoots {
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
-            self.historic_blocks_tree_root,
+            self.blocks_tree_root,
         ]
     }
 }
 
 fn empty_commitment_trees_roots() -> CommitmentTreesRoots {
-    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, historic_blocks_tree_root: 0 }
+    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0 }
 }
 
 struct ContractDeploymentData {
