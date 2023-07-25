@@ -99,6 +99,7 @@ Fr {
 exports[`abis wasm bindings hashes a tx request 1`] = `
 {
   "data": [
+<<<<<<< HEAD
     9,
     147,
     79,
@@ -131,6 +132,40 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
     240,
     102,
     80,
+=======
+    48,
+    57,
+    170,
+    107,
+    100,
+    47,
+    7,
+    162,
+    88,
+    236,
+    91,
+    140,
+    100,
+    126,
+    249,
+    245,
+    88,
+    16,
+    57,
+    72,
+    61,
+    110,
+    171,
+    162,
+    119,
+    122,
+    158,
+    95,
+    157,
+    42,
+    141,
+    232,
+>>>>>>> master
   ],
   "type": "Buffer",
 }
@@ -138,7 +173,11 @@ exports[`abis wasm bindings hashes a tx request 1`] = `
 
 exports[`abis wasm bindings hashes constructor info 1`] = `
 Fr {
+<<<<<<< HEAD
   "value": 14413776780856791051352661515120218597395029077515512071070438560797521666643n,
+=======
+  "value": 3768952371995154608073783464050856449274677454782425541065822710687690385468n,
+>>>>>>> master
 }
 `;
 

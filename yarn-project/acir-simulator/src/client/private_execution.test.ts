@@ -12,6 +12,7 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 import {
+  computeCallStackItemHash,
   computeCommitmentNonce,
   computeContractAddressFromPartial,
   computeSecretMessageHash,
@@ -294,7 +295,7 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.preimages.newNotes;
+      const [recipientNote, changeNote] = result.preimages.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
       const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
@@ -337,7 +338,7 @@ describe('Private Execution test suite', () => {
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
-      const [changeNote, recipientNote] = result.preimages.newNotes;
+      const [recipientNote, changeNote] = result.preimages.newNotes;
       expect(recipientNote.preimage[0]).toEqual(new Fr(amountToTransfer));
       expect(changeNote.preimage[0]).toEqual(new Fr(balance - amountToTransfer));
     });
@@ -517,23 +518,28 @@ describe('Private Execution test suite', () => {
         args,
       });
 
-      // @LHerskind @todo public functions should not pass regardless of whether they are internal or not
-      expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
-      expect(result.enqueuedPublicFunctionCalls[0]).toEqual(
-        PublicCallRequest.from({
-          contractAddress: childAddress,
-          functionData: new FunctionData(childSelector, isInternal, false, false),
-          args: [new Fr(42n)],
-          callContext: CallContext.from({
-            msgSender: parentAddress,
-            storageContractAddress: childAddress,
-            portalContractAddress: childPortalContractAddress,
-            isContractDeployment: false,
-            isDelegateCall: false,
-            isStaticCall: false,
-          }),
+      const publicCallRequest = PublicCallRequest.from({
+        contractAddress: childAddress,
+        functionData: new FunctionData(childSelector, isInternal, false, false),
+        args: [new Fr(42n)],
+        callContext: CallContext.from({
+          msgSender: parentAddress,
+          storageContractAddress: childAddress,
+          portalContractAddress: childPortalContractAddress,
+          isContractDeployment: false,
+          isDelegateCall: false,
+          isStaticCall: false,
         }),
+      });
+
+      const publicCallRequestHash = computeCallStackItemHash(
+        await CircuitsWasm.get(),
+        await publicCallRequest.toPublicCallStackItem(),
       );
+
+      expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
+      expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);
+      expect(result.callStackItem.publicInputs.publicCallStack[0]).toEqual(publicCallRequestHash);
     });
   });
 

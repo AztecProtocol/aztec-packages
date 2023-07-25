@@ -203,13 +203,13 @@ export class PublicProcessor {
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
 
-    // TODO(#1347): Noir fails with too many unknowns error when public inputs struct contains too many members.
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
     return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
-      proverAddress: AztecAddress.random(),
+      proverAddress: AztecAddress.ZERO,
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
       newCommitments: padArrayEnd(result.newCommitments, Fr.ZERO, MAX_NEW_COMMITMENTS_PER_CALL),
       newNullifiers: padArrayEnd(result.newNullifiers, Fr.ZERO, MAX_NEW_NULLIFIERS_PER_CALL),
