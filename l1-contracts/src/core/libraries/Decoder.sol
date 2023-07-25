@@ -19,7 +19,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * -------------------
  *
  *  | byte start                                             | num bytes  | name
- *  | ---                                                    | ---        | --- 
+ *  | ---                                                    | ---        | ---
  *  | 0x0000                                                 | 0x20       | chain-id
  *  | 0x0020                                                 | 0x20       | version
  *  | 0x0040                                                 | 0x20       | L2 block number
@@ -77,7 +77,6 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  *  |---                                                     |---         | ---
  */
 library Decoder {
-
   // Where the start of trees metadata begins in the block
   uint256 constant START_TREES_BLOCK_HEADER_OFFSET = 0x80;
 
@@ -288,13 +287,12 @@ library Decoder {
       offsets.unencryptedLogsOffset =
         offsets.encryptedLogsOffset + 0x4 + lengths.encryptedLogsLength;
 
-
       // load the l2 to l1 msgs (done here as offset will be altered in loop)
       assembly {
         let l2ToL1Msgs := mload(add(vars, 0x20))
         calldatacopy(
           add(l2ToL1Msgs, 0x20),
-          add(_l2Block.offset, mload(add(offsets,0x60))),
+          add(_l2Block.offset, mload(add(offsets, 0x60))),
           mul(mload(add(lengths, 0x60)), 0x20)
         )
       }
@@ -412,9 +410,9 @@ library Decoder {
         }
 
         offsets.commitmentOffset += 2 * Constants.COMMITMENTS_PER_TX * 0x20;
-        offsets.nullifierOffset += 2 * Constants.NULLIFIERS_PER_TX * 0x20; 
+        offsets.nullifierOffset += 2 * Constants.NULLIFIERS_PER_TX * 0x20;
         offsets.publicDataOffset += 2 * Constants.PUBLIC_DATA_WRITES_PER_TX * 0x40;
-        offsets.l2ToL1MsgsOffset += 2 * Constants.L2_TO_L1_MSGS_PER_TX * 0x20; 
+        offsets.l2ToL1MsgsOffset += 2 * Constants.L2_TO_L1_MSGS_PER_TX * 0x20;
         offsets.contractOffset += 2 * 0x20;
         offsets.contractDataOffset += 2 * 0x34;
 
