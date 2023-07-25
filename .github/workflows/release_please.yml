@@ -2,7 +2,7 @@ name: release-please
 on:
   push:
     branches:
-      - master
+      - janb/integrating-release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
