@@ -57,6 +57,5 @@ fn destroy_note<Note, N>(
         nullified_commitment = compute_inner_note_hash(note_interface, note);
     }
 
-
     context.push_new_nullifier(nullifier, nullified_commitment)
 }

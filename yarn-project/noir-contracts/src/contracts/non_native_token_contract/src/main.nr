@@ -59,7 +59,7 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        initial_supply: Field, 
+        initial_supply: Field,
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
@@ -81,7 +81,7 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
+        amount: Field,
         owner: Field,
         // This field should be hidden
         msg_key: Field,
@@ -115,8 +115,8 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
-        sender: Field, 
+        amount: Field,
+        sender: Field,
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -143,7 +143,7 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PublicContextInputs,
         //*********************************/
-        amount: Field, 
+        amount: Field,
         owner_address: Field,
         // This field should be hidden
         msg_key: Field,
@@ -178,7 +178,7 @@ contract NonNativeToken {
     ) {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
-        
+
         let sender = inputs.call_context.msg_sender;
         let sender_balance = public_balances.at(sender);
 
@@ -187,7 +187,7 @@ contract NonNativeToken {
         if (current_sender_balance as u120) > (amount as u120) {
             // User has sufficient balance so we decrement it by `amount`
             let _void1 = sender_balance.write(current_sender_balance - amount);
-        }  
+        }
         // TODO: Revert if there is not enough balance
 
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
@@ -204,8 +204,8 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
-        sender: Field, 
+        amount: Field,
+        sender: Field,
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
@@ -242,16 +242,16 @@ contract NonNativeToken {
 
         // User has sufficient balance so we decrement it by `amount`
         let _void1 = sender_balance.write(current_sender_balance - amount);
-        
+
         // Create a commitment to the amount
         let note = TransparentNote::new(amount, secretHash);
-        
+
         // Public oracle call to emit new commitment.
         create_commitment(note.get_commitment());
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
-    // in the private context. 
+    // in the private context.
     fn redeemShield(
         inputs: PrivateContextInputs,
         amount: Field,
@@ -292,7 +292,7 @@ contract NonNativeToken {
 
         // enqueue a public function to perform the public state update.
         let thisAddress = inputs.call_context.storage_contract_address;
-        
+
         // addUnshieldedBalance selector (in decimal)
         // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
@@ -321,7 +321,7 @@ contract NonNativeToken {
     ) -> pub Field {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner);
-        
+
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 
