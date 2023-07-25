@@ -368,7 +368,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
-historic_blocks_tree_root: 0x105
+blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 
 
@@ -875,7 +875,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
-historic_blocks_tree_root: 0x105
+blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 
 
@@ -1355,7 +1355,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
-historic_blocks_tree_root: 0x105
+blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 
 
@@ -1565,7 +1565,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
-historic_blocks_tree_root: 0x105
+blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 
 

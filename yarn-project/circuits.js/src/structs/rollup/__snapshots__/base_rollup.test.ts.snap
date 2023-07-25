@@ -186,7 +186,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x200
 nullifier_tree_root: 0x201
 contract_tree_root: 0x202
 l1_to_l2_messages_tree_root: 0x203
-historic_blocks_tree_root: 0x204
+blocks_tree_root: 0x204
 private_kernel_vk_tree_root: 0x205
 
 
@@ -405,7 +405,7 @@ historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x300
 nullifier_tree_root: 0x301
 contract_tree_root: 0x302
 l1_to_l2_messages_tree_root: 0x303
-historic_blocks_tree_root: 0x304
+blocks_tree_root: 0x304
 private_kernel_vk_tree_root: 0x305
 
 
