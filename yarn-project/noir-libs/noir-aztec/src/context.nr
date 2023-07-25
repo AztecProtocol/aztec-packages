@@ -12,6 +12,9 @@ use crate::constants_gen::{
 };
 use crate::abi;
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+// use dep::std::collections::vec::Vec;
+
 // l1 to l2 messaging
 use crate::messaging::process_l1_to_l2_message;
 
@@ -34,10 +37,9 @@ struct Context {
     public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
-    encrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
-    unencrypted_logs_hash : [Field; NUM_FIELDS_PER_SHA256],
-    encrypted_log_preimages_length : Field,
-    unencrypted_log_preimages_length : Field,
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+    // encrypted_logs_preimages: Vec<Field>,
+    // unencrypted_logs_preimages: Vec<Field>,
 }
 
 impl Context {
@@ -60,14 +62,19 @@ impl Context {
             public_call_stack: BoundedVec::new(0),
             new_l2_to_l1_msgs: BoundedVec::new(0),
 
-            encrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
-            unencrypted_logs_hash: [0; NUM_FIELDS_PER_SHA256],
-            encrypted_log_preimages_length: 0,
-            unencrypted_log_preimages_length: 0,
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+            // encrypted_logs_preimages: Vec::new(),
+            // unencrypted_logs_preimages: Vec::new(),
         }
     }
 
     fn finish(self) -> abi::PrivateCircuitPublicInputs {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
+        let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
+        let encrypted_log_preimages_length = 0;
+        let unencrypted_log_preimages_length = 0;
+
         let priv_circuit_pub_inputs = abi::PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
             args_hash: self.args_hash,
@@ -79,10 +86,10 @@ impl Context {
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
-            encrypted_logs_hash: self.encrypted_logs_hash,
-            unencrypted_logs_hash: self.unencrypted_logs_hash,
-            encrypted_log_preimages_length: self.encrypted_log_preimages_length,
-            unencrypted_log_preimages_length: self.unencrypted_log_preimages_length,
+            encrypted_logs_hash: encrypted_logs_hash,
+            unencrypted_logs_hash: unencrypted_logs_hash,
+            encrypted_log_preimages_length: encrypted_log_preimages_length,
+            unencrypted_log_preimages_length: unencrypted_log_preimages_length,
             commitment_trees_roots: self.inputs.roots,
             contract_deployment_data: self.inputs.contract_deployment_data,
             chain_id: self.inputs.private_global_variables.chain_id,
@@ -121,23 +128,13 @@ impl Context {
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
     }
 
-    fn set_encrypted_logs_hash(mut self: Self, hash: [Field; NUM_FIELDS_PER_SHA256]) -> Self {
-        self.encrypted_logs_hash = hash;
+    fn accumulate_encrypted_logs<N>(mut self: Self, log: [Field; N]) -> Self {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         self
     }
 
-    fn set_encrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
-        self.encrypted_log_preimages_length = len;
-        self
-    }
-
-    fn set_unencrypted_logs_hash(mut self: Self, hash: [Field; NUM_FIELDS_PER_SHA256]) -> Self {
-        self.unencrypted_logs_hash = hash;
-        self
-    }
-
-    fn set_unencrypted_log_preimages_length(mut self: Self, len: Field) -> Self {
-        self.unencrypted_log_preimages_length = len;
+    fn accumulate_unencrypted_logs<T>(mut self: Self, log: T) -> Self {
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         self
     }
 }
