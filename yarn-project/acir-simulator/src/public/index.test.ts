@@ -27,7 +27,7 @@ import { type MemDown, default as memdown } from 'memdown';
 import { DBOracle } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 
