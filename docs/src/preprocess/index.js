@@ -133,8 +133,8 @@ async function writeProcessedFiles(docsDir, destDir, content) {
 
 async function run() {
   const rootDir = path.join(__dirname, "../../../");
-  const docsDir = path.join(rootDir, "docs", "draft-docs");
-  const destDir = path.join(rootDir, "docs", "docs");
+  const docsDir = path.join(rootDir, "docs", "docs");
+  const destDir = path.join(rootDir, "docs", "processed-docs");
 
   // E.g. `include_code cpp ../src/my_code.cpp snippet_identifier`
   // `\s+`: one or more whitespace characters (space or tab) after `include_code` command.
