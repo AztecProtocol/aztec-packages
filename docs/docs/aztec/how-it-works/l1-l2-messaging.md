@@ -306,10 +306,6 @@ We could then have withdraw transactions (on L2) where we are specifying the `Un
 Designated callers are enforced at the contract level for contracts that are not the rollup itself, and should not be trusted to implement the standard correctly. The user should always be aware that it is possible for the developer to implement something that looks like designated caller without providing the abilities to the user.
 :::
 
-# NOTE ON SYNTAX AND HOW IT CAN BE USED
-### 
-
-
 
 ## Open Questions
 - Can we handle L2 access control without public function calls? 
