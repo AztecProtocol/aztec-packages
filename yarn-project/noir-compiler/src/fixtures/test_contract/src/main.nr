@@ -5,8 +5,7 @@ contract TestContract {
         [foo::bar(param), param + pub_param]
     }
 
-    /// ABI openFunction type "open"
-    unconstrained fn openFunction() -> pub Field {
+    open fn openFunction() -> pub Field {
         42
     }
 
