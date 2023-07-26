@@ -37,7 +37,7 @@ checkout: &checkout
         for i in $(seq 1 10); do
           "$@" && return || sleep 10
         done
-        echo "$@ failed after $retries attempts"
+        echo "$@ failed after 10 attempts"
         exit 1
       }
       cd $HOME
