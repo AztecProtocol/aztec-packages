@@ -54,7 +54,7 @@ TYPED_TEST_SUITE(VerificationKeyFixture, CircuitTypes);
 
 TYPED_TEST(VerificationKeyFixture, vk_data_vs_recursion_compress_native)
 {
-    if constexpr (proof_system::IsSimulator<TypeParam>) {
+    if constexpr (std::same_as<TypeParam, proof_system::UltraCircuitBuilder>) {
         GTEST_SKIP() << "Skipping this until the new Pedersen arrives.";
     }
     using RecursVk = typename TestFixture::RecursVk;
