@@ -48,7 +48,10 @@ export class SimulatorOracle implements DBOracle {
    */
   async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) throw new Error(`Unknown public key for address ${address.toString()}`);
+    if (!result)
+      throw new Error(
+        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addPublicKeyAndPartialAddress(...)`,
+      );
     return result;
   }
 
@@ -145,6 +148,7 @@ export class SimulatorOracle implements DBOracle {
       contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
       nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
       l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      blocksTreeRoot: roots[MerkleTreeId.BLOCKS_TREE],
     });
   }
 }

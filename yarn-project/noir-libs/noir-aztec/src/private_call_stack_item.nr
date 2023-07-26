@@ -8,6 +8,8 @@ use crate::types::vec::BoundedVec;
 use crate::types::point::Point;
 use crate::utils::arr_copy_slice;
 use crate::constants_gen;
+use crate::constants_gen::GENERATOR_INDEX__FUNCTION_DATA;
+use crate::constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM;
 
 use crate::oracle::call_private_function::call_private_function_internal;
 use crate::oracle::arguments;
@@ -20,12 +22,11 @@ struct FunctionData {
 
 impl FunctionData {
     fn hash(self) -> Field {
-        dep::std::hash::pedersen([
-            // TODO hash_index
+        dep::std::hash::pedersen_with_separator([
             self.function_selector,
             self.is_private as Field,
             self.is_constructor as Field,
-        ])[0]
+        ], GENERATOR_INDEX__FUNCTION_DATA)[0]
     }
 }
 
@@ -90,18 +91,19 @@ impl PrivateCallStackItem {
                     nullifier_tree_root : fields[48],
                     contract_tree_root : fields[49],
                     l1_to_l2_messages_tree_root : fields[50],
+                    blocks_tree_root : fields[51],
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point::new(fields[51], fields[52]),
-                    constructor_vk_hash : fields[53],
-                    function_tree_root : fields[54],
-                    contract_address_salt : fields[55],
-                    portal_contract_address : fields[56],
+                    deployer_public_key: Point::new(fields[52], fields[53]),
+                    constructor_vk_hash : fields[54],
+                    function_tree_root : fields[55],
+                    contract_address_salt : fields[56],
+                    portal_contract_address : fields[57],
                 },
-                chain_id: fields[57],
-                version: fields[58],
+                chain_id: fields[58],
+                version: fields[59],
             },
-            is_execution_request: fields[59] as bool,
+            is_execution_request: fields[60] as bool,
         };
         assert(contract_address == item.contract_address);
         assert(function_selector == item.function_data.function_selector);
@@ -126,12 +128,10 @@ impl PrivateCallStackItem {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen([
-            // TODO hash_index
-            // FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+        dep::std::hash::pedersen_with_separator([
             self.contract_address,
             self.function_data.hash(),
             self.public_inputs.hash(),
-        ])[0]
+        ], GENERATOR_INDEX__CALL_STACK_ITEM)[0]
     }
 }

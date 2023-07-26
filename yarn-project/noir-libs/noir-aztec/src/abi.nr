@@ -23,6 +23,7 @@ use crate::constants_gen::{
     GENERATOR_INDEX__PUBLIC_DATA_READ,
     GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST,
     GENERATOR_INDEX__CALL_CONTEXT,
+    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
 
 use crate::oracle::debug_log;
@@ -79,6 +80,7 @@ struct CommitmentTreesRoots {
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
+    blocks_tree_root: Field,
 }
 
 impl CommitmentTreesRoots {
@@ -89,12 +91,13 @@ impl CommitmentTreesRoots {
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
+            self.blocks_tree_root,
         ]
     }
 }
 
 fn empty_commitment_trees_roots() -> CommitmentTreesRoots {
-    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0 }
+    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0 }
 }
 
 struct ContractDeploymentData {
@@ -182,9 +185,8 @@ struct PrivateCircuitPublicInputs {
 }
 
 impl PrivateCircuitPublicInputs {
-    // TODO hash_index
     fn hash(self) -> Field {
-        dep::std::hash::pedersen(self.serialize())[0]
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)[0]
     }
 
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {
