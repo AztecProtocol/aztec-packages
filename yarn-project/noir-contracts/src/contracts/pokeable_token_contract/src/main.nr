@@ -113,9 +113,8 @@ contract PokeableToken {
         context.finish()
     }
 
-    /// ABI getBalance type "unconstrained"
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
-    fn getBalance(
+    unconstrained fn getBalance(
         sender: Field,
     ) -> pub Field {
         let storage = Storage::init();

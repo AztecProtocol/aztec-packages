@@ -315,8 +315,7 @@ contract NonNativeToken {
         recipient_balance.write(new_balance);
     }
 
-    /// ABI getBalance type "unconstrained"
-    fn getBalance(
+    unconstrained fn getBalance(
         owner: Field,
     ) -> pub Field {
         let storage = Storage::init();
