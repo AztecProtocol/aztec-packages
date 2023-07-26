@@ -80,7 +80,8 @@ struct ConstantsPacker {
              NVP(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  GET_NOTES_ORACLE_RETURN_LENGTH,
                  EMPTY_NULLIFIED_COMMITMENT,
-                 CALL_PRIVATE_FUNCTION_RETURN_SIZE));  // <-- Add names of new constants here
+                 CALL_PRIVATE_FUNCTION_RETURN_SIZE,
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH));  // <-- Add names of new constants here
     }
 };
 
