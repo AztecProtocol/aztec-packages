@@ -24,5 +24,10 @@ template <typename Composer> class Transcript {
     using fq_pt = bigfield<Composer, barretenberg::Bn254FqParams>;
     using group_pt = element<Composer, fq_pt, field_pt, barretenberg::g1>;
     using Key = verification_key<stdlib::bn254<Composer>>;
+
+    size_t dummy;
+
+    Transcript(size_t input = 0)
+    : dummy(input) {};
 };
 } // namespace proof_system::plonk::stdlib::recursion::honk
