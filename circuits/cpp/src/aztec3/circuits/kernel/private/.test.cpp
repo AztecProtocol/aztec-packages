@@ -59,11 +59,32 @@ TEST_F(private_kernel_tests, circuit_basic)
                                                                          true);
 
     // Execute and prove the first kernel iteration
-    Builder private_kernel_builder;
-    private_kernel_circuit(private_kernel_builder, private_inputs, true);
+    Builder builder;
+    auto folded_instance = private_kernel_circuit(&builder, private_inputs);
 
     // Check the private kernel circuit
+    // just checks that the aggregated proof elemnt is correctly constructed
     EXPECT_TRUE(private_kernel_builder.check_circuit());
+    // do pairing
+
+    // native:
+    Composer composer;
+    auto FoldingProver = composer.get_folding_prover(builder);  // or folded instance?
+    auto folding_proof = folding_prover.prove();                // contains e.g. F, K
+    auto FoldingVerifier = composer.get_folding_verifier(builder);
+    auto folded_instance = folding_verifier.verify(folding_proof) auto decider = composer.get_verifier();
+    bool verified = decider.decide(folded_instance);
+
+    // native:
+    Composer composer;
+    auto FoldingProver = composer.get_folding_prover(builder);  // or folded instance?
+    auto folding_proof = folding_prover.prove();                // contains e.g. F, K
+    // auto FoldingVerifier = composer.get_folding_verifier(builder);
+
+    auto folded_instance = stdlib::recursion::FoldingVerifier.verify(builder, folding_proof);  // Do Goblin
+    auto decider = stdlib::recursion::FoldingDeicer.decide(folded_instance);                   // Do Goblin
+    EXPECT_TRUE(builder.check_circuit());  // Maybe check also the goblin circuits?
+    // pairing
 }
 
 /**

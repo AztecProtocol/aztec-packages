@@ -30,15 +30,19 @@ using aztec3::circuits::silo_nullifier;
 CT::AggregationObject verify_proofs(Builder& builder, PrivateKernelInputsInner<CT> const& private_inputs)
 {
     // compute P0, P1 for private function proof
-    CT::AggregationObject aggregation_object =
-        Aggregator::aggregate(&builder, private_inputs.private_call.vk, private_inputs.private_call.proof);
+    // instance 0 2 ... 2k-2
+    // Fold does: mark executation trace position; compute commitments  (?)
+    CT::AggregationObject builder.folded_instance =
+        builder.fold(multi_instance, private_inputs.private_call.vk, private_inputs.private_call.transcript);
 
+    // instance 1 3 ... 2k-1
     // computes P0, P1 for previous kernel proof
-    // AND accumulates all of it in P0_agg, P1_agg
-    Aggregator::aggregate(
-        &builder, private_inputs.previous_kernel.vk, private_inputs.previous_kernel.proof, aggregation_object);
+    builder.folded_instance = builder.fold(multi_instance,
+                                           private_inputs.previous_kernel.vk,
+                                           private_inputs.previous_kernel.transcript,
+                                           folded_instance +);
 
-    return aggregation_object;
+    return folded_instance;
 }
 
 /**
@@ -328,11 +332,11 @@ KernelCircuitPublicInputs<NT> private_kernel_circuit(Builder& builder,
 
     update_end_values(private_inputs, public_inputs);
 
-    auto aggregation_object = verify_proofs(builder, private_inputs);
+    auto folded_instance = verify_proofs(builder, private_inputs);
 
     // TODO: kernel vk membership check!
 
-    public_inputs.end.aggregation_object = aggregation_object;
+    public_inputs.end.folded_instance = folded_instance;
 
     public_inputs.set_public();
 
