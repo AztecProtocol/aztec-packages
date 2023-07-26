@@ -13,7 +13,7 @@
 namespace aztec3::circuits::apps::test_apps::private_to_private_function_call {
 
 // Builder
-using C = UltraCircuitBuilder;
+using C = CircuitSimulatorBN254;
 
 // Native and circuit types
 using CT = aztec3::utils::types::CircuitTypes<C>;

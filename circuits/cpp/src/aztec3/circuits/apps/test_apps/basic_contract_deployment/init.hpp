@@ -11,10 +11,12 @@
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"  // WORKTODO: use public header
+
 namespace aztec3::circuits::apps::test_apps::basic_contract_deployment {
 
 // Builder
-using C = UltraCircuitBuilder;
+using C = CircuitSimulatorBN254;
 
 // Native and circuit types
 using CT = aztec3::utils::types::CircuitTypes<C>;

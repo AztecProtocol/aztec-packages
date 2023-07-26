@@ -58,7 +58,7 @@ TEST_F(escrow_tests, circuit_deposit)
     // info("variables: ", builder.variables);
     info("failed?: ", builder.failed());
     info("err: ", builder.err());
-    info("n: ", builder.num_gates);
+    // info("n: ", builder.num_gates);
 }
 
 TEST_F(escrow_tests, circuit_transfer)
@@ -83,7 +83,7 @@ TEST_F(escrow_tests, circuit_transfer)
     // info("variables: ", builder.variables);
     info("failed?: ", builder.failed());
     info("err: ", builder.err());
-    info("n: ", builder.num_gates);
+    // info("n: ", builder.num_gates);
 }
 
 TEST_F(escrow_tests, circuit_withdraw)
@@ -107,7 +107,7 @@ TEST_F(escrow_tests, circuit_withdraw)
     // info("variables: ", builder.variables);
     info("failed?: ", builder.failed());
     info("err: ", builder.err());
-    info("n: ", builder.num_gates);
+    // info("n: ", builder.num_gates);
 }
 
 }  // namespace aztec3::circuits::apps::test_apps::escrow

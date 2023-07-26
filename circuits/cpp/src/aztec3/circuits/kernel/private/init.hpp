@@ -7,9 +7,11 @@
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
+// WORKTODO: use public header
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 namespace aztec3::circuits::kernel::private_kernel {
 
-using Builder = UltraCircuitBuilder;
+using Builder = CircuitSimulatorBN254;
 
 using Aggregator = aztec3::circuits::recursion::Aggregator;
 

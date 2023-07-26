@@ -25,7 +25,7 @@
 
 namespace {
 // Builder
-using C = UltraCircuitBuilder;
+using C = CircuitSimulatorBN254;
 
 // Types
 using CT = aztec3::utils::types::CircuitTypes<C>;
