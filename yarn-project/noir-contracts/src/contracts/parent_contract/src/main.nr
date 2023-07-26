@@ -38,12 +38,14 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
-    open fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+    /// ABI pubEntryPoint type "open"
+    unconstrained fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
         call_public_function(targetContract, targetSelector, [initValue])[0]
     }
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    open fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+    /// ABI pubEntryPointTwice type "open"
+    unconstrained fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
         let returnValue = call_public_function(targetContract, targetSelector, [initValue])[0];
         call_public_function(targetContract, targetSelector, [returnValue])[0]
     }

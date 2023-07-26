@@ -29,12 +29,14 @@ contract Child {
     }
 
     // Returns base_value + 42.
-    open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub Field {
+    /// ABI pubValue type "open"
+    unconstrained fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub Field {
         base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp
     }
 
     // Increments `current_value` by `new_value` and returns `new_value` + 1.
-    open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field) -> pub Field {
+    /// ABI pubStoreValue type "open"
+    unconstrained fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field) -> pub Field {
         let storage = Storage::init();
         let old_value = storage.current_value.read();
         // Compiler complains if we don't assign the result to anything

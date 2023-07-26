@@ -138,7 +138,8 @@ contract NonNativeToken {
     // Mint Public Function
     // This mint function differs to the typical token mint function as it only allows minting 
     // upon consuming valid messages from a token portal contract
-    open fn mintPublic(
+    /// ABI mintPublic type "open"
+    unconstrained fn mintPublic(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
@@ -167,7 +168,8 @@ contract NonNativeToken {
 
 
     // Withdraws using user's public balance.
-    open fn withdrawPublic(
+    /// ABI withdrawPublic type "open"
+    unconstrained fn withdrawPublic(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
@@ -225,7 +227,8 @@ contract NonNativeToken {
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
-    open fn shield(
+    /// ABI shield type "open"
+    unconstrained fn shield(
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
@@ -302,7 +305,8 @@ contract NonNativeToken {
         context.finish()
     }
 
-    open fn addUnshieldedBalance(
+    /// ABI addUnshieldedBalance type "open"
+    unconstrained fn addUnshieldedBalance(
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,

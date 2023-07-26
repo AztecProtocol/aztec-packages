@@ -18,7 +18,8 @@ contract PublicToken {
     }
 
     // Mints `amount` of tokens to a `recipient`.
-    open fn mint(
+    /// ABI mint type "open"
+    unconstrained fn mint(
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
@@ -33,7 +34,8 @@ contract PublicToken {
     }
 
     // Transfers `amount` of tokens from `msg_sender` to `recipient`.
-    open fn transfer(
+    /// ABI transfer type "open"
+    unconstrained fn transfer(
         inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
