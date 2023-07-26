@@ -1,4 +1,4 @@
-# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
+f# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
 # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
 #
 # Two primary anchors are checkout and setup_env, called as the first step of almost all jobs:
@@ -32,6 +32,7 @@ checkout: &checkout
   run:
     name: "Checkout code"
     command: |
+      set -x
       cd $HOME
       mkdir -p .ssh
       chmod 0700 .ssh
