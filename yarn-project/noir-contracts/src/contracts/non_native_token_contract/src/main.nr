@@ -138,8 +138,7 @@ contract NonNativeToken {
     // Mint Public Function
     // This mint function differs to the typical token mint function as it only allows minting 
     // upon consuming valid messages from a token portal contract
-    /// ABI mintPublic type "open"
-    unconstrained fn mintPublic(
+    open fn mintPublic(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
@@ -168,8 +167,7 @@ contract NonNativeToken {
 
 
     // Withdraws using user's public balance.
-    /// ABI withdrawPublic type "open"
-    unconstrained fn withdrawPublic(
+    open fn withdrawPublic(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
@@ -227,8 +225,7 @@ contract NonNativeToken {
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
-    /// ABI shield type "open"
-    unconstrained fn shield(
+    open fn shield(
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
@@ -305,8 +302,7 @@ contract NonNativeToken {
         context.finish()
     }
 
-    /// ABI addUnshieldedBalance type "open"
-    unconstrained fn addUnshieldedBalance(
+    open fn addUnshieldedBalance(
         _inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
@@ -328,11 +324,10 @@ contract NonNativeToken {
         balance_utils::get_balance(owner_balance.storage_slot)
     }
 
-    /// ABI stev type "unconstrained"
     // stev function needs to be defined by every contract producing logs. Having it in all the contracts gives us the ability to
     // compute the note hash and nullifier differently for different kind of notes.
     // Note: "stev" is just a placeholder name before we come up with a better one.
-    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
+    unconstrained fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }

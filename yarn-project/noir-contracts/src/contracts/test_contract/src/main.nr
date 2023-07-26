@@ -33,8 +33,7 @@ contract Test {
     }
 
     // Purely exists for testing
-    /// ABI createL2ToL1MessagePublic type "open"
-    unconstrained fn createL2ToL1MessagePublic(
+    open fn createL2ToL1MessagePublic(
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
@@ -47,8 +46,7 @@ contract Test {
     }
 
     // Purely exists for testing
-    /// ABI createNullifierPublic type "open"
-    unconstrained fn createNullifierPublic(
+    open fn createNullifierPublic(
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
