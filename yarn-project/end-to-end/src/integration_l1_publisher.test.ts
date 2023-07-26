@@ -59,7 +59,7 @@ const logger = createDebugLogger('aztec:integration_l1_publisher');
 
 const config = getConfigEnvVars();
 
-const numberOfConsecutiveBlocks = 1;
+const numberOfConsecutiveBlocks = 2;
 
 describe('L1Publisher integration', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
