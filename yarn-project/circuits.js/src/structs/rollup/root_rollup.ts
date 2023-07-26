@@ -103,6 +103,11 @@ export class RootRollupPublicInputs {
     // constants: ConstantRollupData // TODO maybe don't include this
 
     /**
+     * The hash of the block being included into the historic block hashes tree.
+     */
+    public blockHash: Fr,
+
+    /**
      * Snapshot of the private data tree at the start of the rollup.
      */
     public startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot,
@@ -198,6 +203,7 @@ export class RootRollupPublicInputs {
     return [
       fields.endAggregationObject,
       fields.globalVariables,
+      fields.blockHash,
       fields.startPrivateDataTreeSnapshot,
       fields.endPrivateDataTreeSnapshot,
       fields.startNullifierTreeSnapshot,
@@ -256,6 +262,7 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(
       reader.readObject(AggregationObject),
       reader.readObject(GlobalVariables),
+      reader.readFr(),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),

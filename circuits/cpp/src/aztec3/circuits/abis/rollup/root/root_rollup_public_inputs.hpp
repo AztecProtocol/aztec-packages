@@ -22,6 +22,8 @@ template <typename NCT> struct RootRollupPublicInputs {
 
     GlobalVariables<NCT> globalVariables;
 
+    fr block_hash;
+
     AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_private_data_tree_snapshot;
 
@@ -59,6 +61,7 @@ template <typename NCT> struct RootRollupPublicInputs {
         std::vector<uint8_t> buf;
 
         write(&buf, globalVariables);
+        write(&buf, block_hash);
         write(buf, start_private_data_tree_snapshot);
         write(buf, start_nullifier_tree_snapshot);
         write(buf, start_contract_tree_snapshot);
@@ -110,6 +113,7 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupPublicInputs<NCT
 
     read(it, obj.end_aggregation_object);
     read(it, obj.globalVariables);
+    read(it, obj.block_hash);
     read(it, obj.start_private_data_tree_snapshot);
     read(it, obj.end_private_data_tree_snapshot);
     read(it, obj.start_nullifier_tree_snapshot);
@@ -138,6 +142,7 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupPublicIn
 
     write(buf, obj.end_aggregation_object);
     write(buf, obj.globalVariables);
+    write(buf, obj.block_hash);
     write(buf, obj.start_private_data_tree_snapshot);
     write(buf, obj.end_private_data_tree_snapshot);
     write(buf, obj.start_nullifier_tree_snapshot);
@@ -164,6 +169,7 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupPub
 {
     return os << "end_aggregation_object: " << obj.end_aggregation_object << "\n"
               << "global_variables: " << obj.globalVariables << "\n"
+              << "block_hash: " << obj.block_hash << "\n"
               << "start_private_data_tree_snapshot: " << obj.start_private_data_tree_snapshot << "\n"
               << "end_private_data_tree_snapshot: " << obj.end_private_data_tree_snapshot << "\n"
               << "start_nullifier_tree_snapshot: " << obj.start_nullifier_tree_snapshot << "\n"

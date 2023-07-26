@@ -138,9 +138,38 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                "historic l1 to l2 message tree roots not empty at location where subtree would be inserted"));
 
+    // Build the block tree for this iteration from the tree information, and global variables, and the public inputs
+    // Then insert the block into the historic blocks tree
+
+    // TODO: make all of these arrays - and throw into a function somewhere
+    // NOTES:
+    // - What goes into the blocks tree?
+    // -
+    // write all of the block data into a large vector before hashing
+    // NOTE: the block hash will need to be a public input so that it can be indexed?
+    // TODO: how do we want to build this? as a subtree or is this method fine?
+    auto block_hash = NT::hash({ left.constants.global_variables.hash(),
+                                 right.end_private_data_tree_snapshot.root,
+                                 right.end_nullifier_tree_snapshot.root,
+                                 right.end_contract_tree_snapshot.root,
+                                 end_l1_to_l2_data_roots_tree_snapshot.root });
+
+    // Update the historic blocks tree
+    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
+        builder,
+        rootRollupInputs.start_historic_blocks_tree_snapshot,
+        rootRollupInputs.new_historic_blocks_tree_sibling_path,
+        fr::zero(),
+        block_hash,
+        0,
+        format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+               "historic blocks tree roots not empty at location where subtree would be inserted"));
+
+
     RootRollupPublicInputs public_inputs = {
         .end_aggregation_object = aggregation_object,
         .globalVariables = left.constants.global_variables,
+        .block_hash = block_hash,
         .start_private_data_tree_snapshot = left.start_private_data_tree_snapshot,
         .end_private_data_tree_snapshot = right.end_private_data_tree_snapshot,
         .start_nullifier_tree_snapshot = left.start_nullifier_tree_snapshot,
@@ -160,6 +189,8 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         .start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot =
             rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         .end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot = end_l1_to_l2_data_roots_tree_snapshot,
+        .start_historic_blocks_tree_snapshot = rootRollupInputs.start_historic_blocks_tree_snapshot,
+        .end_historic_blocks_tree_snapshot = end_historic_blocks_tree_snapshot,
         .calldata_hash = components::compute_calldata_hash(rootRollupInputs.previous_rollup_data),
         .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.l1_to_l2_messages)
     };

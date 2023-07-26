@@ -58,6 +58,19 @@ template <typename NCT> struct GlobalVariables {
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
     }
+
+    // TODO(Maddiaa): is this cursed? The linter is shouting at me for doing pointer arithmetic.
+    std::array<uint8_t, 32 * 4> to_bytes() const
+    {
+        std::array<uint8_t, 32 * 4> buf;
+
+        auto* ptr = buf.begin();
+        chain_id.to_buffer().copy(ptr, ptr += 32);
+        version.to_buffer().copy(ptr, ptr += 32);
+        block_number.to_buffer().copy(ptr, ptr += 32);
+        timestamp.to_buffer().copy(ptr, ptr += 32);
+        return buf;
+    }
 };
 
 template <typename NCT> void read(uint8_t const*& it, GlobalVariables<NCT>& globals)
