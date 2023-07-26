@@ -32,7 +32,7 @@ checkout: &checkout
   run:
     name: "Checkout code"
     command: |
-      set -x
+      set -x # This is quite verbose, remove once #1119 is solved
       cd $HOME
       mkdir -p .ssh
       chmod 0700 .ssh
