@@ -40,7 +40,6 @@ checkout: &checkout
         echo "$@ failed after $retries attempts"
         exit 1
       }
-      set -x # This is quite verbose, remove once #1119 is solved
       cd $HOME
 
       # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/remote_build/remote_build
