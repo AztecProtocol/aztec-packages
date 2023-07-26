@@ -561,6 +561,7 @@ field_t<C> pedersen_hash<C>::hash_multiple(const std::vector<field_t>& inputs,
 }
 
 INSTANTIATE_STDLIB_TYPE(pedersen_hash);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(pedersen_hash);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

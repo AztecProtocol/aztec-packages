@@ -181,5 +181,8 @@ template <typename Composer> packed_byte_array<Composer> sha256(const packed_byt
 
 INSTANTIATE_STDLIB_METHOD(SHA256_BLOCK)
 INSTANTIATE_STDLIB_METHOD(SHA256)
+
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(SHA256_BLOCK)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(SHA256)
 } // namespace stdlib
 } // namespace proof_system::plonk

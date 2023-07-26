@@ -367,6 +367,7 @@ template <typename Composer> packed_byte_array<Composer> sha256(const packed_byt
     packed_byte_array<circuit_type> sha256(const packed_byte_array<circuit_type>& input)
 
 INSTANTIATE_STDLIB_ULTRA_METHOD(SHA256_PLOOKUP)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(SHA256_PLOOKUP)
 } // namespace sha256_plookup
 } // namespace stdlib
 } // namespace proof_system::plonk

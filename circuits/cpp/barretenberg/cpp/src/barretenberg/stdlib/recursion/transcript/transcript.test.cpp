@@ -8,7 +8,7 @@
 namespace proof_system::plonk::stdlib::recursion {
 
 // TODO(Cody): Testing only one circuit type.
-using Builder = StandardCircuitBuilder;
+using Builder = CircuitSimulatorBN254;
 
 using field_t = stdlib::field_t<Builder>;
 using bool_t = stdlib::bool_t<Builder>;

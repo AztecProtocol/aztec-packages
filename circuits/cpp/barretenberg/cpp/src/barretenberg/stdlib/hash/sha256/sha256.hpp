@@ -30,5 +30,8 @@ template <typename Composer> field_t<Composer> sha256_to_field(const packed_byte
 EXTERN_STDLIB_METHOD(SHA256_BLOCK)
 EXTERN_STDLIB_METHOD(SHA256)
 
+EXTERN_STDLIB_SIMULATOR_METHOD(SHA256_BLOCK)
+EXTERN_STDLIB_SIMULATOR_METHOD(SHA256)
+
 } // namespace stdlib
 } // namespace proof_system::plonk

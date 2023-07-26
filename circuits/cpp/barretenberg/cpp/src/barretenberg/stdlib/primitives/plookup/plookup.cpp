@@ -92,5 +92,6 @@ field_t<Composer> plookup_read<Composer>::read_from_1_to_2_table(const MultiTabl
 }
 
 INSTANTIATE_STDLIB_ULTRA_TYPE(plookup_read)
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(plookup_read)
 } // namespace stdlib
 } // namespace proof_system::plonk

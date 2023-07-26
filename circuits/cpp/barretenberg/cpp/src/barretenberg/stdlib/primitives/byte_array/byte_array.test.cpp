@@ -22,8 +22,10 @@ template <class Composer> class ByteArrayTest : public ::testing::Test {};
 
 template <class Composer> using byte_array_ct = byte_array<Composer>;
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::CircuitSimulatorBN254,
+                                      proof_system::StandardCircuitBuilder,
+                                      proof_system::TurboCircuitBuilder,
+                                      proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(ByteArrayTest, CircuitTypes);
 
 TYPED_TEST(ByteArrayTest, test_reverse)
@@ -125,16 +127,26 @@ TYPED_TEST(ByteArrayTest, set_bit)
     auto composer = Composer();
 
     byte_array_ct arr(&composer, std::vector<uint8_t>{ 0x01, 0x02, 0x03, 0x04 });
+    // arr[0]     arr[1]     arr[2]     arr[3]
+    // 0000'0001, 0000'0010, 0000'0011, 0000,0100
+    //         ^          ^          ^          ^
+    //        24         16          8          0
 
-    arr.set_bit(16, bool_ct(witness_ct(&composer, true)));
-    arr.set_bit(18, bool_ct(witness_ct(&composer, true)));
     arr.set_bit(24, bool_ct(witness_ct(&composer, false)));
+    arr.set_bit(18, bool_ct(witness_ct(&composer, true)));
+    arr.set_bit(16, bool_ct(witness_ct(&composer, true)));
+    arr.set_bit(15, bool_ct(witness_ct(&composer, true)));
     arr.set_bit(0, bool_ct(witness_ct(&composer, true)));
+    // arr[0]     arr[1]     arr[2]     arr[3]
+    // 0000'0000, 0000'0111, 1000'0011, 0000,0101
+    //         ^          ^          ^          ^
+    //        24          16         8          0
 
     const auto out = arr.get_value();
     EXPECT_EQ(out[0], uint8_t(0));
-    EXPECT_EQ(out[1], uint8_t(7));
-    EXPECT_EQ(out[3], uint8_t(5));
+    EXPECT_EQ(out[1], uint8_t(7)); // start with 0000'0010, want 0000'0111, get 0000'0110
+    EXPECT_EQ(out[2], uint8_t(131));
+    EXPECT_EQ(out[3], uint8_t(5)); // start with 0000'0100, want 0000'0101, get 0000'0011
 
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);

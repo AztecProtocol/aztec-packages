@@ -1,6 +1,7 @@
 #include "pedersen.hpp"
 #include "../../hash/pedersen/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "pedersen_plookup.hpp"
 
 #include "../../primitives/packed_byte_array/packed_byte_array.hpp"
@@ -96,7 +97,17 @@ field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, 
         return pedersen_plookup_commitment<C>::compress(inputs, hash_index);
     }
 
+    // WORKTODO: these are not the same. Was this needed for some pedersen tests in Bb?
+    // if constexpr (IsSimulator<C>) {
+    //     std::vector<barretenberg::fr> native_inputs(inputs.size());
+    //     for (auto& input : inputs) {
+    //         native_inputs.push_back(input.get_value());
+    //     }
+    //     return witness_t<C>(inputs[0].context, crypto::pedersen_commitment::commit_native(native_inputs,
+    //     hash_index).x);
+    // } else {
     return commit(inputs, hash_index).x;
+    // }
 }
 
 /**
@@ -108,33 +119,38 @@ field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, 
  */
 template <typename C> field_t<C> pedersen_commitment<C>::compress(const byte_array& input)
 {
-    const size_t num_bytes = input.size();
-    const size_t bytes_per_element = 31;
-    size_t num_elements = (num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
+    if constexpr (IsSimulator<C>) {
+        return { input.get_context(), crypto::pedersen_commitment::compress_native(input.get_value()) };
+    } else {
+        const size_t num_bytes = input.size();
+        const size_t bytes_per_element = 31;
+        size_t num_elements = (num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
 
-    std::vector<field_t> elements;
-    for (size_t i = 0; i < num_elements; ++i) {
-        size_t bytes_to_slice = 0;
-        if (i == num_elements - 1) {
-            bytes_to_slice = num_bytes - (i * bytes_per_element);
-        } else {
-            bytes_to_slice = bytes_per_element;
+        std::vector<field_t> elements;
+        for (size_t i = 0; i < num_elements; ++i) {
+            size_t bytes_to_slice = 0;
+            if (i == num_elements - 1) {
+                bytes_to_slice = num_bytes - (i * bytes_per_element);
+            } else {
+                bytes_to_slice = bytes_per_element;
+            }
+            field_t element = static_cast<field_t>(input.slice(i * bytes_per_element, bytes_to_slice));
+            elements.emplace_back(element);
         }
-        field_t element = static_cast<field_t>(input.slice(i * bytes_per_element, bytes_to_slice));
-        elements.emplace_back(element);
-    }
-    field_t compressed = compress(elements, 0);
+        field_t compressed = compress(elements, 0);
 
-    bool_t is_zero(true);
-    for (const auto& element : elements) {
-        is_zero = is_zero && element.is_zero();
-    }
+        bool_t is_zero(true);
+        for (const auto& element : elements) {
+            is_zero = is_zero && element.is_zero();
+        }
 
-    field_t output = field_t::conditional_assign(is_zero, field_t(num_bytes), compressed);
-    return output;
+        field_t output = field_t::conditional_assign(is_zero, field_t(num_bytes), compressed);
+        return output;
+    }
 }
 
 INSTANTIATE_STDLIB_TYPE(pedersen_commitment);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(pedersen_commitment);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

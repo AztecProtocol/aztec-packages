@@ -29,5 +29,6 @@ template <typename Composer> class logic {
 };
 
 EXTERN_STDLIB_TYPE(logic);
+EXTERN_STDLIB_SIMULATOR_TYPE(logic);
 
 } // namespace proof_system::plonk::stdlib

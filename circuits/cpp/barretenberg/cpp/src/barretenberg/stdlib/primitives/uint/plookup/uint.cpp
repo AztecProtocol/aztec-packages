@@ -17,22 +17,26 @@ std::vector<uint32_t> uint_plookup<Composer, Native>::constrain_accumulators(Com
 template <typename Composer, typename Native>
 uint_plookup<Composer, Native>::uint_plookup(const witness_t<Composer>& witness)
     : context(witness.context)
-    , additive_constant(0)
     , witness_status(WitnessStatus::OK)
-    , accumulators(constrain_accumulators(context, witness.witness_index))
-    , witness_index(witness.witness_index)
-{}
+{
+    if (witness.witness_index == IS_CONSTANT) {
+        additive_constant = witness.witness;
+        witness_index = IS_CONSTANT;
+    } else {
+        accumulators = constrain_accumulators(context, witness.witness_index);
+        witness_index = witness.witness_index;
+    }
+}
 
 template <typename Composer, typename Native>
 uint_plookup<Composer, Native>::uint_plookup(const field_t<Composer>& value)
     : context(value.context)
     , additive_constant(0)
     , witness_status(WitnessStatus::OK)
-    , accumulators()
-    , witness_index(IS_CONSTANT)
 {
     if (value.witness_index == IS_CONSTANT) {
         additive_constant = value.additive_constant;
+        witness_index = IS_CONSTANT;
     } else {
         field_t<Composer> norm = value.normalize();
         accumulators = constrain_accumulators(context, norm.get_witness_index());
@@ -244,6 +248,11 @@ INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint8_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
 INSTANTIATE_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
+
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint8_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint16_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint32_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint64_t);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

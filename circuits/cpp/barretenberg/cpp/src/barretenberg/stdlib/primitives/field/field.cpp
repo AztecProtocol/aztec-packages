@@ -21,9 +21,16 @@ template <typename ComposerContext>
 field_t<ComposerContext>::field_t(const witness_t<ComposerContext>& value)
     : context(value.context)
 {
-    additive_constant = 0;
-    multiplicative_constant = 1;
-    witness_index = value.witness_index;
+    if constexpr (IsSimulator<ComposerContext>) {
+        additive_constant = value.witness;
+        multiplicative_constant = 1;
+        witness_index = IS_CONSTANT;
+        // context -> stored_value = value.witness;
+    } else {
+        additive_constant = 0;
+        multiplicative_constant = 1;
+        witness_index = value.witness_index;
+    }
 }
 
 template <typename ComposerContext>
@@ -358,9 +365,16 @@ field_t<ComposerContext> field_t<ComposerContext>::pow(const field_t& exponent) 
 {
     auto* ctx = get_context() ? get_context() : exponent.get_context();
 
-    bool exponent_constant = exponent.is_constant();
-
     uint256_t exponent_value = exponent.get_value();
+    if constexpr (IsSimulator<ComposerContext>) {
+        if ((exponent_value >> 32) != static_cast<uint256_t>(0)) {
+            ctx->failure("field_t::pow exponent accumulator incorrect");
+        }
+        constexpr uint256_t MASK_32_BITS = 0xffff'ffff;
+        return get_value().pow(exponent_value & MASK_32_BITS);
+    }
+
+    bool exponent_constant = exponent.is_constant();
     std::vector<bool_t<ComposerContext>> exponent_bits(32);
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
@@ -537,32 +551,38 @@ template <typename ComposerContext> field_t<ComposerContext> field_t<ComposerCon
 
 template <typename ComposerContext> void field_t<ComposerContext>::assert_is_zero(std::string const& msg) const
 {
-    if (get_value() != barretenberg::fr(0)) {
-        context->failure(msg);
+    if constexpr (IsSimulator<ComposerContext>) {
+        if (get_value() != 0) {
+            context->failure(msg);
+        }
+    } else {
+        if (get_value() != barretenberg::fr(0)) {
+            context->failure(msg);
+        }
+
+        if (witness_index == IS_CONSTANT) {
+            ASSERT(additive_constant == barretenberg::fr(0));
+            return;
+        }
+
+        // Aim of new gate: this.v * this.mul + this.add == 0
+        // I.e.:
+        // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
+        // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
+
+        ComposerContext* ctx = context;
+        const poly_triple gate_coefficients{
+            .a = witness_index,
+            .b = ctx->zero_idx,
+            .c = ctx->zero_idx,
+            .q_m = barretenberg::fr(0),
+            .q_l = multiplicative_constant,
+            .q_r = barretenberg::fr(0),
+            .q_o = barretenberg::fr(0),
+            .q_c = additive_constant,
+        };
+        context->create_poly_gate(gate_coefficients);
     }
-
-    if (witness_index == IS_CONSTANT) {
-        ASSERT(additive_constant == barretenberg::fr(0));
-        return;
-    }
-
-    // Aim of new gate: this.v * this.mul + this.add == 0
-    // I.e.:
-    // this.v * 0 * [ 0 ] + this.v * [this.mul] + 0 * [ 0 ] + 0 * [ 0 ] + [this.add] == 0
-    // this.v * 0 * [q_m] + this.v * [   q_l  ] + 0 * [q_r] + 0 * [q_o] + [   q_c  ] == 0
-
-    ComposerContext* ctx = context;
-    const poly_triple gate_coefficients{
-        .a = witness_index,
-        .b = ctx->zero_idx,
-        .c = ctx->zero_idx,
-        .q_m = barretenberg::fr(0),
-        .q_l = multiplicative_constant,
-        .q_r = barretenberg::fr(0),
-        .q_o = barretenberg::fr(0),
-        .q_c = additive_constant,
-    };
-    context->create_poly_gate(gate_coefficients);
 }
 
 template <typename ComposerContext> void field_t<ComposerContext>::assert_is_not_zero(std::string const& msg) const
@@ -572,19 +592,20 @@ template <typename ComposerContext> void field_t<ComposerContext>::assert_is_not
         // We don't return; we continue with the function, for debugging purposes.
     }
 
-    if (witness_index == IS_CONSTANT) {
-        ASSERT(additive_constant != barretenberg::fr(0));
-        return;
+    if constexpr (!IsSimulator<ComposerContext>) {
+        if (witness_index == IS_CONSTANT) {
+            ASSERT(additive_constant != barretenberg::fr(0));
+            return;
+        }
     }
 
-    ComposerContext* ctx = context;
-    if (get_value() == 0 && ctx) {
-        ctx->failure(msg);
+    if (get_value() == 0 && context) {
+        context->failure(msg);
     }
 
     barretenberg::fr inverse_value = (get_value() == 0) ? 0 : get_value().invert();
 
-    field_t<ComposerContext> inverse(witness_t<ComposerContext>(ctx, inverse_value));
+    field_t<ComposerContext> inverse(witness_t<ComposerContext>(context, inverse_value));
 
     // Aim of new gate: `this` has an inverse (hence is not zero).
     // I.e.:
@@ -596,7 +617,7 @@ template <typename ComposerContext> void field_t<ComposerContext>::assert_is_not
     const poly_triple gate_coefficients{
         .a = witness_index,             // input value
         .b = inverse.witness_index,     // inverse
-        .c = ctx->zero_idx,             // no output
+        .c = context->zero_idx,         // no output
         .q_m = multiplicative_constant, // a * b * mul_const
         .q_l = barretenberg::fr(0),     // a * 0
         .q_r = additive_constant,       // b * mul_const
@@ -733,19 +754,24 @@ field_t<ComposerContext> field_t<ComposerContext>::conditional_assign(const bool
 template <typename ComposerContext>
 void field_t<ComposerContext>::create_range_constraint(const size_t num_bits, std::string const& msg) const
 {
-    if (num_bits == 0) {
-        assert_is_zero("0-bit range_constraint on non-zero field_t.");
+    if constexpr (IsSimulator<ComposerContext>) {
+        context->create_range_constraint(get_value(), num_bits, msg);
     } else {
-        if (is_constant()) {
-            ASSERT(uint256_t(get_value()).get_msb() < num_bits);
+        if (num_bits == 0) {
+            assert_is_zero("0-bit range_constraint on non-zero field_t.");
         } else {
-            if constexpr (HasPlookup<ComposerContext>) {
-                context->decompose_into_default_range(normalize().get_witness_index(),
-                                                      num_bits,
-                                                      proof_system::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM,
-                                                      msg);
+            if (is_constant()) {
+                ASSERT(uint256_t(get_value()).get_msb() < num_bits);
             } else {
-                context->decompose_into_base4_accumulators(normalize().get_witness_index(), num_bits, msg);
+                if constexpr (HasPlookup<ComposerContext>) {
+                    context->decompose_into_default_range(
+                        normalize().get_witness_index(),
+                        num_bits,
+                        proof_system::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM,
+                        msg);
+                } else {
+                    context->decompose_into_base4_accumulators(normalize().get_witness_index(), num_bits, msg);
+                }
             }
         }
     }
@@ -764,7 +790,10 @@ void field_t<ComposerContext>::assert_equal(const field_t& rhs, std::string cons
     const field_t lhs = *this;
     ComposerContext* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
 
-    if (lhs.is_constant() && rhs.is_constant()) {
+    if constexpr (IsSimulator<ComposerContext>) {
+        // WORKTODO: Dangerous or at least error-prone to have ctx (localo to function) and context (class member)
+        ctx->assert_equal(lhs.get_value(), rhs.get_value(), msg);
+    } else if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());
     } else if (lhs.is_constant()) {
         field_t right = rhs.normalize();
@@ -1143,9 +1172,10 @@ std::vector<bool_t<ComposerContext>> field_t<ComposerContext>::decompose_into_bi
     }
 
     this->assert_equal(sum); // `this` and `sum` are both normalized here.
+
+    // If value can be larger than modulus we must enforce unique representation
     constexpr uint256_t modulus_minus_one = fr::modulus - 1;
     auto modulus_bits = modulus_minus_one.get_msb() + 1;
-    // If value can be larger than modulus we must enforce unique representation
     if (num_bits >= modulus_bits) {
         // r - 1 = p_lo + 2**128 * p_hi
         const fr p_lo = modulus_minus_one.slice(0, 128);
@@ -1159,27 +1189,37 @@ std::vector<bool_t<ComposerContext>> field_t<ComposerContext>::decompose_into_bi
         y_lo += shifted_high_limb;
         y_lo.normalize();
 
-        // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
-        auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
-        // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
-        // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
-        // constraint shows that y_lo is non-negative.
-        context->assert_equal(
-            zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
-        // y_borrow is the boolean "a carry was necessary"
-        field_t<ComposerContext> y_borrow = -(y_lo_hi - 1);
-        // If a carry was necessary, subtract that carry from p_hi
-        // y_hi = (p_hi - y_borrow) - sum_hi
-        field_t<ComposerContext> y_hi = -(shifted_high_limb / shift) + (p_hi);
-        y_hi -= y_borrow;
-        // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
-        y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
+        if constexpr (IsSimulator<ComposerContext>) {
+            fr sum_lo = shift + p_lo - y_lo.get_value();
+            auto sum_nonreduced =
+                static_cast<uint256_t>(sum_lo) + static_cast<uint256_t>(shifted_high_limb.get_value());
+            if (sum_nonreduced > modulus_minus_one) {
+                context->failure("Bit decomposition describes non-reduced form of a field element.");
+            }
+        } else {
+            // A carry was necessary if and only if the 128th bit y_lo_hi of y_lo is 0.
+            auto [y_lo_lo, y_lo_hi, zeros] = y_lo.slice(128, 128);
+            // This copy constraint, along with the constraints of field_t::slice, imposes that y_lo has bit length 129.
+            // Since the integer y_lo is at least -2**128+1, which has more than 129 bits in `Fr`, the implicit range
+            // constraint shows that y_lo is non-negative.
+            context->assert_equal(
+                zeros.witness_index, context->zero_idx, "field_t: bit decomposition_fails: high limb non-zero");
+            // y_borrow is the boolean "a carry was necessary"
+            field_t<ComposerContext> y_borrow = -(y_lo_hi - 1);
+            // If a carry was necessary, subtract that carry from p_hi
+            // y_hi = (p_hi - y_borrow) - sum_hi
+            field_t<ComposerContext> y_hi = -(shifted_high_limb / shift) + (p_hi);
+            y_hi -= y_borrow;
+            // As before, except that now the range constraint is explicit, this shows that y_hi is non-negative.
+            y_hi.create_range_constraint(128, "field_t: bit decomposition fails: y_hi is too large.");
+        }
     }
 
     return result;
 }
 
 INSTANTIATE_STDLIB_TYPE(field_t);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(field_t);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

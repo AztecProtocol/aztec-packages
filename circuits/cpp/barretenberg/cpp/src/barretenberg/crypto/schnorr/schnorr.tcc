@@ -24,7 +24,7 @@ namespace schnorr {
  *
  * @tparam Hash the hash-function used as random-oracle
  * @tparam G1 Group over which the signature is produced
- * @param message what are we signing over?
+ * @param message what are we signing over? // WORKTODO: this was only audited for std::string.
  * @param pubkey the pubkey of the signer
  * @param R the nonce
  * @return e = H(pedersen(R.x || pubkey.x || pubkey.y), message) as a 256-bit integer,
@@ -37,7 +37,7 @@ namespace schnorr {
  * are always private inputs to circuits) then nothing would be revealed anyway.
  */
 template <typename Hash, typename G1>
-static auto generate_schnorr_challenge(const std::string& message,
+static auto generate_schnorr_challenge(const auto& message,
                                        const typename G1::affine_element& pubkey,
                                        const typename G1::affine_element& R)
 {
@@ -114,9 +114,10 @@ signature construct_signature(const std::string& message, const key_pair<Fr, G1>
 
 /**
  * @brief Verify a Schnorr signature of the sort produced by construct_signature.
+ * // WORKTODO: this was only audited for std::string input.
  */
 template <typename Hash, typename Fq, typename Fr, typename G1>
-bool verify_signature(const std::string& message, const typename G1::affine_element& public_key, const signature& sig)
+bool verify_signature(const auto& message, const typename G1::affine_element& public_key, const signature& sig)
 {
     using affine_element = typename G1::affine_element;
     using element = typename G1::element;

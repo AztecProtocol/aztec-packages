@@ -46,5 +46,6 @@ template <typename ComposerContext> class pedersen_plookup_commitment {
 };
 
 EXTERN_STDLIB_ULTRA_TYPE(pedersen_plookup_commitment)
+EXTERN_STDLIB_SIMULATOR_TYPE(pedersen_plookup_commitment)
 } // namespace stdlib
 } // namespace proof_system::plonk

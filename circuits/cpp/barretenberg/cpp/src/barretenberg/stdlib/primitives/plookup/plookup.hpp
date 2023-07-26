@@ -27,6 +27,7 @@ template <typename Composer> class plookup_read {
 };
 
 EXTERN_STDLIB_ULTRA_TYPE(plookup_read);
+EXTERN_STDLIB_SIMULATOR_TYPE(plookup_read);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

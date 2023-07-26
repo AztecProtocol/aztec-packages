@@ -269,6 +269,7 @@ template <typename Composer> std::string packed_byte_array<Composer>::get_value(
 }
 
 INSTANTIATE_STDLIB_TYPE(packed_byte_array);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(packed_byte_array);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

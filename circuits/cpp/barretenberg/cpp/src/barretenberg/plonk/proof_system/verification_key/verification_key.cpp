@@ -76,12 +76,13 @@ barretenberg::fr verification_key_data::compress_native(const size_t hash_index)
     write(preimage_data, eval_domain.root);
 
     barretenberg::fr compressed_key;
-    if (proof_system::CircuitType(circuit_type) == proof_system::CircuitType::ULTRA) {
-        compressed_key = from_buffer<barretenberg::fr>(
-            crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index));
-    } else {
-        compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
-    }
+    // WORKTODO
+    // if (proof_system::CircuitType(circuit_type) == proof_system::CircuitType::ULTRA) {
+    //     compressed_key = from_buffer<barretenberg::fr>(
+    //         crypto::pedersen_commitment::lookup::compress_native(preimage_data, hash_index));
+    // } else {
+    compressed_key = crypto::pedersen_commitment::compress_native(preimage_data, hash_index);
+    // }
     return compressed_key;
 }
 

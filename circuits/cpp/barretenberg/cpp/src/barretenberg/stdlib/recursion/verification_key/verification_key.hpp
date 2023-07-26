@@ -145,7 +145,9 @@ template <class Composer, size_t bits_per_element = 248> struct PedersenPreimage
             field_pt borrow = field_pt::from_witness(context, need_borrow);
 
             // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
-            if constexpr (HasPlookup<Composer>) {
+            if constexpr (IsSimulator<Composer>) {
+                context->create_range_constraint(borrow.get_value(), 1, "borrow");
+            } else if constexpr (HasPlookup<Composer>) {
                 context->create_new_range_constraint(borrow.get_witness_index(), 1, "borrow");
             } else {
                 context->create_range_constraint(borrow.get_witness_index(), 1, "borrow");
@@ -354,7 +356,7 @@ template <typename Curve> struct verification_key {
             const auto output_key = key_table[key_index];
             output_key.assert_equal(circuit_key_compressed);
         } else {
-            bool_t<Composer> is_valid(false);
+            bool_t<Composer> is_valid(context, false); // WORKTODO: changing model here?
             for (const auto& key : keys_in_set) {
                 barretenberg::fr compressed = compress_native(key);
                 is_valid = is_valid || (circuit_key_compressed == compressed);

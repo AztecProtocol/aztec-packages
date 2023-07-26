@@ -310,9 +310,31 @@ std::array<field_t<C>, 2> verify_signature_internal(const byte_array<C>& message
 template <typename C>
 void verify_signature(const byte_array<C>& message, const point<C>& pub_key, const signature_bits<C>& sig)
 {
-    auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
-    output_lo.assert_equal(sig.e_lo, "verify signature failed");
-    output_hi.assert_equal(sig.e_hi, "verify signature failed");
+    if constexpr (IsSimulator<C>) {
+        const auto deconvert_signature = [](const signature_bits<C>& sig) {
+            auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
+                                                   (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));
+            auto e_vector = to_buffer(static_cast<uint256_t>(sig.e_lo.get_value()) +
+                                      (static_cast<uint256_t>(sig.e_hi.get_value()) << 128));
+
+            std::array<uint8_t, 32> s_array{ 0 };
+            std::array<uint8_t, 32> e_array{ 0 };
+            std::copy(s_vector.begin(), s_vector.end(), s_array.begin());
+            std::copy(e_vector.begin(), e_vector.end(), e_array.begin());
+
+            return crypto::schnorr::signature{ .s = s_array, .e = e_array };
+        };
+        bool signature_valid =
+            crypto::schnorr::verify_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+                message.get_value(), { pub_key.x.get_value(), pub_key.y.get_value() }, deconvert_signature(sig));
+        if (!signature_valid) {
+            message.get_context()->failure("Schnorr verification failed in simulation");
+        }
+    } else {
+        auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
+        output_lo.assert_equal(sig.e_lo, "verify signature failed");
+        output_hi.assert_equal(sig.e_hi, "verify signature failed");
+    }
 }
 
 /**
@@ -325,6 +347,26 @@ bool_t<C> signature_verification_result(const byte_array<C>& message,
                                         const point<C>& pub_key,
                                         const signature_bits<C>& sig)
 {
+    if constexpr (IsSimulator<C>) { // WORKTODO: duplication
+        const auto deconvert_signature = [](const signature_bits<C>& sig) {
+            auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
+                                                   (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));
+            auto e_vector = to_buffer(static_cast<uint256_t>(sig.e_lo.get_value()) +
+                                      (static_cast<uint256_t>(sig.e_hi.get_value()) << 128));
+
+            std::array<uint8_t, 32> s_array{ 0 };
+            std::array<uint8_t, 32> e_array{ 0 };
+            std::copy(s_vector.begin(), s_vector.end(), s_array.begin());
+            std::copy(e_vector.begin(), e_vector.end(), e_array.begin());
+
+            return crypto::schnorr::signature{ .s = s_array, .e = e_array };
+        };
+        bool signature_valid =
+            crypto::schnorr::verify_signature<Blake2sHasher, grumpkin::fq, grumpkin::fr, grumpkin::g1>(
+                message.get_value(), { pub_key.x.get_value(), pub_key.y.get_value() }, deconvert_signature(sig));
+
+        return signature_valid;
+    }
     auto [output_lo, output_hi] = verify_signature_internal(message, pub_key, sig);
     bool_t<C> valid = (output_lo == sig.e_lo) && (output_hi == sig.e_hi);
     return valid;
@@ -336,6 +378,14 @@ INSTANTIATE_STDLIB_METHOD(VERIFY_SIGNATURE_INTERNAL)
 INSTANTIATE_STDLIB_METHOD(VERIFY_SIGNATURE)
 INSTANTIATE_STDLIB_METHOD(SIGNATURE_VERIFICATION_RESULT)
 INSTANTIATE_STDLIB_METHOD(CONVERT_SIGNATURE)
+
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(VARIABLE_BASE_MUL)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(CONVERT_FIELD_INTO_WNAF)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(VERIFY_SIGNATURE_INTERNAL)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(VERIFY_SIGNATURE)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(SIGNATURE_VERIFICATION_RESULT)
+INSTANTIATE_STDLIB_SIMULATOR_METHOD(CONVERT_SIGNATURE)
+
 } // namespace schnorr
 } // namespace stdlib
 } // namespace proof_system::plonk

@@ -29,5 +29,7 @@ template <typename ComposerContext> class pedersen_plookup_hash {
 };
 
 EXTERN_STDLIB_ULTRA_TYPE(pedersen_plookup_hash);
+EXTERN_STDLIB_SIMULATOR_TYPE(pedersen_plookup_hash);
+
 } // namespace stdlib
 } // namespace proof_system::plonk

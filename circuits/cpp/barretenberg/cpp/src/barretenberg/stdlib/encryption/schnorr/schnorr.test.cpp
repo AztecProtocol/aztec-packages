@@ -2,7 +2,8 @@
 
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
+// #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/stdlib/primitives/point/point.hpp"
 #include "schnorr.hpp"
 
@@ -12,7 +13,7 @@ using namespace barretenberg;
 using namespace proof_system::plonk::stdlib;
 using namespace proof_system::plonk::stdlib::schnorr;
 
-using Composer = proof_system::UltraCircuitBuilder;
+using Composer = proof_system::CircuitSimulatorBN254;
 using bool_ct = bool_t<Composer>;
 using byte_array_ct = byte_array<Composer>;
 using field_ct = field_t<Composer>;

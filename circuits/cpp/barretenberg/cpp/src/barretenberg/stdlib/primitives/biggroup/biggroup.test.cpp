@@ -823,8 +823,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 };
 
 enum UseBigfield { No, Yes };
-using TestTypes = testing::Types<TestType<stdlib::bn254<proof_system::StandardCircuitBuilder>, UseBigfield::No>,
-                                 TestType<stdlib::bn254<proof_system::UltraCircuitBuilder>, UseBigfield::Yes>>;
+using TestTypes = testing::Types<TestType<stdlib::bn254<proof_system::CircuitSimulatorBN254>, UseBigfield::No>,
+                                 TestType<stdlib::bn254<proof_system::StandardCircuitBuilder>, UseBigfield::No>,
+                                 TestType<stdlib::bn254<proof_system::UltraCircuitBuilder>, UseBigfield::No>>;
 
 TYPED_TEST_SUITE(stdlib_biggroup, TestTypes);
 
@@ -902,7 +903,8 @@ HEAVY_TYPED_TEST(stdlib_biggroup, wnaf_batch_mul)
     }
 }
 
-/* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Turbo and Standard in the
+/* the following test was only developed as a test of Ultra Circuit Constructor. It fails for Turbo and Standard in
+the
    case where Fr is a bigfield. */
 HEAVY_TYPED_TEST(stdlib_biggroup, compute_wnaf)
 {

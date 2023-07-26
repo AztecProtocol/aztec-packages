@@ -10,7 +10,7 @@ using namespace barretenberg;
 using namespace proof_system::plonk;
 
 namespace test_stdlib_ecdsa {
-using Composer = proof_system::UltraCircuitBuilder;
+using Composer = proof_system::CircuitSimulatorBN254;
 using curve = stdlib::secp256k1<Composer>;
 using curveR1 = stdlib::secp256r1<Composer>;
 

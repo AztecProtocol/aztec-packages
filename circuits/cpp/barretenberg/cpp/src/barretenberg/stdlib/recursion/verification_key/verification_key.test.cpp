@@ -5,6 +5,7 @@
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace {
@@ -45,12 +46,17 @@ template <typename Composer> class VerificationKeyFixture : public testing::Test
     }
 };
 
-using CircuitTypes = testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
+                                    proof_system::StandardCircuitBuilder,
+                                    proof_system::TurboCircuitBuilder,
+                                    proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(VerificationKeyFixture, CircuitTypes);
 
 TYPED_TEST(VerificationKeyFixture, vk_data_vs_recursion_compress_native)
 {
+    if constexpr (proof_system::IsSimulator<TypeParam>) {
+        GTEST_SKIP() << "Skipping this until the new Pedersen arrives.";
+    }
     using RecursVk = typename TestFixture::RecursVk;
     TypeParam builder;
 

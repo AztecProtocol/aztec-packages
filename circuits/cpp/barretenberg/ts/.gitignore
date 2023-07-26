@@ -3,7 +3,5 @@
 node_modules
 dest
 .tsbuildinfo
-.tsbuildinfo.browser
-.tsbuildinfo.node
 *.log
 crs

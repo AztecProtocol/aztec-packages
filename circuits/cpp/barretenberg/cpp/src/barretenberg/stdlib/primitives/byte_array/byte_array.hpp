@@ -102,6 +102,7 @@ inline std::ostream& operator<<(std::ostream& os, byte_array<ComposerContext> co
 }
 
 EXTERN_STDLIB_TYPE(byte_array);
+EXTERN_STDLIB_SIMULATOR_TYPE(byte_array);
 
 } // namespace stdlib
 } // namespace proof_system::plonk

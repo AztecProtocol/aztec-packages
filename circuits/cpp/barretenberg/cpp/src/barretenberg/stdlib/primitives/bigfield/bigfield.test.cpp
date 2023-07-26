@@ -847,9 +847,10 @@ template <typename Composer> class stdlib_bigfield : public testing::Test {
 };
 
 // Define types for which the above tests will be constructed.
-typedef testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>
-        CircuitTypes;
+using CircuitTypes = testing::Types<proof_system::CircuitSimulatorBN254,
+                                    proof_system::StandardCircuitBuilder,
+                                    proof_system::TurboCircuitBuilder,
+                                    proof_system::UltraCircuitBuilder>;
 // Define the suite of tests.
 TYPED_TEST_SUITE(stdlib_bigfield, CircuitTypes);
 TYPED_TEST(stdlib_bigfield, badmul)

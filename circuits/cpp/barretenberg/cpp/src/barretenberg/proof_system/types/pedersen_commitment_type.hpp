@@ -2,5 +2,5 @@
 
 namespace proof_system::pedersen {
 // TODO(Cody) Get rid of this?
-enum CommitmentType { FIXED_BASE_PEDERSEN, LOOKUP_PEDERSEN };
+enum CommitmentType { FIXED_BASE_PEDERSEN, LOOKUP_PEDERSEN, NONE };
 } // namespace proof_system::pedersen

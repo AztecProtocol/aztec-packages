@@ -1,4 +1,3 @@
-
 #include "../byte_array/byte_array.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
@@ -30,8 +29,10 @@ template <class T> void ignore_unused(T&) {} // use to ignore unused variables i
 
 template <class Composer> class SafeUintTest : public ::testing::Test {};
 
-using CircuitTypes = ::testing::
-    Types<proof_system::StandardCircuitBuilder, proof_system::TurboCircuitBuilder, proof_system::UltraCircuitBuilder>;
+using CircuitTypes = ::testing::Types<proof_system::CircuitSimulatorBN254,
+                                      proof_system::StandardCircuitBuilder,
+                                      proof_system::TurboCircuitBuilder,
+                                      proof_system::UltraCircuitBuilder>;
 TYPED_TEST_SUITE(SafeUintTest, CircuitTypes);
 
 // CONSTRUCTOR
@@ -146,6 +147,9 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
 TYPED_TEST(SafeUintTest, TestSubtractMethod)
 {
     STDLIB_TYPE_ALIASES
+    // if constexpr(proof_system::IsSimulator<Composer>){
+    //     GTEST_SKIP() << "Methid is not implemented in this case."; // WORKTODO
+    // }
     auto composer = Composer();
 
     field_ct a(witness_ct(&composer, 2));
@@ -173,6 +177,7 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
 }
 
 #if !defined(__wasm__)
+// WORKTODO: What is this testing?
 TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFails)
 {
     STDLIB_TYPE_ALIASES
@@ -209,6 +214,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperator)
 }
 
 #if !defined(__wasm__)
+// WORKTODO: What is this testing? The `try` succeeds.
 TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
 {
     STDLIB_TYPE_ALIASES
@@ -220,6 +226,7 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
     try {
         c = c - d;
+        // FAIL() << "Expected out of range error"; // WORKTODO: I this was missing--we aren't aborting at underflows.
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint minus operator"));
     } catch (...) {

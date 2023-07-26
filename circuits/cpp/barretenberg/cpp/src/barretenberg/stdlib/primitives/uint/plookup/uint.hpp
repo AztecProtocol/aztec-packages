@@ -177,5 +177,10 @@ EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint16_t);
 EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint32_t);
 EXTERN_STDLIB_ULTRA_TYPE_VA(uint_plookup, uint64_t);
 
+EXTERN_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint8_t);
+EXTERN_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint16_t);
+EXTERN_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint32_t);
+EXTERN_STDLIB_SIMULATOR_TYPE_VA(uint_plookup, uint64_t);
+
 } // namespace stdlib
 } // namespace proof_system::plonk

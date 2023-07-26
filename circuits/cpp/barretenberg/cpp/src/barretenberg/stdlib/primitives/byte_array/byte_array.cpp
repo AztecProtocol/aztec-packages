@@ -351,9 +351,9 @@ typename byte_array<Composer>::byte_slice byte_array<Composer>::split_byte(const
 
     if (byte.is_constant()) {
         field_t<Composer> low(context, low_value);
-        field_t<Composer> high(context, high_value);
+        field_t<Composer> shifted_high(context, high_value * (uint64_t(1) << (8ULL - num_high_bits)));
         bool_t<Composer> bit(context, static_cast<bool>(bit_value));
-        return { low, high, bit };
+        return { low, shifted_high, bit };
     }
     field_t<Composer> low = witness_t<Composer>(context, low_value);
     field_t<Composer> high = witness_t<Composer>(context, high_value);
@@ -381,6 +381,7 @@ typename byte_array<Composer>::byte_slice byte_array<Composer>::split_byte(const
 }
 
 INSTANTIATE_STDLIB_TYPE(byte_array);
+INSTANTIATE_STDLIB_SIMULATOR_TYPE(byte_array);
 
 } // namespace stdlib
 } // namespace proof_system::plonk
