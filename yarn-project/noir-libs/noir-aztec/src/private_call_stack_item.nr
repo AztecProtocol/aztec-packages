@@ -75,18 +75,19 @@ impl PrivateCallStackItem {
                     nullifier_tree_root : fields[49],
                     contract_tree_root : fields[50],
                     l1_to_l2_messages_tree_root : fields[51],
+                    blocks_tree_root : fields[52],
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point::new(fields[52], fields[53]),
-                    constructor_vk_hash : fields[54],
-                    function_tree_root : fields[55],
-                    contract_address_salt : fields[56],
-                    portal_contract_address : fields[57],
+                    deployer_public_key: Point::new(fields[53], fields[54]),
+                    constructor_vk_hash : fields[55],
+                    function_tree_root : fields[56],
+                    contract_address_salt : fields[57],
+                    portal_contract_address : fields[58],
                 },
-                chain_id: fields[58],
-                version: fields[59],
+                chain_id: fields[59],
+                version: fields[60],
             },
-            is_execution_request: fields[60] as bool,
+            is_execution_request: fields[61] as bool,
         };
         assert(contract_address == item.contract_address);
         assert(function_selector == item.function_data.function_selector);

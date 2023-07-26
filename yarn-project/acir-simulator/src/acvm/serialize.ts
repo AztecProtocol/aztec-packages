@@ -87,6 +87,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),
     toACVMField(publicInputs.historicL1ToL2MessagesTreeRoot),
+    toACVMField(publicInputs.historicBlocksTreeRoot),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
     toACVMField(publicInputs.chainId),
