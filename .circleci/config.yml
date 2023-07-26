@@ -32,6 +32,14 @@ checkout: &checkout
   run:
     name: "Checkout code"
     command: |
+      function retry_10() {
+        # Retries up to 10 times with 10 second intervals
+        for i in $(seq 1 10); do
+          "$@" && return || sleep 10
+        done
+        echo "$@ failed after $retries attempts"
+        exit 1
+      }
       set -x # This is quite verbose, remove once #1119 is solved
       cd $HOME
 
@@ -43,10 +51,10 @@ checkout: &checkout
       git remote add origin https://github.com/AztecProtocol/aztec-packages
 
       # Only download metadata when fetching.
-      git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
+      retry_10 git fetch --depth 20 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
       # Initialize submodules recursively (retry 10 times on failure)
-      for i in $(seq 1 10); do git submodule update --init --recursive && s=0 && break || s=$? && sleep 10; done; (exit $s)
+      retry_10 git submodule update --init --recursive
 
 # This build step checks out the code from the benchmark-archive repository. The key is saved in CircleCi environment in base64 format.
 # Initially it just fetches the latest version.
