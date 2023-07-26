@@ -56,7 +56,7 @@ impl PrivateCallStackItem {
                     is_contract_deployment: fields[10] as bool,
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
-                args_hash: fields[10],
+                args_hash: fields[11],
                 return_values: arr_copy_slice(fields, [0; constants_gen::RETURN_VALUES_LENGTH], 12),
                 read_requests: arr_copy_slice(fields, [0; constants_gen::MAX_READ_REQUESTS_PER_CALL], 16),
                 new_commitments: arr_copy_slice(fields, [0; constants_gen::MAX_NEW_COMMITMENTS_PER_CALL], 20),
