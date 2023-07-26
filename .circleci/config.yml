@@ -40,7 +40,7 @@ checkout: &checkout
       mkdir -p project
       cd project
       git init
-      git remote add origin $CIRCLE_REPOSITORY_URL
+      git remote add origin https://github.com/AztecProtocol/aztec-packages
 
       # Only download metadata when fetching.
       git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
