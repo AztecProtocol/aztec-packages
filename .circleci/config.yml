@@ -1,4 +1,4 @@
-f# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
+# This file uses YAML anchors and aliases to prevent repetition of blocks of config:
 # https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/
 #
 # Two primary anchors are checkout and setup_env, called as the first step of almost all jobs:
