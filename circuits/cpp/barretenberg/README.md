@@ -2,7 +2,7 @@
 
 Barretenberg aims to be a stand-alone and well-specified library, but please see https://github.com/AztecProtocol/aztec-packages/edit/master/circuits/cpp/barretenberg for the authoritative source of this code. 
 The separate repository https://github.com/AztecProtocol/barretenberg is available if working on barretenberg independently of Aztec, however it is encouraged to develop in the context of Aztec to see if it will cause issues for Aztec end-to-end tests. 
-As the spec solidifies, this should be less of an issue. Currently, Aztec and Barretenberg are currently under heavy development.
+As the spec solidifies, this should be less of an issue. Aztec and Barretenberg are currently under heavy development.
 
 **This code is highly experimental, use at your own risk!**
 
