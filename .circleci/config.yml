@@ -488,6 +488,17 @@ jobs:
           name: "Build and test"
           command: build key-store
 
+  noir-contracts-build:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-contracts-build
+
   noir-contracts:
     machine:
       image: ubuntu-2004:202010-01
@@ -1071,11 +1082,13 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
+      - noir-contracts-build: *defaults
 
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
+            - noir-contracts-build
           <<: *defaults
 
       - aztec-js: *yarn_project
