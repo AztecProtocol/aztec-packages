@@ -54,21 +54,22 @@ export class Grumpkin implements Curve {
    */
   public batchMul(points: Point[], privateKey: PrivateKey) {
     const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
+    const pointsByteLength = points.length * Point.SIZE_IN_BYTES;
 
-    const mem = this.wasm.call('bbmalloc', points.length * 2);
+    const mem = this.wasm.call('bbmalloc', pointsByteLength * 2);
 
     this.wasm.writeMemory(mem, concatenatedPoints);
     this.wasm.writeMemory(0, privateKey.value);
-    this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + points.length);
+    this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + pointsByteLength);
 
     const result: Buffer = Buffer.from(
-      this.wasm.getMemorySlice(mem + points.length, mem + points.length + points.length),
+      this.wasm.getMemorySlice(mem + pointsByteLength, mem + pointsByteLength + pointsByteLength),
     );
     this.wasm.call('bbfree', mem);
 
     const parsedResult: Point[] = [];
-    for (let i = 0; i < points.length; i += 64) {
-      parsedResult.push(Point.fromBuffer(result.slice(i, i + 32)));
+    for (let i = 0; i < pointsByteLength; i += 64) {
+      parsedResult.push(Point.fromBuffer(result.slice(i, i + 64)));
     }
     return parsedResult;
   }
