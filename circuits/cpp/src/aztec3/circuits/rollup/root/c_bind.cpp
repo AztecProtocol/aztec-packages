@@ -53,6 +53,8 @@ WASM_EXPORT uint8_t* root_rollup__sim(uint8_t const* root_rollup_inputs_buf,
     read(root_rollup_inputs_buf, root_rollup_inputs);
 
     DummyBuilder builder = DummyBuilder("root_rollup__sim");
+    info("rollup inputs");
+    info(root_rollup_inputs);
     RootRollupPublicInputs const public_inputs = root_rollup_circuit(builder, root_rollup_inputs);
 
     // serialize public inputs to bytes vec

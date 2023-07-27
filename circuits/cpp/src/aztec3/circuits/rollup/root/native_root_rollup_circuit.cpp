@@ -115,7 +115,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
     // Compute subtree inserting l1 to l2 messages
     auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
 
-    // // Insert subtree into the l1 to l2 data tree
+    // Insert subtree into the l1 to l2 data tree
     const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
     auto new_l1_to_l2_messages_tree_snapshot = components::insert_subtree_to_snapshot_tree(
         builder,
@@ -155,7 +155,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
                                  end_l1_to_l2_data_roots_tree_snapshot.root });
 
     // Update the historic blocks tree
-    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
+    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree_traced(
         builder,
         rootRollupInputs.start_historic_blocks_tree_snapshot,
         rootRollupInputs.new_historic_blocks_tree_sibling_path,

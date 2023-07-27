@@ -30,8 +30,8 @@ template <typename NCT> struct RootRollupInputs {
     AppendOnlyTreeSnapshot<NCT> start_historic_tree_l1_to_l2_message_tree_roots_snapshot{};
 
     // inputs required to add the block hash
-    std::array<fr, HISTORIC_BLOCKS_TREE_HEIGHT> new_historic_blocks_tree_sibling_path{};
     AppendOnlyTreeSnapshot<NCT> start_historic_blocks_tree_snapshot{};
+    std::array<fr, HISTORIC_BLOCKS_TREE_HEIGHT> new_historic_blocks_tree_sibling_path{};
 
     bool operator==(RootRollupInputs<NCT> const&) const = default;
 };
@@ -48,6 +48,8 @@ template <typename NCT> void read(uint8_t const*& it, RootRollupInputs<NCT>& obj
     read(it, obj.new_historic_l1_to_l2_message_roots_tree_sibling_path);
     read(it, obj.start_l1_to_l2_message_tree_snapshot);
     read(it, obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot);
+    read(it, obj.start_historic_blocks_tree_snapshot);
+    read(it, obj.new_historic_blocks_tree_sibling_path);
 };
 
 template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupInputs<NCT> const& obj)
@@ -62,6 +64,8 @@ template <typename NCT> void write(std::vector<uint8_t>& buf, RootRollupInputs<N
     write(buf, obj.new_historic_l1_to_l2_message_roots_tree_sibling_path);
     write(buf, obj.start_l1_to_l2_message_tree_snapshot);
     write(buf, obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot);
+    write(buf, obj.start_historic_blocks_tree_snapshot);
+    write(buf, obj.new_historic_blocks_tree_sibling_path);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInputs<NCT> const& obj)
@@ -77,7 +81,9 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, RootRollupInp
               << obj.new_historic_l1_to_l2_message_roots_tree_sibling_path << "\n"
               << "start_l1_to_l2_message_tree_snapshot: " << obj.start_l1_to_l2_message_tree_snapshot << "\n"
               << "start_historic_tree_l1_to_l2_message_tree_roots_snapshot: "
-              << obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot << "\n";
+              << obj.start_historic_tree_l1_to_l2_message_tree_roots_snapshot << "\n"
+              << "start_historic_blocks_tree_snapshot: " << obj.start_historic_blocks_tree_snapshot << "\n"
+              << "new_historic_blocks_tree_sibling_path: " << obj.new_historic_blocks_tree_sibling_path << "\n";
 }
 
 }  // namespace aztec3::circuits::abis
