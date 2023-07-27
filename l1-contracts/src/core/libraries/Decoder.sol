@@ -302,8 +302,15 @@ library Decoder {
 
       // Create the leaf to contain commitments (2 * COMMITMENTS_PER_TX * 020) + nullifiers (2 * NULLIFIERS_PER_TX * 0x20)
       // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60) + logs hashes (2 * 4 * 0x20)
+      ArrayLengths memory constantsLengthsPerBase;
+      constantsLengthsPerBase.commitmentCount = 2 * Constants.COMMITMENTS_PER_TX;
+      constantsLengthsPerBase.nullifierCount = 2 * Constants.NULLIFIERS_PER_TX;
+      constantsLengthsPerBase.dataWritesCount = 2 * Constants.PUBLIC_DATA_WRITES_PER_TX;
+      constantsLengthsPerBase.l2ToL1MsgsCount = 2 * Constants.L2_TO_L1_MSGS_PER_TX;
+      constantsLengthsPerBase.contractCount = 2 * Constants.CONTRACTS_PER_TX;
+
       vars.baseLeaf =
-      new bytes(2 * Constants.COMMITMENTS_PER_TX * 0x20 + 2 * Constants.NULLIFIERS_PER_TX * 0x20 + 2 * Constants.PUBLIC_DATA_WRITES_PER_TX * 0x40 + 2 * Constants.CONTRACTS_PER_TX * 0x60 + 2 * 4 * 0x20);
+      new bytes(constantsLengthsPerBase.commitmentCount * 0x20 + constantsLengthsPerBase.nullifierCount * 0x20 + constantsLengthsPerBase.dataWritesCount * 0x40 + constantsLengthsPerBase.contractCount * 0x60 + 2 * 4 * 0x20);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -324,7 +331,7 @@ library Decoder {
          *    newContractDataKernel2.aztecAddress,
          *    newContractDataKernel2.ethAddress (padded to 32 bytes), ____
          *    encrypedLogsHashKernel1,                                   |
-         *    encrypedLogsHashKernel2,                                   |=> Computed bellow from logs' preimages.
+         *    encrypedLogsHashKernel2,                                   |=> Computed below from logs' preimages.
          *    unencryptedLogsHashKernel1,                                |
          *    unencryptedLogsHashKernel2                              ___|
          * );
@@ -346,34 +353,52 @@ library Decoder {
         (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogsOffset) =
           computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
 
-        uint256 commitmentsPerBase = 2 * Constants.COMMITMENTS_PER_TX;
-        uint256 nullifiersPerBase = 2 * Constants.NULLIFIERS_PER_TX;
-
         assembly {
           let baseLeaf := mload(add(vars, 0x40)) // Load the pointer to `vars.baseLeaf`
           let dstPtr := add(baseLeaf, 0x20) // Current position withing `baseLeaf` to write to
+          let leafDataLengthPerBase := mload(constantsLengthsPerBase)
 
           // Adding new commitments
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), mul(commitmentsPerBase, 0x20))
-          dstPtr := add(dstPtr, mul(commitmentsPerBase, 0x20))
+          calldatacopy(
+            dstPtr, add(_l2Block.offset, mload(offsets)), mul(leafDataLengthPerBase, 0x20)
+          )
+          dstPtr := add(dstPtr, mul(leafDataLengthPerBase, 0x20))
+          leafDataLengthPerBase := mload(add(constantsLengthsPerBase, 0x20))
 
           // Adding new nullifiers
           calldatacopy(
-            dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), mul(nullifiersPerBase, 0x20)
+            dstPtr,
+            add(_l2Block.offset, mload(add(offsets, 0x20))),
+            mul(leafDataLengthPerBase, 0x20)
           )
-          dstPtr := add(dstPtr, mul(nullifiersPerBase, 0x20))
+          dstPtr := add(dstPtr, mul(leafDataLengthPerBase, 0x20))
+          leafDataLengthPerBase := mload(add(constantsLengthsPerBase, 0x40))
 
           // Adding new public data writes
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), mul(0x08, 0x40))
-          dstPtr := add(dstPtr, mul(0x08, 0x40))
+          calldatacopy(
+            dstPtr,
+            add(_l2Block.offset, mload(add(offsets, 0x40))),
+            mul(leafDataLengthPerBase, 0x40)
+          )
+          dstPtr := add(dstPtr, mul(leafDataLengthPerBase, 0x40))
+          leafDataLengthPerBase := mload(add(constantsLengthsPerBase, 0x60))
 
           // Adding new l2 to l1 msgs
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), mul(0x04, 0x20))
-          dstPtr := add(dstPtr, mul(0x04, 0x20))
+          calldatacopy(
+            dstPtr,
+            add(_l2Block.offset, mload(add(offsets, 0x60))),
+            mul(leafDataLengthPerBase, 0x20)
+          )
+          dstPtr := add(dstPtr, mul(leafDataLengthPerBase, 0x20))
+          leafDataLengthPerBase := mload(add(constantsLengthsPerBase, 0x80))
 
           // Adding Contract Leafs
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), mul(0x2, 0x20))
-          dstPtr := add(dstPtr, mul(0x2, 0x20))
+          calldatacopy(
+            dstPtr,
+            add(_l2Block.offset, mload(add(offsets, 0x80))),
+            mul(leafDataLengthPerBase, 0x20)
+          )
+          dstPtr := add(dstPtr, mul(leafDataLengthPerBase, 0x20))
 
           // Kernel1.contract.aztecAddress
           let contractDataOffset := mload(add(offsets, 0xa0))
