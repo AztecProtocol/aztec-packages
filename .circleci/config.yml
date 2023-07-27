@@ -236,16 +236,16 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  bb-bin-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
+  # bb-bin-tests:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
 
   barretenberg-benchmark-aggregator:
     docker:
@@ -316,16 +316,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
 
-  circuits-x86_64-linux-clang-tidy:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build"
-          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
+  # TODO Disabling until this is 3-10x faster see #1152
+  # circuits-x86_64-linux-clang-tidy:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build"
+  #         command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
 
   circuits-x86_64-linux-clang:
     docker:
@@ -685,6 +686,18 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_deploy_contract.test.ts
 
+  e2e-lending-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_lending_contract.test.ts
+
+
   e2e-zk-token-contract:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -762,7 +775,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_public_to_private_messaging.test.ts
 
-  e2e-account-contract:
+  e2e-account-contracts:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -1008,7 +1021,8 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - bb-bin-tests: *bb_test
+      # TODO(#1236): Reinstate this test once Noir support recursion again.
+      # - bb-bin-tests: *bb_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
@@ -1037,7 +1051,7 @@ workflows:
           <<: *defaults
       - circuits-wasm-linux-clang: *defaults
       - circuits-wasm-linux-clang-assert: *defaults
-      - circuits-x86_64-linux-clang-tidy: *defaults
+      # - circuits-x86_64-linux-clang-tidy: *defaults # TODO #1152
       - circuits-x86_64-linux-clang: *defaults
       - circuits-x86_64-linux-clang-assert: *defaults
       - circuits-wasm-tests:
@@ -1049,7 +1063,7 @@ workflows:
           requires:
             - circuits-wasm-linux-clang
             - circuits-wasm-linux-clang-assert
-            - circuits-x86_64-linux-clang-tidy
+            # - circuits-x86_64-linux-clang-tidy # TODO #1152
             - circuits-x86_64-linux-clang
             - circuits-x86_64-linux-clang-assert
             - circuits-wasm-tests
@@ -1115,6 +1129,7 @@ workflows:
 
       - e2e-2-rpc-servers: *e2e_test
       - e2e-deploy-contract: *e2e_test
+      - e2e-lending-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
@@ -1124,7 +1139,7 @@ workflows:
       - e2e-cross-chain-messaging: *e2e_test
       - e2e-public-cross-chain-messaging: *e2e_test
       - e2e-public-to-private-messaging: *e2e_test
-      - e2e-account-contract: *e2e_test
+      - e2e-account-contracts: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
@@ -1136,6 +1151,7 @@ workflows:
           requires:
             - e2e-2-rpc-servers
             - e2e-deploy-contract
+            - e2e-lending-contract
             - e2e-zk-token-contract
             - e2e-block-building
             - e2e-nested-contract
@@ -1145,7 +1161,7 @@ workflows:
             - e2e-cross-chain-messaging
             - e2e-public-cross-chain-messaging
             - e2e-public-to-private-messaging
-            - e2e-account-contract
+            - e2e-account-contracts
             - e2e-pending-commitments-contract
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
