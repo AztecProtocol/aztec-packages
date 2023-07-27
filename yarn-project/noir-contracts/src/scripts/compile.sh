@@ -17,6 +17,12 @@ set -euo pipefail;
 ROOT=$(pwd)
 NARGO_COMMAND="nargo"  # Default nargo command
 
+# Get process and format flag value
+PROCESS_AND_FORMAT=$1
+shift
+
+echo "Processing and formatting: $PROCESS_AND_FORMAT"
+
 # Function to display script usage
 usage() {
   echo "Usage: $0 [--nargo-path=<path>] [--verbose] CONTRACT_NAME [CONTRACT_NAME...]"
@@ -41,6 +47,15 @@ build() {
   else
     "$NARGO_COMMAND" compile main --contracts
   fi
+
+  if [ "$PROCESS_AND_FORMAT" == "true" ] ; then
+    process $CONTRACT_NAME
+  fi
+
+}
+
+process() {
+  CONTRACT_NAME=$1
 
   cd $ROOT
   echo "Copying output for $CONTRACT_NAME"
@@ -87,15 +102,21 @@ for CONTRACT_NAME in "$@"; do
   build $CONTRACT_NAME &
 done
 
-# Format contracts once all background processes have finished
+# Wait for all background processes to finish
 wait
-format
 
-# Check for stale artifacts
-for json_path in src/artifacts/*.json; do
-  json_file="$(basename "$json_path")";
-  contract_name="${json_file%.json}";
-  if [ ! -d "./src/contracts/$contract_name" ]; then
-    echo "WARN: Source code for artifact '$contract_name' not found. Consider deleting the artifact.";
-  fi
-done
+# only run the rest when the full flag is set
+if [ "$PROCESS_AND_FORMAT" == "true" ] ; then
+  # Format contracts
+  format
+
+  # Check for stale artifacts
+  for json_path in src/artifacts/*.json; do
+    json_file="$(basename "$json_path")";
+    contract_name="${json_file%.json}";
+    if [ ! -d "./src/contracts/$contract_name" ]; then
+      echo "WARN: Source code for artifact '$contract_name' not found. Consider deleting the artifact.";
+    fi
+  done
+fi
+
