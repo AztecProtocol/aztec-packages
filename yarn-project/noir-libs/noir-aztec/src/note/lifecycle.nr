@@ -24,7 +24,7 @@ fn create_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        assert(notify_created_note(storage_slot, preimage) == 0);
+        assert(notify_created_note(storage_slot, preimage, inner_note_hash) == 0);
     }
 
     context.push_new_note_hash(inner_note_hash)
@@ -45,11 +45,11 @@ fn destroy_note<Note, N>(
 
         let serialise = note_interface.serialise;
         let preimage = serialise(note);
-        assert(notify_nullified_note(storage_slot, nullifier, preimage) == 0);
         
         // We also need the note commitment corresponding to the "nullifier"
         // TODO(suyash): We're re-computing the note commitment, ideally we can reuse the one already computed.
         nullified_commitment = compute_inner_note_hash(note_interface, note);
+        assert(notify_nullified_note(storage_slot, nullifier, preimage, nullified_commitment) == 0);
     } else {
         nullified_commitment = EMPTY_NULLIFIED_COMMITMENT;
     }
