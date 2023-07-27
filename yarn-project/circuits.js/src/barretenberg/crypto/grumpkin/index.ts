@@ -34,31 +34,31 @@ export class Grumpkin implements Curve {
   }
 
   /**
-   * Multiplies a point by a scalar (adds the point `scalar` amount of time).
+   * Multiplies a point by a private key (adds the point `privateKey` amount of time).
    * @param point - Point to multiply.
-   * @param scalar - Scalar to multiply by.
+   * @param privateKey - Private key to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Point, scalar: PrivateKey): Point {
+  public mul(point: Point, privateKey: PrivateKey): Point {
     this.wasm.writeMemory(0, point.toBuffer());
-    this.wasm.writeMemory(64, scalar.value);
+    this.wasm.writeMemory(64, privateKey.value);
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
     return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
   }
 
   /**
-   * Multiplies a set of points by a scalar.
+   * Multiplies a set of points by a private key.
    * @param points - Points to multiply.
-   * @param scalar - Scalar to multiply by.
-   * @returns Points multiplied by the scalar.
+   * @param privateKey - Private key to multiply by.
+   * @returns Points multiplied by the private key.
    */
-  public batchMul(points: Point[], scalar: PrivateKey) {
+  public batchMul(points: Point[], privateKey: PrivateKey) {
     const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
 
     const mem = this.wasm.call('bbmalloc', points.length * 2);
 
     this.wasm.writeMemory(mem, concatenatedPoints);
-    this.wasm.writeMemory(0, scalar.value);
+    this.wasm.writeMemory(0, privateKey.value);
     this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + points.length);
 
     const result: Buffer = Buffer.from(

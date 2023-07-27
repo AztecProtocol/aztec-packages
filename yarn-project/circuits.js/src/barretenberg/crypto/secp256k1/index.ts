@@ -34,14 +34,14 @@ export class Secp256k1 implements Curve {
   }
 
   /**
-   * Multiplies a point by a scalar (adds the point `scalar` amount of time).
+   * Multiplies a point by a private key (adds the point `privateKey` amount of time).
    * @param point - Point to multiply.
-   * @param scalar - Scalar to multiply by.
+   * @param privateKey - Private key to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Point, scalar: PrivateKey): Point {
+  public mul(point: Point, privateKey: PrivateKey): Point {
     this.wasm.writeMemory(0, point.toBuffer());
-    this.wasm.writeMemory(64, scalar.value);
+    this.wasm.writeMemory(64, privateKey.value);
     this.wasm.call('ecc_secp256k1__mul', 0, 64, 96);
     return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
   }

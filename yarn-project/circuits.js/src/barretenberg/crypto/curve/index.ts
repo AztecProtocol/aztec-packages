@@ -5,12 +5,12 @@ import { Fr, Point, PrivateKey } from '../../../index.js';
  */
 export interface Curve {
   /**
-   * Multiplies a point by a scalar (adds the point `scalar` amount of time).
+   * Multiplies a point by a private key (adds the point `privateKey` amount of time).
    * @param point - Point to multiply.
-   * @param scalar - Scalar to multiply by.
+   * @param privateKey - Private key to multiply by.
    * @returns Result of the multiplication.
    */
-  mul(point: Point, scalar: PrivateKey): Point;
+  mul(point: Point, privateKey: PrivateKey): Point;
 
   /**
    * Gets a random field element.
