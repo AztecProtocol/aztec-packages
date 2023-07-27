@@ -306,7 +306,7 @@ library Decoder {
       // log hash is 4 * 0x20 since each log hash is divided into two field elements. And there are two kinds of logs - enrypted, unencrypted. Hence "4 * 0x20"
 
       vars.baseLeaf =
-      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_BASE + Constants.NULLIFIERS_NUM_BYTES_PER_BASE + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE + Constants.CONTRACTS_NUM_BYTES_PER_BASE + Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE + 2 * 4 * 0x20);
+      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + 2 * 4 * 0x20);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -353,7 +353,7 @@ library Decoder {
         assembly {
           dstPtr := add(mload(add(vars, 0x40)), 0x20) // Load the pointer to `vars.baseLeaf`
         }
-        uint256 bytesToCopy = Constants.COMMITMENTS_NUM_BYTES_PER_BASE;
+        uint256 bytesToCopy = Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
 
         // Adding new commitments
         assembly {
@@ -362,28 +362,28 @@ library Decoder {
         dstPtr += bytesToCopy;
 
         // Adding new nullifiers
-        bytesToCopy = Constants.NULLIFIERS_NUM_BYTES_PER_BASE;
+        bytesToCopy = Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
         assembly {
           calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), bytesToCopy)
         }
         dstPtr += bytesToCopy;
 
         // Adding new public data writes
-        bytesToCopy = Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE;
+        bytesToCopy = Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
         assembly {
           calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), bytesToCopy)
         }
         dstPtr += bytesToCopy;
 
         // Adding new l2 to l1 msgs
-        bytesToCopy = Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE;
+        bytesToCopy = Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
         assembly {
           calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), bytesToCopy)
         }
         dstPtr += bytesToCopy;
 
         // Adding Contract Leafs
-        bytesToCopy = Constants.CONTRACTS_NUM_BYTES_PER_BASE;
+        bytesToCopy = Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
         assembly {
           calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), bytesToCopy)
         }
