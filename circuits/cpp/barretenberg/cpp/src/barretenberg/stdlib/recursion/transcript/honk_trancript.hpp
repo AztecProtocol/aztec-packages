@@ -24,17 +24,26 @@ template <typename Builder> class Transcript {
     using witness_pt = witness_t<Builder>;
     using fq_pt = bigfield<Builder, barretenberg::Bn254FqParams>;
     using group_pt = element<Builder, fq_pt, field_pt, barretenberg::g1>;
+    using byte_array = byte_array<Builder>;
     using Key = verification_key<stdlib::bn254<Builder>>;
     using FF = barretenberg::fr;
     using Commitment = barretenberg::g1::affine_element;
     using VerifierTranscript = proof_system::honk::VerifierTranscript<FF>;
 
+    static constexpr size_t HASH_OUTPUT_SIZE = 32; // WORKTODO: Duplicated from native transcript
+
     VerifierTranscript native_transcript;
     Builder* builder;
+    // maximum number of bytes we can store in a field element w/o wrapping modulus is 31.
+    // while we could store more *bits*, we want `preimage_buffer` to mirror how data is formatted
+    // when we serialize field/group elements natively (i.e. a byte array)
+    static constexpr size_t NUM_BITS_PER_PREIMAGE_ELEMENT = 31UL * 8UL;
+    PedersenPreimageBuilder<Builder, NUM_BITS_PER_PREIMAGE_ELEMENT> preimage_buffer;
 
     Transcript(Builder* builder, auto proof_data)
         : native_transcript(proof_data)
-        , builder(builder){};
+        , builder(builder)
+        , preimage_buffer(builder){};
 
     /**
      * @brief Get the underlying native transcript manifest (primarily for debugging)
@@ -67,14 +76,28 @@ template <typename Builder> class Transcript {
      * @param label Name of challenge
      * @return FF Challenge
      */
-    FF get_challenge(const std::string& label)
+    field_pt get_challenge(const std::string& label)
     {
         // Compute the indicated challenge from the native transcript
-        auto challenge = native_transcript.get_challenge(label);
+        // WORKTODO: need to call this to update native transcript but maybe dont need the native challenge itself
+        [[maybe_unused]] auto native_challenge = native_transcript.get_challenge(label);
 
-        // Do stdlib version of fiat-shamir here..
+        // Stdlib Fiat-Shamir
+        // Compress buffer via pedersen then hash the result using Blake3s
+        field_pt compressed_buffer = preimage_buffer.compress(0);
+        auto buffer_bytes = byte_array(compressed_buffer);
+        auto challenge_buffer = blake3s(buffer_bytes);
 
-        return challenge;
+        auto current_challenge = field_pt(challenge_buffer.slice(0, HASH_OUTPUT_SIZE));
+
+        info("native_challenge = ", native_challenge);
+        info("current_challenge = ", current_challenge.get_value());
+
+
+        preimage_buffer.clear();
+        preimage_buffer.add_element(current_challenge);
+
+        return current_challenge;
     }
 
     /**
@@ -99,31 +122,72 @@ template <typename Builder> class Transcript {
      * @param element 
      * @return field_pt 
      */
-    field_pt stdlib_type_from_witness(uint32_t element)
+    field_pt stdlib_type_from_witness(uint32_t native_element)
     {
-        return witness_pt(builder, element);
+        auto element = witness_pt(builder, native_element);
+
+        // WORKTODO: do something special here for the uint32_t?
+        preimage_buffer.add_element(element);
+
+        return element;
     }
 
     /**
      * @brief Construct stdlib field from native field type
      * 
-     * @param element 
+     * @param native_element 
      * @return field_pt 
      */
-    field_pt stdlib_type_from_witness(FF element)
+    field_pt stdlib_type_from_witness(FF native_element)
     {
-        return witness_pt(builder, element);
+        auto element = witness_pt(builder, native_element);
+
+        preimage_buffer.add_element(element);
+
+        return element;
     }
 
     /**
      * @brief Construct stdlib group from native affine group element type
      * 
-     * @param element 
+     * @param native_element 
      * @return field_pt 
      */
-    group_pt stdlib_type_from_witness(Commitment element)
+    group_pt stdlib_type_from_witness(Commitment native_element)
     {
-        return group_pt::from_witness(builder, element);
+        auto element = group_pt::from_witness(builder, native_element);
+
+        add_commitment_to_preimage_buffer(element);
+
+        return element; 
+    }
+
+    /**
+     * @brief Add an EC point / commitment to the pedersen preimage buffer
+     * 
+     * @param point 
+     */
+    void add_commitment_to_preimage_buffer(group_pt& point)
+    {
+        const auto& x = point.x;
+        const auto& y = point.y;
+        constexpr size_t last_limb_bits = 256 - (fq_pt::NUM_LIMB_BITS * 3);
+        preimage_buffer.add_element_with_existing_range_constraint(y.binary_basis_limbs[3].element,
+                                                                    last_limb_bits);
+        preimage_buffer.add_element_with_existing_range_constraint(y.binary_basis_limbs[2].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
+        preimage_buffer.add_element_with_existing_range_constraint(y.binary_basis_limbs[1].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
+        preimage_buffer.add_element_with_existing_range_constraint(y.binary_basis_limbs[0].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
+        preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[3].element,
+                                                                    last_limb_bits);
+        preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[2].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
+        preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[1].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
+        preimage_buffer.add_element_with_existing_range_constraint(x.binary_basis_limbs[0].element,
+                                                                    fq_pt::NUM_LIMB_BITS);
     }
 
 };
