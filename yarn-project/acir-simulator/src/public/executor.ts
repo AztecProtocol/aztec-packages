@@ -182,7 +182,7 @@ export class PublicExecutor {
     globalVariables: GlobalVariables,
   ) {
     const portalAddress = (await this.contractsDb.getPortalContractAddress(targetContractAddress)) ?? EthAddress.ZERO;
-    // @todo @lherskind - Need to make this data accessible
+    // @todo @lherskind - Need to make this data accessible (See issue #1200)
     //const abi = await this.contractsDb.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const isInternal = false;
     const functionData = new FunctionData(targetFunctionSelector, isInternal, false, false);

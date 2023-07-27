@@ -10,7 +10,6 @@ contract Lending {
     use dep::aztec::oracle::{
         logs::emit_unencrypted_log,
         create_nullifier::create_nullifier,
-        debug_log::debug_log_field
     };
     use dep::aztec::public_call_stack_item::{
         call_public_function,
@@ -62,19 +61,10 @@ contract Lending {
         // Need proper interest computation here.
         // Assume constant rate because too few reads :cry:
         let rate: u120 = 100000;
+        // Just need something that increases, but :cry:
         let multiplier: u120 = 1000000000 + dt * rate;
         let divisor: u120 = 1000000000;
 
-        //debug_log_field(57005);
-        //debug_log_field(1329227995784915872903807060280344576 + tot.last_updated_ts as Field);
-        //debug_log_field(2 * 1329227995784915872903807060280344576 + dt as Field);
-        //debug_log_field(3 * 1329227995784915872903807060280344576 + tot.interest_accumulator as Field);
-        //debug_log_field(4 * 1329227995784915872903807060280344576 + multiplier  as Field);
-        //debug_log_field(5 * 1329227995784915872903807060280344576 + divisor as Field);
-        //debug_log_field(6 * 1329227995784915872903807060280344576 + ((tot.interest_accumulator * multiplier))  as Field);
-        //debug_log_field(7 * 1329227995784915872903807060280344576 + ((tot.interest_accumulator * multiplier) / divisor)  as Field);
-        
-        // HERE
         tot.interest_accumulator = (tot.interest_accumulator * multiplier) / divisor;
         tot.last_updated_ts = inputs.public_global_variables.timestamp as u120;
 

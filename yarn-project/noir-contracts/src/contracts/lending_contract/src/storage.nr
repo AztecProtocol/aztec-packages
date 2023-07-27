@@ -4,6 +4,9 @@ use dep::aztec::state_vars::public_state_value::PublicStateValueInterface;
 use dep::aztec::state_vars::public_state_value::field_value::FieldValueInterface;
 use dep::std::hash::pedersen;
 
+// Utility struct used to easily get a "id" for a private user that sits in the same
+// "space" as the public users.
+// It help us to have a single mapping for collateral that have both public and private users.
 struct Account {
     address: Field,
     secret: Field,
@@ -28,6 +31,11 @@ impl Account {
 
 global TOT_SIZE: Field = 2;
 
+// Struct to be used to represent "totals". Generally, there should be one per asset.
+// It stores the global values that are shared among all users, such as an accumulator
+// and last time it was updated.
+// In practice, it should also point to an oracle and have more fields related to 
+// loan to value ratios and other things, but we did not have enough reads/writes for this.
 struct Tot {
     interest_accumulator: u120,
     last_updated_ts: u120,
@@ -50,6 +58,7 @@ global TotInterface = PublicStateValueInterface {
 };
 
 
+// Struct to be used to represent positions when we have more reads.
 global POS_SIZE: Field = 2;
 
 struct Pos {
@@ -74,6 +83,7 @@ global PosInterface = PublicStateValueInterface {
 };
 
 
+// Storage structure, containing all storage, and specifying what slots they use.
 struct Storage {
     assets: Map<PublicState<Tot, TOT_SIZE>>,
     collateral: Map<PublicState<Field, 1>>,

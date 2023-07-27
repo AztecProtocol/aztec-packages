@@ -24,10 +24,9 @@ import {
 import { MockProxy, mock } from 'jest-mock-extended';
 import { type MemDown, default as memdown } from 'memdown';
 
-import { DBOracle } from '../index.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { PublicContractsDB, PublicStateDB } from './db.js';
+import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 
@@ -37,7 +36,7 @@ describe('ACIR public execution simulator', () => {
   let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
-  let commitmentsDb: MockProxy<DBOracle>;
+  let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
 
   beforeAll(async () => {
@@ -47,7 +46,7 @@ describe('ACIR public execution simulator', () => {
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
-    commitmentsDb = mock<DBOracle>();
+    commitmentsDb = mock<CommitmentsDB>();
 
     commitmentsDb.getTreeRoots.mockReturnValue(PrivateHistoricTreeRoots.empty());
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb);

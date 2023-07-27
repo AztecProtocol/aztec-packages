@@ -22,7 +22,6 @@ use crate::constants_gen::{
 use crate::oracle::enqueue_public_function_call::enqueue_public_function_call_internal;
 use crate::oracle::public_call::call_public_function_internal;
 use crate::oracle::arguments;
-use crate::oracle::debug_log::debug_log_field;
 
 struct PublicCallStackItem {
     contract_address: Field,
