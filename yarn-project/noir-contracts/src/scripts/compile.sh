@@ -33,6 +33,15 @@ usage() {
   exit 1
 }
 
+# Custom error handler function
+handle_error() {
+  echo "Error occurred in process $1. Exiting..."
+  exit 1
+}
+
+# Trap any ERR signal and call the custom error handler
+trap 'handle_error $!' ERR
+
 build() {
   CONTRACT_NAME=$1
   CONTRACT_FOLDER="${CONTRACT_NAME}_contract"
