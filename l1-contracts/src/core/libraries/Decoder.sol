@@ -115,14 +115,16 @@ library Decoder {
   // Where the start of trees metadata begins in the block
   uint256 private constant START_TREES_BLOCK_HEADER_OFFSET = 0x80;
 
-  // Where the end of trees metadata begns in the block
-  uint256 private constant END_TREES_BLOCK_HEADER_OFFSET = 0x01c0;
-
   // The size of the block header elements
-  uint256 private constant TREES_HEADER_SIZE = 0x140;
+  uint256 private constant TREES_BLOCK_HEADER_SIZE = 0x140;
+
+  // Where the end of trees metadata begns in the block
+  uint256 private constant END_TREES_BLOCK_HEADER_OFFSET =
+    START_TREES_BLOCK_HEADER_OFFSET + TREES_BLOCK_HEADER_SIZE;
 
   // Where the metadata ends and the block data begins.
-  uint256 private constant METADATA_OFFSET = 0x0300;
+  // This is really (START_TREES_BLOCK_HEADER_OFFSET + 2 * TREES_BLOCK_HEADER_SIZE) but assembly doesnt allow comptime constant use
+  uint256 private constant BLOCK_HEADER_OFFSET = 0x0300;
 
   /**
    * @notice Decodes the inputs and computes values to check state against
@@ -171,11 +173,11 @@ library Decoder {
     bytes32 _diffRoot,
     bytes32 _l1ToL2MsgsHash
   ) internal pure returns (bytes32) {
-    bytes memory temp = new bytes(METADATA_OFFSET + 0x20 + 0x20);
+    bytes memory temp = new bytes(BLOCK_HEADER_OFFSET + 0x20 + 0x20);
     assembly {
-      calldatacopy(add(temp, 0x20), _l2Block.offset, METADATA_OFFSET)
-      mstore(add(temp, add(0x20, METADATA_OFFSET)), _diffRoot)
-      mstore(add(temp, add(0x40, METADATA_OFFSET)), _l1ToL2MsgsHash)
+      calldatacopy(add(temp, 0x20), _l2Block.offset, BLOCK_HEADER_OFFSET)
+      mstore(add(temp, add(0x20, BLOCK_HEADER_OFFSET)), _diffRoot)
+      mstore(add(temp, add(0x40, BLOCK_HEADER_OFFSET)), _l1ToL2MsgsHash)
     }
     return Hash.sha256ToField(temp);
   }
@@ -206,14 +208,14 @@ library Decoder {
     pure
     returns (bytes32)
   {
-    // 0x20 for the block number + TREES_HEADER_SIZE for the header elements
-    bytes memory temp = new bytes(0x20 + TREES_HEADER_SIZE);
+    // 0x20 for the block number + TREES_BLOCK_HEADER_SIZE for the header elements
+    bytes memory temp = new bytes(0x20 + TREES_BLOCK_HEADER_SIZE);
 
     assembly {
       // Copy block number
       mstore(add(temp, 0x20), _l2BlockNumber)
       // Copy header elements (not including block number) for start or end
-      calldatacopy(add(temp, 0x40), add(_l2Block.offset, _offset), TREES_HEADER_SIZE)
+      calldatacopy(add(temp, 0x40), add(_l2Block.offset, _offset), TREES_BLOCK_HEADER_SIZE)
     }
 
     return sha256(temp);
@@ -238,7 +240,7 @@ library Decoder {
     ArrayOffsets memory offsets;
     {
       assembly {
-        let offset := add(_l2Block.offset, METADATA_OFFSET)
+        let offset := add(_l2Block.offset, BLOCK_HEADER_OFFSET)
         let commitmentCount := and(shr(224, calldataload(offset)), 0xffffffff)
         offset := add(add(offset, 0x4), mul(commitmentCount, 0x20))
         let nullifierCount := and(shr(224, calldataload(offset)), 0xffffffff)
@@ -277,7 +279,7 @@ library Decoder {
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
-      offsets.commitmentOffset = METADATA_OFFSET + 0x4;
+      offsets.commitmentOffset = BLOCK_HEADER_OFFSET + 0x4;
       offsets.nullifierOffset = offsets.commitmentOffset + 0x4 + lengths.commitmentCount * 0x20;
       offsets.publicDataOffset = offsets.nullifierOffset + 0x4 + lengths.nullifierCount * 0x20;
       offsets.l2ToL1MsgsOffset = offsets.publicDataOffset + 0x4 + lengths.dataWritesCount * 0x40;
