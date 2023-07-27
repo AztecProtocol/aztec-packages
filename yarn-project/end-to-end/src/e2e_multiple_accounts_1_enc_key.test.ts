@@ -1,6 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, Fr } from '@aztec/aztec-rpc';
 import { AztecAddress, StoredKeyAccountContract, Wallet, generatePublicKey } from '@aztec/aztec.js';
+import { PrivateKey } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrMultiKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -44,10 +45,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
       const schnorr = await Schnorr.new();
       const signingPublicKey = schnorr.computePublicKey(signingPrivateKey);
-      const constructorArgs = [
-        Fr.fromBuffer(signingPublicKey.subarray(0, 32)),
-        Fr.fromBuffer(signingPublicKey.subarray(32, 64)),
-      ];
+      const constructorArgs = [signingPublicKey.x, signingPublicKey.y];
 
       const { wallet, address } = await createNewAccount(
         aztecRpcServer,

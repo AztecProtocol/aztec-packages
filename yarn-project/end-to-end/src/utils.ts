@@ -309,7 +309,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   const privKey = privKeyRaw === null ? null : new PrivateKey(Buffer.from(privKeyRaw));
 
-  config.publisherPrivateKey = Buffer.from(privKey!);
+  config.publisherPrivateKey = privKey!;
   config.rollupContract = deployL1ContractsValues.rollupAddress;
   config.contractDeploymentEmitterContract = deployL1ContractsValues.contractDeploymentEmitterAddress;
   config.inboxContract = deployL1ContractsValues.inboxAddress;
@@ -367,7 +367,7 @@ export type CreateAccountImplFn = (
   address: AztecAddress,
   useProperKey: boolean,
   partialAddress: PartialContractAddress,
-  encryptionPrivateKey: Buffer,
+  encryptionPrivateKey: PrivateKey,
 ) => Promise<AccountImplementation>;
 
 /**
