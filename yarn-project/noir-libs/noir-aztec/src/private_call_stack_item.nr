@@ -112,12 +112,10 @@ impl PrivateCallStackItem {
     }
 
     fn hash(self) -> Field {
-        dep::std::hash::pedersen([
-            // TODO hash_index
-            // FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
+        dep::std::hash::pedersen_with_separator([
             self.contract_address,
             self.function_data.hash(),
             self.public_inputs.hash(),
-        ])[0]
+        ], constants_gen::GENERATOR_INDEX__CALL_STACK_ITEM)[0]
     }
 }
