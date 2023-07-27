@@ -92,8 +92,6 @@ export class PrivateFunctionExecution {
         });
         return ZERO_ACVM_FIELD;
       },
-      // TODO(jeanmon): Clarify whether we should remove an entry in pendingNotes when the nullifier nullifies a
-      // pending note.
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage, [innerNoteHash]) => {
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
@@ -101,7 +99,7 @@ export class PrivateFunctionExecution {
           nullifier: fromACVMField(nullifier),
         });
         this.context.pushPendingNullifier(fromACVMField(nullifier));
-        this.context.pushNullifiedCommitment(fromACVMField(innerNoteHash));
+        this.context.nullifyPendingNotes(fromACVMField(innerNoteHash), this.contractAddress, fromACVMField(slot));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {

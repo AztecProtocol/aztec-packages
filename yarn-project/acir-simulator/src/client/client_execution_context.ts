@@ -34,13 +34,12 @@ export class ClientTxExecutionContext {
     public historicRoots: PrivateHistoricTreeRoots,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
-    /** Pending commitments created (and not nullified) up to current point in execution **/
+    /** Pending notes created (and not nullified) up to current point in execution.
+     *  If a nullifier for a note in this list is emitted, the note will be REMOVED. */
     private pendingNotes: PendingNoteData[] = [],
     /** The list of nullifiers created in this transaction. The commitment/note which is nullified
      *  might be pending or not (i.e., was generated in a previous transaction) */
     private pendingNullifiers: Set<Fr> = new Set<Fr>(),
-    /** The list of commitments which were nullified during this transaction. */
-    private nullifiedCommitments: Set<Fr> = new Set<Fr>(),
   ) {}
 
   /**
@@ -128,9 +127,9 @@ export class ClientTxExecutionContext {
 
     // Remove notes which were already nullified during this transaction.
     const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
-    const pendingNotesFiltered = pendingNotes.filter(n => !this.nullifiedCommitments.has(n.innerNoteHash));
 
-    const notes = pickNotes([...dbNotesFiltered, ...pendingNotesFiltered], {
+    // Nullified pending Notes are already removed from the list.
+    const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
       sortBy: sortBy.map(field => +field),
       sortOrder: sortOrder.map(field => +field),
       limit,
@@ -205,11 +204,31 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Adding a nullified commitment into the current set of all nullified commitments created
-   * within the current transaction/execution.
-   * @param nullifiedCommitment - The nullified commitment to add in the list.
+   * Update the list of pending notes by chopping a note which is nullified.
+   * The identifier used to determine matching is the inner note hash value.
+   * However, we adopt a defensive approach and ensure that the contract address
+   * and storage slot do match.
+   * Note that this method might be called with an innerNoteHash referring to
+   * a note created in a previous transaction which will result in this array
+   * of pending notes left unchanged.
+   * @param innerNoteHash - The inner note hash value to which note will be chopped.
+   * @param contractAddress - The contract address
+   * @param storageSlot - The storage slot as a Field Fr element
    */
-  public pushNullifiedCommitment(nullifiedCommitment: Fr) {
-    this.nullifiedCommitments.add(nullifiedCommitment);
+  public nullifyPendingNotes(innerNoteHash: Fr, contractAddress: AztecAddress, storageSlot: Fr) {
+    // IMPORTANT: We do need an in-place array mutation of this.pendingNotes as this array is shared
+    // by reference among the nested call. That is the main reason for 'splice' usage below.
+    this.pendingNotes.splice(
+      0,
+      this.pendingNotes.length,
+      ...this.pendingNotes.filter(
+        n =>
+          !(
+            n.innerNoteHash.equals(innerNoteHash) &&
+            n.contractAddress.equals(contractAddress) &&
+            n.storageSlot.equals(storageSlot)
+          ),
+      ),
+    );
   }
 }
