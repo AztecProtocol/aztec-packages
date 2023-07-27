@@ -20,22 +20,16 @@ Be very direct, like a RECIPE book.
 
 Not much prose. Prefer bullets, single sentences, copyable code snippets. Devs are lazy and don't want to read lots.
 
-Deeper PROTOCOL discussion (under the hood explanations / justifying your protocol decisions) should go in the [protocol](../../protocol/) section.
+Deeper PROTOCOL discussion (under the hood explanations / justifying your protocol decisions) should go in the [protocol](../../protocol/) section. -->
 
-Code snippets should be as minimal as possible. Get to the point. Remember, you can use #include_code syntax for code snippets (see the README.md)
-
--->
-
-DESIGN CHOICES / KNOWN LIMITATIONS
-
-EXAMPLES SECTION
+<!-- Code snippets should be as minimal as possible. Get to the point. Remember, you can use #include_code syntax for code snippets (see the README.md) -->
 
 ## Introduction
 
 1-3 sentences explaning WHAT this guide is for.
 
 :::info Prerequisites
-If you haven't read [thing](), we recommend going there first.
+If you haven't read [thing], we recommend going there first.
 :::
 
 <!-- OR -->
@@ -43,7 +37,7 @@ If you haven't read [thing](), we recommend going there first.
 :::info Fast track
 Already familiar with ...? Jump to...
 <!-- AND / OR -->
-Don't want to read the docs? Install [beautifully packaged box which exemplifies this concept] [here]().
+Don't want to read the docs? Install [beautifully packaged box which exemplifies this concept] [here].
 :::
 
 ### Aims
@@ -63,8 +57,8 @@ At the end of the guide, you should be able to \< sentence explaining high level
 ### Dependencies
 
 For this guide, the following Aztec packages are used:
-- [link]()
-- [link]()
+- [link]
+- [link]
 
 ### Examples
 
