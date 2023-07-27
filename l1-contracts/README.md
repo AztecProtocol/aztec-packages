@@ -1,6 +1,6 @@
 # L1 Contracts
 
-This directory contains the Ethereum smart contract used for progressing the state of the Rollup.
+This directory contains the Ethereum smart contracts for progressing the state of the Rollup.
 
 ## Installation
 
