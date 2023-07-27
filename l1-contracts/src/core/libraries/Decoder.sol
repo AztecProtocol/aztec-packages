@@ -300,17 +300,13 @@ library Decoder {
         )
       }
 
-      // Create the leaf to contain commitments (2 * COMMITMENTS_PER_TX * 020) + nullifiers (2 * NULLIFIERS_PER_TX * 0x20)
-      // + new public data writes (8 * 0x40) + contract deployments (2 * 0x60) + logs hashes (2 * 4 * 0x20)
-      ArrayLengths memory constantsLengthsPerBase;
-      constantsLengthsPerBase.commitmentCount = 2 * Constants.COMMITMENTS_PER_TX;
-      constantsLengthsPerBase.nullifierCount = 2 * Constants.NULLIFIERS_PER_TX;
-      constantsLengthsPerBase.dataWritesCount = 2 * Constants.PUBLIC_DATA_WRITES_PER_TX;
-      constantsLengthsPerBase.l2ToL1MsgsCount = 2 * Constants.L2_TO_L1_MSGS_PER_TX;
-      constantsLengthsPerBase.contractCount = 2 * Constants.CONTRACTS_PER_TX;
+      // Create the leaf to contain commitments (2 * COMMITMENTS_PER_TX * 0x20) + nullifiers (2 * NULLIFIERS_PER_TX * 0x20)
+      // + new public data writes (2 * PUBLIC_DATA_WRITES_PER_TX * 0x40) + contract deployments (2 * CONTRACTS_PER_TX * 0x60) + logs hashes (2 * 4 * 0x20)
+      // contract deployments is 0x60 since 0x20 for contract data root, 0x40 to store the contract's aztec address and eth address (padded to 32 bytes)
+      // log hash is 4 * 0x20 since each log hash is divided into two field elements. And there are two kinds of logs - enrypted, unencrypted. Hence "4 * 0x20"
 
       vars.baseLeaf =
-      new bytes(constantsLengthsPerBase.commitmentCount * 0x20 + constantsLengthsPerBase.nullifierCount * 0x20 + constantsLengthsPerBase.dataWritesCount * 0x40 + constantsLengthsPerBase.contractCount * 0x60 + 2 * 4 * 0x20);
+      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_BASE + Constants.NULLIFIERS_NUM_BYTES_PER_BASE + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE + Constants.CONTRACTS_NUM_BYTES_PER_BASE + Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE + 2 * 4 * 0x20);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -357,99 +353,97 @@ library Decoder {
         assembly {
           dstPtr := add(mload(add(vars, 0x40)), 0x20) // Load the pointer to `vars.baseLeaf`
         }
-        uint256 leafDataLengthPerBase = constantsLengthsPerBase.commitmentCount;
+        uint256 bytesToCopy = Constants.COMMITMENTS_NUM_BYTES_PER_BASE;
 
         // Adding new commitments
-        assembly{
-          calldatacopy(
-            dstPtr, add(_l2Block.offset, mload(offsets)), mul(leafDataLengthPerBase, 0x20)
-          )
+        assembly {
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), bytesToCopy)
         }
-        dstPtr += leafDataLengthPerBase * 0x20;
+        dstPtr += bytesToCopy;
 
         // Adding new nullifiers
-        leafDataLengthPerBase = constantsLengthsPerBase.nullifierCount;
+        bytesToCopy = Constants.NULLIFIERS_NUM_BYTES_PER_BASE;
         assembly {
-          calldatacopy(
-            dstPtr,
-            add(_l2Block.offset, mload(add(offsets, 0x20))),
-            mul(leafDataLengthPerBase, 0x20)
-          )
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), bytesToCopy)
         }
-        dstPtr += leafDataLengthPerBase * 0x20;
+        dstPtr += bytesToCopy;
 
         // Adding new public data writes
-        leafDataLengthPerBase = constantsLengthsPerBase.dataWritesCount;
+        bytesToCopy = Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE;
         assembly {
-          calldatacopy(
-            dstPtr,
-            add(_l2Block.offset, mload(add(offsets, 0x40))),
-            mul(leafDataLengthPerBase, 0x40)
-          )
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), bytesToCopy)
         }
-        dstPtr += leafDataLengthPerBase * 0x40;
+        dstPtr += bytesToCopy;
 
         // Adding new l2 to l1 msgs
-        leafDataLengthPerBase = constantsLengthsPerBase.l2ToL1MsgsCount;
+        bytesToCopy = Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE;
         assembly {
-          calldatacopy(
-            dstPtr,
-            add(_l2Block.offset, mload(add(offsets, 0x60))),
-            mul(leafDataLengthPerBase, 0x20)
-          )
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), bytesToCopy)
         }
-        dstPtr += leafDataLengthPerBase * 0x20;
+        dstPtr += bytesToCopy;
 
         // Adding Contract Leafs
-        leafDataLengthPerBase = constantsLengthsPerBase.contractCount;
+        bytesToCopy = Constants.CONTRACTS_NUM_BYTES_PER_BASE;
         assembly {
-          calldatacopy(
-            dstPtr,
-            add(_l2Block.offset, mload(add(offsets, 0x80))),
-            mul(leafDataLengthPerBase, 0x20)
-          )
+          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), bytesToCopy)
         }
-        dstPtr += leafDataLengthPerBase * 0x20;
+        dstPtr += bytesToCopy;
 
-          // Kernel1.contract.aztecAddress
+        // Kernel1.contract.aztecAddress
         uint256 contractDataOffset = offsets.contractDataOffset;
-        assembly { calldatacopy(dstPtr, add(_l2Block.offset, contractDataOffset), 0x20) }
+        assembly {
+          calldatacopy(dstPtr, add(_l2Block.offset, contractDataOffset), 0x20)
+        }
         dstPtr += 0x20;
 
         // Kernel1.contract.ethAddress padded to 32 bytes
         // Add 12 (0xc) bytes of padding to the ethAddress
         dstPtr += 0xc;
-        assembly { calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14) }
+        assembly {
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14)
+        }
         dstPtr += 0x14;
 
-          // Kernel2.contract.aztecAddress
-        assembly { calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20) }
+        // Kernel2.contract.aztecAddress
+        assembly {
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20)
+        }
         dstPtr += 0x20;
 
-          // Kernel2.contract.ethAddress padded to 32 bytes
-          // Add 12 (0xc) bytes of padding to the ethAddress
+        // Kernel2.contract.ethAddress padded to 32 bytes
+        // Add 12 (0xc) bytes of padding to the ethAddress
         dstPtr += 0xc;
-        assembly { calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14) }
+        assembly {
+          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
+        }
 
-          // encryptedLogsHashKernel1
+        // encryptedLogsHashKernel1
         dstPtr += 0x14;
         bytes32 hash = vars.encrypedLogsHashKernel1;
-        assembly { mstore(dstPtr, hash) } 
+        assembly {
+          mstore(dstPtr, hash)
+        }
 
-          // encryptedLogsHashKernel2
+        // encryptedLogsHashKernel2
         dstPtr += 0x20;
         hash = vars.encrypedLogsHashKernel2;
-        assembly { mstore(dstPtr, hash) } 
+        assembly {
+          mstore(dstPtr, hash)
+        }
 
-          // unencryptedLogsHashKernel1
+        // unencryptedLogsHashKernel1
         dstPtr += 0x20;
         hash = vars.unencryptedLogsHashKernel1;
-        assembly { mstore(dstPtr, hash) } 
+        assembly {
+          mstore(dstPtr, hash)
+        }
 
-          // unencryptedLogsHashKernel2
-          dstPtr += 0x20;
+        // unencryptedLogsHashKernel2
+        dstPtr += 0x20;
         hash = vars.unencryptedLogsHashKernel2;
-        assembly { mstore(dstPtr, hash) }
+        assembly {
+          mstore(dstPtr, hash)
+        }
 
         offsets.commitmentOffset += 2 * Constants.COMMITMENTS_PER_TX * 0x20;
         offsets.nullifierOffset += 2 * Constants.NULLIFIERS_PER_TX * 0x20;
