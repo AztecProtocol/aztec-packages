@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import { TextEncoder } from 'util';
 
 import { CircuitsWasm, PrivateKey } from '../../../index.js';

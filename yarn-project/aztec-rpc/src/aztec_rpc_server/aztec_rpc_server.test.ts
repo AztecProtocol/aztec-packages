@@ -4,7 +4,6 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair, TestKeyStore } from '@aztec/key-store';
 import { AztecNode } from '@aztec/types';
 
-import { randomBytes } from 'crypto';
 import { MockProxy, mock } from 'jest-mock-extended';
 
 import { MemoryDB } from '../database/memory_db.js';

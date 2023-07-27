@@ -1,7 +1,6 @@
 import { AztecAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { Curve } from '@aztec/circuits.js/barretenberg';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 

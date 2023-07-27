@@ -2,8 +2,6 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { randomBytes } from 'crypto';
-
 import { computeCallStackItemHash, computeContractAddressFromPartial } from '../abis/abis.js';
 import { Grumpkin, SchnorrSignature } from '../barretenberg/index.js';
 import {

@@ -1,5 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, Fr } from '@aztec/aztec-rpc';
+import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, StoredKeyAccountContract, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
@@ -7,8 +7,6 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrMultiKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
-
-import { randomBytes } from 'crypto';
 
 import {
   createNewAccount,

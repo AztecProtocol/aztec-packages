@@ -7,8 +7,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { PokeableTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, ExecutionRequest, PackedArguments, TxExecutionRequest, TxStatus } from '@aztec/types';
 
-import { randomBytes } from 'crypto';
-
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './utils.js';
 
 /**

@@ -11,7 +11,6 @@ import {
 } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { StructType } from '@aztec/foundation/abi';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';

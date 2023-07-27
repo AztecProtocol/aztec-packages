@@ -1,7 +1,6 @@
 import { CircuitsWasm, PrivateKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Point } from '@aztec/foundation/fields';
 
 import { decryptBuffer, deriveAESSecret, encryptBuffer } from './encrypt_buffer.js';
 
