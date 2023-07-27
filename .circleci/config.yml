@@ -149,7 +149,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib-tests
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib-tests
       - *save_logs
 
   barretenberg-dsl-tests:
@@ -161,7 +161,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 dsl_tests
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 1 dsl_tests
       - *save_logs
 
   barretenberg-tests:
@@ -185,7 +185,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 honk_tests
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 1 honk_tests
       - *save_logs
 
   barretenberg-proof-system-tests:
@@ -197,7 +197,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 proof_system_tests
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 1 proof_system_tests
       - *save_logs
 
   barretenberg-stdlib-recursion-turbo-tests:
@@ -209,7 +209,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib_recursion_tests --gtest_filter=*turbo*
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 1 stdlib_recursion_tests --gtest_filter=*turbo*
       - *save_logs
 
   barretenberg-stdlib-recursion-ultra-tests:
@@ -221,7 +221,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 stdlib_recursion_tests --gtest_filter=-*turbo*
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 3 stdlib_recursion_tests --gtest_filter=-*turbo*
       - *save_logs
 
   barretenberg-join-split-tests:
@@ -233,7 +233,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
   # bb-bin-tests:
@@ -281,7 +281,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests bb.js
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests bb.js
 
   barretenberg-acir-tests:
     docker:
@@ -359,7 +359,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests circuits-wasm-linux-clang-assert 1 wasm scripts/a3-tests -*.skip*:*.circuit*
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests circuits-wasm-linux-clang-assert 1 wasm scripts/a3-tests -*.skip*:*.circuit*
       - *save_logs
 
   circuits-x86_64-tests:
@@ -371,7 +371,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests circuits-x86_64-linux-clang-assert 1 x86_64 scripts/a3-tests -*.skip*
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests circuits-x86_64-linux-clang-assert 1 x86_64 scripts/a3-tests -*.skip*
       - *save_logs
 
   circuits-end:
@@ -662,7 +662,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_2_rpc_servers.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_2_rpc_servers.test.ts
 
   e2e-multiple-accounts-1-enc-key:
     docker:
@@ -673,7 +673,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_multiple_accounts_1_enc_key.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_multiple_accounts_1_enc_key.test.ts
 
   e2e-deploy-contract:
     docker:
@@ -684,7 +684,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_deploy_contract.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_deploy_contract.test.ts
 
   e2e-lending-contract:
     docker:
@@ -695,8 +695,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_lending_contract.test.ts
-
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_lending_contract.test.ts
 
   e2e-zk-token-contract:
     docker:
@@ -707,7 +706,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_zk_token_contract.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_zk_token_contract.test.ts
 
   e2e-block-building:
     docker:
@@ -718,7 +717,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_block_building.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_block_building.test.ts
 
   e2e-nested-contract:
     docker:
@@ -729,7 +728,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_nested_contract.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_nested_contract.test.ts
 
   e2e-non-contract-account:
     docker:
@@ -740,7 +739,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_non_contract_account.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_non_contract_account.test.ts
 
   e2e-cross-chain-messaging:
     docker:
@@ -751,7 +750,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_cross_chain_messaging.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_cross_chain_messaging.test.ts
 
   e2e-public-cross-chain-messaging:
     docker:
@@ -762,7 +761,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_public_cross_chain_messaging.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_public_cross_chain_messaging.test.ts
 
   e2e-public-to-private-messaging:
     docker:
@@ -773,7 +772,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_public_to_private_messaging.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_public_to_private_messaging.test.ts
 
   e2e-account-contracts:
     docker:
@@ -784,7 +783,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_account_contracts.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_account_contracts.test.ts
 
   e2e-pending-commitments-contract:
     docker:
@@ -795,7 +794,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_pending_commitments_contract.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_pending_commitments_contract.test.ts
 
   uniswap-trade-on-l1-from-l2:
     docker:
@@ -806,7 +805,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts
 
   integration-archiver-l1-to-l2:
     docker:
@@ -817,7 +816,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end integration_archiver_l1_to_l2.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end integration_archiver_l1_to_l2.test.ts
 
   integration-l1-publisher:
     docker:
@@ -828,7 +827,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end integration_l1_publisher.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end integration_l1_publisher.test.ts
 
   e2e-public-token-contract:
     docker:
@@ -839,7 +838,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_public_token_contract.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_public_token_contract.test.ts
 
   e2e-p2p:
     docker:
@@ -850,7 +849,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end e2e_p2p_network.test.ts
 
   e2e-uniswap-sandbox:
     docker:
@@ -861,7 +860,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_single_thread_test_script ./scripts/run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-join:
     docker:
@@ -1007,7 +1006,7 @@ circuits-x86_64-test: &circuits-x86_64-test
 workflows:
   system:
     when:
-      equal: [ system, << pipeline.parameters.workflow >> ]
+      equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
