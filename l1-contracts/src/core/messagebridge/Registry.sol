@@ -10,6 +10,7 @@ import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 
 // Libraries
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 /**
  * @title Registry
@@ -22,19 +23,13 @@ contract Registry is IRegistry {
   uint256 public numberOfVersions;
   DataStructures.RegistrySnapshot internal currentSnapshot;
   mapping(uint256 version => DataStructures.RegistrySnapshot snapshot) internal snapshots;
+  mapping(address rollup => uint256 version) internal rollupToVersion;
 
-  /**
-   * @notice Creates a new snapshot of the registry
-   * todo: this function must be permissioned with some kind of governance/voting/authority
-   * @param _rollup - The address of the rollup contract
-   * @param _inbox - The address of the inbox contract
-   * @param _outbox - The address of the outbox contract
-   */
-  function upgrade(address _rollup, address _inbox, address _outbox) external override(IRegistry) {
-    DataStructures.RegistrySnapshot memory newSnapshot =
-      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
-    currentSnapshot = newSnapshot;
-    snapshots[numberOfVersions++] = newSnapshot;
+  constructor() {
+    // Inserts a "dead" rollup and message boxes at version 0
+    // This is simply done to make
+    // Populate "genesis" to make the first version 1 indexed which fits better with the rest of the system
+    upgrade(address(0xdead), address(0xdead), address(0xdead));
   }
 
   /**
@@ -43,6 +38,17 @@ contract Registry is IRegistry {
    */
   function getRollup() external view override(IRegistry) returns (IRollup) {
     return IRollup(currentSnapshot.rollup);
+  }
+
+  /**
+   * @notice Returns the version for a specific rollup contract
+   * @param _rollup - The address of the rollup contract
+   * @return The version of the rollup contract
+   */
+  function getVersionFor(address _rollup) external view override(IRegistry) returns (uint256) {
+    (uint256 version, bool exists) = _getVersionFor(_rollup);
+    if (!exists) revert Errors.Registry__RollupNotRegistered(_rollup);
+    return version;
   }
 
   /**
@@ -87,5 +93,36 @@ contract Registry is IRegistry {
     returns (DataStructures.RegistrySnapshot memory)
   {
     return currentSnapshot;
+  }
+
+  /**
+   * @notice Creates a new snapshot of the registry
+   * todo: this function must be permissioned with some kind of governance/voting/authority
+   * @param _rollup - The address of the rollup contract
+   * @param _inbox - The address of the inbox contract
+   * @param _outbox - The address of the outbox contract
+   */
+  function upgrade(address _rollup, address _inbox, address _outbox)
+    public
+    override(IRegistry)
+    returns (uint256)
+  {
+    (, bool exists) = _getVersionFor(_rollup);
+    if (exists) revert Errors.Registry__RollupAlreadyRegistered(_rollup);
+
+    DataStructures.RegistrySnapshot memory newSnapshot =
+      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
+    currentSnapshot = newSnapshot;
+    uint256 version = numberOfVersions++;
+    snapshots[version] = newSnapshot;
+    rollupToVersion[_rollup] = version;
+
+    return version;
+  }
+
+  function _getVersionFor(address _rollup) internal view returns (uint256 version, bool exists) {
+    version = rollupToVersion[_rollup];
+    exists = version > 0 || snapshots[0].rollup == _rollup;
+    return (version, exists);
   }
 }

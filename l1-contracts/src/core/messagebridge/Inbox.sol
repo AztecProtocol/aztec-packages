@@ -27,12 +27,6 @@ contract Inbox is IInbox {
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
   mapping(address account => uint256 balance) public feesAccrued;
 
-  modifier onlyRollup() {
-    // @todo: (issue #624) handle different versions
-    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Inbox__Unauthorized();
-    _;
-  }
-
   constructor(address _registry) {
     REGISTRY = IRegistry(_registry);
   }
@@ -78,7 +72,8 @@ contract Inbox is IInbox {
     });
 
     bytes32 key = computeEntryKey(message);
-    entries.insert(key, fee, _deadline, _errIncompatibleEntryArguments);
+    // Unsafe cast to uint32, but as we increment by 1 for versions to lookup the snapshots, we should be fine.
+    entries.insert(key, fee, uint32(_recipient.version), _deadline, _errIncompatibleEntryArguments);
 
     emit MessageAdded(
       key,
@@ -127,12 +122,16 @@ contract Inbox is IInbox {
   function batchConsume(bytes32[] memory _entryKeys, address _feeCollector)
     external
     override(IInbox)
-    onlyRollup
   {
     uint256 totalFee = 0;
+    uint32 expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender));
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;
       DataStructures.Entry memory entry = get(_entryKeys[i]);
+      // @todo Forget that gas exists right now. With transient etc, this can be much more efficient.
+      if (entry.version != expectedVersion) {
+        revert Errors.Inbox__InvalidVersion(entry.version, expectedVersion);
+      }
       // cant consume if we are already past deadline.
       if (block.timestamp > entry.deadline) revert Errors.Inbox__PastDeadline();
       entries.consume(_entryKeys[i], _errNothingToConsume);
@@ -212,11 +211,19 @@ contract Inbox is IInbox {
     bytes32 _entryKey,
     uint64 _storedFee,
     uint64 _feePassed,
+    uint32 _storedVersion,
+    uint32 _versionPassed,
     uint32 _storedDeadline,
     uint32 _deadlinePassed
   ) internal pure {
     revert Errors.Inbox__IncompatibleEntryArguments(
-      _entryKey, _storedFee, _feePassed, _storedDeadline, _deadlinePassed
+      _entryKey,
+      _storedFee,
+      _feePassed,
+      _storedVersion,
+      _versionPassed,
+      _storedDeadline,
+      _deadlinePassed
     );
   }
 }
