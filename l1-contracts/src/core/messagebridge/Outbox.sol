@@ -61,7 +61,6 @@ contract Outbox is IOutbox {
     if (block.chainid != _message.recipient.chainId) revert Errors.Outbox__InvalidChainId();
 
     entryKey = computeEntryKey(_message);
-    // @todo @LHerskind fetch the version from the entry and check that it matches the message
     DataStructures.Entry memory entry = entries.get(entryKey, _errNothingToConsume);
     if (entry.version != _message.sender.version) {
       revert Errors.Outbox__InvalidVersion(entry.version, _message.sender.version);

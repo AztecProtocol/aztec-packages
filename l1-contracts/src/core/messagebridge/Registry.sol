@@ -27,8 +27,7 @@ contract Registry is IRegistry {
 
   constructor() {
     // Inserts a "dead" rollup and message boxes at version 0
-    // This is simply done to make
-    // Populate "genesis" to make the first version 1 indexed which fits better with the rest of the system
+    // This is simply done to make first version 1, which fits better with the rest of the system
     upgrade(address(0xdead), address(0xdead), address(0xdead));
   }
 
@@ -41,7 +40,7 @@ contract Registry is IRegistry {
   }
 
   /**
-   * @notice Returns the version for a specific rollup contract
+   * @notice Returns the version for a specific rollup contract or reverts if not listed
    * @param _rollup - The address of the rollup contract
    * @return The version of the rollup contract
    */
@@ -101,6 +100,7 @@ contract Registry is IRegistry {
    * @param _rollup - The address of the rollup contract
    * @param _inbox - The address of the inbox contract
    * @param _outbox - The address of the outbox contract
+   * @return The version of the new snapshot
    */
   function upgrade(address _rollup, address _inbox, address _outbox)
     public

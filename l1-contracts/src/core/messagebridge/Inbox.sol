@@ -128,7 +128,6 @@ contract Inbox is IInbox {
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;
       DataStructures.Entry memory entry = get(_entryKeys[i]);
-      // @todo Forget that gas exists right now. With transient etc, this can be much more efficient.
       if (entry.version != expectedVersion) {
         revert Errors.Inbox__InvalidVersion(entry.version, expectedVersion);
       }
@@ -204,6 +203,8 @@ contract Inbox is IInbox {
    * @param _entryKey - The key to lookup
    * @param _storedFee - The fee stored in the entry
    * @param _feePassed - The fee passed into the insertion
+   * @param _storedVersion - The version stored in the entry
+   * @param _versionPassed - The version passed into the insertion
    * @param _storedDeadline - The deadline stored in the entry
    * @param _deadlinePassed - The deadline passed into the insertion
    */
