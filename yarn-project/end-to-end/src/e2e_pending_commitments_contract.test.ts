@@ -51,7 +51,7 @@ describe('e2e_pending_commitments_contract', () => {
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
-  }, 120_000);
+  }, 60_000);
 
   it('Noir function can "get" notes inserted in a previous function call in same TX', async () => {
     const mintAmount = 65n;
@@ -71,7 +71,7 @@ describe('e2e_pending_commitments_contract', () => {
     await tx.isMined(0, 0.1);
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
-  }, 120_000);
+  }, 60_000);
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): test nullify & squash of pending notes
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): test expected kernel failures if transient reads (or their hints) don't match
