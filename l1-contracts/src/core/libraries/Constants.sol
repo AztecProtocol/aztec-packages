@@ -21,4 +21,19 @@ library Constants {
   uint256 internal constant CONTRACTS_PER_TX = 1;
   uint256 internal constant L2_TO_L1_MSGS_PER_TX = 2;
   uint256 internal constant L1_TO_L2_MSGS_PER_ROLLUP = 16;
+
+  // above constants but in bytes
+  uint256 internal constant TXS_PER_BASE_ROLLUP = 2;
+  uint256 internal constant COMMITMENTS_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * COMMITMENTS_PER_TX * 0x20;
+  uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * NULLIFIERS_PER_TX * 0x20;
+  uint256 internal constant PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * PUBLIC_DATA_WRITES_PER_TX * 0x40;
+  uint256 internal constant CONTRACTS_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * CONTRACTS_PER_TX * 0x20;
+  uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * CONTRACTS_PER_TX * 0x40; //aztec address + eth address (padded to 0x20)
+  uint256 internal constant L2_TO_L1_MSGS_NUM_BYTES_PER_BASE =
+    TXS_PER_BASE_ROLLUP * L2_TO_L1_MSGS_PER_TX * 0x20;
 }
