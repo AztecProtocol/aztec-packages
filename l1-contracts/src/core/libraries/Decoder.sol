@@ -119,7 +119,8 @@ library Decoder {
   uint256 private constant TREES_BLOCK_HEADER_SIZE = 0x140;
 
   // Where the end of trees metadata begns in the block
-  uint256 private constant END_TREES_BLOCK_HEADER_OFFSET = START_TREES_BLOCK_HEADER_OFFSET + TREES_BLOCK_HEADER_SIZE;
+  uint256 private constant END_TREES_BLOCK_HEADER_OFFSET =
+    START_TREES_BLOCK_HEADER_OFFSET + TREES_BLOCK_HEADER_SIZE;
 
   // Where the metadata ends and the block data begins.
   // This is really (START_TREES_BLOCK_HEADER_OFFSET + 2 * TREES_BLOCK_HEADER_SIZE) but assembly doesnt allow comptime constant use
