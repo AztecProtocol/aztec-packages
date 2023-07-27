@@ -1,6 +1,6 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
 
-import { CircuitsWasm, Fr, Point } from '../../../index.js';
+import { CircuitsWasm, Fr, Point, PrivateKey } from '../../../index.js';
 import { Curve } from '../index.js';
 
 /**
@@ -39,9 +39,9 @@ export class Grumpkin implements Curve {
    * @param scalar - Scalar to multiply by.
    * @returns Result of the multiplication.
    */
-  public mul(point: Point, scalar: Uint8Array): Point {
+  public mul(point: Point, scalar: PrivateKey): Point {
     this.wasm.writeMemory(0, point.toBuffer());
-    this.wasm.writeMemory(64, scalar);
+    this.wasm.writeMemory(64, scalar.value);
     this.wasm.call('ecc_grumpkin__mul', 0, 64, 96);
     return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(96, 160)));
   }
@@ -52,13 +52,13 @@ export class Grumpkin implements Curve {
    * @param scalar - Scalar to multiply by.
    * @returns Points multiplied by the scalar.
    */
-  public batchMul(points: Point[], scalar: Uint8Array) {
+  public batchMul(points: Point[], scalar: PrivateKey) {
     const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
 
     const mem = this.wasm.call('bbmalloc', points.length * 2);
 
     this.wasm.writeMemory(mem, concatenatedPoints);
-    this.wasm.writeMemory(0, scalar);
+    this.wasm.writeMemory(0, scalar.value);
     this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + points.length);
 
     const result: Buffer = Buffer.from(

@@ -1,4 +1,4 @@
-import { Fr, Point } from "../../../index.js";
+import { Fr, Point, PrivateKey } from '../../../index.js';
 
 /**
  * An interface representing curve operations.
@@ -10,7 +10,7 @@ export interface Curve {
    * @param scalar - Scalar to multiply by.
    * @returns Result of the multiplication.
    */
-  mul(point: Point, scalar: Uint8Array): Point;
+  mul(point: Point, scalar: PrivateKey): Point;
 
   /**
    * Gets a random field element.

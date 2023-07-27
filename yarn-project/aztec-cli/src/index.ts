@@ -9,6 +9,7 @@ import {
   createAztecRpcClient,
   getAccountWallet,
 } from '@aztec/aztec.js';
+import { PrivateKey } from '@aztec/circuits.js';
 import { StructType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
@@ -74,7 +75,7 @@ async function main() {
         const acc = mnemonicToAccount(options.mnemonic);
         privKey = Buffer.from(acc.getHdKey().privateKey!).toString('hex');
       } else {
-        privKey = randomBytes(32).toString('hex');
+        privKey = PrivateKey.random().toString();
       }
       log(`\n${privKey}\n`);
     });
@@ -280,7 +281,7 @@ async function main() {
       const wallet = await getAccountWallet(
         client,
         SchnorrSingleKeyAccountContractAbi,
-        Buffer.from(options.privateKey, 'hex'),
+        PrivateKey.fromHexString(options.privateKey),
         accountCreationSalt,
       );
       const contract = new Contract(contractAddress, contractAbi, wallet);

@@ -27,7 +27,7 @@ export class Schnorr implements Signer {
    * @returns A grumpkin public key.
    */
   public computePublicKey(privateKey: PrivateKey): PublicKey {
-    this.wasm.writeMemory(0, privateKey.key);
+    this.wasm.writeMemory(0, privateKey.value);
     this.wasm.call('schnorr_compute_public_key', 0, 32);
     return Point.fromBuffer(Buffer.from(this.wasm.getMemorySlice(32, 96)));
   }
@@ -40,7 +40,7 @@ export class Schnorr implements Signer {
    */
   public constructSignature(msg: Uint8Array, privateKey: PrivateKey) {
     const mem = this.wasm.call('bbmalloc', msg.length + 4);
-    this.wasm.writeMemory(0, privateKey.key);
+    this.wasm.writeMemory(0, privateKey.value);
     this.wasm.writeMemory(mem, Buffer.concat([numToUInt32BE(msg.length), msg]));
     this.wasm.call('schnorr_construct_signature', mem, 0, 32, 64);
 

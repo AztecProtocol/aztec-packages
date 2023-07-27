@@ -6,11 +6,19 @@ import { randomBytes } from '@aztec/foundation/crypto';
 export class PrivateKey {
   constructor(
     /** A buffer containing the private key. */
-    public key: Buffer,
+    public value: Buffer,
   ) {
-    if (key.length != 32) {
-      throw new Error(`Invalid private key length. Got ${key.length}, expected 32.`);
+    if (value.length != 32) {
+      throw new Error(`Invalid private key length. Got ${value.length}, expected 32.`);
     }
+  }
+
+  /**
+   * Converts the private key to a hex string.
+   * @returns A hex string representation of the private key.
+   */
+  public toString(): string {
+    return this.value.toString('hex');
   }
 
   /**

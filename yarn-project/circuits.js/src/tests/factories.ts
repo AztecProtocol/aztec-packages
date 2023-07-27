@@ -71,6 +71,7 @@ import {
   PrivateHistoricTreeRoots,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
+  PrivateKey,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -976,11 +977,11 @@ export function fr(n: number): Fr {
  * @param privateKey - A private encryption key (optional, will use a random one if not set).
  * @returns A valid address, partial address, and public key.
  */
-export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: Buffer) {
-  privateKey = privateKey ?? randomBytes(32);
+export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: PrivateKey) {
+  privateKey = privateKey ?? PrivateKey.random();
   const wasm = await CircuitsWasm.get();
   const grumpkin = new Grumpkin(wasm);
-  const publicKey = Point.fromBuffer(grumpkin.mul(Grumpkin.generator, privateKey));
+  const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
   const partialAddress = Fr.random();
   const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
   return { address, partialAddress, publicKey, privateKey };

@@ -1,7 +1,6 @@
-import { randomBytes } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { CircuitsWasm, Point } from '../../../index.js';
+import { CircuitsWasm, Point, PrivateKey } from '../../../index.js';
 import { Grumpkin } from './index.js';
 
 const debug = createDebugLogger('bb:grumpkin_test');
@@ -16,13 +15,13 @@ describe('grumpkin', () => {
   });
 
   it('should correctly perform scalar muls', () => {
-    const exponent = randomBytes(32);
+    const exponent = PrivateKey.random();
 
     const numPoints = 2048;
 
     const inputPoints: Point[] = [];
     for (let i = 0; i < numPoints; ++i) {
-      inputPoints.push(grumpkin.mul(Grumpkin.generator, randomBytes(32)));
+      inputPoints.push(grumpkin.mul(Grumpkin.generator, PrivateKey.random()));
     }
 
     const start = new Date().getTime();

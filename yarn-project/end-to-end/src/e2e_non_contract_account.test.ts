@@ -56,7 +56,7 @@ describe('e2e_non_contract_account', () => {
     sender = accounts[0];
     recipient = accounts[1];
 
-    const pokerPrivKey = randomBytes(32);
+    const pokerPrivKey = PrivateKey.random();
     const pokerPubKey = await generatePublicKey(pokerPrivKey);
     poker = AztecAddress.fromBuffer(pokerPubKey.x.toBuffer());
     pokerWallet = new SignerlessWallet(aztecRpcServer);

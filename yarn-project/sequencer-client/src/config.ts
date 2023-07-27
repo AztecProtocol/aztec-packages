@@ -1,3 +1,4 @@
+import { PrivateKey } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { GlobalReaderConfig } from './global_variable_builder/index.js';
@@ -42,7 +43,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
     contractDeploymentEmitterContract: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
-    publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || '', 'hex'),
+    publisherPrivateKey: PrivateKey.fromHexString(SEQ_PUBLISHER_PRIVATE_KEY || ''),
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
     minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,
   };
