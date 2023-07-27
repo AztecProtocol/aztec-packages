@@ -1,4 +1,4 @@
-import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
+import { ABIType, FunctionAbi, isValidArg } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -19,6 +19,9 @@ class ArgumentEncoder {
   private encodeArgument(abiType: ABIType, arg: any, name?: string) {
     if (arg === undefined || arg == null) {
       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
+    }
+    if (!isValidArg(arg, abiType)) {
+      throw new Error(`Invalid argument ${arg} of type ${abiType.kind}`);
     }
     switch (abiType.kind) {
       case 'field':
