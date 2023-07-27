@@ -28,7 +28,7 @@ export interface NoteData {
  * Information about a note needed during execution.
  */
 export interface PendingNoteData extends NoteData {
-  /** The nullified commitment. */
+  /** The inner note hash (used as a nullified commitment). */
   innerNoteHash: Fr;
 }
 

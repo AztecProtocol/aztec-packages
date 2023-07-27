@@ -128,7 +128,7 @@ export class ClientTxExecutionContext {
     // Remove notes which were already nullified during this transaction.
     const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
 
-    // Nullified pending Notes are already removed from the list.
+    // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
       sortBy: sortBy.map(field => +field),
       sortOrder: sortOrder.map(field => +field),
@@ -217,7 +217,7 @@ export class ClientTxExecutionContext {
    */
   public nullifyPendingNotes(innerNoteHash: Fr, contractAddress: AztecAddress, storageSlot: Fr) {
     // IMPORTANT: We do need an in-place array mutation of this.pendingNotes as this array is shared
-    // by reference among the nested call. That is the main reason for 'splice' usage below.
+    // by reference among the nested calls. That is the main reason for 'splice' usage below.
     this.pendingNotes.splice(
       0,
       this.pendingNotes.length,
