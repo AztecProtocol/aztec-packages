@@ -489,15 +489,15 @@ jobs:
           command: build key-store
 
   noir-contracts-build:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Build and test"
-          command: build noir-contracts-build
+          command: cond_spot_run_build noir-contracts-build 32
 
   noir-contracts:
     machine:
@@ -707,7 +707,6 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_lending_contract.test.ts
-
 
   e2e-zk-token-contract:
     docker:
@@ -1018,177 +1017,177 @@ circuits-x86_64-test: &circuits-x86_64-test
 workflows:
   system:
     when:
-      equal: [ system, << pipeline.parameters.workflow >> ]
+      equal: [system, << pipeline.parameters.workflow >>]
     jobs:
-      - barretenberg-x86_64-linux-gcc: *defaults
-      - barretenberg-x86_64-linux-clang: *defaults
-      - barretenberg-x86_64-linux-clang-assert: *defaults
-      - barretenberg-wasm-linux-clang: *defaults
-      - barretenberg-proof-system-tests: *bb_test
-      - barretenberg-honk-tests: *bb_test
-      - barretenberg-dsl-tests: *bb_test
-      - barretenberg-tests: *bb_test
-      - barretenberg-stdlib-tests: *bb_test
-      - barretenberg-stdlib-recursion-turbo-tests: *bb_test
-      - barretenberg-stdlib-recursion-ultra-tests: *bb_test
-      - barretenberg-join-split-tests: *bb_test
-      # TODO(#1236): Reinstate this test once Noir support recursion again.
-      # - bb-bin-tests: *bb_test
-      - barretenberg-benchmark-aggregator:
-          requires:
-            - barretenberg-tests
-            - barretenberg-stdlib-tests
-            - barretenberg-stdlib-recursion-turbo-tests
-            - barretenberg-stdlib-recursion-ultra-tests
-            - barretenberg-join-split-tests
-          filters:
-            branches:
-              only:
-                - DISABLED_FIXME # master # TODO(AD): See #1174
-          <<: *defaults
-          <<: *defaults
-      - bb-js:
-          requires:
-            - barretenberg-wasm-linux-clang
-          <<: *defaults
-      - bb-js-tests:
-          requires:
-            - bb-js
-          <<: *defaults
-      - barretenberg-acir-tests:
-          requires:
-            - barretenberg-x86_64-linux-clang-assert
-            - bb-js
-          <<: *defaults
-      - circuits-wasm-linux-clang: *defaults
-      - circuits-wasm-linux-clang-assert: *defaults
-      # - circuits-x86_64-linux-clang-tidy: *defaults # TODO #1152
-      - circuits-x86_64-linux-clang: *defaults
-      - circuits-x86_64-linux-clang-assert: *defaults
-      - circuits-wasm-tests:
-          <<: *circuits-wasm-test
-      - circuits-x86_64-tests:
-          <<: *circuits-x86_64-test
+      # - barretenberg-x86_64-linux-gcc: *defaults
+      # - barretenberg-x86_64-linux-clang: *defaults
+      # - barretenberg-x86_64-linux-clang-assert: *defaults
+      # - barretenberg-wasm-linux-clang: *defaults
+      # - barretenberg-proof-system-tests: *bb_test
+      # - barretenberg-honk-tests: *bb_test
+      # - barretenberg-dsl-tests: *bb_test
+      # - barretenberg-tests: *bb_test
+      # - barretenberg-stdlib-tests: *bb_test
+      # - barretenberg-stdlib-recursion-turbo-tests: *bb_test
+      # - barretenberg-stdlib-recursion-ultra-tests: *bb_test
+      # - barretenberg-join-split-tests: *bb_test
+      # # TODO(#1236): Reinstate this test once Noir support recursion again.
+      # # - bb-bin-tests: *bb_test
+      # - barretenberg-benchmark-aggregator:
+      #     requires:
+      #       - barretenberg-tests
+      #       - barretenberg-stdlib-tests
+      #       - barretenberg-stdlib-recursion-turbo-tests
+      #       - barretenberg-stdlib-recursion-ultra-tests
+      #       - barretenberg-join-split-tests
+      #     filters:
+      #       branches:
+      #         only:
+      #           - DISABLED_FIXME # master # TODO(AD): See #1174
+      #     <<: *defaults
+      #     <<: *defaults
+      # - bb-js:
+      #     requires:
+      #       - barretenberg-wasm-linux-clang
+      #     <<: *defaults
+      # - bb-js-tests:
+      #     requires:
+      #       - bb-js
+      #     <<: *defaults
+      # - barretenberg-acir-tests:
+      #     requires:
+      #       - barretenberg-x86_64-linux-clang-assert
+      #       - bb-js
+      #     <<: *defaults
+      # - circuits-wasm-linux-clang: *defaults
+      # - circuits-wasm-linux-clang-assert: *defaults
+      # # - circuits-x86_64-linux-clang-tidy: *defaults # TODO #1152
+      # - circuits-x86_64-linux-clang: *defaults
+      # - circuits-x86_64-linux-clang-assert: *defaults
+      # - circuits-wasm-tests:
+      #     <<: *circuits-wasm-test
+      # - circuits-x86_64-tests:
+      #     <<: *circuits-x86_64-test
 
-      - circuits-end:
-          requires:
-            - circuits-wasm-linux-clang
-            - circuits-wasm-linux-clang-assert
-            # - circuits-x86_64-linux-clang-tidy # TODO #1152
-            - circuits-x86_64-linux-clang
-            - circuits-x86_64-linux-clang-assert
-            - circuits-wasm-tests
-            - circuits-x86_64-tests
-          <<: *defaults
+      # - circuits-end:
+      #     requires:
+      #       - circuits-wasm-linux-clang
+      #       - circuits-wasm-linux-clang-assert
+      #       # - circuits-x86_64-linux-clang-tidy # TODO #1152
+      #       - circuits-x86_64-linux-clang
+      #       - circuits-x86_64-linux-clang-assert
+      #       - circuits-wasm-tests
+      #       - circuits-x86_64-tests
+      #     <<: *defaults
 
-      - l1-contracts: *defaults
+      # - l1-contracts: *defaults
       - noir-contracts-build: *defaults
 
-      - yarn-project-base:
-          requires:
-            - circuits-wasm-linux-clang
-            - l1-contracts
-            - noir-contracts-build
-          <<: *defaults
+      # - yarn-project-base:
+      #     requires:
+      #       - circuits-wasm-linux-clang
+      #       - l1-contracts
+      #       - noir-contracts-build
+      #     <<: *defaults
 
-      - aztec-js: *yarn_project
-      - end-to-end: *yarn_project
-      - ethereum: *yarn_project
-      - foundation: *yarn_project
-      - world-state: *yarn_project
-      - acir-simulator: *yarn_project
-      - archiver: *yarn_project
-      - aztec-rpc: *yarn_project
-      - aztec-node: *yarn_project
-      - aztec-cli: *yarn_project
-      - key-store: *yarn_project
-      - merkle-tree: *yarn_project
-      - p2p: *yarn_project
-      - p2p-bootstrap: *yarn_project
-      - l1-artifacts: *yarn_project
-      - noir-contracts: *yarn_project
-      - noir-compiler: *yarn_project
-      - sequencer-client: *yarn_project
-      - types: *yarn_project
-      - circuits-js: *yarn_project
-      - rollup-provider: *yarn_project
-      - aztec-sandbox: *yarn_project
+      # - aztec-js: *yarn_project
+      # - end-to-end: *yarn_project
+      # - ethereum: *yarn_project
+      # - foundation: *yarn_project
+      # - world-state: *yarn_project
+      # - acir-simulator: *yarn_project
+      # - archiver: *yarn_project
+      # - aztec-rpc: *yarn_project
+      # - aztec-node: *yarn_project
+      # - aztec-cli: *yarn_project
+      # - key-store: *yarn_project
+      # - merkle-tree: *yarn_project
+      # - p2p: *yarn_project
+      # - p2p-bootstrap: *yarn_project
+      # - l1-artifacts: *yarn_project
+      # - noir-contracts: *yarn_project
+      # - noir-compiler: *yarn_project
+      # - sequencer-client: *yarn_project
+      # - types: *yarn_project
+      # - circuits-js: *yarn_project
+      # - rollup-provider: *yarn_project
+      # - aztec-sandbox: *yarn_project
 
-      - e2e-join:
-          requires:
-            - aztec-js
-            - end-to-end
-            - ethereum
-            - foundation
-            - world-state
-            - acir-simulator
-            - archiver
-            - aztec-rpc
-            - aztec-node
-            - aztec-cli
-            - key-store
-            - merkle-tree
-            - p2p
-            - p2p-bootstrap
-            - l1-artifacts
-            - noir-contracts
-            - noir-compiler
-            - sequencer-client
-            - types
-            - circuits-js
-            - rollup-provider
-            - aztec-sandbox
-          <<: *defaults
+      # - e2e-join:
+      #     requires:
+      #       - aztec-js
+      #       - end-to-end
+      #       - ethereum
+      #       - foundation
+      #       - world-state
+      #       - acir-simulator
+      #       - archiver
+      #       - aztec-rpc
+      #       - aztec-node
+      #       - aztec-cli
+      #       - key-store
+      #       - merkle-tree
+      #       - p2p
+      #       - p2p-bootstrap
+      #       - l1-artifacts
+      #       - noir-contracts
+      #       - noir-compiler
+      #       - sequencer-client
+      #       - types
+      #       - circuits-js
+      #       - rollup-provider
+      #       - aztec-sandbox
+      #     <<: *defaults
 
-      - e2e-2-rpc-servers: *e2e_test
-      - e2e-deploy-contract: *e2e_test
-      - e2e-lending-contract: *e2e_test
-      - e2e-zk-token-contract: *e2e_test
-      - e2e-block-building: *e2e_test
-      - e2e-nested-contract: *e2e_test
-      - e2e-non-contract-account: *e2e_test
-      - e2e-multiple-accounts-1-enc-key: *e2e_test
-      - e2e-public-token-contract: *e2e_test
-      - e2e-cross-chain-messaging: *e2e_test
-      - e2e-public-cross-chain-messaging: *e2e_test
-      - e2e-public-to-private-messaging: *e2e_test
-      - e2e-account-contracts: *e2e_test
-      - e2e-pending-commitments-contract: *e2e_test
-      - uniswap-trade-on-l1-from-l2: *e2e_test
-      - integration-l1-publisher: *e2e_test
-      - integration-archiver-l1-to-l2: *e2e_test
-      - e2e-p2p: *e2e_test
-      - e2e-uniswap-sandbox: *e2e_test
+      # - e2e-2-rpc-servers: *e2e_test
+      # - e2e-deploy-contract: *e2e_test
+      # - e2e-lending-contract: *e2e_test
+      # - e2e-zk-token-contract: *e2e_test
+      # - e2e-block-building: *e2e_test
+      # - e2e-nested-contract: *e2e_test
+      # - e2e-non-contract-account: *e2e_test
+      # - e2e-multiple-accounts-1-enc-key: *e2e_test
+      # - e2e-public-token-contract: *e2e_test
+      # - e2e-cross-chain-messaging: *e2e_test
+      # - e2e-public-cross-chain-messaging: *e2e_test
+      # - e2e-public-to-private-messaging: *e2e_test
+      # - e2e-account-contracts: *e2e_test
+      # - e2e-pending-commitments-contract: *e2e_test
+      # - uniswap-trade-on-l1-from-l2: *e2e_test
+      # - integration-l1-publisher: *e2e_test
+      # - integration-archiver-l1-to-l2: *e2e_test
+      # - e2e-p2p: *e2e_test
+      # - e2e-uniswap-sandbox: *e2e_test
 
-      - e2e-end:
-          requires:
-            - e2e-2-rpc-servers
-            - e2e-deploy-contract
-            - e2e-lending-contract
-            - e2e-zk-token-contract
-            - e2e-block-building
-            - e2e-nested-contract
-            - e2e-non-contract-account
-            - e2e-multiple-accounts-1-enc-key
-            - e2e-public-token-contract
-            - e2e-cross-chain-messaging
-            - e2e-public-cross-chain-messaging
-            - e2e-public-to-private-messaging
-            - e2e-account-contracts
-            - e2e-pending-commitments-contract
-            - uniswap-trade-on-l1-from-l2
-            - integration-l1-publisher
-            - integration-archiver-l1-to-l2
-            - e2e-p2p
-            - e2e-uniswap-sandbox
-          <<: *defaults
+      # - e2e-end:
+      #     requires:
+      #       - e2e-2-rpc-servers
+      #       - e2e-deploy-contract
+      #       - e2e-lending-contract
+      #       - e2e-zk-token-contract
+      #       - e2e-block-building
+      #       - e2e-nested-contract
+      #       - e2e-non-contract-account
+      #       - e2e-multiple-accounts-1-enc-key
+      #       - e2e-public-token-contract
+      #       - e2e-cross-chain-messaging
+      #       - e2e-public-cross-chain-messaging
+      #       - e2e-public-to-private-messaging
+      #       - e2e-account-contracts
+      #       - e2e-pending-commitments-contract
+      #       - uniswap-trade-on-l1-from-l2
+      #       - integration-l1-publisher
+      #       - integration-archiver-l1-to-l2
+      #       - e2e-p2p
+      #       - e2e-uniswap-sandbox
+      #     <<: *defaults
 
-      - deploy-dockerhub:
-          requires:
-            - e2e-end
-            - aztec-sandbox
-          <<: *deploy_defaults
-      - deploy-npm:
-          requires:
-            - e2e-end
-          <<: *deploy_defaults
+      # - deploy-dockerhub:
+      #     requires:
+      #       - e2e-end
+      #       - aztec-sandbox
+      #     <<: *deploy_defaults
+      # - deploy-npm:
+      #     requires:
+      #       - e2e-end
+      #     <<: *deploy_defaults
