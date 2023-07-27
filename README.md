@@ -32,4 +32,3 @@ Logging goes through the [`info` and `debug`](circuits/cpp/barretenberg/cpp/src/
 ## Contribute
 
 There are many ways you can participate and help build high quality software. Check out the [contribution guide](CONTRIBUTING.md)!
-
