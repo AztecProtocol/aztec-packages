@@ -25,4 +25,5 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
+# trigger build
 add_subdirectory(aztec3)
