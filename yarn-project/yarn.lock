@@ -285,7 +285,6 @@ __metadata:
   resolution: "@aztec/cli@workspace:aztec-cli"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"

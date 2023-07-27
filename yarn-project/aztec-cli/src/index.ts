@@ -9,12 +9,11 @@ import {
   createAztecRpcClient,
   getAccountWallet,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
-import { ContractData, L2BlockL2Logs, TxHash } from '@aztec/types';
+import { ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
 import { mnemonicToAccount } from 'viem/accounts';
