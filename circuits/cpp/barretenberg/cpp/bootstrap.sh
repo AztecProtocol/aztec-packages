@@ -4,6 +4,7 @@ set -eu
 # Clean.
 rm -rf ./build
 rm -rf ./build-wasm
+
 # Install formatting git hook.
 HOOKS_DIR=$(git rev-parse --git-path hooks)
 # The pre-commit script will live in a barretenberg-specific hooks directory
