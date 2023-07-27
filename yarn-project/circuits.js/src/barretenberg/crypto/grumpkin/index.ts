@@ -50,21 +50,27 @@ export class Grumpkin implements Curve {
    * Multiplies a set of points by a scalar.
    * @param points - Points to multiply.
    * @param scalar - Scalar to multiply by.
-   * @param numPoints - Number of points in the points array.
    * @returns Points multiplied by the scalar.
    */
-  public batchMul(points: Uint8Array, scalar: Uint8Array, numPoints: number) {
+  public batchMul(points: Point[], scalar: Uint8Array) {
+    const concatenatedPoints: Buffer = Buffer.concat(points.map(point => point.toBuffer()));
+
     const mem = this.wasm.call('bbmalloc', points.length * 2);
 
-    this.wasm.writeMemory(mem, points);
+    this.wasm.writeMemory(mem, concatenatedPoints);
     this.wasm.writeMemory(0, scalar);
-    this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, numPoints, mem + points.length);
+    this.wasm.call('ecc_grumpkin__batch_mul', mem, 0, points.length, mem + points.length);
 
     const result: Buffer = Buffer.from(
       this.wasm.getMemorySlice(mem + points.length, mem + points.length + points.length),
     );
     this.wasm.call('bbfree', mem);
-    return result;
+
+    const parsedResult: Point[] = [];
+    for (let i = 0; i < points.length; i += 64) {
+      parsedResult.push(Point.fromBuffer(result.slice(i, i + 32)));
+    }
+    return parsedResult;
   }
 
   /**
