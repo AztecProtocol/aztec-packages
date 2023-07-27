@@ -130,7 +130,7 @@ describe('e2e_account_contracts', () => {
       ecdsaPrivateKey = PrivateKey.random();
       const ecdsa = await Ecdsa.new();
       ecdsaPublicKey = ecdsa.computePublicKey(ecdsaPrivateKey);
-      ecdsaCreateArgs = [ecdsaPublicKey.x, ecdsaPublicKey.y];
+      ecdsaCreateArgs = [ecdsaPublicKey.x.toBuffer(), ecdsaPublicKey.y.toBuffer()];
     });
 
     itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createWallet);
