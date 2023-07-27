@@ -279,7 +279,7 @@ async function main() {
       const wallet = await getAccountWallet(
         client,
         SchnorrSingleKeyAccountContractAbi,
-        PrivateKey.fromHexString(options.privateKey),
+        PrivateKey.fromString(options.privateKey),
         accountCreationSalt,
       );
       const contract = new Contract(contractAddress, contractAbi, wallet);

@@ -144,7 +144,7 @@ describe('L1Publisher integration', () => {
       rollupContract: EthAddress.fromString(rollupAddress),
       inboxContract: EthAddress.fromString(inboxAddress),
       contractDeploymentEmitterContract: EthAddress.fromString(contractDeploymentEmitterAddress),
-      publisherPrivateKey: PrivateKey.fromHexString(sequencerPK),
+      publisherPrivateKey: PrivateKey.fromString(sequencerPK),
       l1BlockPublishRetryIntervalMS: 100,
     });
   }, 100_000);

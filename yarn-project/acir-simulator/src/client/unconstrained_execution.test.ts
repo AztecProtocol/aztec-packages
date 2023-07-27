@@ -28,7 +28,7 @@ describe('Unconstrained Execution test suite', () => {
   });
 
   describe('zk token contract', () => {
-    const ownerPk = PrivateKey.fromHexString('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33');
+    const ownerPk = PrivateKey.fromString('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33');
 
     let owner: AztecAddress;
 

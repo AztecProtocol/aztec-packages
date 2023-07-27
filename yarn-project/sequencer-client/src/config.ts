@@ -44,7 +44,7 @@ export function getConfigEnvVars(): SequencerClientConfig {
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
     publisherPrivateKey: SEQ_PUBLISHER_PRIVATE_KEY
-      ? PrivateKey.fromHexString(SEQ_PUBLISHER_PRIVATE_KEY)
+      ? PrivateKey.fromString(SEQ_PUBLISHER_PRIVATE_KEY)
       : new PrivateKey(Buffer.alloc(32)),
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
     minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,

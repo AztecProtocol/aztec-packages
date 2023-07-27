@@ -6,7 +6,7 @@ import { ZkTokenContract } from '@aztec/noir-contracts/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
-export const privateKey = PrivateKey.fromHexString('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
+export const privateKey = PrivateKey.fromString('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
 
 const url = 'http://localhost:8080';
 

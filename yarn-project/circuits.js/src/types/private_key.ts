@@ -26,7 +26,7 @@ export class PrivateKey {
    * @param keyString - A hex string representation of the private key.
    * @returns A PrivateKey instance.
    */
-  public static fromHexString(keyString: string): PrivateKey {
+  public static fromString(keyString: string): PrivateKey {
     if (keyString.startsWith('0x')) {
       keyString = keyString.slice(2);
     }

@@ -6,12 +6,12 @@ describe('PrivateKey', () => {
   });
 
   it('can be created from a hex string', () => {
-    const key = PrivateKey.fromHexString('0x' + 'a'.repeat(64));
+    const key = PrivateKey.fromString('0x' + 'a'.repeat(64));
     expect(key.value).toEqual(Buffer.from('a'.repeat(64), 'hex'));
   });
 
   it('correctly ignores 0x prefix in hex string', () => {
-    const key = PrivateKey.fromHexString('0x' + 'a'.repeat(64));
+    const key = PrivateKey.fromString('0x' + 'a'.repeat(64));
     expect(key.value).toEqual(Buffer.from('a'.repeat(64), 'hex'));
   });
 });
