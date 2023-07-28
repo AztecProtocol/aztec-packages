@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, FunctionData, PrivateKey, TxContext } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -17,7 +17,7 @@ import { AccountImplementation } from './index.js';
 export class StoredKeyAccountContract implements AccountImplementation {
   private log: DebugLogger;
 
-  constructor(private address: AztecAddress, private privateKey: Buffer, private signer: Signer) {
+  constructor(private address: AztecAddress, private privateKey: PrivateKey, private signer: Signer) {
     this.log = createDebugLogger('aztec:client:accounts:stored_key');
   }
 
@@ -46,7 +46,7 @@ export class StoredKeyAccountContract implements AccountImplementation {
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,
-      functionData: new FunctionData(selector, true, false),
+      functionData: new FunctionData(selector, abi.isInternal, true, false),
       txContext,
       packedArguments: [...callsPackedArguments, packedArgs],
     });

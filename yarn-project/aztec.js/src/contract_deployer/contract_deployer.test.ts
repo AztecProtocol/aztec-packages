@@ -15,6 +15,7 @@ describe.skip('Contract Deployer', () => {
       {
         name: 'constructor',
         functionType: FunctionType.SECRET,
+        isInternal: false,
         parameters: [],
         returnTypes: [],
         bytecode: '0af',

@@ -8,13 +8,15 @@ use crate::utils::arr_copy_slice;
 fn notify_created_note_oracle<N>(
     _storage_slot: Field,
     _preimage: [Field; N],
+    _inner_note_hash: Field,
 ) -> Field {}
 
 unconstrained fn notify_created_note<N>(
     storage_slot: Field,
     preimage: [Field; N],
+    inner_note_hash: Field,
 ) -> Field {
-    notify_created_note_oracle(storage_slot, preimage)
+    notify_created_note_oracle(storage_slot, preimage, inner_note_hash)
 }
 
 #[oracle(notifyNullifiedNote)]
@@ -22,14 +24,16 @@ fn notify_nullified_note_oracle<N>(
     _storage_slot: Field,
     _nullifier: Field,
     _preimage: [Field; N],
+    _inner_note_hash: Field,
 ) -> Field {}
 
 unconstrained fn notify_nullified_note<N>(
     storage_slot: Field,
     nullifier: Field,
     preimage: [Field; N],
+    inner_note_hash: Field,
 ) -> Field {
-    notify_nullified_note_oracle(storage_slot, nullifier, preimage)
+    notify_nullified_note_oracle(storage_slot, nullifier, preimage, inner_note_hash)
 }
 
 #[oracle(getNotes)]
@@ -55,8 +59,7 @@ unconstrained fn get_notes_oracle_wrapper<N, S>(
     get_notes_oracle(storage_slot, sort_by, sort_order, limit, offset, return_size, fields)
 }
 
-// TODO: Should be unconstrained.
-fn get_notes<Note, N, M, S, NS>(
+unconstrained fn get_notes<Note, N, M, S, NS>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     sort_by: [u8; M],

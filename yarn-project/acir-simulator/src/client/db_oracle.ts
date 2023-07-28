@@ -1,4 +1,4 @@
-import { PartialContractAddress, PublicKey } from '@aztec/circuits.js';
+import { PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,8 +18,18 @@ export interface NoteData {
   nonce: Fr;
   /** The preimage of the note */
   preimage: Fr[];
+  /** The corresponding nullifier of the note */
+  nullifier?: Fr;
   /** The note's leaf index in the private data tree. Undefined for pending notes. */
   index?: bigint;
+}
+
+/**
+ * Information about a note needed during execution.
+ */
+export interface PendingNoteData extends NoteData {
+  /** The inner note hash (used as a nullified commitment). */
+  innerNoteHash: Fr;
 }
 
 /**
@@ -62,7 +72,7 @@ export interface CommitmentDataOracleInputs {
  */
 export interface DBOracle extends CommitmentsDB {
   getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
-  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<Buffer>;
+  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey>;
   getNotes(contractAddress: AztecAddress, storageSlot: Fr): Promise<NoteData[]>;
   getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;

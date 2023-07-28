@@ -6,9 +6,11 @@
     "node": "./dest/index.js",
     "default": "./dest/main.js"
   },
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Aztec.js",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Aztec.js",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {

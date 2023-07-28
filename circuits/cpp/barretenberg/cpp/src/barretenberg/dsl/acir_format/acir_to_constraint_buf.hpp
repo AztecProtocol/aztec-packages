@@ -1,6 +1,7 @@
 #pragma once
 #include "acir_format.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/blake2s_constraint.hpp"
 #include "barretenberg/dsl/acir_format/block_constraint.hpp"
 #include "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp"
@@ -208,29 +209,48 @@ void handle_blackbox_func_call(Circuit::Opcode::BlackBoxFuncCall const& arg, aci
         arg.value.value);
 }
 
-void handle_memory(Circuit::MemoryBlock const& mem_block, bool is_ram, acir_format& af)
+BlockConstraint handle_memory_init(Circuit::Opcode::MemoryInit const& mem_init)
 {
+    BlockConstraint block{ .init = {}, .trace = {}, .type = BlockType::ROM };
     std::vector<poly_triple> init;
     std::vector<MemOp> trace;
-    auto len = mem_block.len;
+
+    auto len = mem_init.init.size();
     for (size_t i = 0; i < len; ++i) {
-        init.push_back(serialize_arithmetic_gate(mem_block.trace[i].value));
-    }
-    for (size_t i = len; i < mem_block.trace.size(); ++i) {
-        auto index = serialize_arithmetic_gate(mem_block.trace[i].index);
-        auto value = serialize_arithmetic_gate(mem_block.trace[i].value);
-        auto op = mem_block.trace[i].operation;
-        if (!(op.mul_terms.empty() && op.linear_combinations.empty())) {
-            throw_or_abort("Expected constant.");
-        }
-        bool access_type(uint256_t(op.q_c));
-        trace.push_back(MemOp{
-            .access_type = static_cast<uint8_t>(access_type),
-            .index = index,
-            .value = value,
+        block.init.push_back(poly_triple{
+            .a = mem_init.init[i].value,
+            .b = 0,
+            .c = 0,
+            .q_m = 0,
+            .q_l = 1,
+            .q_r = 0,
+            .q_o = 0,
+            .q_c = 0,
         });
     }
-    af.block_constraints.push_back(BlockConstraint{ .init = init, .trace = trace, .type = (BlockType)is_ram });
+    return block;
+}
+
+bool is_rom(Circuit::MemOp const& mem_op)
+{
+    return mem_op.operation.mul_terms.size() == 0 && mem_op.operation.linear_combinations.size() == 0 &&
+           uint256_t(mem_op.operation.q_c) == 0;
+}
+
+void handle_memory_op(Circuit::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
+{
+    uint8_t access_type = 1;
+    if (is_rom(mem_op.op)) {
+        access_type = 0;
+    }
+    if (block.type == BlockType::ROM && access_type == 1) {
+        block.type = BlockType::RAM;
+    }
+
+    MemOp acir_mem_op = MemOp{ .access_type = access_type,
+                               .index = serialize_arithmetic_gate(mem_op.op.index),
+                               .value = serialize_arithmetic_gate(mem_op.op.value) };
+    block.trace.push_back(acir_mem_op);
 }
 
 acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
@@ -241,7 +261,7 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
     af.varnum = circuit.current_witness_index + 1;
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
-
+    std::map<uint32_t, BlockConstraint> block_id_to_block_constraint;
     for (auto gate : circuit.opcodes) {
         std::visit(
             [&](auto&& arg) {
@@ -250,13 +270,24 @@ acir_format circuit_buf_to_acir_format(std::vector<uint8_t> const& buf)
                     handle_arithmetic(arg, af);
                 } else if constexpr (std::is_same_v<T, Circuit::Opcode::BlackBoxFuncCall>) {
                     handle_blackbox_func_call(arg, af);
-                } else if constexpr (std::is_same_v<T, Circuit::Opcode::RAM>) {
-                    handle_memory(arg.value, true, af);
-                } else if constexpr (std::is_same_v<T, Circuit::Opcode::ROM>) {
-                    handle_memory(arg.value, false, af);
+                } else if constexpr (std::is_same_v<T, Circuit::Opcode::MemoryInit>) {
+                    auto block = handle_memory_init(arg);
+                    uint32_t block_id = arg.block_id.value;
+                    block_id_to_block_constraint[block_id] = block;
+                } else if constexpr (std::is_same_v<T, Circuit::Opcode::MemoryOp>) {
+                    auto block = block_id_to_block_constraint.find(arg.block_id.value);
+                    if (block == block_id_to_block_constraint.end()) {
+                        throw_or_abort("unitialized MemoryOp");
+                    }
+                    handle_memory_op(arg, block->second);
                 }
             },
             gate.value);
+    }
+    for (const auto& [block_id, block] : block_id_to_block_constraint) {
+        if (!block.trace.empty()) {
+            af.block_constraints.push_back(block);
+        }
     }
     return af;
 }

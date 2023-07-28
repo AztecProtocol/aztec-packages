@@ -132,8 +132,8 @@ enum GeneratorIndex {
     OUTER_NULLIFIER,             // Size = 2
     PUBLIC_DATA_READ,            // Size = 2
     PUBLIC_DATA_UPDATE_REQUEST,  // Size = 3
-    FUNCTION_DATA,               // Size = 3
-    FUNCTION_LEAF,               // Size = 4
+    FUNCTION_DATA,               // Size = 4
+    FUNCTION_LEAF,               // Size = 5
     CONTRACT_DEPLOYMENT_DATA,    // Size = 4
     CONSTRUCTOR,                 // Size = 3
     CONSTRUCTOR_ARGS,            // Size = 8
@@ -142,7 +142,7 @@ enum GeneratorIndex {
     CALL_CONTEXT,                // Size = 6
     CALL_STACK_ITEM,             // Size = 3
     CALL_STACK_ITEM_2,           // Size = ? (unused), // TODO see function where it's used for explanation
-    L1_TO_L2_MESSAGE_SECRET,     // Size = 1 (wrongly used)
+    L1_TO_L2_MESSAGE_SECRET,     // Size = 1
     L2_TO_L1_MSG,                // Size = 2 (unused)
     TX_CONTEXT,                  // Size = 4
     PUBLIC_LEAF_INDEX,           // Size = 2 (unused)
@@ -207,7 +207,7 @@ constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE
 
 constexpr size_t CALL_CONTEXT_LENGTH = 6;
 constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 5;
-constexpr size_t FUNCTION_DATA_LENGTH = 3;
+constexpr size_t FUNCTION_DATA_LENGTH = 4;
 constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
 
 // Change this ONLY if you have changed the PrivateCircuitPublicInputs structure in C++.

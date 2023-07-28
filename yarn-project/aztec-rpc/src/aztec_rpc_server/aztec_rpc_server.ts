@@ -8,6 +8,7 @@ import {
   FunctionData,
   PartialContractAddress,
   PrivateHistoricTreeRoots,
+  PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
@@ -93,7 +94,7 @@ export class AztecRPCServer implements AztecRPC {
    * @param partialContractAddress - The partially computed address of the account contract.
    * @returns The address of the account contract.
    */
-  public async addAccount(privKey: Buffer, address: AztecAddress, partialContractAddress: PartialContractAddress) {
+  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: PartialContractAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
     // TODO(#1007): ECDSA contract breaks this check, since the ecdsa public key does not match the one derived from the keystore.
     // Once we decouple the ecdsa contract signing and encryption keys, we can re-enable this check.
@@ -228,6 +229,9 @@ export class AztecRPCServer implements AztecRPC {
   public async simulateTx(txRequest: TxExecutionRequest) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
+    }
+    if (txRequest.functionData.isInternal === undefined) {
+      throw new Error(`Unspecified internal are not allowed`);
     }
 
     // We get the contract address from origin, since contract deployments are signalled as origin from their own address
@@ -370,18 +374,19 @@ export class AztecRPCServer implements AztecRPC {
   ): Promise<ExecutionRequest> {
     const contract = await this.db.getContract(to);
     if (!contract) {
-      throw new Error('Unknown contract.');
+      throw new Error(`Unknown contract ${to}: add it to Aztec RPC server by calling server.addContracts(...)`);
     }
 
     const functionDao = contract.functions.find(f => f.name === functionName);
     if (!functionDao) {
-      throw new Error('Unknown function.');
+      throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
     }
 
     const flatArgs = encodeArguments(functionDao, args);
 
     const functionData = new FunctionData(
       functionDao.selector,
+      functionDao.isInternal,
       functionDao.functionType === FunctionType.SECRET,
       false,
     );

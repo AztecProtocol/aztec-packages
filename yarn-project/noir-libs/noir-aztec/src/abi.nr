@@ -23,6 +23,7 @@ use crate::constants_gen::{
     GENERATOR_INDEX__PUBLIC_DATA_READ,
     GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST,
     GENERATOR_INDEX__CALL_CONTEXT,
+    GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS,
 };
 
 use crate::oracle::debug_log;
@@ -146,6 +147,7 @@ impl PublicGlobalVariables {
 
 struct FunctionData {
     function_selector: Field,
+    is_internal: bool,
     is_private: bool,
     is_constructor: bool,
 }
@@ -154,6 +156,7 @@ impl FunctionData {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator([
             self.function_selector,
+            self.is_internal as Field,
             self.is_private as Field,
             self.is_constructor as Field,
         ], GENERATOR_INDEX__FUNCTION_DATA)[0]
@@ -184,9 +187,8 @@ struct PrivateCircuitPublicInputs {
 }
 
 impl PrivateCircuitPublicInputs {
-    // TODO hash_index
     fn hash(self) -> Field {
-        dep::std::hash::pedersen(self.serialize())[0]
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS)[0]
     }
 
     fn serialize(self) -> [Field; PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH] {

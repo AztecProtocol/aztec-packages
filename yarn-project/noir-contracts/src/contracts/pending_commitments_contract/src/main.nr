@@ -66,15 +66,8 @@ contract PendingCommitments {
         // Insert note and emit encrypted note preimage via oracle call
         context = owner_balance.insert(context, note);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
-
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // get note inserted above
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
@@ -102,15 +95,7 @@ contract PendingCommitments {
 
         let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
-
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         // get note (note inserted at bottom of function shouldn't exist yet)
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
@@ -163,15 +148,7 @@ contract PendingCommitments {
 
         let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
-
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
         context = context_tmp;
 
@@ -181,6 +158,29 @@ contract PendingCommitments {
         context.return_values = context.return_values.push(got_notes[0].value);
 
         context = owner_balance.remove(context, got_notes[0]);
+
+        context.finish()
+    }
+
+    // Nested/inner function to get a note and confirms that none is returned
+    fn get_note_zero_balance(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        owner: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([owner]));
+
+        let owner_balance = storage.balances.at(owner);
+
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
+        context = context_tmp;
+
+        assert(!got_notes[0].is_real);
+        assert(!got_notes[1].is_real);
 
         context.finish()
     }
@@ -196,8 +196,9 @@ contract PendingCommitments {
         owner: Field,
         insert_fn_selector: Field,
         get_then_nullify_fn_selector: Field,
+        get_note_zero_fn_selector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector, get_note_zero_fn_selector]));
 
         // args for nested calls
         let mut args = [0; ARGS_LENGTH];
@@ -210,6 +211,9 @@ contract PendingCommitments {
         // nested call to read that note / pending commitment
         let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args, context);
         context = context_tmp1;
+         // nested call to confirm that balance is zero
+         let (_callStackItem3, mut context_tmp2) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner], context);
+         context = context_tmp2;
 
         context.finish()
     }
@@ -232,11 +236,10 @@ contract PendingCommitments {
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
 
-    /// ABI stev type "unconstrained"
     // stev function needs to be defined by every contract producing logs. Having it in all the contracts gives us the ability to
     // compute the note hash and nullifier differently for different kind of notes.
     // Note: "stev" is just a placeholder name before we come up with a better one.
-    fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> pub [Field; 4] {
+    unconstrained fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
     }
