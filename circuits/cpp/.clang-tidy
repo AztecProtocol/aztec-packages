@@ -12,7 +12,7 @@
 # So, it needs to omit certain checks or keep them as warnings only
 # if they are too strict.
 
-# TODO(AD): Picking a limited subset for now, pending a deeper dive into the performance issues.
+# TODO(AD): Picking a limited subset for now, pending a deeper dive into the performance issues. See #1152.
 Checks: '
     clang-analyzer-apiModeling.Errno
     clang-analyzer-apiModeling.StdCLibraryFunctions
