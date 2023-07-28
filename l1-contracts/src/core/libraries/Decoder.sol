@@ -306,7 +306,7 @@ library Decoder {
       // log hash is 4 * 0x20 since each log hash is divided into two field elements. And there are two kinds of logs - enrypted, unencrypted. Hence "4 * 0x20"
 
       vars.baseLeaf =
-      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + 2 * 4 * 0x20);
+      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + Constants.LOGS_HASHES_NUM_BYTES_PER_ROLLUP);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -417,6 +417,11 @@ library Decoder {
           calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
         }
 
+        // bytes32[4] memory hashes = [vars.unencryptedLogsHashKernel1, vars.unencryptedLogsHashKernel2, vars.encrypedLogsHashKernel1, vars.encrypedLogsHashKernel2];
+        //     assembly {
+        //       calldatacopy(dstPtr, hashes, 0x80)
+        //     }
+
         // encryptedLogsHashKernel1
         dstPtr += 0x14;
         bytes32 hash = vars.encrypedLogsHashKernel1;
@@ -445,12 +450,12 @@ library Decoder {
           mstore(dstPtr, hash)
         }
 
-        offsets.commitmentOffset += 2 * Constants.COMMITMENTS_PER_TX * 0x20;
-        offsets.nullifierOffset += 2 * Constants.NULLIFIERS_PER_TX * 0x20;
-        offsets.publicDataOffset += 2 * Constants.PUBLIC_DATA_WRITES_PER_TX * 0x40;
-        offsets.l2ToL1MsgsOffset += 2 * Constants.L2_TO_L1_MSGS_PER_TX * 0x20;
-        offsets.contractOffset += 2 * 0x20;
-        offsets.contractDataOffset += 2 * 0x34;
+        offsets.commitmentOffset += Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
+        offsets.nullifierOffset += Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
+        offsets.publicDataOffset += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
+        offsets.l2ToL1MsgsOffset += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
+        offsets.contractOffset += Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
+        offsets.contractDataOffset += Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP_UNPADDED;
 
         vars.baseLeaves[i] = sha256(vars.baseLeaf);
       }
