@@ -123,7 +123,6 @@ contract Registry is IRegistry {
 
   function _getVersionFor(address _rollup) internal view returns (uint256 version, bool exists) {
     version = rollupToVersion[_rollup];
-    exists = version > 0 || snapshots[0].rollup == _rollup;
-    return (version, exists);
+    return (version, version > 0);
   }
 }

@@ -30,8 +30,8 @@ contract RegistryTest is Test {
     assertEq(address(registry.getInbox()), DEAD);
     assertEq(address(registry.getOutbox()), DEAD);
 
-    uint256 version = registry.getVersionFor(DEAD);
-    assertEq(version, 0, "should have version 0 for dead rollup");
+    vm.expectRevert(abi.encodeWithSelector(Errors.Registry__RollupNotRegistered.selector, DEAD));
+    registry.getVersionFor(DEAD);
   }
 
   function testUpgrade() public {
@@ -55,6 +55,7 @@ contract RegistryTest is Test {
   }
 
   function testRevertUpgradeToSame() public {
+    registry.upgrade(DEAD, DEAD, DEAD);
     vm.expectRevert(abi.encodeWithSelector(Errors.Registry__RollupAlreadyRegistered.selector, DEAD));
     registry.upgrade(DEAD, DEAD, DEAD);
   }
