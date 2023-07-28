@@ -1,3 +1,5 @@
+# Disabled until #1152 is fully investigated (why this took 15 minutes in CI)
+
 # Note there is some overlap between this file and .clangd
 # .clangd has no concept of warnings versus errors, but since it
 # won't actually fail/error (since its really just an LSP for
