@@ -2,17 +2,17 @@ FROM alpine:3.17 AS builder
 RUN apk update \
     && apk upgrade \
     && apk add --no-cache \
-        build-base \
-        clang15 \
-        clang15-extra-tools \
-        openmp-dev \
-        cmake \
-        ninja \
-        git \
-        curl \
-        perl \
-        bash \
-        python3
+    build-base \
+    clang15 \
+    clang15-extra-tools \
+    openmp-dev \
+    cmake \
+    ninja \
+    git \
+    curl \
+    perl \
+    bash \
+    python3
 
 WORKDIR /usr/src/circuits/cpp
 

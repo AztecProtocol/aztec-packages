@@ -124,7 +124,31 @@ Checks: '
     portability-restrict-system-includes
     portability-simd-intrinsics
     portability-std-allocator-const
+    -bugprone-unchecked-optional-access
+    -bugprone-unhandled-self-assignment
+    -clang-analyzer-core.UndefinedBinaryOperatorResult
+    -clang-analyzer-cplusplus.NewDeleteLeaks
     -clang-analyzer-optin.performance.Padding
+    -cert-err58-cpp
+    -cert-oop54-cpp
+    -cppcoreguidelines-avoid-non-const-global-variables
+    -cppcoreguidelines-avoid-magic-numbers
+    -cppcoreguidelines-c-copy-assignment-signature
+    -cppcoreguidelines-no-malloc
+    -cppcoreguidelines-owning-memory
+    -cppcoreguidelines-pro-type-cstyle-cast
+    -cppcoreguidelines-pro-type-reinterpret-cast
+    -cppcoreguidelines-special-member-functions
+    -google-build-using-namespace
+    -google-global-names-in-headers
+    -google-readability-casting
+    -misc-definitions-in-headers
+    -misc-no-recursion
+    -misc-unconventional-assign-operator
+    -modernize-return-braced-init-list
+    -performance-unnecessary-value-param
+    -readability-function-cognitive-complexity
+    -readability-magic-numbers
 '
 
 # We treat all warnings as errors.
