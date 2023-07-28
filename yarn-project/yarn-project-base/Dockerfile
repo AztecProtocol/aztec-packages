@@ -34,7 +34,6 @@ COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
 COPY merkle-tree/package.local.json merkle-tree/package.local.json
 COPY noir-contracts/package.json noir-contracts/package.json
-COPY noir-artifacts/ noir-artifacts/
 COPY noir-compiler/package.json noir-compiler/package.json
 COPY l1-artifacts/package.json l1-artifacts/package.json
 COPY circuits.js/package.json circuits.js/package.json
@@ -114,7 +113,7 @@ WORKDIR /usr/src/yarn-project/l1-artifacts
 RUN ./scripts/generate-artifacts.sh
 
 # Generate TS-importable noir artifacts
-WORKDIR /usr/src/yarn-project/noir-artifacts
+WORKDIR /usr/src/yarn-project/noir-contracts
 RUN ./scripts/generate-artifacts.sh
 
 WORKDIR /usr/src/yarn-project

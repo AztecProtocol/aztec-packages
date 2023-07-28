@@ -17,4 +17,5 @@ WORKDIR /usr/src/yarn-project/noir-contracts
 RUN ./scripts/install_noir.sh
 ENV PATH="/usr/src/yarn-project/noir-contracts/.nargo/bin:${PATH}"
 
-RUN ./src/scripts/compile_ci.sh $(ls -d src/contracts/*_contract/Nargo.toml | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
+RUN ./scripts/compile_ci.sh
+RUN ./scripts/generate_artifacts.sh

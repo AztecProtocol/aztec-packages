@@ -1,14 +1,12 @@
 
 #!/bin/bash
 
-noir_path=..
-
 # create target dir if it doesn't exist
 target_dir=./generated
 mkdir -p "$target_dir";
 
 # Copies contract artifacts into the artifacts folder
-contracts=$(ls -d $noir_path/noir-contracts/src/contracts/*_contract/Nargo.toml | sed 's#^\.\.\/##' | sed -r "s/noir-contracts\\/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
+contracts=$(ls -d src/contracts/*_contract/Nargo.toml | sed 's#^\.\.\/##' | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
 
 process() {
     NAME=$1
@@ -16,7 +14,7 @@ process() {
     echo "Copying output for $NAME"
 
     # Set the folder and CONTRACT_NAME variables
-    folder="$noir_path/noir-contracts/src/contracts/${NAME}_contract"
+    folder="src/contracts/${NAME}_contract"
     echo "$folder"
     CONTRACT_NAME=`echo $NAME | sed -r 's/(^|_)(.)/\U\2/g'`
     echo "$CONTRACT_NAME"

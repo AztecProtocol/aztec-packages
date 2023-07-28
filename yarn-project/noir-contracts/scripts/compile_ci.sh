@@ -1,18 +1,6 @@
 #!/bin/bash
 
-# Example:
-
-# If you've compiled Noir from source:
-# ./compile.sh --nargo-path=path/to/nargo --verbose zk_token ecdsa_account
-# yarn noir:build --nargo-path=path/to/nargo zk_token ecdsa_account
-
-# If nargo is installed properly in your PATH:
-# yarn noir:build zk_token ecdsa_account
-
-# Enable strict mode:
-# set -euo pipefail;
-# set -euo pipefail;
-
+CONTRACTS=$(ls -d src/contracts/*_contract/Nargo.toml | sed 's#^\.\.\/##' | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
 ROOT=$(pwd)
 
 # Error flag file
@@ -64,7 +52,7 @@ process() {
 echo "Using $(nargo --version)"
 
 # Build contracts
-for CONTRACT_NAME in "$@"; do
+for CONTRACT_NAME in $CONTRACTS; do
   build $CONTRACT_NAME &
   pids+=($!)
 done

@@ -109,21 +109,16 @@ const main = () => {
   const source = readFileSync(`${folder}/src/main.nr`).toString();
   const contractName = process.argv[3] ?? upperFirst(camelCase(name));
   const build = JSON.parse(readFileSync(`${folder}/target/main-${contractName}.json`).toString());
-  const artifacts = `src/artifacts`;
 
   const abi = {
     name: build.name,
     functions: getFunctions(source, build),
   };
 
-  const exampleFile = `${artifacts}/${snakeCase(name)}_contract.json`;
-  writeFileSync(exampleFile, JSON.stringify(abi, null, 2) + '\n');
-  log(`Written ${exampleFile}`);
-
   writeToProject(abi);
 
   const typeFile = `src/types/${name}.ts`;
-  writeFileSync(typeFile, generateType(abi, '../artifacts/index.js'));
+  writeFileSync(typeFile, generateType(abi, '../generated/index.js'));
   log(`Written ${typeFile}`);
 };
 
