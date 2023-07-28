@@ -1,5 +1,4 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
