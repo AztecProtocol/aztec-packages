@@ -2,7 +2,10 @@
   "name": "@aztec/aztec.js",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    "node": "./dest/index.js",
+    "default": "./dest/main.js"
+  },
   "typedoc": {
     "entryPoint": "./src/index.ts",
     "displayName": "Aztec.js",
@@ -11,12 +14,14 @@
   "scripts": {
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
     "prepare:check": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json --check",
-    "build": "yarn clean && tsc -b",
+    "build": "yarn clean && tsc -b && webpack",
     "build:dev": "tsc -b --watch",
+    "build:test": "yarn clean && webpack --config webpack.config.test.js --stats-error-details",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
+    "test:browser": "web-test-runner ./src/**/*.test.ts --node-resolve"
   },
   "inherits": [
     "../package.common.json"
@@ -42,11 +47,24 @@
     "@types/jest": "^29.5.0",
     "@types/lodash.partition": "^4.6.0",
     "@types/node": "^18.7.23",
+    "@web/dev-server-esbuild": "^0.4.1",
+    "@web/test-runner": "^0.17.0",
+    "assert": "^2.0.0",
+    "buffer": "^6.0.3",
+    "crypto-browserify": "^3.12.0",
+    "expect": "^29.6.2",
+    "glob": "^10.3.3",
     "jest": "^29.5.0",
+    "jest-browser-globals": "^25.1.0-beta",
     "jest-mock-extended": "^3.0.3",
+    "stream-browserify": "^3.0.0",
     "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
-    "typescript": "^5.0.4"
+    "tty-browserify": "^0.0.1",
+    "typescript": "^5.0.4",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
   },
   "files": [
     "dest",

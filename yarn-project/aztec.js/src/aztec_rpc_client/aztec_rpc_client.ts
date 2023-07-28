@@ -1,5 +1,5 @@
 import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
-import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc';
+import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 import {
   AztecRPC,
   ContractData,
