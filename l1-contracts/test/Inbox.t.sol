@@ -40,11 +40,11 @@ contract InboxTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
       recipient: DataStructures.L2Actor({
-        actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
+        actor: 0x1000000000000000000000000000000000000000000000000000000000000000,
         version: 1
       }),
-      content: 0x3000000000000000000000000000000000000000000000000000000000000000,
-      secretHash: 0x4000000000000000000000000000000000000000000000000000000000000000,
+      content: 0x2000000000000000000000000000000000000000000000000000000000000000,
+      secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,
       fee: 5,
       deadline: uint32(block.timestamp + 100)
     });
@@ -56,8 +56,10 @@ contract InboxTest is Test {
     if (_message.deadline <= block.timestamp) {
       _message.deadline = uint32(block.timestamp + 100);
     }
-    // ensure content fits in the field
+    // ensure content fits in a field
     _message.content = bytes32(uint256(_message.content) % Constants.P);
+    // ensure secret hash fits in a field
+    _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
     bytes32 expectedEntryKey = inbox.computeEntryKey(_message);
     vm.expectEmit(true, true, true, true);
     // event we expect
@@ -106,6 +108,17 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
+    inbox.sendL2Message{value: message.fee}(
+      message.recipient, message.deadline, message.content, message.secretHash
+    );
+  }
+
+  function testRevertIfSecretHashTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.secretHash = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
+    );
     inbox.sendL2Message{value: message.fee}(
       message.recipient, message.deadline, message.content, message.secretHash
     );
@@ -235,8 +248,10 @@ contract InboxTest is Test {
       if (message.deadline <= block.timestamp) {
         message.deadline = uint32(block.timestamp + 100);
       }
-      // ensure content fits in the field
+      // ensure content fits in a field
       message.content = bytes32(uint256(message.content) % Constants.P);
+      // ensure secret hash fits in a field
+      message.secretHash = bytes32(uint256(message.secretHash) % Constants.P);
       expectedTotalFee += message.fee;
       entryKeys[i] = inbox.sendL2Message{value: message.fee}(
         message.recipient, message.deadline, message.content, message.secretHash

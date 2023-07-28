@@ -58,6 +58,9 @@ contract Inbox is IInbox {
     if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
       revert Errors.Inbox__ContentTooLarge(_content);
     }
+    if (uint256(_secretHash) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__SecretHashTooLarge(_secretHash);
+    }
     // `fee` is uint64 for slot packing of the Entry struct. uint64 caps at ~18.4 ETH which should be enough.
     // we revert here to safely cast msg.value into uint64.
     if (msg.value > type(uint64).max) revert Errors.Inbox__FeeTooHigh();
