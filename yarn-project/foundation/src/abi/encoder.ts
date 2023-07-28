@@ -1,4 +1,4 @@
-import { ABIType, FunctionAbi, isValidArg } from '@aztec/foundation/abi';
+import { ABIType, FunctionAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 
 /**
@@ -29,8 +29,10 @@ class ArgumentEncoder {
         } else if (typeof arg === 'object') {
           if (typeof arg.toField === 'function') {
             this.flattened.push(arg.toField());
-          } else {
+          } else if (arg instanceof Fr) {
             this.flattened.push(arg);
+          } else {
+            throw new Error('Object cannot be serialized to a field and is not a field.');
           }
         } else {
           throw new Error(`Invalid argument "${arg}" of type ${abiType.kind}`);
