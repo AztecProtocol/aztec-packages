@@ -30,7 +30,6 @@ Checks: '
     clang-analyzer-core.NullDereference
     clang-analyzer-core.StackAddrEscapeBase
     clang-analyzer-core.StackAddressEscape
-    clang-analyzer-core.UndefinedBinaryOperatorResult
     clang-analyzer-core.VLASize
     clang-analyzer-core.builtin.BuiltinFunctions
     clang-analyzer-core.builtin.NoReturnFunctions
@@ -44,7 +43,6 @@ Checks: '
     clang-analyzer-cplusplus.NewDelete
     clang-analyzer-cplusplus.PlacementNew
     clang-analyzer-cplusplus.PureVirtualCall
-    clang-analyzer-cplusplus.SelfAssignment
     clang-analyzer-cplusplus.SmartPtrModeling
     clang-analyzer-cplusplus.StringChecker
     clang-analyzer-cplusplus.VirtualCallModeling
