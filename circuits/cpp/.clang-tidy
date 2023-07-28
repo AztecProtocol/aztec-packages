@@ -124,6 +124,7 @@ Checks: '
     portability-restrict-system-includes
     portability-simd-intrinsics
     portability-std-allocator-const
+    -clang-analyzer-optin.performance.Padding
 '
 
 # We treat all warnings as errors.
