@@ -301,12 +301,13 @@ library Decoder {
       }
 
       // Create the leaf to contain commitments (2 * COMMITMENTS_PER_TX * 0x20) + nullifiers (2 * NULLIFIERS_PER_TX * 0x20)
-      // + new public data writes (2 * PUBLIC_DATA_WRITES_PER_TX * 0x40) + contract deployments (2 * CONTRACTS_PER_TX * 0x60) + logs hashes (2 * 4 * 0x20)
+      // + new public data writes (2 * PUBLIC_DATA_WRITES_PER_TX * 0x40) + new L2 to L1 messages (2 * L2_TO_L1_MSGS_PER_TX * 0x20)
+      // + contract deployments (2 * CONTRACTS_PER_TX * 0x60) + logs hashes (2 * 2 * 0x20)
       // contract deployments is 0x60 since 0x20 for contract data root, 0x40 to store the contract's aztec address and eth address (padded to 32 bytes)
-      // log hash is 4 * 0x20 since each log hash is divided into two field elements. And there are two kinds of logs - enrypted, unencrypted. Hence "4 * 0x20"
+      // log hash is 2 * 0x20 since there are 2 tpyes of logs - encrypted, unencrypted
 
       vars.baseLeaf =
-      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + Constants.LOGS_HASHES_NUM_BYTES_PER_ROLLUP);
+      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + Constants.LOGS_HASHES_NUM_BYTES_PER_ROLLUP);
 
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
@@ -416,11 +417,6 @@ library Decoder {
         assembly {
           calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
         }
-
-        // bytes32[4] memory hashes = [vars.unencryptedLogsHashKernel1, vars.unencryptedLogsHashKernel2, vars.encrypedLogsHashKernel1, vars.encrypedLogsHashKernel2];
-        //     assembly {
-        //       calldatacopy(dstPtr, hashes, 0x80)
-        //     }
 
         // encryptedLogsHashKernel1
         dstPtr += 0x14;
