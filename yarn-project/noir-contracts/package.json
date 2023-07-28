@@ -42,6 +42,7 @@
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/noir-compiler": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",

@@ -113,6 +113,7 @@ RUN ./scripts/generate-artifacts.sh
 
 # Generate TS-importable noir artifacts
 WORKDIR /usr/src/yarn-project/noir-contracts
+RUN yarn
 # TODO clean up script
 RUN ./src/scripts/format_ci.sh $(ls -d src/contracts/*_contract/Nargo.toml | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
 
