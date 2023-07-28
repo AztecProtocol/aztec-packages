@@ -1,6 +1,7 @@
 # FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build
 
 FROM node:18-alpine
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq
@@ -31,7 +32,7 @@ COPY foundation/package.json foundation/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
 COPY merkle-tree/package.local.json merkle-tree/package.local.json
-COPY noir-contracts/package.json noir-contracts/package.json
+COPY noir-contracts/ noir-contracts/
 COPY noir-compiler/package.json noir-compiler/package.json
 COPY l1-artifacts/package.json l1-artifacts/package.json
 COPY circuits.js/package.json circuits.js/package.json
@@ -109,5 +110,11 @@ RUN yarn prepare:check
 COPY l1-artifacts/scripts/generate-artifacts.sh l1-artifacts/scripts/generate-artifacts.sh
 WORKDIR /usr/src/yarn-project/l1-artifacts
 RUN ./scripts/generate-artifacts.sh
+
+# Generate TS-importable noir artifacts
+WORKDIR /usr/src/yarn-project/noir-contracts
+# TODO clean up script
+RUN ./src/scripts/format_ci.sh $(ls -d src/contracts/*_contract/Nargo.toml | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
+
 
 WORKDIR /usr/src/yarn-project
