@@ -33,6 +33,9 @@ library Constants {
     KERNELS_PER_ROLLUP * CONTRACTS_PER_TX * 0x20;
   uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_ROLLUP =
     KERNELS_PER_ROLLUP * CONTRACTS_PER_TX * 0x40; //aztec address + eth address (padded to 0x20)
+  uint256 internal constant CONTRACT_DATA_NUM_BYTES_PER_ROLLUP_UNPADDED =
+    KERNELS_PER_ROLLUP * CONTRACTS_PER_TX * 0x34; // same as prev except doesn't pad eth address. So 0x20 (aztec address) + 0x14 (eth address)
   uint256 internal constant L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP =
     KERNELS_PER_ROLLUP * L2_TO_L1_MSGS_PER_TX * 0x20;
+  uint256 internal constant LOGS_HASHES_NUM_BYTES_PER_ROLLUP = KERNELS_PER_ROLLUP * 4 * 0x20; // encrypted and unencrypted log hashes occupy 2 field elements each. Hence "4 x 0x20"
 }
