@@ -25,6 +25,7 @@ library Errors {
     uint32 storedDeadline,
     uint32 deadlinePassed
   ); // 0xd483d8f2
+  error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
 
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2

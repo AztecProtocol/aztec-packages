@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
+import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -97,6 +98,15 @@ contract InboxTest is Test {
     assertEq(inbox.get(entryKey1).count, 3);
     assertEq(inbox.get(entryKey1).fee, 5);
     assertEq(inbox.get(entryKey1).deadline, message.deadline);
+  }
+
+  function testRevertIfContentTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
+    inbox.sendL2Message{value: message.fee}(
+      message.recipient, message.deadline, message.content, message.secretHash
+    );
   }
 
   function testRevertIfCancellingMessageFromDifferentAddress() public {
