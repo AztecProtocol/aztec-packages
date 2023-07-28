@@ -11,15 +11,16 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {MessageBox} from "@aztec/core/libraries/MessageBox.sol";
 
 contract OutboxTest is Test {
-  Outbox outbox;
-  uint256 version = 0;
+  Registry internal registry;
+  Outbox internal outbox;
+  uint256 internal version = 0;
 
   event MessageAdded(bytes32 indexed entryKey);
   event MessageConsumed(bytes32 indexed entryKey, address indexed recipient);
 
   function setUp() public {
     address rollup = address(this);
-    Registry registry = new Registry();
+    registry = new Registry();
     outbox = new Outbox(address(registry));
     version = registry.upgrade(rollup, address(0x0), address(outbox));
   }
@@ -83,6 +84,28 @@ contract OutboxTest is Test {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     bytes32 entryKey = outbox.computeEntryKey(message);
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKey));
+    outbox.consume(message);
+  }
+
+  function testRevertIfInsertingFromWrongRollup() public {
+    address wrongRollup = address(0xbeeffeed);
+    uint256 wrongVersion = registry.upgrade(wrongRollup, address(0x0), address(outbox));
+
+    DataStructures.L2ToL1Msg memory message = _fakeMessage();
+    // correctly set message.recipient to this address
+    message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+
+    bytes32 expectedEntryKey = outbox.computeEntryKey(message);
+    bytes32[] memory entryKeys = new bytes32[](1);
+    entryKeys[0] = expectedEntryKey;
+
+    vm.prank(wrongRollup);
+    outbox.sendL1Messages(entryKeys);
+
+    vm.prank(message.recipient.actor);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Outbox__InvalidVersion.selector, wrongVersion, version)
+    );
     outbox.consume(message);
   }
 

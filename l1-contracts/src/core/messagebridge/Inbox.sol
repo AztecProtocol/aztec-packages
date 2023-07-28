@@ -124,6 +124,7 @@ contract Inbox is IInbox {
     override(IInbox)
   {
     uint256 totalFee = 0;
+    // This MUST revert if not called by a listed rollup contract
     uint32 expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender));
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;

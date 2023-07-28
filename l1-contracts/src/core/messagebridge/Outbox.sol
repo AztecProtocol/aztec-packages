@@ -36,7 +36,7 @@ contract Outbox is IOutbox {
    * @param _entryKeys - Array of entry keys (hash of the message) - computed by the L2 counterpart and sent to L1 via rollup block
    */
   function sendL1Messages(bytes32[] memory _entryKeys) external override(IOutbox) {
-    // This will revert if not called by a listed rollup contract
+    // This MUST revert if not called by a listed rollup contract
     uint32 version = uint32(REGISTRY.getVersionFor(msg.sender));
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;

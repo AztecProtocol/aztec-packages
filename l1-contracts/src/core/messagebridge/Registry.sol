@@ -96,6 +96,7 @@ contract Registry is IRegistry {
 
   /**
    * @notice Creates a new snapshot of the registry
+   * @dev Reverts if the rollup is already registered
    * todo: this function must be permissioned with some kind of governance/voting/authority
    * @param _rollup - The address of the rollup contract
    * @param _inbox - The address of the inbox contract

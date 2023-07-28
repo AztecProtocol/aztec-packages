@@ -27,9 +27,9 @@ contract InboxTest is Test {
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
 
-  Registry registry;
-  Inbox inbox;
-  uint256 version = 0;
+  Registry internal registry;
+  Inbox internal inbox;
+  uint256 internal version = 0;
 
   function setUp() public {
     address rollup = address(this);
