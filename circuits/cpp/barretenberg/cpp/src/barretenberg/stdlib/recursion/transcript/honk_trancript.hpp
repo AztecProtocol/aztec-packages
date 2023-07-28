@@ -3,19 +3,12 @@
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-// #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 
-#include "../../commitment/pedersen/pedersen.hpp"
-#include "../../commitment/pedersen/pedersen_plookup.hpp"
-#include "../../hash/blake3s/blake3s.hpp"
 #include "../../primitives/bigfield/bigfield.hpp"
 #include "../../primitives/biggroup/biggroup.hpp"
-#include "../../primitives/bool/bool.hpp"
-#include "../../primitives/curves/bn254.hpp"
 #include "../../primitives/field/field.hpp"
-#include "../../primitives/witness/witness.hpp"
-#include "../verification_key/verification_key.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
@@ -24,11 +17,10 @@ template <typename Builder> class Transcript {
     using witness_pt = witness_t<Builder>;
     using fq_pt = bigfield<Builder, barretenberg::Bn254FqParams>;
     using group_pt = element<Builder, fq_pt, field_pt, barretenberg::g1>;
-    using byte_array = byte_array<Builder>;
-    using Key = verification_key<stdlib::bn254<Builder>>;
     using FF = barretenberg::fr;
     using Commitment = barretenberg::g1::affine_element;
     using VerifierTranscript = proof_system::honk::VerifierTranscript<FF>;
+    template <size_t LENGTH> using Univariate = proof_system::honk::sumcheck::Univariate<FF, LENGTH>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = 32; // WORKTODO: Duplicated from native transcript
 
@@ -105,6 +97,11 @@ template <typename Builder> class Transcript {
         return stdlib_type_from_witness(element);
     }
 
+  private:
+    // Series of overloaded methods for converting native types extracted from the native transcript to the
+    // corresponding stdlib type for output.
+    // TODO(luke): Eventually these can also add data to a buffer (byte_array) to be hashed.
+
     /**
      * @brief Construct stdlib field from uint32_t
      *
@@ -141,6 +138,35 @@ template <typename Builder> class Transcript {
     {
         auto element = group_pt::from_witness(builder, native_element);
 
+        return element;
+    }
+
+    /**
+     * @brief Construct field_t array from native field array
+     * @param native_element Array of FF
+     * @return std::array<field_pt, LENGTH>
+     */
+    template <size_t LENGTH> std::array<field_pt, LENGTH> stdlib_type_from_witness(std::array<FF, LENGTH> native_element)
+    {
+        std::array<field_pt, LENGTH> element;
+        for (size_t i = 0; i < LENGTH; ++i) {
+            element[i] = witness_pt(builder, native_element[i]);
+        }
+        return element;
+    }
+
+    /**
+     * @brief Construct field_t array from native Univariate type
+     * TODO(luke): do we need a stdlib Univariate or is std::array<field_t> good enough?
+     * @param native_element
+     * @return std::array<field_pt, LENGTH>
+     */
+    template <size_t LENGTH> std::array<field_pt, LENGTH> stdlib_type_from_witness(Univariate<LENGTH> native_element)
+    {
+        std::array<field_pt, LENGTH> element;
+        for (size_t i = 0; i < LENGTH; ++i) {
+            element[i] = witness_pt(builder, native_element.value_at(i));
+        }
         return element;
     }
 };

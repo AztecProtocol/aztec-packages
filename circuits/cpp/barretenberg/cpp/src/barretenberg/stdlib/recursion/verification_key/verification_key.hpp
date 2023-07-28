@@ -81,13 +81,6 @@ template <class Composer, size_t bits_per_element = 248> struct PedersenPreimage
 
     size_t current_bit_counter = 0;
 
-    void clear()
-    {
-        preimage_data.clear();
-        work_element.clear();
-        current_bit_counter = 0;
-    }
-
     void add_element(const field_pt& element) { slice_element(element, 256); }
 
     void add_element_with_existing_range_constraint(const field_pt& element, const size_t num_bits)

@@ -2,6 +2,7 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/stdlib/recursion/transcript/honk_trancript.hpp"
 
@@ -10,26 +11,31 @@ namespace proof_system::plonk::stdlib::recursion::honk {
 // TODO(Cody): Testing only one circuit type.
 using Builder = UltraCircuitBuilder;
 
-using field_t = stdlib::field_t<Builder>;
-using bool_t = stdlib::bool_t<Builder>;
-using uint32 = stdlib::uint<Builder, uint32_t>;
-using witness_t = stdlib::witness_t<Builder>;
-using byte_array = stdlib::byte_array<Builder>;
-using fq_t = stdlib::bigfield<Builder, barretenberg::Bn254FqParams>;
-using group_t = stdlib::element<Builder, fq_t, field_t, barretenberg::g1>;
-using transcript_ct = Transcript<Builder>;
 using FF = barretenberg::fr;
 using Commitment = barretenberg::g1::affine_element;
 using Point = barretenberg::g1::element;
+constexpr size_t LENGTH = 8; // arbitrary
+using Univariate = proof_system::honk::sumcheck::Univariate<FF, LENGTH>;
 using ProverTranscript = ::proof_system::honk::ProverTranscript<FF>;
 using VerifierTranscript = ::proof_system::honk::VerifierTranscript<FF>;
 
+/**
+ * @brief Create some mock data and then add it to the transcript in various mock rounds
+ *
+ * @param prover_transcript
+ * @return auto proof_data
+ */
 auto generate_mock_proof_data(auto prover_transcript)
 {
     uint32_t data = 25;
     auto scalar = FF::random_element();
     auto commitment = Commitment::one();
-    // auto univariate = Univariate(evaluations);
+
+    std::array<FF, LENGTH> evaluations;
+    for (auto& eval : evaluations) {
+        eval = FF::random_element();
+    }
+    auto univariate = Univariate(evaluations);
 
     // round 0
     prover_transcript.send_to_verifier("data", data);
@@ -40,17 +46,34 @@ auto generate_mock_proof_data(auto prover_transcript)
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.get_challenges("beta, gamma");
 
+    // round 2
+    prover_transcript.send_to_verifier("univariate", univariate);
+    prover_transcript.get_challenges("gamma", "delta");
+
     return prover_transcript.proof_data;
 }
 
-void perform_mock_transcript_operations(auto transcript)
+/**
+ * @brief Perform series of verifier transcript operations
+ * @details Operations are designed to correspond to those performed by a prover transcript from which the verifier
+ * transcript was initialized.
+ *
+ * @param transcript Either a native or stdlib verifier transcript
+ */
+void perform_mock_verifier_transcript_operations(auto transcript)
 {
+    // round 0 
     transcript.template receive_from_prover<uint32_t>("data");
     transcript.get_challenge("alpha");
 
+    // round 1 
     transcript.template receive_from_prover<FF>("scalar");
     transcript.template receive_from_prover<Commitment>("commitment");
     transcript.get_challenges("beta, gamma");
+
+    // round 2 
+    transcript.template receive_from_prover<Univariate>("univariate");
+    transcript.get_challenges("gamma", "delta");
 }
 
 TEST(stdlib_honk_transcript, basic_transcript_operations)
@@ -63,19 +86,71 @@ TEST(stdlib_honk_transcript, basic_transcript_operations)
 
     // Instantiate a (native) Verifier Transcript with the proof data and perform some mock transcript operations
     VerifierTranscript native_transcript(proof_data);
-    perform_mock_transcript_operations(native_transcript);
+    perform_mock_verifier_transcript_operations(native_transcript);
 
     // Confirm that Prover and Verifier transcripts have generated the same manifest via the operations performed
     EXPECT_EQ(prover_transcript.get_manifest(), native_transcript.get_manifest());
 
     // Instantiate a stdlib Transcript and perform the same operations
-    Transcript<Builder> transcript{&builder, proof_data};
-    perform_mock_transcript_operations(transcript);
+    Transcript<Builder> transcript{ &builder, proof_data };
+    perform_mock_verifier_transcript_operations(transcript);
 
     // Confirm that the native and stdlib transcripts have generated the same manifest
     EXPECT_EQ(transcript.get_manifest(), native_transcript.get_manifest());
 
+    // TODO(luke): This doesn't check much of anything until hashing is constrained in the stdlib transcript
     EXPECT_TRUE(builder.check_circuit());
-
 }
+
+TEST(stdlib_honk_transcript, return_values)
+{
+    Builder builder;
+
+    // Define some mock data for a mock proof
+    uint32_t data = 25;
+    auto scalar = FF::random_element();
+    auto commitment = Commitment::one();
+
+    const size_t LENGTH = 10; // arbitrary
+    std::array<FF, LENGTH> evaluations;
+    for (auto& eval : evaluations) {
+        eval = FF::random_element();
+    }
+
+    // Construct a mock proof via the prover transcript
+    ProverTranscript prover_transcript;
+    prover_transcript.send_to_verifier("data", data);
+    prover_transcript.send_to_verifier("scalar", scalar);
+    prover_transcript.send_to_verifier("commitment", commitment);
+    prover_transcript.send_to_verifier("evaluations", evaluations);
+    prover_transcript.get_challenges("alpha, beta");
+    auto proof_data = prover_transcript.proof_data;
+
+    // Perform the corresponding operations with the native verifier transcript
+    VerifierTranscript native_transcript(proof_data);
+    auto native_data = native_transcript.template receive_from_prover<uint32_t>("data");
+    auto native_scalar = native_transcript.template receive_from_prover<FF>("scalar");
+    auto native_commitment = native_transcript.template receive_from_prover<Commitment>("commitment");
+    auto native_evaluations = native_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
+    auto [native_alpha, native_beta] = native_transcript.get_challenges("alpha", "beta");
+    
+    // Perform the corresponding operations with the stdlib verifier transcript
+    Transcript<Builder> stdlib_transcript{ &builder, proof_data };
+    auto stdlib_data = stdlib_transcript.template receive_from_prover<uint32_t>("data");
+    auto stdlib_scalar = stdlib_transcript.template receive_from_prover<FF>("scalar");
+    auto stdlib_commitment = stdlib_transcript.template receive_from_prover<Commitment>("commitment");
+    auto stdlib_evaluations = stdlib_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
+    auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.get_challenges("alpha", "beta");
+
+    // Confirm that return values are equivalent 
+    EXPECT_EQ(native_data, stdlib_data.get_value());
+    EXPECT_EQ(native_scalar, stdlib_scalar.get_value());
+    EXPECT_EQ(native_commitment, stdlib_commitment.get_value());
+    for (size_t i = 0; i < LENGTH; ++i) {
+        EXPECT_EQ(native_evaluations[i], stdlib_evaluations[i].get_value());
+    }
+    EXPECT_EQ(native_alpha, stdlib_alpha.get_value());
+    EXPECT_EQ(native_beta, stdlib_beta.get_value());
+}
+
 } // namespace proof_system::plonk::stdlib::recursion::honk
