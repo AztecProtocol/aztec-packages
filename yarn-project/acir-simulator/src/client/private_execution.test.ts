@@ -620,7 +620,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it.skip('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
+    it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -639,7 +639,13 @@ describe('Private Execution test suite', () => {
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const args = [amountToTransfer, owner, insertFnSelector, getThenNullifyFnSelector, getZeroFnSelector];
+      const args = [
+        amountToTransfer,
+        owner,
+        Fr.fromBuffer(insertFnSelector),
+        Fr.fromBuffer(getThenNullifyFnSelector),
+        Fr.fromBuffer(getZeroFnSelector),
+      ];
       const result = await runSimulator({
         args: args,
         abi: abi,
