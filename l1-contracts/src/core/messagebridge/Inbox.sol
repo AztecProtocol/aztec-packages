@@ -54,6 +54,9 @@ contract Inbox is IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external payable override(IInbox) returns (bytes32) {
+    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
+    }
     if (_deadline <= block.timestamp) revert Errors.Inbox__DeadlineBeforeNow();
     if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
       revert Errors.Inbox__ContentTooLarge(_content);

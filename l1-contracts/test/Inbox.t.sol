@@ -53,6 +53,8 @@ contract InboxTest is Test {
   function testFuzzSendL2Msg(DataStructures.L1ToL2Msg memory _message) public {
     // fix message.sender and deadline:
     _message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+    // ensure actor fits in a field
+    _message.recipient.actor = bytes32(uint256(_message.recipient.actor) % Constants.P);
     if (_message.deadline <= block.timestamp) {
       _message.deadline = uint32(block.timestamp + 100);
     }
@@ -102,6 +104,17 @@ contract InboxTest is Test {
     assertEq(inbox.get(entryKey1).count, 3);
     assertEq(inbox.get(entryKey1).fee, 5);
     assertEq(inbox.get(entryKey1).deadline, message.deadline);
+  }
+
+  function testRevertIfActorTooLarge() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.recipient.actor = bytes32(Constants.MAX_FIELD_VALUE + 1);
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
+    );
+    inbox.sendL2Message{value: message.fee}(
+      message.recipient, message.deadline, message.content, message.secretHash
+    );
   }
 
   function testRevertIfContentTooLarge() public {
@@ -245,6 +258,8 @@ contract InboxTest is Test {
       DataStructures.L1ToL2Msg memory message = _messages[i];
       // fix message.sender and deadline to be more than current time:
       message.sender = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
+      // ensure actor fits in a field
+      message.recipient.actor = bytes32(uint256(message.recipient.actor) % Constants.P);
       if (message.deadline <= block.timestamp) {
         message.deadline = uint32(block.timestamp + 100);
       }
