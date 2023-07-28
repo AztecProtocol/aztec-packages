@@ -1,32 +1,31 @@
-// TODO the verification keys in this contracts are mocked ATM
+// Auto generated module
+
 import { ContractAbi } from '@aztec/foundation/abi';
-
 import ChildJson from './child_contract.json' assert { type: 'json' };
-import EasyZkTokenContractJson from './easy_zk_token_contract.json' assert { type: 'json' };
-import EcdsaAccountContractJson from './ecdsa_account_contract.json' assert { type: 'json' };
-import LendingContractJson from './lending_contract.json' assert { type: 'json' };
-import NonNativeTokenContractJson from './non_native_token_contract.json' assert { type: 'json' };
+import EasyZkTokenJson from './easy_zk_token_contract.json' assert { type: 'json' };
+import LendingJson from './lending_contract.json' assert { type: 'json' };
 import ParentJson from './parent_contract.json' assert { type: 'json' };
-import PendingCommitmentsContractJson from './pending_commitments_contract.json' assert { type: 'json' };
-import PokeableTokenContractJson from './pokeable_token_contract.json' assert { type: 'json' };
-import PublicTokenContractJson from './public_token_contract.json' assert { type: 'json' };
-import SchnorrMultiKeyAccountContractJson from './schnorr_multi_key_account_contract.json' assert { type: 'json' };
-import SchnorrSingleKeyAccountContractJson from './schnorr_single_key_account_contract.json' assert { type: 'json' };
-import TestContractJson from './test_contract.json' assert { type: 'json' };
-import UniswapContractJson from './uniswap_contract.json' assert { type: 'json' };
-import ZkTokenContractJson from './zk_token_contract.json' assert { type: 'json' };
-
-export const TestContractAbi = TestContractJson as ContractAbi;
-export const EasyZkTokenContractAbi = EasyZkTokenContractJson as ContractAbi;
-export const ZkTokenContractAbi = ZkTokenContractJson as ContractAbi;
-export const ParentContractAbi = ParentJson as ContractAbi;
-export const ChildContractAbi = ChildJson as ContractAbi;
-export const PublicTokenContractAbi = PublicTokenContractJson as ContractAbi;
-export const NonNativeTokenContractAbi = NonNativeTokenContractJson as ContractAbi;
-export const EcdsaAccountContractAbi = EcdsaAccountContractJson as ContractAbi;
-export const SchnorrMultiKeyAccountContractAbi = SchnorrMultiKeyAccountContractJson as ContractAbi;
-export const SchnorrSingleKeyAccountContractAbi = SchnorrSingleKeyAccountContractJson as ContractAbi;
-export const UniswapContractAbi = UniswapContractJson as ContractAbi;
-export const PendingCommitmentsContractAbi = PendingCommitmentsContractJson as ContractAbi;
-export const PokeableTokenContractAbi = PokeableTokenContractJson as ContractAbi;
-export const LendingContractAbi = LendingContractJson as ContractAbi;
+import EcdsaAccountJson from './ecdsa_account_contract.json' assert { type: 'json' };
+import NonNativeTokenJson from './non_native_token_contract.json' assert { type: 'json' };
+import PokeableTokenJson from './pokeable_token_contract.json' assert { type: 'json' };
+import PendingCommitmentsJson from './pending_commitments_contract.json' assert { type: 'json' };
+import SchnorrSingleKeyAccountJson from './schnorr_single_key_account_contract.json' assert { type: 'json' };
+import TestJson from './test_contract.json' assert { type: 'json' };
+import SchnorrMultiKeyAccountJson from './schnorr_multi_key_account_contract.json' assert { type: 'json' };
+export const EasyZkTokenAbi = EasyZkTokenJson as ContractAbi;
+import ZkTokenJson from './zk_token_contract.json' assert { type: 'json' };
+import UniswapJson from './uniswap_contract.json' assert { type: 'json' };
+import PublicTokenJson from './public_token_contract.json' assert { type: 'json' };
+export const LendingAbi = LendingJson as ContractAbi;
+export const EcdsaAccountAbi = EcdsaAccountJson as ContractAbi;
+export const ChildAbi = ChildJson as ContractAbi;
+export const ParentAbi = ParentJson as ContractAbi;
+export const PendingCommitmentsAbi = PendingCommitmentsJson as ContractAbi;
+export const NonNativeTokenAbi = NonNativeTokenJson as ContractAbi;
+export const PokeableTokenAbi = PokeableTokenJson as ContractAbi;
+export const PublicTokenAbi = PublicTokenJson as ContractAbi;
+export const SchnorrSingleKeyAccountAbi = SchnorrSingleKeyAccountJson as ContractAbi;
+export const TestAbi = TestJson as ContractAbi;
+export const SchnorrMultiKeyAccountAbi = SchnorrMultiKeyAccountJson as ContractAbi;
+export const ZkTokenAbi = ZkTokenJson as ContractAbi;
+export const UniswapAbi = UniswapJson as ContractAbi;

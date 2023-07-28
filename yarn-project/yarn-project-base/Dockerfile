@@ -4,9 +4,10 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build
 
 FROM node:18-alpine
-RUN apk update && apk add --no-cache build-base git python3 curl bash jq
+RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
 # COPY --from=0 /usr/src/circuits/build/bin /usr/src/circuits/build/bin
 COPY --from=1 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
+COPY --from=2 /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 # COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
 
 COPY --from=0 /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
@@ -32,7 +33,8 @@ COPY foundation/package.json foundation/package.json
 COPY key-store/package.json key-store/package.json
 COPY merkle-tree/package.json merkle-tree/package.json
 COPY merkle-tree/package.local.json merkle-tree/package.local.json
-COPY noir-contracts/ noir-contracts/
+COPY noir-contracts/package.json noir-contracts/package.json
+COPY noir-artifacts/ noir-artifacts/
 COPY noir-compiler/package.json noir-compiler/package.json
 COPY l1-artifacts/package.json l1-artifacts/package.json
 COPY circuits.js/package.json circuits.js/package.json
@@ -112,10 +114,7 @@ WORKDIR /usr/src/yarn-project/l1-artifacts
 RUN ./scripts/generate-artifacts.sh
 
 # Generate TS-importable noir artifacts
-WORKDIR /usr/src/yarn-project/noir-contracts
-RUN yarn
-# TODO clean up script
-RUN ./src/scripts/format_ci.sh $(ls -d src/contracts/*_contract/Nargo.toml | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")
-
+WORKDIR /usr/src/yarn-project/noir-artifacts
+RUN ./scripts/generate-artifacts.sh
 
 WORKDIR /usr/src/yarn-project

@@ -16,13 +16,6 @@
 set -euo pipefail;
 
 ROOT=$(pwd)
-NARGO_COMMAND="nargo"  # Default nargo command
-
-# Get process and format flag value
-PROCESS_AND_FORMAT=$1
-shift
-
-echo "Processing and formatting: $PROCESS_AND_FORMAT"
 
 # Trap any ERR signal and call the custom error handler
 process() {
@@ -45,8 +38,6 @@ if [ $# -eq 0 ]; then
   usage
   exit 0
 fi
-
-echo "Using $($NARGO_COMMAND --version)"
 
 # Build contracts
 for CONTRACT_NAME in "$@"; do
