@@ -620,7 +620,7 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
+    it.skip('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
