@@ -241,7 +241,6 @@ __metadata:
     jest-browser-globals: ^25.1.0-beta
     jest-mock-extended: ^3.0.3
     lodash.partition: ^4.6.0
-    process: ^0.11.10
     stream-browserify: ^3.0.0
     ts-jest: ^29.1.0
     ts-loader: ^9.4.4
@@ -11194,13 +11193,6 @@ __metadata:
     ipaddr.js: ^2.1.0
     netmask: ^2.0.2
   checksum: 43eb0b61cc476d4adddebd3a44bc799abf57898edd6e5db8ba1cd25fb9b1211a4cf3428ba61cc961d683f979ddce5220849c33954a580c08269dafd778ac8085
-  languageName: node
-  linkType: hard
-
-"process@npm:^0.11.10":
-  version: 0.11.10
-  resolution: "process@npm:0.11.10"
-  checksum: bfcce49814f7d172a6e6a14d5fa3ac92cc3d0c3b9feb1279774708a719e19acd673995226351a082a9ae99978254e320ccda4240ddc474ba31a76c79491ca7c3
   languageName: node
   linkType: hard
 
