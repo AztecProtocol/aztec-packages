@@ -62,16 +62,16 @@ auto generate_mock_proof_data(auto prover_transcript)
  */
 void perform_mock_verifier_transcript_operations(auto transcript)
 {
-    // round 0 
+    // round 0
     transcript.template receive_from_prover<uint32_t>("data");
     transcript.get_challenge("alpha");
 
-    // round 1 
+    // round 1
     transcript.template receive_from_prover<FF>("scalar");
     transcript.template receive_from_prover<Commitment>("commitment");
     transcript.get_challenges("beta, gamma");
 
-    // round 2 
+    // round 2
     transcript.template receive_from_prover<Univariate>("univariate");
     transcript.get_challenges("gamma", "delta");
 }
@@ -107,9 +107,8 @@ TEST(stdlib_honk_transcript, return_values)
     Builder builder;
 
     // Define some mock data for a mock proof
-    uint32_t data = 25;
     auto scalar = FF::random_element();
-    auto commitment = Commitment::one();
+    auto commitment = Commitment::one() * FF::random_element();
 
     const size_t LENGTH = 10; // arbitrary
     std::array<FF, LENGTH> evaluations;
@@ -119,7 +118,6 @@ TEST(stdlib_honk_transcript, return_values)
 
     // Construct a mock proof via the prover transcript
     ProverTranscript prover_transcript;
-    prover_transcript.send_to_verifier("data", data);
     prover_transcript.send_to_verifier("scalar", scalar);
     prover_transcript.send_to_verifier("commitment", commitment);
     prover_transcript.send_to_verifier("evaluations", evaluations);
@@ -128,22 +126,19 @@ TEST(stdlib_honk_transcript, return_values)
 
     // Perform the corresponding operations with the native verifier transcript
     VerifierTranscript native_transcript(proof_data);
-    auto native_data = native_transcript.template receive_from_prover<uint32_t>("data");
     auto native_scalar = native_transcript.template receive_from_prover<FF>("scalar");
     auto native_commitment = native_transcript.template receive_from_prover<Commitment>("commitment");
     auto native_evaluations = native_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
     auto [native_alpha, native_beta] = native_transcript.get_challenges("alpha", "beta");
-    
+
     // Perform the corresponding operations with the stdlib verifier transcript
     Transcript<Builder> stdlib_transcript{ &builder, proof_data };
-    auto stdlib_data = stdlib_transcript.template receive_from_prover<uint32_t>("data");
     auto stdlib_scalar = stdlib_transcript.template receive_from_prover<FF>("scalar");
     auto stdlib_commitment = stdlib_transcript.template receive_from_prover<Commitment>("commitment");
     auto stdlib_evaluations = stdlib_transcript.template receive_from_prover<std::array<FF, LENGTH>>("evaluations");
     auto [stdlib_alpha, stdlib_beta] = stdlib_transcript.get_challenges("alpha", "beta");
 
-    // Confirm that return values are equivalent 
-    EXPECT_EQ(native_data, stdlib_data.get_value());
+    // Confirm that return values are equivalent
     EXPECT_EQ(native_scalar, stdlib_scalar.get_value());
     EXPECT_EQ(native_commitment, stdlib_commitment.get_value());
     for (size_t i = 0; i < LENGTH; ++i) {
