@@ -13,7 +13,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
-import { ParentContractAbi } from '../artifacts/index.js';
+import { ParentContractAbi } from '../src/artifacts/index.js';
 
 /**
  * Type-safe interface for contract Parent;

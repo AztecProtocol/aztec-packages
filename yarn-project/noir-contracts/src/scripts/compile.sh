@@ -17,10 +17,6 @@ set -euo pipefail;
 ROOT=$(pwd)
 NARGO_COMMAND="nargo"  # Default nargo command
 
-# Get process and format flag value
-PROCESS_AND_FORMAT=$1
-shift
-
 echo "Processing and formatting: $PROCESS_AND_FORMAT"
 
 # Function to display script usage
@@ -57,10 +53,7 @@ build() {
     "$NARGO_COMMAND" compile main --contracts
   fi
 
-  if [ "$PROCESS_AND_FORMAT" == "true" ] ; then
-    process $CONTRACT_NAME
-  fi
-
+  process $CONTRACT_NAME
 }
 
 process() {

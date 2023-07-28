@@ -13,7 +13,7 @@
 # Enable strict mode:
 # Exit on error (set -e), treat unset variables as an error (set -u),
 # and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
-set -euo pipefail;
+set -eu;
 
 ROOT=$(pwd)
 
@@ -22,13 +22,13 @@ process() {
   CONTRACT_NAME=$1
 
   cd $ROOT
-  echo "Copying output for $CONTRACT_NAME"
+  echo "Creating types for $CONTRACT_NAME"
   NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
 }
 
 format(){
   echo "Formatting contract folders"
-  yarn run -T prettier -w ./src/artifacts/*.json ../aztec.js/src/abis/*.json ./src/types/*.ts
+  yarn run -T prettier -w  ../aztec.js/src/abis/*.json ./src/types/*.ts
   echo -e "Done\n"
 }
 

@@ -18,4 +18,20 @@ RUN ./scripts/install_noir.sh
 ENV PATH="/usr/src/yarn-project/noir-contracts/.nargo/bin:${PATH}"
 
 RUN ./scripts/compile_ci.sh
-RUN ./scripts/generate_artifacts.sh
+
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
+
+# (1) project
+COPY . .
+COPY --from=0 /usr/src/yarn-project/noir-contracts /usr/src/yarn-project/noir-contracts
+
+# (2) build
+WORKDIR /usr/src/yarn-project/noir-contracts
+RUN yarn build && yarn formatting
+
+# (3) test
+RUN yarn noir:types:all
+
+# (4) Prune dev dependencies. See comment in base image.
+RUN yarn cache clean
+RUN yarn workspaces focus --production > /dev/null
