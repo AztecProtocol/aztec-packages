@@ -56,6 +56,8 @@ contract InboxTest is Test {
     if (_message.deadline <= block.timestamp) {
       _message.deadline = uint32(block.timestamp + 100);
     }
+    // ensure content fits in the field
+    _message.content = bytes32(uint256(_message.content) % Constants.P);
     bytes32 expectedEntryKey = inbox.computeEntryKey(_message);
     vm.expectEmit(true, true, true, true);
     // event we expect
@@ -233,6 +235,8 @@ contract InboxTest is Test {
       if (message.deadline <= block.timestamp) {
         message.deadline = uint32(block.timestamp + 100);
       }
+      // ensure content fits in the field
+      message.content = bytes32(uint256(message.content) % Constants.P);
       expectedTotalFee += message.fee;
       entryKeys[i] = inbox.sendL2Message{value: message.fee}(
         message.recipient, message.deadline, message.content, message.secretHash
