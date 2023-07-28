@@ -20,9 +20,6 @@ class ArgumentEncoder {
     if (arg === undefined || arg == null) {
       throw new Error(`Undefined argument ${name ?? 'unnamed'} of type ${abiType.kind}`);
     }
-    if (!isValidArg(arg, abiType)) {
-      throw new Error(`Invalid argument ${arg} of type ${abiType.kind}`);
-    }
     switch (abiType.kind) {
       case 'field':
         if (typeof arg === 'number') {
@@ -35,6 +32,8 @@ class ArgumentEncoder {
           } else {
             this.flattened.push(arg);
           }
+        } else {
+          throw new Error(`Invalid argument "${arg}" of type ${abiType.kind}`);
         }
         break;
       case 'boolean':

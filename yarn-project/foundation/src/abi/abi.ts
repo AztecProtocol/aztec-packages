@@ -149,14 +149,3 @@ export interface ContractAbi {
    */
   functions: FunctionAbi[];
 }
-
-/**
- * Checks whether the given argument is valid.
- * @param arg - The argument to check.
- * @param type - The expected type of the argument.
- * @returns A boolean indicating whether the argument is valid.
- */
-export function isValidArg(arg: any, type: ABIType): boolean {
-  // TODO
-  return true;
-}
