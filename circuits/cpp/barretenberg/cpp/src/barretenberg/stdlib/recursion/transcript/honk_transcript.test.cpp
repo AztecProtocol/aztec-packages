@@ -8,7 +8,6 @@
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 
-// TODO(Cody): Testing only one circuit type.
 using Builder = UltraCircuitBuilder;
 
 using FF = barretenberg::fr;
@@ -76,6 +75,11 @@ void perform_mock_verifier_transcript_operations(auto transcript)
     transcript.get_challenges("gamma", "delta");
 }
 
+/**
+ * @brief Test basic transcript functionality and check circuit
+ * @details Implicitly ensures stdlib interface is identical to native
+ * @todo(luke): Underlying circuit is nearly trivial until transcript implements hashing constraints
+ */
 TEST(stdlib_honk_transcript, basic_transcript_operations)
 {
     Builder builder;
@@ -102,6 +106,10 @@ TEST(stdlib_honk_transcript, basic_transcript_operations)
     EXPECT_TRUE(builder.check_circuit());
 }
 
+/**
+ * @brief Check that native and stdlib verifier transcript functions produce equivalent outputs
+ *
+ */
 TEST(stdlib_honk_transcript, return_values)
 {
     Builder builder;

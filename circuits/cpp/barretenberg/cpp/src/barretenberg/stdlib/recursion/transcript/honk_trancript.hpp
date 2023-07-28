@@ -10,6 +10,7 @@
 #include "../../primitives/biggroup/biggroup.hpp"
 #include "../../primitives/field/field.hpp"
 
+//TODO(luke): this namespace will be sensible once stdlib is moved out of the plonk namespace
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:
