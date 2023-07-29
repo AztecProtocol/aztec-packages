@@ -7,10 +7,11 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
+import {IDecoder} from "@aztec/core/interfaces/IDecoder.sol";
 
 // Libraries
-import {Decoder} from "@aztec/core/libraries/Decoder.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {VyperDecoder} from "@aztec/core/vy_decoder/VyperDecoder.sol";
 
 // Contracts
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
@@ -25,6 +26,7 @@ contract Rollup is IRollup {
   MockVerifier public immutable VERIFIER;
   IRegistry public immutable REGISTRY;
   uint256 public immutable VERSION;
+  IDecoder public immutable DECODER;
 
   bytes32 public rollupStateHash;
   uint256 public lastBlockTs;
@@ -33,6 +35,7 @@ contract Rollup is IRollup {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
     VERSION = 1;
+    DECODER = IDecoder((new VyperDecoder()).deploy());
   }
 
   /**
@@ -49,7 +52,7 @@ contract Rollup is IRollup {
       bytes32 publicInputHash,
       bytes32[] memory l2ToL1Msgs,
       bytes32[] memory l1ToL2Msgs
-    ) = Decoder.decode(_l2Block);
+    ) = DECODER.decode(_l2Block);
 
     // @todo @LHerskind Proper genesis state. If the state is empty, we allow anything for now.
     if (rollupStateHash != bytes32(0) && rollupStateHash != oldStateHash) {
