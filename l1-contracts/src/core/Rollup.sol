@@ -11,7 +11,7 @@ import {IDecoder} from "@aztec/core/interfaces/IDecoder.sol";
 
 // Libraries
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {VyperDecoder} from "@aztec/core/vy_decoder/VyperDecoder.sol";
+import {VyperDecoderDeployer} from "@aztec/core/vy_decoder/VyperDecoderDeployer.sol";
 
 // Contracts
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
@@ -35,7 +35,7 @@ contract Rollup is IRollup {
     VERIFIER = new MockVerifier();
     REGISTRY = _registry;
     VERSION = 1;
-    DECODER = IDecoder((new VyperDecoder()).deploy());
+    DECODER = IDecoder((new VyperDecoderDeployer()).deploy());
   }
 
   /**

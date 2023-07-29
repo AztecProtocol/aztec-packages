@@ -2,9 +2,11 @@
 // Copyright 2023 Aztec Labs.
 pragma solidity >=0.8.18;
 
+import {IVyperDecoderDeployer} from "@aztec/core/interfaces/IVyperDecoderDeployer.sol";
+
 // If making this a library, viem shits its pants when deploying for e2e tests.
-contract VyperDecoder {
-  function deploy() external returns (address) {
+contract VyperDecoderDeployer is IVyperDecoderDeployer {
+  function deploy() external override(IVyperDecoderDeployer) returns (address) {
     // This is a little nasty. Cimpile the vyper contract to bytecode and then insert it here
     // from l1-contracts run: vyper src/core/vy_decoder/Decoder.vy
     bytes memory bytecode =
@@ -14,8 +16,6 @@ contract VyperDecoder {
     assembly {
       a := create(0, add(bytecode, 0x20), mload(bytecode))
     }
-
-    require(a != address(0), "VyperDecoder: Failed to deploy contract");
 
     return a;
   }
