@@ -53,6 +53,9 @@ format(){
   echo -e "Done\n"
 }
 
+# Store the contract names in an array
+CONTRACT_NAMES=()
+
 # Parse command-line arguments
 for arg in "$@"; do
   case $arg in
@@ -67,9 +70,8 @@ for arg in "$@"; do
       shift  # Move to the next command-line argument
       ;;
     *)
-      # If an unrecognized argument is provided, we assume it is a CONTRACT_NAME
-      # and break out of the loop to start processing the contracts.
-      break
+      # If the argument is not a recognized option, assume it's a contract name add it to the CONTRACT_NAMES array
+      CONTRACT_NAMES+=("$arg")
       ;;
   esac
 done
@@ -82,8 +84,8 @@ fi
 
 echo "Using $($NARGO_COMMAND --version)"
 
-# Build contracts
-for CONTRACT_NAME in "$@"; do
+# Build CONTRACT_NAMES
+for CONTRACT_NAME in "${CONTRACT_NAMES[@]}"; do
   build $CONTRACT_NAME &
 done
 
