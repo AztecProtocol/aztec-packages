@@ -316,9 +316,11 @@ library Decoder {
           ),
           bytes.concat(
             slice(_l2Block, offsets.contractData, 0x20), // newContractDataKernel1.aztecAddress
-            bytes32(slice(_l2Block, offsets.contractData + 0x20, 0x14)), // newContractDataKernel1.ethAddress
+            bytes12(0),
+            slice(_l2Block, offsets.contractData + 0x20, 0x14), // newContractDataKernel1.ethAddress
             slice(_l2Block, offsets.contractData + 0x34, 0x20), // newContractDataKernel2.aztecAddress
-            bytes32(slice(_l2Block, offsets.contractData + 0x54, 0x14)) // newContractDataKernel2.ethAddress
+            bytes12(0),
+            slice(_l2Block, offsets.contractData + 0x54, 0x14) // newContractDataKernel2.ethAddress
           ),
           bytes.concat(
             vars.encryptedLogsHashKernel1,
