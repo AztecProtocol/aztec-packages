@@ -11,10 +11,11 @@ template <typename FF> class Polynomial;
 template <typename FF, size_t Length> class Univariate;
 template <typename FF, size_t Length> class UnivariateView;
 
-namespace proof_system::honk::sumcheck {
-template <typename T> concept HasSubrelationLinearlyIndependentMember = requires(T)
-{
-    T::Relation::SUBRELATION_LINEARLY_INDEPENDENT;
+template <typename T, size_t subrelation_idx>
+concept HasSubrelationLinearlyIndependentMember = requires(T) {
+    {
+        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+    } -> std::convertible_to<bool>;
 };
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
@@ -133,24 +134,23 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
      * @tparam size_t
      */
-    template <size_t>
-    static constexpr bool is_subrelation_linearly_independent() requires(
-        !HasSubrelationLinearlyIndependentMember<Relation>)
+    template <size_t subrelation_index>
+    static constexpr bool is_subrelation_linearly_independent()
+        requires(!HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
     {
-        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
+        return true;
     }
 
     /**
      * @brief Check is subrelation is linearly independent
-     * Method always returns true if relation has no SUBRELATION_LINEARLY_INDEPENDENT std::array
-     * (i.e. default is to make linearly independent)
+     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
      * @tparam size_t
      */
     template <size_t subrelation_index>
     static constexpr bool is_subrelation_linearly_independent() requires(
         HasSubrelationLinearlyIndependentMember<Relation>)
     {
-        return true;
+        return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }
 };
 
