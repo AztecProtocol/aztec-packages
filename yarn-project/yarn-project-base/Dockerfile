@@ -2,7 +2,7 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as c
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
-FROM node:18-alpine AS builder
+FROM node:18-alpine AS builder_
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
 COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 
@@ -110,7 +110,7 @@ RUN ./scripts/generate-artifacts.sh
 WORKDIR /usr/src/yarn-project
 
 # Generate noir contract artifacts
-FROM builder as noir_types
+FROM builder_ as noir_types
 COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
@@ -119,9 +119,7 @@ RUN yarn build
 RUN mkdir -p src/types && mkdir -p src/artifacts && ./scripts/types_ci.sh
 
 # Take noir contract artifacts into the final build image
-FROM builder as final
+FROM builder_ as final
 COPY . .
 COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/artifacts /usr/src/yarn-project/noir-contracts/src/artifacts
 COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/types /usr/src/yarn-project/noir-contracts/src/types
-
-
