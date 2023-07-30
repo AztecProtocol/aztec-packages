@@ -1026,10 +1026,6 @@ yarn_project: &yarn_project
   requires:
     - yarn-project-base
   <<: *defaults
-noir_project: &noir_project
-  requires:
-    - noir-contracts-build
-  <<: *yarn_project
 e2e_test: &e2e_test
   requires:
     - e2e-join
@@ -1113,20 +1109,21 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
+      - noir-contracts-build: *defaults
 
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
+            - noir-contracts-build
           <<: *defaults
 
-      - noir-contracts-build: *yarn_project
       - aztec-js: *yarn_project
-      - end-to-end: *noir_project
+      - end-to-end: *yarn_project
       - ethereum: *yarn_project
       - foundation: *yarn_project
       - world-state: *yarn_project
-      - acir-simulator: *noir_project
+      - acir-simulator: *yarn_project
       - archiver: *yarn_project
       - aztec-rpc: *yarn_project
       - aztec-node: *yarn_project
@@ -1136,8 +1133,8 @@ workflows:
       - p2p: *yarn_project
       - p2p-bootstrap: *yarn_project
       - l1-artifacts: *yarn_project
-      - noir-contracts: *noir_project # can remove?
-      - noir-compiler: *noir_project
+      - noir-contracts: *yarn_project # can remove?
+      - noir-compiler: *yarn_project
       - sequencer-client: *yarn_project
       - types: *yarn_project
       - circuits-js: *yarn_project

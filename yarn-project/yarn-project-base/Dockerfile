@@ -1,18 +1,14 @@
-# FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-x86_64-linux-clang
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts
-# FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
-# COPY --from=0 /usr/src/circuits/build/bin /usr/src/circuits/build/bin
-COPY --from=1 /usr/src/l1-contracts/out /usr/src/l1-contracts/out
-# COPY --from=2 /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
-# COPY --from=1 /usr/src/circuits/build/bin /usr/src/circuits/build-wasm/bin
+COPY --from=contracts /usr/src/l1-contracts/out /usr/src/l1-contracts/out
 
-COPY --from=0 /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
-COPY --from=0 /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
-COPY --from=0 /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh
+COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm
+COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
+COPY --from=circuits /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh
 WORKDIR /usr/src/circuits/cpp/barretenberg/cpp/srs_db
 RUN ./download_ignition.sh 1
 
@@ -112,3 +108,20 @@ WORKDIR /usr/src/yarn-project/l1-artifacts
 RUN ./scripts/generate-artifacts.sh
 
 WORKDIR /usr/src/yarn-project
+
+# Generate noir contract artifacts
+FROM builder as noir_types
+COPY . .
+COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
+WORKDIR /usr/src/yarn-project/noir-contracts
+
+RUN yarn build
+RUN mkdir -p src/types && mkdir -p src/artifacts && ./scripts/types_ci.sh
+
+# Take noir contract artifacts into the final build image
+FROM builder as final
+COPY . .
+COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/artifacts /usr/src/yarn-project/noir-contracts/src/artifacts
+COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/types /usr/src/yarn-project/noir-contracts/src/types
+
+

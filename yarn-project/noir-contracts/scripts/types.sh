@@ -15,6 +15,10 @@
 # and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
 set -eu;
 
+# Create output directories
+mkdir -p src/types
+mkdir -p src/artifacts
+
 ROOT=$(pwd)
 
 # Trap any ERR signal and call the custom error handler
