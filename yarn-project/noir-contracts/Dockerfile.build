@@ -21,17 +21,12 @@ RUN ./scripts/compile_ci.sh
 
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
-# (1) project
 COPY . .
-COPY --from=0 /usr/src/yarn-project/noir-contracts /usr/src/yarn-project/noir-contracts
-
-# (2) build
+COPY --from=0 /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
-RUN yarn build && yarn formatting
-
-# (3) test
+RUN yarn build
 RUN yarn noir:types:all
 
-# (4) Prune dev dependencies. See comment in base image.
+# Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
