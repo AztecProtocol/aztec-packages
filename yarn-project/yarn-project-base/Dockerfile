@@ -116,7 +116,7 @@ COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yar
 WORKDIR /usr/src/yarn-project/noir-contracts
 
 RUN yarn build
-RUN mkdir -p src/types && mkdir -p src/artifacts && ./scripts/types_ci.sh
+RUN ./scripts/types_ci.sh
 
 # Take noir contract artifacts into the final build image
 FROM builder_ as final

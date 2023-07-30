@@ -499,17 +499,6 @@ jobs:
           name: "Build and test"
           command: cond_spot_run_build noir-contracts-build 32
 
-  noir-contracts-types:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: cond_spot_run_build noir-contracts-types 32
-
   noir-contracts:
     machine:
       image: ubuntu-2004:202010-01
