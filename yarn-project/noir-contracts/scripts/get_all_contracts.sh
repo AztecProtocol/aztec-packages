@@ -1,0 +1,1 @@
+echo $(ls -d src/contracts/*_contract/Nargo.toml | sed -r "s/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/")

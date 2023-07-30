@@ -39,7 +39,7 @@ if [ $# -eq 0 ]; then
   exit 0
 fi
 
-# Build contracts
+# Make type files
 for CONTRACT_NAME in "$@"; do
   process $CONTRACT_NAME &
 done

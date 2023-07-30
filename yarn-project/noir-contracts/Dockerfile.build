@@ -25,7 +25,8 @@ COPY . .
 COPY --from=0 /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
 RUN yarn build
-RUN yarn noir:types:all
+RUN mkdir -p src/types && mkdir -p src/artifacts
+RUN ./scripts/types_ci.sh
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
