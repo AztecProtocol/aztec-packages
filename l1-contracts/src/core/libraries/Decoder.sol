@@ -192,7 +192,7 @@ library Decoder {
     returns (bytes32)
   {
     return sha256(
-      bytes.concat(bytes32(_l2BlockNumber), _l2Block[_offset:_offset + TREES_BLOCK_HEADER_SIZE])
+      bytes.concat(bytes32(_l2BlockNumber), slice(_l2Block, _offset, TREES_BLOCK_HEADER_SIZE))
     );
   }
 
@@ -214,26 +214,26 @@ library Decoder {
 
     {
       uint256 offset = BLOCK_HEADER_OFFSET;
-      offsets.commitment = BLOCK_HEADER_OFFSET + 0x4;
 
       // Commitments
-      uint256 count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      uint256 count = read4(_l2Block, offset);
       vars.baseLeaves = new bytes32[](count / (Constants.COMMITMENTS_PER_TX * 2));
-      offsets.nullifier = offsets.commitment + 0x4 + count * 0x20;
+      offsets.commitment = BLOCK_HEADER_OFFSET + 0x4;
       offset += 0x4 + count * 0x20;
+      offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
 
       // Nullifiers
-      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
-      offsets.publicData = offsets.nullifier + 0x4 + count * 0x20;
+      count = read4(_l2Block, offset);
       offset += 0x4 + count * 0x20;
+      offsets.publicData = offset + 0x4; // + 0x4 to offset by next read4
 
       // Public data writes
-      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
-      offsets.l2ToL1Msgs = offsets.publicData + 0x4 + count * 0x40;
+      count = read4(_l2Block, offset);
       offset += 0x4 + count * 0x40;
+      offsets.l2ToL1Msgs = offset + 0x4; // + 0x4 to offset by next read4
 
       // L2 to L1 messages
-      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      count = read4(_l2Block, offset);
       vars.l2ToL1Msgs = new bytes32[](count);
       assembly {
         // load the l2 to l1 msgs (done here as offset will be altered in loop)
@@ -242,23 +242,23 @@ library Decoder {
           add(l2ToL1Msgs, 0x20), add(_l2Block.offset, mload(add(offsets, 0x60))), mul(count, 0x20)
         )
       }
-      offsets.contracts = offsets.l2ToL1Msgs + 0x4 + count * 0x20;
       offset += 0x4 + count * 0x20;
+      offsets.contracts = offset + 0x4; // + 0x4 to offset by next read4
 
       // Contracts
-      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      count = read4(_l2Block, offset);
       offsets.contractData = offsets.contracts + count * 0x20;
-      offsets.l1ToL2Msgs = offsets.contractData + 0x4 + count * 0x34;
       offset += 0x4 + count * 0x54;
+      offsets.l1ToL2Msgs = offset + 0x4; // + 0x4 to offset by next read4
 
       // L1 to L2 messages
-      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      count = read4(_l2Block, offset);
       vars.l1Tol2MsgsCount = count;
-      offsets.encryptedLogs = offsets.l1ToL2Msgs + 0x4 + count * 0x20;
       offset += 0x4 + count * 0x20;
+      offsets.encryptedLogs = offset + 0x4; // + 0x4 to offset by next read4
 
       // Used as length in bytes down here
-      uint256 length = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      uint256 length = read4(_l2Block, offset);
       offsets.unencryptedLogs = offsets.encryptedLogs + 0x4 + length;
     }
 
@@ -293,7 +293,7 @@ library Decoder {
 
         /**
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
-         * Note: `computeKernelLogsHash` will advance offsets by the number of bytes processed.
+         * Note: will advance offsets by the number of bytes processed.
          */
         (vars.encryptedLogsHashKernel1, offsets.encryptedLogs) =
           computeKernelLogsHash(offsets.encryptedLogs, _l2Block);
@@ -305,48 +305,27 @@ library Decoder {
         (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogs) =
           computeKernelLogsHash(offsets.unencryptedLogs, _l2Block);
 
-        // Insertions are split because of stack too deep.
-
-        // Insert (commitments, nullifiers, public data writes) into baseLeaf
+        // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
-          _l2Block[
-            offsets.commitment:offsets.commitment + Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP
-          ],
-          _l2Block[offsets.nullifier:offsets.nullifier + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP],
-          _l2Block[
-            offsets.publicData:
-              offsets.publicData + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP
-          ]
-        );
-        // Insert (l2ToL1Msgs, contractLeafs) into baseLeaf
-        vars.baseLeaf = bytes.concat(
-          vars.baseLeaf,
-          _l2Block[
-            offsets.l2ToL1Msgs:offsets.l2ToL1Msgs + Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP
-          ],
-          _l2Block[offsets.contracts:offsets.contracts + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP]
-        );
-        // Insert (newContractDataKernel1.aztecAddress, newContractDataKernel1.ethAddress) into baseLeaf
-        vars.baseLeaf = bytes.concat(
-          vars.baseLeaf,
-          _l2Block[offsets.contractData:offsets.contractData + 0x20],
-          bytes12(0),
-          _l2Block[offsets.contractData + 0x20:offsets.contractData + 0x34]
-        );
-        // Insert (newContractDataKernel2.aztecAddress, newContractDataKernel2.ethAddress) into baseLeaf
-        vars.baseLeaf = bytes.concat(
-          vars.baseLeaf,
-          _l2Block[offsets.contractData + 0x34:offsets.contractData + 0x54],
-          bytes12(0),
-          _l2Block[offsets.contractData + 0x54:offsets.contractData + 0x68]
-        );
-        // Insert (encryptedLogsHashKernel1, encryptedLogsHashKernel2, unencryptedLogsHashKernel1, unencryptedLogsHashKernel2) into baseLeaf
-        vars.baseLeaf = bytes.concat(
-          vars.baseLeaf,
-          vars.encryptedLogsHashKernel1,
-          vars.encryptedLogsHashKernel2,
-          vars.unencryptedLogsHashKernel1,
-          vars.unencryptedLogsHashKernel2
+          bytes.concat(
+            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP),
+            slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP),
+            slice(_l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP),
+            slice(_l2Block, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP),
+            slice(_l2Block, offsets.contracts, Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP)
+          ),
+          bytes.concat(
+            slice(_l2Block, offsets.contractData, 0x20), // newContractDataKernel1.aztecAddress
+            bytes32(slice(_l2Block, offsets.contractData + 0x20, 0x14)), // newContractDataKernel1.ethAddress
+            slice(_l2Block, offsets.contractData + 0x34, 0x20), // newContractDataKernel2.aztecAddress
+            bytes32(slice(_l2Block, offsets.contractData + 0x54, 0x14)) // newContractDataKernel2.ethAddress
+          ),
+          bytes.concat(
+            vars.encryptedLogsHashKernel1,
+            vars.encryptedLogsHashKernel2,
+            vars.unencryptedLogsHashKernel1,
+            vars.unencryptedLogsHashKernel2
+          )
         );
 
         offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
@@ -420,7 +399,7 @@ library Decoder {
     returns (bytes32, uint256)
   {
     uint256 offset = _offsetInBlock;
-    uint256 remainingLogsLength = uint256(uint32(bytes4(_l2Block[offset:offset + 0x4])));
+    uint256 remainingLogsLength = read4(_l2Block, offset);
     offset += 0x4;
 
     bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
@@ -428,13 +407,12 @@ library Decoder {
     // Iterate until all the logs were processed
     while (remainingLogsLength > 0) {
       // The length of the logs emitted by Noir from the function call corresponding to this kernel iteration
-      uint256 privateCircuitPublicInputLogsLength =
-        uint256(uint32(bytes4(_l2Block[offset:offset + 0x4])));
+      uint256 privateCircuitPublicInputLogsLength = read4(_l2Block, offset);
       offset += 0x4;
 
       // Hash the logs of this iteration's function call
       bytes32 privateCircuitPublicInputsLogsHash =
-        sha256(_l2Block[offset:offset + privateCircuitPublicInputLogsLength]);
+        sha256(slice(_l2Block, offset, privateCircuitPublicInputLogsLength));
       offset += privateCircuitPublicInputLogsLength;
 
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
@@ -471,5 +449,30 @@ library Decoder {
     }
 
     return _leafs[0];
+  }
+
+  /**
+   * @notice Wrapper around the slicing to avoid some stack too deep
+   * @param _data - The data to slice
+   * @param _start - The start of the slice
+   * @param _length - The length of the slice
+   * @return The slice
+   */
+  function slice(bytes calldata _data, uint256 _start, uint256 _length)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    return _data[_start:_start + _length];
+  }
+
+  /**
+   * @notice Reads 4 bytes from the data
+   * @param _data - The data to read from
+   * @param _offset - The offset to read from
+   * @return The 4 bytes read as a uint256
+   */
+  function read4(bytes calldata _data, uint256 _offset) internal pure returns (uint256) {
+    return uint256(uint32(bytes4(slice(_data, _offset, 4))));
   }
 }
