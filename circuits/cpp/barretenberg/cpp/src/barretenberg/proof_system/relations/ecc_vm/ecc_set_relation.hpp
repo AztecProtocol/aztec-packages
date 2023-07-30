@@ -18,7 +18,7 @@ template <typename FF> class ECCVMSetRelationBase {
     static constexpr size_t LEN_1 = RELATION_LENGTH; // grand product construction sub-relation
     static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1>;
+    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_1>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
     template <typename AccumulatorTypes>

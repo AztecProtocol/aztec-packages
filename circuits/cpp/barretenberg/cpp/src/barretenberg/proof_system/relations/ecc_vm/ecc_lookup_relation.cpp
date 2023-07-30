@@ -20,7 +20,7 @@ template <typename AccumulatorTypes>
 void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
                                                              const auto& extended_edges,
                                                              const RelationParameters<FF>& relation_params,
-                                                             const FF& /*unused*/) const
+                                                             const FF& scaling_factor) const
 {
     using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
     using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
@@ -56,7 +56,7 @@ void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename Accumulato
     const auto row_has_read = View(extended_edges.msm_q_add) + View(extended_edges.msm_q_skew);
     const auto inverse_exists = row_has_write + row_has_read - (row_has_write * row_has_read);
 
-    std::get<1>(accumulator) += denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists;
+    std::get<0>(accumulator) += (denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists) * scaling_factor;
 
     // After this algo, total degree of denominator_accumulator = NUM_TOTAL_TERMA
     for (size_t i = 0; i < NUM_TOTAL_TERMS - 1; ++i) {
@@ -69,7 +69,7 @@ void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename Accumulato
     // each predicate is degree-1
     // degree of relation at this point = NUM_TOTAL_TERMS + 1
     barretenberg::constexpr_for<0, READ_TERMS, 1>([&]<size_t i>() {
-        std::get<0>(accumulator) +=
+        std::get<1>(accumulator) +=
             compute_read_term_predicate<AccumulatorTypes, i>(extended_edges, relation_params, 0) *
             denominator_accumulator[i];
     });
@@ -79,7 +79,7 @@ void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename Accumulato
     barretenberg::constexpr_for<0, WRITE_TERMS, 1>([&]<size_t i>() {
         const auto p = compute_write_term_predicate<AccumulatorTypes, i>(extended_edges, relation_params, 0);
         const auto lookup_read_count = View(extended_edges.template lookup_read_counts<i>());
-        std::get<0>(accumulator) -= p * (denominator_accumulator[i + READ_TERMS] * lookup_read_count);
+        std::get<1>(accumulator) -= p * (denominator_accumulator[i + READ_TERMS] * lookup_read_count);
     });
 }
 template class ECCVMLookupRelationBase<barretenberg::fr>;
