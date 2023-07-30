@@ -1009,7 +1009,7 @@ yarn_project: &yarn_project
   requires:
     - yarn-project-base
   <<: *defaults
-noir_project:
+noir_project: &noir_project
   requires:
     - noir-contracts-build
   <<: *yarn_project
