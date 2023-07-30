@@ -381,7 +381,8 @@ void ECCVMSetRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
         ((z_perm + lagrange_first) * numerator_evaluation - (z_perm_shift + lagrange_last) * denominator_evaluation) *
         scaling_factor;
 
-    // TODO(zac) ADD BOUNDARY CHECKS WOLOLOLOLOLO
+    // Contribution (2)
+    std::get<1>(accumulator) += (lagrange_last * z_perm_shift) * scaling_factor;
 }
 
 template class ECCVMSetRelationBase<barretenberg::fr>;

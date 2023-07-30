@@ -23,7 +23,7 @@ template <typename FF> class ECCVMLookupRelationBase {
     using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
-    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { false, false };
+    static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
 
     template <typename AccumulatorTypes>
     static Accumulator<AccumulatorTypes> convert_to_wnaf(const auto& s0, const auto& s1)
