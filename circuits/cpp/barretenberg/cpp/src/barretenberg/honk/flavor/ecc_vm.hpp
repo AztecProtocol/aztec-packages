@@ -40,17 +40,17 @@ class ECCVMBase {
     using Commitment = typename G1::affine_element;
     using CommitmentHandle = typename G1::affine_element;
 
-    static constexpr size_t NUM_WIRES = 74;
+    static constexpr size_t NUM_WIRES = 75;
 
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 105;
+    static constexpr size_t NUM_ALL_ENTITIES = 106;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
     // The total number of witness entities not including shifts.
-    static constexpr size_t NUM_WITNESS_ENTITIES = 76;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 77;
 
     using GrandProductRelations = std::tuple<sumcheck::ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
@@ -182,8 +182,9 @@ class ECCVMBase {
         DataType& q_wnaf                            = std::get<71>(this->_data);
         DataType& lookup_read_counts_0              = std::get<72>(this->_data);
         DataType& lookup_read_counts_1              = std::get<73>(this->_data);
-        DataType& z_perm                            = std::get<74>(this->_data);
-        DataType& lookup_inverses                   = std::get<75>(this->_data);
+        DataType& transcript_collision_check        = std::get<74>(this->_data);
+        DataType& z_perm                            = std::get<75>(this->_data);
+        DataType& lookup_inverses                   = std::get<76>(this->_data);
 
         // clang-format on
         std::vector<HandleType> get_wires() override
@@ -263,6 +264,7 @@ class ECCVMBase {
                 q_wnaf,
                 lookup_read_counts_0,
                 lookup_read_counts_1,
+                transcript_collision_check,
             };
         };
         // The sorted concatenations of table and witness data needed for plookup.
@@ -361,34 +363,35 @@ class ECCVMBase {
         DataType& q_wnaf                            = std::get<3 + 71>(this->_data);
         DataType& lookup_read_counts_0              = std::get<3 + 72>(this->_data);
         DataType& lookup_read_counts_1              = std::get<3 + 73>(this->_data);
-        DataType& z_perm                            = std::get<3 + 74>(this->_data);
-        DataType& lookup_inverses                   = std::get<3 + 75>(this->_data);
-        DataType& q_transcript_mul_shift            = std::get<3 + 76>(this->_data);
-        DataType& q_transcript_accumulate_shift     = std::get<3 + 77>(this->_data);
-        DataType& transcript_msm_count_shift        = std::get<3 + 78>(this->_data);
-        DataType& transcript_accumulator_x_shift    = std::get<3 + 79>(this->_data);
-        DataType& transcript_accumulator_y_shift    = std::get<3 + 80>(this->_data);
-        DataType& table_scalar_sum_shift            = std::get<3 + 81>(this->_data);
-        DataType& table_dx_shift                    = std::get<3 + 82>(this->_data);
-        DataType& table_dy_shift                    = std::get<3 + 83>(this->_data);
-        DataType& table_tx_shift                    = std::get<3 + 84>(this->_data);
-        DataType& table_ty_shift                    = std::get<3 + 85>(this->_data);
-        DataType& q_msm_transition_shift            = std::get<3 + 86>(this->_data);
-        DataType& msm_q_add_shift                   = std::get<3 + 87>(this->_data);
-        DataType& msm_q_double_shift                = std::get<3 + 88>(this->_data);
-        DataType& msm_q_skew_shift                  = std::get<3 + 89>(this->_data);
-        DataType& msm_accumulator_x_shift           = std::get<3 + 90>(this->_data);
-        DataType& msm_accumulator_y_shift           = std::get<3 + 91>(this->_data);
-        DataType& msm_count_shift                   = std::get<3 + 92>(this->_data);
-        DataType& msm_round_shift                   = std::get<3 + 93>(this->_data);
-        DataType& msm_q_add1_shift                  = std::get<3 + 94>(this->_data);
-        DataType& msm_pc_shift                      = std::get<3 + 95>(this->_data);
-        DataType& table_pc_shift                    = std::get<3 + 96>(this->_data);
-        DataType& transcript_pc_shift               = std::get<3 + 97>(this->_data);
-        DataType& table_round_shift                 = std::get<3 + 98>(this->_data);
-        DataType& transcript_accumulator_empty_shift= std::get<3 + 99>(this->_data);
-        DataType& q_wnaf_shift                      = std::get<3 + 100>(this->_data);
-        DataType& z_perm_shift                      = std::get<3 + 101>(this->_data);
+        DataType& transcript_collision_check        = std::get<77>(this->_data);
+        DataType& z_perm                            = std::get<4 + 74>(this->_data);
+        DataType& lookup_inverses                   = std::get<4 + 75>(this->_data);
+        DataType& q_transcript_mul_shift            = std::get<4 + 76>(this->_data);
+        DataType& q_transcript_accumulate_shift     = std::get<4 + 77>(this->_data);
+        DataType& transcript_msm_count_shift        = std::get<4 + 78>(this->_data);
+        DataType& transcript_accumulator_x_shift    = std::get<4 + 79>(this->_data);
+        DataType& transcript_accumulator_y_shift    = std::get<4 + 80>(this->_data);
+        DataType& table_scalar_sum_shift            = std::get<4 + 81>(this->_data);
+        DataType& table_dx_shift                    = std::get<4 + 82>(this->_data);
+        DataType& table_dy_shift                    = std::get<4 + 83>(this->_data);
+        DataType& table_tx_shift                    = std::get<4 + 84>(this->_data);
+        DataType& table_ty_shift                    = std::get<4 + 85>(this->_data);
+        DataType& q_msm_transition_shift            = std::get<4 + 86>(this->_data);
+        DataType& msm_q_add_shift                   = std::get<4 + 87>(this->_data);
+        DataType& msm_q_double_shift                = std::get<4 + 88>(this->_data);
+        DataType& msm_q_skew_shift                  = std::get<4 + 89>(this->_data);
+        DataType& msm_accumulator_x_shift           = std::get<4 + 90>(this->_data);
+        DataType& msm_accumulator_y_shift           = std::get<4 + 91>(this->_data);
+        DataType& msm_count_shift                   = std::get<4 + 92>(this->_data);
+        DataType& msm_round_shift                   = std::get<4 + 93>(this->_data);
+        DataType& msm_q_add1_shift                  = std::get<4 + 94>(this->_data);
+        DataType& msm_pc_shift                      = std::get<4 + 95>(this->_data);
+        DataType& table_pc_shift                    = std::get<4 + 96>(this->_data);
+        DataType& transcript_pc_shift               = std::get<4 + 97>(this->_data);
+        DataType& table_round_shift                 = std::get<4 + 98>(this->_data);
+        DataType& transcript_accumulator_empty_shift= std::get<4 + 99>(this->_data);
+        DataType& q_wnaf_shift                      = std::get<4 + 100>(this->_data);
+        DataType& z_perm_shift                      = std::get<4 + 101>(this->_data);
 
         template <size_t index>
         [[nodiscard]] const DataType& lookup_read_counts() const
@@ -475,6 +478,7 @@ class ECCVMBase {
                 q_wnaf,
                 lookup_read_counts_0,
                 lookup_read_counts_1,
+                transcript_collision_check,
             };
         };
         // Gemini-specific getters.
@@ -533,6 +537,7 @@ class ECCVMBase {
                 transcript_q_reset_accumulator,
                 lookup_read_counts_0,
                 lookup_read_counts_1,
+                transcript_collision_check,
                 lookup_inverses,
             };
         };
@@ -796,6 +801,7 @@ class ECCVMBase {
             Base::q_wnaf = "Q_WNAF";
             Base::lookup_read_counts_0 = "LOOKUP_READ_COUNTS_0";
             Base::lookup_read_counts_1 = "LOOKUP_READ_COUNTS_1";
+            Base::transcript_collision_check = "TRANSCRIPT_COLLISION_CHECK";
             Base::z_perm = "Z_PERM";
             Base::lookup_inverses = "LOOKUP_INVERSES";
             // The ones beginning with "__" are only used for debugging
