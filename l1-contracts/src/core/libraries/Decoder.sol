@@ -77,27 +77,16 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  *  |---                                                     |---         | ---
  */
 library Decoder {
-  struct ArrayLengths {
-    uint256 commitmentCount;
-    uint256 nullifierCount;
-    uint256 dataWritesCount;
-    uint256 l2ToL1MsgsCount;
-    uint256 contractCount;
-    uint256 l1Tol2MsgsCount;
-    uint256 encryptedLogsLength; // in bytes
-    uint256 unencryptedLogsLength; // in bytes
-  }
-
   struct ArrayOffsets {
-    uint256 commitmentOffset;
-    uint256 nullifierOffset;
-    uint256 publicDataOffset;
-    uint256 l2ToL1MsgsOffset;
-    uint256 contractOffset;
-    uint256 contractDataOffset;
-    uint256 l1ToL2MsgsOffset;
-    uint256 encryptedLogsOffset;
-    uint256 unencryptedLogsOffset;
+    uint256 commitment;
+    uint256 nullifier;
+    uint256 publicData;
+    uint256 l2ToL1Msgs;
+    uint256 contracts;
+    uint256 contractData;
+    uint256 l1ToL2Msgs;
+    uint256 encryptedLogs;
+    uint256 unencryptedLogs;
   }
 
   // Note: Used in `computeConsumables` to get around stack too deep errors.
@@ -105,10 +94,11 @@ library Decoder {
     bytes32[] baseLeaves;
     bytes32[] l2ToL1Msgs;
     bytes baseLeaf;
-    bytes32 encrypedLogsHashKernel1;
-    bytes32 encrypedLogsHashKernel2;
+    bytes32 encryptedLogsHashKernel1;
+    bytes32 encryptedLogsHashKernel2;
     bytes32 unencryptedLogsHashKernel1;
     bytes32 unencryptedLogsHashKernel2;
+    uint256 l1Tol2MsgsCount;
   }
 
   // DECODING OFFSET CONSTANTS
@@ -123,8 +113,8 @@ library Decoder {
     START_TREES_BLOCK_HEADER_OFFSET + TREES_BLOCK_HEADER_SIZE;
 
   // Where the metadata ends and the block data begins.
-  // This is really (START_TREES_BLOCK_HEADER_OFFSET + 2 * TREES_BLOCK_HEADER_SIZE) but assembly doesnt allow comptime constant use
-  uint256 private constant BLOCK_HEADER_OFFSET = 0x0300;
+  uint256 private constant BLOCK_HEADER_OFFSET =
+    START_TREES_BLOCK_HEADER_OFFSET + 2 * TREES_BLOCK_HEADER_SIZE;
 
   /**
    * @notice Decodes the inputs and computes values to check state against
@@ -173,13 +163,8 @@ library Decoder {
     bytes32 _diffRoot,
     bytes32 _l1ToL2MsgsHash
   ) internal pure returns (bytes32) {
-    bytes memory temp = new bytes(BLOCK_HEADER_OFFSET + 0x20 + 0x20);
-    assembly {
-      calldatacopy(add(temp, 0x20), _l2Block.offset, BLOCK_HEADER_OFFSET)
-      mstore(add(temp, add(0x20, BLOCK_HEADER_OFFSET)), _diffRoot)
-      mstore(add(temp, add(0x40, BLOCK_HEADER_OFFSET)), _l1ToL2MsgsHash)
-    }
-    return Hash.sha256ToField(temp);
+    return
+      Hash.sha256ToField(bytes.concat(_l2Block[:BLOCK_HEADER_OFFSET], _diffRoot, _l1ToL2MsgsHash));
   }
 
   /**
@@ -188,9 +173,7 @@ library Decoder {
    * @return l2BlockNumber - The L2 block number
    */
   function getL2BlockNumber(bytes calldata _l2Block) internal pure returns (uint256 l2BlockNumber) {
-    assembly {
-      l2BlockNumber := calldataload(add(_l2Block.offset, 0x40))
-    }
+    return uint256(bytes32(_l2Block[0x40:0x60]));
   }
 
   /**
@@ -208,17 +191,9 @@ library Decoder {
     pure
     returns (bytes32)
   {
-    // 0x20 for the block number + TREES_BLOCK_HEADER_SIZE for the header elements
-    bytes memory temp = new bytes(0x20 + TREES_BLOCK_HEADER_SIZE);
-
-    assembly {
-      // Copy block number
-      mstore(add(temp, 0x20), _l2BlockNumber)
-      // Copy header elements (not including block number) for start or end
-      calldatacopy(add(temp, 0x40), add(_l2Block.offset, _offset), TREES_BLOCK_HEADER_SIZE)
-    }
-
-    return sha256(temp);
+    return sha256(
+      bytes.concat(bytes32(_l2BlockNumber), _l2Block[_offset:_offset + TREES_BLOCK_HEADER_SIZE])
+    );
   }
 
   /**
@@ -234,81 +209,61 @@ library Decoder {
     pure
     returns (bytes32, bytes32, bytes32[] memory, bytes32[] memory)
   {
-    // Find the lengths of the different inputs
-    // TODO: Naming / getting the messages root within this function is a bit weird
-    ArrayLengths memory lengths;
     ArrayOffsets memory offsets;
-    {
-      assembly {
-        let offset := add(_l2Block.offset, BLOCK_HEADER_OFFSET)
-        let commitmentCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(commitmentCount, 0x20))
-        let nullifierCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(nullifierCount, 0x20))
-        let dataWritesCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(dataWritesCount, 0x40))
-        let l2ToL1MsgsCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(l2ToL1MsgsCount, 0x20))
-        let contractCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(contractCount, 0x54))
-        let l1Tol2MsgsCount := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), mul(l1Tol2MsgsCount, 0x20))
-        let encryptedLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(add(offset, 0x4), encryptedLogsLength)
-        let unencryptedLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
-
-        // Store it in lengths
-        mstore(lengths, commitmentCount)
-        mstore(add(lengths, 0x20), nullifierCount)
-        mstore(add(lengths, 0x40), dataWritesCount)
-        mstore(add(lengths, 0x60), l2ToL1MsgsCount)
-        mstore(add(lengths, 0x80), contractCount)
-        mstore(add(lengths, 0xa0), l1Tol2MsgsCount) // currently included to allow optimisation where empty messages are not included in calldata
-        mstore(add(lengths, 0xc0), encryptedLogsLength)
-        mstore(add(lengths, 0xe0), unencryptedLogsLength)
-      }
-    }
-
     ConsumablesVars memory vars;
-    vars.baseLeaves = new bytes32[](
-            lengths.commitmentCount / (Constants.COMMITMENTS_PER_TX * 2)
-        );
-    vars.l2ToL1Msgs = new bytes32[](
-            lengths.l2ToL1MsgsCount
-        );
+
+    {
+      uint256 offset = BLOCK_HEADER_OFFSET;
+      offsets.commitment = BLOCK_HEADER_OFFSET + 0x4;
+
+      // Commitments
+      uint256 count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      vars.baseLeaves = new bytes32[](count / (Constants.COMMITMENTS_PER_TX * 2));
+      offsets.nullifier = offsets.commitment + 0x4 + count * 0x20;
+      offset += 0x4 + count * 0x20;
+
+      // Nullifiers
+      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      offsets.publicData = offsets.nullifier + 0x4 + count * 0x20;
+      offset += 0x4 + count * 0x20;
+
+      // Public data writes
+      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      offsets.l2ToL1Msgs = offsets.publicData + 0x4 + count * 0x40;
+      offset += 0x4 + count * 0x40;
+
+      // L2 to L1 messages
+      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      vars.l2ToL1Msgs = new bytes32[](count);
+      assembly {
+        // load the l2 to l1 msgs (done here as offset will be altered in loop)
+        let l2ToL1Msgs := mload(add(vars, 0x20))
+        calldatacopy(
+          add(l2ToL1Msgs, 0x20), add(_l2Block.offset, mload(add(offsets, 0x60))), mul(count, 0x20)
+        )
+      }
+      offsets.contracts = offsets.l2ToL1Msgs + 0x4 + count * 0x20;
+      offset += 0x4 + count * 0x20;
+
+      // Contracts
+      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      offsets.contractData = offsets.contracts + count * 0x20;
+      offsets.l1ToL2Msgs = offsets.contractData + 0x4 + count * 0x34;
+      offset += 0x4 + count * 0x54;
+
+      // L1 to L2 messages
+      count = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      vars.l1Tol2MsgsCount = count;
+      offsets.encryptedLogs = offsets.l1ToL2Msgs + 0x4 + count * 0x20;
+      offset += 0x4 + count * 0x20;
+
+      // Used as length in bytes down here
+      uint256 length = uint256(uint32(bytes4(_l2Block[offset:offset + 4])));
+      offsets.unencryptedLogs = offsets.encryptedLogs + 0x4 + length;
+    }
 
     // Data starts after header. Look at L2 Block Data specification at the top of this file.
     {
-      offsets.commitmentOffset = BLOCK_HEADER_OFFSET + 0x4;
-      offsets.nullifierOffset = offsets.commitmentOffset + 0x4 + lengths.commitmentCount * 0x20;
-      offsets.publicDataOffset = offsets.nullifierOffset + 0x4 + lengths.nullifierCount * 0x20;
-      offsets.l2ToL1MsgsOffset = offsets.publicDataOffset + 0x4 + lengths.dataWritesCount * 0x40;
-      offsets.contractOffset = offsets.l2ToL1MsgsOffset + 0x4 + lengths.l2ToL1MsgsCount * 0x20;
-      offsets.contractDataOffset = offsets.contractOffset + lengths.contractCount * 0x20;
-      offsets.l1ToL2MsgsOffset = offsets.contractDataOffset + 0x4 + lengths.contractCount * 0x34;
-      offsets.encryptedLogsOffset = offsets.l1ToL2MsgsOffset + 0x4 + lengths.l1Tol2MsgsCount * 0x20;
-      offsets.unencryptedLogsOffset =
-        offsets.encryptedLogsOffset + 0x4 + lengths.encryptedLogsLength;
-
-      // load the l2 to l1 msgs (done here as offset will be altered in loop)
-      assembly {
-        let l2ToL1Msgs := mload(add(vars, 0x20))
-        calldatacopy(
-          add(l2ToL1Msgs, 0x20),
-          add(_l2Block.offset, mload(add(offsets, 0x60))),
-          mul(mload(add(lengths, 0x60)), 0x20)
-        )
-      }
-
-      // Create the leaf to contain commitments (2 * COMMITMENTS_PER_TX * 0x20) + nullifiers (2 * NULLIFIERS_PER_TX * 0x20)
-      // + new public data writes (2 * PUBLIC_DATA_WRITES_PER_TX * 0x40) + new L2 to L1 messages (2 * L2_TO_L1_MSGS_PER_TX * 0x20)
-      // + contract deployments (2 * CONTRACTS_PER_TX * 0x60) + logs hashes (2 * 2 * 0x20)
-      // contract deployments is 0x60 since 0x20 for contract data root, 0x40 to store the contract's aztec address and eth address (padded to 32 bytes)
-      // log hash is 2 * 0x20 since there are 2 tpyes of logs - encrypted, unencrypted
-
-      vars.baseLeaf =
-      new bytes(Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP + Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP + Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP + Constants.LOGS_HASHES_NUM_BYTES_PER_ROLLUP);
-
       for (uint256 i = 0; i < vars.baseLeaves.length; i++) {
         /*
          * Compute the leaf to insert.
@@ -327,8 +282,8 @@ library Decoder {
          *    newContractDataKernel1.ethAddress (padded to 32 bytes),
          *    newContractDataKernel2.aztecAddress,
          *    newContractDataKernel2.ethAddress (padded to 32 bytes), ____
-         *    encrypedLogsHashKernel1,                                   |
-         *    encrypedLogsHashKernel2,                                   |=> Computed below from logs' preimages.
+         *    encryptedLogsHashKernel1,                                   |
+         *    encryptedLogsHashKernel2,                                   |=> Computed below from logs' preimages.
          *    unencryptedLogsHashKernel1,                                |
          *    unencryptedLogsHashKernel2                              ___|
          * );
@@ -340,118 +295,66 @@ library Decoder {
          * Compute encrypted and unencrypted logs hashes corresponding to the current leaf.
          * Note: `computeKernelLogsHash` will advance offsets by the number of bytes processed.
          */
-        (vars.encrypedLogsHashKernel1, offsets.encryptedLogsOffset) =
-          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
-        (vars.encrypedLogsHashKernel2, offsets.encryptedLogsOffset) =
-          computeKernelLogsHash(offsets.encryptedLogsOffset, _l2Block);
+        (vars.encryptedLogsHashKernel1, offsets.encryptedLogs) =
+          computeKernelLogsHash(offsets.encryptedLogs, _l2Block);
+        (vars.encryptedLogsHashKernel2, offsets.encryptedLogs) =
+          computeKernelLogsHash(offsets.encryptedLogs, _l2Block);
 
-        (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogsOffset) =
-          computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
-        (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogsOffset) =
-          computeKernelLogsHash(offsets.unencryptedLogsOffset, _l2Block);
+        (vars.unencryptedLogsHashKernel1, offsets.unencryptedLogs) =
+          computeKernelLogsHash(offsets.unencryptedLogs, _l2Block);
+        (vars.unencryptedLogsHashKernel2, offsets.unencryptedLogs) =
+          computeKernelLogsHash(offsets.unencryptedLogs, _l2Block);
 
-        uint256 dstPtr;
-        assembly {
-          dstPtr := add(mload(add(vars, 0x40)), 0x20) // Load the pointer to `vars.baseLeaf`
-        }
-        uint256 bytesToCopy = Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
+        // Insertions are split because of stack too deep.
 
-        // Adding new commitments
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(offsets)), bytesToCopy)
-        }
-        dstPtr += bytesToCopy;
+        // Insert (commitments, nullifiers, public data writes) into baseLeaf
+        vars.baseLeaf = bytes.concat(
+          _l2Block[
+            offsets.commitment:offsets.commitment + Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP
+          ],
+          _l2Block[offsets.nullifier:offsets.nullifier + Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP],
+          _l2Block[
+            offsets.publicData:
+              offsets.publicData + Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP
+          ]
+        );
+        // Insert (l2ToL1Msgs, contractLeafs) into baseLeaf
+        vars.baseLeaf = bytes.concat(
+          vars.baseLeaf,
+          _l2Block[
+            offsets.l2ToL1Msgs:offsets.l2ToL1Msgs + Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP
+          ],
+          _l2Block[offsets.contracts:offsets.contracts + Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP]
+        );
+        // Insert (newContractDataKernel1.aztecAddress, newContractDataKernel1.ethAddress) into baseLeaf
+        vars.baseLeaf = bytes.concat(
+          vars.baseLeaf,
+          _l2Block[offsets.contractData:offsets.contractData + 0x20],
+          bytes12(0),
+          _l2Block[offsets.contractData + 0x20:offsets.contractData + 0x34]
+        );
+        // Insert (newContractDataKernel2.aztecAddress, newContractDataKernel2.ethAddress) into baseLeaf
+        vars.baseLeaf = bytes.concat(
+          vars.baseLeaf,
+          _l2Block[offsets.contractData + 0x34:offsets.contractData + 0x54],
+          bytes12(0),
+          _l2Block[offsets.contractData + 0x54:offsets.contractData + 0x68]
+        );
+        // Insert (encryptedLogsHashKernel1, encryptedLogsHashKernel2, unencryptedLogsHashKernel1, unencryptedLogsHashKernel2) into baseLeaf
+        vars.baseLeaf = bytes.concat(
+          vars.baseLeaf,
+          vars.encryptedLogsHashKernel1,
+          vars.encryptedLogsHashKernel2,
+          vars.unencryptedLogsHashKernel1,
+          vars.unencryptedLogsHashKernel2
+        );
 
-        // Adding new nullifiers
-        bytesToCopy = Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x20))), bytesToCopy)
-        }
-        dstPtr += bytesToCopy;
-
-        // Adding new public data writes
-        bytesToCopy = Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x40))), bytesToCopy)
-        }
-        dstPtr += bytesToCopy;
-
-        // Adding new l2 to l1 msgs
-        bytesToCopy = Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x60))), bytesToCopy)
-        }
-        dstPtr += bytesToCopy;
-
-        // Adding Contract Leafs
-        bytesToCopy = Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, mload(add(offsets, 0x80))), bytesToCopy)
-        }
-        dstPtr += bytesToCopy;
-
-        // Kernel1.contract.aztecAddress
-        uint256 contractDataOffset = offsets.contractDataOffset;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, contractDataOffset), 0x20)
-        }
-        dstPtr += 0x20;
-
-        // Kernel1.contract.ethAddress padded to 32 bytes
-        // Add 12 (0xc) bytes of padding to the ethAddress
-        dstPtr += 0xc;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x20)), 0x14)
-        }
-        dstPtr += 0x14;
-
-        // Kernel2.contract.aztecAddress
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x34)), 0x20)
-        }
-        dstPtr += 0x20;
-
-        // Kernel2.contract.ethAddress padded to 32 bytes
-        // Add 12 (0xc) bytes of padding to the ethAddress
-        dstPtr += 0xc;
-        assembly {
-          calldatacopy(dstPtr, add(_l2Block.offset, add(contractDataOffset, 0x54)), 0x14)
-        }
-
-        // encryptedLogsHashKernel1
-        dstPtr += 0x14;
-        bytes32 hash = vars.encrypedLogsHashKernel1;
-        assembly {
-          mstore(dstPtr, hash)
-        }
-
-        // encryptedLogsHashKernel2
-        dstPtr += 0x20;
-        hash = vars.encrypedLogsHashKernel2;
-        assembly {
-          mstore(dstPtr, hash)
-        }
-
-        // unencryptedLogsHashKernel1
-        dstPtr += 0x20;
-        hash = vars.unencryptedLogsHashKernel1;
-        assembly {
-          mstore(dstPtr, hash)
-        }
-
-        // unencryptedLogsHashKernel2
-        dstPtr += 0x20;
-        hash = vars.unencryptedLogsHashKernel2;
-        assembly {
-          mstore(dstPtr, hash)
-        }
-
-        offsets.commitmentOffset += Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
-        offsets.nullifierOffset += Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
-        offsets.publicDataOffset += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
-        offsets.l2ToL1MsgsOffset += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
-        offsets.contractOffset += Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
-        offsets.contractDataOffset += Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP_UNPADDED;
+        offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
+        offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
+        offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
+        offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
+        offsets.contracts += Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
+        offsets.contractData += Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP_UNPADDED;
 
         vars.baseLeaves[i] = sha256(vars.baseLeaf);
       }
@@ -463,7 +366,7 @@ library Decoder {
     {
       // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.L1_TO_L2_MSGS_PER_ROLLUP` the array
       // will contain some zero values.
-      uint256 l1ToL2MsgsHashPreimageSize = 0x20 * lengths.l1Tol2MsgsCount;
+      uint256 l1ToL2MsgsHashPreimageSize = 0x20 * vars.l1Tol2MsgsCount;
       l1ToL2Msgs = new bytes32[](Constants.L1_TO_L2_MSGS_PER_ROLLUP);
       assembly {
         calldatacopy(
@@ -516,60 +419,32 @@ library Decoder {
     pure
     returns (bytes32, uint256)
   {
-    uint256 remainingLogsLength;
-    uint256 offset;
-    assembly {
-      offset := add(_offsetInBlock, _l2Block.offset)
-      // Set the remaining logs length to the total logs length
-      // Loads 32 bytes from calldata, shifts right by 224 bits and masks the result with 0xffffffff
-      remainingLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
-      // Move the calldata offset by the 4 bytes we just read
-      offset := add(offset, 0x4)
-    }
+    uint256 offset = _offsetInBlock;
+    uint256 remainingLogsLength = uint256(uint32(bytes4(_l2Block[offset:offset + 0x4])));
+    offset += 0x4;
 
-    bytes32[2] memory logsHashes; // A memory to which we will write the 2 logs hashes to be accumulated
     bytes32 kernelPublicInputsLogsHash; // The hash on the output of kernel iteration
-    // The length of the logs emitted by Noir from the function call corresponding to this kernel iteration
-    uint256 privateCircuitPublicInputLogsLength;
 
     // Iterate until all the logs were processed
     while (remainingLogsLength > 0) {
-      assembly {
-        // Load this iteration's logs length
-        privateCircuitPublicInputLogsLength := and(shr(224, calldataload(offset)), 0xffffffff)
-        offset := add(offset, 0x4)
-      }
+      // The length of the logs emitted by Noir from the function call corresponding to this kernel iteration
+      uint256 privateCircuitPublicInputLogsLength =
+        uint256(uint32(bytes4(_l2Block[offset:offset + 0x4])));
+      offset += 0x4;
 
-      // TODO: Allocating memory in each iteration is expensive. Should we somehow set it to max length of all the
-      //       iterations? (e.g. We could do that by first searching for max length in a loop or by modifying
-      //       the encoding and storing max length on a predefined position)
-      bytes memory privateCircuitPublicInputLogs = new bytes(privateCircuitPublicInputLogsLength);
-      assembly {
-        // Load logs corresponding to this iteration's function call to memory
-        calldatacopy(
-          add(privateCircuitPublicInputLogs, 0x20), offset, privateCircuitPublicInputLogsLength
-        )
-        offset := add(offset, privateCircuitPublicInputLogsLength)
-      }
+      // Hash the logs of this iteration's function call
+      bytes32 privateCircuitPublicInputsLogsHash =
+        sha256(_l2Block[offset:offset + privateCircuitPublicInputLogsLength]);
+      offset += privateCircuitPublicInputLogsLength;
 
-      // Hash the logs
-      bytes32 privateCircuitPublicInputsLogsHash = sha256(privateCircuitPublicInputLogs);
-
-      logsHashes[0] = kernelPublicInputsLogsHash;
-      logsHashes[1] = privateCircuitPublicInputsLogsHash;
       // Decrease remaining logs length by this privateCircuitPublicInputsLogs's length (len(I?_LOGS)) and 4 bytes for I?_LOGS_LEN
-      remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4); // 0x4 is the length of the logs length
+      remainingLogsLength -= (privateCircuitPublicInputLogsLength + 0x4);
 
-      // Hash logs hash from the public inputs of previous kernel iteration and logs hash from private circuit public inputs
-      kernelPublicInputsLogsHash = sha256(abi.encodePacked(logsHashes));
+      kernelPublicInputsLogsHash =
+        sha256(bytes.concat(kernelPublicInputsLogsHash, privateCircuitPublicInputsLogsHash));
     }
 
-    uint256 offsetInBlock;
-    assembly {
-      offsetInBlock := sub(offset, _l2Block.offset)
-    }
-
-    return (kernelPublicInputsLogsHash, offsetInBlock);
+    return (kernelPublicInputsLogsHash, offset);
   }
 
   /**
@@ -591,7 +466,7 @@ library Decoder {
 
     for (uint256 i = 0; i < treeDepth; i++) {
       for (uint256 j = 0; j < treeSize; j += 2) {
-        _leafs[j / 2] = sha256(abi.encode(_leafs[j], _leafs[j + 1]));
+        _leafs[j / 2] = sha256(bytes.concat(_leafs[j], _leafs[j + 1]));
       }
     }
 
