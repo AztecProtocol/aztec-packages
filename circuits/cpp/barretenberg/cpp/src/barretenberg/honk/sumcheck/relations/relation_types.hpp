@@ -147,8 +147,8 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * @tparam size_t
      */
     template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent() requires(
-        HasSubrelationLinearlyIndependentMember<Relation>)
+    static constexpr bool is_subrelation_linearly_independent()
+        requires(HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
     {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }
