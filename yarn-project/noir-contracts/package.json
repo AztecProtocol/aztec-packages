@@ -18,7 +18,6 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
     "noir:build": "./src/scripts/compile.sh true",
     "noir:build:all": "./src/scripts/compile.sh false $(ls -d src/contracts/*_contract/Nargo.toml | sed -r 's/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/')",
-    "noir:types": "./scripts/types.sh",
     "noir:types:all": "./scripts/types.sh $(ls -d src/contracts/*_contract/Nargo.toml | sed -r 's/src\\/contracts\\/(.+)_contract\\/Nargo.toml/\\1/')"
   },
   "inherits": [
