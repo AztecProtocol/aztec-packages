@@ -8,6 +8,8 @@
 namespace barretenberg {
 template <typename FF> class Polynomial;
 }
+namespace proof_system::honk::sumcheck {
+
 template <typename FF, size_t Length> class Univariate;
 template <typename FF, size_t Length> class UnivariateView;
 
