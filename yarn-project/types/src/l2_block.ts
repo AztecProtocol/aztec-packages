@@ -594,6 +594,7 @@ export class L2Block {
       this.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.startHistoricBlocksTreeSnapshot,
     );
+    console.log("start hash inputs: ", inputValue.toString("hex"))
     return sha256(inputValue);
   }
 
@@ -614,6 +615,7 @@ export class L2Block {
       this.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       this.endHistoricBlocksTreeSnapshot,
     );
+    console.log("end hash inputs: ", inputValue.toString("hex"))
     return sha256(inputValue);
   }
 

@@ -2,6 +2,7 @@
 
 #include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/constants.hpp"
 
@@ -148,14 +149,14 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
     // write all of the block data into a large vector before hashing
     // NOTE: the block hash will need to be a public input so that it can be indexed?
     // TODO: how do we want to build this? as a subtree or is this method fine?
-    auto block_hash = NT::hash({ left.constants.global_variables.hash(),
-                                 right.end_private_data_tree_snapshot.root,
-                                 right.end_nullifier_tree_snapshot.root,
-                                 right.end_contract_tree_snapshot.root,
-                                 end_l1_to_l2_data_roots_tree_snapshot.root });
+    auto block_hash = compute_block_hash(left.constants.global_variables,
+                                         right.end_private_data_tree_snapshot.root,
+                                         right.end_nullifier_tree_snapshot.root,
+                                         right.end_contract_tree_snapshot.root,
+                                         new_l1_to_l2_messages_tree_snapshot.root);
 
     // Update the historic blocks tree
-    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree_traced(
+    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
         builder,
         rootRollupInputs.start_historic_blocks_tree_snapshot,
         rootRollupInputs.new_historic_blocks_tree_sibling_path,

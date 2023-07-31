@@ -30,31 +30,32 @@ void assert_equal_constants(DummyBuilder& builder,
 AggregationObject aggregate_proofs(BaseOrMergeRollupPublicInputs const& left,
                                    BaseOrMergeRollupPublicInputs const& right);
 
-template <size_t N>
-AppendOnlySnapshot insert_subtree_to_snapshot_tree_traced(DummyBuilder& builder,
-                                                          AppendOnlySnapshot snapshot,
-                                                          std::array<NT::fr, N> siblingPath,
-                                                          NT::fr emptySubtreeRoot,
-                                                          NT::fr subtreeRootToInsert,
-                                                          uint8_t subtreeDepth,
-                                                          std::string const& emptySubtreeCheckErrorMessage)
-{
-    auto leafIndexAtDepth = snapshot.next_available_leaf_index >> subtreeDepth;
+// template <size_t N>
+// AppendOnlySnapshot insert_subtree_to_snapshot_tree_traced(DummyBuilder& builder,
+//                                                           AppendOnlySnapshot snapshot,
+//                                                           std::array<NT::fr, N> siblingPath,
+//                                                           NT::fr emptySubtreeRoot,
+//                                                           NT::fr subtreeRootToInsert,
+//                                                           uint8_t subtreeDepth,
+//                                                           std::string const& emptySubtreeCheckErrorMessage)
+// {
+//     auto leafIndexAtDepth = snapshot.next_available_leaf_index >> subtreeDepth;
 
-    // Check that the current root is correct and that there is an empty subtree at the insertion location
-    check_membership_trace<NT>(
-        builder, emptySubtreeRoot, leafIndexAtDepth, siblingPath, snapshot.root, emptySubtreeCheckErrorMessage);
+//     // Check that the current root is correct and that there is an empty subtree at the insertion location
+//     check_membership_trace<NT>(
+//         builder, emptySubtreeRoot, leafIndexAtDepth, siblingPath, snapshot.root, emptySubtreeCheckErrorMessage);
 
-    // if index of leaf is x, index of its parent is x/2 or x >> 1. We need to find the parent `subtreeDepth` levels up.
-    auto new_root = root_from_sibling_path<NT>(subtreeRootToInsert, leafIndexAtDepth, siblingPath);
+//     // if index of leaf is x, index of its parent is x/2 or x >> 1. We need to find the parent `subtreeDepth` levels
+//     up. auto new_root = root_from_sibling_path<NT>(subtreeRootToInsert, leafIndexAtDepth, siblingPath);
 
-    // 2^subtreeDepth is the number of leaves added. 2^x = 1 << x
-    auto new_next_available_leaf_index = snapshot.next_available_leaf_index + (static_cast<uint8_t>(1) << subtreeDepth);
+//     // 2^subtreeDepth is the number of leaves added. 2^x = 1 << x
+//     auto new_next_available_leaf_index = snapshot.next_available_leaf_index + (static_cast<uint8_t>(1) <<
+//     subtreeDepth);
 
-    AppendOnlySnapshot newTreeSnapshot = { .root = new_root,
-                                           .next_available_leaf_index = new_next_available_leaf_index };
-    return newTreeSnapshot;
-}
+//     AppendOnlySnapshot newTreeSnapshot = { .root = new_root,
+//                                            .next_available_leaf_index = new_next_available_leaf_index };
+//     return newTreeSnapshot;
+// }
 template <size_t N> AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyBuilder& builder,
                                                                        AppendOnlySnapshot snapshot,
                                                                        std::array<NT::fr, N> siblingPath,

@@ -2,6 +2,7 @@
 
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
+#include "aztec3/circuits/abis/global_variables.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/constants.hpp"
@@ -137,6 +138,25 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
     return NCT::compress(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
 }
 
+template <typename NCT> typename NCT::fr compute_block_hash(typename abis::GlobalVariables<NCT> globals,
+                                                            typename NCT::fr private_data_tree_root,
+                                                            typename NCT::fr nullifier_tree_root,
+                                                            typename NCT::fr contract_tree_root,
+                                                            typename NCT::fr l1_to_l2_data_tree_root)
+{
+    using fr = typename NCT::fr;
+
+    std::vector<fr> const inputs = {
+        globals.hash(), private_data_tree_root, nullifier_tree_root, contract_tree_root, l1_to_l2_data_tree_root
+    };
+
+    info("globals: ", globals);
+    info("block hash inputs: ", inputs);
+
+    // TODO(Maddiaa): does this need an index?
+    return NCT::compress(inputs);
+}
+
 /**
  * @brief Calculate the Merkle tree root from the sibling path and leaf.
  *
@@ -205,26 +225,26 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
     return node;  // root
 }
 
-template <typename NCT, size_t N>
-typename NCT::fr root_from_sibling_path_trace(typename NCT::fr const& leaf,
-                                              typename NCT::fr const& leaf_index,
-                                              std::array<typename NCT::fr, N> const& sibling_path)
-{
-    auto node = leaf;
-    uint256_t index = leaf_index;
-    for (size_t i = 0; i < N; i++) {
-        if (index & 1) {
-            info(sibling_path[i], node);
-            node = NCT::merkle_hash(sibling_path[i], node);
-        } else {
-            info(node, sibling_path[i]);
-            node = NCT::merkle_hash(node, sibling_path[i]);
-        }
-        index >>= uint256_t(1);
-    }
-    info("root: ", node);
-    return node;  // root
-}
+// template <typename NCT, size_t N>
+// typename NCT::fr root_from_sibling_path_trace(typename NCT::fr const& leaf,
+//                                               typename NCT::fr const& leaf_index,
+//                                               std::array<typename NCT::fr, N> const& sibling_path)
+// {
+//     auto node = leaf;
+//     uint256_t index = leaf_index;
+//     for (size_t i = 0; i < N; i++) {
+//         if (index & 1) {
+//             info(sibling_path[i], node);
+//             node = NCT::merkle_hash(sibling_path[i], node);
+//         } else {
+//             info(node, sibling_path[i]);
+//             node = NCT::merkle_hash(node, sibling_path[i]);
+//         }
+//         index >>= uint256_t(1);
+//     }
+//     info("root: ", node);
+//     return node;  // root
+// }
 
 /**
  * @brief Get the sibling path of an item in a given merkle tree
@@ -256,19 +276,19 @@ std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t c
     return sibling_path;
 }
 
-template <typename NCT, typename Builder, size_t SIZE>
-void check_membership_trace(Builder& builder,
-                            typename NCT::fr const& value,
-                            typename NCT::fr const& index,
-                            std::array<typename NCT::fr, SIZE> const& sibling_path,
-                            typename NCT::fr const& root,
-                            std::string const& msg)
-{
-    const auto calculated_root = root_from_sibling_path_trace<NCT>(value, index, sibling_path);
-    builder.do_assert(calculated_root == root,
-                      std::string("Membership check failed: ") + msg,
-                      aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
-}
+// template <typename NCT, typename Builder, size_t SIZE>
+// void check_membership_trace(Builder& builder,
+//                             typename NCT::fr const& value,
+//                             typename NCT::fr const& index,
+//                             std::array<typename NCT::fr, SIZE> const& sibling_path,
+//                             typename NCT::fr const& root,
+//                             std::string const& msg)
+// {
+//     const auto calculated_root = root_from_sibling_path_trace<NCT>(value, index, sibling_path);
+//     builder.do_assert(calculated_root == root,
+//                       std::string("Membership check failed: ") + msg,
+//                       aztec3::utils::CircuitErrorCode::MEMBERSHIP_CHECK_FAILED);
+// }
 
 template <typename NCT, typename Builder, size_t SIZE>
 void check_membership(Builder& builder,
