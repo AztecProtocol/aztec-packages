@@ -818,6 +818,8 @@ export function makeRootRollupInputs(seed = 0, blockNumber: number | undefined =
     makeTuple(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2300),
+    makeAppendOnlyTreeSnapshot(seed + 0x2400),
+    makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2500),
   );
 }
 
