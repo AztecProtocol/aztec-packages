@@ -1,12 +1,12 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, SentTx, Wallet, generatePublicKey } from '@aztec/aztec.js';
-import { Fr, PrivateKey, TxContext } from '@aztec/circuits.js';
+import { Fr, PrivateKey, TxContext, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { generateFunctionSelector } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { EscrowContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, ZkTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
@@ -39,15 +39,17 @@ describe('e2e_escrow_contract', () => {
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
     [owner, recipient] = accounts;
 
+    // Generate private key for escrow contract, register key in rpc server, and deploy
+    // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     // TODO: We need a nicer interface for deploying contracts!
-
-    // Generate private key for escrow contract, deploy it, and register key in rpc server
     escrowPrivateKey = PrivateKey.random();
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
+    const salt = Fr.random();
+    const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
+    await aztecRpcServer.addAccount(escrowPrivateKey, deployInfo.address, deployInfo.partialAddress);
     const escrowDeployTx = EscrowContract.deployWithPublicKey(aztecRpcServer, escrowPublicKey, owner);
-    await escrowDeployTx.send().wait();
+    await escrowDeployTx.send({ contractAddressSalt: salt }).wait();
     escrowContract = new EscrowContract(escrowDeployTx.completeContractAddress!, wallet);
-    await aztecRpcServer.addAccount(escrowPrivateKey, escrowContract.address, escrowDeployTx.partialContractAddress!);
     logger(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy ZK token contract and mint funds for the escrow contract
@@ -82,11 +84,11 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(escrowContract.address, 70n);
   }, 60_000);
 
-  it.skip('refuses to withdraw funds as a non-owner', async () => {
+  it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
       escrowContract.methods.withdraw(zkTokenContract.address, 30, recipient).simulate({ origin: recipient }),
-    ).rejects.toThrowError(/constraints/);
-  }, 30_000);
+    ).rejects.toThrowError();
+  }, 60_000);
 
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
     logger(`Minting funds in token contract to ${owner}`);

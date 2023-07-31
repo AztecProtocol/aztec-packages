@@ -9,8 +9,20 @@ contract Escrow {
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::context::Context;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::oracle::get_public_key::get_public_key;
 
-    use crate::address_note::AddressNote;
+    use dep::aztec::note::{
+        note_header::{NoteHeader},
+        utils as note_utils,
+    };
+
+    use crate::address_note::{
+        AddressNote,
+        AddressNoteInterface,
+        ADDRESS_NOTE_LEN
+    };
+
     use crate::storage::Storage;
 
     // Creates a new instance
@@ -22,7 +34,16 @@ contract Escrow {
         let this = inputs.call_context.storage_contract_address;
         
         let storage = Storage::init();
-        context = storage.owners.insert(context, AddressNote::new(owner, this));
+        let note = AddressNote::new(owner, this);
+        context = storage.owners.insert(context, note);
+        context = emit_encrypted_log(
+            context,
+            this,
+            storage.owners.storage_slot,
+            this,
+            get_public_key(this),
+            note.serialise(),
+        );
 
         context.finish()
     }
@@ -39,15 +60,21 @@ contract Escrow {
         let sender = inputs.call_context.msg_sender;
         let storage = Storage::init();
         
-        // TODO: Do we need to manually nullify and recreate this note for access control? Or does Set handle it for us?
-        // TODO: Enable this check, we're getting "mismatch array length between read_requests and witnesses - read_requests length: 1 witnesses length: 0"
-        // context = storage.owners.has(context, AddressNote::new(sender, this));
+        // TODO: Do we need to manually nullify and recreate this note for access control? Or does Set handle it for us? Or since we have no methods for updating it, we're good?
+        let (context_1, _note) = storage.owners.assert_contains(context, AddressNote::new(sender, this));
+        context = context_1;
         
         // TODO: Can we dynamically get this selector?
         let transfer_selector = 0xdcd4c318;
-        let (_callStackItem, context_1) = PrivateCallStackItem::call(token, transfer_selector, [amount, this, recipient], context);
-        context = context_1;
+        let (_callStackItem, context_2) = PrivateCallStackItem::call(token, transfer_selector, [amount, this, recipient], context);
+        context = context_2;
 
         context.finish()
-    }    
+    }
+
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        assert(storage_slot == 1);
+        note_utils::compute_note_hash_and_nullifier(AddressNoteInterface, note_header, preimage)
+    }
 }
