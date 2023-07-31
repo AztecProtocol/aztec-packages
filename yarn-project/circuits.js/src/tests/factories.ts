@@ -835,6 +835,7 @@ export function makeRootRollupPublicInputs(
   return RootRollupPublicInputs.from({
     endAggregationObject: makeAggregationObject(seed),
     globalVariables: makeGlobalVariables((seed += 0x100), blockNumber),
+    blockHash: fr((seed += 0x100)),
     startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),

@@ -187,6 +187,10 @@ next_available_leaf_index: 8704
 start_historic_tree_l1_to_l2_message_tree_roots_snapshot: root: 0x2300
 next_available_leaf_index: 8960
 
+start_historic_blocks_tree_snapshot: root: 0x114a90e165ae4b9d878da63d75598f8b5f3123c8311b02a5087856f3500002fc
+next_available_leaf_index: 235
+
+new_historic_blocks_tree_sibling_path: [ 0x1800000000001c00000080421000030000005d42100003000000008f971a0000 0x1d000000ba41100003000000974110000300000000f1012e000000001e00 0x9b39100006000000161f10000600000001fd006500000000210000005843 0x1000030000003143100003000000003873af0100000000000000884210000300 0x6142100003000000006334440100000001000000c2411000030000009b41 0x1000030000000017e8fc01000000020000009739100003000000d41f10000300 0xc879dd010000000500000042fb9e40ca3a055ff0000000d20100005043 0x1000030000002d4310000300000000a60a8a000000001c000000804210000300 0x5d4210000300000000e7bbe1000000001d000000ba411000030000009741 0x10000300000000d58fca000000001e0000009b39100006000000161f10000600 0x1f4ae0800000000210000005843100003000000314310000300000000d3 0x7c478c19a07df2f666f2bb18879492e36fcd7d7af60d029ac9634c2b64d00fb 0x1000000c2411000030000009b41100003000000004b024c010000000200 0x9739100003000000d41f100003000000004bac880100000005000000a13e 0x100003000000eb301000030000000079bb050100000006000000694310000700 0x4843100007000000002fba9d0200000014000000ab421000070000007842 ]
 "
 `;
 
@@ -207,55 +211,56 @@ version: 0x101
 block_number: 0x102
 timestamp: 0x103
 
-start_private_data_tree_snapshot: root: 0x200
-next_available_leaf_index: 512
-
-end_private_data_tree_snapshot: root: 0x300
+block_hash: 0x200
+start_private_data_tree_snapshot: root: 0x300
 next_available_leaf_index: 768
 
-start_nullifier_tree_snapshot: root: 0x400
+end_private_data_tree_snapshot: root: 0x400
 next_available_leaf_index: 1024
 
-end_nullifier_tree_snapshot: root: 0x500
+start_nullifier_tree_snapshot: root: 0x500
 next_available_leaf_index: 1280
 
-start_contract_tree_snapshot: root: 0x600
+end_nullifier_tree_snapshot: root: 0x600
 next_available_leaf_index: 1536
 
-end_contract_tree_snapshot: root: 0x700
+start_contract_tree_snapshot: root: 0x700
 next_available_leaf_index: 1792
 
-start_public_data_tree_root: 0x800
-end_public_data_tree_root: 0x900
-start_tree_of_historic_private_data_tree_roots_snapshot: root: 0xa00
-next_available_leaf_index: 2560
+end_contract_tree_snapshot: root: 0x800
+next_available_leaf_index: 2048
 
-end_tree_of_historic_private_data_tree_roots_snapshot: root: 0xb00
+start_public_data_tree_root: 0x900
+end_public_data_tree_root: 0xa00
+start_tree_of_historic_private_data_tree_roots_snapshot: root: 0xb00
 next_available_leaf_index: 2816
 
-start_tree_of_historic_contract_tree_roots_snapshot: root: 0xc00
+end_tree_of_historic_private_data_tree_roots_snapshot: root: 0xc00
 next_available_leaf_index: 3072
 
-end_tree_of_historic_contract_tree_roots_snapshot: root: 0xd00
+start_tree_of_historic_contract_tree_roots_snapshot: root: 0xd00
 next_available_leaf_index: 3328
 
-start_l1_to_l2_messages_tree_snapshot: root: 0xe00
+end_tree_of_historic_contract_tree_roots_snapshot: root: 0xe00
 next_available_leaf_index: 3584
 
-end_l1_tol2_messages_tree_snapshot: root: 0xf00
+start_l1_to_l2_messages_tree_snapshot: root: 0xf00
 next_available_leaf_index: 3840
 
-start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot: root: 0x1000
+end_l1_tol2_messages_tree_snapshot: root: 0x1000
 next_available_leaf_index: 4096
 
-end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot: root: 0x1100
+start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot: root: 0x1100
 next_available_leaf_index: 4352
 
-start_historic_blocks_tree_snapshot: root: 0x1200
+end_tree_of_historic_l1_tol2_messages_tree_roots_snapshot: root: 0x1200
 next_available_leaf_index: 4608
 
-end_historic_blocks_tree_snapshot: root: 0x1300
+start_historic_blocks_tree_snapshot: root: 0x1300
 next_available_leaf_index: 4864
+
+end_historic_blocks_tree_snapshot: root: 0x1400
+next_available_leaf_index: 5120
 
 calldata_hash: [ 0x1 0x2 ]
 l1_to_l2_messages_hash: [ 0x3 0x4 ]
