@@ -38,7 +38,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
     using RawPolynomials = typename Flavor::RawPolynomials;
     using Polynomial = barretenberg::Polynomial<FF>;
-    uint32_t get_number_of_muls() const
+    [[nodiscard]] uint32_t get_number_of_muls() const
     {
         uint32_t num_muls = 0;
         for (auto& op : vm_operations) {
@@ -248,7 +248,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
 
         const size_t num_rows = std::max(precompute_table_size, std::max(msm_size, transcript_size));
 
-        const size_t num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
+        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
 
         RawPolynomials rows;
@@ -302,8 +302,8 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             }
         }
         for (size_t i = 0; i < precompute_table_state.size(); ++i) {
-            // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st coefficient).
-            // All other rows in the precompute_table_state represent active wnaf gates (i.e. q_wnaf = 1)
+            // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st
+            // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e. q_wnaf = 1)
             rows.q_wnaf[i] = (i != 0) ? 1 : 0;
             rows.table_pc[i] = precompute_table_state[i].pc;
             rows.table_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
@@ -489,7 +489,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         return result;
     }
 
-    size_t get_num_gates() const
+    [[nodiscard]] size_t get_num_gates() const
     {
         // TODO(@zac-williamson) once we have a stable base to work off of, optimise this method!
         const auto msms = get_msms();
@@ -511,10 +511,10 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         return num_rows;
     }
 
-    size_t get_circuit_subgroup_size(const size_t num_rows) const
+    [[nodiscard]] size_t get_circuit_subgroup_size(const size_t num_rows) const
     {
 
-        const size_t num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
+        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
         return num_rows_pow2;
     }

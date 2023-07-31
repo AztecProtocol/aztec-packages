@@ -156,13 +156,13 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
                     : 0;
 
             if (entry.mul && next_not_msm && !row.accumulator_empty) {
-                ASSERT((row.msm_output_x != row.accumulator_x) && "eccvm: attempting msm. Result point x-coordinate matches accumulator x-coordinate.");
+                ASSERT((row.msm_output_x != row.accumulator_x) &&
+                       "eccvm: attempting msm. Result point x-coordinate matches accumulator x-coordinate.");
                 state.msm_accumulator = CycleGroup::affine_point_at_infinity;
                 row.collision_check = (row.msm_output_x - row.accumulator_x).invert();
-            }
-            else if (entry.add && !row.accumulator_empty)
-            {
-                ASSERT((row.base_x != row.accumulator_x) && "eccvm: attempting to add points with matching x-coordinates");
+            } else if (entry.add && !row.accumulator_empty) {
+                ASSERT((row.base_x != row.accumulator_x) &&
+                       "eccvm: attempting to add points with matching x-coordinates");
                 row.collision_check = (row.base_x - row.accumulator_x).invert();
             }
 

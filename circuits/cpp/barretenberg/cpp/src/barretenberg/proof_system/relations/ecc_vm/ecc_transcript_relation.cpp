@@ -245,13 +245,14 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
         transcript_y * transcript_y - transcript_x * transcript_x * transcript_x - get_curve_b();
     std::get<33>(accumulator) += validate_on_curve * on_curve_check * scaling_factor;
 
-
     /**
      * @brief If performing an add, validate x-coordintes of inputs do not collide.
      * If adding msm output into accumulator, validate x-coordinates of inputs do not collide
      */
-    auto x_coordinate_collision_check = add_msm_into_accumulator * ((transcript_msm_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
-    x_coordinate_collision_check += add_into_accumulator * ((transcript_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
+    auto x_coordinate_collision_check =
+        add_msm_into_accumulator * ((transcript_msm_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
+    x_coordinate_collision_check +=
+        add_into_accumulator * ((transcript_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
     std::get<34>(accumulator) += x_coordinate_collision_check * scaling_factor;
 }
 

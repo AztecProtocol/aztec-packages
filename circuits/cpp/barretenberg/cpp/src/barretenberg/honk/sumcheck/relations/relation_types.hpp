@@ -13,11 +13,12 @@ namespace proof_system::honk::sumcheck {
 template <typename FF, size_t Length> class Univariate;
 template <typename FF, size_t Length> class UnivariateView;
 
-template <typename T, size_t subrelation_idx>
-concept HasSubrelationLinearlyIndependentMember = requires(T) {
+template <typename T, size_t subrelation_idx> concept HasSubrelationLinearlyIndependentMember = requires(T)
+{
     {
         std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-    } -> std::convertible_to<bool>;
+    }
+    ->std::convertible_to<bool>;
 };
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
@@ -82,7 +83,7 @@ requires std::is_same<barretenberg::Polynomial<FF>, T>::value inline
  */
 template <typename FF, typename AccumulatorTypes, typename T>
 inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t)
+                                                                                                  const size_t /*unused*/)
 {
     return typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type(input);
 }
@@ -137,8 +138,8 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * @tparam size_t
      */
     template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(!HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
+    static constexpr bool is_subrelation_linearly_independent() requires(
+        !HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
     {
         return true;
     }
@@ -149,8 +150,8 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * @tparam size_t
      */
     template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
+    static constexpr bool is_subrelation_linearly_independent() requires(
+        HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
     {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }
