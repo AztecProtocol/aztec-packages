@@ -60,7 +60,7 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     using Commitment = typename Flavor::Commitment;
     using PCSParams = typename Flavor::PCSParams;
     using Gemini = pcs::gemini::GeminiVerifier<PCSParams>;
-    using Shplonk = pcs::shplonk::SingleBatchOpeningScheme<PCSParams>;
+    using Shplonk = pcs::shplonk::ShplonkVerifier<PCSParams>;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;

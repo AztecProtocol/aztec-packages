@@ -58,7 +58,8 @@ TYPED_TEST(KZGTest, single)
  */
 TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 {
-    using Shplonk = shplonk::SingleBatchOpeningScheme<TypeParam>;
+    using ShplonkProver = shplonk::ShplonkProver<TypeParam>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier<TypeParam>;
     using GeminiProver = gemini::GeminiProver<Params>;
     using GeminiVerifier = gemini::GeminiVerifier<Params>;
     using KZG = KZG<TypeParam>;
@@ -140,11 +141,11 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // - opening pair: (z_challenge, 0)
     // - witness: polynomial Q - Q_z
     const Fr nu_challenge = prover_transcript.get_challenge("Shplonk:nu");
-    auto batched_quotient_Q = Shplonk::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
+    auto batched_quotient_Q = ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
     prover_transcript.send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript.get_challenge("Shplonk:z");
-    const auto [shplonk_opening_pair, shplonk_witness] = Shplonk::compute_partially_evaluated_batched_quotient(
+    const auto [shplonk_opening_pair, shplonk_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
         gemini_opening_pairs, gemini_witnesses, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
     // KZG prover:
@@ -164,7 +165,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
                                                        verifier_transcript);
 
     // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
-    const auto shplonk_verifier_claim = Shplonk::reduce_verify(this->vk(), gemini_verifier_claim, verifier_transcript);
+    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verify(this->vk(), gemini_verifier_claim, verifier_transcript);
 
     // KZG verifier:
     // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)

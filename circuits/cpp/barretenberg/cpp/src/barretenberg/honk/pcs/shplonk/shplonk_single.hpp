@@ -2,23 +2,48 @@
 #include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "shplonk.hpp"
 
+/**
+ * @brief Reduces multiple claims about commitments, each opened at a single point
+ *  into a single claim for a single polynomial opened at a single point.
+ *
+ * We use the following terminology:
+ * - Bₖ(X) is a random linear combination of all polynomials opened at Ωₖ
+ *   we refer to it a 'merged_polynomial'.
+ * - Tₖ(X) is the polynomial that interpolates Bₖ(X) over Ωₖ,
+ * - zₖ(X) is the product of all (X-x), for x ∈ Ωₖ
+ * - ẑₖ(X) = 1/zₖ(X)
+ *
+ * The challenges are ρ (batching) and r (random evaluation).
+ *
+ */
 namespace proof_system::honk::pcs::shplonk {
 
 /**
- * @brief Protocol for opening several polynomials, each in a single different point.
- * It is a simplification of the MultiBatchOpeningScheme (several polynomials on several
- * different points, protocol not implemented).
+ * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
+ *
+ * @tparam Params CommitmentScheme parameters
+ */
+template <typename Params> using OutputWitness = barretenberg::Polynomial<typename Params::Fr>;
+
+/**
+ * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
+ * that can be passed on to a univariate opening protocol.
+ *
+ * @tparam Params CommitmentScheme parameters
+ */
+template <typename Params> struct ProverOutput {
+    OpeningPair<Params> opening_pair; // single opening pair (challenge, evaluation)
+    OutputWitness<Params> witness;    // single polynomial G(X)
+};
+
+/**
+ * @brief Shplonk Prover
  *
  * @tparam Params for the given commitment scheme
  */
-template <typename Params> class SingleBatchOpeningScheme {
-    using CK = typename Params::CommitmentKey;
-
+template <typename Params> class ShplonkProver {
     using Fr = typename Params::Fr;
-    using GroupElement = typename Params::GroupElement;
-    using Commitment = typename Params::Commitment;
     using Polynomial = barretenberg::Polynomial<Fr>;
     using VK = typename Params::VerificationKey;
 
@@ -114,7 +139,18 @@ template <typename Params> class SingleBatchOpeningScheme {
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
         return { .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() }, .witness = std::move(G) };
     };
+};
 
+/**
+ * @brief Shplonk Verifier
+ *
+ */
+template <typename Params> class ShplonkVerifier {
+    using Fr = typename Params::Fr;
+    using GroupElement = typename Params::GroupElement;
+    using Commitment = typename Params::Commitment;
+
+  public:
     /**
      * @brief Recomputes the new claim commitment [G] given the proof and
      * the challenge r. No verification happens so this function always succeeds.
