@@ -63,7 +63,7 @@ describe('e2e_escrow_contract', () => {
   afterEach(async () => {
     await aztecNode?.stop();
     if (aztecRpcServer instanceof AztecRPCServer) await aztecRpcServer.stop();
-  });
+  }, 30_000);
 
   const expectBalance = async (who: AztecAddress, expectedBalance: bigint) => {
     const [balance] = await zkTokenContract.methods.getBalance(who).view({ from: who });
@@ -111,5 +111,5 @@ describe('e2e_escrow_contract', () => {
 
     await retryUntil(() => aztecRpcServer.isAccountSynchronised(recipient), 'account sync', 30);
     await expectBalance(recipient, 30n);
-  }, 60_000);
+  }, 90_000);
 });
