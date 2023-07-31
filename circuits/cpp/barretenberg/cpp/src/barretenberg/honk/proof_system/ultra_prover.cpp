@@ -193,11 +193,11 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_c
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_rounds()
 {
-    using Sumcheck = sumcheck::Sumcheck<Flavor, ProverTranscript<FF>>;
+    using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
-    sumcheck_output = sumcheck.execute_prover(prover_polynomials, relation_parameters);
+    sumcheck_output = sumcheck.execute(prover_polynomials, relation_parameters);
 }
 
 /**

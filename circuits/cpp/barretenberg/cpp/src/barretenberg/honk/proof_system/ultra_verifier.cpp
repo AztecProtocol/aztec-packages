@@ -111,9 +111,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_lookup = transcript.template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = Sumcheck<Flavor, VerifierTranscript<FF>>(circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
 
-    std::optional sumcheck_output = sumcheck.execute_verifier(relation_parameters);
+    std::optional sumcheck_output = sumcheck.execute(relation_parameters);
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {

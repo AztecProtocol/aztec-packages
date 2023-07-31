@@ -107,8 +107,8 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     commitments.z_perm = transcript.template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = Sumcheck<Flavor, VerifierTranscript<FF>>(circuit_size, transcript);
-    std::optional sumcheck_output = sumcheck.execute_verifier(relation_parameters);
+    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
+    std::optional sumcheck_output = sumcheck.execute(relation_parameters);
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {
