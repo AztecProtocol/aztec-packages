@@ -32,19 +32,17 @@ jobs:
 
       - name: Compile Barretenberg
         run: |
-          cd cpp
           cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
           cmake --build --preset default --target bb
+        working-directory: ./circuits/cpp/barretenberg/cpp
 
       - name: Install WASI-SDK
-        run: |
-          cd cpp
-          ./scripts/install-wasi-sdk.sh
+        run: ./scripts/install-wasi-sdk.sh
+        working-directory: ./circuits/cpp/barretenberg/cpp
 
       - name: Compile Typescript
-        run: |
-          cd ts
-          yarn install && yarn && yarn build
+        run: yarn install && yarn && yarn build
+        working-directory: ./circuits/cpp/barretenberg/ts
 
       - name: Checkout destination repository
         uses: actions/checkout@v3
@@ -57,7 +55,7 @@ jobs:
       - name: Push to destination repository
         run: |
           cd ./dev-bb.js
-          cp -R ../ts/dest/* .
+          cp -R ../circuits/cpp/barretenberg/ts/dest/* .
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
           git add .
