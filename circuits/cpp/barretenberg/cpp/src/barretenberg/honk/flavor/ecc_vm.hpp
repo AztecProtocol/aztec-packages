@@ -45,7 +45,7 @@ class ECCVMBase {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 104;
+    static constexpr size_t NUM_ALL_ENTITIES = 105;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 3;
@@ -368,26 +368,27 @@ class ECCVMBase {
         DataType& transcript_accumulator_x_shift    = std::get<2 + 79>(this->_data);
         DataType& transcript_accumulator_y_shift    = std::get<2 + 80>(this->_data);
         DataType& table_scalar_sum_shift            = std::get<2 + 81>(this->_data);
-        DataType& table_dx_shift                    = std::get<2 + 82>(this->_data);
-        DataType& table_dy_shift                    = std::get<2 + 83>(this->_data);
-        DataType& table_tx_shift                    = std::get<2 + 84>(this->_data);
-        DataType& table_ty_shift                    = std::get<2 + 85>(this->_data);
-        DataType& q_msm_transition_shift            = std::get<2 + 86>(this->_data);
-        DataType& msm_q_add_shift                   = std::get<2 + 87>(this->_data);
-        DataType& msm_q_double_shift                = std::get<2 + 88>(this->_data);
-        DataType& msm_q_skew_shift                  = std::get<2 + 89>(this->_data);
-        DataType& msm_accumulator_x_shift           = std::get<2 + 90>(this->_data);
-        DataType& msm_accumulator_y_shift           = std::get<2 + 91>(this->_data);
-        DataType& msm_count_shift                   = std::get<2 + 92>(this->_data);
-        DataType& msm_round_shift                   = std::get<2 + 93>(this->_data);
-        DataType& msm_q_add1_shift                  = std::get<2 + 94>(this->_data);
-        DataType& msm_pc_shift                      = std::get<2 + 95>(this->_data);
-        DataType& table_pc_shift                    = std::get<2 + 96>(this->_data);
-        DataType& transcript_pc_shift               = std::get<2 + 97>(this->_data);
-        DataType& table_round_shift                 = std::get<2 + 98>(this->_data);
-        DataType& transcript_accumulator_empty_shift= std::get<2 + 99>(this->_data);
-        DataType& q_wnaf_shift                      = std::get<2 + 100>(this->_data);
-        DataType& z_perm_shift                      = std::get<2 + 101>(this->_data);
+        DataType& table_s1_shift            = std::get<3 + 81>(this->_data);
+        DataType& table_dx_shift                    = std::get<3 + 82>(this->_data);
+        DataType& table_dy_shift                    = std::get<3 + 83>(this->_data);
+        DataType& table_tx_shift                    = std::get<3 + 84>(this->_data);
+        DataType& table_ty_shift                    = std::get<3 + 85>(this->_data);
+        DataType& q_msm_transition_shift            = std::get<3 + 86>(this->_data);
+        DataType& msm_q_add_shift                   = std::get<3 + 87>(this->_data);
+        DataType& msm_q_double_shift                = std::get<3 + 88>(this->_data);
+        DataType& msm_q_skew_shift                  = std::get<3 + 89>(this->_data);
+        DataType& msm_accumulator_x_shift           = std::get<3 + 90>(this->_data);
+        DataType& msm_accumulator_y_shift           = std::get<3 + 91>(this->_data);
+        DataType& msm_count_shift                   = std::get<3 + 92>(this->_data);
+        DataType& msm_round_shift                   = std::get<3 + 93>(this->_data);
+        DataType& msm_q_add1_shift                  = std::get<3 + 94>(this->_data);
+        DataType& msm_pc_shift                      = std::get<3 + 95>(this->_data);
+        DataType& table_pc_shift                    = std::get<3 + 96>(this->_data);
+        DataType& transcript_pc_shift               = std::get<3 + 97>(this->_data);
+        DataType& table_round_shift                 = std::get<3 + 98>(this->_data);
+        DataType& transcript_accumulator_empty_shift= std::get<3 + 99>(this->_data);
+        DataType& q_wnaf_shift                      = std::get<3 + 100>(this->_data);
+        DataType& z_perm_shift                      = std::get<3 + 101>(this->_data);
 
         template <size_t index>
         [[nodiscard]] const DataType& lookup_read_counts() const
@@ -498,7 +499,6 @@ class ECCVMBase {
                 transcript_msm_y,
                 table_point_transition,
                 table_s1,
-                table_s2,
                 table_s3,
                 table_s4,
                 table_s5,
@@ -545,6 +545,7 @@ class ECCVMBase {
                 transcript_accumulator_x,
                 transcript_accumulator_y,
                 table_scalar_sum,
+                table_s1,
                 table_dx,
                 table_dy,
                 table_tx,
@@ -575,6 +576,7 @@ class ECCVMBase {
                 transcript_accumulator_x_shift,
                 transcript_accumulator_y_shift,
                 table_scalar_sum_shift,
+                table_s1_shift,
                 table_dx_shift,
                 table_dy_shift,
                 table_tx_shift,

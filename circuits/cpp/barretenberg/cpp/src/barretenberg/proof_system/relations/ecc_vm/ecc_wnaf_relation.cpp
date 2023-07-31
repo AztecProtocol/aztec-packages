@@ -51,6 +51,8 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     auto pc = View(extended_edges.table_pc);
     auto pc_shift = View(extended_edges.table_pc_shift);
     auto q_wnaf = View(extended_edges.q_wnaf);
+    auto q_wnaf_shift = View(extended_edges.q_wnaf_shift);
+
     const auto& table_skew = View(extended_edges.table_skew);
 
     const std::array<View, 8> slices{
@@ -88,6 +90,18 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     range_constraint_slice_to_2_bits(slices[7], std::get<7>(accumulator));
 
     /**
+     * @brief If we are processing a new scalar (q_transition = 1), validate that the first slice is positive.
+     *        This requires us to validate slice1 is in the range [8, ... 15].
+     *        (when converted into wnaf form this maps to the range [1, 3, ..., 15]).
+     *        We do this to ensure the final scalar sum is positive.
+     *        We already know slice1 is in the range [0, ..., 15]
+     *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2 
+     */
+    const auto s1_shift = View(extended_edges.table_s1_shift);
+    const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
+    std::get<20>(accumulator) += scaled_transition * q_wnaf_shift * s1_shift_msb_set;
+
+    /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
      * Conversion from binary -> wnaf = 2 * binary - 15.
      * Converts a value in [0, ..., 15] into [-15, -13, -11, -9, -7, -5, -3, -1, 1, 3, 5, 7, 9, 11 , 13, 15].
@@ -105,7 +119,7 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      * i.e. next_scalar_sum - 2^{16} * current_scalar_sum - 2^12 * w_0 - 2^8 * w_1 - 2^4 * w_2 - w_3 = 0
      * @note We only perform slice_consistency check when next row is processing the same scalar as the current row!
      *       i.e. when q_transition  = 0
-     * TODO(@zac) probably don't need to convert to WNAF here. We can convert the final scalar sum into WNAF form when
+     * TODO(@zac-williamson) Future work; probably don't need to convert to WNAF here. We can convert the final scalar sum into WNAF form when
      * comparing scalar_sum with original input scalar
      */
     auto row_slice = w0;
@@ -186,12 +200,8 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     std::get<16>(accumulator) += q_wnaf_zero * (w2 + 15);
     std::get<17>(accumulator) += q_wnaf_zero * (w3 + 15);
 
-    // auto lagrange_first = View(extended_edges.lagrange_first);
-
     std::get<18>(accumulator) += q_wnaf_zero * round;
     std::get<19>(accumulator) += q_wnaf_zero * pc;
-
-    // std::get<18>(accumulator) += q_wnaf_zero * w3;
 
     // TODO(@zac-williamson)
     // if q_wnaf = 0, validate pc, round, slice values are all zero

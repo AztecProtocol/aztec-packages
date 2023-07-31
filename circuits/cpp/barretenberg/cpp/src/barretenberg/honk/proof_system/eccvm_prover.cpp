@@ -118,6 +118,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.transcript_accumulator_x_shift = key->transcript_accumulator_x.shifted();
     prover_polynomials.transcript_accumulator_y_shift = key->transcript_accumulator_y.shifted();
     prover_polynomials.table_scalar_sum_shift = key->table_scalar_sum.shifted();
+    prover_polynomials.table_s1_shift = key->table_s1.shifted();
     prover_polynomials.table_dx_shift = key->table_dx.shifted();
     prover_polynomials.table_dy_shift = key->table_dy.shifted();
     prover_polynomials.table_tx_shift = key->table_tx.shifted();

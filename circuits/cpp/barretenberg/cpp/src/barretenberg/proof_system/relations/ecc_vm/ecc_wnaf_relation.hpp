@@ -57,6 +57,7 @@ template <typename FF> class ECCVMWnafRelationBase {
                                                            LEN_1,
                                                            LEN_1,
                                                            LEN_1,
+                                                           LEN_1,
                                                            LEN_1>;
 
     template <typename AccumulatorTypes>

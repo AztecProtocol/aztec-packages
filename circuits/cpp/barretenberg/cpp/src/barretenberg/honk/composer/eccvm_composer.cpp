@@ -69,17 +69,14 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposerHelper_<Flavor>::compu
     }
 
     // Initialize proving_key
-    // TODO(#392)(Kesha): replace composer types.
     {
-        // TODO: get num gates in a more efficient way
-        const auto rows = circuit_constructor.compute_full_polynomials();
-        const size_t subgroup_size = rows.lagrange_first.size();
-        // Differentiate between Honk and Plonk here since Plonk pkey requires crs whereas Honk pkey does not
+        const size_t subgroup_size = circuit_constructor.get_circuit_subgroup_size(circuit_constructor.get_num_gates());
         proving_key = std::make_shared<typename Flavor::ProvingKey>(subgroup_size, 0);
     }
 
 
-    // TODO(@zac-williamson): We don't enforce nonzero selectors atm. Will create problems in recursive setting. Fix
+    // TODO(@zac-williamson): We don't enforce nonzero selectors atm. Will create problems in recursive setting.
+    // Fix once we have a stable base to work off of
     // enforce_nonzero_polynomial_selectors(circuit_constructor, proving_key.get());
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());

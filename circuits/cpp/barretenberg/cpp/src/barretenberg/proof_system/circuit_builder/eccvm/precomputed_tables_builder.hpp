@@ -79,9 +79,8 @@ template <typename Flavor> class ECCVMPrecomputedTablesBuilder {
 
                 row.scalar_sum = scalar_sum;
 
-                // TODO(@zac-williamson). If 1st row do we apply constraint that requires slice0 to be positive?
-                //            Need this if we want to rule out negative values (i.e. input has not yet been range
-                //            constrained)
+                // N.B. we apply a constraint that requires slice1 to be positive for the 1st row of each scalar sum.
+                //      This ensures we do not have WNAF representations of negative values
                 const int row_chunk = slice3 + slice2 * (1 << 4) + slice1 * (1 << 8) + slice0 * (1 << 12);
 
                 bool chunk_negative = row_chunk < 0;
