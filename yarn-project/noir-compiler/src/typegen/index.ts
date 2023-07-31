@@ -51,10 +51,11 @@ function generateMethod(entry: FunctionAbi) {
  * Generates the constructor by supplying the ABI to the parent class so the user doesn't have to.
  * @param name - Name of the contract to derive the ABI name from.
  * @returns A constructor method.
+ * @remarks The constructor is private because we want to force the user to use the create method.
  */
 function generateConstructor(name: string) {
   return `
-  constructor(
+  private constructor(
     /** The deployed contract's address. */
     address: AztecAddress,
     /** The wallet. */
@@ -63,6 +64,27 @@ function generateConstructor(name: string) {
     super(address, ${name}ContractAbi, wallet);
   }
   `;
+}
+
+/**
+ * Generates the create method for this contract.
+ * @param name - Name of the contract to derive the ABI name from.
+ * @returns A create method.
+ * @remarks We don't use constructor directly because of the async `wallet.isContractDeployed` check.
+ */
+function generateCreate(name: string) {
+  return `
+  public static async create(
+    /** The deployed contract's address. */
+    address: AztecAddress,
+    /** The wallet. */
+    wallet: Wallet,
+  ) {
+    if (!(await wallet.isContractDeployed(address))) {
+      throw new Error('Contract ' + address.toString() + ' is not deployed');
+    }
+    return new ${name}Contract(address, wallet);
+  }`;
 }
 
 /**
@@ -118,6 +140,7 @@ export function generateType(input: ContractAbi, abiImportPath?: string) {
   const methods = compact(input.functions.filter(f => f.name !== 'constructor').map(generateMethod));
   const deploy = abiImportPath && generateDeploy(input);
   const ctor = abiImportPath && generateConstructor(input.name);
+  const create = abiImportPath && generateCreate(input.name);
   const abiImportStatement = abiImportPath && `import { ${input.name}ContractAbi } from '${abiImportPath}';`;
   const abiGetter = abiImportPath && generateAbiGetter(input.name);
 
@@ -136,6 +159,8 @@ ${abiImportStatement}
  */
 export class ${input.name}Contract extends Contract {
   ${ctor}
+
+  ${create}
 
   ${deploy}
 

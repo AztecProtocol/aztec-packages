@@ -63,7 +63,7 @@ describe('e2e_non_contract_account', () => {
     logger(`Deploying L2 contract...`);
     const tx = PokeableTokenContract.deploy(aztecRpcServer, initialBalance, sender, recipient, poker).send();
     const receipt = await tx.getReceipt();
-    contract = new PokeableTokenContract(receipt.contractAddress!, wallet);
+    contract = await PokeableTokenContract.create(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     const minedReceipt = await tx.getReceipt();
     expect(minedReceipt.status).toEqual(TxStatus.MINED);
@@ -89,7 +89,7 @@ describe('e2e_non_contract_account', () => {
     await expectBalance(recipient, 0n);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 3);
 
-    const contractWithNoContractWallet = new PokeableTokenContract(contract.address, pokerWallet);
+    const contractWithNoContractWallet = await PokeableTokenContract.create(contract.address, pokerWallet);
 
     const isUserSynchronised = async () => {
       return await wallet.isAccountSynchronised(poker);

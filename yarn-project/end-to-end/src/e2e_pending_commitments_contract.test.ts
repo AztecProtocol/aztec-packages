@@ -31,7 +31,7 @@ describe('e2e_pending_commitments_contract', () => {
     logger(`Deploying L2 contract...`);
     const tx = PendingCommitmentsContract.deploy(aztecRpcServer).send();
     const receipt = await tx.getReceipt();
-    contract = new PendingCommitmentsContract(receipt.contractAddress!, wallet);
+    contract = await PendingCommitmentsContract.create(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     await tx.getReceipt();
     logger('L2 contract deployed');
