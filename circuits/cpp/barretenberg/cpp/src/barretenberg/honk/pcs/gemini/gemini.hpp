@@ -63,11 +63,15 @@ template <typename Params> struct ProverOutput {
     std::vector<barretenberg::Polynomial<typename Params::Fr>> witnesses;
 };
 
-/*
- * Standalone methods used by both prover and verifier
+/**
+ * @brief Compute powers of challenge ρ
+ * 
+ * @tparam Fr 
+ * @param rho 
+ * @param num_powers 
+ * @return std::vector<Fr> 
  */
-template <class Fr>
-inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
+template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
 {
     std::vector<Fr> rhos = { Fr(1), rho };
     rhos.reserve(num_powers);
@@ -85,9 +89,7 @@ inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
  * @param num_squares The number of foldings
  * @return std::vector<typename Params::Fr>
  */
-//WORKTODO: make both P/V use this function
-template <class Fr>
-inline std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares)
+template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares)
 {
     std::vector<Fr> squares = { r };
     squares.reserve(num_squares);
@@ -109,11 +111,7 @@ template <typename Params> class GeminiProver {
     static ProverOutput<Params> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
                                                                     std::vector<Polynomial>&& fold_polynomials,
                                                                     const Fr& r_challenge);
-  private:
-    static std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares);
-
 }; // namespace proof_system::honk::pcs::gemini
-
 
 template <typename Params> class GeminiVerifier {
     using Fr = typename Params::Fr;
@@ -132,8 +130,6 @@ template <typename Params> class GeminiVerifier {
                                std::span<const Fr> mle_vars,
                                std::span<const Fr> r_squares,
                                std::span<const Fr> fold_polynomial_evals);
-
-    static std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares);
 
     static std::pair<GroupElement, GroupElement> compute_simulated_commitments(GroupElement& batched_f,
                                                                                GroupElement& batched_g,

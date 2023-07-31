@@ -50,25 +50,6 @@ namespace proof_system::honk::pcs::gemini {
  */
 
 /**
- * @brief Compute squares of folding challenge r
- *
- * @tparam Params
- * @param r
- * @param num_squares The number of foldings
- * @return std::vector<typename Params::Fr>
- */
-template <typename Params>
-std::vector<typename Params::Fr> GeminiProver<Params>::squares_of_r(const Fr r, const size_t num_squares)
-{
-    std::vector<Fr> squares = { r };
-    squares.reserve(num_squares);
-    for (size_t j = 1; j < num_squares; j++) {
-        squares.emplace_back(squares[j - 1].sqr());
-    }
-    return squares;
-};
-
-/**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
  *
  * @param mle_opening_point multilinear opening point 'u'
@@ -329,25 +310,6 @@ typename Params::Fr GeminiVerifier<Params>::compute_eval_pos(const Fr batched_ml
     }
 
     return eval_pos; // return A₀(r)
-};
-
-/**
- * @brief Compute squares of folding challenge r
- *
- * @tparam Params
- * @param r
- * @param num_squares The number of foldings
- * @return std::vector<typename Params::Fr>
- */
-template <typename Params>
-std::vector<typename Params::Fr> GeminiVerifier<Params>::squares_of_r(const Fr r, const size_t num_squares)
-{
-    std::vector<Fr> squares = { r };
-    squares.reserve(num_squares);
-    for (size_t j = 1; j < num_squares; j++) {
-        squares.emplace_back(squares[j - 1].sqr());
-    }
-    return squares;
 };
 
 /**
