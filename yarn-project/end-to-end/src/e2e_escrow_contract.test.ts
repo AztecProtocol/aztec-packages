@@ -5,6 +5,7 @@ import { Fr, PrivateKey, TxContext } from '@aztec/circuits.js';
 import { generateFunctionSelector } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, ZkTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, PublicKey } from '@aztec/types';
@@ -106,6 +107,7 @@ describe('e2e_escrow_contract', () => {
     const sentTx = new SentTx(aztecRpcServer, wallet.sendTx(tx));
     await sentTx.isMined();
 
+    await retryUntil(() => aztecRpcServer.isAccountSynchronised(recipient), 'account sync', 30);
     await expectBalance(recipient, 30n);
   }, 60_000);
 });
