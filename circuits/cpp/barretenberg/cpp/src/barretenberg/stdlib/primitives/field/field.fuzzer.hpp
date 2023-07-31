@@ -3,6 +3,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "cstring"
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wc99-designator"
@@ -226,7 +227,9 @@ template <typename Composer> class FieldBase {
          * @param rng PRNG used
          * @return A random instruction
          */
-        template <typename T> inline static Instruction generateRandom(T& rng) requires SimpleRng<T>
+        template <typename T>
+        inline static Instruction generateRandom(T& rng)
+            requires SimpleRng<T>
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
@@ -324,9 +327,8 @@ template <typename Composer> class FieldBase {
          * @return Mutated element
          */
         template <typename T>
-        inline static barretenberg::fr mutateFieldElement(barretenberg::fr e,
-                                                          T& rng,
-                                                          HavocSettings& havoc_config) requires SimpleRng<T>
+        inline static barretenberg::fr mutateFieldElement(barretenberg::fr e, T& rng, HavocSettings& havoc_config)
+            requires SimpleRng<T>
         {
             // With a certain probability, we apply changes to the Montgomery form, rather than the plain form. This
             // has merit, since the computation is performed in montgomery form and comparisons are often performed
@@ -422,9 +424,8 @@ template <typename Composer> class FieldBase {
          * @return Mutated instruction
          */
         template <typename T>
-        inline static Instruction mutateInstruction(Instruction instruction,
-                                                    T& rng,
-                                                    HavocSettings& havoc_config) requires SimpleRng<T>
+        inline static Instruction mutateInstruction(Instruction instruction, T& rng, HavocSettings& havoc_config)
+            requires SimpleRng<T>
         {
 #define PUT_RANDOM_BYTE_IF_LUCKY(variable)                                                                             \
     if (rng.next() & 1) {                                                                                              \
@@ -1016,8 +1017,8 @@ template <typename Composer> class FieldBase {
                  *
                  * TEST(stdlib_field, test_construct_via_bool_t)
                  * {
-                 *     proof_system::StandardCircuitConstructor composer =
-                 * proof_system::proof_system::StandardCircuitConstructor(); field_t a(witness_t(&composer,
+                 *     proof_system::StandardCircuitBuilder composer =
+                 * proof_system::proof_system::StandardCircuitBuilder(); field_t a(witness_t(&composer,
                  * fr(uint256_t{0xf396b678452ebf15, 0x82ae10893982638b, 0xdf185a29c65fbf80, 0x1d18b2de99e48308})));
                  * field_t b = a - a; field_t c(static_cast<bool_t>(b)); std::cout << c.get_value() << std::endl;
                  * }
@@ -1969,7 +1970,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = FieldBase<proof_system::StandardCircuitConstructor>;
+    using FuzzerClass = FieldBase<proof_system::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -1990,7 +1991,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = FieldBase<proof_system::StandardCircuitConstructor>;
+    using FuzzerClass = FieldBase<proof_system::StandardCircuitBuilder>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);
