@@ -261,7 +261,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         rows.lagrange_last[rows.lagrange_last.size() - 1] = 1;
 
         for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
-            // TODO(@zac-williamson) explain off-by-one offset
+            // Explanation of off-by-one offset
             // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the row
             // number that computes the slice can be derived. This row number is then mapped to the index of
             // `lookup_read_counts`. We do this mapping in `ecc_msm_relation`. We are off-by-one because we add an empty

@@ -94,9 +94,6 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     const auto& count_shift = View(extended_edges.msm_count_shift);
     auto is_not_first_row = (-lagrange_first + 1);
 
-    // validate 1st coefficient of add1 is 0 (shiftable poly, needs to have 1st coeff 0)
-    // std::get<0>(accumulator) += add1 * lagrange_first * scaling_factor;
-
     /**
      * @brief Evaluating ADDITION rounds
      *
@@ -304,8 +301,9 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     std::get<8>(accumulator) += (x3_delta * collision_inverse3 - add_third_point) * scaling_factor;
     std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
 
-    // TODO(zac): what about first add which always must be true if row is add?
-    // Do we need to enforce?
+    // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
+    // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add + q_msm_skew
+    std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // If add_i = 0, slice_i = 0
     // When add_i = 0, force slice_i to ALSO be 0

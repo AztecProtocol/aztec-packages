@@ -16,6 +16,8 @@ template <typename FF> struct RelationParameters {
     FF lookup_grand_product_delta = FF::zero(); // Lookup
     FF eta_sqr = FF::zero();
     FF eta_cube = FF::zero();
-    FF permutation_offset = FF::zero(); // TODO(@zac-williamson) explain what this is (to do w. set equality check)
+    // eccvm_set_permutation_delta is used in the set membership gadget in eccvm/ecc_set_relation.hpp
+    // We can remove this by modifying the relation, but increases complexity
+    FF eccvm_set_permutation_delta = FF::zero();
 };
 } // namespace proof_system::honk::sumcheck
