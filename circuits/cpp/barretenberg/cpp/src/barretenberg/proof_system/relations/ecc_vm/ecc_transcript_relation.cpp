@@ -68,6 +68,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
     auto is_accumulator_empty_shift = View(extended_edges.transcript_accumulator_empty_shift);
     auto q_reset_accumulator = View(extended_edges.transcript_q_reset_accumulator);
     auto lagrange_second = View(extended_edges.lagrange_second);
+    auto transcript_collision_check = View(extended_edges.transcript_collision_check);
 
     auto is_not_first_row = (-lagrange_first + 1);
     auto is_not_first_or_last_row = (-lagrange_first + -lagrange_last + 1);
@@ -244,8 +245,14 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
         transcript_y * transcript_y - transcript_x * transcript_x * transcript_x - get_curve_b();
     std::get<33>(accumulator) += validate_on_curve * on_curve_check * scaling_factor;
 
-    // TODO(zac): validate x coordinates are not equal when adding input into accumulator(q_add)!
-    // TODO(zac): validate x coordinates are not equal when adding msm output into accumulator(q_msm_transition)!
+
+    /**
+     * @brief If performing an add, validate x-coordintes of inputs do not collide.
+     * If adding msm output into accumulator, validate x-coordinates of inputs do not collide
+     */
+    auto x_coordinate_collision_check = add_msm_into_accumulator * ((transcript_msm_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
+    x_coordinate_collision_check += add_into_accumulator * ((transcript_x - transcript_accumulator_x) * transcript_collision_check - FF(1));
+    std::get<34>(accumulator) += x_coordinate_collision_check * scaling_factor;
 }
 
 template class ECCVMTranscriptRelationBase<barretenberg::fr>;
