@@ -38,7 +38,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     , pcs_commitment_key(commitment_key)
 {
 
-    // TODO(@zac-williamson) is there a cleaner way of doing this?
+    // TODO(@zac-williamson) Future work; is there a cleaner way of doing this?
     prover_polynomials.q_transcript_add = key->q_transcript_add;
     prover_polynomials.q_transcript_mul = key->q_transcript_mul;
     prover_polynomials.q_transcript_eq = key->q_transcript_eq;
@@ -197,9 +197,9 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_
     relation_parameters.eta = eta;
     relation_parameters.eta_sqr = eta_sqr;
     relation_parameters.eta_cube = eta_sqr * eta;
-    relation_parameters.permutation_offset =
+    relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-    relation_parameters.permutation_offset = relation_parameters.permutation_offset.invert();
+    relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
         prover_polynomials, relation_parameters, key->circuit_size);

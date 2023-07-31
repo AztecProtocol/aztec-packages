@@ -78,10 +78,9 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposerHelper_<Flavor>::compu
         proving_key = std::make_shared<typename Flavor::ProvingKey>(subgroup_size, 0);
     }
 
-    // construct_selector_polynomials<Flavor>(circuit_constructor, proving_key.get());
 
-    // TODO(@zac-williamson): We don't enforce nonzero selectors atm. Will create problems in recursive setting. Needs
-    // fix enforce_nonzero_polynomial_selectors(circuit_constructor, proving_key.get());
+    // TODO(@zac-williamson): We don't enforce nonzero selectors atm. Will create problems in recursive setting. Fix
+    // enforce_nonzero_polynomial_selectors(circuit_constructor, proving_key.get());
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
     {

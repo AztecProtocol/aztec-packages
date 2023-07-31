@@ -75,7 +75,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
-        // todo can optimize
+        // TODO(@zac-williamson) can optimize this once we have a stable base to work off of.
         const auto wnaf_slice_input3 = wnaf_slice + gamma + table_pc * eta + (table_round4 + 3) * eta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
@@ -90,8 +90,8 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         numerator *= skew_input; // degree-5
     }
     {
-        const auto& permutation_offset = relation_params.permutation_offset;
-        numerator *= q_wnaf * (-permutation_offset + 1) + permutation_offset; // degree-7
+        const auto& eccvm_set_permutation_delta = relation_params.eccvm_set_permutation_delta;
+        numerator *= q_wnaf * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 
     /**

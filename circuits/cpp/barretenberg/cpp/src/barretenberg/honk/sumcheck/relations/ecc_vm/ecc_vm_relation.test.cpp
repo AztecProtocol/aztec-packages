@@ -67,9 +67,9 @@ TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
         const FF eta = FF::random_element(&engine);
         const FF eta_sqr = eta.sqr();
         const FF eta_cube = eta_sqr * eta;
-        auto permutation_offset =
+        auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-        permutation_offset = permutation_offset.invert();
+        eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
         honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
             .eta = eta,
             .beta = 1,
@@ -78,7 +78,7 @@ TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
             .lookup_grand_product_delta = 1,
             .eta_sqr = eta_sqr,
             .eta_cube = eta_cube,
-            .permutation_offset = permutation_offset,
+            .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
         auto circuit_constructor = generate_trace(&engine);
@@ -126,9 +126,9 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
         const FF eta = FF::random_element(&engine);
         const FF eta_sqr = eta.sqr();
         const FF eta_cube = eta_sqr * eta;
-        auto permutation_offset =
+        auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-        permutation_offset = permutation_offset.invert();
+        eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
         honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
             .eta = eta,
             .beta = 1,
@@ -137,7 +137,7 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
             .lookup_grand_product_delta = 1,
             .eta_sqr = eta_sqr,
             .eta_cube = eta_cube,
-            .permutation_offset = permutation_offset,
+            .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
         auto circuit_constructor = generate_trace(&engine);
         auto rows = circuit_constructor.compute_full_polynomials();
@@ -224,9 +224,9 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
         const FF eta = FF::random_element(&engine);
         const FF eta_sqr = eta.sqr();
         const FF eta_cube = eta_sqr * eta;
-        auto permutation_offset =
+        auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-        permutation_offset = permutation_offset.invert();
+        eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
         honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
             .eta = eta,
             .beta = 1,
@@ -235,7 +235,7 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
             .lookup_grand_product_delta = 1,
             .eta_sqr = eta_sqr,
             .eta_cube = eta_cube,
-            .permutation_offset = permutation_offset,
+            .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
         auto circuit_constructor = generate_trace(&engine);
@@ -309,9 +309,9 @@ TEST_F(ECCVMComposerTestsB, BaseCase)
     auto gamma = FF::random_element(&engine); // prover.relation_parameters.gamma;
     const FF eta_sqr = eta.sqr();
     const FF eta_cube = eta_sqr * eta;
-    auto permutation_offset =
+    auto eccvm_set_permutation_delta =
         gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-    permutation_offset = permutation_offset.invert();
+    eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
 
     honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
         .eta = eta,
@@ -321,7 +321,7 @@ TEST_F(ECCVMComposerTestsB, BaseCase)
         .lookup_grand_product_delta = 0,
         .eta_sqr = eta_sqr,
         .eta_cube = eta_cube,
-        .permutation_offset = permutation_offset,
+        .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
     // std::cout << "gamma eta = " << gamma << " , " << eta << std::endl;
 

@@ -167,9 +167,9 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     relation_parameters.eta = eta;
     relation_parameters.eta_sqr = eta_sqr;
     relation_parameters.eta_cube = eta_sqr * eta;
-    relation_parameters.permutation_offset =
+    relation_parameters.eccvm_set_permutation_delta =
         gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-    relation_parameters.permutation_offset = relation_parameters.permutation_offset.invert();
+    relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Get commitment to permutation and lookup grand products
     commitments.lookup_inverses =
