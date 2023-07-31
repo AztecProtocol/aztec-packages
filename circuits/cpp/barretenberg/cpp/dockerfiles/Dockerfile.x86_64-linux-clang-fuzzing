@@ -4,6 +4,7 @@ RUN apk update \
     && apk add --no-cache \
         build-base \
         clang16 \
+        libfuzzer-16-dev \
         openmp-dev \
         cmake \
         ninja \
