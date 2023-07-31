@@ -499,17 +499,6 @@ jobs:
           name: "Build and test"
           command: cond_spot_run_build noir-contracts-build 32
 
-  noir-contracts:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: build noir-contracts
-
   noir-compiler:
     machine:
       image: ubuntu-2004:202010-01
@@ -928,12 +917,6 @@ jobs:
             deploy_ecr circuits.js
             deploy_npm circuits.js
       - run:
-          name: "noir-contracts"
-          working_directory: noir-contracts
-          command: |
-            deploy_ecr noir-contracts
-            deploy_npm noir-contracts
-      - run:
           name: "l1-artifacts"
           working_directory: l1-artifacts
           command: |
@@ -1122,7 +1105,6 @@ workflows:
       - p2p: *yarn_project
       - p2p-bootstrap: *yarn_project
       - l1-artifacts: *yarn_project
-      - noir-contracts: *yarn_project # can remove?
       - noir-compiler: *yarn_project
       - sequencer-client: *yarn_project
       - types: *yarn_project
@@ -1147,7 +1129,6 @@ workflows:
             - p2p
             - p2p-bootstrap
             - l1-artifacts
-            - noir-contracts
             - noir-compiler
             - sequencer-client
             - types

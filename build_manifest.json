@@ -304,7 +304,7 @@
   "noir-contracts-build": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/noir-contracts",
-    "dockerfile": "noir-contracts/Dockerfile.build",
+    "dockerfile": "noir-contracts/Dockerfile",
     "rebuildPatterns": [
       "^yarn-project/noir-contracts/"
     ],
