@@ -1,5 +1,6 @@
 import { BufferReader } from '../serialize/buffer_reader.js';
-import { Fr } from './fields.js';
+import { Curve } from './curve.js';
+import { Field } from './field.js';
 
 /**
  * Represents a Point on an elliptic curve with x and y coordinates.
@@ -7,8 +8,7 @@ import { Fr } from './fields.js';
  * converting instances to various output formats, and checking the equality of points.
  */
 export class Point {
-  static ZERO = new Point(Fr.ZERO, Fr.ZERO);
-  static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES * 2;
+  static SIZE_IN_BYTES = Field.SIZE_IN_BYTES * 2;
 
   /** Used to differentiate this class from AztecAddress */
   public readonly kind = 'point';
@@ -17,33 +17,39 @@ export class Point {
     /**
      * The point's x coordinate
      */
-    public readonly x: Fr,
+    public readonly x: Field,
     /**
      * The point's y coordinate
      */
-    public readonly y: Fr,
-  ) {}
+    public readonly y: Field,
+  ) {
+    if (x.curve !== y.curve) {
+      throw new Error('Point coordinates must be on the same curve.');
+    }
+  }
 
   /**
    * Generate a random Point instance.
    *
+   * @param curve - The curve to generate the point on.
    * @returns A randomly generated Point instance.
    */
-  static random() {
+  static random(curve: Curve) {
     // TODO is this a random point on the curve?
-    return new Point(Fr.random(), Fr.random());
+    return new Point(Field.random(curve), Field.random(curve));
   }
 
   /**
    * Create a Point instance from a given buffer or BufferReader.
    * The input 'buffer' should have exactly 64 bytes representing the x and y coordinates.
    *
+   * @param curve - The curve to generate the point on.
    * @param buffer - The buffer or BufferReader containing the x and y coordinates of the point.
    * @returns A Point instance.
    */
-  static fromBuffer(buffer: Buffer | BufferReader) {
+  static fromBuffer(curve: Curve, buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new this(Fr.fromBuffer(reader.readBytes(32)), Fr.fromBuffer(reader.readBytes(32)));
+    return new this(Field.fromBuffer(curve, reader.readBytes(32)), Field.fromBuffer(curve, reader.readBytes(32)));
   }
 
   /**
@@ -51,11 +57,12 @@ export class Point {
    * The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
    * Throws an error if the input length is invalid or coordinate values are out of range.
    *
-   * @param address - The hex-encoded string representing the Point coordinates.
+   * @param curve - The curve to generate the point on.
+   * @param point - The hex-encoded string representing the Point coordinates.
    * @returns A Point instance.
    */
-  static fromString(address: string) {
-    return this.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+  static fromString(curve: Curve, point: string) {
+    return this.fromBuffer(curve, Buffer.from(point.replace(/^0x/i, ''), 'hex'));
   }
 
   /**
@@ -78,7 +85,7 @@ export class Point {
   }
 
   /**
-   * Converts the Point instance to a Buffer representaion of the coordinates.
+   * Converts the Point instance to a Buffer representation of the coordinates.
    * The outputs buffer length will be 64, the length of both coordinates not represented as fields.
    * @returns A Buffer representation of the Point instance.
    */
