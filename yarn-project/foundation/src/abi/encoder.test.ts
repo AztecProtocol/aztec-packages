@@ -73,8 +73,6 @@ describe('abi/encoder', () => {
       },
     ];
 
-    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError(
-      'Object cannot be serialized to a field and is not a field.',
-    );
+    expect(() => encodeArguments(testFunctionAbi, args)).toThrowError('Argument cannot be serialised to a field');
   });
 });
