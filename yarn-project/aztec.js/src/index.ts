@@ -20,6 +20,7 @@ export {
   NodeInfo,
   PackedArguments,
   PublicKey,
+  PrivateKey,
   Tx,
   TxExecutionRequest,
   TxHash,

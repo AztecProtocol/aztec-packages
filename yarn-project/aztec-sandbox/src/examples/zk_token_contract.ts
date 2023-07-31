@@ -1,5 +1,4 @@
-import { Contract, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
-import { AztecAddress, Fr, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, Contract, Fr, PrivateKey, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';

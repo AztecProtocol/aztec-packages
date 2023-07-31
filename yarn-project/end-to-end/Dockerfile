@@ -13,7 +13,8 @@ RUN yarn workspaces focus --production > /dev/null
 
 # Create final, minimal size image.
 FROM node:18-alpine
-RUN apk update && apk add --no-cache curl jq bash
+RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
+ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 COPY --from=builder /usr/src /usr/src
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]
