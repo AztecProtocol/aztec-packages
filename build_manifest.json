@@ -301,7 +301,7 @@
       "types"
     ]
   },
-  "noir-contracts-build": {
+  "noir-contracts": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/noir-contracts",
     "dockerfile": "noir-contracts/Dockerfile",

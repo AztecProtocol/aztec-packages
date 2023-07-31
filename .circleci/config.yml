@@ -488,7 +488,7 @@ jobs:
           name: "Build and test"
           command: build key-store
 
-  noir-contracts-build:
+  noir-contracts:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -497,7 +497,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build noir-contracts-build 32
+          command: cond_spot_run_build noir-contracts 32
 
   noir-compiler:
     machine:
@@ -1081,13 +1081,13 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
-      - noir-contracts-build: *defaults
+      - noir-contracts: *defaults
 
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
-            - noir-contracts-build
+            - noir-contracts
           <<: *defaults
 
       - aztec-js: *yarn_project
