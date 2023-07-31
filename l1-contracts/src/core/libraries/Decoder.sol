@@ -310,7 +310,9 @@ library Decoder {
           bytes.concat(
             slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
-            slice(_l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(
+              _l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
+            ),
             slice(_l2Block, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_l2Block, offsets.contracts, Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP)
           ),
