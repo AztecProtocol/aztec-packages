@@ -10,8 +10,8 @@
 namespace proof_system::honk::pcs::gemini {
 
 template <class Params> class GeminiTest : public CommitmentTest<Params> {
-    using GeminiProver = GeminiProver<Params>;
-    using GeminiVerifier = GeminiVerifier<Params>;
+    using GeminiProver = typename GeminiProver<Params>;
+    using GeminiVerifier = typename GeminiVerifier<Params>;
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Polynomial = typename barretenberg::Polynomial<Fr>;
