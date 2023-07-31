@@ -1,5 +1,8 @@
+// import CopyWebpackPlugin from 'copy-webpack-plugin';
 import { createRequire } from 'module';
-import path, { dirname, resolve } from 'path';
+import { dirname, resolve } from 'path';
+import path from 'path';
+import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import { fileURLToPath } from 'url';
 import webpack from 'webpack';
 
@@ -29,7 +32,7 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest'),
-    filename: '[name].js',
+    filename: 'main.js',
     library: {
       type: 'module',
     },
@@ -38,26 +41,45 @@ export default {
   experiments: {
     outputModule: true,
   },
-  plugins: [new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] })],
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env': {
+        NODE_ENV: JSON.stringify('production'),
+      },
+    }),
+    new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
+    //   new CopyWebpackPlugin({
+    //     patterns: [
+    //       {
+    //         from: `${path.dirname(require.resolve(`@aztec/barretenberg/wasm`))}/aztec-connect.wasm`,
+    //         to: 'aztec-connect.wasm',
+    //       },
+    //       {
+    //         from: `${path.dirname(require.resolve(`@aztec/barretenberg/wasm`))}/browser/web_worker.js`,
+    //         to: 'web_worker.js',
+    //       },
+    //     ],
+    //   }),
+  ],
   resolve: {
-    extensionAlias: {
-      '.js': ['.ts', '.js'],
-      '.mjs': ['.mts', '.mjs'],
-    },
+    plugins: [new ResolveTypeScriptPlugin()],
     alias: {
+      // All node specific code, wherever it's located, should be imported as below.
+      // Provides a clean and simple way to always strip out the node code for the web build.
       './node/index.js': false,
     },
     fallback: {
-      fs: false,
+      crypto: false,
       os: false,
+      fs: false,
       path: false,
-      util: false,
       url: false,
-      tty: false,
       worker_threads: false,
-      buffer: require.resolve('buffer'),
-      crypto: require.resolve('crypto-browserify'),
+      events: require.resolve('events/'),
+      buffer: require.resolve('buffer/'),
+      util: require.resolve('util/'),
       stream: require.resolve('stream-browserify'),
+      string_decoder: require.resolve('string_decoder/'),
       tty: require.resolve('tty-browserify'),
     },
   },

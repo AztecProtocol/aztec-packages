@@ -28,6 +28,7 @@
     "./timer": "./dest/timer/index.js",
     "./transport": "./dest/transport/index.js",
     "./wasm": "./dest/wasm/index.js",
+    "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js"
   },
