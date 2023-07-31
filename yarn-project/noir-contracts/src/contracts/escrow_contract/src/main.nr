@@ -34,10 +34,10 @@ contract Escrow {
         let this = inputs.call_context.storage_contract_address;
         
         let storage = Storage::init();
-        let note = AddressNote::new(owner, this);
-        context = storage.owners.insert(context, note);
-        context = emit_encrypted_log(
-            context,
+        let mut note = AddressNote::new(owner, this);
+        storage.owners.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
             this,
             storage.owners.storage_slot,
             this,
@@ -61,13 +61,12 @@ contract Escrow {
         let storage = Storage::init();
         
         // TODO: Do we need to manually nullify and recreate this note for access control? Or does Set handle it for us? Or since we have no methods for updating it, we're good?
-        let (context_1, _note) = storage.owners.assert_contains(context, AddressNote::new(sender, this));
-        context = context_1;
+        let mut note = AddressNote::new(sender, this);
+        storage.owners.assert_contains(&mut context, &mut note);
         
         // TODO: Can we dynamically get this selector?
         let transfer_selector = 0xdcd4c318;
-        let (_callStackItem, context_2) = PrivateCallStackItem::call(token, transfer_selector, [amount, this, recipient], context);
-        context = context_2;
+        let _callStackItem = context.call_private_function(token, transfer_selector, [amount, this, recipient]);
 
         context.finish()
     }

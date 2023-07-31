@@ -37,9 +37,8 @@ impl AddressNote {
         ])[0]
     }
 
-    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-        self
     }
 
     fn dummy() -> Self {
@@ -87,8 +86,8 @@ fn get_header(note: AddressNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: AddressNote, header: NoteHeader) -> AddressNote {
-    note.set_header(header)
+fn set_header(note: &mut AddressNote, header: NoteHeader) {
+    note.set_header(header);
 }
 
 global AddressNoteInterface = NoteInterface {
