@@ -58,10 +58,10 @@ TYPED_TEST(KZGTest, single)
  */
 TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 {
-    using ShplonkProver = shplonk::ShplonkProver<TypeParam>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier<TypeParam>;
-    using GeminiProver = gemini::GeminiProver<Params>;
-    using GeminiVerifier = gemini::GeminiVerifier<Params>;
+    using ShplonkProver = shplonk::ShplonkProver_<TypeParam>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<TypeParam>;
+    using GeminiProver = gemini::GeminiProver_<Params>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Params>;
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::Fr;
     using GroupElement = typename TypeParam::GroupElement;

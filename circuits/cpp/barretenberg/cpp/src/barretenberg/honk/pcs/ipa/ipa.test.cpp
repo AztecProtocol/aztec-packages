@@ -84,10 +84,10 @@ TEST_F(IPATest, Open)
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
     using IPA = IPA<Params>;
-    using ShplonkProver = shplonk::ShplonkProver<Params>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier<Params>;
-    using GeminiProver = gemini::GeminiProver<Params>;
-    using GeminiVerifier = gemini::GeminiVerifier<Params>;
+    using ShplonkProver = shplonk::ShplonkProver_<Params>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<Params>;
+    using GeminiProver = gemini::GeminiProver_<Params>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Params>;
 
     const size_t n = 8;
     const size_t log_n = 3;

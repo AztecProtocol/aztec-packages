@@ -19,8 +19,8 @@ TYPED_TEST_SUITE(ShplonkTest, ParamsTypes);
 // Test of Shplonk prover/verifier for two polynomials of different size, each opened at a single (different) point
 TYPED_TEST(ShplonkTest, ShplonkSimple)
 {
-    using ShplonkProver = ShplonkProver<TypeParam>;
-    using ShplonkVerifier = ShplonkVerifier<TypeParam>;
+    using ShplonkProver = ShplonkProver_<TypeParam>;
+    using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
     using Fr = typename TypeParam::Fr;
     using Polynomial = typename barretenberg::Polynomial<Fr>;
     using OpeningPair = OpeningPair<TypeParam>;

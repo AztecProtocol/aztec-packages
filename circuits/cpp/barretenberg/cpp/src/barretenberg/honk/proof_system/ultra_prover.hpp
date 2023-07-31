@@ -71,8 +71,8 @@ template <UltraFlavor Flavor> class UltraProver_ {
     pcs::shplonk::ProverOutput<PCSParams> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
 
-    using Gemini = pcs::gemini::GeminiProver<PCSParams>;
-    using Shplonk = pcs::shplonk::ShplonkProver<PCSParams>;
+    using Gemini = pcs::gemini::GeminiProver_<PCSParams>;
+    using Shplonk = pcs::shplonk::ShplonkProver_<PCSParams>;
 
   private:
     plonk::proof proof;

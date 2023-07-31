@@ -42,7 +42,7 @@ template <typename Params> struct ProverOutput {
  *
  * @tparam Params for the given commitment scheme
  */
-template <typename Params> class ShplonkProver {
+template <typename Params> class ShplonkProver_ {
     using Fr = typename Params::Fr;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
@@ -144,7 +144,7 @@ template <typename Params> class ShplonkProver {
  * @brief Shplonk Verifier
  *
  */
-template <typename Params> class ShplonkVerifier {
+template <typename Params> class ShplonkVerifier_ {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;

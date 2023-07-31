@@ -58,7 +58,7 @@ namespace proof_system::honk::pcs::gemini {
  * @return std::vector<Polynomial>
  */
 template <typename Params>
-std::vector<typename barretenberg::Polynomial<typename Params::Fr>> GeminiProver<Params>::compute_fold_polynomials(
+std::vector<typename barretenberg::Polynomial<typename Params::Fr>> GeminiProver_<Params>::compute_fold_polynomials(
     std::span<const Fr> mle_opening_point, Polynomial&& batched_unshifted, Polynomial&& batched_to_be_shifted)
 {
 
@@ -150,7 +150,7 @@ std::vector<typename barretenberg::Polynomial<typename Params::Fr>> GeminiProver
  * @param r_challenge univariate opening challenge
  */
 template <typename Params>
-ProverOutput<Params> GeminiProver<Params>::compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
+ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
                                                                          std::vector<Polynomial>&& fold_polynomials,
                                                                          const Fr& r_challenge)
 {
@@ -219,7 +219,7 @@ ProverOutput<Params> GeminiProver<Params>::compute_fold_polynomial_evaluations(s
  */
 
 template <typename Params>
-std::vector<OpeningClaim<Params>> GeminiVerifier<Params>::reduce_verify(std::span<const Fr> mle_opening_point, /* u */
+std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verify(std::span<const Fr> mle_opening_point, /* u */
                                                                 const Fr batched_evaluation,           /* all */
                                                                 GroupElement& batched_f,               /* unshifted */
                                                                 GroupElement& batched_g, /* to-be-shifted */
@@ -283,7 +283,7 @@ std::vector<OpeningClaim<Params>> GeminiVerifier<Params>::reduce_verify(std::spa
  * @return evaluation A₀(r)
  */
 template <typename Params>
-typename Params::Fr GeminiVerifier<Params>::compute_eval_pos(const Fr batched_mle_eval,
+typename Params::Fr GeminiVerifier_<Params>::compute_eval_pos(const Fr batched_mle_eval,
                                                      std::span<const Fr> mle_vars,
                                                      std::span<const Fr> r_squares,
                                                      std::span<const Fr> fold_polynomial_evals)
@@ -321,7 +321,7 @@ typename Params::Fr GeminiVerifier<Params>::compute_eval_pos(const Fr batched_ml
  * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
  */
 template <typename Params>
-std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVerifier<Params>::compute_simulated_commitments(
+std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVerifier_<Params>::compute_simulated_commitments(
     GroupElement& batched_f, GroupElement& batched_g, Fr r)
 {
     // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
@@ -337,8 +337,8 @@ std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVe
     return { C0_r_pos, C0_r_neg };
 };
 
-template class GeminiProver<proof_system::honk::pcs::kzg::Params>;
-template class GeminiProver<proof_system::honk::pcs::ipa::Params>;
-template class GeminiVerifier<proof_system::honk::pcs::kzg::Params>;
-template class GeminiVerifier<proof_system::honk::pcs::ipa::Params>;
+template class GeminiProver_<proof_system::honk::pcs::kzg::Params>;
+template class GeminiProver_<proof_system::honk::pcs::ipa::Params>;
+template class GeminiVerifier_<proof_system::honk::pcs::kzg::Params>;
+template class GeminiVerifier_<proof_system::honk::pcs::ipa::Params>;
 }; // namespace proof_system::honk::pcs::gemini

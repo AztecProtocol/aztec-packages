@@ -99,7 +99,7 @@ template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t
     return squares;
 };
 
-template <typename Params> class GeminiProver {
+template <typename Params> class GeminiProver_ {
     using Fr = typename Params::Fr;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
@@ -113,7 +113,7 @@ template <typename Params> class GeminiProver {
                                                                     const Fr& r_challenge);
 }; // namespace proof_system::honk::pcs::gemini
 
-template <typename Params> class GeminiVerifier {
+template <typename Params> class GeminiVerifier_ {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;
@@ -136,9 +136,9 @@ template <typename Params> class GeminiVerifier {
                                                                                Fr r);
 }; // namespace proof_system::honk::pcs::gemini
 
-extern template class GeminiProver<kzg::Params>;
-extern template class GeminiProver<ipa::Params>;
-extern template class GeminiVerifier<kzg::Params>;
-extern template class GeminiVerifier<ipa::Params>;
+extern template class GeminiProver_<kzg::Params>;
+extern template class GeminiProver_<ipa::Params>;
+extern template class GeminiVerifier_<kzg::Params>;
+extern template class GeminiVerifier_<ipa::Params>;
 
 } // namespace proof_system::honk::pcs::gemini
