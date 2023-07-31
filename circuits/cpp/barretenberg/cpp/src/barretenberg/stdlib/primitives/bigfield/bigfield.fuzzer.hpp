@@ -156,15 +156,11 @@ template <typename Composer> class BigFieldBase {
             RANDOMSEED,
             _LAST
         };
-        Instruction& operator=(const Instruction& other) = default;
 
         struct Element {
-            Element() = default;
-            Element(const Element& other) = default;
-            Element(const Element&& other) { value = std::move(other.value); };
-            Element(fq in)
-                : value(in){};
-            Element& operator=(const Element& other) = default;
+            Element(uint64_t v)
+                : value(v)
+            {}
             fq value;
         };
         struct TwoArgs {
@@ -213,8 +209,9 @@ template <typename Composer> class BigFieldBase {
             uint8_t out3;
         };
         union ArgumentContents {
-            ArgumentContents() { element = Element(fq(0)); }
-            ArgumentContents& operator=(const ArgumentContents& other) = default;
+            ArgumentContents()
+                : randomseed(0)
+            {}
             uint32_t randomseed;
             Element element;
             TwoArgs twoArgs;
@@ -229,6 +226,7 @@ template <typename Composer> class BigFieldBase {
         OPCODE id;
         // Instruction arguments
         ArgumentContents arguments;
+
         /**
          * @brief Generate a random instruction
          *
@@ -1929,7 +1927,7 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
  */
 extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* Data, size_t Size, size_t MaxSize, unsigned int Seed)
 {
-    using FuzzerClass = BigFieldBase<plonk::StandardPlonkComposer>;
+    using FuzzerClass = BigFieldBase<proof_system::StandardCircuitConstructor>;
     auto fast_random = FastRandom(Seed);
     auto size_occupied = ArithmeticFuzzHelper<FuzzerClass>::MutateInstructionBuffer(Data, Size, MaxSize, fast_random);
     if ((fast_random.next() % 200) < fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB) {
@@ -1950,7 +1948,7 @@ extern "C" size_t LLVMFuzzerCustomCrossOver(const uint8_t* Data1,
                                             size_t MaxOutSize,
                                             unsigned int Seed)
 {
-    using FuzzerClass = BigFieldBase<plonk::StandardPlonkComposer>;
+    using FuzzerClass = BigFieldBase<proof_system::StandardCircuitConstructor>;
     auto fast_random = FastRandom(Seed);
     auto vecA = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data1, Size1);
     auto vecB = ArithmeticFuzzHelper<FuzzerClass>::parseDataIntoInstructions(Data2, Size2);
