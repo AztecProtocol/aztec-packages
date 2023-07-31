@@ -211,7 +211,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatizatio
 
     // Generate batching challenge ρ and powers 1,ρ,…,ρᵐ⁻¹
     FF rho = transcript.get_challenge("rho");
-    std::vector<FF> rhos = Gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
+    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
     Polynomial batched_poly_unshifted(key->circuit_size); // batched unshifted polynomials

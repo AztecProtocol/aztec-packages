@@ -45,6 +45,30 @@
 namespace proof_system::honk::pcs::gemini {
 
 /**
+ * @brief Gemini Prover functionality
+ * 
+ */
+
+/**
+ * @brief Compute squares of folding challenge r
+ *
+ * @tparam Params
+ * @param r
+ * @param num_squares The number of foldings
+ * @return std::vector<typename Params::Fr>
+ */
+template <typename Params>
+std::vector<typename Params::Fr> GeminiProver<Params>::squares_of_r(const Fr r, const size_t num_squares)
+{
+    std::vector<Fr> squares = { r };
+    squares.reserve(num_squares);
+    for (size_t j = 1; j < num_squares; j++) {
+        squares.emplace_back(squares[j - 1].sqr());
+    }
+    return squares;
+};
+
+/**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
  *
  * @param mle_opening_point multilinear opening point 'u'
@@ -53,10 +77,8 @@ namespace proof_system::honk::pcs::gemini {
  * @return std::vector<Polynomial>
  */
 template <typename Params>
-std::vector<typename barretenberg::Polynomial<typename Params::Fr>> MultilinearReductionScheme<
-    Params>::compute_fold_polynomials(std::span<const Fr> mle_opening_point,
-                                      Polynomial&& batched_unshifted,
-                                      Polynomial&& batched_to_be_shifted)
+std::vector<typename barretenberg::Polynomial<typename Params::Fr>> GeminiProver<Params>::compute_fold_polynomials(
+    std::span<const Fr> mle_opening_point, Polynomial&& batched_unshifted, Polynomial&& batched_to_be_shifted)
 {
 
     using Fr = typename Params::Fr;
@@ -147,8 +169,9 @@ std::vector<typename barretenberg::Polynomial<typename Params::Fr>> MultilinearR
  * @param r_challenge univariate opening challenge
  */
 template <typename Params>
-ProverOutput<Params> MultilinearReductionScheme<Params>::compute_fold_polynomial_evaluations(
-    std::span<const Fr> mle_opening_point, std::vector<Polynomial>&& fold_polynomials, const Fr& r_challenge)
+ProverOutput<Params> GeminiProver<Params>::compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
+                                                                         std::vector<Polynomial>&& fold_polynomials,
+                                                                         const Fr& r_challenge)
 {
 
     using Fr = typename Params::Fr;
@@ -196,6 +219,11 @@ ProverOutput<Params> MultilinearReductionScheme<Params>::compute_fold_polynomial
 };
 
 /**
+ * @brief Gemini Verifier functionality
+ * 
+ */
+
+/**
  * @brief Checks that all MLE evaluations vⱼ contained in the list of m MLE opening claims
  * is correct, and returns univariate polynomial opening claims to be checked later
  *
@@ -210,12 +238,11 @@ ProverOutput<Params> MultilinearReductionScheme<Params>::compute_fold_polynomial
  */
 
 template <typename Params>
-std::vector<OpeningClaim<Params>> MultilinearReductionScheme<Params>::reduce_verify(
-    std::span<const Fr> mle_opening_point, /* u */
-    const Fr batched_evaluation,           /* all */
-    GroupElement& batched_f,               /* unshifted */
-    GroupElement& batched_g,               /* to-be-shifted */
-    VerifierTranscript<Fr>& transcript)
+std::vector<OpeningClaim<Params>> GeminiVerifier<Params>::reduce_verify(std::span<const Fr> mle_opening_point, /* u */
+                                                                const Fr batched_evaluation,           /* all */
+                                                                GroupElement& batched_f,               /* unshifted */
+                                                                GroupElement& batched_g, /* to-be-shifted */
+                                                                VerifierTranscript<Fr>& transcript)
 {
 
     using Fr = typename Params::Fr;
@@ -265,19 +292,6 @@ std::vector<OpeningClaim<Params>> MultilinearReductionScheme<Params>::reduce_ver
     return fold_polynomial_opening_claims;
 };
 
-template <typename Params>
-std::vector<typename Params::Fr> MultilinearReductionScheme<Params>::powers_of_rho(const Fr rho,
-                                                                                   const size_t num_powers)
-{
-
-    using Fr = typename Params::Fr;
-    std::vector<Fr> rhos = { Fr(1), rho };
-    rhos.reserve(num_powers);
-    for (size_t j = 2; j < num_powers; j++) {
-        rhos.emplace_back(rhos[j - 1] * rho);
-    }
-    return rhos;
-};
 /**
  * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
  *
@@ -288,10 +302,10 @@ std::vector<typename Params::Fr> MultilinearReductionScheme<Params>::powers_of_r
  * @return evaluation A₀(r)
  */
 template <typename Params>
-typename Params::Fr MultilinearReductionScheme<Params>::compute_eval_pos(const Fr batched_mle_eval,
-                                                                         std::span<const Fr> mle_vars,
-                                                                         std::span<const Fr> r_squares,
-                                                                         std::span<const Fr> fold_polynomial_evals)
+typename Params::Fr GeminiVerifier<Params>::compute_eval_pos(const Fr batched_mle_eval,
+                                                     std::span<const Fr> mle_vars,
+                                                     std::span<const Fr> r_squares,
+                                                     std::span<const Fr> fold_polynomial_evals)
 {
     using Fr = typename Params::Fr;
     const size_t num_variables = mle_vars.size();
@@ -326,7 +340,7 @@ typename Params::Fr MultilinearReductionScheme<Params>::compute_eval_pos(const F
  * @return std::vector<typename Params::Fr>
  */
 template <typename Params>
-std::vector<typename Params::Fr> MultilinearReductionScheme<Params>::squares_of_r(const Fr r, const size_t num_squares)
+std::vector<typename Params::Fr> GeminiVerifier<Params>::squares_of_r(const Fr r, const size_t num_squares)
 {
     std::vector<Fr> squares = { r };
     squares.reserve(num_squares);
@@ -345,8 +359,8 @@ std::vector<typename Params::Fr> MultilinearReductionScheme<Params>::squares_of_
  * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
  */
 template <typename Params>
-std::pair<typename Params::GroupElement, typename Params::GroupElement> MultilinearReductionScheme<
-    Params>::compute_simulated_commitments(GroupElement& batched_f, GroupElement& batched_g, Fr r)
+std::pair<typename Params::GroupElement, typename Params::GroupElement> GeminiVerifier<Params>::compute_simulated_commitments(
+    GroupElement& batched_f, GroupElement& batched_g, Fr r)
 {
     // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
     GroupElement C0_r_pos = batched_f;
@@ -360,6 +374,9 @@ std::pair<typename Params::GroupElement, typename Params::GroupElement> Multilin
     }
     return { C0_r_pos, C0_r_neg };
 };
-template class MultilinearReductionScheme<proof_system::honk::pcs::kzg::Params>;
-template class MultilinearReductionScheme<proof_system::honk::pcs::ipa::Params>;
+
+template class GeminiProver<proof_system::honk::pcs::kzg::Params>;
+template class GeminiProver<proof_system::honk::pcs::ipa::Params>;
+template class GeminiVerifier<proof_system::honk::pcs::kzg::Params>;
+template class GeminiVerifier<proof_system::honk::pcs::ipa::Params>;
 }; // namespace proof_system::honk::pcs::gemini

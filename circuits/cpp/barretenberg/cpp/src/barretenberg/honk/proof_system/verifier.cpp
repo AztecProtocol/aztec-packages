@@ -59,7 +59,7 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
     using PCSParams = typename Flavor::PCSParams;
-    using Gemini = pcs::gemini::MultilinearReductionScheme<PCSParams>;
+    using Gemini = pcs::gemini::GeminiVerifier<PCSParams>;
     using Shplonk = pcs::shplonk::SingleBatchOpeningScheme<PCSParams>;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
@@ -127,7 +127,7 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
 
     // Compute powers of batching challenge rho
     FF rho = transcript.get_challenge("rho");
-    std::vector<FF> rhos = Gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
+    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();

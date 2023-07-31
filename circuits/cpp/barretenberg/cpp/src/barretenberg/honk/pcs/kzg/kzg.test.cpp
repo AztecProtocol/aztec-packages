@@ -59,7 +59,8 @@ TYPED_TEST(KZGTest, single)
 TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 {
     using Shplonk = shplonk::SingleBatchOpeningScheme<TypeParam>;
-    using Gemini = gemini::MultilinearReductionScheme<TypeParam>;
+    using GeminiProver = gemini::GeminiProver<Params>;
+    using GeminiVerifier = gemini::GeminiVerifier<Params>;
     using KZG = KZG<TypeParam>;
     using Fr = typename TypeParam::Fr;
     using GroupElement = typename TypeParam::GroupElement;
@@ -87,7 +88,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Collect multilinear evaluations for input to prover
     std::vector<Fr> multilinear_evaluations = { eval1, eval2, eval2_shift };
 
-    std::vector<Fr> rhos = Gemini::powers_of_rho(rho, multilinear_evaluations.size());
+    std::vector<Fr> rhos = gemini::powers_of_rho(rho, multilinear_evaluations.size());
 
     // Compute batched multivariate evaluation
     Fr batched_evaluation = Fr::zero();
@@ -115,7 +116,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto fold_polynomials = Gemini::compute_fold_polynomials(
+    auto fold_polynomials = GeminiProver::compute_fold_polynomials(
         mle_opening_point, std::move(batched_unshifted), std::move(batched_to_be_shifted));
 
     for (size_t l = 0; l < log_n - 1; ++l) {
@@ -127,7 +128,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
     const Fr r_challenge = prover_transcript.get_challenge("Gemini:r");
 
     const auto [gemini_opening_pairs, gemini_witnesses] =
-        Gemini::compute_fold_polynomial_evaluations(mle_opening_point, std::move(fold_polynomials), r_challenge);
+        GeminiProver::compute_fold_polynomial_evaluations(mle_opening_point, std::move(fold_polynomials), r_challenge);
 
     for (size_t l = 0; l < log_n; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
@@ -156,7 +157,7 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto gemini_verifier_claim = Gemini::reduce_verify(mle_opening_point,
+    auto gemini_verifier_claim = GeminiVerifier::reduce_verify(mle_opening_point,
                                                        batched_evaluation,
                                                        batched_commitment_unshifted,
                                                        batched_commitment_to_be_shifted,

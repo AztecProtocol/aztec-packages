@@ -39,7 +39,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     using Commitment = typename Flavor::Commitment;
     using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
-    using Gemini = pcs::gemini::MultilinearReductionScheme<PCSParams>;
+    using Gemini = pcs::gemini::GeminiVerifier<PCSParams>;
     using Shplonk = pcs::shplonk::SingleBatchOpeningScheme<PCSParams>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -132,7 +132,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
 
     // Compute powers of batching challenge rho
     FF rho = transcript.get_challenge("rho");
-    std::vector<FF> rhos = Gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
+    std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
 
     // Compute batched multivariate evaluation
     FF batched_evaluation = FF::zero();
