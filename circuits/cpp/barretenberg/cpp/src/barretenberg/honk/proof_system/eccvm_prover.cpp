@@ -42,7 +42,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.q_transcript_add = key->q_transcript_add;
     prover_polynomials.q_transcript_mul = key->q_transcript_mul;
     prover_polynomials.q_transcript_eq = key->q_transcript_eq;
-    prover_polynomials.q_transcript_accumulate = key->q_transcript_accumulate;
+    prover_polynomials.transcript_collision_check = key->transcript_collision_check;
     prover_polynomials.q_transcript_msm_transition = key->q_transcript_msm_transition;
     prover_polynomials.transcript_pc = key->transcript_pc;
     prover_polynomials.transcript_msm_count = key->transcript_msm_count;
@@ -114,7 +114,6 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     prover_polynomials.lookup_read_counts_0 = key->lookup_read_counts_0;
     prover_polynomials.lookup_read_counts_1 = key->lookup_read_counts_1;
     prover_polynomials.q_transcript_mul_shift = key->q_transcript_mul.shifted();
-    prover_polynomials.q_transcript_accumulate_shift = key->q_transcript_accumulate.shifted();
     prover_polynomials.transcript_msm_count_shift = key->transcript_msm_count.shifted();
     prover_polynomials.transcript_accumulator_x_shift = key->transcript_accumulator_x.shifted();
     prover_polynomials.transcript_accumulator_y_shift = key->transcript_accumulator_y.shifted();

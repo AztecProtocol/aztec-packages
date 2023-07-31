@@ -290,6 +290,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             rows.transcript_accumulator_y[i] = transcript_state[i].accumulator_y;
             rows.transcript_msm_x[i] = transcript_state[i].msm_output_x;
             rows.transcript_msm_y[i] = transcript_state[i].msm_output_y;
+            rows.transcript_collision_check[i] = transcript_state[i].collision_check;
         }
 
         // TODO(@zac-williamson) if final opcode resets accumulator, all subsequent "is_accumulator_empty" row values
@@ -363,7 +364,6 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         }
 
         rows.q_transcript_mul_shift = typename Flavor::Polynomial(rows.q_transcript_mul.shifted());
-        rows.q_transcript_accumulate_shift = typename Flavor::Polynomial(rows.q_transcript_accumulate.shifted());
         rows.transcript_msm_count_shift = typename Flavor::Polynomial(rows.transcript_msm_count.shifted());
         rows.transcript_accumulator_x_shift = typename Flavor::Polynomial(rows.transcript_accumulator_x.shifted());
         rows.transcript_accumulator_y_shift = typename Flavor::Polynomial(rows.transcript_accumulator_y.shifted());

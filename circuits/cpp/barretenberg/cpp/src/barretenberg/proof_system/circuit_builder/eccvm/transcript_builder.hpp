@@ -31,6 +31,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
         FF accumulator_y = 0;
         FF msm_output_x = 0;
         FF msm_output_y = 0;
+        FF collision_check = 0;
     };
     struct VMState {
         uint32_t pc = 0;
@@ -153,6 +154,17 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
                 msm_transition
                     ? (updated_state.msm_accumulator.is_point_at_infinity() ? 0 : updated_state.msm_accumulator.y)
                     : 0;
+
+            if (entry.mul && next_not_msm && !row.accumulator_empty) {
+                ASSERT((row.msm_output_x != row.accumulator_x) && "eccvm: attempting msm. Result point x-coordinate matches accumulator x-coordinate.");
+                state.msm_accumulator = CycleGroup::affine_point_at_infinity;
+                row.collision_check = (row.msm_output_x - row.accumulator_x).invert();
+            }
+            else if (entry.add && !row.accumulator_empty)
+            {
+                ASSERT((row.base_x != row.accumulator_x) && "eccvm: attempting to add points with matching x-coordinates");
+                row.collision_check = (row.base_x - row.accumulator_x).invert();
+            }
 
             state = updated_state;
 

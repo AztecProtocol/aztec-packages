@@ -65,8 +65,8 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_mul);
     commitments.q_transcript_eq =
         transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_eq);
-    commitments.q_transcript_accumulate =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_accumulate);
+    commitments.transcript_collision_check =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_collision_check);
     commitments.q_transcript_msm_transition =
         transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_msm_transition);
     commitments.transcript_pc = transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_pc);
