@@ -17,7 +17,7 @@ contract SchnorrMultiKeyAccount {
     use dep::aztec::oracle::get_public_key::get_public_key;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
-    use dep::aztec::note::utils::compute_note_hash_and_nullifier;
+    use dep::aztec::note::utils as note_utils;
     use dep::aztec::note::note_header::NoteHeader;
     use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
     use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
@@ -33,16 +33,15 @@ contract SchnorrMultiKeyAccount {
         signature: pub [u8;64], // schnorr signature of the payload hash
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Initialize context
-        // 71 = ENTRYPOINT_PAYLOAD_SIZE(7) + 64
-        let mut args: BoundedVec<Field, 71> = BoundedVec::new(0);
-        args = args.push_array(payload.serialize());
-        for byte in signature { args = args.push(byte as Field); }
+        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
+        let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
+        args.push_array(payload.serialize());
+        for byte in signature { args.push(byte as Field); }
         let mut context = Context::new(inputs, abi::hash_args(args.storage));
 
         // Load public key from storage
         let storage = Storage::init();
-        let (context_1, public_key) = storage.signing_public_key.get_note(context);
-        context = context_1;
+        let public_key = storage.signing_public_key.get_note(&mut context);
 
         // Verify payload signature
         // TODO: Use pedersen to make the payload hash cheaper to compute
@@ -54,7 +53,7 @@ contract SchnorrMultiKeyAccount {
         assert(verification == true);
 
         // Execute calls
-        context = payload.execute_calls(context);
+        payload.execute_calls(&mut context);
 
         context.finish()
     }
@@ -70,11 +69,11 @@ contract SchnorrMultiKeyAccount {
         let mut context = Context::new(inputs, abi::hash_args([signing_pub_key_x, signing_pub_key_y]));
         
         let this = inputs.call_context.storage_contract_address;
-        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        context = storage.signing_public_key.initialise(context, pub_key_note);
+        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        storage.signing_public_key.initialise(&mut context, &mut pub_key_note);
         
-        context = emit_encrypted_log(
-            context,
+        emit_encrypted_log(
+            &mut context,
             this,
             storage.signing_public_key.storage_slot,
             this,
@@ -85,9 +84,12 @@ contract SchnorrMultiKeyAccount {
         context.finish()
     }
 
-    unconstrained fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
+    // Computes notes hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
         assert(storage_slot == 1);
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        compute_note_hash_and_nullifier(PublicKeyNoteInterface, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(PublicKeyNoteInterface, note_header, preimage)
     }
 }
