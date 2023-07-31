@@ -95,7 +95,7 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      *        (when converted into wnaf form this maps to the range [1, 3, ..., 15]).
      *        We do this to ensure the final scalar sum is positive.
      *        We already know slice1 is in the range [0, ..., 15]
-     *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2 
+     *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2
      */
     const auto s1_shift = View(extended_edges.table_s1_shift);
     const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
@@ -119,8 +119,8 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      * i.e. next_scalar_sum - 2^{16} * current_scalar_sum - 2^12 * w_0 - 2^8 * w_1 - 2^4 * w_2 - w_3 = 0
      * @note We only perform slice_consistency check when next row is processing the same scalar as the current row!
      *       i.e. when q_transition  = 0
-     * TODO(@zac-williamson) Future work; probably don't need to convert to WNAF here. We can convert the final scalar sum into WNAF form when
-     * comparing scalar_sum with original input scalar
+     * TODO(@zac-williamson) Future work; probably don't need to convert to WNAF here. We can convert the final scalar
+     * sum into WNAF form when comparing scalar_sum with original input scalar
      */
     auto row_slice = w0;
     row_slice += row_slice;

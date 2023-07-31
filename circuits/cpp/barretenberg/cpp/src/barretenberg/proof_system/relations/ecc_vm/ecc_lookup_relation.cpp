@@ -56,7 +56,8 @@ void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename Accumulato
     const auto row_has_read = View(extended_edges.msm_q_add) + View(extended_edges.msm_q_skew);
     const auto inverse_exists = row_has_write + row_has_read - (row_has_write * row_has_read);
 
-    std::get<0>(accumulator) += (denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists) * scaling_factor;
+    std::get<0>(accumulator) +=
+        (denominator_accumulator[NUM_TOTAL_TERMS - 1] * lookup_inverses - inverse_exists) * scaling_factor;
 
     // After this algo, total degree of denominator_accumulator = NUM_TOTAL_TERMA
     for (size_t i = 0; i < NUM_TOTAL_TERMS - 1; ++i) {

@@ -302,7 +302,8 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     std::get<9>(accumulator) += (x4_delta * collision_inverse4 - add_fourth_point) * scaling_factor;
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
-    // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add + q_msm_skew
+    // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add +
+    // q_msm_skew
     std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // If add_i = 0, slice_i = 0
