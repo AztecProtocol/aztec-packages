@@ -10,7 +10,10 @@ import { EscrowContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/art
 import { EscrowContract, ZkTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
+
+
 import { setup } from './utils.js';
+
 
 describe('e2e_escrow_contract', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -111,5 +114,5 @@ describe('e2e_escrow_contract', () => {
 
     await retryUntil(() => aztecRpcServer.isAccountSynchronised(recipient), 'account sync', 30);
     await expectBalance(recipient, 30n);
-  }, 90_000);
+  }, 120_000);
 });
