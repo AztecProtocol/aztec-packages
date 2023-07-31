@@ -1,0 +1,65 @@
+# Note to reviewer: this yml will be merged with the release-please yml, this is just for developing
+name: Release bb.js
+
+on:
+  push:
+    branches:
+      - jb/bbjs-output-artifacts
+
+jobs:
+  build-and-deploy:
+    name: Build on Linux
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install bleeding edge cmake
+        run: |
+          sudo apt -y remove --purge cmake
+          sudo snap install cmake --classic
+
+      - name: Create Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install clang ninja-build yarn
+
+      - name: Install yarn
+        run: |
+          curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+          echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+          sudo apt -y update && sudo apt -y install yarn
+
+      - name: Compile Barretenberg
+        run: |
+          cd cpp
+          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
+          cmake --build --preset default --target bb
+
+      - name: Install WASI-SDK
+        run: |
+          cd cpp
+          ./scripts/install-wasi-sdk.sh
+
+      - name: Compile Typescript
+        run: |
+          cd ts
+          yarn install && yarn && yarn build
+
+      - name: Checkout destination repository
+        uses: actions/checkout@v3
+        with:
+          repository: AztecProtocol/dev-bb.js
+          path: ./dev-bb.js
+          # token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to destination repository
+        run: |
+          cd ./dev-bb.js
+          cp -R ../ts/dest/* .
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          git add .
+          git commit -m "Tracking changes"
+          git push
