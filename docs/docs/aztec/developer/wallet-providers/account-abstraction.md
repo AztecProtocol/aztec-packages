@@ -19,7 +19,7 @@ The benefits of AA are multiple. We're not going to reiterate them all here, but
 
 ### Implementing at protocol vs application layer
 
-Account abstraction can be implemented at the application layer of a network using smart accounts and meta-transactions. The tx being sent to the network is still an Ethereum tx, but its payload is interpreted as a "transaction execution request" that is validated and run by the smart contract wallet. 
+Instead of implementing it at the protocol level as in Aztec, account abstraction can be implemented at the application layer of a network using smart accounts and meta-transactions. The tx being sent to the network is still an Ethereum tx, but its payload is interpreted as a "transaction execution request" that is validated and run by the smart contract wallet. 
 
 A simple example would be Gnosis Safe (see [_Account Abstraction is NOT coming_](https://safe.mirror.xyz/9KmZjEbFkmI79s28d9xar6JWYrE50F5AHpa5CR12YGI)), where it's the multisig contract responsibility to define when an execution request is valid by checking it carries N out of M signatures, and then executing it. [Argent](https://www.argent.xyz/blog/wtf-is-account-abstraction/) has also been working on smart wallets for years, and collaborating with network teams to implement AA natively at the protocol layer.
 
@@ -108,6 +108,6 @@ NOTE: While we entertained the idea of abstracting note encryption, where accoun
 
 ### Fee management
 
-Fees are not implemented in the protocol at the time of this writing. Our goal is to abstract fee payments as well. This means that a transaction, in order to be considered valid, must prove that it has loocked enough funds to pay for itself. However, this does not mandate where those funds come from, opening the door for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
+Fees are not implemented in the protocol at the time of this writing. Our goal is to abstract fee payments as well. This means that a transaction, in order to be considered valid, must prove that it has locked enough funds to pay for itself. However, this does not mandate where those funds come from, opening the door for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
 
 However, there is one major consideration around public execution reverts. In the current design, if one of the public function executions enqueued in a transaction fails, then the entire transaction is reverted. But reverting the whole transaction would also revert the fee payment, and leave the sequencer with their hands empty after running the public execution. This means we will need to enshrine an initial verification and fee payment phase that is _not_ reverted if public execution fails.
