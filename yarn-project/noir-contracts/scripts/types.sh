@@ -53,13 +53,6 @@ format(){
   echo -e "Done\n"
 }
 
-
-# Check if at least one CONTRACT_NAME is provided, if not, display usage information.
-if [ $# -eq 0 ]; then
-  usage
-  exit 0
-fi
-
 # Make type files
 for CONTRACT_NAME in "$@"; do
   process $CONTRACT_NAME &
