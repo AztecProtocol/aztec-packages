@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+# Script to install noirup and the latest nargo
 set -eu
 
 VERSION="nightly"

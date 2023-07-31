@@ -2,18 +2,14 @@
 #!/bin/bash
 
 # Example:
-
-# If you've compiled Noir from source:
-# ./compile.sh --nargo-path=path/to/nargo --verbose zk_token ecdsa_account
-# yarn noir:build --nargo-path=path/to/nargo zk_token ecdsa_account
-
-# If nargo is installed properly in your PATH:
-# yarn noir:build zk_token ecdsa_account
+# - this script will automatically be run when running `yarn noir:build`
+# - it exists on its own to allow ci to compile and format in different contexts, as the noir compiler is not available in yarn project base ( by choice )
+# - you can run `yarn noir:types:all` to create all noir artifacts and types consumed by aztec packages.
 
 # Enable strict mode:
 # Exit on error (set -e), treat unset variables as an error (set -u),
-# and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
 set -eu;
+
 artifacts_dir="src/artifacts"
 types_dir="src/types"
 

@@ -17,8 +17,6 @@ set -euo pipefail;
 ROOT=$(pwd)
 NARGO_COMMAND="nargo"  # Default nargo command
 
-echo "Processing and formatting: $PROCESS_AND_FORMAT"
-
 # Function to display script usage
 usage() {
   echo "Usage: $0 [--nargo-path=<path>] [--verbose] CONTRACT_NAME [CONTRACT_NAME...]"
@@ -27,47 +25,6 @@ usage() {
   echo "  --verbose            Enable verbose compilation output (optional)."
   echo "  CONTRACT_NAME        Name of the contract(s) to compile and process (omitting the '_contract' suffix)."
   exit 1
-}
-
-# Custom error handler function
-handle_error() {
-  echo "Error occurred in process $1. Exiting..."
-  exit 1
-}
-
-# Trap any ERR signal and call the custom error handler
-trap 'handle_error $!' ERR
-
-build() {
-  CONTRACT_NAME=$1
-  CONTRACT_FOLDER="${CONTRACT_NAME}_contract"
-  echo "Compiling $CONTRACT_NAME..."
-  cd src/contracts/$CONTRACT_FOLDER
-  rm -f target/*
-
-  # If VERBOSE is not set, compile with 'nargo' and redirect standard error (stderr) to /dev/null and standard output (stdout) to /dev/null.
-  # If the compilation fails, rerun the compilation with 'nargo' and show the compiler output.
-  if [[ -z "${VERBOSE:-}" ]]; then
-    "$NARGO_COMMAND" compile main --contracts 2> /dev/null > /dev/null  || (echo "Error compiling contract. Re-running as verbose to show compiler output:"; "$NARGO_COMMAND" compile main --contracts);
-  else
-    "$NARGO_COMMAND" compile main --contracts
-  fi
-
-  process $CONTRACT_NAME
-}
-
-process() {
-  CONTRACT_NAME=$1
-
-  cd $ROOT
-  echo "Copying output for $CONTRACT_NAME"
-  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
-}
-
-format(){
-  echo "Formatting contract folders"
-  yarn run -T prettier -w ./src/artifacts/*.json ../aztec.js/src/abis/*.json ./src/types/*.ts
-  echo -e "Done\n"
 }
 
 # Parse command-line arguments
@@ -99,26 +56,6 @@ fi
 
 echo "Using $($NARGO_COMMAND --version)"
 
-# Build contracts
-for CONTRACT_NAME in "$@"; do
-  build $CONTRACT_NAME &
-done
-
-# Wait for all background processes to finish
-wait
-
-# only run the rest when the full flag is set
-if [ "$PROCESS_AND_FORMAT" == "true" ] ; then
-  # Format contracts
-  format
-
-  # Check for stale artifacts
-  for json_path in src/artifacts/*.json; do
-    json_file="$(basename "$json_path")";
-    contract_name="${json_file%.json}";
-    if [ ! -d "./src/contracts/$contract_name" ]; then
-      echo "WARN: Source code for artifact '$contract_name' not found. Consider deleting the artifact.";
-    fi
-  done
-fi
-
+# Run build scripts
+./scripts/compile.sh "$@"
+./scripts/types.sh "$@"

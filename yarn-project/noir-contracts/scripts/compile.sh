@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Compiles noir contracts in parallel, bubbling any compilation errors
+
 ROOT=$(pwd)
 
 # Error flag file
