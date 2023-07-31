@@ -4,7 +4,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/stdlib/recursion/transcript/honk_trancript.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/trancript.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 

@@ -6,9 +6,9 @@
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 
-#include "../../primitives/bigfield/bigfield.hpp"
-#include "../../primitives/biggroup/biggroup.hpp"
-#include "../../primitives/field/field.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
+#include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 //TODO(luke): this namespace will be sensible once stdlib is moved out of the plonk namespace
 namespace proof_system::plonk::stdlib::recursion::honk {
