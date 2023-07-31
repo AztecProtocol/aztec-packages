@@ -31,7 +31,7 @@ void init_grumpkin_crs_factory(std::string crs_path)
 std::shared_ptr<factories::CrsFactory<curve::BN254>> get_crs_factory()
 {
     if (!crs_factory) {
-        throw_or_abort("You need vto initalize the global CRS with a call to init_crs_factory(...)!");
+        throw_or_abort("You need to initalize the global CRS with a call to init_crs_factory(...)!");
     }
     return crs_factory;
 }
@@ -39,7 +39,7 @@ std::shared_ptr<factories::CrsFactory<curve::BN254>> get_crs_factory()
 std::shared_ptr<factories::CrsFactory<curve::Grumpkin>> get_grumpkin_crs_factory()
 {
     if (!grumpkin_crs_factory) {
-        throw_or_abort("You need vto initalize the global CRS with a call to init_grumpkin_crs_factory(...)!");
+        throw_or_abort("You need to initalize the global CRS with a call to init_grumpkin_crs_factory(...)!");
     }
     return grumpkin_crs_factory;
 }

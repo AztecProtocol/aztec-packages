@@ -49,9 +49,10 @@ cmake --preset $PRESET -DCMAKE_BUILD_TYPE=RelWithAssert
 cmake --build --preset $PRESET ${@/#/--target }
 
 cd ./build
-# The Grumpkin SRS is generated manually at the moment only up to a large enough size for tests
+# The Grumpkin SRS is generated manually at the moment, only up to a large enough size for tests
+# If tests require more points, the parameter can be increased here.
 cmake --build . --parallel --target grumpkin_srs_gen
-./bin/grumpkin_srs_gen 4096
+./bin/grumpkin_srs_gen 8192
 echo "Generated Grumpkin SRS successfully"
 
 # Install wasi-sdk.
