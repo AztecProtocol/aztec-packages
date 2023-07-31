@@ -38,7 +38,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
     using ScalarMul = proof_system_eccvm::ScalarMul<CycleGroup>;
     using RawPolynomials = typename Flavor::RawPolynomials;
     using Polynomial = barretenberg::Polynomial<FF>;
-    uint32_t get_number_of_muls()
+    uint32_t get_number_of_muls() const
     {
         uint32_t num_muls = 0;
         for (auto& op : vm_operations) {
@@ -54,7 +54,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         return num_muls;
     }
 
-    std::vector<MSM> get_msms()
+    std::vector<MSM> get_msms() const
     {
         const uint32_t num_muls = get_number_of_muls();
         /**
@@ -302,10 +302,11 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             }
         }
         for (size_t i = 0; i < precompute_table_state.size(); ++i) {
-            rows.q_wnaf[i] = (i != 0) ? 1 : 0; // todo document, derive etc etc // first row is empty!
+            // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st coefficient).
+            // All other rows in the precompute_table_state represent active wnaf gates (i.e. q_wnaf = 1)
+            rows.q_wnaf[i] = (i != 0) ? 1 : 0;
             rows.table_pc[i] = precompute_table_state[i].pc;
             rows.table_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
-            // rows.table_point_transition_shift = static_cast<uint64_t>(table_state[i].point_transition);
             rows.table_round[i] = precompute_table_state[i].round;
             rows.table_scalar_sum[i] = precompute_table_state[i].scalar_sum;
 
@@ -317,7 +318,8 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             rows.table_s6[i] = precompute_table_state[i].s6;
             rows.table_s7[i] = precompute_table_state[i].s7;
             rows.table_s8[i] = precompute_table_state[i].s8;
-            // todo explain why skew is 7 not 1
+            // If skew is active (i.e. we need to subtract a base point from the msm result),
+            // write `7` into rows.table_skew. `7`, in binary representation, equals `-1` when converted into WNAF form
             rows.table_skew[i] = precompute_table_state[i].skew ? 7 : 0;
 
             rows.table_dx[i] = precompute_table_state[i].precompute_double.x;
@@ -368,6 +370,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         rows.transcript_accumulator_x_shift = typename Flavor::Polynomial(rows.transcript_accumulator_x.shifted());
         rows.transcript_accumulator_y_shift = typename Flavor::Polynomial(rows.transcript_accumulator_y.shifted());
         rows.table_scalar_sum_shift = typename Flavor::Polynomial(rows.table_scalar_sum.shifted());
+        rows.table_s1_shift = typename Flavor::Polynomial(rows.table_s1.shifted());
         rows.table_dx_shift = typename Flavor::Polynomial(rows.table_dx.shifted());
         rows.table_dy_shift = typename Flavor::Polynomial(rows.table_dy.shifted());
         rows.table_tx_shift = typename Flavor::Polynomial(rows.table_tx.shifted());
@@ -397,9 +400,9 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         const FF eta = FF::random_element();
         const FF eta_sqr = eta.sqr();
         const FF eta_cube = eta_sqr * eta;
-        auto permutation_offset =
+        auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-        permutation_offset = permutation_offset.invert();
+        eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
         proof_system::honk::sumcheck::RelationParameters<typename Flavor::FF> params{
             .eta = eta,
             .beta = 0,
@@ -408,7 +411,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             .lookup_grand_product_delta = 0,
             .eta_sqr = eta_sqr,
             .eta_cube = eta_cube,
-            .permutation_offset = permutation_offset,
+            .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
         auto rows = compute_full_polynomials();
@@ -484,6 +487,36 @@ template <typename Flavor> class ECCVMCircuitConstructor {
             }
         }
         return result;
+    }
+
+    size_t get_num_gates() const
+    {
+        // TODO(@zac-williamson) once we have a stable base to work off of, optimise this method!
+        const auto msms = get_msms();
+        const auto flattened_muls = get_flattened_scalar_muls(msms);
+
+        std::array<std::vector<size_t>, 2> point_table_read_counts;
+        const auto transcript_state =
+            ECCVMTranscriptBuilder<Flavor>::compute_transcript_state(vm_operations, get_number_of_muls());
+        const auto precompute_table_state =
+            ECCVMPrecomputedTablesBuilder<Flavor>::compute_precompute_state(flattened_muls);
+        const auto msm_state =
+            ECCVMMSMMBuilder<Flavor>::compute_msm_state(msms, point_table_read_counts, get_number_of_muls());
+
+        const size_t msm_size = msm_state.size();
+        const size_t transcript_size = transcript_state.size();
+        const size_t precompute_table_size = precompute_table_state.size();
+
+        const size_t num_rows = std::max(precompute_table_size, std::max(msm_size, transcript_size));
+        return num_rows;
+    }
+
+    size_t get_circuit_subgroup_size(const size_t num_rows) const
+    {
+
+        const size_t num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
+        size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
+        return num_rows_pow2;
     }
 };
 } // namespace proof_system
