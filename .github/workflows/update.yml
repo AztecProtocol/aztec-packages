@@ -58,6 +58,7 @@ jobs:
           cp -R ../circuits/cpp/barretenberg/ts/dest/* .
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
+          git checkout -b dev || git checkout dev
           git add .
           git commit -m "Tracking changes"
-          git push
+          git push origin dev
