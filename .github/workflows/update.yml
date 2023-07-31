@@ -49,8 +49,7 @@ jobs:
         with:
           repository: AztecProtocol/dev-bb.js
           path: ./dev-bb.js
-          # token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Push to destination repository
         run: |
