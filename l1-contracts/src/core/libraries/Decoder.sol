@@ -308,11 +308,11 @@ library Decoder {
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP),
-            slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP),
-            slice(_l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP),
-            slice(_l2Block, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP),
-            slice(_l2Block, offsets.contracts, Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP)
+            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.l2ToL1Msgs, Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.contracts, Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP)
           ),
           bytes.concat(
             slice(_l2Block, offsets.contractData, 0x20), // newContractDataKernel1.aztecAddress
@@ -330,12 +330,12 @@ library Decoder {
           )
         );
 
-        offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_ROLLUP;
-        offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_ROLLUP;
-        offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_ROLLUP;
-        offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_ROLLUP;
-        offsets.contracts += Constants.CONTRACTS_NUM_BYTES_PER_ROLLUP;
-        offsets.contractData += Constants.CONTRACT_DATA_NUM_BYTES_PER_ROLLUP_UNPADDED;
+        offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.contracts += Constants.CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.contractData += Constants.CONTRACT_DATA_NUM_BYTES_PER_BASE_ROLLUP_UNPADDED;
 
         vars.baseLeaves[i] = sha256(vars.baseLeaf);
       }
@@ -345,10 +345,10 @@ library Decoder {
     bytes32[] memory l1ToL2Msgs;
     bytes32 l1ToL2MsgsHash;
     {
-      // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.L1_TO_L2_MSGS_PER_ROLLUP` the array
+      // `l1ToL2Msgs` is fixed size so if `lengths.l1Tol2MsgsCount` < `Constants.L1_TO_L2_MSGS_PER_BASE_ROLLUP` the array
       // will contain some zero values.
       uint256 l1ToL2MsgsHashPreimageSize = 0x20 * vars.l1Tol2MsgsCount;
-      l1ToL2Msgs = new bytes32[](Constants.L1_TO_L2_MSGS_PER_ROLLUP);
+      l1ToL2Msgs = new bytes32[](Constants.L1_TO_L2_MSGS_PER_BASE_ROLLUP);
       assembly {
         calldatacopy(
           add(l1ToL2Msgs, 0x20),
