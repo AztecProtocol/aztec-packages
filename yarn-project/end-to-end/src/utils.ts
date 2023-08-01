@@ -539,35 +539,6 @@ export async function calculateAztecStorageSlot(slot: bigint, key: Fr): Promise<
 }
 
 /**
- * Check the value of a public mapping's storage slot.
- * @param logger - A logger instance.
- * @param aztecNode - An instance of the aztec node service.
- * @param contract - The contract to check the storage slot of.
- * @param slot - The mapping's storage slot.
- * @param key - The mapping's key.
- * @param expectedValue - The expected value of the mapping.
- */
-export async function expectAztecStorageSlot(
-  logger: DebugLogger,
-  aztecRpc: AztecRPC,
-  contract: Contract,
-  slot: bigint,
-  key: Fr,
-  expectedValue: bigint,
-) {
-  const storageSlot = await calculateAztecStorageSlot(slot, key);
-  const storageValue = await aztecRpc.getPublicStorageAt(contract.address!, storageSlot);
-  if (storageValue === undefined) {
-    throw new Error(`Storage slot ${storageSlot} not found`);
-  }
-
-  const balance = toBigIntBE(storageValue);
-
-  logger(`Account ${key.toShortString()} balance: ${balance}`);
-  expect(balance).toBe(expectedValue);
-}
-
-/**
  * Checks the number of encrypted logs in the last block is as expected.
  * @param aztecNode - The instance of aztec node for retrieving the logs.
  * @param numEncryptedLogs - The number of expected logs.

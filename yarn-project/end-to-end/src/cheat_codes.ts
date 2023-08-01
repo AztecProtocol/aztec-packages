@@ -49,7 +49,11 @@ export class CheatCodes {
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
     const frSlot = typeof slot === 'bigint' ? new Fr(slot) : slot;
-    const publicStorage = await this.aztecRpc.getPublicStorageAt(who, frSlot);
-    return publicStorage ? Fr.fromBuffer(publicStorage) : Fr.ZERO;
+    const storageValue = await this.aztecRpc.getPublicStorageAt(who, frSlot);
+    if (storageValue === undefined) {
+      throw new Error(`Storage slot ${frSlot} not found`);
+    }
+
+    return Fr.fromBuffer(storageValue);
   }
 }
