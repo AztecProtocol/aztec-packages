@@ -2,7 +2,7 @@ use dep::std::hash::pedersen;
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
-    utils::compute_siloed_note_hash,
+    utils::compute_unique_siloed_note_hash,
 };
 
 global CLAIM_NOTE_LEN: Field = 2;
@@ -42,9 +42,9 @@ impl ClaimNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(ClaimNoteInterface, self);
+        let unique_siloed_note_hash = compute_unique_siloed_note_hash(ClaimNoteInterface, self);
         dep::std::hash::pedersen([
-            siloed_note_hash,
+            unique_siloed_note_hash,
             self.secret_hash, // Include the secret_hash again so that the public won't know the note has been claimed.
         ])[0]
     }

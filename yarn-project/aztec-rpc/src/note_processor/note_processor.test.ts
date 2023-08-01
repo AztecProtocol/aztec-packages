@@ -128,8 +128,8 @@ describe('Note Processor', () => {
     simulator.computeNoteHashAndNullifier.mockImplementation((...args) =>
       Promise.resolve({
         innerNoteHash: Fr.random(),
-        uniqueNoteHash: Fr.random(),
-        siloedNoteHash: computeMockNoteHash(args[3]),
+        siloedNoteHash: Fr.random(),
+        uniqueSiloedNoteHash: computeMockNoteHash(args[3]),
         nullifier: Fr.random(),
       }),
     );

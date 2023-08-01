@@ -9,7 +9,8 @@ use crate::context::Context;
 use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
-    utils::compute_unique_note_hash,
+    utils::compute_note_hash_for_read_request,
+    utils::compute_unique_siloed_note_hash,
 };
 use crate::oracle;
 
@@ -33,7 +34,7 @@ fn ensure_note_exists<Note, N>(
     note: Note,
 ) -> (Context, Note) {
     let mut note_with_header = note;
-    let mut unique_note_hash = 0;
+    let mut note_hash_for_read_request = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
         // Get a note from oracle and early out if it doesn't exist.
@@ -48,9 +49,9 @@ fn ensure_note_exists<Note, N>(
 
         check_note_header(context, storage_slot, note_interface, note_with_header);
 
-        unique_note_hash = compute_unique_note_hash(note_interface, note_with_header);
+        note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note_with_header);
     };
-    context = context.push_read_request(unique_note_hash);
+    context = context.push_read_request(note_hash_for_read_request);
     (context, note_with_header)
 }
 
@@ -60,13 +61,13 @@ fn get_note<Note, N>(
     note_interface: NoteInterface<Note, N>,
 ) -> (Context, Note) {
     let note = get_note_internal(storage_slot, note_interface);
-    let mut unique_note_hash = 0;
+    let mut note_hash_for_read_request = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
         check_note_header(context, storage_slot, note_interface, note);
-        unique_note_hash = compute_unique_note_hash(note_interface, note);
+        note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
     };
-    context = context.push_read_request(unique_note_hash);
+    context = context.push_read_request(note_hash_for_read_request);
     (context, note)
 }
 
@@ -80,12 +81,12 @@ fn get_notes<Note, N, S, P>(
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
-        let mut unique_note_hash = 0;
+        let mut note_hash_for_read_request = 0;
         if is_dummy(note) == false {
             check_note_header(context, storage_slot, note_interface, note);
-            unique_note_hash = compute_unique_note_hash(note_interface, note);
+            note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
         };
-        context = context.push_read_request(unique_note_hash);
+        context = context.push_read_request(note_hash_for_read_request);
     };
     (context, notes)
 }

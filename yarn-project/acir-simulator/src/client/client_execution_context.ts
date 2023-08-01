@@ -1,10 +1,10 @@
-import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
-import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
+import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 
 import {
   ACVMField,
+  ZERO_ACVM_FIELD,
   fromACVMField,
   toACVMField,
   toAcvmCommitmentLoadOracleInputs,
@@ -172,13 +172,11 @@ export class ClientTxExecutionContext {
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
    */
-  public async pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
-    const wasm = await CircuitsWasm.get();
-    const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
+  public pushNewNote(contractAddress: AztecAddress, storageSlot: ACVMField, preimage: ACVMField[]) {
     this.pendingNotes.push({
       contractAddress,
       storageSlot: fromACVMField(storageSlot),
-      nonce,
+      nonce: Fr.ZERO,
       preimage: preimage.map(f => fromACVMField(f)),
     });
   }

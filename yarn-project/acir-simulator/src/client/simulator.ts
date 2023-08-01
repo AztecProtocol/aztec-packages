@@ -157,7 +157,7 @@ export class AcirSimulator {
         args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
       };
 
-      const [[innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier]] = await this.runUnconstrained(
+      const [[innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier]] = await this.runUnconstrained(
         execRequest,
         abi,
         AztecAddress.ZERO,
@@ -167,8 +167,8 @@ export class AcirSimulator {
 
       return {
         innerNoteHash: new Fr(innerNoteHash),
-        uniqueNoteHash: new Fr(uniqueNoteHash),
         siloedNoteHash: new Fr(siloedNoteHash),
+        uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
         nullifier: new Fr(innerNullifier),
       };
     } catch (e) {
@@ -205,14 +205,14 @@ export class AcirSimulator {
    * @param abi - The ABI of the function `compute_note_hash`.
    * @returns The note hash.
    */
-  public async computeUniqueNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
-    const { uniqueNoteHash } = await this.computeNoteHashAndNullifier(
+  public async computeUniqueSiloedNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
+    const { uniqueSiloedNoteHash } = await this.computeNoteHashAndNullifier(
       contractAddress,
       nonce,
       storageSlot,
       notePreimage,
     );
-    return uniqueNoteHash;
+    return uniqueSiloedNoteHash;
   }
 
   /**

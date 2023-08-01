@@ -1,7 +1,7 @@
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
-    utils::compute_siloed_note_hash,
+    utils::compute_unique_siloed_note_hash,
 };
 use dep::aztec::oracle::{
     rand::rand,
@@ -61,13 +61,13 @@ impl ValueNote {
         if (!self.is_real) {
             0
         } else {
-            let siloed_note_hash = compute_siloed_note_hash(ValueNoteInterface, self);
+            let unique_siloed_note_hash = compute_unique_siloed_note_hash(ValueNoteInterface, self);
             let owner_nullifying_public_key = get_public_key(self.owner);
             // TODO: get_secret_key should just accept an address
             // TODO!
             let secret = get_secret_key(owner_nullifying_public_key);
             dep::std::hash::pedersen([
-                siloed_note_hash,
+                unique_siloed_note_hash,
                 secret, 
             ])[0]
         }

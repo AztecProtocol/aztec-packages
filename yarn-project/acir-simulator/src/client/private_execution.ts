@@ -76,8 +76,8 @@ export class PrivateFunctionExecution {
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: async ([storageSlot], preimage) => {
-        await this.context.pushNewNote(this.contractAddress, storageSlot, preimage);
+      notifyCreatedNote: ([storageSlot], preimage) => {
+        this.context.pushNewNote(this.contractAddress, storageSlot, preimage);
 
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
         // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
@@ -85,7 +85,7 @@ export class PrivateFunctionExecution {
           storageSlot: fromACVMField(storageSlot),
           preimage: preimage.map(f => fromACVMField(f)),
         });
-        return ZERO_ACVM_FIELD;
+        return Promise.resolve(ZERO_ACVM_FIELD);
       },
       notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes
