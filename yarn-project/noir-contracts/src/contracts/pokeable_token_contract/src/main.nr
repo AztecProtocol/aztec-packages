@@ -22,7 +22,7 @@ contract PokeableToken {
     use dep::aztec::log::emit_encrypted_log;
 
     use crate::storage::Storage;
-    use crate::address_note::{AddressNote, AddressNoteInterface};
+    use crate::address_note::{AddressNote, AddressNoteMethods};
 
     // Constructs the contract and sets `initial_supply` which is fully owned by `sender`.
     fn constructor(
@@ -135,7 +135,7 @@ contract PokeableToken {
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         if (storage_slot == 1) | (storage_slot == 2) {
-            note_utils::compute_note_hash_and_nullifier(AddressNoteInterface, note_header, preimage)
+            note_utils::compute_note_hash_and_nullifier(AddressNoteMethods, note_header, preimage)
         } else {
             note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }

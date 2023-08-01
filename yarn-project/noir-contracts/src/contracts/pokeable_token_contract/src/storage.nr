@@ -5,7 +5,7 @@ use dep::aztec::state_vars::{
 };
 use crate::address_note::{
     AddressNote,
-    AddressNoteInterface,
+    AddressNoteMethods,
     ADDRESS_NOTE_LEN,
 };
 use dep::value_note::value_note::{
@@ -23,8 +23,8 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            sender: ImmutableSingleton::new(1, AddressNoteInterface),
-            recipient: ImmutableSingleton::new(2, AddressNoteInterface),
+            sender: ImmutableSingleton::new(1, AddressNoteMethods),
+            recipient: ImmutableSingleton::new(2, AddressNoteMethods),
             balances: Map::new(3, |slot| Set::new(slot, ValueNoteMethods)),
         }
     }
