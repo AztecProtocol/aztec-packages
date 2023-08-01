@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, FunctionData, PrivateKey, TxContext } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 

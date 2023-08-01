@@ -7,7 +7,7 @@ import {
   TxContext,
 } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';

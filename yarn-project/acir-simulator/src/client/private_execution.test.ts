@@ -86,21 +86,20 @@ describe('Private Execution test suite', () => {
     args = [],
     origin = AztecAddress.random(),
     contractAddress = defaultContractAddress,
-    isConstructor = false,
     txContext = {},
   }: {
     abi: FunctionAbi;
     origin?: AztecAddress;
     contractAddress?: AztecAddress;
-    isConstructor?: boolean;
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const packedArguments = await PackedArguments.fromArgs(encodeArguments(abi, args), circuitsWasm);
+    const functionData = FunctionData.fromAbi(abi);
     const txRequest = TxExecutionRequest.from({
       origin,
       argsHash: packedArguments.hash,
-      functionData: new FunctionData(Buffer.alloc(4), false, true, isConstructor),
+      functionData,
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
     });
@@ -110,7 +109,7 @@ describe('Private Execution test suite', () => {
     return acirSimulator.run(
       txRequest,
       abi,
-      isConstructor ? AztecAddress.ZERO : contractAddress,
+      functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       EthAddress.ZERO,
       historicRoots,
     );
@@ -156,7 +155,7 @@ describe('Private Execution test suite', () => {
       const abi = TestContractAbi.functions[0];
       const contractDeploymentData = makeContractDeploymentData(100);
       const txContext = { isContractDeploymentTx: true, contractDeploymentData };
-      const result = await runSimulator({ abi, isConstructor: true, txContext });
+      const result = await runSimulator({ abi, txContext });
 
       const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(emptyCommitments);
@@ -239,10 +238,11 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    it('should a constructor with arguments that inserts notes', async () => {
+    it.only('should a constructor with arguments that inserts notes', async () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const result = await runSimulator({ args: [140, owner], abi, isConstructor: true });
+      const result = await runSimulator({ args: [140, owner], abi });
+      console.log(result.callStackItem.publicInputs);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];

@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
 
 import { Wallet } from '../aztec_rpc_client/wallet.js';

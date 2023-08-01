@@ -11,7 +11,7 @@ import {
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
-import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
