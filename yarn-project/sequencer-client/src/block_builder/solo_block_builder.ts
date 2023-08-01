@@ -45,7 +45,6 @@ import { ProcessedTx } from '../sequencer/processed_tx.js';
 import { RollupSimulator } from '../simulator/index.js';
 import { BlockBuilder } from './index.js';
 import { AllowedTreeNames, OutputWithTreeSnapshot } from './types.js';
-import { pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 
 const frToBigInt = (fr: Fr) => toBigIntBE(fr.toBuffer());
 const bigintToFr = (num: bigint) => new Fr(num);
@@ -108,9 +107,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       ].map(tree => this.getTreeSnapshot(tree)),
     );
 
-    console.log("blocks tree start");
-    console.log(startHistoricBlocksTreeSnapshot);
-
     // Check txs are good for processing
     this.validateTxs(txs);
 
@@ -118,7 +114,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const [circuitsOutput, proof] = await this.runCircuits(globalVariables, txs, newL1ToL2Messages);
 
     const {
-      blockHash,
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
@@ -187,10 +182,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       newUnencryptedLogs,
     });
 
-
-    console.log("l2Block");
-    console.log(l2Block);
-
     if (!l2Block.getCalldataHash().equals(circuitsOutput.sha256CalldataHash())) {
       throw new Error(
         `Calldata hash mismatch, ${l2Block.getCalldataHash().toString('hex')} == ${circuitsOutput
@@ -257,7 +248,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages, globalVariables);
   }
 
   protected async baseRollupCircuit(
@@ -304,6 +295,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
     newL1ToL2Messages: Fr[],
+    globals: GlobalVariables,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
     const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
@@ -326,10 +318,11 @@ export class SoloBlockBuilder implements BlockBuilder {
     await this.db.updateHistoricRootsTrees();
 
     // Calculate the block hash and add it to the historic block hashes tree
-    // TODO(Maddiaa): clean this up a bit - might be worth putting in updateHistoricRootsTrees below
-    const blockHash = await this.calculateBlockHash(left[0].constants.globalVariables);
-    console.log("block hash");
-    console.log(blockHash.toString(true));
+    // TODO(Maddiaa): clean this up a bit - it should be put in updateHistoricRootsTrees above
+    const blockHash = await this.calculateBlockHash(globals);
+    if (!blockHash.equals(rootOutput.blockHash)) {
+      throw new Error(`Block hash calculated from the circuit output ${rootOutput.blockHash} does not match the block hash calculated from the data ${blockHash}`);
+    }
     await this.db.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
 
     await this.validateRootOutput(blockHash, rootOutput);
@@ -338,11 +331,25 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async calculateBlockHash(globals: GlobalVariables) {
-    const roots = this.db.getCommitmentTreeRoots();
+    const [
+      privateDataTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      publicDataTreeRoot,
+      l1ToL2MessageTreeRoot,
+    ] = (await Promise.all(
+      [
+        MerkleTreeId.PRIVATE_DATA_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      ].map(tree => this.getTreeSnapshot(tree)))).map(r => r.root);
+
     const wasm = await CircuitsWasm.get();
     // TODO(Maddiaa): Maybe pass in all of the roots?
     // cleanup
-    const blockHash = computeBlockHash(wasm, globals, Fr.fromBuffer(roots.privateDataTreeRoot), Fr.fromBuffer(roots.nullifierTreeRoot), Fr.fromBuffer(roots.contractDataTreeRoot), Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot));
+    const blockHash = computeBlockHash(wasm, globals, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot);
     return blockHash;
   } 
 
@@ -358,12 +365,13 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
   protected async validateRootOutput(blockHash: Fr, rootOutput: RootRollupPublicInputs) {
+
     await Promise.all([
       this.validateTrees(rootOutput),
       this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
       this.validateRootTree(rootOutput, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, 'PrivateData'),
       this.validateRootTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE, 'L1ToL2Message'),
-      this.validateBlocksTree(blockHash, rootOutput),
+      this.validateTree(rootOutput, MerkleTreeId.BLOCKS_TREE, 'HistoricBlocks'),
       this.validateTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 'L1ToL2Message'),
     ]);
   }
@@ -377,20 +385,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     const localTree = await this.getTreeSnapshot(treeId);
     const simulatedTree = rootOutput[`endTreeOfHistoric${name}TreeRootsSnapshot`];
     this.validateSimulatedTree(localTree, simulatedTree, name, `Roots ${name}`);
-  }
-
-  // TODO maybe use the above method somehow
-  protected async validateBlocksTree(
-    blockHash: Fr,
-    rootOutput: RootRollupPublicInputs,
-  ) {
-    if (!blockHash.equals(rootOutput.blockHash)) {
-      // TODO( MADDIAA): we might not need this as probably will pass it in as a circuit pub input
-      throw new Error(`Block hash ${blockHash} does not match block hash produced in circuit ${rootOutput.blockHash}`);
-    }
-    const localTree = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
-    const simulatedTree = rootOutput[`endHistoricBlocksTreeSnapshot`];
-    this.validateSimulatedTree(localTree, simulatedTree, "Blocks");
   }
 
   /**
@@ -427,7 +421,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected validateSimulatedTree(
     localTree: AppendOnlyTreeSnapshot,
     simulatedTree: AppendOnlyTreeSnapshot,
-    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message' | 'Blocks',
+    name: 'PrivateData' | 'Contract' | 'Nullifier' | 'L1ToL2Message' | 'HistoricBlocks',
     label?: string,
   ) {
     if (!simulatedTree.root.toBuffer().equals(localTree.root.toBuffer())) {

@@ -308,9 +308,9 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * @param innerNullifier - The nullifier to silo.
  * @returns A siloed nullifier.
  */
-export function computeBlockHash(wasm: IWasmModule, globals: GlobalVariables, privateDataTreeRoot: Fr, nullifierTreeRoot: Fr, contractTreeRoot: Fr, l1ToL2DataTreeRoot: Fr): Fr {
+export function computeBlockHash(wasm: IWasmModule, globals: GlobalVariables, privateDataTreeRoot: Fr, nullifierTreeRoot: Fr, contractTreeRoot: Fr, l1ToL2DataTreeRoot: Fr, publicDataTreeRoot: Fr): Fr {
   wasm.call('pedersen__init');
-  return abisComputeBlockHash(wasm, globals, privateDataTreeRoot , nullifierTreeRoot, contractTreeRoot, l1ToL2DataTreeRoot);
+  return abisComputeBlockHash(wasm, globals, privateDataTreeRoot , nullifierTreeRoot, contractTreeRoot, l1ToL2DataTreeRoot, publicDataTreeRoot);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;

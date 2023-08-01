@@ -142,16 +142,15 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename abis::Globa
                                                             typename NCT::fr private_data_tree_root,
                                                             typename NCT::fr nullifier_tree_root,
                                                             typename NCT::fr contract_tree_root,
-                                                            typename NCT::fr l1_to_l2_data_tree_root)
+                                                            typename NCT::fr l1_to_l2_data_tree_root,
+                                                            typename NCT::fr public_data_tree_root)
 {
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
-        globals.hash(), private_data_tree_root, nullifier_tree_root, contract_tree_root, l1_to_l2_data_tree_root
+        globals.hash(),     private_data_tree_root,  nullifier_tree_root,
+        contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
-
-    info("globals: ", globals);
-    info("block hash inputs: ", inputs);
 
     // TODO(Maddiaa): does this need an index?
     return NCT::compress(inputs);

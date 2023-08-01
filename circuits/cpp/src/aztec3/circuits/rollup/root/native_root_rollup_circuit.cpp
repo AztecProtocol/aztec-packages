@@ -153,7 +153,8 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
                                          right.end_private_data_tree_snapshot.root,
                                          right.end_nullifier_tree_snapshot.root,
                                          right.end_contract_tree_snapshot.root,
-                                         new_l1_to_l2_messages_tree_snapshot.root);
+                                         new_l1_to_l2_messages_tree_snapshot.root,
+                                         right.end_public_data_tree_root);
 
     // Update the historic blocks tree
     auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
