@@ -328,25 +328,30 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async calculateBlockHash(globals: GlobalVariables) {
-    const [
+    const [privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
+      await Promise.all(
+        [
+          MerkleTreeId.PRIVATE_DATA_TREE,
+          MerkleTreeId.NULLIFIER_TREE,
+          MerkleTreeId.CONTRACT_TREE,
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        ].map(tree => this.getTreeSnapshot(tree)),
+      )
+    ).map(r => r.root);
+
+    const wasm = await CircuitsWasm.get();
+    const blockHash = computeBlockHash(
+      wasm,
+      globals,
       privateDataTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
-      publicDataTreeRoot,
       l1ToL2MessageTreeRoot,
-    ] = (await Promise.all(
-      [
-        MerkleTreeId.PRIVATE_DATA_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      ].map(tree => this.getTreeSnapshot(tree)))).map(r => r.root);
-
-    const wasm = await CircuitsWasm.get();
-    const blockHash = computeBlockHash(wasm, globals, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot);
+      publicDataTreeRoot,
+    );
     return blockHash;
-  } 
+  }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
@@ -474,9 +479,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Get historic block tree roots
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
-    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(
-      MerkleTreeId.BLOCKS_TREE,
-    );
+    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.BLOCKS_TREE);
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -488,7 +491,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startL1ToL2MessageTreeSnapshot,
       startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
-      newHistoricBlocksTreeSiblingPath
+      newHistoricBlocksTreeSiblingPath,
     });
   }
 
