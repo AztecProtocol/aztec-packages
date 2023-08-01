@@ -103,10 +103,6 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     read_requests[1] = siloed_commitments[3];
     read_request_membership_witnesses[0].is_transient = true;
     read_request_membership_witnesses[1].is_transient = true;
-    // ordering circuit should squash and remove transient reads
-    // unique_siloed_commitments[0] = 0;
-    // unique_siloed_commitments[1] = 0;
-    // array_rearrange(unique_siloed_commitments);
 
     private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
     private_inputs.previous_kernel.public_inputs.end.new_commitments = siloed_commitments;

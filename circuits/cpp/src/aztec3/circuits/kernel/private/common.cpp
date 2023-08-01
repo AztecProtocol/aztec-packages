@@ -59,15 +59,14 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param storage_contract_address Contract address to use when siloing read requests
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
- * @param read_requests the commitments being read by this private call
+ * @param read_requests the commitments being read by this private call - transient reads here are
+ * `inner_note_hashes` (not yet siloed, not unique), but non-transient reads are `unique_siloed_note_hashes`
  * @param read_request_membership_witnesses used to compute the private data root
  * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
-                                   // NT::fr const& _storage_contract_address,
                                    NT::fr const& historic_private_data_tree_root,
                                    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
@@ -87,9 +86,6 @@ void common_validate_read_requests(DummyBuilder& builder,
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
-        //// the read request comes un-siloed from the app circuit so we must silo it here
-        //// so that it matches the private data tree leaf that we are membership checking
-        // const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
@@ -110,24 +106,19 @@ void common_validate_read_requests(DummyBuilder& builder,
                                      root_for_read_request,
                                      "\n\tread_request**:   ",
                                      read_request,
-                                     //"\n\tsiloed-rr (leaf): ",
-                                     // leaf,
                                      "\n\tleaf_index: ",
                                      witness.leaf_index,
                                      "\n\tis_transient: ",
                                      witness.is_transient,
                                      "\n\thint_to_commitment: ",
                                      witness.hint_to_commitment,
-                                     //"\n\t* got root by siloing read_request (compressing with "
-                                     //"storage_contract_address to get leaf) "
-                                     //"and merkle-hashing to a root using membership witness"),
                                      "\n\t* got root by treating the read_request as a leaf in the private data tree "
                                      "and merkle-hashing to a root using the membership witness"
                                      "\n\t** for non-transient reads, the read_request is the unique_siloed_note_hash "
                                      "(it has been hashed with contract address and then a nonce)"),
                               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
-            // TODO(dbanks12): do we need to check that non-transient read_request was derived from the proper/current
-            // contract address?
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
+            // that a non-transient read_request was derived from the proper/current contract address?
         }
     }
 }
