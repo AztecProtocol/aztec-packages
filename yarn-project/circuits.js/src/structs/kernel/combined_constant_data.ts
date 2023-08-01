@@ -105,10 +105,18 @@ export class CombinedHistoricTreeRoots {
      * Root of the trees relevant for kernel circuits.
      */
     public readonly privateHistoricTreeRoots: PrivateHistoricTreeRoots,
+    /**
+     * Previous globals hash
+     */
+    public readonly prevGlobalVariablesHash: Fr,
+    /**
+     * Current public state tree hash. TODO(): THIS IS NOT A NICE SOLUTION TO THIS PROBLEM TO GET THE BLOCK HASH
+     */
+    public readonly publicDataTreeRoot: Fr,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.privateHistoricTreeRoots);
+    return serializeToBuffer(this.privateHistoricTreeRoots, this.prevGlobalVariablesHash, this.publicDataTreeRoot);
   }
 
   toString() {
@@ -117,7 +125,7 @@ export class CombinedHistoricTreeRoots {
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new CombinedHistoricTreeRoots(reader.readObject(PrivateHistoricTreeRoots));
+    return new CombinedHistoricTreeRoots(reader.readObject(PrivateHistoricTreeRoots), reader.readFr(), reader.readFr());
   }
 
   isEmpty() {
@@ -125,7 +133,7 @@ export class CombinedHistoricTreeRoots {
   }
 
   static empty() {
-    return new CombinedHistoricTreeRoots(PrivateHistoricTreeRoots.empty());
+    return new CombinedHistoricTreeRoots(PrivateHistoricTreeRoots.empty(), Fr.ZERO, Fr.ZERO);
   }
 }
 

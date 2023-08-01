@@ -213,6 +213,8 @@ l1_to_l2_messages_tree_root: 0x203
 blocks_tree_root: 0x204
 private_kernel_vk_tree_root: 0x205
 
+public_data_tree_root: 0x205
+prev_global_variables_hash: 0x206
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
@@ -456,6 +458,8 @@ l1_to_l2_messages_tree_root: 0x303
 blocks_tree_root: 0x304
 private_kernel_vk_tree_root: 0x305
 
+public_data_tree_root: 0x305
+prev_global_variables_hash: 0x306
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0

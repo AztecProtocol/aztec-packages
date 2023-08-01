@@ -698,21 +698,41 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
 
 interface MsgpackCombinedHistoricTreeRoots {
   private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
+  public_data_tree_root: Buffer;
+  prev_global_variables_hash: Buffer;
 }
 
 export function toCombinedHistoricTreeRoots(o: MsgpackCombinedHistoricTreeRoots): CombinedHistoricTreeRoots {
   if (o.private_historic_tree_roots === undefined) {
     throw new Error('Expected private_historic_tree_roots in CombinedHistoricTreeRoots deserialization');
   }
-  return new CombinedHistoricTreeRoots(toPrivateHistoricTreeRoots(o.private_historic_tree_roots));
+  if (o.public_data_tree_root === undefined) {
+    throw new Error('Expected public_data_tree_root in CombinedHistoricTreeRoots deserialization');
+  }
+  if (o.prev_global_variables_hash === undefined) {
+    throw new Error('Expected prev_global_variables_hash in CombinedHistoricTreeRoots deserialization');
+  }
+  return new CombinedHistoricTreeRoots(
+    toPrivateHistoricTreeRoots(o.private_historic_tree_roots),
+    Fr.fromBuffer(o.public_data_tree_root),
+    Fr.fromBuffer(o.prev_global_variables_hash),
+  );
 }
 
 export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): MsgpackCombinedHistoricTreeRoots {
   if (o.privateHistoricTreeRoots === undefined) {
     throw new Error('Expected privateHistoricTreeRoots in CombinedHistoricTreeRoots serialization');
   }
+  if (o.publicDataTreeRoot === undefined) {
+    throw new Error('Expected publicDataTreeRoot in CombinedHistoricTreeRoots serialization');
+  }
+  if (o.prevGlobalVariablesHash === undefined) {
+    throw new Error('Expected prevGlobalVariablesHash in CombinedHistoricTreeRoots serialization');
+  }
   return {
     private_historic_tree_roots: fromPrivateHistoricTreeRoots(o.privateHistoricTreeRoots),
+    public_data_tree_root: toBuffer(o.publicDataTreeRoot),
+    prev_global_variables_hash: toBuffer(o.prevGlobalVariablesHash),
   };
 }
 
