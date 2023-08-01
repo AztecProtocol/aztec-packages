@@ -1,8 +1,8 @@
 use dep::aztec::state_vars::map::Map;
 use dep::aztec::state_vars::public_state::PublicState;
-use dep::aztec::state_vars::type_serde_interface::TypeSerdeInterface;
-use dep::aztec::state_vars::type_serde_interface::field_serde_interface::FieldSerdeInterface;
-use dep::aztec::state_vars::type_serde_interface::field_serde_interface::FIELD_SERIALISED_LEN;
+use dep::aztec::state_vars::type_serialisation_interface::TypeSerialisationInterface;
+use dep::aztec::state_vars::type_serialisation_interface::field_serialisation_interface::FieldSerialisationInterface;
+use dep::aztec::state_vars::type_serialisation_interface::field_serialisation_interface::FIELD_SERIALISED_LEN;
 use dep::std::hash::pedersen;
 
 // Utility struct used to easily get a "id" for a private user that sits in the same
@@ -53,7 +53,7 @@ fn serialiseTot(tot: Tot) -> [Field; TOT_SERIALISED_LEN] {
     [tot.interest_accumulator as Field, tot.last_updated_ts as Field]
 }
 
-global TotSerdeInterface = TypeSerdeInterface {
+global TotSerialisationInterface = TypeSerialisationInterface {
     deserialise: deserialiseTot,
     serialise: serialiseTot,
 };
@@ -78,7 +78,7 @@ fn serialisePos(pos: Pos) -> [Field; POS_SERIALISED_LEN] {
     [pos.owner, pos.value]
 }
 
-global PosSerdeInterface = TypeSerdeInterface {
+global PosSerialisationInterface = TypeSerialisationInterface {
     deserialise: deserialisePos,
     serialise: serialisePos,
 };
@@ -94,9 +94,9 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            assets: Map::new(1, |slot| PublicState::new(slot, TotSerdeInterface)), // uses 2 storage slots.
-            collateral: Map::new(2, |slot| PublicState::new(slot, FieldSerdeInterface)), // uses 1 storage slots.
-            static_debt: Map::new(3, |slot| PublicState::new(slot, FieldSerdeInterface)), // uses 1 storage slots. 
+            assets: Map::new(1, |slot| PublicState::new(slot, TotSerialisationInterface)), // uses 2 storage slots.
+            collateral: Map::new(2, |slot| PublicState::new(slot, FieldSerialisationInterface)), // uses 1 storage slots.
+            static_debt: Map::new(3, |slot| PublicState::new(slot, FieldSerialisationInterface)), // uses 1 storage slots. 
         }
     }
 }

@@ -2,9 +2,9 @@ use dep::aztec::state_vars::{
     map::Map,
     set::Set,
     public_state::PublicState,
-    type_serde_interface::field_serde_interface::{
+    type_serialisation_interface::field_serialisation_interface::{
         FIELD_SERIALISED_LEN,
-        FieldSerdeInterface,
+        FieldSerialisationInterface,
     },
 };
 
@@ -24,7 +24,7 @@ impl Storage {
     fn init() -> Self {
         Storage {
             balances: Map::new(1, |slot| Set::new(slot, ValueNoteInterface)),
-            public_balances: Map::new(2, |slot| PublicState::new(slot, FieldSerdeInterface)),
+            public_balances: Map::new(2, |slot| PublicState::new(slot, FieldSerialisationInterface)),
         }
     }
 }
