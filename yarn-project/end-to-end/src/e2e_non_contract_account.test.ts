@@ -63,12 +63,11 @@ describe('e2e_non_contract_account', () => {
     logger(`Deploying L2 contract...`);
     const tx = PokeableTokenContract.deploy(aztecRpcServer, initialBalance, sender, recipient, poker).send();
     const receipt = await tx.getReceipt();
-    contract = await PokeableTokenContract.create(receipt.contractAddress!, wallet);
     await tx.isMined(0, 0.1);
     const minedReceipt = await tx.getReceipt();
     expect(minedReceipt.status).toEqual(TxStatus.MINED);
     logger('L2 contract deployed');
-    return contract;
+    contract = await PokeableTokenContract.create(receipt.contractAddress!, wallet);
   }, 100_000);
 
   afterEach(async () => {
