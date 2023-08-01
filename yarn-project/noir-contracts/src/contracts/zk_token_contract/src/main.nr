@@ -6,7 +6,7 @@ contract ZkToken {
     use dep::value_note::{
         balance_utils,
         utils::{send_note, spend_notes},
-        value_note::{VALUE_NOTE_LEN, ValueNoteInterface},
+        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
     use dep::aztec::abi;
@@ -169,7 +169,7 @@ contract ZkToken {
         if (storage_slot == 2) {
             note_utils::compute_note_hash_and_nullifier(ClaimNoteInterface, note_header, preimage)
         } else {
-            note_utils::compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
     }
 }

@@ -10,7 +10,7 @@ use crate::address_note::{
 };
 use dep::value_note::value_note::{
     ValueNote,
-    ValueNoteInterface,
+    ValueNoteMethods,
     VALUE_NOTE_LEN,
 };
 
@@ -25,7 +25,7 @@ impl Storage {
         Storage {
             sender: ImmutableSingleton::new(1, AddressNoteInterface),
             recipient: ImmutableSingleton::new(2, AddressNoteInterface),
-            balances: Map::new(3, |s| Set::new(s, ValueNoteInterface)),
+            balances: Map::new(3, |slot| Set::new(slot, ValueNoteMethods)),
         }
     }
 }

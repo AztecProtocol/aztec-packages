@@ -6,7 +6,7 @@ contract PokeableToken {
     use dep::value_note::{
         balance_utils,
         utils::{send_note, spend_notes},
-        value_note::{VALUE_NOTE_LEN, ValueNoteInterface, ValueNote},
+        value_note::{VALUE_NOTE_LEN, ValueNoteMethods, ValueNote},
         filter::get_2_notes,
     };
     use dep::aztec::abi;
@@ -137,7 +137,7 @@ contract PokeableToken {
         if (storage_slot == 1) | (storage_slot == 2) {
             note_utils::compute_note_hash_and_nullifier(AddressNoteInterface, note_header, preimage)
         } else {
-            note_utils::compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
     }
 }
