@@ -1,6 +1,13 @@
-import { AztecAddress, CircuitsWasm, FunctionData, PartialContractAddress, TxContext } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  FunctionData,
+  PartialContractAddress,
+  PrivateKey,
+  TxContext,
+} from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';
@@ -19,7 +26,7 @@ export class SingleKeyAccountContract implements AccountImplementation {
   constructor(
     private address: AztecAddress,
     private partialContractAddress: PartialContractAddress,
-    private privateKey: Buffer,
+    private privateKey: PrivateKey,
     private signer: Signer,
   ) {}
 
@@ -43,12 +50,11 @@ export class SingleKeyAccountContract implements AccountImplementation {
     const publicKey = await generatePublicKey(this.privateKey);
     const args = [payload, publicKey.toBuffer(), signature, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
-    const selector = generateFunctionSelector(abi.name, abi.parameters);
     const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args), wasm);
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,
-      functionData: new FunctionData(selector, true, false),
+      functionData: FunctionData.fromAbi(abi),
       txContext,
       packedArguments: [...callsPackedArguments, packedArgs],
     });

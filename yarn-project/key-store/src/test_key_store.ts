@@ -1,4 +1,5 @@
-import { Curve } from '@aztec/circuits.js/barretenberg';
+import { PrivateKey } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { KeyPair, KeyStore, PublicKey } from '@aztec/types';
 
 import { ConstantKeyPair } from './key_pair.js';
@@ -9,7 +10,7 @@ import { ConstantKeyPair } from './key_pair.js';
  */
 export class TestKeyStore implements KeyStore {
   private accounts: KeyPair[] = [];
-  constructor(private curve: Curve) {}
+  constructor(private curve: Grumpkin) {}
 
   /**
    * Adds an account to the key store from the provided private key.
@@ -17,7 +18,7 @@ export class TestKeyStore implements KeyStore {
    * @param privKey - The private key of the account.
    * @returns - The account's public key.
    */
-  public addAccount(privKey: Buffer): PublicKey {
+  public addAccount(privKey: PrivateKey): PublicKey {
     const keyPair = ConstantKeyPair.fromPrivateKey(this.curve, privKey);
 
     // check if private key has already been used
@@ -61,7 +62,7 @@ export class TestKeyStore implements KeyStore {
    * @returns A Promise that resolves to a Buffer containing the private key.
    * @deprecated We should not require a keystore to expose private keys in plain.
    */
-  public getAccountPrivateKey(pubKey: PublicKey): Promise<Buffer> {
+  public getAccountPrivateKey(pubKey: PublicKey): Promise<PrivateKey> {
     const account = this.getAccount(pubKey);
     return account.getPrivateKey();
   }

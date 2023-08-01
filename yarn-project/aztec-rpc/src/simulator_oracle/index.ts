@@ -6,6 +6,7 @@ import {
   Fr,
   PartialContractAddress,
   PrivateHistoricTreeRoots,
+  PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
@@ -37,7 +38,7 @@ export class SimulatorOracle implements DBOracle {
    * @returns A Promise that resolves to the secret key as a Buffer.
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<Buffer> {
+  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey> {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
@@ -66,11 +67,12 @@ export class SimulatorOracle implements DBOracle {
    */
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, nullifier, index }) => ({
       contractAddress,
       storageSlot,
       nonce,
       preimage: notePreimage.items,
+      nullifier,
       // RPC Client can use this index to get full MembershipWitness
       index,
     }));

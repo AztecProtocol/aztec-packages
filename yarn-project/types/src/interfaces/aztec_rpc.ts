@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr, PartialContractAddress, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   ContractData,
@@ -51,7 +51,7 @@ export type NodeInfo = {
  */
 export interface AztecRPC {
   addAccount(
-    privKey: Buffer,
+    privKey: PrivateKey,
     address: AztecAddress,
     partialContractAddress: PartialContractAddress,
   ): Promise<AztecAddress>;
@@ -67,8 +67,8 @@ export interface AztecRPC {
   simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
   sendTx(tx: Tx): Promise<TxHash>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
-  getStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
-  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any>;
+  getPreimagesAt(contract: AztecAddress, storageSlot: Fr): Promise<bigint[][]>;
+  getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<Buffer | undefined>;
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
   getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
   getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;

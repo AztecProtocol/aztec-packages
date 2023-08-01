@@ -13,29 +13,29 @@ We'll refer to AA as the _ability to set the validity conditions of a transactio
 - Fee abstraction (paying fees)
 - Nonce abstraction (replay protection and ordering)
 
-In most AA schemes, the identity of a user is no longer represented by a keypair but by a contract, often called a smart contract wallet or account contract. This contract receives tx payloads which are validated with custom logic, and then interpreted as actions to execute, like calling into another contract.
+In most AA schemes, the identity of a user is no longer represented by a keypair but by a contract, often called a smart contract wallet or account contract. This contract receives transaction payloads which are validated with custom logic, and then interpreted as actions to execute, like calling into another contract.
 
-The benefits of AA are multiple. We're not going to reiterate them all here, but they include social recovery, MFA, batching, session keys, sponsored txs, fee payment in kind, supporting key schemes from different realms, etc. Read the articles from [Argent](https://www.argent.xyz/blog/part-3-wtf-is-account-abstraction/) or [Ethereum.org](https://ethereum.org/en/roadmap/account-abstraction/) for more detailed info.
+The benefits of AA are multiple. We're not going to reiterate them all here, but they include social recovery, MFA, batching, session keys, sponsored transactions, fee payment in kind, supporting key schemes from different realms, etc. Read the articles from [Argent](https://www.argent.xyz/blog/part-3-wtf-is-account-abstraction/) or [Ethereum.org](https://ethereum.org/en/roadmap/account-abstraction/) for more detailed info.
 
 ### Implementing at protocol vs application layer
 
-Account abstraction can be implemented at the application layer of a network using smart accounts and meta-transactions. The tx being sent to the network is still an Ethereum tx, but its payload is interpreted as a "transaction execution request" that is validated and run by the smart contract wallet. 
+Instead of implementing it at the protocol level as in Aztec, account abstraction can be implemented at the application layer of a network using smart accounts and meta-transactions. When implementing account abstraction on Ethereum, the transaction being sent to the network is still an Ethereum transaction, but its payload is interpreted as a "transaction execution request" that is validated and run by the smart contract wallet. 
 
 A simple example would be Gnosis Safe (see [_Account Abstraction is NOT coming_](https://safe.mirror.xyz/9KmZjEbFkmI79s28d9xar6JWYrE50F5AHpa5CR12YGI)), where it's the multisig contract responsibility to define when an execution request is valid by checking it carries N out of M signatures, and then executing it. [Argent](https://www.argent.xyz/blog/wtf-is-account-abstraction/) has also been working on smart wallets for years, and collaborating with network teams to implement AA natively at the protocol layer.
 
-Ethereum is currently following this approach via [EIP4337](https://eips.ethereum.org/EIPS/eip-4337), an evolution of the [GSN](https://opengsn.org/). This EIP defines a standard method for relaying meta-txs in a decentralized way, including options for delegating payment to other agents (called paymasters). See [this chart](https://twitter.com/koeppelmann/status/1632257610455089154) on how 4337 relates to other smart contract wallet efforts.
+Ethereum is currently following this approach via [EIP4337](https://eips.ethereum.org/EIPS/eip-4337), an evolution of the [GSN](https://opengsn.org/). This EIP defines a standard method for relaying meta-transactions in a decentralized way, including options for delegating payment to other agents (called paymasters). See [this chart](https://twitter.com/koeppelmann/status/1632257610455089154) on how 4337 relates to other smart contract wallet efforts.
 
-Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (eg the wrapper tx in a meta-txs still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
+Implementing AA at the application layer has the main drawback that it's more complex than doing so at the protocol layer. It also leads to duplicated efforts in both layers (eg the wrapper transaction in a meta-transactions still needs to be checked for its ECDSA signature, and then the smart contract wallet needs to verify another set of signatures).
 
-Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new tx type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
+Now, there have also been multiple proposals for getting AA implemented at the _protocol_ level in Ethereum. This usually implies introducing a new transaction type or set of opcodes where signature verification and fee payment is handled by the EVM. See EIPs [2803](https://eips.ethereum.org/EIPS/eip-2803), [2938](https://eips.ethereum.org/EIPS/eip-2938), or [3074](https://eips.ethereum.org/EIPS/eip-3074). None of these have gained traction due to the efforts involved in implementing while keeping backwards compatibility.
 
 However, other chains are experimenting with protocol-level AA. Both [Starknet](https://docs.starknet.io/documentation/architecture_and_concepts/Account_Abstraction/introduction/) and [zkSync](https://era.zksync.io/docs/dev/developer-guides/aa.html) have native AA, zkSync being the first EVM-compatible one to do so. To maintain Ethereum compatibility, zkSync implements a [default account contract](https://github.com/matter-labs/era-system-contracts/blob/main/contracts/DefaultAccount.sol) in Solidity that mimicks Ethereum's protocol behaviour.
 
 ### Preventing DoS attacks
 
-Protocol AA implementations are vulnerable to DoS attacks due to the unrestricted cost of validating a tx. If validating a tx requires custom logic that can be arbitrarily expensive, an attacker can flood the mempool with these txs that block builders cannot differentiate from legit ones.
+Protocol AA implementations are vulnerable to DoS attacks due to the unrestricted cost of validating a transaction. If validating a transaction requires custom logic that can be arbitrarily expensive, an attacker can flood the mempool with these transactions that block builders cannot differentiate from legit ones.
 
-Application AA implementations face a similar issue: a smart wallet could return that a tx is valid when a relayer is about to submit it on-chain and pay for its gas, but when the tx is actually mined it could turn invalid.
+Application AA implementations face a similar issue: a smart wallet could return that a transaction is valid when a relayer is about to submit it on-chain and pay for its gas, but when the transaction is actually mined it could turn invalid.
 
 All implementations mitigate these issues by restricting what's doable in the validation phase. EIP4337 defines a set of prohibited opcodes and limits storage access (see [Simulation](https://eips.ethereum.org/EIPS/eip-4337#simulation) in the EIP), and requires a [reputation system](https://eips.ethereum.org/EIPS/eip-4337#reputation-scoring-and-throttlingbanning-for-global-entities) for global entities. zkSync [relaxes](https://era.zksync.io/docs/dev/developer-guides/aa.html#extending-eip4337) opcode requirements a bit, and Starknet simply [does not allow to call external contracts](https://docs.starknet.io/documentation/architecture_and_concepts/Account_Abstraction/validate_and_execute/#validate_limitations).
 
@@ -82,7 +82,7 @@ This means that, unlike other protocols, Aztec does not impose any restrictions 
 
 ### Nonces and replay protection
 
-Every execution in the protocol emits the hash of the request as a nullifier, preventing the same transaction from being executed more than once. Nonces, on the other hand, are left to the account contract implementation. This allows building accounts with strictly incremental nonces or where transactions can be processed out-of-order.
+Every transaction execution considered valid by the protocol emits the hash of the transaction execution request as a nullifier, preventing the same transaction from being executed more than once. Nonces, on the other hand, are left to the account contract implementation. This allows building accounts with strictly incremental nonces or where transactions can be processed out-of-order.
 
 A side-effect of not having nonces at the protocol level is that it is not possible to cancel pending transactions by submitting a new transaction with higher fees and the same nonce.
 
@@ -90,7 +90,7 @@ A side-effect of not having nonces at the protocol level is that it is not possi
 
 Since the `entrypoint` interface is not enshrined, there is nothing that differentiates an account contract from an application one in the protocol. This means that a transaction can be initiated in any contract. This allows implementing functions that do not need to be called by any particular user and are just intended to advance the state of a contract.
 
-As an example, we can think of a lottery contract, where at some point a prize needs to be paid out to its winners. This `pay` action does not require authentication and does not need to be executed by any user in particular, so anyone could submit a transaction that defines the lottery contract itself as `origin` and `pay` as entrypoint function.  For an example implementation of a different use case, refer to the `pokeable_token_contract` in the repository.
+As an example, we can think of a lottery contract, where at some point a prize needs to be paid out to its winners. This `pay` action does not require authentication and does not need to be executed by any user in particular, so anyone could submit a transaction that defines the lottery contract itself as `origin` and `pay` as entrypoint function.  For an example implementation of a different use case, refer to the [`pokeable_token_contract`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/pokeable_token_contract/src/main.nr) in the repository.
 
 ### Account initialization
 
@@ -100,7 +100,7 @@ However, this is not required when sitting on the receiving end. A user can dete
 
 ### Encryption and nullifying keys
 
-Aztec requires users to define [encryption and nullifying keys](./keys.md) that are needed for receiving and spending private notes. Unlike transaction signing, encryption and nullifying is enshrined at the protocol. This means that there is a single scheme used for encryption and nullifying. These keys are derived from a master public key, which is committed to as part of the address.
+Aztec requires users to define [encryption and nullifying keys](./keys.md) that are needed for receiving and spending private notes. Unlike transaction signing, encryption and nullifying is enshrined at the protocol. This means that there is a single scheme used for encryption and nullifying. These keys are derived from a master public key. This master public key, in turn, is used when deterministically deriving the account's address.
 
 A side effect of committing to a master public key as part of the address is that _this key cannot be rotated_. While an account contract implementation could include methods for rotating the signing key, this is unfortunately not possible for encryption and nullifying keys (note that rotating nullifying keys also creates other challenges such as preventing double spends). We are exploring usage of the slow updates tree to enable rotating these keys.
 
@@ -108,6 +108,6 @@ NOTE: While we entertained the idea of abstracting note encryption, where accoun
 
 ### Fee management
 
-Fees are not implemented in the protocol at the time of this writing. Our goal is to abstract fee payments as well. This means that a transaction, in order to be considered valid, must prove that it has loocked enough funds to pay for itself. However, this does not mandate where those funds come from, opening the door for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
+Fees are not implemented in the protocol at the time of this writing. Our goal is to abstract fee payments as well. This means that a transaction, in order to be considered valid, must prove that it has locked enough funds to pay for itself. However, this does not mandate where those funds come from, opening the door for easy implementation of paymasters or payment-in-kind via on-the-fly swaps.
 
 However, there is one major consideration around public execution reverts. In the current design, if one of the public function executions enqueued in a transaction fails, then the entire transaction is reverted. But reverting the whole transaction would also revert the fee payment, and leave the sequencer with their hands empty after running the public execution. This means we will need to enshrine an initial verification and fee payment phase that is _not_ reverted if public execution fails.

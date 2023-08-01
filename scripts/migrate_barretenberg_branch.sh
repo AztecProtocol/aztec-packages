@@ -18,6 +18,22 @@ if ! git diff-index --quiet HEAD --; then
     exit 1
 fi
 
+# Check if the current branch is master
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [ "$current_branch" != "master" ]; then
+    echo "Error: This script must be run from the 'master' branch. Current branch is '$current_branch'"
+    exit 1
+fi
+
+# Fetch the latest updates from origin
+git fetch origin
+
+# Check if master is same as origin/master
+if ! git diff --quiet master origin/master; then
+    echo "Error: Local 'master' branch is not up to date with 'origin/master'. Please pull the latest changes."
+    exit 1
+fi
+
 BRANCH="$1"
 COMMIT_MESSAGE="$2"
 SUBREPO_PATH=circuits/cpp/barretenberg # can be changed to another subrepo if useful
@@ -36,8 +52,7 @@ fi
 git checkout -b "$BRANCH"
 
 echo "(branch migrate) Pulling from upstream barretenberg repo. If this doesn't work, your barretenberg branch may need to merge barretenberg master."
-# note: we use force with the assumption that people don't care about their subrepo stash branch
-if ! scripts/git_subrepo.sh pull "$SUBREPO_PATH" --branch=$BRANCH --force; then
+if ! scripts/git_subrepo.sh pull "$SUBREPO_PATH" --branch=$BRANCH; then
     echo "Error: Failed to pull from upstream barretenberg repo. Check your branch name or network connection."
     exit 1
 fi

@@ -5,7 +5,7 @@ import {
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { Curve } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -39,7 +39,7 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private argsHash: Fr,
     private callContext: CallContext,
-    private curve: Curve,
+    private curve: Grumpkin,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -76,8 +76,13 @@ export class PrivateFunctionExecution {
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
-      notifyCreatedNote: ([storageSlot], preimage) => {
-        this.context.pushNewNote(this.contractAddress, storageSlot, preimage);
+      notifyCreatedNote: ([storageSlot], preimage, [innerNoteHash]) => {
+        this.context.pushNewNote(
+          this.contractAddress,
+          fromACVMField(storageSlot),
+          preimage.map(f => fromACVMField(f)),
+          fromACVMField(innerNoteHash),
+        );
 
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
         // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
@@ -87,13 +92,14 @@ export class PrivateFunctionExecution {
         });
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: ([slot], [nullifier], acvmPreimage) => {
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): track list of pendingNullifiers similar to pendingNotes
+      notifyNullifiedNote: ([slot], [nullifier], acvmPreimage, [innerNoteHash]) => {
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
           nullifier: fromACVMField(nullifier),
         });
+        this.context.pushPendingNullifier(fromACVMField(nullifier));
+        this.context.nullifyPendingNotes(fromACVMField(innerNoteHash), this.contractAddress, fromACVMField(slot));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
@@ -257,10 +263,10 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgsHash: Fr,
     callerContext: CallContext,
-    curve: Curve,
+    curve: Grumpkin,
   ) {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
-    const targetFunctionData = new FunctionData(targetFunctionSelector, true, false);
+    const targetFunctionData = FunctionData.fromAbi(targetAbi);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
     const context = this.context.extend();
 
@@ -293,11 +299,13 @@ export class PrivateFunctionExecution {
     targetArgs: Fr[],
     callerContext: CallContext,
   ): Promise<PublicCallRequest> {
+    const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
+
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
-      functionData: new FunctionData(targetFunctionSelector, false, false),
+      functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
     });
   }

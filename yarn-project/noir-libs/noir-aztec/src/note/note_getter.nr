@@ -28,15 +28,14 @@ fn check_note_header<Note, N>(
 }
 
 fn ensure_note_exists<Note, N>(
-    mut context: Context,
+    context: &mut Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    note: Note,
-) -> (Context, Note) {
-    let mut note_with_header = note;
+    note: &mut Note,
+) {
     let mut note_hash_for_read_request = 0;
     let is_dummy = note_interface.is_dummy;
-    if is_dummy(note) == false {
+    if is_dummy(*note) == false {
         // Get a note from oracle and early out if it doesn't exist.
         let saved_note = get_note_internal(storage_slot, note_interface);
         assert(is_dummy(saved_note) == false);
@@ -44,51 +43,50 @@ fn ensure_note_exists<Note, N>(
         // Only copy over the header to the original note to make sure the preimage is the same.
         let get_header = note_interface.get_header;
         let set_header = note_interface.set_header;
-        let header = get_header(saved_note);
-        note_with_header = set_header(note, header);
+        let note_header = get_header(saved_note);
+        set_header(note, note_header);
 
-        check_note_header(context, storage_slot, note_interface, note_with_header);
+        check_note_header(*context, storage_slot, note_interface, *note);
 
-        note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note_with_header);
+        note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, *note);
     };
-    context = context.push_read_request(note_hash_for_read_request);
-    (context, note_with_header)
+    context.push_read_request(note_hash_for_read_request);
 }
 
 fn get_note<Note, N>(
-    mut context: Context,
+    context: &mut Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-) -> (Context, Note) {
+) -> Note {
     let note = get_note_internal(storage_slot, note_interface);
     let mut note_hash_for_read_request = 0;
     let is_dummy = note_interface.is_dummy;
     if is_dummy(note) == false {
-        check_note_header(context, storage_slot, note_interface, note);
+        check_note_header(*context, storage_slot, note_interface, note);
         note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
     };
-    context = context.push_read_request(note_hash_for_read_request);
-    (context, note)
+    context.push_read_request(note_hash_for_read_request);
+    note
 }
 
 fn get_notes<Note, N, S, P>(
-    mut context: Context,
+    context: &mut Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
-) -> (Context, [Note; S]) {
+) -> [Note; S] {
     let notes = get_notes_internal(storage_slot, note_interface, options);
     let is_dummy = note_interface.is_dummy;
     for i in 0..notes.len() {
         let note = notes[i];
         let mut note_hash_for_read_request = 0;
         if is_dummy(note) == false {
-            check_note_header(context, storage_slot, note_interface, note);
+            check_note_header(*context, storage_slot, note_interface, note);
             note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
         };
-        context = context.push_read_request(note_hash_for_read_request);
+        context.push_read_request(note_hash_for_read_request);
     };
-    (context, notes)
+    notes
 }
 
 unconstrained fn get_note_internal<Note, N>(

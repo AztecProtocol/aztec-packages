@@ -4,12 +4,14 @@
     {
       "name": "constructor",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [],
       "returnTypes": []
     },
     {
       "name": "entrypoint",
       "functionType": "secret",
+      "isInternal": false,
       "parameters": [
         {
           "name": "payload",
@@ -20,7 +22,7 @@
                 "name": "flattened_args_hashes",
                 "type": {
                   "kind": "array",
-                  "length": 2,
+                  "length": 4,
                   "type": {
                     "kind": "field"
                   }
@@ -30,7 +32,7 @@
                 "name": "flattened_selectors",
                 "type": {
                   "kind": "array",
-                  "length": 2,
+                  "length": 4,
                   "type": {
                     "kind": "field"
                   }
@@ -40,7 +42,7 @@
                 "name": "flattened_targets",
                 "type": {
                   "kind": "array",
-                  "length": 2,
+                  "length": 4,
                   "type": {
                     "kind": "field"
                   }

@@ -28,7 +28,7 @@ contract Test {
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([address]));
         let pub_key = get_public_key(address);
-        context.return_values = context.return_values.push_array([pub_key.x, pub_key.y]);
+        context.return_values.push_array([pub_key.x, pub_key.y]);
         context.finish()
     }
 
@@ -50,7 +50,7 @@ contract Test {
         _inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> Field {
+    ) -> pub Field {
     
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);

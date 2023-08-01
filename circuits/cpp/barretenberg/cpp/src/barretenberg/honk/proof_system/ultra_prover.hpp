@@ -1,8 +1,9 @@
 #pragma once
+#include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/pcs/gemini/gemini.hpp"
-#include "barretenberg/honk/pcs/shplonk/shplonk_single.hpp"
+#include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/work_queue.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
@@ -38,14 +39,13 @@ template <UltraFlavor Flavor> class UltraProver_ {
     void execute_shplonk_partial_evaluation_round();
     void execute_final_pcs_round();
 
-    void compute_wire_commitments();
-
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
     ProverTranscript<FF> transcript;
 
     std::vector<FF> public_inputs;
+    size_t pub_inputs_offset; // offset of the PI relative to 0th index in the wire polynomials
 
     sumcheck::RelationParameters<FF> relation_parameters;
 
@@ -71,8 +71,8 @@ template <UltraFlavor Flavor> class UltraProver_ {
     pcs::shplonk::ProverOutput<PCSParams> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
 
-    using Gemini = pcs::gemini::MultilinearReductionScheme<PCSParams>;
-    using Shplonk = pcs::shplonk::SingleBatchOpeningScheme<PCSParams>;
+    using Gemini = pcs::gemini::GeminiProver_<PCSParams>;
+    using Shplonk = pcs::shplonk::ShplonkProver_<PCSParams>;
 
   private:
     plonk::proof proof;
@@ -80,6 +80,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
 extern template class UltraProver_<honk::flavor::Ultra>;
 extern template class UltraProver_<honk::flavor::UltraGrumpkin>;
+extern template class UltraProver_<honk::flavor::GoblinUltra>;
 
 using UltraProver = UltraProver_<honk::flavor::Ultra>;
 

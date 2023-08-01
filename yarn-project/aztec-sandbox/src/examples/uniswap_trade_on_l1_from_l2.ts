@@ -8,6 +8,7 @@ import {
   createAztecRpcClient,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
+import { PrivateKey } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -36,7 +37,7 @@ const aztecRpcUrl = 'http://localhost:8080';
 const ethRpcUrl = 'http://localhost:8545';
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
-const privateKey = Buffer.from(hdAccount.getHdKey().privateKey!);
+const privateKey = new PrivateKey(Buffer.from(hdAccount.getHdKey().privateKey!));
 
 const walletClient = createWalletClient({
   account: hdAccount,
@@ -110,7 +111,7 @@ async function deployAllContracts(owner: AztecAddress) {
   const tx = UniswapContract.deploy(aztecRpcClient).send({ portalContract: uniswapPortalAddress });
   await tx.isMined(0, 0.5);
   const receipt = await tx.getReceipt();
-  const uniswapL2Contract = new UniswapContract(receipt.contractAddress!, wallet);
+  const uniswapL2Contract = await UniswapContract.create(receipt.contractAddress!, wallet);
   await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
@@ -329,7 +330,7 @@ async function main() {
 
 main()
   .then(() => {
-    logger('Finished running successfuly.');
+    logger('Finished running successfully.');
     process.exit(0);
   })
   .catch(err => {
