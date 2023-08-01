@@ -152,8 +152,7 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename abis::Globa
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    // TODO(Maddiaa): does this need an index?
-    return NCT::compress(inputs);
+    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 /**
