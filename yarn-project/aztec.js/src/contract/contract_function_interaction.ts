@@ -98,16 +98,9 @@ export class ContractFunctionInteraction {
     const flatArgs = encodeArguments(this.functionDao, this.args);
     from = from ?? this.wallet.getAddress();
 
-    const functionData = new FunctionData(
-      generateFunctionSelector(this.functionDao.name, this.functionDao.parameters),
-      this.functionDao.isInternal,
-      this.functionDao.functionType === FunctionType.SECRET,
-      this.functionDao.name === 'constructor',
-    );
-
     return {
       args: flatArgs,
-      functionData,
+      functionData: FunctionData.fromAbi(this.functionDao),
       to,
       from,
     };

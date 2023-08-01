@@ -41,12 +41,11 @@ export class StoredKeyAccountContract implements AccountImplementation {
 
     const args = [payload, signature];
     const abi = this.getEntrypointAbi();
-    const selector = generateFunctionSelector(abi.name, abi.parameters);
     const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args), wasm);
     const txRequest = TxExecutionRequest.from({
       argsHash: packedArgs.hash,
       origin: this.address,
-      functionData: new FunctionData(selector, abi.isInternal, true, false),
+      functionData: FunctionData.fromAbi(abi),
       txContext,
       packedArguments: [...callsPackedArguments, packedArgs],
     });

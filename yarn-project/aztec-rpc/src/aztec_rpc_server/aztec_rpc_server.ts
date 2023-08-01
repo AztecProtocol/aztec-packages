@@ -385,19 +385,10 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
     }
 
-    const flatArgs = encodeArguments(functionDao, args);
-
-    const functionData = new FunctionData(
-      functionDao.selector,
-      functionDao.isInternal,
-      functionDao.functionType === FunctionType.SECRET,
-      false,
-    );
-
     return {
-      args: flatArgs,
+      args: encodeArguments(functionDao, args),
       from,
-      functionData,
+      functionData: FunctionData.fromAbi(functionDao),
       to,
     };
   }
