@@ -94,6 +94,7 @@ describe('Contract Class', () => {
   beforeEach(() => {
     wallet = mock<Wallet>();
     wallet.createAuthenticatedTxRequest.mockResolvedValue(mockTxRequest);
+    wallet.isContractDeployed.mockResolvedValue(true);
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);

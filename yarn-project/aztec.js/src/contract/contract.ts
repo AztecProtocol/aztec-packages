@@ -23,6 +23,6 @@ export class Contract extends ContractBase {
     if (!(await wallet.isContractDeployed(address))) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return await Contract.create(address, abi, wallet);
+    return new Contract(address, abi, wallet);
   }
 }
