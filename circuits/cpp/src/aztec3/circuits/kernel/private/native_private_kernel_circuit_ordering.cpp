@@ -183,14 +183,12 @@ void apply_commitment_nonces(NT::fr const& first_nullifier,
                              std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> const& siloed_commitments,
                              std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& unique_siloed_commitments)
 {
-    for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_TX; i++) {
+    for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
         // Apply nonce to all non-zero/non-empty commitments
         // Nonce is just index in new_commitments array
-        if (siloed_commitments[i] != NT::fr(0)) {
-            const auto nonce = compute_commitment_nonce<NT>(first_nullifier, i);
-            unique_siloed_commitments[i] =
-                siloed_commitments[i] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[i]);
-        }
+        const auto nonce = compute_commitment_nonce<NT>(first_nullifier, c_idx);
+        unique_siloed_commitments[c_idx] =
+            siloed_commitments[c_idx] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[c_idx]);
     }
 }
 
@@ -216,7 +214,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCircui
     match_reads_to_commitments(builder,
                                previous_kernel.public_inputs.end.read_requests,
                                previous_kernel.public_inputs.end.read_request_membership_witnesses,
-                               public_inputs.end.new_commitments);
+                               previous_kernel.public_inputs.end.new_commitments);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1074): ideally final public_inputs
     // shouldn't even include read_requests and read_request_membership_witnesses as they should be empty.
 

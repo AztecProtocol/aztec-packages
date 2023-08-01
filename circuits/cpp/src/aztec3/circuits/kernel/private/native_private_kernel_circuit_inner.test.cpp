@@ -227,7 +227,13 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 2);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -255,7 +261,13 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 2);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -282,7 +294,13 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 2);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -310,11 +328,21 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     // generate two random sets of read requests and mix them so their roots don't match
-    auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests0,
+          read_request_membership_witnesses0,
+          _transient_read_requests0,
+          _transient_read_request_membership_witnesses0,
+          root] = get_random_reads(first_nullifier, contract_address, 2);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
-    auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
+    auto [read_requests1,
+          read_request_membership_witnesses1,
+          _transient_read_requests1,
+          _transient_read_request_membership_witnesses1,
+          _root] = get_random_reads(first_nullifier, contract_address, 2);
     std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
@@ -376,7 +404,13 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 1);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -407,7 +441,13 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 2);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -438,8 +478,13 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
@@ -468,8 +513,13 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_less_than_witness
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, MAX_READ_REQUESTS_PER_CALL);
 
     read_requests[MAX_READ_REQUESTS_PER_CALL - 1] = fr(0);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
@@ -493,8 +543,13 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_more_than_witness
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          _transient_read_requests,
+          _transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, MAX_READ_REQUESTS_PER_CALL);
 
     read_request_membership_witnesses[MAX_READ_REQUESTS_PER_CALL - 1] =
         ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>{};
@@ -522,14 +577,19 @@ TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_wor
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          transient_read_requests,
+          transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, 1);
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
     // Make the read request transient
-    read_request_membership_witnesses[0].leaf_index = NT::fr(0);
-    read_request_membership_witnesses[0].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
-    read_request_membership_witnesses[0].is_transient = true;
+    read_requests[0] = transient_read_requests[0];
+    read_request_membership_witnesses[0] = transient_read_request_membership_witnesses[0];
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_transient_read_requests_works");
@@ -555,17 +615,21 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          transient_read_requests,
+          transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
 
     // Make the read request at position 1 transient
-    read_request_membership_witnesses[1].leaf_index = NT::fr(0);
-    read_request_membership_witnesses[1].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
-    read_request_membership_witnesses[1].is_transient = true;
+    read_requests[1] = transient_read_requests[1];
+    read_request_membership_witnesses[1] = transient_read_request_membership_witnesses[1];
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
 
     DummyBuilder builder =
@@ -593,20 +657,18 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_all_transient
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto [read_requests, read_request_membership_witnesses, root] =
-        get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
+    auto const first_nullifier =
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+    auto [read_requests,
+          read_request_membership_witnesses,
+          transient_read_requests,
+          transient_read_request_membership_witnesses,
+          root] = get_random_reads(first_nullifier, contract_address, MAX_READ_REQUESTS_PER_CALL);
     private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
-    private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
-
-    // Make the read request at position 1 transient
-    for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_CALL; ++rr_idx) {
-        read_request_membership_witnesses[rr_idx].leaf_index = NT::fr(0);
-        read_request_membership_witnesses[rr_idx].sibling_path = std::array<fr, PRIVATE_DATA_TREE_HEIGHT>{};
-        read_request_membership_witnesses[rr_idx].is_transient = true;
-    }
-    private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
+    private_inputs.private_call.call_stack_item.public_inputs.read_requests = transient_read_requests;
+    private_inputs.private_call.read_request_membership_witnesses = transient_read_request_membership_witnesses;
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_inner_tests__native_max_read_requests_one_transient_works");
