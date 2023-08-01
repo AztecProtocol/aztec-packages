@@ -96,6 +96,8 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
         await createAccounts(client, schnorrAbi, PrivateKey.fromString(privateKey)!, Fr.ZERO);
         const accounts = await client.getAccounts();
+        // eslint-disable-next-line no-console
+        console.log(`Created Account: ${accounts[0].toString()}`);
         return accounts[0].toString();
       },
       SANDBOX_URL,
@@ -115,7 +117,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const publicKey = await client.getPublicKey(owner);
         const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
         await tx.isMined();
-        // // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console
         console.log('Contract Deployed');
         const receipt = await tx.getReceipt();
         return receipt.txHash.toString();
@@ -171,6 +173,8 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         await AztecJs.createAccounts(client, SchnorrSingleKeyAccountContractAbi, PrivateKey.random(), Fr.random());
         const [owner, receiver] = await client.getAccounts();
+        // eslint-disable-next-line no-console
+        console.log(`Created 2nd Account: ${receiver.toString()}`);
         const wallet = await getAccountWallet(
           client,
           SchnorrSingleKeyAccountContractAbi,
@@ -180,6 +184,8 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const contract = await Contract.create(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
         const tx = contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner });
         await tx.isMined();
+        // eslint-disable-next-line no-console
+        console.log(`Transfered ${transferAmount} tokens to new Account`);
         const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
         return balance;
       },
