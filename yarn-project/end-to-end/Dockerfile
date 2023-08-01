@@ -16,5 +16,7 @@ FROM node:18-alpine
 RUN apk update && apk add --no-cache udev ttf-freefont chromium curl jq bash
 ENV CHROME_BIN="/usr/bin/chromium-browser" PUPPETEER_SKIP_CHROMIUM_DOWNLOAD="true"
 COPY --from=builder /usr/src /usr/src
+RUN rm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
+COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/yarn-project/end-to-end/src/web/aztec3-circuits.wasm
 WORKDIR /usr/src/yarn-project/end-to-end
 ENTRYPOINT ["yarn", "test"]

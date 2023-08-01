@@ -55,6 +55,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     logger = createDebugLogger('aztec:aztec.js:web');
 
     browser = await launch({
+      executablePath: process.env.CHROME_BIN,
       headless: 'new',
       args: [
         '--allow-file-access-from-files',
