@@ -3,14 +3,12 @@ import { AztecAddress, PrivateKey } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
+import { Server } from 'http';
 import Koa from 'koa';
 import serve from 'koa-static';
 import path, { dirname } from 'path';
 import { Browser, Page, launch } from 'puppeteer';
 import { fileURLToPath } from 'url';
-import { mnemonicToAccount } from 'viem/accounts';
-
-import { MNEMONIC } from './fixtures.js';
 
 declare global {
   interface Window {
@@ -26,19 +24,18 @@ const PORT = 3000;
 const { SANDBOX_URL } = process.env;
 
 const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
-const hdAccount = mnemonicToAccount(MNEMONIC);
-const privKeyRaw = hdAccount.getHdKey().privateKey;
-const privKey = privKeyRaw === null ? null : new PrivateKey(Buffer.from(privKeyRaw));
+const privKey = PrivateKey.random();
 
 conditionalDescribe()('e2e_aztec.js_browser', () => {
   const initialBalance = 33n;
-  // const transferAmount = 3n;
+  const transferAmount = 3n;
 
-  // let contractAddress: AztecAddress;
+  let contractAddress: AztecAddress;
 
   let logger: DebugLogger;
   let app: Koa;
   let testClient: AztecJs.AztecRPC;
+  let server: Server;
 
   let browser: Browser;
   let page: Page;
@@ -48,7 +45,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
     app = new Koa();
     app.use(serve(path.resolve(__dirname, './web')));
-    app.listen(PORT, () => {
+    server = app.listen(PORT, () => {
       logger(`Server started at http://localhost:${PORT}`);
     });
 
@@ -81,6 +78,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   afterAll(async () => {
     await browser.close();
+    server.close();
   });
 
   it('Loads Aztec.js in the browser', async () => {
@@ -93,39 +91,33 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   it('Creates an account', async () => {
     const result = await page.evaluate(
       async (rpcUrl, privateKey, schnorrAbi) => {
-        const { Fr, createAztecRpcClient, createAccounts, mustSucceedFetch } = window.AztecJs;
+        const { Fr, PrivateKey, createAztecRpcClient, createAccounts, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
 
-        const salt = Fr.random();
-        await createAccounts(client, schnorrAbi, privateKey!, salt);
-        const accounts = (await client.getAccounts()) as AztecAddress[];
+        await createAccounts(client, schnorrAbi, PrivateKey.fromString(privateKey)!, Fr.ZERO);
+        const accounts = await client.getAccounts();
         return accounts[0].toString();
       },
       SANDBOX_URL,
-      privKey,
+      privKey.toString(),
       SchnorrSingleKeyAccountContractAbi,
-      logger,
     );
     const account = (await testClient.getAccounts())[0];
-
     expect(result).toEqual(account.toString());
   });
 
   it('Deploys ZK Token contract', async () => {
-    // const [txHash, balance] = await page.evaluate(
     const txHash = await page.evaluate(
       async (rpcUrl, initialBalance, ZkTokenContractAbi) => {
-        const { ContractDeployer, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
+        const { DeployMethod, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const owner = (await client.getAccounts())[0];
         const publicKey = await client.getPublicKey(owner);
-        const deployer = new ContractDeployer(ZkTokenContractAbi, client);
-        const tx = deployer.deploy(initialBalance, owner, publicKey.toBigInts()).send();
-        // const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
-
+        const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
         await tx.isMined();
+        // // eslint-disable-next-line no-console
+        console.log('Contract Deployed');
         const receipt = await tx.getReceipt();
-
         return receipt.txHash.toString();
       },
       SANDBOX_URL,
@@ -134,21 +126,70 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     );
     const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
     expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
-  });
+    contractAddress = txResult.contractAddress!;
+  }, 30_000);
 
   it("Gets the owner's balance", async () => {
-    // const result = await page.evaluate();
+    const result = await page.evaluate(
+      async (rpcUrl, privateKey, SchnorrSingleKeyAccountContractAbi, contractAddress, ZkTokenContractAbi) => {
+        const { Contract, AztecAddress, Fr, PrivateKey, createAztecRpcClient, getAccountWallet, mustSucceedFetch } =
+          window.AztecJs;
+        const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
+        const owner = (await client.getAccounts())[0];
+        const wallet = await getAccountWallet(
+          client,
+          SchnorrSingleKeyAccountContractAbi,
+          PrivateKey.fromString(privateKey!),
+          Fr.ZERO,
+        );
+        const contract = new Contract(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
+        return balance;
+      },
+      SANDBOX_URL,
+      privKey.toString(),
+      SchnorrSingleKeyAccountContractAbi,
+      contractAddress.toString(),
+      ZkTokenContractAbi,
+    );
+    logger('Owner balance:', result);
+    expect(result).toEqual(initialBalance);
   });
 
-  // it('Sends a transfer TX', async () => {
-  //   const result = await page.evaluate(
-  //     async (rpcUrl, transferAmount) => {
-  //       const { Contract, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
-  //       const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-  //       const newA
-  //     },
-  //     SANDBOX_URL,
-  //     transferAmount,
-  //   );
-  // });
+  it('Sends a transfer TX', async () => {
+    const result = await page.evaluate(
+      async (
+        rpcUrl,
+        privateKey,
+        contractAddress,
+        transferAmount,
+        ZkTokenContractAbi,
+        SchnorrSingleKeyAccountContractAbi,
+      ) => {
+        const { AztecAddress, Contract, Fr, PrivateKey, createAztecRpcClient, getAccountWallet, mustSucceedFetch } =
+          window.AztecJs;
+        const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
+        await AztecJs.createAccounts(client, SchnorrSingleKeyAccountContractAbi, PrivateKey.random(), Fr.random());
+        const [owner, receiver] = await client.getAccounts();
+        const wallet = await getAccountWallet(
+          client,
+          SchnorrSingleKeyAccountContractAbi,
+          PrivateKey.fromString(privateKey!),
+          Fr.ZERO,
+        );
+        const contract = new Contract(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const tx = contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner });
+        await tx.isMined();
+        const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
+        return balance;
+      },
+      SANDBOX_URL,
+      privKey.toString(),
+      contractAddress.toString(),
+      transferAmount,
+      ZkTokenContractAbi,
+      SchnorrSingleKeyAccountContractAbi,
+    );
+    expect(result).toEqual(transferAmount);
+  }, 30_000);
 });
