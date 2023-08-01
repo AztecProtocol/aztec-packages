@@ -330,7 +330,7 @@ async function main() {
 
 main()
   .then(() => {
-    logger('Finished running successfuly.');
+    logger('Finished running successfully.');
     process.exit(0);
   })
   .catch(err => {

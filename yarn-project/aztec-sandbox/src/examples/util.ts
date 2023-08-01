@@ -13,7 +13,7 @@ import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getCont
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
  * @param initialBalance - initial balance of the owner of the L2 contract
  * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
 export async function deployAndInitializeNonNativeL2TokenContracts(
