@@ -1,4 +1,4 @@
-gmport { AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/circuits.js';
