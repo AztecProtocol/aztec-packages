@@ -5,7 +5,7 @@ import {
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { Curve } from '@aztec/circuits.js/barretenberg';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -39,7 +39,7 @@ export class PrivateFunctionExecution {
     private functionData: FunctionData,
     private argsHash: Fr,
     private callContext: CallContext,
-    private curve: Curve,
+    private curve: Grumpkin,
 
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
@@ -263,10 +263,10 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgsHash: Fr,
     callerContext: CallContext,
-    curve: Curve,
+    curve: Grumpkin,
   ) {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
-    const targetFunctionData = new FunctionData(targetFunctionSelector, targetAbi.isInternal, true, false);
+    const targetFunctionData = FunctionData.fromAbi(targetAbi);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
     const context = this.context.extend();
 
@@ -301,10 +301,11 @@ export class PrivateFunctionExecution {
   ): Promise<PublicCallRequest> {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
+
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
-      functionData: new FunctionData(targetFunctionSelector, targetAbi.isInternal, false, false),
+      functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
     });
   }
