@@ -142,7 +142,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           PrivateKey.fromString(privateKey!),
           Fr.ZERO,
         );
-        const contract = new Contract(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const contract = await Contract.create(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
         const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
         return balance;
       },
@@ -177,7 +177,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           PrivateKey.fromString(privateKey!),
           Fr.ZERO,
         );
-        const contract = new Contract(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const contract = await Contract.create(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
         const tx = contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner });
         await tx.isMined();
         const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
