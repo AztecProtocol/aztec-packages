@@ -5,7 +5,6 @@ namespace proof_system::plonk {
 namespace stdlib {
 namespace recursion {
 
-
 /**
  * Aggregation state contains the following:
  *   (P0, P1): the aggregated elements storing the verification results of proofs in the past
