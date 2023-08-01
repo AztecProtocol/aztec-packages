@@ -297,9 +297,6 @@ describe('L1Publisher integration', () => {
       console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
       console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`); */
 
-      console.log(`start state hash: 0x${block.getStartStateHash().toString('hex')}`);
-      console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
-
       await publisher.processL2Block(block);
 
       const logs = await publicClient.getLogs({

@@ -175,7 +175,6 @@ describe('sequencer/solo_block_builder', () => {
 
     const txsLeft = [tx, await makeEmptyProcessedTx()];
     const txsRight = [await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
-      
 
     // Calculate what would be the tree roots after the txs from the first base rollup land and update mock circuit output
     await updateExpectedTreesFromTxs(txsLeft);
@@ -213,7 +212,15 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    rootRollupOutput.blockHash = computeBlockHash(wasm, globalVariables, rootRollupOutput.endPrivateDataTreeSnapshot.root, rootRollupOutput.endNullifierTreeSnapshot.root, rootRollupOutput.endContractTreeSnapshot.root, rootRollupOutput.endL1ToL2MessageTreeSnapshot.root, rootRollupOutput.endPublicDataTreeRoot);
+    rootRollupOutput.blockHash = computeBlockHash(
+      wasm,
+      globalVariables,
+      rootRollupOutput.endPrivateDataTreeSnapshot.root,
+      rootRollupOutput.endNullifierTreeSnapshot.root,
+      rootRollupOutput.endContractTreeSnapshot.root,
+      rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
+      rootRollupOutput.endPublicDataTreeRoot,
+    );
     await updateHistoricBlocksTree(rootRollupOutput.blockHash);
     rootRollupOutput.endHistoricBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 

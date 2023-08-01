@@ -306,7 +306,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       newL1ToL2Messages.map(m => m.toBuffer()),
     );
 
-
     // Simulate and get proof for the root circuit
     const rootOutput = await this.simulator.rootRollupCircuit(rootInput);
 
@@ -318,11 +317,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     await this.db.updateHistoricRootsTrees();
 
     // Calculate the block hash and add it to the historic block hashes tree
-    // TODO(Maddiaa): clean this up a bit - it should be put in updateHistoricRootsTrees above
     const blockHash = await this.calculateBlockHash(globals);
-    if (!blockHash.equals(rootOutput.blockHash)) {
-      throw new Error(`Block hash calculated from the circuit output ${rootOutput.blockHash} does not match the block hash calculated from the data ${blockHash}`);
-    }
     await this.db.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
 
     await this.validateRootOutput(blockHash, rootOutput);
@@ -331,27 +326,30 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async calculateBlockHash(globals: GlobalVariables) {
-    const [
+    const [privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
+      await Promise.all(
+        [
+          MerkleTreeId.PRIVATE_DATA_TREE,
+          MerkleTreeId.NULLIFIER_TREE,
+          MerkleTreeId.CONTRACT_TREE,
+          MerkleTreeId.PUBLIC_DATA_TREE,
+          MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        ].map(tree => this.getTreeSnapshot(tree)),
+      )
+    ).map(r => r.root);
+
+    const wasm = await CircuitsWasm.get();
+    const blockHash = computeBlockHash(
+      wasm,
+      globals,
       privateDataTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
-      publicDataTreeRoot,
       l1ToL2MessageTreeRoot,
-    ] = (await Promise.all(
-      [
-        MerkleTreeId.PRIVATE_DATA_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      ].map(tree => this.getTreeSnapshot(tree)))).map(r => r.root);
-
-    const wasm = await CircuitsWasm.get();
-    // TODO(Maddiaa): Maybe pass in all of the roots?
-    // cleanup
-    const blockHash = computeBlockHash(wasm, globals, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot);
+      publicDataTreeRoot,
+    );
     return blockHash;
-  } 
+  }
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
@@ -365,6 +363,12 @@ export class SoloBlockBuilder implements BlockBuilder {
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
   protected async validateRootOutput(blockHash: Fr, rootOutput: RootRollupPublicInputs) {
+    // Check the calculated block hash is the same as is calculated within the circuits.
+    if (!blockHash.equals(rootOutput.blockHash)) {
+      throw new Error(
+        `Block hash calculated from the circuit output ${rootOutput.blockHash} does not match the block hash calculated from the data ${blockHash}`,
+      );
+    }
 
     await Promise.all([
       this.validateTrees(rootOutput),
@@ -480,9 +484,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Get historic block tree roots
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
-    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(
-      MerkleTreeId.BLOCKS_TREE,
-    );
+    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.BLOCKS_TREE);
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -494,7 +496,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startL1ToL2MessageTreeSnapshot,
       startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
-      newHistoricBlocksTreeSiblingPath
+      newHistoricBlocksTreeSiblingPath,
     });
   }
 

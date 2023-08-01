@@ -62,7 +62,7 @@ export class RootRollupInputs {
     /**
      * Sibling path of the new historic block roots tree root.
      */
-    public newHistoricBlocksTreeSiblingPath: Fr[]
+    public newHistoricBlocksTreeSiblingPath: Fr[],
   ) {
     assertMemberLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
     assertMemberLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);

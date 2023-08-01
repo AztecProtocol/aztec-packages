@@ -139,16 +139,8 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                "historic l1 to l2 message tree roots not empty at location where subtree would be inserted"));
 
-    // Build the block tree for this iteration from the tree information, and global variables, and the public inputs
+    // Build the block hash for this iteration from the tree roots and global variables
     // Then insert the block into the historic blocks tree
-
-    // TODO: make all of these arrays - and throw into a function somewhere
-    // NOTES:
-    // - What goes into the blocks tree?
-    // -
-    // write all of the block data into a large vector before hashing
-    // NOTE: the block hash will need to be a public input so that it can be indexed?
-    // TODO: how do we want to build this? as a subtree or is this method fine?
     auto block_hash = compute_block_hash(left.constants.global_variables,
                                          right.end_private_data_tree_snapshot.root,
                                          right.end_nullifier_tree_snapshot.root,

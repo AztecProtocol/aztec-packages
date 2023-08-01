@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+import { pedersenCompressInputs } from '../barretenberg/index.js';
 import { CircuitsWasm, FieldsOf } from '../index.js';
 import { serializeToBuffer } from '../utils/index.js';
-import { pedersenCompressInputs } from '../barretenberg/index.js';
 
 /**
  * Global variables of the L2 block.
