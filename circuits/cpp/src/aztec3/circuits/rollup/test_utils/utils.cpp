@@ -383,17 +383,12 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
 
     // Blocks tree
     auto blocks_tree_sibling_path = get_sibling_path<HISTORIC_BLOCKS_TREE_HEIGHT>(historic_blocks_tree, 0, 0);
-    info("problematic sibling path");
-    info(blocks_tree_sibling_path);
 
     // Blocks tree snapshots
     AppendOnlyTreeSnapshot const start_historic_blocks_tree_snapshot = {
         .root = historic_blocks_tree.root(),
         .next_available_leaf_index = 0,
     };
-
-    info("snapshot");
-    info(start_historic_blocks_tree_snapshot);
 
     RootRollupInputs rootRollupInputs = {
         .previous_rollup_data = get_previous_rollup_data(builder, std::move(kernel_data)),

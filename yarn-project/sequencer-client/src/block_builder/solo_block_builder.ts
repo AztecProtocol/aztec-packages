@@ -248,7 +248,7 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Run the root rollup with the last two merge rollups (or base, if no merge layers)
     const [mergeOutputLeft, mergeOutputRight] = mergeRollupInputs;
-    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages, globalVariables);
+    return this.rootRollupCircuit(mergeOutputLeft, mergeOutputRight, newL1ToL2Messages);
   }
 
   protected async baseRollupCircuit(
@@ -295,7 +295,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     left: [BaseOrMergeRollupPublicInputs, Proof],
     right: [BaseOrMergeRollupPublicInputs, Proof],
     newL1ToL2Messages: Fr[],
-    globals: GlobalVariables,
   ): Promise<[RootRollupPublicInputs, Proof]> {
     this.debug(`Running root rollup circuit`);
     const rootInput = await this.getRootRollupInput(...left, ...right, newL1ToL2Messages);
@@ -315,41 +314,39 @@ export class SoloBlockBuilder implements BlockBuilder {
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
     await this.db.updateHistoricRootsTrees();
+    await this.updateHistoricBlocksTree(left[0].constants.globalVariables);
 
-    // Calculate the block hash and add it to the historic block hashes tree
-    const blockHash = await this.calculateBlockHash(globals);
-    await this.db.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
-
-    await this.validateRootOutput(blockHash, rootOutput);
+    await this.validateRootOutput(rootOutput);
 
     return [rootOutput, rootProof];
   }
 
-  protected async calculateBlockHash(globals: GlobalVariables) {
-    const [privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
-      await Promise.all(
-        [
-          MerkleTreeId.PRIVATE_DATA_TREE,
-          MerkleTreeId.NULLIFIER_TREE,
-          MerkleTreeId.CONTRACT_TREE,
-          MerkleTreeId.PUBLIC_DATA_TREE,
-          MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-        ].map(tree => this.getTreeSnapshot(tree)),
-      )
-    ).map(r => r.root);
+  async updateHistoricBlocksTree(globalVariables: GlobalVariables) {
+    // Calculate the block hash and add it to the historic block hashes tree
+    const blockHash = await this.calculateBlockHash(globalVariables);
+    await this.db.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
+  }
 
-    const wasm = await CircuitsWasm.get();
-    const blockHash = computeBlockHash(
-      wasm,
-      globals,
+  protected async calculateBlockHash(globals: GlobalVariables) {
+    const [
       privateDataTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
-      l1ToL2MessageTreeRoot,
       publicDataTreeRoot,
-    );
+      l1ToL2MessageTreeRoot,
+    ] = (await Promise.all(
+      [
+        MerkleTreeId.PRIVATE_DATA_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+      ].map(tree => this.getTreeSnapshot(tree)))).map(r => r.root);
+
+    const wasm = await CircuitsWasm.get();
+    const blockHash = computeBlockHash(wasm, globals, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessageTreeRoot, publicDataTreeRoot);
     return blockHash;
-  }
+  } 
 
   // Validate that the new roots we calculated from manual insertions match the outputs of the simulation
   protected async validateTrees(rollupOutput: BaseOrMergeRollupPublicInputs | RootRollupPublicInputs) {
@@ -362,14 +359,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   // Validate that the roots of all local trees match the output of the root circuit simulation
-  protected async validateRootOutput(blockHash: Fr, rootOutput: RootRollupPublicInputs) {
-    // Check the calculated block hash is the same as is calculated within the circuits.
-    if (!blockHash.equals(rootOutput.blockHash)) {
-      throw new Error(
-        `Block hash calculated from the circuit output ${rootOutput.blockHash} does not match the block hash calculated from the data ${blockHash}`,
-      );
-    }
-
+  protected async validateRootOutput(rootOutput: RootRollupPublicInputs) {
     await Promise.all([
       this.validateTrees(rootOutput),
       this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
@@ -484,7 +474,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Get historic block tree roots
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
-    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.BLOCKS_TREE);
+    const newHistoricBlocksTreeSiblingPath = await getRootTreeSiblingPath(
+      MerkleTreeId.BLOCKS_TREE,
+    );
 
     return RootRollupInputs.from({
       previousRollupData,
@@ -496,7 +488,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startL1ToL2MessageTreeSnapshot,
       startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
-      newHistoricBlocksTreeSiblingPath,
+      newHistoricBlocksTreeSiblingPath
     });
   }
 

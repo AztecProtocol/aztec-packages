@@ -699,6 +699,7 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
 export function makeConstantBaseRollupData(
   seed = 1,
   blockNumber: number | undefined = undefined,
+  globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantBaseRollupData {
   return ConstantBaseRollupData.from({
     startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed),
@@ -709,7 +710,7 @@ export function makeConstantBaseRollupData(
     publicKernelVkTreeRoot: fr(seed + 0x402),
     baseRollupVkHash: fr(seed + 0x403),
     mergeRollupVkHash: fr(seed + 0x404),
-    globalVariables: makeGlobalVariables(seed + 0x405, blockNumber),
+    globalVariables: globalVariables ?? makeGlobalVariables(seed + 0x405, blockNumber),
   });
 }
 
@@ -768,12 +769,13 @@ export function makeSchnorrSignature(seed = 1): SchnorrSignature {
 export function makeBaseOrMergeRollupPublicInputs(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  globalVariables: GlobalVariables | undefined = undefined,
 ): BaseOrMergeRollupPublicInputs {
   return new BaseOrMergeRollupPublicInputs(
     RollupTypes.Base,
     new Fr(0n),
     makeAggregationObject(seed + 0x100),
-    makeConstantBaseRollupData(seed + 0x200, blockNumber),
+    makeConstantBaseRollupData(seed + 0x200, blockNumber, globalVariables),
     makeAppendOnlyTreeSnapshot(seed + 0x300),
     makeAppendOnlyTreeSnapshot(seed + 0x400),
     makeAppendOnlyTreeSnapshot(seed + 0x500),
@@ -833,11 +835,11 @@ export function makeRootRollupInputs(seed = 0, blockNumber: number | undefined =
 export function makeRootRollupPublicInputs(
   seed = 0,
   blockNumber: number | undefined = undefined,
+  globalVariables: GlobalVariables | undefined = undefined,
 ): RootRollupPublicInputs {
   return RootRollupPublicInputs.from({
     endAggregationObject: makeAggregationObject(seed),
-    globalVariables: makeGlobalVariables((seed += 0x100), blockNumber),
-    blockHash: fr((seed += 0x100)),
+    globalVariables: globalVariables ?? makeGlobalVariables((seed += 0x100), blockNumber),
     startPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),

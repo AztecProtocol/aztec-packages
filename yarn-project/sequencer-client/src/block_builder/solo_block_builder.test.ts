@@ -107,9 +107,9 @@ describe('sequencer/solo_block_builder', () => {
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
     // Create mock outputs for simulator
-    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs();
-    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs();
-    rootRollupOutput = makeRootRollupPublicInputs();
+    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs(0, blockNumber, globalVariables);
+    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs(0, blockNumber, globalVariables);
+    rootRollupOutput = makeRootRollupPublicInputs(0, blockNumber, globalVariables);
 
     // Set up mocks
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
@@ -149,7 +149,16 @@ describe('sequencer/solo_block_builder', () => {
     await expectsDb.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, asBuffer);
   };
 
-  const updateHistoricBlocksTree = async (blockHash: Fr) => {
+  const updateHistoricBlocksTree = async () => {
+    const blockHash = computeBlockHash(
+      wasm,
+      globalVariables,
+      rootRollupOutput.endPrivateDataTreeSnapshot.root,
+      rootRollupOutput.endNullifierTreeSnapshot.root,
+      rootRollupOutput.endContractTreeSnapshot.root,
+      rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
+      rootRollupOutput.endPublicDataTreeRoot,
+    );
     await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   };
 
@@ -212,16 +221,7 @@ describe('sequencer/solo_block_builder', () => {
 
     // Calculate block hash
     rootRollupOutput.globalVariables = globalVariables;
-    rootRollupOutput.blockHash = computeBlockHash(
-      wasm,
-      globalVariables,
-      rootRollupOutput.endPrivateDataTreeSnapshot.root,
-      rootRollupOutput.endNullifierTreeSnapshot.root,
-      rootRollupOutput.endContractTreeSnapshot.root,
-      rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
-      rootRollupOutput.endPublicDataTreeRoot,
-    );
-    await updateHistoricBlocksTree(rootRollupOutput.blockHash);
+    await updateHistoricBlocksTree();
     rootRollupOutput.endHistoricBlocksTreeSnapshot = await getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 
     const txs = [...txsLeft, ...txsRight];
