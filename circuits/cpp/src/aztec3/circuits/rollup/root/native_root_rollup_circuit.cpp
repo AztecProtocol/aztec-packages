@@ -141,12 +141,12 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
 
     // Build the block hash for this iteration from the tree roots and global variables
     // Then insert the block into the historic blocks tree
-    auto block_hash = compute_block_hash(left.constants.global_variables,
-                                         right.end_private_data_tree_snapshot.root,
-                                         right.end_nullifier_tree_snapshot.root,
-                                         right.end_contract_tree_snapshot.root,
-                                         new_l1_to_l2_messages_tree_snapshot.root,
-                                         right.end_public_data_tree_root);
+    auto block_hash = compute_block_hash_with_globals(left.constants.global_variables,
+                                                      right.end_private_data_tree_snapshot.root,
+                                                      right.end_nullifier_tree_snapshot.root,
+                                                      right.end_contract_tree_snapshot.root,
+                                                      new_l1_to_l2_messages_tree_snapshot.root,
+                                                      right.end_public_data_tree_root);
 
     // Update the historic blocks tree
     auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(

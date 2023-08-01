@@ -444,7 +444,7 @@ CBIND(abis__silo_nullifier, aztec3::circuits::silo_nullifier<NT>);
 /**
  * @brief Computes the block hash from the block information.
  */
-CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash<NT>);
+CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash_with_globals<NT>);
 
 /**
  * @brief Generates a signed tx request hash from it's pre-image

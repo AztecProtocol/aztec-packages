@@ -2,6 +2,7 @@
 
 #include "nullifier_tree_testing_harness.hpp"
 
+#include "aztec3/circuits/abis/global_variables.hpp"
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
@@ -75,7 +76,9 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 }
 
 BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
+                                                 fr prev_global_variables_hash,
                                                  MerkleTree& private_data_tree,
+                                                 MerkleTree& nullifier_tree,
                                                  MerkleTree& contract_tree,
                                                  MerkleTree& public_data_tree,
                                                  MerkleTree& l1_to_l2_msg_tree)
@@ -92,11 +95,15 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     MerkleTree historic_l1_to_l2_msg_tree =
         MerkleTree(historic_l1_to_l2_msg_tree_store, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
 
+    MemoryStore historic_blocks_tree_store;
+    MerkleTree historic_blocks_tree = MerkleTree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
+
     // Historic trees are initialised with an empty root at position 0.
     historic_private_data_tree.update_element(0, private_data_tree.root());
     historic_contract_tree.update_element(0, contract_tree.root());
     MemoryStore tmp_store;
     historic_l1_to_l2_msg_tree.update_element(0, MerkleTree(tmp_store, L1_TO_L2_MSG_TREE_HEIGHT).root());
+
 
     ConstantRollupData const constantRollupData = {
         .start_tree_of_historic_private_data_tree_roots_snapshot = {
@@ -113,15 +120,6 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         },
     };
 
-    for (size_t i = 0; i < 2; i++) {
-        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root =
-            private_data_tree.root();
-        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root =
-            contract_tree.root();
-        kernel_data[i]
-            .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root =
-            l1_to_l2_msg_tree.root();
-    }
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
                                               .start_private_data_tree_snapshot = {
@@ -186,6 +184,39 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 
     baseRollupInputs.start_public_data_tree_root = public_data_tree.root();
 
+    // create the original historic blocks tree leaf
+    auto block_hash = compute_block_hash<NT>(prev_global_variables_hash,
+                                             private_data_tree.root(),
+                                             nullifier_tree.root(),
+                                             contract_tree.root(),
+                                             l1_to_l2_msg_tree.root(),
+                                             public_data_tree.root());
+    historic_blocks_tree.update_element(0, block_hash);
+    baseRollupInputs.constants.start_historic_blocks_tree_roots_snapshot = {
+        .root = historic_blocks_tree.root(),
+        .next_available_leaf_index = 1,
+    };
+
+    // Set historic tree roots data in the public inputs.
+    for (size_t i = 0; i < 2; i++) {
+        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root =
+            private_data_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.nullifier_tree_root =
+            nullifier_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.nullifier_tree_root =
+            nullifier_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root =
+            contract_tree.root();
+        kernel_data[i]
+            .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root =
+            l1_to_l2_msg_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.private_historic_tree_roots.blocks_tree_root =
+            historic_blocks_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.public_data_tree_root = public_data_tree.root();
+        kernel_data[i].public_inputs.constants.historic_tree_roots.prev_global_variables_hash =
+            prev_global_variables_hash;
+    }
+
     // Then we collect all sibling paths for the reads in the left tx, and then apply the update requests while
     // collecting their paths. And then repeat for the right tx.
     for (size_t i = 0; i < 2; i++) {
@@ -232,6 +263,14 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     };
     baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[1] =
         baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[0];
+    baseRollupInputs.historic_blocks_tree_root_membership_witnesses[0] = {
+        .leaf_index = 0,
+        .sibling_path = get_sibling_path<HISTORIC_BLOCKS_TREE_HEIGHT>(historic_blocks_tree, 0, 0),
+    };
+    baseRollupInputs.historic_blocks_tree_root_membership_witnesses[1] =
+        baseRollupInputs.historic_blocks_tree_root_membership_witnesses[0];
+
+    baseRollupInputs.kernel_data = kernel_data;
 
     return baseRollupInputs;
 }
@@ -248,8 +287,54 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     MemoryStore public_data_tree_store;
     MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
 
+
     return base_rollup_inputs_from_kernels(
         std::move(kernel_data), private_data_tree, contract_tree, public_data_tree, l1_to_l2_messages_tree);
+}
+
+BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
+                                                 abis::GlobalVariables<NT> global_variables)
+{
+    MemoryStore private_data_store;
+    MerkleTree private_data_tree = MerkleTree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore nullifier_data_store;
+    MerkleTree nullifier_tree = MerkleTree(nullifier_data_store, PRIVATE_DATA_TREE_HEIGHT);
+    MemoryStore contract_tree_store;
+    MerkleTree contract_tree = MerkleTree(contract_tree_store, CONTRACT_TREE_HEIGHT);
+    MemoryStore l1_to_l2_messages_store;
+    MerkleTree l1_to_l2_messages_tree = MerkleTree(l1_to_l2_messages_store, L1_TO_L2_MSG_TREE_HEIGHT);
+
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+
+
+    return base_rollup_inputs_from_kernels(std::move(kernel_data),
+                                           global_variables.hash(),
+                                           private_data_tree,
+                                           nullifier_tree,
+                                           contract_tree,
+                                           public_data_tree,
+                                           l1_to_l2_messages_tree);
+}
+
+BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kernel_data,
+                                                 MerkleTree& private_data_tree,
+                                                 MerkleTree& contract_tree,
+                                                 MerkleTree& public_data_tree,
+                                                 MerkleTree& l1_to_l2_msg_tree)
+{
+    MemoryStore nullifier_tree_store;
+    MerkleTree nullifier_tree = MerkleTree(nullifier_tree_store, NULLIFIER_TREE_HEIGHT);
+
+    abis::GlobalVariables<NT> prev_globals;
+
+    return base_rollup_inputs_from_kernels(std::move(kernel_data),
+                                           prev_globals.hash(),
+                                           private_data_tree,
+                                           nullifier_tree,
+                                           contract_tree,
+                                           public_data_tree,
+                                           l1_to_l2_msg_tree);
 }
 
 std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& builder,

@@ -50,6 +50,7 @@ template <typename NCT> struct GlobalVariables {
         return globals;
     };
 
+
     fr hash() const
     {
         std::vector<fr> inputs;
@@ -59,6 +60,16 @@ template <typename NCT> struct GlobalVariables {
         inputs.push_back(timestamp);
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
+    }
+
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+
+        chain_id.set_public();
+        version.set_public();
+        block_number.set_public();
+        timestamp.set_public();
     }
 };
 
