@@ -238,11 +238,10 @@ describe('Private Execution test suite', () => {
       });
     });
 
-    it.only('should a constructor with arguments that inserts notes', async () => {
+    it('should a constructor with arguments that inserts notes', async () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
       const result = await runSimulator({ args: [140, owner], abi });
-      console.log(result.callStackItem.publicInputs);
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -398,7 +397,7 @@ describe('Private Execution test suite', () => {
       const parentAbi = ParentContractAbi.functions.find(f => f.name === 'entryPoint')!;
       const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
-      const childSelector = Buffer.alloc(4, 1); // should match the call
+      const childSelector = generateFunctionSelector(childAbi.name, childAbi.parameters);
 
       oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
@@ -512,13 +511,14 @@ describe('Private Execution test suite', () => {
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child', async isInternal => {
       const parentAbi = ParentContractAbi.functions.find(f => f.name === 'enqueueCallToChild')!;
+      const childContractAbi = ParentContractAbi.functions[0];
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
-      const childSelector = Buffer.alloc(4, 1); // should match the call
+      const childSelector = generateFunctionSelector(childContractAbi.name, childContractAbi.parameters);
       const parentAddress = AztecAddress.random();
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
-      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...ChildContractAbi.functions[0], isInternal }));
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...childContractAbi, isInternal }));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
       const result = await runSimulator({
@@ -527,10 +527,14 @@ describe('Private Execution test suite', () => {
         abi: parentAbi,
         args,
       });
+      
+      // Alter function data (abi) to match the manipulated oracle
+      const functionData = FunctionData.fromAbi(childContractAbi);
+      functionData.isInternal = isInternal;
 
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
-        functionData: new FunctionData(childSelector, isInternal, false, false),
+        functionData: functionData,
         args: [new Fr(42n)],
         callContext: CallContext.from({
           msgSender: parentAddress,

@@ -267,7 +267,6 @@ export class PrivateFunctionExecution {
   ) {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const targetFunctionData = FunctionData.fromAbi(targetAbi);
-    console.log(`callPrivateFunction `, targetFunctionData);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
     const context = this.context.extend();
 
@@ -303,7 +302,6 @@ export class PrivateFunctionExecution {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
 
-    console.log(`enqueuePublicFunctionCall() `, FunctionData.fromAbi(targetAbi));
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
