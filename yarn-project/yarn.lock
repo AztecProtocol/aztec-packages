@@ -226,7 +226,6 @@ __metadata:
     jest-mock-extended: ^3.0.3
     lodash.partition: ^4.6.0
     process: ^0.11.10
-    puppeteer: ^20.9.0
     resolve-typescript-plugin: ^2.0.1
     stream-browserify: ^3.0.0
     ts-jest: ^29.1.0

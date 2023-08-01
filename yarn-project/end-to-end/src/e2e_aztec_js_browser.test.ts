@@ -82,10 +82,6 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     await browser.close();
   });
 
-  beforeEach(async () => {
-    // ({ aztecRpcServer: aztecRpcClient, accounts, wallet, logger } = await setup(2));
-  }, 100_000);
-
   it('Loads Aztec.js in the browser', async () => {
     const createAccountsExists = await page.evaluate(() => {
       const { createAccounts } = window.AztecJs;
@@ -118,12 +114,13 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     // const [txHash, balance] = await page.evaluate(
     const txHash = await page.evaluate(
       async (rpcUrl, initialBalance, ZkTokenContractAbi) => {
-        const { ContractDeployer, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
+        const { ContractDeployer, DeployMethod, Point, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const owner = (await client.getAccounts())[0];
         const publicKey = await client.getPublicKey(owner);
-        const deployer = new ContractDeployer(ZkTokenContractAbi, client);
-        const tx = deployer.deploy(initialBalance, owner, publicKey.toBigInts()).send();
+        // const deployer = new ContractDeployer(ZkTokenContractAbi, client);
+        // const tx = deployer.deploy(initialBalance, owner, publicKey.toBigInts()).send();
+        const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
 
         await tx.isMined();
         const receipt = await tx.getReceipt();
