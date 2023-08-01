@@ -1,6 +1,16 @@
-import { AztecAddress, Contract, Fr, PrivateKey, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
+import {
+  AztecAddress,
+  Contract,
+  DeployMethod,
+  Fr,
+  Point,
+  PrivateKey,
+  Wallet,
+  createAccounts,
+  createAztecRpcClient,
+} from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
+import { SchnorrSingleKeyAccountContractAbi, ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
@@ -26,7 +36,6 @@ async function deployZKContract(owner: AztecAddress) {
   const receipt = await tx.getReceipt();
   const contract = new ZkTokenContract(receipt.contractAddress!, wallet);
   await tx.isMined();
-  await tx.getReceipt();
   logger('L2 contract deployed');
   return contract;
 }
