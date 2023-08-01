@@ -40,7 +40,7 @@ function itShouldBehaveLikeAnAccountContract(
       ));
 
       const { address: childAddress } = await deployContract(aztecRpcServer, Point.random(), ChildContract.abi, []);
-      child = new ChildContract(childAddress, wallet);
+      child = await ChildContract.create(childAddress, wallet);
     }, 60_000);
 
     afterEach(async () => {
@@ -70,7 +70,7 @@ function itShouldBehaveLikeAnAccountContract(
         context.aztecRpcServer,
         await createAccountImpl(address, false, partialAddress, encryptionPrivateKey),
       );
-      const childWithInvalidWallet = new ChildContract(child.address, invalidWallet);
+      const childWithInvalidWallet = await ChildContract.create(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
         /could not satisfy all constraints/,
       );
@@ -120,7 +120,7 @@ describe('e2e_account_contracts', () => {
 
   describe('ecdsa stored-key account', () => {
     let ecdsaPrivateKey: PrivateKey;
-    let ecdsaPublicKey: PublicKey;
+    let ecdsaPublicKey: Buffer;
     let ecdsaCreateArgs: any[];
 
     const createWallet = async (address: AztecAddress, useProperKey: boolean) =>
@@ -130,7 +130,7 @@ describe('e2e_account_contracts', () => {
       ecdsaPrivateKey = PrivateKey.random();
       const ecdsa = await Ecdsa.new();
       ecdsaPublicKey = ecdsa.computePublicKey(ecdsaPrivateKey);
-      ecdsaCreateArgs = [ecdsaPublicKey.x.toBuffer(), ecdsaPublicKey.y.toBuffer()];
+      ecdsaCreateArgs = [ecdsaPublicKey.subarray(0, 32), ecdsaPublicKey.subarray(32, 64)];
     });
 
     itShouldBehaveLikeAnAccountContract(EcdsaAccountContractAbi, () => ecdsaCreateArgs, createWallet);

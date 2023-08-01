@@ -55,31 +55,6 @@ checkout: &checkout
       # Initialize submodules recursively (retry 10 times on failure)
       retry_10 git submodule update --init --recursive
 
-# This build step checks out the code from the benchmark-archive repository. The key is saved in CircleCi environment in base64 format.
-# Initially it just fetches the latest version.
-benchmark_archive_setup: &benchmark_archive_setup
-  run:
-    name: "Add keys for getting the benchmark archive"
-    command: |
-      cd $HOME
-      mkdir -p .ssh
-      chmod 0700 .ssh
-      ssh-keyscan -t rsa github.com >> .ssh/known_hosts
-
-      # A read-write key for updating the repository.
-      echo "$GITHUB_BENCMARK_REPOSITORY_SSH_KEY" | base64 -d > .ssh/id_ed25519
-
-      # This allows github to discern wich key to use.
-      echo "Host github.com
-        Hostname github.com
-        IdentityFile=/root/.ssh/id_rsa
-
-      Host github.com-logs
-        Hostname github.com
-        IdentityFile=/root/.ssh/id_ed25519" > .ssh/config
-
-      chmod 0600 .ssh/id_ed25519
-      ssh-add .ssh/id_ed25519
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
 # the build process. This enables easy running of the build system external to CCI, as used for powerful EC2 builds.
@@ -267,10 +242,9 @@ jobs:
           at: /tmp/test-logs
       - *checkout
       - *setup_env
-      - *benchmark_archive_setup
       - run:
           name: "Test"
-          command: store_test_benchmark_logs barretenberg-x86_64-linux-clang-assert
+          command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
 
   bb-js:
     machine:
@@ -327,17 +301,16 @@ jobs:
           name: "Build"
           command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
 
-  # TODO Disabling until this is 3-10x faster see #1152
-  # circuits-x86_64-linux-clang-tidy:
-  #   docker:
-  #     - image: aztecprotocol/alpine-build-image
-  #   resource_class: small
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Build"
-  #         command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
+  circuits-x86_64-linux-clang-tidy:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
 
   circuits-x86_64-linux-clang:
     docker:
@@ -808,6 +781,17 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_account_contracts.test.ts
           working_directory: yarn-project/end-to-end
 
+  e2e-escrow-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_escrow_contract.test.ts
+
   e2e-pending-commitments-contract:
     machine:
       image: ubuntu-2004:202010-01
@@ -1055,8 +1039,7 @@ workflows:
           filters:
             branches:
               only:
-                - DISABLED_FIXME # master # TODO(AD): See #1174
-          <<: *defaults
+                - master
           <<: *defaults
       - bb-js:
           requires:
@@ -1073,7 +1056,7 @@ workflows:
           <<: *defaults
       - circuits-wasm-linux-clang: *defaults
       - circuits-wasm-linux-clang-assert: *defaults
-      # - circuits-x86_64-linux-clang-tidy: *defaults # TODO #1152
+      - circuits-x86_64-linux-clang-tidy: *defaults
       - circuits-x86_64-linux-clang: *defaults
       - circuits-x86_64-linux-clang-assert: *defaults
       - circuits-wasm-tests:
@@ -1085,7 +1068,7 @@ workflows:
           requires:
             - circuits-wasm-linux-clang
             - circuits-wasm-linux-clang-assert
-            # - circuits-x86_64-linux-clang-tidy # TODO #1152
+            - circuits-x86_64-linux-clang-tidy
             - circuits-x86_64-linux-clang
             - circuits-x86_64-linux-clang-assert
             - circuits-wasm-tests
@@ -1162,6 +1145,7 @@ workflows:
       - e2e-public-cross-chain-messaging: *e2e_test
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contracts: *e2e_test
+      - e2e-escrow-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
@@ -1184,6 +1168,7 @@ workflows:
             - e2e-public-cross-chain-messaging
             - e2e-public-to-private-messaging
             - e2e-account-contracts
+            - e2e-escrow-contract
             - e2e-pending-commitments-contract
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher

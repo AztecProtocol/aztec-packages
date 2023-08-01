@@ -11,7 +11,7 @@ import {
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
-import { FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -185,31 +185,31 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
-   * Retrieves the storage data at a specified contract address and storage slot.
+   * Retrieves the preimage data at a specified contract address and storage slot.
    * The returned data is an array of note preimage items, with each item containing its value.
    *
    * @param contract - The AztecAddress of the target contract.
    * @param storageSlot - The Fr representing the storage slot to be fetched.
    * @returns A promise that resolves to an array of note preimage items, each containing its value.
    */
-  public async getStorageAt(contract: AztecAddress, storageSlot: Fr) {
+  public async getPreimagesAt(contract: AztecAddress, storageSlot: Fr) {
     const noteSpendingInfo = await this.db.getNoteSpendingInfo(contract, storageSlot);
     return noteSpendingInfo.map(d => d.notePreimage.items.map(item => item.value));
   }
 
   /**
    * Retrieves the public storage data at a specified contract address and storage slot.
-   * The returned data is an array of note preimage items, with each item containing its value.
+   * The returned data is data at the storage slot or throws an error if the contract is not deployed.
    *
    * @param contract - The AztecAddress of the target contract.
    * @param storageSlot - The Fr representing the storage slot to be fetched.
-   * @returns A promise that resolves to an array of note preimage items, each containing its value.
+   * @returns A buffer containing the public storage data at the storage slot.
    */
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
     if (!(await this.isContractDeployed(contract))) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
-    return await this.node.getStorageAt(contract, storageSlot.value);
+    return await this.node.getPublicStorageAt(contract, storageSlot.value);
   }
 
   /**
@@ -385,19 +385,10 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Unknown function ${functionName} in contract ${contract.name}.`);
     }
 
-    const flatArgs = encodeArguments(functionDao, args);
-
-    const functionData = new FunctionData(
-      functionDao.selector,
-      functionDao.isInternal,
-      functionDao.functionType === FunctionType.SECRET,
-      false,
-    );
-
     return {
-      args: flatArgs,
+      args: encodeArguments(functionDao, args),
       from,
-      functionData,
+      functionData: FunctionData.fromAbi(functionDao),
       to,
     };
   }
