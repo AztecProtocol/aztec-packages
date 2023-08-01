@@ -104,13 +104,12 @@ export class PublicProcessor {
 
   /**
    * Makes an empty processed tx. Useful for padding a block to a power of two number of txs.
-   * @param chainId - The chain id of the rollup.
-   * @param version - The version of the rollup.
+   * @param globalVariables - The global variables for this block.
    * @returns A processed tx with empty data.
    */
-  public async makeEmptyProcessedTx(chainId: Fr, version: Fr): Promise<ProcessedTx> {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db);
-    return makeEmptyProcessedTx(historicTreeRoots, chainId, version);
+  public async makeEmptyProcessedTx(globalVariables: GlobalVariables): Promise<ProcessedTx> {
+    const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db, globalVariables);
+    return makeEmptyProcessedTx(historicTreeRoots, globalVariables.chainId, globalVariables.version);
   }
 
   protected async processTx(tx: Tx, globalVariables: GlobalVariables): Promise<ProcessedTx> {

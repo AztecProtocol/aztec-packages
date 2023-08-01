@@ -26,7 +26,7 @@ import {
   VerificationKey,
   makeTuple,
 } from '@aztec/circuits.js';
-import { computeBlockHash, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeBlockHash, computeBlockHashWithGloabalsHash, computeContractLeaf } from '@aztec/circuits.js/abis';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -106,6 +106,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         MerkleTreeId.BLOCKS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
+
 
     // Check txs are good for processing
     this.validateTxs(txs);
@@ -313,7 +314,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     // Update the root trees with the latest data and contract tree roots,
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
-    await this.db.updateHistoricRootsTrees();
+    await this.db.updateHistoricBlocksTree(left[0].constants.globalVariables);
     await this.updateHistoricBlocksTree(left[0].constants.globalVariables);
 
     await this.validateRootOutput(rootOutput);
@@ -367,9 +368,6 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async validateRootOutput(rootOutput: RootRollupPublicInputs) {
     await Promise.all([
       this.validateTrees(rootOutput),
-      this.validateRootTree(rootOutput, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE, 'Contract'),
-      this.validateRootTree(rootOutput, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE, 'PrivateData'),
-      this.validateRootTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE, 'L1ToL2Message'),
       this.validateTree(rootOutput, MerkleTreeId.BLOCKS_TREE, 'HistoricBlocks'),
       this.validateTree(rootOutput, MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 'L1ToL2Message'),
     ]);
@@ -546,40 +544,17 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
-  protected getContractMembershipWitnessFor(tx: ProcessedTx) {
-    return this.getMembershipWitnessFor(
-      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.contractTreeRoot,
-      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
-      CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-    );
-  }
 
-  protected getDataMembershipWitnessFor(tx: ProcessedTx) {
+  protected async getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
+    const historicTreeRoots = tx.data.constants.historicTreeRoots;
+    const {privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot} = historicTreeRoots.privateHistoricTreeRoots;
+    const wasm = await CircuitsWasm.get();
+    const blockHash = computeBlockHashWithGloabalsHash(wasm, historicTreeRoots.prevGlobalVariablesHash, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, historicTreeRoots.publicDataTreeRoot);
     return this.getMembershipWitnessFor(
-      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.privateDataTreeRoot,
-      MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-      PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
+      blockHash,
+      MerkleTreeId.BLOCKS_TREE,
+      HISTORIC_BLOCKS_TREE_HEIGHT,
     );
-  }
-
-  protected getL1ToL2MessageMembershipWitnessFor(tx: ProcessedTx) {
-    return this.getMembershipWitnessFor(
-      tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
-      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-      L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
-    );
-  }
-
-  protected getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
-    // TODO(MADDIAA): Currently stubbed until logic is implemented
-    // https://github.com/AztecProtocol/aztec-packages/issues/1162
-    void tx;
-    return Promise.resolve(this.makeEmptyMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT));
-    // return this.getMembershipWitnessFor(
-    //   tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.historicBlocksTreeRoot,
-    //   MerkleTreeId.HISTORIC_BLOCKS_TREE,
-    //   HISTORIC_BLOCKS_TREE_HEIGHT,
-    // );
   }
 
   protected async getConstantBaseRollupData(globalVariables: GlobalVariables): Promise<ConstantBaseRollupData> {
@@ -729,6 +704,11 @@ export class SoloBlockBuilder implements BlockBuilder {
         MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
       );
 
+    // Note these are no longer needed, but are included to decrease change set
+    const mockContractMembershipWitnesses = MembershipWitness.empty(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0n);
+    const mockPrivateDataMembershipWitnesses = MembershipWitness.empty(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0n);
+    const mockL1ToL2MembershipWitnesses = MembershipWitness.empty(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, 0n);
+
     return BaseRollupInputs.from({
       constants,
       startNullifierTreeSnapshot,
@@ -748,16 +728,16 @@ export class SoloBlockBuilder implements BlockBuilder {
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
       historicContractsTreeRootMembershipWitnesses: [
-        await this.getContractMembershipWitnessFor(left),
-        await this.getContractMembershipWitnessFor(right),
+        mockContractMembershipWitnesses,
+        mockContractMembershipWitnesses 
       ],
       historicPrivateDataTreeRootMembershipWitnesses: [
-        await this.getDataMembershipWitnessFor(left),
-        await this.getDataMembershipWitnessFor(right),
+        mockPrivateDataMembershipWitnesses,
+        mockPrivateDataMembershipWitnesses
       ],
       historicL1ToL2MsgTreeRootMembershipWitnesses: [
-        await this.getL1ToL2MessageMembershipWitnessFor(left),
-        await this.getL1ToL2MessageMembershipWitnessFor(right),
+        mockL1ToL2MembershipWitnesses,
+        mockL1ToL2MembershipWitnesses
       ],
       historicBlocksTreeRootMembershipWitnesses: [
         await this.getHistoricTreesMembershipWitnessFor(left),

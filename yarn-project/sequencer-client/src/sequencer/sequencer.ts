@@ -164,7 +164,7 @@ export class Sequencer {
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
-      const emptyTx = await processor.makeEmptyProcessedTx(this.chainId, this.version);
+      const emptyTx = await processor.makeEmptyProcessedTx(globalVariables);
 
       const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, globalVariables);
       this.log(`Assembled block ${block.number}`);

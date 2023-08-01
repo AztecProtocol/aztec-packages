@@ -153,7 +153,7 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr glo
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
-    return NCT::compress(inputs);
+    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
 template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typename abis::GlobalVariables<NCT> globals,
@@ -172,6 +172,13 @@ template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typenam
 
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
+
+template <typename NCT> typename NCT::fr compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
+{
+    info("cbind globals hash: ", globals.hash());
+    return globals.hash();
+}
+
 
 /**
  * @brief Calculate the Merkle tree root from the sibling path and leaf.

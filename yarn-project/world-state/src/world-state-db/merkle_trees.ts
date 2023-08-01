@@ -4,6 +4,7 @@ import {
   CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
+  GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
@@ -41,6 +42,7 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
+import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -53,9 +55,10 @@ export class MerkleTrees implements MerkleTreeDb {
 
   /**
    * Initialises the collection of Merkle Trees.
+   * @param genesisConfig - The genesis config to use for initialising the trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    */
-  public async init(optionalWasm?: IWasmModule) {
+  public async init(genesisConfig: GlobalVariables, optionalWasm?: IWasmModule) {
     const wasm = optionalWasm ?? (await CircuitsWasm.get());
     const hasher = new Pedersen(wasm);
     const contractTree: AppendOnlyTree = await newTree(
@@ -137,20 +140,21 @@ export class MerkleTrees implements MerkleTreeDb {
     this.jobQueue.start();
 
     // The roots trees must contain the empty roots of their data trees
-    await this.updateHistoricRootsTrees(true);
-    const historicRootsTrees = [contractTreeRootsTree, privateDataTreeRootsTree, l1Tol2MessagesRootsTree];
+    await this.updateHistoricBlocksTree(genesisConfig, true);
+    const historicRootsTrees = [historicBlocksTree];
     await Promise.all(historicRootsTrees.map(tree => tree.commit()));
   }
 
   /**
    * Method to asynchronously create and initialise a MerkleTrees instance.
    * @param db - The db instance to use for data persistance.
+   * @param genesisConfig - Initial global variables to initialise the blockHash.
    * @param wasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    * @returns - A fully initialised MerkleTrees instance.
    */
-  public static async new(db: levelup.LevelUp, wasm?: IWasmModule) {
+  public static async new(db: levelup.LevelUp, genesisConfig: GlobalVariables = GlobalVariables.empty(), wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);
-    await merkleTrees.init(wasm);
+    await merkleTrees.init(genesisConfig, wasm);
     return merkleTrees;
   }
 
@@ -180,17 +184,24 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
    * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
+   * @param globals - The global variables to use for hashing.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
-  public async updateHistoricRootsTrees(includeUncommitted: boolean) {
-    for (const [newTree, rootTree] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-      [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
-    ] as const) {
-      const newTreeInfo = await this.getTreeInfo(newTree, includeUncommitted);
-      await this.appendLeaves(rootTree, [newTreeInfo.root]);
-    }
+  public async updateHistoricBlocksTree(globals: GlobalVariables, includeUncommitted: boolean) {
+    const wasm = await CircuitsWasm.get();
+
+    // TODO maybe use the same pattern as function below
+    const treePromises = ([
+      MerkleTreeId.PRIVATE_DATA_TREE,
+      MerkleTreeId.NULLIFIER_TREE,
+      MerkleTreeId.CONTRACT_TREE, 
+      MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 
+      MerkleTreeId.PUBLIC_DATA_TREE, 
+    ] as const).map(tree => this.getTreeInfo(tree, includeUncommitted)) 
+    const trees = (await Promise.all(treePromises)).map(tree  => Fr.fromBuffer(tree.root));
+
+    const blockHash = computeBlockHash(wasm, globals, trees[0], trees[1], trees[2],trees[3], trees[4]);
+    await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 
   /**

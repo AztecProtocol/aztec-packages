@@ -96,8 +96,9 @@ describe('sequencer/solo_block_builder', () => {
     blockNumber = 3;
     globalVariables = new GlobalVariables(chainId, version, new Fr(blockNumber), Fr.ZERO);
 
-    builderDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
-    expectsDb = await MerkleTrees.new(levelup(createMemDown())).then(t => t.asLatest());
+    // TODO: really don;t like this init pattern
+    builderDb = await MerkleTrees.new(levelup(createMemDown()), globalVariables).then(t => t.asLatest());
+    expectsDb = await MerkleTrees.new(levelup(createMemDown()), globalVariables).then(t => t.asLatest());
     vks = getVerificationKeys();
     simulator = mock<RollupSimulator>();
     prover = mock<RollupProver>();
@@ -121,7 +122,8 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    console.log("global vars: ", globalVariables);
+    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb, globalVariables);
     return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
   };
 
@@ -169,7 +171,7 @@ describe('sequencer/solo_block_builder', () => {
 
   const buildMockSimulatorInputs = async () => {
     const kernelOutput = makeKernelPublicInputs();
-    kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(expectsDb);
+    kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(expectsDb, globalVariables);
 
     const tx = await makeProcessedTx(
       new Tx(
@@ -202,7 +204,6 @@ describe('sequencer/solo_block_builder', () => {
     // Update l1 to l2 data tree
     // And update the root trees now to create proper output to the root rollup circuit
     await updateL1ToL2MessagesTree(mockL1ToL2Messages);
-    await expectsDb.updateHistoricRootsTrees();
     rootRollupOutput.endContractTreeSnapshot = await getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     rootRollupOutput.endNullifierTreeSnapshot = await getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     rootRollupOutput.endPrivateDataTreeSnapshot = await getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);
@@ -322,7 +323,7 @@ describe('sequencer/solo_block_builder', () => {
     const makeBloatedProcessedTx = async (seed = 0x1) => {
       const tx = mockTx(seed);
       const kernelOutput = KernelCircuitPublicInputs.empty();
-      kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+      kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb, globalVariables);
       kernelOutput.end.publicDataUpdateRequests = makeTuple(
         MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
         i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -338,6 +339,7 @@ describe('sequencer/solo_block_builder', () => {
       processedTx.data.end.newContracts = [makeNewContractData(seed + 0x1000)];
       processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
       processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
+
 
       return processedTx;
     };
@@ -411,12 +413,6 @@ describe('sequencer/solo_block_builder', () => {
       updateVals[0] = 19777494491628650244807463906174285795660759352776418619064841306523677458742n;
       updateVals[1] = 10246291467305176436335175657884940686778521321101740385288169037814567547848n;
 
-      await builderDb.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        updateVals.map(v => toBufferBE(v, 32)),
-        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
-      );
-
       // new added values
       const tx = await makeEmptyProcessedTx();
       tx.data.end.newNullifiers[0] = new Fr(
@@ -425,7 +421,15 @@ describe('sequencer/solo_block_builder', () => {
       tx.data.end.newNullifiers[1] = new Fr(
         17490072961923661940560522096125238013953043065748521735636170028491723851741n,
       );
+
       const txs = [tx, await makeEmptyProcessedTx(), await makeEmptyProcessedTx(), await makeEmptyProcessedTx()];
+
+      // Must be built after the txs are created
+      await builderDb.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        updateVals.map(v => toBufferBE(v, 32)),
+        BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
+      );
 
       const [l2Block] = await builder.buildL2Block(globalVariables, txs, mockL1ToL2Messages);
 

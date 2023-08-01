@@ -3,6 +3,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
+  GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -77,7 +78,11 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
+    const genesisConfig = GlobalVariables.genesis(
+      BigInt(config.chainId),
+      BigInt(config.version),
+    );  //TODO: throw this in a helper?  
+    const merkleTreeDB = await MerkleTrees.new(genesisConfig, levelup(createMemDown()), await CircuitsWasm.get());
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source

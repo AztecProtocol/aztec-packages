@@ -106,17 +106,17 @@ export class CombinedHistoricTreeRoots {
      */
     public readonly privateHistoricTreeRoots: PrivateHistoricTreeRoots,
     /**
-     * Previous globals hash
-     */
-    public readonly prevGlobalVariablesHash: Fr,
-    /**
      * Current public state tree hash. TODO(): THIS IS NOT A NICE SOLUTION TO THIS PROBLEM TO GET THE BLOCK HASH
      */
     public readonly publicDataTreeRoot: Fr,
+    /**
+     * Previous globals hash
+     */
+    public readonly prevGlobalVariablesHash: Fr,
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.privateHistoricTreeRoots, this.prevGlobalVariablesHash, this.publicDataTreeRoot);
+    return serializeToBuffer(this.privateHistoricTreeRoots, this.publicDataTreeRoot, this.prevGlobalVariablesHash);
   }
 
   toString() {

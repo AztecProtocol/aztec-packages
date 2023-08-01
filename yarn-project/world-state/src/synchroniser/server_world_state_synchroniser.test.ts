@@ -128,7 +128,7 @@ describe('server_world_state_synchroniser', () => {
         SiblingPath.ZERO(32, INITIAL_LEAF, pedersen);
       }; //Promise.resolve();
     }),
-    updateHistoricRootsTrees: jest.fn().mockImplementation(() => Promise.resolve()),
+    updateHistoricBlocksTree: jest.fn().mockImplementation(() => Promise.resolve()),
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
     handleL2Block: jest.fn().mockImplementation(() => Promise.resolve()),

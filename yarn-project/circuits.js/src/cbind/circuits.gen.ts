@@ -1548,6 +1548,29 @@ export function abisComputeBlockHash(
     ]),
   );
 }
+export function abisComputeBlockHashWithGlobalsHash(
+  wasm: IWasmModule,
+  arg0: Fr,
+  arg1: Fr,
+  arg2: Fr,
+  arg3: Fr,
+  arg4: Fr,
+  arg5: Fr,
+): Fr {
+  return Fr.fromBuffer(
+    callCbind(wasm, 'abis__compute_block_hash_with_globals_hash', [
+      toBuffer(arg0),
+      toBuffer(arg1),
+      toBuffer(arg2),
+      toBuffer(arg3),
+      toBuffer(arg4),
+      toBuffer(arg5),
+    ]),
+  );
+}
+export function abisComputeGlobalsHash(wasm: IWasmModule, arg0: GlobalVariables): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_globals_hash', [fromGlobalVariables(arg0)]));
+}
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
 }

@@ -137,6 +137,8 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
     // against the historical root provided in the rollup constants
     auto historic_root = baseRollupInputs.constants.start_historic_blocks_tree_roots_snapshot.root;
 
+    info("expected root: ", historic_root);
+
     for (size_t i = 0; i < 2; i++) {
         // Rebuild the block hash
         auto historic_block = baseRollupInputs.kernel_data[i].public_inputs.constants.historic_tree_roots;
@@ -146,17 +148,19 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
         auto nullifier_tree_root = historic_tree_roots.nullifier_tree_root;
         auto contract_tree_root = historic_tree_roots.contract_tree_root;
         auto l1_to_l2_data_tree_root = historic_tree_roots.l1_to_l2_messages_tree_root;
-
+        auto public_data_tree_root = historic_block.public_data_tree_root;
 
         auto previous_block_hash = compute_block_hash<NT>(historic_block.prev_global_variables_hash,
                                                           private_data_tree_root,
                                                           nullifier_tree_root,
                                                           contract_tree_root,
                                                           l1_to_l2_data_tree_root,
-                                                          historic_block.public_data_tree_root);
+                                                          public_data_tree_root);
 
         abis::MembershipWitness<NT, HISTORIC_BLOCKS_TREE_HEIGHT> const historic_root_witness =
             baseRollupInputs.historic_blocks_tree_root_membership_witnesses[i];
+
+        info("historic root witness: ", historic_root_witness.leaf_index, " ", historic_root_witness.sibling_path);
 
         check_membership<NT>(
             builder,

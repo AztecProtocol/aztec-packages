@@ -121,8 +121,8 @@ export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeR
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
-  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 5), fr(seed + 6));
+export function makeCombinedHistoricTreeRoots(seed: number, globalsHash?: Fr): CombinedHistoricTreeRoots {
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), globalsHash ?? fr(seed + 5) , fr(seed + 6));
 }
 
 /**

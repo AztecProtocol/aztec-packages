@@ -6,7 +6,9 @@ import chunk from 'lodash.chunk';
 
 import {
   abisComputeBlockHash,
+  abisComputeBlockHashWithGlobalsHash,
   abisComputeCommitmentNonce,
+  abisComputeGlobalsHash,
   abisComputeUniqueCommitment,
   abisSiloCommitment,
   abisSiloNullifier,
@@ -302,11 +304,14 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * A siloed nullifier effectively namespaces a nullifier to a specific contract.
  * @param wasm - A module providing low-level wasm access.
- * @param contract - The contract address.
- * @param innerNullifier - The nullifier to silo.
- * @returns A siloed nullifier.
+ * @param globals - The global variables to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
  */
 export function computeBlockHash(
   wasm: IWasmModule,
@@ -326,6 +331,45 @@ export function computeBlockHash(
     contractTreeRoot,
     l1ToL2DataTreeRoot,
     publicDataTreeRoot,
+  );
+}
+
+
+export function computeBlockHashWithGloabalsHash(
+  wasm: IWasmModule,
+  globalsHash: Fr,
+  privateDataTreeRoot: Fr,
+  nullifierTreeRoot: Fr,
+  contractTreeRoot: Fr,
+  l1ToL2DataTreeRoot: Fr,
+  publicDataTreeRoot: Fr,
+): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeBlockHashWithGlobalsHash(
+    wasm,
+    globalsHash,
+    privateDataTreeRoot,
+    nullifierTreeRoot,
+    contractTreeRoot,
+    l1ToL2DataTreeRoot,
+    publicDataTreeRoot,
+  );
+}
+
+/**
+ * Computes the globals hash given the globals.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globals - The global variables to put into the block hash.
+ * @returns The globals hash.
+ */
+export function computeGlobalsHash(
+  wasm: IWasmModule,
+  globals: GlobalVariables,
+): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeGlobalsHash(
+    wasm,
+    globals,
   );
 }
 
