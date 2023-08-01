@@ -126,6 +126,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       initialBalance,
       ZkTokenContractAbi,
     );
+
     const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
     expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
     contractAddress = txResult.contractAddress!;
