@@ -889,7 +889,7 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
 
-  e2e-web-sandbox:
+  e2e-browser-sandbox:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -1066,7 +1066,6 @@ workflows:
               only:
                 - DISABLED_FIXME # master # TODO(AD): See #1174
           <<: *defaults
-          <<: *defaults
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
@@ -1178,6 +1177,7 @@ workflows:
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
       - e2e-uniswap-sandbox: *e2e_test
+      - e2e-browser-sandbox: *e2e_test
 
       - e2e-end:
           requires:
@@ -1201,6 +1201,7 @@ workflows:
             - integration-archiver-l1-to-l2
             - e2e-p2p
             - e2e-uniswap-sandbox
+            - e2e-browser-sandbox
           <<: *defaults
 
       - deploy-dockerhub:
