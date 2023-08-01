@@ -205,7 +205,12 @@ export class AcirSimulator {
    * @param abi - The ABI of the function `compute_note_hash`.
    * @returns The note hash.
    */
-  public async computeUniqueSiloedNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
+  public async computeUniqueSiloedNoteHash(
+    contractAddress: AztecAddress,
+    nonce: Fr,
+    storageSlot: Fr,
+    notePreimage: Fr[],
+  ) {
     const { uniqueSiloedNoteHash } = await this.computeNoteHashAndNullifier(
       contractAddress,
       nonce,
