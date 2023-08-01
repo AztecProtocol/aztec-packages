@@ -1027,7 +1027,7 @@ workflows:
           filters:
             branches:
               only:
-                - ad/fix-barretenberg-benchmark-aggregator
+                - master
           <<: *defaults
       - bb-js:
           requires:
