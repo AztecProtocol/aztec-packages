@@ -527,7 +527,7 @@ describe('Private Execution test suite', () => {
         abi: parentAbi,
         args,
       });
-      
+
       // Alter function data (abi) to match the manipulated oracle
       const functionData = FunctionData.fromAbi(childContractAbi);
       functionData.isInternal = isInternal;
