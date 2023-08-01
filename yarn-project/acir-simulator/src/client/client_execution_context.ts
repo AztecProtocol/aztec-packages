@@ -4,7 +4,6 @@ import { Fr, Point } from '@aztec/foundation/fields';
 
 import {
   ACVMField,
-  ZERO_ACVM_FIELD,
   fromACVMField,
   toACVMField,
   toAcvmCommitmentLoadOracleInputs,

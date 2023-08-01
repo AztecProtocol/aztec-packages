@@ -15,7 +15,6 @@ import {
   computeCallStackItemHash,
   computeContractAddressFromPartial,
   computeSecretMessageHash,
-  computeTxHash,
   computeUniqueCommitment,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
