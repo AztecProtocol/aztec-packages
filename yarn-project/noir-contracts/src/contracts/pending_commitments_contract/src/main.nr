@@ -41,8 +41,6 @@ contract PendingCommitments {
         inputs: PrivateContextInputs
         //*********************************/
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        //let context = Context::new(inputs, abi::hash_args([]));
         let context = Context::new(inputs, 0);
         context.finish()
     }
@@ -61,22 +59,22 @@ contract PendingCommitments {
         let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
         let owner_balance = storage.balances.at(owner);
-        let note = ValueNote::new(amount, owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         // get note inserted above
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        assert(note.value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        let note0 = maybe_notes[0].unwrap();
+        assert(note.value == note0.value);
+        assert(maybe_notes[1].is_none());
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        context.return_values.push(note0.value);
 
-        context = owner_balance.remove(context, got_notes[0]);
+        owner_balance.remove(&mut context, note0);
 
         context.finish()
     }
@@ -97,18 +95,16 @@ contract PendingCommitments {
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         // get note (note inserted at bottom of function shouldn't exist yet)
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        assert(!got_notes[0].is_real);
-        assert(got_notes[0].value == 0);
-        assert(!got_notes[1].is_real);
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        context.return_values.push(0);
 
         // Insert note and emit encrypted note preimage via oracle call
-        let note = ValueNote::new(amount, owner);
-        context = owner_balance.insert(context, note);
+        let mut note = ValueNote::new(amount, owner);
+        owner_balance.insert(&mut context, &mut note);
 
         context.finish()
     }
@@ -126,10 +122,10 @@ contract PendingCommitments {
         let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
         let owner_balance = storage.balances.at(owner);
-        let note = ValueNote::new(amount, owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
 
         context.finish()
     }
@@ -149,15 +145,13 @@ contract PendingCommitments {
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let note = owner_balance.get_notes(&mut context, options)[0].unwrap();
 
-        assert(expected_value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        assert(expected_value == note.value);
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        context.return_values.push(expected_value);
 
-        context = owner_balance.remove(context, got_notes[0]);
+        owner_balance.remove(&mut context, note);
 
         context.finish()
     }
@@ -176,11 +170,10 @@ contract PendingCommitments {
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        assert(!got_notes[0].is_real);
-        assert(!got_notes[1].is_real);
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
         context.finish()
     }
@@ -206,14 +199,11 @@ contract PendingCommitments {
         args[1] = owner;
 
         // nested call to create/insert note
-        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, insert_fn_selector, args, context);
-        context = context_tmp0;
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
         // nested call to read that note / pending commitment
-        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args, context);
-        context = context_tmp1;
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
          // nested call to confirm that balance is zero
-         let (_callStackItem3, mut context_tmp2) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner], context);
-         context = context_tmp2;
+         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
 
         context.finish()
     }

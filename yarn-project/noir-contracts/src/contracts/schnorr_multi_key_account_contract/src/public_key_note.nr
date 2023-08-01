@@ -41,9 +41,8 @@ impl PublicKeyNote {
         ])[0]
     }
 
-    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-        self
     }
 
     fn dummy() -> Self {
@@ -53,10 +52,6 @@ impl PublicKeyNote {
             owner: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        (self.x == 0) & (self.y == 0) & (self.owner == 0)
     }
 }
 
@@ -85,16 +80,12 @@ fn dummy() -> PublicKeyNote {
     PublicKeyNote::dummy()
 }
 
-fn is_dummy(note: PublicKeyNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: PublicKeyNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: PublicKeyNote, header: NoteHeader) -> PublicKeyNote {
-    note.set_header(header)
+fn set_header(note: &mut PublicKeyNote, header: NoteHeader) {
+    note.set_header(header);
 }
 
 global PublicKeyNoteInterface = NoteInterface {
@@ -103,7 +94,6 @@ global PublicKeyNoteInterface = NoteInterface {
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };

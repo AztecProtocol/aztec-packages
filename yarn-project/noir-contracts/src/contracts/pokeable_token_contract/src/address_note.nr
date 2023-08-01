@@ -36,9 +36,8 @@ impl AddressNote {
         ])[0]
     }
 
-    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-        self
     }
 
     fn dummy() -> Self {
@@ -46,10 +45,6 @@ impl AddressNote {
             address: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        self.address == 0
     }
 }
 
@@ -76,16 +71,12 @@ fn dummy() -> AddressNote {
     AddressNote::dummy()
 }
 
-fn is_dummy(note: AddressNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: AddressNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: AddressNote, header: NoteHeader) -> AddressNote {
-    note.set_header(header)
+fn set_header(note: &mut AddressNote, header: NoteHeader) {
+    note.set_header(header);
 }
 
 global AddressNoteInterface = NoteInterface {
@@ -94,7 +85,6 @@ global AddressNoteInterface = NoteInterface {
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };

@@ -62,9 +62,8 @@ impl EcdsaPublicKeyNote {
         ])[0]
     }
 
-    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-        self
     }
 
     fn dummy() -> Self {
@@ -74,10 +73,6 @@ impl EcdsaPublicKeyNote {
             owner: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        (self.x == [0;32]) & (self.y == [0;32]) & (self.owner == 0)
     }
 }
 
@@ -117,16 +112,12 @@ fn dummy() -> EcdsaPublicKeyNote {
     EcdsaPublicKeyNote::dummy()
 }
 
-fn is_dummy(note: EcdsaPublicKeyNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: EcdsaPublicKeyNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: EcdsaPublicKeyNote, header: NoteHeader) -> EcdsaPublicKeyNote {
-    note.set_header(header)
+fn set_header(note: &mut EcdsaPublicKeyNote, header: NoteHeader) {
+    note.set_header(header);
 }
 
 global EcdsaPublicKeyNoteInterface = NoteInterface {
@@ -135,7 +126,6 @@ global EcdsaPublicKeyNoteInterface = NoteInterface {
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };

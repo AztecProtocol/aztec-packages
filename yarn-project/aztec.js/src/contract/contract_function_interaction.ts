@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
 
 import { Wallet } from '../aztec_rpc_client/wallet.js';
@@ -84,20 +84,23 @@ export class ContractFunctionInteraction {
     return this.tx;
   }
 
+  /**
+   * Returns an execution request that represents this operation. Useful as a building
+   * block for constructing batch requests.
+   * @param options - An optional object containing additional configuration for the transaction.
+   * @returns An execution request.
+   */
+  public request(options: SendMethodOptions = {}): ExecutionRequest {
+    return this.getExecutionRequest(this.contractAddress, options.origin);
+  }
+
   protected getExecutionRequest(to: AztecAddress, from?: AztecAddress): ExecutionRequest {
     const flatArgs = encodeArguments(this.functionDao, this.args);
     from = from ?? this.wallet.getAddress();
 
-    const functionData = new FunctionData(
-      generateFunctionSelector(this.functionDao.name, this.functionDao.parameters),
-      this.functionDao.isInternal,
-      this.functionDao.functionType === FunctionType.SECRET,
-      this.functionDao.name === 'constructor',
-    );
-
     return {
       args: flatArgs,
-      functionData,
+      functionData: FunctionData.fromAbi(this.functionDao),
       to,
       from,
     };

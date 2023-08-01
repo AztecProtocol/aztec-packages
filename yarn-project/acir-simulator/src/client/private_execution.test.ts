@@ -86,21 +86,20 @@ describe('Private Execution test suite', () => {
     args = [],
     origin = AztecAddress.random(),
     contractAddress = defaultContractAddress,
-    isConstructor = false,
     txContext = {},
   }: {
     abi: FunctionAbi;
     origin?: AztecAddress;
     contractAddress?: AztecAddress;
-    isConstructor?: boolean;
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
     const packedArguments = await PackedArguments.fromArgs(encodeArguments(abi, args), circuitsWasm);
+    const functionData = FunctionData.fromAbi(abi);
     const txRequest = TxExecutionRequest.from({
       origin,
       argsHash: packedArguments.hash,
-      functionData: new FunctionData(Buffer.alloc(4), false, true, isConstructor),
+      functionData,
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
     });
@@ -110,7 +109,7 @@ describe('Private Execution test suite', () => {
     return acirSimulator.run(
       txRequest,
       abi,
-      isConstructor ? AztecAddress.ZERO : contractAddress,
+      functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       EthAddress.ZERO,
       historicRoots,
     );
@@ -156,7 +155,7 @@ describe('Private Execution test suite', () => {
       const abi = TestContractAbi.functions[0];
       const contractDeploymentData = makeContractDeploymentData(100);
       const txContext = { isContractDeploymentTx: true, contractDeploymentData };
-      const result = await runSimulator({ abi, isConstructor: true, txContext });
+      const result = await runSimulator({ abi, txContext });
 
       const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
       expect(result.callStackItem.publicInputs.newCommitments).toEqual(emptyCommitments);
@@ -173,7 +172,7 @@ describe('Private Execution test suite', () => {
 
     const buildNote = (amount: bigint, owner: AztecAddress, storageSlot = Fr.random()) => {
       const nonce = new Fr(currentNoteIndex);
-      const preimage = [new Fr(amount), owner.toField(), Fr.random(), new Fr(1n)];
+      const preimage = [new Fr(amount), owner.toField(), Fr.random()];
       return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, nullifier: new Fr(0), preimage };
     };
 
@@ -242,7 +241,7 @@ describe('Private Execution test suite', () => {
     it('should a constructor with arguments that inserts notes', async () => {
       const abi = ZkTokenContractAbi.functions.find(f => f.name === 'constructor')!;
 
-      const result = await runSimulator({ args: [140, owner], abi, isConstructor: true });
+      const result = await runSimulator({ args: [140, owner], abi });
 
       expect(result.preimages.newNotes).toHaveLength(1);
       const newNote = result.preimages.newNotes[0];
@@ -384,6 +383,7 @@ describe('Private Execution test suite', () => {
 
   describe('nested calls', () => {
     const privateIncrement = txContextFields.chainId.value + txContextFields.version.value;
+
     it('child function should be callable', async () => {
       const initialValue = 100n;
       const abi = ChildContractAbi.functions.find(f => f.name === 'value')!;
@@ -397,7 +397,7 @@ describe('Private Execution test suite', () => {
       const parentAbi = ParentContractAbi.functions.find(f => f.name === 'entryPoint')!;
       const parentAddress = AztecAddress.random();
       const childAddress = AztecAddress.random();
-      const childSelector = Buffer.alloc(4, 1); // should match the call
+      const childSelector = generateFunctionSelector(childAbi.name, childAbi.parameters);
 
       oracle.getFunctionABI.mockImplementation(() => Promise.resolve(childAbi));
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
@@ -413,6 +413,11 @@ describe('Private Execution test suite', () => {
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
+
+      // check that Noir calculated the call stack item hash like cpp does
+      const wasm = await CircuitsWasm.get();
+      const expectedCallStackItemHash = computeCallStackItemHash(wasm, result.nestedExecutions[0].callStackItem);
+      expect(result.callStackItem.publicInputs.privateCallStack[0]).toEqual(expectedCallStackItemHash);
     });
   });
 
@@ -506,13 +511,14 @@ describe('Private Execution test suite', () => {
   describe('enqueued calls', () => {
     it.each([false, true])('parent should enqueue call to child', async isInternal => {
       const parentAbi = ParentContractAbi.functions.find(f => f.name === 'enqueueCallToChild')!;
+      const childContractAbi = ParentContractAbi.functions[0];
       const childAddress = AztecAddress.random();
       const childPortalContractAddress = EthAddress.random();
-      const childSelector = Buffer.alloc(4, 1); // should match the call
+      const childSelector = generateFunctionSelector(childContractAbi.name, childContractAbi.parameters);
       const parentAddress = AztecAddress.random();
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(childPortalContractAddress));
-      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...ChildContractAbi.functions[0], isInternal }));
+      oracle.getFunctionABI.mockImplementation(() => Promise.resolve({ ...childContractAbi, isInternal }));
 
       const args = [Fr.fromBuffer(childAddress.toBuffer()), Fr.fromBuffer(childSelector), 42n];
       const result = await runSimulator({
@@ -522,9 +528,13 @@ describe('Private Execution test suite', () => {
         args,
       });
 
+      // Alter function data (abi) to match the manipulated oracle
+      const functionData = FunctionData.fromAbi(childContractAbi);
+      functionData.isInternal = isInternal;
+
       const publicCallRequest = PublicCallRequest.from({
         contractAddress: childAddress,
-        functionData: new FunctionData(childSelector, isInternal, false, false),
+        functionData: functionData,
         args: [new Fr(42n)],
         callContext: CallContext.from({
           msgSender: parentAddress,
@@ -633,7 +643,13 @@ describe('Private Execution test suite', () => {
 
       oracle.getPortalContractAddress.mockImplementation(() => Promise.resolve(EthAddress.ZERO));
 
-      const args = [amountToTransfer, owner, insertFnSelector, getThenNullifyFnSelector, getZeroFnSelector];
+      const args = [
+        amountToTransfer,
+        owner,
+        Fr.fromBuffer(insertFnSelector),
+        Fr.fromBuffer(getThenNullifyFnSelector),
+        Fr.fromBuffer(getZeroFnSelector),
+      ];
       const result = await runSimulator({
         args: args,
         abi: abi,
