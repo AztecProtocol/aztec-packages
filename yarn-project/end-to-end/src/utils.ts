@@ -57,7 +57,7 @@ import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
-const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
+export const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
       logger('Attmpting to contact RPC Server...');
