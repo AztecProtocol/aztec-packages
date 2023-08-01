@@ -85,7 +85,7 @@ template <class Params> class GeminiTest : public CommitmentTest<Params> {
         // - Single opening pair: {r, \hat{a}_0}
         // - 2 partially evaluated Fold polynomial commitments [Fold_{r}^(0)] and [Fold_{-r}^(0)]
         // Aggregate: d+1 opening pairs and d+1 Fold poly commitments into verifier claim
-        auto verifier_claim = GeminiVerifier::reduce_verify(multilinear_evaluation_point,
+        auto verifier_claim = GeminiVerifier::reduce_verification(multilinear_evaluation_point,
                                                     batched_evaluation,
                                                     batched_commitment_unshifted,
                                                     batched_commitment_to_be_shifted,

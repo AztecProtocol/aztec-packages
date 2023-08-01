@@ -1,5 +1,5 @@
 #include "../gemini/gemini.hpp"
-#include "../shplonk/shplonk_single.hpp"
+#include "../shplonk/shplonk.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
@@ -162,13 +162,13 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     auto verifier_transcript = VerifierTranscript<Fr>::init_empty(prover_transcript);
 
-    auto gemini_verifier_claim = GeminiVerifier::reduce_verify(mle_opening_point,
+    auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
                                                        batched_evaluation,
                                                        batched_commitment_unshifted,
                                                        batched_commitment_to_be_shifted,
                                                        verifier_transcript);
 
-    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verify(this->vk(), gemini_verifier_claim, verifier_transcript);
+    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
     bool verified = IPA::verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(verified, true);

@@ -152,13 +152,13 @@ TEST_F(SumcheckTests, PolynomialNormalization)
 
     auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-    auto [multivariate_challenge, evaluations] = sumcheck.execute(full_polynomials, {});
+    auto [multivariate_challenge, evaluations] = sumcheck.prove(full_polynomials, {});
 
     FF u_0 = multivariate_challenge[0];
     FF u_1 = multivariate_challenge[1];
     FF u_2 = multivariate_challenge[2];
 
-    /* sumcheck.execute() terminates with sumcheck.multivariates.folded_polynoimals as an array such that
+    /* sumcheck.prove() terminates with sumcheck.multivariates.folded_polynoimals as an array such that
      * sumcheck.multivariates.folded_polynoimals[i][0] is the evaluatioin of the i'th multivariate at the vector of
      challenges u_i. What does this mean?
 
@@ -248,7 +248,7 @@ TEST_F(SumcheckTests, Prover)
 
         auto sumcheck = SumcheckProver<Flavor>(multivariate_n, transcript);
 
-        auto [multivariate_challenge, evaluations] = sumcheck.execute(full_polynomials, {});
+        auto [multivariate_challenge, evaluations] = sumcheck.prove(full_polynomials, {});
         FF u_0 = multivariate_challenge[0];
         FF u_1 = multivariate_challenge[1];
         std::vector<FF> expected_values;
@@ -325,13 +325,13 @@ TEST_F(SumcheckTests, ProverAndVerifier)
 
     auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-    auto prover_output = sumcheck_prover.execute(full_polynomials, relation_parameters);
+    auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
 
     auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n, verifier_transcript);
 
-    std::optional verifier_output = sumcheck_verifier.execute(relation_parameters);
+    std::optional verifier_output = sumcheck_verifier.verify(relation_parameters);
 
     ASSERT_TRUE(verifier_output.has_value());
     ASSERT_EQ(prover_output, *verifier_output);
@@ -399,13 +399,13 @@ TEST_F(SumcheckTests, ProverAndVerifierLonger)
 
         auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        auto prover_output = sumcheck_prover.execute(full_polynomials, relation_parameters);
+        auto prover_output = sumcheck_prover.prove(full_polynomials, relation_parameters);
 
         auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n, verifier_transcript);
 
-        std::optional verifier_output = sumcheck_verifier.execute(relation_parameters);
+        std::optional verifier_output = sumcheck_verifier.verify(relation_parameters);
 
         EXPECT_EQ(verifier_output.has_value(), expect_verified);
     };
@@ -485,13 +485,13 @@ TEST_F(SumcheckTests, RealCircuitStandard)
 
     auto sumcheck_prover = SumcheckProver<Flavor>(prover.key->circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.execute(prover_polynomials, relation_parameters);
+    auto prover_output = sumcheck_prover.prove(prover_polynomials, relation_parameters);
 
     auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(prover.key->circuit_size, verifier_transcript);
 
-    std::optional verifier_output = sumcheck_verifier.execute(relation_parameters);
+    std::optional verifier_output = sumcheck_verifier.verify(relation_parameters);
 
     ASSERT_TRUE(verifier_output.has_value());
 }
@@ -699,13 +699,13 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     auto sumcheck_prover = SumcheckProver<Flavor>(prover.key->circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.execute(prover_polynomials, relation_parameters);
+    auto prover_output = sumcheck_prover.prove(prover_polynomials, relation_parameters);
 
     auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(prover.key->circuit_size, verifier_transcript);
 
-    std::optional verifier_output = sumcheck_verifier.execute(relation_parameters);
+    std::optional verifier_output = sumcheck_verifier.verify(relation_parameters);
 
     ASSERT_TRUE(verifier_output.has_value());
 }

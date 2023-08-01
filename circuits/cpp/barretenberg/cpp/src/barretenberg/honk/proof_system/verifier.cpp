@@ -108,7 +108,7 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
 
     // Execute Sumcheck Verifier
     auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
-    std::optional sumcheck_output = sumcheck.execute(relation_parameters);
+    std::optional sumcheck_output = sumcheck.verify(relation_parameters);
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {
@@ -153,14 +153,14 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     // Produce a Gemini claim consisting of:
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
-    auto gemini_claim = Gemini::reduce_verify(multivariate_challenge,
+    auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
                                               batched_evaluation,
                                               batched_commitment_unshifted,
                                               batched_commitment_to_be_shifted,
                                               transcript);
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
-    auto shplonk_claim = Shplonk::reduce_verify(pcs_verification_key, gemini_claim, transcript);
+    auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
 
     // Verify the Shplonk claim with KZG or IPA
     return PCS::verify(pcs_verification_key, shplonk_claim, transcript);

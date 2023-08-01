@@ -45,11 +45,6 @@
 namespace proof_system::honk::pcs::gemini {
 
 /**
- * @brief Gemini Prover functionality
- * 
- */
-
-/**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1
  *
  * @param mle_opening_point multilinear opening point 'u'
@@ -200,13 +195,7 @@ ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(
 };
 
 /**
- * @brief Gemini Verifier functionality
- * 
- */
-
-/**
- * @brief Checks that all MLE evaluations vⱼ contained in the list of m MLE opening claims
- * is correct, and returns univariate polynomial opening claims to be checked later
+ * @brief Returns univariate opening claims for the Fold polynomials to be checked later
  *
  * @param mle_opening_point the MLE evaluation point u
  * @param batched_evaluation batched evaluation from multivariate evals at the point u
@@ -219,7 +208,7 @@ ProverOutput<Params> GeminiProver_<Params>::compute_fold_polynomial_evaluations(
  */
 
 template <typename Params>
-std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verify(std::span<const Fr> mle_opening_point, /* u */
+std::vector<OpeningClaim<Params>> GeminiVerifier_<Params>::reduce_verification(std::span<const Fr> mle_opening_point, /* u */
                                                                 const Fr batched_evaluation,           /* all */
                                                                 GroupElement& batched_f,               /* unshifted */
                                                                 GroupElement& batched_g, /* to-be-shifted */

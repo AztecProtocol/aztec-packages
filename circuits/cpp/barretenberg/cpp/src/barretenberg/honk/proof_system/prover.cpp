@@ -129,7 +129,7 @@ template <StandardFlavor Flavor> void StandardProver_<Flavor>::execute_relation_
 
     auto sumcheck = Sumcheck(key->circuit_size, transcript);
 
-    sumcheck_output = sumcheck.execute(prover_polynomials, relation_parameters);
+    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
 }
 
 /**

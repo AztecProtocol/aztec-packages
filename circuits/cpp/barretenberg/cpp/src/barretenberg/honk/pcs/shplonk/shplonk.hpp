@@ -160,7 +160,7 @@ template <typename Params> class ShplonkVerifier_ {
      * @param transcript
      * @return OpeningClaim
      */
-    static OpeningClaim<Params> reduce_verify(std::shared_ptr<VK> vk,
+    static OpeningClaim<Params> reduce_verification(std::shared_ptr<VK> vk,
                                               std::span<const OpeningClaim<Params>> claims,
                                               VerifierTranscript<Fr>& transcript)
     {

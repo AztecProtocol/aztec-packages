@@ -77,7 +77,7 @@ template <typename Flavor> class SumcheckProver {
      *
      * @details
      */
-    SumcheckOutput<Flavor> execute(
+    SumcheckOutput<Flavor> prove(
         auto full_polynomials, const RelationParameters<FF>& relation_parameters) // pass by value, not by reference
     {
         auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
@@ -179,7 +179,7 @@ template <typename Flavor> class SumcheckVerifier {
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      */
-    std::optional<SumcheckOutput<Flavor>> execute(const RelationParameters<FF>& relation_parameters)
+    std::optional<SumcheckOutput<Flavor>> verify(const RelationParameters<FF>& relation_parameters)
     {
         bool verified(true);
 

@@ -1,6 +1,6 @@
 
 #include "../gemini/gemini.hpp"
-#include "../shplonk/shplonk_single.hpp"
+#include "../shplonk/shplonk.hpp"
 #include "kzg.hpp"
 
 #include "../commitment_key.test.hpp"
@@ -158,14 +158,14 @@ TYPED_TEST(KZGTest, GeminiShplonkKzgWithShift)
 
     // Gemini verifier output:
     // - claim: d+1 commitments to Fold_{r}^(0), Fold_{-r}^(0), Fold^(l), d+1 evaluations a_0_pos, a_l, l = 0:d-1
-    auto gemini_verifier_claim = GeminiVerifier::reduce_verify(mle_opening_point,
+    auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
                                                        batched_evaluation,
                                                        batched_commitment_unshifted,
                                                        batched_commitment_to_be_shifted,
                                                        verifier_transcript);
 
     // Shplonk verifier claim: commitment [Q] - [Q_z], opening point (z_challenge, 0)
-    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verify(this->vk(), gemini_verifier_claim, verifier_transcript);
+    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
 
     // KZG verifier:
     // aggregates inputs [Q] - [Q_z] and [W] into an 'accumulator' (can perform pairing check on result)

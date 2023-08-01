@@ -119,7 +119,7 @@ template <typename Params> class GeminiVerifier_ {
     using Commitment = typename Params::Commitment;
 
   public:
-    static std::vector<OpeningClaim<Params>> reduce_verify(std::span<const Fr> mle_opening_point, /* u */
+    static std::vector<OpeningClaim<Params>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
                                                            const Fr batched_evaluation,           /* all */
                                                            GroupElement& batched_f,               /* unshifted */
                                                            GroupElement& batched_g,               /* to-be-shifted */

@@ -1,5 +1,5 @@
 #include "../gemini/gemini.hpp"
-#include "shplonk_single.hpp"
+#include "shplonk.hpp"
 
 #include <algorithm>
 #include <gtest/internal/gtest-internal.h>
@@ -66,7 +66,7 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     auto verifier_transcript = VerifierTranscript<Fr>::init_empty(prover_transcript);
 
     // Execute the shplonk verifier functionality
-    const auto verifier_claim = ShplonkVerifier::reduce_verify(this->vk(), opening_claims, verifier_transcript);
+    const auto verifier_claim = ShplonkVerifier::reduce_verification(this->vk(), opening_claims, verifier_transcript);
 
     this->verify_opening_claim(verifier_claim, shplonk_prover_witness);
 }
