@@ -9,21 +9,18 @@
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/biggroup/biggroup.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/stdlib/utility/utility.hpp"
 
 //TODO(luke): this namespace will be sensible once stdlib is moved out of the plonk namespace
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:
     using field_pt = field_t<Builder>;
-    using witness_pt = witness_t<Builder>;
-    using fq_pt = bigfield<Builder, barretenberg::Bn254FqParams>;
-    using group_pt = element<Builder, fq_pt, field_pt, barretenberg::g1>;
     using FF = barretenberg::fr;
-    using Commitment = barretenberg::g1::affine_element;
     using VerifierTranscript = proof_system::honk::VerifierTranscript<FF>;
-    template <size_t LENGTH> using Univariate = proof_system::honk::sumcheck::Univariate<FF, LENGTH>;
+    using Utility = utility::StdlibUtility<Builder>;
 
-    static constexpr size_t HASH_OUTPUT_SIZE = 32; // WORKTODO: Duplicated from native transcript
+    static constexpr size_t HASH_OUTPUT_SIZE = VerifierTranscript::HASH_OUTPUT_SIZE;
 
     VerifierTranscript native_transcript;
     Builder* builder;
@@ -53,7 +50,7 @@ template <typename Builder> class Transcript {
         native_challenges = native_transcript.get_challenges(labels...);
 
         /*
-         * TODO(luke): Do stdlib hashing here. E.g., for the current pedersen/blake setup, we could write data into a
+         * TODO(#1351): Do stdlib hashing here. E.g., for the current pedersen/blake setup, we could write data into a
          * byte_array as it is received from prover, then compress via pedersen and apply blake3s. Not doing this now
          * since it's a pain and we'll be revamping our hashing anyway. For now, simply convert the native hashes to
          * stdlib types without adding any hashing constraints.
@@ -77,7 +74,7 @@ template <typename Builder> class Transcript {
         // Compute the indicated challenge from the native transcript
         auto native_challenge = native_transcript.get_challenge(label);
 
-        // TODO(luke): Stdlib hashing here...
+        // TODO(1351): Stdlib hashing here...
 
         return field_pt(native_challenge);
     }
@@ -94,81 +91,8 @@ template <typename Builder> class Transcript {
         // Extract the native element from the native transcript
         T element = native_transcript.template receive_from_prover<T>(label);
 
-        // Add variables corresponding to the witness element and return the corresponding stdlib type
-        return stdlib_type_from_witness(element);
-    }
-
-  private:
-    // Series of overloaded methods for converting native types extracted from the native transcript to the
-    // corresponding stdlib type for output.
-    // TODO(luke): Eventually these can also add data to a buffer (byte_array) to be hashed.
-
-    /**
-     * @brief Construct stdlib field from uint32_t
-     *
-     * @param element
-     * @return field_pt
-     */
-    field_pt stdlib_type_from_witness(uint32_t native_element)
-    {
-        auto element = witness_pt(builder, native_element);
-
-        return element;
-    }
-
-    /**
-     * @brief Construct stdlib field from native field type
-     *
-     * @param native_element
-     * @return field_pt
-     */
-    field_pt stdlib_type_from_witness(FF native_element)
-    {
-        auto element = witness_pt(builder, native_element);
-
-        return element;
-    }
-
-    /**
-     * @brief Construct stdlib group from native affine group element type
-     *
-     * @param native_element
-     * @return field_pt
-     */
-    group_pt stdlib_type_from_witness(Commitment native_element)
-    {
-        auto element = group_pt::from_witness(builder, native_element);
-
-        return element;
-    }
-
-    /**
-     * @brief Construct field_t array from native field array
-     * @param native_element Array of FF
-     * @return std::array<field_pt, LENGTH>
-     */
-    template <size_t LENGTH> std::array<field_pt, LENGTH> stdlib_type_from_witness(std::array<FF, LENGTH> native_element)
-    {
-        std::array<field_pt, LENGTH> element;
-        for (size_t i = 0; i < LENGTH; ++i) {
-            element[i] = witness_pt(builder, native_element[i]);
-        }
-        return element;
-    }
-
-    /**
-     * @brief Construct field_t array from native Univariate type
-     * TODO(luke): do we need a stdlib Univariate or is std::array<field_t> good enough?
-     * @param native_element
-     * @return std::array<field_pt, LENGTH>
-     */
-    template <size_t LENGTH> std::array<field_pt, LENGTH> stdlib_type_from_witness(Univariate<LENGTH> native_element)
-    {
-        std::array<field_pt, LENGTH> element;
-        for (size_t i = 0; i < LENGTH; ++i) {
-            element[i] = witness_pt(builder, native_element.value_at(i));
-        }
-        return element;
+        // Return the corresponding stdlib type
+        return Utility::from_witness(builder, element);
     }
 };
 } // namespace proof_system::plonk::stdlib::recursion::honk
