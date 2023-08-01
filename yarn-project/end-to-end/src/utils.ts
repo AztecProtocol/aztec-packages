@@ -27,7 +27,6 @@ import {
 import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { mustSucceedFetch } from '@aztec/foundation/json-rpc/client';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
