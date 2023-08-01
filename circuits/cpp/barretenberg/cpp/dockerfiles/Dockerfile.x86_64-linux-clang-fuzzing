@@ -4,7 +4,7 @@ RUN apk update && \
     apk add --no-cache \
         build-base \
         clang16 \
-        llvm-16 \
+        compiler-rt \
         openmp-dev \
         cmake \
         ninja \
