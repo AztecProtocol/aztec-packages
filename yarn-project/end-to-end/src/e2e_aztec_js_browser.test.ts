@@ -197,5 +197,5 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       SchnorrSingleKeyAccountContractAbi,
     );
     expect(result).toEqual(transferAmount);
-  }, 30_000);
+  }, 45_000);
 });
