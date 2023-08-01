@@ -131,40 +131,6 @@ NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs con
  * @param constantBaseRollupData
  * @param baseRollupInputs
  */
-void perform_historical_private_data_tree_membership_checks(DummyBuilder& builder,
-                                                            BaseRollupInputs const& baseRollupInputs)
-{
-    // For each of the historic_private_data_tree_membership_checks, we need to do an inclusion proof
-    // against the historical root provided in the rollup constants
-    auto historic_root = baseRollupInputs.constants.start_tree_of_historic_private_data_tree_roots_snapshot.root;
-
-    for (size_t i = 0; i < 2; i++) {
-        NT::fr const leaf =
-            baseRollupInputs.kernel_data[i]
-                .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root;
-        abis::MembershipWitness<NT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
-            baseRollupInputs.historic_private_data_tree_root_membership_witnesses[i];
-
-        check_membership<NT>(
-            builder,
-            leaf,
-            historic_root_witness.leaf_index,
-            historic_root_witness.sibling_path,
-            historic_root,
-            format(
-                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                "historical root is in rollup constants but not in historic private data tree roots at kernel input ",
-                i,
-                " to this base rollup circuit"));
-    }
-}
-
-/**
- * @brief Check all of the provided commitments against the historical tree roots
- *
- * @param constantBaseRollupData
- * @param baseRollupInputs
- */
 void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, BaseRollupInputs const& baseRollupInputs)
 {
     // For each of the historic_private_data_tree_membership_checks, we need to do an inclusion proof
@@ -202,58 +168,6 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
                    "historical root is in rollup constants but not in historic block tree roots at kernel input ",
                    i,
                    " to this base rollup circuit"));
-    }
-}
-
-void perform_historical_contract_data_tree_membership_checks(DummyBuilder& builder,
-                                                             BaseRollupInputs const& baseRollupInputs)
-{
-    auto historic_root = baseRollupInputs.constants.start_tree_of_historic_contract_tree_roots_snapshot.root;
-
-    for (size_t i = 0; i < 2; i++) {
-        NT::fr const leaf =
-            baseRollupInputs.kernel_data[i]
-                .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.contract_tree_root;
-        abis::MembershipWitness<NT, CONTRACT_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
-            baseRollupInputs.historic_contract_tree_root_membership_witnesses[i];
-
-        check_membership<NT>(
-            builder,
-            leaf,
-            historic_root_witness.leaf_index,
-            historic_root_witness.sibling_path,
-            historic_root,
-            format(
-                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                "historical root is in rollup constants but not in historic contract data tree roots at kernel input ",
-                i,
-                " to this base rollup circuit"));
-    }
-}
-
-void perform_historical_l1_to_l2_message_tree_membership_checks(DummyBuilder& builder,
-                                                                BaseRollupInputs const& baseRollupInputs)
-{
-    auto historic_root = baseRollupInputs.constants.start_tree_of_historic_l1_to_l2_msg_tree_roots_snapshot.root;
-
-    for (size_t i = 0; i < 2; i++) {
-        NT::fr const leaf =
-            baseRollupInputs.kernel_data[i]
-                .public_inputs.constants.historic_tree_roots.private_historic_tree_roots.l1_to_l2_messages_tree_root;
-        abis::MembershipWitness<NT, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT> const historic_root_witness =
-            baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[i];
-
-        check_membership<NT>(
-            builder,
-            leaf,
-            historic_root_witness.leaf_index,
-            historic_root_witness.sibling_path,
-            historic_root,
-            format(
-                BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                "historical root is in rollup constants but not in historic l1 to l2 data tree roots at kernel input ",
-                i,
-                " to this base rollup circuit"));
     }
 }
 
