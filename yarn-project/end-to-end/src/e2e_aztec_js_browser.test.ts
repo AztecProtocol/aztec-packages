@@ -32,9 +32,9 @@ const privKey = privKeyRaw === null ? null : new PrivateKey(Buffer.from(privKeyR
 
 conditionalDescribe()('e2e_aztec.js_browser', () => {
   const initialBalance = 33n;
-  const transferAmount = 3n;
+  // const transferAmount = 3n;
 
-  let contractAddress: AztecAddress;
+  // let contractAddress: AztecAddress;
 
   let logger: DebugLogger;
   let app: Koa;
@@ -114,13 +114,13 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     // const [txHash, balance] = await page.evaluate(
     const txHash = await page.evaluate(
       async (rpcUrl, initialBalance, ZkTokenContractAbi) => {
-        const { ContractDeployer, DeployMethod, Point, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
+        const { ContractDeployer, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const owner = (await client.getAccounts())[0];
         const publicKey = await client.getPublicKey(owner);
-        // const deployer = new ContractDeployer(ZkTokenContractAbi, client);
-        // const tx = deployer.deploy(initialBalance, owner, publicKey.toBigInts()).send();
-        const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
+        const deployer = new ContractDeployer(ZkTokenContractAbi, client);
+        const tx = deployer.deploy(initialBalance, owner, publicKey.toBigInts()).send();
+        // const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [33n, owner]).send();
 
         await tx.isMined();
         const receipt = await tx.getReceipt();
