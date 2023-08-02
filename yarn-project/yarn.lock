@@ -181,33 +181,6 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec-sandbox@workspace:aztec-sandbox":
-  version: 0.0.0-use.local
-  resolution: "@aztec/aztec-sandbox@workspace:aztec-sandbox"
-  dependencies:
-    "@aztec/aztec-node": "workspace:^"
-    "@aztec/aztec-rpc": "workspace:^"
-    "@aztec/aztec.js": "workspace:^"
-    "@aztec/circuits.js": "workspace:^"
-    "@aztec/ethereum": "workspace:^"
-    "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/noir-contracts": "workspace:^"
-    "@aztec/types": "workspace:^"
-    "@jest/globals": ^29.5.0
-    "@types/jest": ^29.5.0
-    "@types/koa": ^2.13.6
-    abitype: ^0.8.11
-    jest: ^29.5.0
-    koa: ^2.14.2
-    koa-router: ^12.0.0
-    ts-jest: ^29.1.0
-    ts-node: ^10.9.1
-    typescript: ^5.0.4
-    viem: ^1.2.5
-  languageName: unknown
-  linkType: soft
-
 "@aztec/aztec.js@workspace:^, @aztec/aztec.js@workspace:aztec.js":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
@@ -639,6 +612,33 @@ __metadata:
     ts-node: ^10.9.1
     tslib: ^2.4.0
     typescript: ^5.0.4
+  languageName: unknown
+  linkType: soft
+
+"@aztec/sandbox@workspace:aztec-sandbox":
+  version: 0.0.0-use.local
+  resolution: "@aztec/sandbox@workspace:aztec-sandbox"
+  dependencies:
+    "@aztec/aztec-node": "workspace:^"
+    "@aztec/aztec-rpc": "workspace:^"
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/noir-contracts": "workspace:^"
+    "@aztec/types": "workspace:^"
+    "@jest/globals": ^29.5.0
+    "@types/jest": ^29.5.0
+    "@types/koa": ^2.13.6
+    abitype: ^0.8.11
+    jest: ^29.5.0
+    koa: ^2.14.2
+    koa-router: ^12.0.0
+    ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    typescript: ^5.0.4
+    viem: ^1.2.5
   languageName: unknown
   linkType: soft
 
