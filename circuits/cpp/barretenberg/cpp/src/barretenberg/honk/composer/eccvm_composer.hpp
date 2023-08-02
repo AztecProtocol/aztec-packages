@@ -7,9 +7,10 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace proof_system::honk {
-template <ECCVMFlavor Flavor> class ECCVMComposerHelper_ {
+
+template <ECCVMFlavor Flavor> class ECCVMComposer_ {
   public:
-    using CircuitConstructor = ECCVMCircuitConstructor<Flavor>;
+    using CircuitConstructor = ECCVMCircuitBuilder<Flavor>;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using PCSParams = typename Flavor::PCSParams;
@@ -24,7 +25,7 @@ template <ECCVMFlavor Flavor> class ECCVMComposerHelper_ {
     std::shared_ptr<VerificationKey> verification_key;
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<srs::factories::CrsFactory> crs_factory_;
+    std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
 
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<PCSCommitmentKey> commitment_key;
@@ -32,24 +33,29 @@ template <ECCVMFlavor Flavor> class ECCVMComposerHelper_ {
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
+    ECCVMComposer_() requires(std::same_as<Flavor, honk::flavor::ECCVMGrumpkin>)
+    {
+        crs_factory_ = barretenberg::srs::get_grumpkin_crs_factory();
+    };
+    ECCVMComposer_() requires(std::same_as<Flavor, honk::flavor::ECCVM>)
+    {
+        crs_factory_ = barretenberg::srs::get_crs_factory();
+    };
 
-    ECCVMComposerHelper_()
-        : crs_factory_(barretenberg::srs::get_crs_factory()){};
-
-    explicit ECCVMComposerHelper_(std::shared_ptr<srs::factories::CrsFactory> crs_factory)
+    explicit ECCVMComposer_(std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory)
         : crs_factory_(std::move(crs_factory))
     {}
 
-    ECCVMComposerHelper_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    ECCVMComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    ECCVMComposerHelper_(ECCVMComposerHelper_&& other) noexcept = default;
-    ECCVMComposerHelper_(ECCVMComposerHelper_ const& other) noexcept = default;
-    ECCVMComposerHelper_& operator=(ECCVMComposerHelper_&& other) noexcept = default;
-    ECCVMComposerHelper_& operator=(ECCVMComposerHelper_ const& other) noexcept = default;
-    ~ECCVMComposerHelper_() = default;
+    ECCVMComposer_(ECCVMComposer_&& other) noexcept = default;
+    ECCVMComposer_(ECCVMComposer_ const& other) noexcept = default;
+    ECCVMComposer_& operator=(ECCVMComposer_&& other) noexcept = default;
+    ECCVMComposer_& operator=(ECCVMComposer_ const& other) noexcept = default;
+    ~ECCVMComposer_() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(CircuitConstructor& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(CircuitConstructor& circuit_constructor);
@@ -66,7 +72,11 @@ template <ECCVMFlavor Flavor> class ECCVMComposerHelper_ {
         commitment_key = std::make_shared<typename PCSParams::CommitmentKey>(circuit_size, crs_factory_);
     };
 };
-extern template class ECCVMComposerHelper_<honk::flavor::ECCVM>;
+extern template class ECCVMComposer_<honk::flavor::ECCVM>;
+extern template class ECCVMComposer_<honk::flavor::ECCVMGrumpkin>;
+
 // TODO(#532): this pattern is weird; is this not instantiating the templates?
-using ECCVMComposerHelper = ECCVMComposerHelper_<honk::flavor::ECCVM>;
+using ECCVMComposer = ECCVMComposer_<honk::flavor::ECCVM>;
+using ECCVMGrumpkinComposer = ECCVMComposer_<honk::flavor::ECCVMGrumpkin>;
+
 } // namespace proof_system::honk

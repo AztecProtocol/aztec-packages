@@ -104,8 +104,8 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
             updated_state.count = current_ongoing_msm ? state.count + num_muls : 0;
 
             if (current_msm) {
-                const auto P = grumpkin::g1::element(entry.base_point);
-                const auto R = grumpkin::g1::element(state.msm_accumulator);
+                const auto P = typename CycleGroup::element(entry.base_point);
+                const auto R = typename CycleGroup::element(state.msm_accumulator);
                 updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
             }
 
@@ -113,7 +113,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
                 if (state.is_accumulator_empty) {
                     updated_state.accumulator = updated_state.msm_accumulator;
                 } else {
-                    const auto R = grumpkin::g1::element(state.accumulator);
+                    const auto R = typename CycleGroup::element(state.accumulator);
                     updated_state.accumulator = R + updated_state.msm_accumulator;
                 }
                 updated_state.is_accumulator_empty = false;
@@ -125,7 +125,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
 
                     updated_state.accumulator = entry.base_point;
                 } else {
-                    updated_state.accumulator = grumpkin::g1::element(state.accumulator) + entry.base_point;
+                    updated_state.accumulator = typename CycleGroup::element(state.accumulator) + entry.base_point;
                 }
                 updated_state.is_accumulator_empty = false;
             }

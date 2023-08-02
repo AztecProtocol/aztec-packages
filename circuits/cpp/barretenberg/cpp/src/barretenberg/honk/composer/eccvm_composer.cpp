@@ -9,8 +9,7 @@ namespace proof_system::honk {
  * @brief Compute witness polynomials
  *
  */
-template <ECCVMFlavor Flavor>
-void ECCVMComposerHelper_<Flavor>::compute_witness(CircuitConstructor& circuit_constructor)
+template <ECCVMFlavor Flavor> void ECCVMComposer_<Flavor>::compute_witness(CircuitConstructor& circuit_constructor)
 {
     if (computed_witness) {
         return;
@@ -29,7 +28,7 @@ void ECCVMComposerHelper_<Flavor>::compute_witness(CircuitConstructor& circuit_c
 }
 
 template <ECCVMFlavor Flavor>
-ECCVMProver_<Flavor> ECCVMComposerHelper_<Flavor>::create_prover(CircuitConstructor& circuit_constructor)
+ECCVMProver_<Flavor> ECCVMComposer_<Flavor>::create_prover(CircuitConstructor& circuit_constructor)
 {
     compute_proving_key(circuit_constructor);
     compute_witness(circuit_constructor);
@@ -47,7 +46,7 @@ ECCVMProver_<Flavor> ECCVMComposerHelper_<Flavor>::create_prover(CircuitConstruc
  * @return The verifier.
  * */
 template <ECCVMFlavor Flavor>
-ECCVMVerifier_<Flavor> ECCVMComposerHelper_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor)
+ECCVMVerifier_<Flavor> ECCVMComposer_<Flavor>::create_verifier(CircuitConstructor& circuit_constructor)
 {
     auto verification_key = compute_verification_key(circuit_constructor);
 
@@ -61,7 +60,7 @@ ECCVMVerifier_<Flavor> ECCVMComposerHelper_<Flavor>::create_verifier(CircuitCons
 }
 
 template <ECCVMFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposerHelper_<Flavor>::compute_proving_key(
+std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposer_<Flavor>::compute_proving_key(
     CircuitConstructor& circuit_constructor)
 {
     if (proving_key) {
@@ -97,7 +96,7 @@ std::shared_ptr<typename Flavor::ProvingKey> ECCVMComposerHelper_<Flavor>::compu
  * @return Pointer to created circuit verification key.
  * */
 template <ECCVMFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposerHelper_<Flavor>::compute_verification_key(
+std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposer_<Flavor>::compute_verification_key(
     CircuitConstructor& circuit_constructor)
 {
     if (verification_key) {
@@ -116,6 +115,7 @@ std::shared_ptr<typename Flavor::VerificationKey> ECCVMComposerHelper_<Flavor>::
     verification_key->lagrange_last = commitment_key->commit(proving_key->lagrange_last);
     return verification_key;
 }
-template class ECCVMComposerHelper_<honk::flavor::ECCVM>;
+template class ECCVMComposer_<honk::flavor::ECCVM>;
+template class ECCVMComposer_<honk::flavor::ECCVMGrumpkin>;
 
 } // namespace proof_system::honk

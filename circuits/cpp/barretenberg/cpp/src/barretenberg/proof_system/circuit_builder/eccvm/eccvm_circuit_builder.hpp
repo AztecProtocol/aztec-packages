@@ -14,7 +14,7 @@
 
 namespace proof_system {
 
-template <typename Flavor> class ECCVMCircuitConstructor {
+template <typename Flavor> class ECCVMCircuitBuilder {
   public:
     using CycleGroup = typename Flavor::CycleGroup;
     using CycleScalar = typename CycleGroup::subgroup_field;
@@ -466,7 +466,7 @@ template <typename Flavor> class ECCVMCircuitConstructor {
         result =
             result && evaluate_relation.template operator()<honk::sumcheck::ECCVMSetRelation<FF>>("ECCVMSetRelation");
 
-        auto lookup_relation = honk::sumcheck::ECCVMLookupRelation<barretenberg::fr>();
+        auto lookup_relation = honk::sumcheck::ECCVMLookupRelation<FF>();
         typename honk::sumcheck::ECCVMLookupRelation<typename Flavor::FF>::RelationValues lookup_result;
         for (auto& r : lookup_result) {
             r = 0;

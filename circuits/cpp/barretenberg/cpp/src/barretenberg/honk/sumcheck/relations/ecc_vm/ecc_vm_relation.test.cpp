@@ -20,12 +20,6 @@
  */
 
 using namespace proof_system::honk::sumcheck;
-using Flavor = proof_system::honk::flavor::ECCVM;
-using FF = typename Flavor::FF;
-using ProverPolynomials = typename Flavor::ProverPolynomials;
-using RawPolynomials = typename Flavor::RawPolynomials;
-
-static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
 namespace proof_system::honk_relation_tests_ecc_vm_full {
 
@@ -33,36 +27,56 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-ECCVMCircuitConstructor<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
+template <typename Flavor> class ECCVMSumcheckTests : public ::testing::Test {};
+
+using FlavorTypes = ::testing::Types<proof_system::honk::flavor::ECCVM, proof_system::honk::flavor::ECCVMGrumpkin>;
+TYPED_TEST_SUITE(ECCVMSumcheckTests, FlavorTypes);
+
+template <typename Flavor> ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine* engine = nullptr)
 {
-    static bool init = false;
-    static grumpkin::g1::element a;
-    static grumpkin::g1::element b;
-    static grumpkin::g1::element c;
-    static grumpkin::fr x;
-    static grumpkin::fr y;
+    using G1 = typename Flavor::CycleGroup;
+    using Fr = typename G1::Fr;
+    auto generators = G1::template derive_generators<3>();
 
-    ECCVMCircuitConstructor<Flavor> result;
-    if (!init) {
-        a = grumpkin::get_generator(0);
-        b = grumpkin::get_generator(1);
-        c = grumpkin::get_generator(2);
-        x = grumpkin::fr::random_element(engine);
-        y = grumpkin::fr::random_element(engine);
-        init = true;
-    }
+    ECCVMCircuitBuilder<Flavor> result;
 
+    typename G1::element a = generators[0];
+    typename G1::element b = generators[1];
+    typename G1::element c = generators[2];
+    Fr x = Fr::random_element(engine);
+    Fr y = Fr::random_element(engine);
+
+    typename G1::element expected_1 = (a * x) + a + a + (b * y) + (b * x) + (b * x);
+    typename G1::element expected_2 = (a * x) + c + (b * x);
+
+    result.add_accumulate(a);
     result.mul_accumulate(a, x);
+    result.mul_accumulate(b, x);
+    result.mul_accumulate(b, y);
+    result.add_accumulate(a);
+    result.mul_accumulate(b, x);
+    result.eq(expected_1);
+    result.add_accumulate(c);
+    result.mul_accumulate(a, x);
+    result.mul_accumulate(b, x);
+    result.eq(expected_2);
+    result.mul_accumulate(a, x);
+    result.mul_accumulate(b, x);
+    result.mul_accumulate(c, x);
 
     return result;
 }
 
-TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
+TYPED_TEST(ECCVMSumcheckTests, ECCVMLookupRelationAlgebra)
 {
-    const auto run_test = []() {
-        auto lookup_relation = ECCVMLookupRelation<barretenberg::fr>();
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-        barretenberg::fr scaling_factor = barretenberg::fr::random_element();
+    const auto run_test = []() {
+        auto lookup_relation = ECCVMLookupRelation<FF>();
+
+        FF scaling_factor = FF::random_element();
         const FF gamma = FF::random_element(&engine);
         const FF eta = FF::random_element(&engine);
         const FF eta_sqr = eta.sqr();
@@ -70,7 +84,7 @@ TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
         auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
         eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-        honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
+        honk::sumcheck::RelationParameters<FF> relation_params{
             .eta = eta,
             .beta = 1,
             .gamma = gamma,
@@ -81,23 +95,23 @@ TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
             .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
-        auto circuit_constructor = generate_trace(&engine);
+        auto circuit_constructor = generate_trace<Flavor>(&engine);
         auto rows = circuit_constructor.compute_full_polynomials();
         const size_t num_rows = rows[0].size();
         honk::lookup_library::compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(
             rows, relation_params, num_rows);
         honk::permutation_library::compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(
             num_rows, rows, relation_params);
-        rows.z_perm_shift = Flavor::Polynomial(rows.z_perm.shifted());
+        rows.z_perm_shift = typename Flavor::Polynomial(rows.z_perm.shifted());
 
         // auto transcript_trace = transcript_trace.export_rows();
 
-        ECCVMLookupRelation<FF>::RelationValues result;
+        typename ECCVMLookupRelation<FF>::RelationValues result;
         for (auto& r : result) {
             r = 0;
         }
         for (size_t i = 0; i < num_rows; ++i) {
-            Flavor::RowPolynomials row;
+            typename Flavor::RowPolynomials row;
             for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
                 row[j] = rows[j][i];
             }
@@ -111,17 +125,16 @@ TEST(SumcheckRelation, ECCVMLookupRelationAlgebra)
     run_test();
 }
 
-TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
+TYPED_TEST(ECCVMSumcheckTests, ECCVMFullRelationAlgebra)
 {
-    const auto run_test = []() {
-        // auto transcript_relation = ECCVMTranscriptRelation<barretenberg::fr>();
-        // auto point_relation = ECCVMPointTableRelation<barretenberg::fr>();
-        // auto wnaf_relation = ECCVMWnafRelation<barretenberg::fr>();
-        // auto msm_relation = ECCVMMSMRelation<barretenberg::fr>();
-        // auto set_relation = ECCVMSetRelation<barretenberg::fr>();
-        auto lookup_relation = ECCVMLookupRelation<barretenberg::fr>();
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+    static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-        barretenberg::fr scaling_factor = barretenberg::fr::random_element();
+    const auto run_test = []() {
+        auto lookup_relation = ECCVMLookupRelation<FF>();
+
+        FF scaling_factor = FF::random_element();
         const FF gamma = FF::random_element(&engine);
         const FF eta = FF::random_element(&engine);
         const FF eta_sqr = eta.sqr();
@@ -129,7 +142,7 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
         auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
         eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-        honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
+        honk::sumcheck::RelationParameters<FF> relation_params{
             .eta = eta,
             .beta = 1,
             .gamma = gamma,
@@ -139,21 +152,16 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
             .eta_cube = eta_cube,
             .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
-        auto circuit_constructor = generate_trace(&engine);
+        auto circuit_constructor = generate_trace<Flavor>(&engine);
         auto rows = circuit_constructor.compute_full_polynomials();
         const size_t num_rows = rows[0].size();
         honk::lookup_library::compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(
             rows, relation_params, num_rows);
         honk::permutation_library::compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(
             num_rows, rows, relation_params);
-        rows.z_perm_shift = Flavor::Polynomial(rows.z_perm.shifted());
+        rows.z_perm_shift = typename Flavor::Polynomial(rows.z_perm.shifted());
 
-        // compute_permutation_polynomials(rows, relation_params);
-        // compute_lookup_inverse_polynomial(rows, relation_params);
-
-        // auto transcript_trace = transcript_trace.export_rows();
-
-        ECCVMLookupRelation<FF>::RelationValues lookup_result;
+        typename ECCVMLookupRelation<FF>::RelationValues lookup_result;
         for (auto& r : lookup_result) {
             r = 0;
         }
@@ -169,7 +177,7 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
             std::array<size_t, NUM_SUBRELATIONS> relation_fails_at_row{};
 
             for (size_t i = 0; i < num_rows; ++i) {
-                Flavor::RowPolynomials row;
+                typename Flavor::RowPolynomials row;
                 for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
                     row[j] = rows[j][i];
                 }
@@ -201,7 +209,7 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
         evaluate_relation.template operator()<ECCVMSetRelation<FF>>("ECCVMSetRelation");
 
         for (size_t i = 0; i < num_rows; ++i) {
-            Flavor::RowPolynomials row;
+            typename Flavor::RowPolynomials row;
             for (size_t j = 0; j < NUM_POLYNOMIALS; ++j) {
                 row[j] = rows[j][i];
             }
@@ -217,8 +225,11 @@ TEST(SumcheckRelation, ECCVMFullRelationAlgebra)
     run_test();
 }
 
-TEST(SumcheckRelation, ECCVMFullRelationProver)
+TYPED_TEST(ECCVMSumcheckTests, ECCVMFullRelationProver)
 {
+    using Flavor = TypeParam;
+    using FF = typename Flavor::FF;
+
     const auto run_test = []() {
         const FF gamma = FF::random_element(&engine);
         const FF eta = FF::random_element(&engine);
@@ -227,7 +238,7 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
         auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
         eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-        honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
+        honk::sumcheck::RelationParameters<FF> relation_params{
             .eta = eta,
             .beta = 1,
             .gamma = gamma,
@@ -238,7 +249,7 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
             .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 
-        auto circuit_constructor = generate_trace(&engine);
+        auto circuit_constructor = generate_trace<Flavor>(&engine);
         auto full_polynomials = circuit_constructor.compute_full_polynomials();
         const size_t num_rows = full_polynomials[0].size();
         honk::lookup_library::compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(
@@ -246,41 +257,24 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
 
         honk::permutation_library::compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(
             num_rows, full_polynomials, relation_params);
-        full_polynomials.z_perm_shift = Flavor::Polynomial(full_polynomials.z_perm.shifted());
+        full_polynomials.z_perm_shift = typename Flavor::Polynomial(full_polynomials.z_perm.shifted());
 
-        // size_t pidx = 0;
-        // for (auto& p : full_polynomials) {
-        //     size_t count = 0;
-        //     for (auto& x : p) {
-        //         std::cout << "poly[" << pidx << "][" << count << "] = " << x << std::endl;
-        //         count++;
-        //     }
-        //     pidx++;
-        // }
-        // auto foo = full_polynomials.get_to_be_shifted();
-        // size_t c = 0;
-        // for (auto& x : foo) {
-        //     if (x[0] != 0) {
-        //         std::cout << "shift at " << c << "not zero :/" << std::endl;
-        //     }
-        //     c += 1;
-        // }
         const size_t multivariate_n = full_polynomials[0].size();
-        const size_t multivariate_d = static_cast<size_t>(numeric::get_msb64(multivariate_n));
+        const auto multivariate_d = static_cast<size_t>(numeric::get_msb64(multivariate_n));
 
         EXPECT_EQ(1ULL << multivariate_d, multivariate_n);
 
         auto prover_transcript = honk::ProverTranscript<FF>::init_empty();
 
-        auto sumcheck_prover = Sumcheck<Flavor, honk::ProverTranscript<FF>>(multivariate_n, prover_transcript);
+        auto sumcheck_prover = SumcheckProver<Flavor>(multivariate_n, prover_transcript);
 
-        auto prover_output = sumcheck_prover.execute_prover(full_polynomials, relation_params);
+        auto prover_output = sumcheck_prover.prove(full_polynomials, relation_params);
 
         auto verifier_transcript = honk::VerifierTranscript<FF>::init_empty(prover_transcript);
 
-        auto sumcheck_verifier = Sumcheck<Flavor, honk::VerifierTranscript<FF>>(multivariate_n, verifier_transcript);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n, verifier_transcript);
 
-        std::optional verifier_output = sumcheck_verifier.execute_verifier(relation_params);
+        std::optional verifier_output = sumcheck_verifier.verify(relation_params);
 
         ASSERT_TRUE(verifier_output.has_value());
         ASSERT_EQ(prover_output, *verifier_output);
@@ -288,73 +282,4 @@ TEST(SumcheckRelation, ECCVMFullRelationProver)
     run_test();
 }
 
-class ECCVMComposerTestsB : public ::testing::Test {
-  protected:
-    static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../srs_db/ignition"); }
-};
-TEST_F(ECCVMComposerTestsB, BaseCase)
-{
-    auto circuit_constructor = generate_trace(&engine);
-    // auto composer = honk::ECCVMComposerHelper();
-    // auto prover = composer.create_prover(circuit_constructor);
-
-    // prover.construct_proof();
-    // auto eta = prover.relation_parameters.eta;
-    // auto beta = prover.relation_parameters.beta;
-    // auto gamma = prover.relation_parameters.gamma;
-    // ECCVMBuilder trace2 = generate_trace(&engine);
-
-    auto eta = FF::random_element(&engine);   // prover.relation_parameters.eta;
-    auto beta = FF::random_element(&engine);  // prover.relation_parameters.beta;
-    auto gamma = FF::random_element(&engine); // prover.relation_parameters.gamma;
-    const FF eta_sqr = eta.sqr();
-    const FF eta_cube = eta_sqr * eta;
-    auto eccvm_set_permutation_delta =
-        gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
-    eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-
-    honk::sumcheck::RelationParameters<barretenberg::fr> relation_params{
-        .eta = eta,
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = 0,
-        .lookup_grand_product_delta = 0,
-        .eta_sqr = eta_sqr,
-        .eta_cube = eta_cube,
-        .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
-    };
-    // std::cout << "gamma eta = " << gamma << " , " << eta << std::endl;
-
-    // RawPolynomials full_polynomials = trace2.compute_full_polynomials();
-
-    // auto& full_polynomials = prover.prover_polynomials;
-    auto full_polynomials = circuit_constructor.compute_full_polynomials();
-    // compute_logderivative_inverse(prover.proving_key, full_polynomials)
-    const size_t multivariate_n = full_polynomials[0].size();
-    const size_t multivariate_d = static_cast<size_t>(numeric::get_msb64(multivariate_n));
-
-    EXPECT_EQ(1ULL << multivariate_d, multivariate_n);
-
-    honk::lookup_library::compute_logderivative_inverse<Flavor, ECCVMLookupRelation<FF>>(
-        full_polynomials, relation_params, multivariate_n);
-
-    honk::permutation_library::compute_permutation_grand_product<Flavor, ECCVMSetRelation<FF>>(
-        multivariate_n, full_polynomials, relation_params);
-    full_polynomials.z_perm_shift = Flavor::Polynomial(full_polynomials.z_perm.shifted());
-
-    auto prover_transcript = honk::ProverTranscript<FF>::init_empty();
-
-    auto sumcheck_prover = Sumcheck<Flavor, honk::ProverTranscript<FF>>(multivariate_n, prover_transcript);
-
-    auto prover_output = sumcheck_prover.execute_prover(full_polynomials, relation_params);
-
-    auto verifier_transcript = honk::VerifierTranscript<FF>::init_empty(prover_transcript);
-
-    auto sumcheck_verifier = Sumcheck<Flavor, honk::VerifierTranscript<FF>>(multivariate_n, verifier_transcript);
-
-    std::optional verifier_output = sumcheck_verifier.execute_verifier(relation_params);
-
-    ASSERT_TRUE(verifier_output.has_value());
-    ASSERT_EQ(prover_output, *verifier_output);
-}
 } // namespace proof_system::honk_relation_tests_ecc_vm_full

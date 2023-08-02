@@ -32,6 +32,7 @@ class ECCVMBase {
     using G1 = G1_T;
     using PCSParams = PCSParams_T;
     using PCS = PCS_T<PCSParams>;
+    using Curve = typename PCSParams::Curve;
 
     using FF = typename G1::subgroup_field;
     using Polynomial = barretenberg::Polynomial<FF>;
@@ -823,7 +824,7 @@ class ECCVMBase {
 
 class ECCVM : public ECCVMBase<grumpkin::g1, barretenberg::g1, pcs::kzg::Params, pcs::kzg::KZG> {};
 // not actually grumpkin, need to finish supporting grumpkin in ipa
-class ECCVMGrumpkin : public ECCVMBase<grumpkin::g1, barretenberg::g1, pcs::ipa::Params, pcs::ipa::IPA> {};
+class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, grumpkin::g1, pcs::ipa::Params, pcs::ipa::IPA> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
