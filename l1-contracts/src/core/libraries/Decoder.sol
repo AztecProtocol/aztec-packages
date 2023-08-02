@@ -19,7 +19,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * -------------------
  *
  *  | byte start                                             | num bytes  | name
- *  | ---                                                    | ---        | --- 
+ *  | ---                                                    | ---        | ---
  *  | 0x0000                                                 | 0x20       | chain-id
  *  | 0x0020                                                 | 0x20       | version
  *  | 0x0040                                                 | 0x20       | L2 block number
