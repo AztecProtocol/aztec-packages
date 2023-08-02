@@ -28,13 +28,13 @@ export class CrossChainTestHarness {
     accounts: AztecAddress[],
     wallet: Wallet,
     logger: DebugLogger,
+    cheatCodes: CheatCodes,
   ): Promise<CrossChainTestHarness> {
     const walletClient = deployL1ContractsValues.walletClient;
     const publicClient = deployL1ContractsValues.publicClient;
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const [ownerAddress, receiver] = accounts;
     const ownerPub = await aztecRpcServer.getPublicKey(ownerAddress);
-    const cc = await CheatCodes.create(aztecRpcServer);
 
     const outbox = getContract({
       address: deployL1ContractsValues.outboxAddress.toString(),
@@ -62,7 +62,7 @@ export class CrossChainTestHarness {
     return new CrossChainTestHarness(
       aztecNode,
       aztecRpcServer,
-      cc,
+      cheatCodes,
       accounts,
       logger,
       l2Contract,

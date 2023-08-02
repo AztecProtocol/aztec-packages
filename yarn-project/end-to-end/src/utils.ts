@@ -52,6 +52,7 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
+import { CheatCodes } from './cheat_codes.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
@@ -304,6 +305,10 @@ export async function setup(numberOfAccounts = 1): Promise<{
    * Logger instance named as the current test.
    */
   logger: DebugLogger;
+  /**
+   * The cheat codes.
+   */
+  cheatCodes: CheatCodes;
 }> {
   const config = getConfigEnvVars();
   const logger = getLogger();
@@ -322,6 +327,8 @@ export async function setup(numberOfAccounts = 1): Promise<{
 
   const { aztecRpcServer, accounts, wallet } = await setupAztecRPCServer(numberOfAccounts, aztecNode, privKey, logger);
 
+  const cheatCodes = await CheatCodes.create(config.rpcUrl, aztecRpcServer!);
+
   return {
     aztecNode,
     aztecRpcServer,
@@ -330,6 +337,7 @@ export async function setup(numberOfAccounts = 1): Promise<{
     config,
     wallet,
     logger,
+    cheatCodes,
   };
 }
 

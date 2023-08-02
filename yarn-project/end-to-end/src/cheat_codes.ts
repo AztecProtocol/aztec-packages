@@ -1,5 +1,6 @@
 import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
 
 const toFr = (what: Fr | bigint): Fr => {
@@ -12,21 +13,101 @@ const toFr = (what: Fr | bigint): Fr => {
 export class CheatCodes {
   constructor(
     /**
+     * The L1 cheat codes.
+     */
+    public l1: L1CheatCodes,
+    /**
      * The L2 cheat codes.
      */
     public l2: L2CheatCodes,
   ) {}
 
-  static async create(aztecRpc: AztecRPC): Promise<CheatCodes> {
+  static async create(rpcUrl: string, aztecRpc: AztecRPC): Promise<CheatCodes> {
+    const l1CheatCodes = new L1CheatCodes(rpcUrl);
     const l2CheatCodes = new L2CheatCodes(aztecRpc, await CircuitsWasm.get());
-    return new CheatCodes(l2CheatCodes);
+    return new CheatCodes(l1CheatCodes, l2CheatCodes);
   }
 }
 
 /**
  * A class that provides utility functions for interacting with the L1 chain.
  */
-class L1CheatCodes {}
+class L1CheatCodes {
+  constructor(
+    /**
+     * The RPC client to use for interacting with the chain
+     */
+    public rpcUrl: string,
+    /**
+     * The logger to use for the l1 cheatcodes
+     */
+    public logger = createDebugLogger('aztec:cheat_codes:l1'),
+  ) {}
+
+  async rpcCall(method: string, params: string) {
+    const content = {
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${params}, "id": 1}`,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    };
+    return await (await fetch(this.rpcUrl, content)).json();
+  }
+
+  /**
+   * Get the current blocknumber
+   * @returns The current block number
+   */
+  public async blockNumber(): Promise<number> {
+    const res = await this.rpcCall('eth_blockNumber', `[]`);
+    return parseInt(res.result, 16);
+  }
+
+  /**
+   * Get the current chainId
+   * @returns The current chainId
+   */
+  public async chainId(): Promise<number> {
+    const res = await this.rpcCall('eth_chainId', `[]`);
+    return parseInt(res.result, 16);
+  }
+
+  /**
+   * Get the current timestamp
+   * @returns The current timestamp
+   */
+  public async timestamp(): Promise<number> {
+    const res = await this.rpcCall('eth_getBlockByNumber', `["latest", true]`);
+    return parseInt(res.result.timestamp, 16);
+  }
+
+  /**
+   * Get the current chainId
+   * @param numberOfBlocks - The number of blocks to mine
+   * @returns The current chainId
+   */
+  public async mine(numberOfBlocks = 1): Promise<void> {
+    const res = await this.rpcCall('anvil_mine', `[${numberOfBlocks}]`);
+    if (res.error) {
+      throw new Error(`Error mining: ${res.error.message}`);
+    }
+    this.logger(`Mined ${numberOfBlocks} blocks`);
+  }
+
+  /**
+   * Set the next block timestamp
+   * @param timestamp - The timestamp to set the next block to
+   */
+  public async setNextBlockTimestamp(timestamp: number): Promise<void> {
+    const res = await this.rpcCall('anvil_setNextBlockTimestamp', `[${timestamp}]`);
+    if (res.error) {
+      throw new Error(`Error setting next block timestamp: ${res.error.message}`);
+    }
+    this.logger(`Set next block timestamp to ${timestamp}`);
+  }
+
+  // Good basis for the remaining functions:
+  // https://github.com/foundry-rs/foundry/blob/master/anvil/core/src/eth/mod.rs
+}
 
 /**
  * A class that provides utility functions for interacting with the L2 chain.
@@ -41,6 +122,10 @@ class L2CheatCodes {
      * The circuits wasm module used for pedersen hashing
      */
     public wasm: CircuitsWasm,
+    /**
+     * The logger to use for the l2 cheatcodes
+     */
+    public logger = createDebugLogger('aztec:cheat_codes:l2'),
   ) {}
 
   /**
@@ -58,6 +143,14 @@ class L2CheatCodes {
         [toFr(baseSlot), toFr(key)].map(f => f.toBuffer()),
       ),
     );
+  }
+
+  /**
+   * Get the current blocknumber
+   * @returns The current block number
+   */
+  public async blockNumber(): Promise<number> {
+    return await this.aztecRpc.getBlockNum();
   }
 
   /**

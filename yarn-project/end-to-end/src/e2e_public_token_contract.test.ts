@@ -40,8 +40,7 @@ describe('e2e_public_token_contract', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup());
-    cc = await CheatCodes.create(aztecRpcServer);
+    ({ aztecNode, aztecRpcServer, accounts, wallet, logger, cheatCodes: cc } = await setup());
   }, 100_000);
 
   afterEach(async () => {
