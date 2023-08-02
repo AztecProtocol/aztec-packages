@@ -175,7 +175,6 @@ template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typenam
 
 template <typename NCT> typename NCT::fr compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
 {
-    info("cbind globals hash: ", globals.hash());
     return globals.hash();
 }
 
