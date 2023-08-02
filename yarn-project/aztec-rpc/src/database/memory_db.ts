@@ -121,17 +121,17 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(res);
   }
 
-  /**
-   * Get auxiliary transaction data based on the leaf index.
-   *
-   * @param leafIndex - The leaf index of the note in the private data tree.
-   * @returns A single NoteSpendingInfoDao object that matches the given leaf index.
-   */
-  public getNoteSpendingInfoAtLeafIndex(leafIndex: bigint) {
-    const res = this.noteSpendingInfoTable.find(noteSpendingInfo => noteSpendingInfo.index === leafIndex);
-    if (!res) throw new Error(`No note found for leaf index ${leafIndex}`);
-    return Promise.resolve(res);
-  }
+  ///**
+  // * Get auxiliary transaction data based on the leaf index.
+  // *
+  // * @param leafIndex - The leaf index of the note in the private data tree.
+  // * @returns A single NoteSpendingInfoDao object that matches the given leaf index.
+  // */
+  //public getNoteSpendingInfoAtLeafIndex(leafIndex: bigint) {
+  //  const res = this.noteSpendingInfoTable.find(noteSpendingInfo => noteSpendingInfo.index === leafIndex);
+  //  if (!res) throw new Error(`No note found for leaf index ${leafIndex}`);
+  //  return Promise.resolve(res);
+  //}
 
   /**
    * Remove nullified transaction auxiliary data records associated with the given account and nullifiers.

@@ -169,7 +169,15 @@ describe('Private Execution test suite', () => {
       // WARNING: this is not actually how nonces are computed!
       const nonce = new Fr(currentNoteIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random(), new Fr(1n)];
-      return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, innerNoteHash: new Fr(0), siloedNullifier: new Fr(0), preimage } as NoteData;
+      return {
+        contractAddress,
+        storageSlot,
+        index: currentNoteIndex++,
+        nonce,
+        innerNoteHash: new Fr(0),
+        siloedNullifier: new Fr(0),
+        preimage,
+      };
     };
 
     beforeEach(async () => {

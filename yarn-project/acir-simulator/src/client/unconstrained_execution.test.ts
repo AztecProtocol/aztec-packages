@@ -68,7 +68,7 @@ describe('Unconstrained Execution test suite', () => {
           storageSlot: Fr.random(),
           nonce: Fr.random(),
           preimage,
-          innerNoteHash: Fr.random(),
+          //innerNoteHash: Fr.random(),
           siloedNullifier: Fr.random(),
           index: BigInt(index),
         })),

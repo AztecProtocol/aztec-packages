@@ -183,7 +183,7 @@ export class NoteProcessor {
         innerNoteHash: innerNoteHashTmp,
         siloedNoteHash,
         uniqueSiloedNoteHash: uniqueSiloedNoteHashTmp,
-        innerNullifier: innerNullifierTmp
+        innerNullifier: innerNullifierTmp,
       } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         expectedNonce,

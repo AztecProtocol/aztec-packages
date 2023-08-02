@@ -249,7 +249,12 @@ export class AcirSimulator {
    * @returns The note hash.
    */
   public async computeInnerNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
-    const { innerNullifier } = await this.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, notePreimage);
+    const { innerNullifier } = await this.computeNoteHashAndNullifier(
+      contractAddress,
+      nonce,
+      storageSlot,
+      notePreimage,
+    );
     return innerNullifier;
   }
 }
