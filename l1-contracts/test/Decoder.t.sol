@@ -5,7 +5,6 @@ pragma solidity >=0.8.18;
 import {Test} from "forge-std/Test.sol";
 
 import {Hash} from "@aztec/core/libraries/Hash.sol";
-import {Constants} from "@aztec/core/libraries/Constants.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DecoderHelper} from "./DecoderHelper.sol";
 import {Registry} from "@aztec/core/messagebridge/Registry.sol";
