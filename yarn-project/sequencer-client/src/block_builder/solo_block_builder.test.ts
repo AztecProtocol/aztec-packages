@@ -107,9 +107,9 @@ describe('sequencer/solo_block_builder', () => {
     mockL1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(new Fr(0n));
 
     // Create mock outputs for simulator
-    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs(0, blockNumber, globalVariables);
-    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs(0, blockNumber, globalVariables);
-    rootRollupOutput = makeRootRollupPublicInputs(0, blockNumber, globalVariables);
+    baseRollupOutputLeft = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
+    baseRollupOutputRight = makeBaseOrMergeRollupPublicInputs(0, globalVariables);
+    rootRollupOutput = makeRootRollupPublicInputs(0, globalVariables);
 
     // Set up mocks
     prover.getBaseRollupProof.mockResolvedValue(emptyProof);
