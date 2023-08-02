@@ -511,7 +511,7 @@ describe('Private Execution test suite', () => {
       // Check the commitment read request was created successfully.
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
       expect(readRequests).toHaveLength(1);
-      expect(readRequests[0]).toEqual(commitment);
+      expect(readRequests[0]).toEqual(siloedCommitment);
     });
   });
 
