@@ -1,8 +1,9 @@
 FROM node:18-alpine AS builder
 
 # Build smoke-test
-WORKDIR /usr/src/yarn-project/smoke-test
-RUN yarn build && yarn formatting
+WORKDIR /usr/src/smoke-test
+COPY . .
+RUN yarn && yarn build && yarn formatting
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
