@@ -1,5 +1,3 @@
-# Description
-
 Please provide a paragraph or two giving a summary of the change, including relevant motivation and context.
 
 # Checklist:
