@@ -1,16 +1,13 @@
 import {
   BaseRollupInputs,
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeBlockHash } from '@aztec/circuits.js/abis';
@@ -68,13 +65,6 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE]}`,
       CONTRACT_TREE_HEIGHT,
     );
-    const contractTreeRootsTree: AppendOnlyTree = await newTree(
-      StandardTree,
-      this.db,
-      hasher,
-      `${MerkleTreeId[MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]}`,
-      CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-    );
     const nullifierTree = await newTree(
       StandardIndexedTree,
       this.db,
@@ -90,13 +80,6 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.PRIVATE_DATA_TREE]}`,
       PRIVATE_DATA_TREE_HEIGHT,
     );
-    const privateDataTreeRootsTree: AppendOnlyTree = await newTree(
-      StandardTree,
-      this.db,
-      hasher,
-      `${MerkleTreeId[MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]}`,
-      PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-    );
     const publicDataTree: UpdateOnlyTree = await newTree(
       SparseTree,
       this.db,
@@ -111,13 +94,6 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_TREE]}`,
       L1_TO_L2_MSG_TREE_HEIGHT,
     );
-    const l1Tol2MessagesRootsTree: AppendOnlyTree = await newTree(
-      StandardTree,
-      this.db,
-      hasher,
-      `${MerkleTreeId[MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]}`,
-      L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
-    );
     const historicBlocksTree: AppendOnlyTree = await newTree(
       StandardTree,
       this.db,
@@ -127,13 +103,10 @@ export class MerkleTrees implements MerkleTreeDb {
     );
     this.trees = [
       contractTree,
-      contractTreeRootsTree,
       nullifierTree,
       privateDataTree,
-      privateDataTreeRootsTree,
       publicDataTree,
       l1Tol2MessagesTree,
-      l1Tol2MessagesRootsTree,
       historicBlocksTree,
     ];
 

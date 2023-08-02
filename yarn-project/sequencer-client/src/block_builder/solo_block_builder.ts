@@ -88,10 +88,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
       startPublicDataTreeSnapshot,
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      startTreeOfHistoricContractTreeRootsSnapshot,
       startL1ToL2MessageTreeSnapshot,
-      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
     ] = await Promise.all(
       [
@@ -99,10 +96,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         MerkleTreeId.NULLIFIER_TREE,
         MerkleTreeId.CONTRACT_TREE,
         MerkleTreeId.PUBLIC_DATA_TREE,
-        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-        MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
         MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
         MerkleTreeId.BLOCKS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
@@ -118,10 +112,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
       endPublicDataTreeRoot,
-      endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      endTreeOfHistoricContractTreeRootsSnapshot,
       endL1ToL2MessageTreeSnapshot,
-      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       endHistoricBlocksTreeSnapshot,
     } = circuitsOutput;
 
@@ -161,14 +152,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       endContractTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       endPublicDataTreeRoot,
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      startTreeOfHistoricContractTreeRootsSnapshot,
-      endTreeOfHistoricContractTreeRootsSnapshot,
       startL1ToL2MessageTreeSnapshot,
       endL1ToL2MessageTreeSnapshot,
-      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
-      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
       newCommitments,
@@ -453,15 +438,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       return path.toFieldArray();
     };
 
-    const newHistoricContractDataTreeRootSiblingPath = await getRootTreeSiblingPath(
-      MerkleTreeId.CONTRACT_TREE_ROOTS_TREE,
-    );
-    const newHistoricPrivateDataTreeRootSiblingPath = await getRootTreeSiblingPath(
-      MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-    );
-    const newHistoricL1ToL2MessageTreeRootSiblingPath = await getRootTreeSiblingPath(
-      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-    );
     const newL1ToL2MessageTreeRootSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -469,9 +445,6 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     // Get tree snapshots
     const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
-    const startHistoricTreeL1ToL2MessageTreeRootsSnapshot = await this.getTreeSnapshot(
-      MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-    );
 
     // Get historic block tree roots
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
@@ -479,13 +452,9 @@ export class SoloBlockBuilder implements BlockBuilder {
 
     return RootRollupInputs.from({
       previousRollupData,
-      newHistoricContractDataTreeRootSiblingPath,
-      newHistoricPrivateDataTreeRootSiblingPath,
       newL1ToL2Messages,
-      newHistoricL1ToL2MessageTreeRootSiblingPath,
       newL1ToL2MessageTreeRootSiblingPath,
       startL1ToL2MessageTreeSnapshot,
-      startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
       startHistoricBlocksTreeSnapshot,
       newHistoricBlocksTreeSiblingPath,
     });
@@ -565,13 +534,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       mergeRollupVkHash: DELETE_FR,
       privateKernelVkTreeRoot: FUTURE_FR,
       publicKernelVkTreeRoot: FUTURE_FR,
-      startTreeOfHistoricContractTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot: await this.getTreeSnapshot(
-        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-      ),
-      startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: await this.getTreeSnapshot(
-        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-      ),
       startHistoricBlocksTreeRootsSnapshot: await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE),
       globalVariables,
     });
@@ -706,11 +668,6 @@ export class SoloBlockBuilder implements BlockBuilder {
         MembershipWitness.fromBufferArray(l.index, assertLength(l.siblingPath.toBufferArray(), NULLIFIER_TREE_HEIGHT)),
       );
 
-    // Note these are no longer needed, but are included to decrease change set
-    const mockContractMembershipWitnesses = MembershipWitness.empty(CONTRACT_TREE_ROOTS_TREE_HEIGHT, 0n);
-    const mockPrivateDataMembershipWitnesses = MembershipWitness.empty(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, 0n);
-    const mockL1ToL2MembershipWitnesses = MembershipWitness.empty(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, 0n);
-
     return BaseRollupInputs.from({
       constants,
       startNullifierTreeSnapshot,
@@ -729,12 +686,6 @@ export class SoloBlockBuilder implements BlockBuilder {
       ),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
-      historicContractsTreeRootMembershipWitnesses: [mockContractMembershipWitnesses, mockContractMembershipWitnesses],
-      historicPrivateDataTreeRootMembershipWitnesses: [
-        mockPrivateDataMembershipWitnesses,
-        mockPrivateDataMembershipWitnesses,
-      ],
-      historicL1ToL2MsgTreeRootMembershipWitnesses: [mockL1ToL2MembershipWitnesses, mockL1ToL2MembershipWitnesses],
       historicBlocksTreeRootMembershipWitnesses: [
         await this.getHistoricTreesMembershipWitnessFor(left),
         await this.getHistoricTreesMembershipWitnessFor(right),

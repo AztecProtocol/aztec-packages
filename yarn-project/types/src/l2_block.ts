@@ -67,14 +67,6 @@ export class L2Block {
      */
     public startContractTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The tree snapshot of the historic private data tree roots at the start of the rollup.
-     */
-    public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
-    /**
-     * The tree snapshot of the historic contract tree roots at the start of the rollup.
-     */
-    public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
      * The tree root of the public data tree at the start of the rollup.
      */
     public startPublicDataTreeRoot: Fr,
@@ -82,10 +74,6 @@ export class L2Block {
      * The tree snapshot of the L2 message tree at the start of the rollup.
      */
     public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the historic L2 message tree roots at the start of the rollup.
-     */
-    public startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
     /**
      * The tree snapshot of the historic blocks tree at the start of the rollup.
      */
@@ -103,14 +91,6 @@ export class L2Block {
      */
     public endContractTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The tree snapshot of the historic private data tree roots at the end of the rollup.
-     */
-    public endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
-    /**
-     * The tree snapshot of the historic contract tree roots at the end of the rollup.
-     */
-    public endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
-    /**
      * The tree root of the public data tree at the end of the rollup.
      */
     public endPublicDataTreeRoot: Fr,
@@ -118,10 +98,6 @@ export class L2Block {
      * The tree snapshot of the L2 message tree at the end of the rollup.
      */
     public endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * The tree snapshot of the historic L2 message tree roots at the end of the rollup.
-     */
-    public endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot = AppendOnlyTreeSnapshot.empty(),
     /**
      * The tree snapshot of the historic blocks tree at the end of the rollup.
      */
@@ -205,18 +181,12 @@ export class L2Block {
       startContractTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
       startPublicDataTreeRoot: Fr.random(),
       startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
-      startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(0),
       startHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
       endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(newCommitments.length),
       endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(newNullifiers.length),
       endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(newContracts.length),
       endPublicDataTreeRoot: Fr.random(),
       endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
-      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
-      endTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
-      endTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(1),
       endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
       newCommitments,
       newNullifiers,
@@ -257,14 +227,6 @@ export class L2Block {
      */
     startContractTreeSnapshot: AppendOnlyTreeSnapshot;
     /**
-     * The tree snapshot of the historic private data tree roots at the start of the rollup.
-     */
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic contract tree roots at the start of the rollup.
-     */
-    startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
-    /**
      * The tree root of the public data tree at the start of the rollup.
      */
     startPublicDataTreeRoot: Fr;
@@ -272,10 +234,6 @@ export class L2Block {
      * The tree snapshot of the L2 message tree at the start of the rollup.
      */
     startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic L2 message tree roots at the start of the rollup.
-     */
-    startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     /**
      * The tree snapshot of the historic blocks tree at the start of the rollup.
      */
@@ -293,14 +251,6 @@ export class L2Block {
      */
     endContractTreeSnapshot: AppendOnlyTreeSnapshot;
     /**
-     * The tree snapshot of the historic private data tree roots at the end of the rollup.
-     */
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic contract tree roots at the end of the rollup.
-     */
-    endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot;
-    /**
      * The tree root of the public data tree at the end of the rollup.
      */
     endPublicDataTreeRoot: Fr;
@@ -308,10 +258,6 @@ export class L2Block {
      * The tree snapshot of the L2 message tree at the end of the rollup.
      */
     endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic L2 message tree roots at the end of the rollup.
-     */
-    endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot;
     /**
      * The tree snapshot of the historic blocks tree at the end of the rollup.
      */
@@ -359,20 +305,14 @@ export class L2Block {
       fields.startPrivateDataTreeSnapshot,
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
-      fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      fields.startTreeOfHistoricContractTreeRootsSnapshot,
       fields.startPublicDataTreeRoot,
       fields.startL1ToL2MessageTreeSnapshot,
-      fields.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.startHistoricBlocksTreeSnapshot,
       fields.endPrivateDataTreeSnapshot,
       fields.endNullifierTreeSnapshot,
       fields.endContractTreeSnapshot,
-      fields.endTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      fields.endTreeOfHistoricContractTreeRootsSnapshot,
       fields.endPublicDataTreeRoot,
       fields.endL1ToL2MessageTreeSnapshot,
-      fields.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.endHistoricBlocksTreeSnapshot,
       fields.newCommitments,
       fields.newNullifiers,
@@ -473,20 +413,14 @@ export class L2Block {
       startPrivateDataTreeSnapshot,
       startNullifierTreeSnapshot,
       startContractTreeSnapshot,
-      startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
-      startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
       startPublicDataTreeRoot,
       startL1ToL2MessageTreeSnapshot,
-      startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
       startHistoricBlocksTreeSnapshot,
       endPrivateDataTreeSnapshot,
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
-      endTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
-      endTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
       endPublicDataTreeRoot,
       endL1ToL2MessageTreeSnapshot,
-      endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot.empty(),
       endHistoricBlocksTreeSnapshot,
       newCommitments,
       newNullifiers,

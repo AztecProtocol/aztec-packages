@@ -85,40 +85,8 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
 {
     // @todo Look at the starting points for all of these.
     // By supporting as inputs we can make very generic tests, where it is trivial to try new setups.
-    MemoryStore historic_data_tree_store;
-    MerkleTree historic_private_data_tree = MerkleTree(historic_data_tree_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
-
-    MemoryStore historic_contract_tree_store;
-    MerkleTree historic_contract_tree = MerkleTree(historic_contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
-
-    MemoryStore historic_l1_to_l2_msg_tree_store;
-    MerkleTree historic_l1_to_l2_msg_tree =
-        MerkleTree(historic_l1_to_l2_msg_tree_store, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
-
     MemoryStore historic_blocks_tree_store;
     MerkleTree historic_blocks_tree = MerkleTree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
-
-    // Historic trees are initialised with an empty root at position 0.
-    historic_private_data_tree.update_element(0, private_data_tree.root());
-    historic_contract_tree.update_element(0, contract_tree.root());
-    MemoryStore tmp_store;
-    historic_l1_to_l2_msg_tree.update_element(0, MerkleTree(tmp_store, L1_TO_L2_MSG_TREE_HEIGHT).root());
-
-
-    ConstantRollupData const constantRollupData = {
-        .start_tree_of_historic_private_data_tree_roots_snapshot = {
-            .root = historic_private_data_tree.root(),
-            .next_available_leaf_index = 1,
-        },
-        .start_tree_of_historic_contract_tree_roots_snapshot = {
-            .root = historic_contract_tree.root(),
-            .next_available_leaf_index = 1,
-        },
-        .start_tree_of_historic_l1_to_l2_msg_tree_roots_snapshot = {
-            .root = historic_l1_to_l2_msg_tree.root(),
-            .next_available_leaf_index = 1,
-        },
-    };
 
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
@@ -129,8 +97,9 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                               .start_contract_tree_snapshot = {
                                                   .root = contract_tree.root(),
                                                   .next_available_leaf_index = 0,
-                                              },
-                                              .constants = constantRollupData };
+                                              }
+                                            };
+
 
     std::vector<fr> initial_values(2 * MAX_NEW_NULLIFIERS_PER_TX - 1);
 
@@ -192,10 +161,12 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                              l1_to_l2_msg_tree.root(),
                                              public_data_tree.root());
     historic_blocks_tree.update_element(0, block_hash);
-    baseRollupInputs.constants.start_historic_blocks_tree_roots_snapshot = {
-        .root = historic_blocks_tree.root(),
-        .next_available_leaf_index = 1,
-    };
+
+    ConstantRollupData const constantRollupData = { .start_historic_blocks_tree_roots_snapshot = {
+                                                        .root = historic_blocks_tree.root(),
+                                                        .next_available_leaf_index = 1,
+                                                    } };
+    baseRollupInputs.constants = constantRollupData;
 
     // Set historic tree roots data in the public inputs.
     for (size_t i = 0; i < 2; i++) {
@@ -244,25 +215,6 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     }
 
     // Get historic_root sibling paths
-    baseRollupInputs.historic_private_data_tree_root_membership_witnesses[0] = {
-        .leaf_index = 0,
-        .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 0, 0),
-    };
-    baseRollupInputs.historic_private_data_tree_root_membership_witnesses[1] =
-        baseRollupInputs.historic_private_data_tree_root_membership_witnesses[0];
-
-    baseRollupInputs.historic_contract_tree_root_membership_witnesses[0] = {
-        .leaf_index = 0,
-        .sibling_path = get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 0, 0),
-    };
-    baseRollupInputs.historic_contract_tree_root_membership_witnesses[1] =
-        baseRollupInputs.historic_contract_tree_root_membership_witnesses[0];
-    baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[0] = {
-        .leaf_index = 0,
-        .sibling_path = get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 0, 0),
-    };
-    baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[1] =
-        baseRollupInputs.historic_l1_to_l2_msg_tree_root_membership_witnesses[0];
     baseRollupInputs.historic_blocks_tree_root_membership_witnesses[0] = {
         .leaf_index = 0,
         .sibling_path = get_sibling_path<HISTORIC_BLOCKS_TREE_HEIGHT>(historic_blocks_tree, 0, 0),
@@ -444,14 +396,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     historic_contract_tree.update_element(0, contract_tree.root());
     historic_l1_to_l2_msg_tree.update_element(0, l1_to_l2_msg_tree.root());
 
-    // Historic trees sibling paths
-    auto historic_data_sibling_path =
-        get_sibling_path<PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>(historic_private_data_tree, 1, 0);
-    auto historic_contract_sibling_path =
-        get_sibling_path<CONTRACT_TREE_ROOTS_TREE_HEIGHT>(historic_contract_tree, 1, 0);
-    auto historic_l1_to_l2_msg_sibling_path =
-        get_sibling_path<L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>(historic_l1_to_l2_msg_tree, 1, 0);
-
     // l1 to l2 tree
     auto l1_to_l2_tree_sibling_path =
         get_sibling_path<L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>(l1_to_l2_msg_tree, 0, L1_TO_L2_MSG_SUBTREE_HEIGHT);
@@ -460,10 +404,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     AppendOnlyTreeSnapshot const start_l1_to_l2_msg_tree_snapshot = {
         .root = l1_to_l2_msg_tree.root(),
         .next_available_leaf_index = 0,
-    };
-    AppendOnlyTreeSnapshot const start_historic_tree_l1_to_l2_message_tree_roots_snapshot = {
-        .root = historic_l1_to_l2_msg_tree.root(),
-        .next_available_leaf_index = 1,
     };
 
     // Blocks tree
@@ -477,14 +417,9 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
 
     RootRollupInputs rootRollupInputs = {
         .previous_rollup_data = get_previous_rollup_data(builder, std::move(kernel_data)),
-        .new_historic_private_data_tree_root_sibling_path = historic_data_sibling_path,
-        .new_historic_contract_tree_root_sibling_path = historic_contract_sibling_path,
         .l1_to_l2_messages = l1_to_l2_messages,
         .new_l1_to_l2_message_tree_root_sibling_path = l1_to_l2_tree_sibling_path,
-        .new_historic_l1_to_l2_message_roots_tree_sibling_path = historic_l1_to_l2_msg_sibling_path,
         .start_l1_to_l2_message_tree_snapshot = start_l1_to_l2_msg_tree_snapshot,
-        .start_historic_tree_l1_to_l2_message_tree_roots_snapshot =
-            start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
         .start_historic_blocks_tree_snapshot = start_historic_blocks_tree_snapshot,
         .new_historic_blocks_tree_sibling_path = blocks_tree_sibling_path,
     };
