@@ -55,31 +55,6 @@ checkout: &checkout
       # Initialize submodules recursively (retry 10 times on failure)
       retry_10 git submodule update --init --recursive
 
-# This build step checks out the code from the benchmark-archive repository. The key is saved in CircleCi environment in base64 format.
-# Initially it just fetches the latest version.
-benchmark_archive_setup: &benchmark_archive_setup
-  run:
-    name: "Add keys for getting the benchmark archive"
-    command: |
-      cd $HOME
-      mkdir -p .ssh
-      chmod 0700 .ssh
-      ssh-keyscan -t rsa github.com >> .ssh/known_hosts
-
-      # A read-write key for updating the repository.
-      echo "$GITHUB_BENCMARK_REPOSITORY_SSH_KEY" | base64 -d > .ssh/id_ed25519
-
-      # This allows github to discern wich key to use.
-      echo "Host github.com
-        Hostname github.com
-        IdentityFile=/root/.ssh/id_rsa
-
-      Host github.com-logs
-        Hostname github.com
-        IdentityFile=/root/.ssh/id_ed25519" > .ssh/config
-
-      chmod 0600 .ssh/id_ed25519
-      ssh-add .ssh/id_ed25519
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
 # the build process. This enables easy running of the build system external to CCI, as used for powerful EC2 builds.
@@ -128,6 +103,17 @@ jobs:
       - run:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
+
+  barretenberg-x86_64-linux-clang-fuzzing:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
 
   barretenberg-x86_64-linux-clang-assert:
     docker:
@@ -236,16 +222,16 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  # bb-bin-tests:
-  #   docker:
-  #     - image: aztecprotocol/alpine-build-image
-  #   resource_class: small
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
+  bb-bin-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
 
   barretenberg-benchmark-aggregator:
     docker:
@@ -256,10 +242,9 @@ jobs:
           at: /tmp/test-logs
       - *checkout
       - *setup_env
-      - *benchmark_archive_setup
       - run:
           name: "Test"
-          command: store_test_benchmark_logs barretenberg-x86_64-linux-clang-assert
+          command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
 
   bb-js:
     machine:
@@ -889,6 +874,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
 
+  e2e-browser-sandbox:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+
   e2e-join:
     docker:
       - image: cimg/base:current
@@ -1032,6 +1028,7 @@ workflows:
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
+      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-honk-tests: *bb_test
@@ -1041,8 +1038,7 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      # TODO(#1236): Reinstate this test once Noir support recursion again.
-      # - bb-bin-tests: *bb_test
+      - bb-bin-tests: *bb_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
@@ -1053,8 +1049,7 @@ workflows:
           filters:
             branches:
               only:
-                - DISABLED_FIXME # master # TODO(AD): See #1174
-          <<: *defaults
+                - master
           <<: *defaults
       - bb-js:
           requires:
@@ -1167,6 +1162,7 @@ workflows:
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
       - e2e-uniswap-sandbox: *e2e_test
+      - e2e-browser-sandbox: *e2e_test
 
       - e2e-end:
           requires:
@@ -1190,6 +1186,7 @@ workflows:
             - integration-archiver-l1-to-l2
             - e2e-p2p
             - e2e-uniswap-sandbox
+            - e2e-browser-sandbox
           <<: *defaults
 
       - deploy-dockerhub:

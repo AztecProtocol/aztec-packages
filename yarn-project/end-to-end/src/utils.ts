@@ -29,7 +29,7 @@ import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/e
 import { ContractAbi } from '@aztec/foundation/abi';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
-import { mustSucceedFetch } from '@aztec/foundation/json-rpc';
+import { mustSucceedFetch } from '@aztec/foundation/json-rpc/client';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
@@ -57,7 +57,7 @@ import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
-const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
+export const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
       logger('Attmpting to contact RPC Server...');
@@ -425,8 +425,12 @@ export async function deployL2Contracts(wallet: Wallet, abis: ContractAbi[]) {
   const txs = await Promise.all(calls.map(c => c.send()));
   expect(every(await Promise.all(txs.map(tx => tx.isMined(0, 0.1))))).toBeTruthy();
   const receipts = await Promise.all(txs.map(tx => tx.getReceipt()));
-  const contracts = zipWith(abis, receipts, (abi, receipt) => new Contract(receipt!.contractAddress!, abi!, wallet));
-  contracts.forEach(c => logger(`L2 contract ${c.abi.name} deployed at ${c.address}`));
+  const contracts = zipWith(
+    abis,
+    receipts,
+    async (abi, receipt) => await Contract.create(receipt!.contractAddress!, abi!, wallet),
+  );
+  contracts.forEach(async c => logger(`L2 contract ${(await c).abi.name} deployed at ${(await c).address}`));
   return contracts;
 }
 
@@ -487,7 +491,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   await tx.isMined(0, 0.1);
   const receipt = await tx.getReceipt();
   if (receipt.status !== TxStatus.MINED) throw new Error(`Tx status is ${receipt.status}`);
-  const l2Contract = new NonNativeTokenContract(receipt.contractAddress!, wallet);
+  const l2Contract = await NonNativeTokenContract.create(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
