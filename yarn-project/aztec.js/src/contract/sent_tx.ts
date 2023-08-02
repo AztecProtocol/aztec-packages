@@ -6,9 +6,9 @@ import every from 'lodash.every';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
-  /** The maximum time (in seconds) to wait for the transaction to be mined. */
+  /** The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60. */
   timeout?: number;
-  /** The time interval (in seconds) between retries to fetch the transaction receipt. */
+  /** The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1. */
   interval?: number;
   /**
    * Whether to wait for the RPC server to sync all notes up to the block in which this tx was mined.
@@ -18,7 +18,7 @@ export type WaitOpts = {
 };
 
 const DefaultWaitOpts: WaitOpts = {
-  timeout: 0,
+  timeout: 60,
   interval: 1,
   waitForNotesSync: true,
 };
