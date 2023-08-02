@@ -22,11 +22,11 @@ namespace proof_system::plonk::stdlib::recursion::utility {
  * @todo Eliminate the need for these somehow?
  * @tparam Builder
  */
-template <typename Builder> class StdlibUtility {
+template <typename Builder> class StdlibTypesUtility {
     using field_ct = field_t<Builder>;
     using witness_ct = witness_t<Builder>;
     using fq_ct = bigfield<Builder, barretenberg::Bn254FqParams>;
-    using group_ct = element<Builder, fq_ct, field_ct, barretenberg::g1>;
+    using element_ct = element<Builder, fq_ct, field_ct, barretenberg::g1>;
     using FF = barretenberg::fr;
     using Commitment = barretenberg::g1::affine_element;
     template <size_t LENGTH> using Univariate = proof_system::honk::sumcheck::Univariate<FF, LENGTH>;
@@ -60,9 +60,9 @@ template <typename Builder> class StdlibUtility {
      * @param native_element
      * @return field_ct
      */
-    static group_ct from_witness(Builder* builder, Commitment native_element)
+    static element_ct from_witness(Builder* builder, Commitment native_element)
     {
-        return group_ct::from_witness(builder, native_element);
+        return element_ct::from_witness(builder, native_element);
     }
 
     /**

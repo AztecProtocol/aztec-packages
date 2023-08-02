@@ -18,7 +18,7 @@ template <typename Builder> class Transcript {
     using field_pt = field_t<Builder>;
     using FF = barretenberg::fr;
     using VerifierTranscript = proof_system::honk::VerifierTranscript<FF>;
-    using Utility = utility::StdlibUtility<Builder>;
+    using StdlibTypes = utility::StdlibTypesUtility<Builder>;
 
     static constexpr size_t HASH_OUTPUT_SIZE = VerifierTranscript::HASH_OUTPUT_SIZE;
 
@@ -92,7 +92,7 @@ template <typename Builder> class Transcript {
         T element = native_transcript.template receive_from_prover<T>(label);
 
         // Return the corresponding stdlib type
-        return Utility::from_witness(builder, element);
+        return StdlibTypes::from_witness(builder, element);
     }
 };
 } // namespace proof_system::plonk::stdlib::recursion::honk
