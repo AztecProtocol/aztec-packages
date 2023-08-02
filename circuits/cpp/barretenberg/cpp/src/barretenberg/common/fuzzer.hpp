@@ -205,14 +205,14 @@ inline static FF mutateFieldElement(FF e, T& rng)
     bool convert_to_montgomery = (rng.next() & 1);
     uint256_t value_data;
     // Conversion at the start
-#define MONT_CONVERSION                                                                                                \
+#define MONT_CONVERSION_LOCAL                                                                                          \
     if (convert_to_montgomery) {                                                                                       \
         value_data = uint256_t(e.to_montgomery_form());                                                                \
     } else {                                                                                                           \
         value_data = uint256_t(e);                                                                                     \
     }
     // Inverse conversion at the end
-#define INV_MONT_CONVERSION                                                                                            \
+#define INV_MONT_CONVERSION_LOCAL                                                                                      \
     if (convert_to_montgomery) {                                                                                       \
         e = FF(value_data).from_montgomery_form();                                                                     \
     } else {                                                                                                           \
@@ -225,9 +225,9 @@ inline static FF mutateFieldElement(FF e, T& rng)
     // 50% probability to use standard mutation
     if (choice < 2) {
         // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
-        MONT_CONVERSION
+        MONT_CONVERSION_LOCAL
         LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
-        INV_MONT_CONVERSION
+        INV_MONT_CONVERSION_LOCAL
     } else if (choice < 3) { // 25% to use small additions
 
         // Small addition/subtraction
@@ -245,7 +245,7 @@ inline static FF mutateFieldElement(FF e, T& rng)
     } else { // 25% to use special values
 
         // Substitute field element with a special value
-        MONT_CONVERSION
+        MONT_CONVERSION_LOCAL
         switch (rng.next() % 8) {
         case 0:
             e = FF::zero();
@@ -275,7 +275,7 @@ inline static FF mutateFieldElement(FF e, T& rng)
             abort();
             break;
         }
-        INV_MONT_CONVERSION
+        INV_MONT_CONVERSION_LOCAL
     }
     // Return instruction
     return e;
