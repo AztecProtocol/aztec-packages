@@ -42,5 +42,11 @@ describe('SentTx', () => {
       const actual = await sentTx.wait({ timeout: 1, interval: 0.4, waitForNotesSync: false });
       expect(actual).toEqual(txReceipt);
     });
+
+    it('throws if tx is dropped', async () => {
+      rpc.getTxReceipt.mockResolvedValue({ ...txReceipt, status: TxStatus.DROPPED } as TxReceipt);
+      rpc.getSyncStatus.mockResolvedValue({ blocks: 19, notes: { '0x1': 19, '0x2': 19 } });
+      await expect(sentTx.wait({ timeout: 1, interval: 0.4 })).rejects.toThrowError(/dropped/);
+    });
   });
 });

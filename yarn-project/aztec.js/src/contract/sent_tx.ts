@@ -84,6 +84,8 @@ export class SentTx {
         const txReceipt = await this.arc.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) return undefined;
+        // If the tx was dropped, return it
+        if (txReceipt.status === TxStatus.DROPPED) return txReceipt;
         // If we don't care about waiting for notes to be synced, return the receipt
         const waitForNotesSync = opts?.waitForNotesSync ?? DefaultWaitOpts.waitForNotesSync;
         if (!waitForNotesSync) return txReceipt;
