@@ -1,8 +1,7 @@
 # Running on ubuntu until noir supports an alpine build
 
 # Builder stage to build the noir artifacts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
-COPY . .
+FROM ubuntu:kinetic
 
 RUN apt-get update && apt-get install -y \
     curl \
