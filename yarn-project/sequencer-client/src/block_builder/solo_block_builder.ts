@@ -315,7 +315,6 @@ export class SoloBlockBuilder implements BlockBuilder {
     // and validate them against the output of the root circuit simulation
     this.debug(`Updating and validating root trees`);
     await this.db.updateHistoricBlocksTree(left[0].constants.globalVariables);
-    await this.updateHistoricBlocksTree(left[0].constants.globalVariables);
 
     await this.validateRootOutput(rootOutput);
 

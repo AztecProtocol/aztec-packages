@@ -82,7 +82,7 @@ export class AztecNodeService implements AztecNode {
       BigInt(config.chainId),
       BigInt(config.version),
     );  //TODO: throw this in a helper?  
-    const merkleTreeDB = await MerkleTrees.new(genesisConfig, levelup(createMemDown()), await CircuitsWasm.get());
+    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), genesisConfig, await CircuitsWasm.get());
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source
@@ -193,6 +193,7 @@ export class AztecNodeService implements AztecNode {
   public async sendTx(tx: Tx) {
     // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
     if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
+      // get the globals
       tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
     }
     this.log.info(`Received tx ${await tx.getTxHash()}`);

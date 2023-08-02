@@ -122,7 +122,6 @@ describe('sequencer/solo_block_builder', () => {
   }, 20_000);
 
   const makeEmptyProcessedTx = async () => {
-    console.log("global vars: ", globalVariables);
     const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb, globalVariables);
     return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
   };

@@ -152,6 +152,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param wasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    * @returns - A fully initialised MerkleTrees instance.
    */
+  // TODO: remove genesis config
   public static async new(db: levelup.LevelUp, genesisConfig: GlobalVariables = GlobalVariables.empty(), wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);
     await merkleTrees.init(genesisConfig, wasm);
