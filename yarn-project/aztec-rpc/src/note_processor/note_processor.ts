@@ -115,7 +115,8 @@ export class NoteProcessor {
                 (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
               );
               userPertainingTxIndices.add(indexOfTxInABlock);
-              const { index, nonce, nullifier } = await this.findNoteIndexAndNullifier(
+              //const { index, nonce, innerNoteHash, uniqueSiloedNoteHash, siloedNullifier } = await this.findNoteIndexAndNullifier(
+              const { index, nonce, siloedNullifier } = await this.findNoteIndexAndNullifier(
                 dataStartIndexForTx,
                 newCommitments,
                 newNullifiers[0],
@@ -123,9 +124,11 @@ export class NoteProcessor {
               );
               noteSpendingInfoDaos.push({
                 ...noteSpendingInfo,
-                index,
                 nonce,
-                nullifier,
+                // innerNoteHash,
+                // uniqueSiloedNoteHash,
+                siloedNullifier,
+                index,
                 publicKey: this.publicKey,
               });
             }
@@ -168,21 +171,30 @@ export class NoteProcessor {
     const wasm = await CircuitsWasm.get();
     let commitmentIndex = 0;
     let nonce: Fr | undefined;
+    let innerNoteHash: Fr | undefined;
+    let uniqueSiloedNoteHash: Fr | undefined;
     let innerNullifier: Fr | undefined;
     for (; commitmentIndex < commitments.length; ++commitmentIndex) {
       const commitment = commitments[commitmentIndex];
       if (commitment.equals(Fr.ZERO)) break;
 
       const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
-      const { uniqueSiloedNoteHash, nullifier } = await this.simulator.computeNoteHashAndNullifier(
+      const {
+        innerNoteHash: innerNoteHashTmp,
+        siloedNoteHash,
+        uniqueSiloedNoteHash: uniqueSiloedNoteHashTmp,
+        innerNullifier: innerNullifierTmp
+      } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         expectedNonce,
         storageSlot,
         notePreimage.items,
       );
-      if (commitment.equals(uniqueSiloedNoteHash)) {
+      if (commitment.equals(siloedNoteHash)) {
         nonce = expectedNonce;
-        innerNullifier = nullifier;
+        innerNoteHash = innerNoteHashTmp;
+        uniqueSiloedNoteHash = uniqueSiloedNoteHashTmp;
+        innerNullifier = innerNullifierTmp;
         break;
       }
     }
@@ -194,7 +206,9 @@ export class NoteProcessor {
     return {
       index: BigInt(dataStartIndex + commitmentIndex),
       nonce,
-      nullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
+      innerNoteHash: innerNoteHash!,
+      uniqueSiloedNoteHash: uniqueSiloedNoteHash!,
+      siloedNullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
     };
   }
 
@@ -242,7 +256,7 @@ export class NoteProcessor {
         this.log(
           `Added note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
             noteSpendingInfo.storageSlot
-          } with nullifier ${noteSpendingInfo.nullifier.toString()}`,
+          } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
         );
       });
     }
@@ -252,7 +266,7 @@ export class NoteProcessor {
       this.log(
         `Removed note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
           noteSpendingInfo.storageSlot
-        } with nullifier ${noteSpendingInfo.nullifier.toString()}`,
+        } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
       );
     });
   }

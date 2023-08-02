@@ -129,7 +129,7 @@ export class ClientTxExecutionContext {
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
     // Remove notes which were already nullified during this transaction.
-    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.siloedNullifier as Fr));
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
@@ -188,7 +188,6 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
-   * @param nullifier - note nullifier
    * @param innerNoteHash - inner note hash
    */
   public pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
@@ -204,10 +203,10 @@ export class ClientTxExecutionContext {
   /**
    * Adding a nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
-   * @param nullifier - The pending nullifier to add in the list.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    */
-  public pushPendingNullifier(nullifier: Fr) {
-    this.pendingNullifiers.add(nullifier);
+  public pushPendingNullifier(innerNullifier: Fr) {
+    this.pendingNullifiers.add(innerNullifier);
   }
 
   /**

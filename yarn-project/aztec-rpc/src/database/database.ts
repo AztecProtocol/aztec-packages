@@ -17,6 +17,7 @@ export interface Database extends ContractDatabase {
   addTxs(txs: TxDao[]): Promise<void>;
 
   getNoteSpendingInfo(contract: AztecAddress, storageSlot: Fr): Promise<NoteSpendingInfoDao[]>;
+  getNoteSpendingInfoAtLeafIndex(leafIndex: bigint): Promise<NoteSpendingInfoDao>;
   addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao): Promise<void>;
   addNoteSpendingInfoBatch(noteSpendingInfoDaos: NoteSpendingInfoDao[]): Promise<void>;
   removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: PublicKey): Promise<NoteSpendingInfoDao[]>;

@@ -169,7 +169,7 @@ export class AcirSimulator {
         innerNoteHash: new Fr(innerNoteHash),
         siloedNoteHash: new Fr(siloedNoteHash),
         uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
-        nullifier: new Fr(innerNullifier),
+        innerNullifier: new Fr(innerNullifier),
       };
     } catch (e) {
       throw new Error(
@@ -248,8 +248,8 @@ export class AcirSimulator {
    * @param abi - The ABI of the function `compute_note_hash`.
    * @returns The note hash.
    */
-  public async computeNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
-    const { nullifier } = await this.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, notePreimage);
-    return nullifier;
+  public async computeInnerNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
+    const { innerNullifier } = await this.computeNoteHashAndNullifier(contractAddress, nonce, storageSlot, notePreimage);
+    return innerNullifier;
   }
 }

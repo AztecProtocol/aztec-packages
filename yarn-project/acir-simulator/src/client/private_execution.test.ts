@@ -46,7 +46,7 @@ import { type MemDown, default as memdown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { DBOracle } from './db_oracle.js';
+import { DBOracle, NoteData } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -169,7 +169,7 @@ describe('Private Execution test suite', () => {
       // WARNING: this is not actually how nonces are computed!
       const nonce = new Fr(currentNoteIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random(), new Fr(1n)];
-      return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, nullifier: new Fr(0), preimage };
+      return { contractAddress, storageSlot, index: currentNoteIndex++, nonce, innerNoteHash: new Fr(0), siloedNullifier: new Fr(0), preimage } as NoteData;
     };
 
     beforeEach(async () => {
@@ -290,7 +290,7 @@ describe('Private Execution test suite', () => {
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
+      expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -333,7 +333,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ args, abi });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toEqual(consumedNotes.map(n => n.nullifier));
+      expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -355,7 +355,8 @@ describe('Private Execution test suite', () => {
           storageSlot,
           nonce,
           preimage: [new Fr(amount), secret],
-          nullifier: new Fr(0),
+          //innerNoteHash: new Fr(0),
+          siloedNullifier: new Fr(0),
           index: 1n,
         },
       ]);
@@ -618,7 +619,7 @@ describe('Private Execution test suite', () => {
 
       const nullifier = result.callStackItem.publicInputs.newNullifiers[0];
       expect(nullifier).toEqual(
-        await acirSimulator.computeNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
+        await acirSimulator.computeInnerNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
       );
     });
 
@@ -684,7 +685,7 @@ describe('Private Execution test suite', () => {
 
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       expect(nullifier).toEqual(
-        await acirSimulator.computeNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
+        await acirSimulator.computeInnerNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
       );
 
       // check that the last get_notes call return no note

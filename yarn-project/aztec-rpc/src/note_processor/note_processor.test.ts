@@ -130,7 +130,7 @@ describe('Note Processor', () => {
         innerNoteHash: Fr.random(),
         siloedNoteHash: Fr.random(),
         uniqueSiloedNoteHash: computeMockNoteHash(args[3]),
-        nullifier: Fr.random(),
+        innerNullifier: Fr.random(),
       }),
     );
   });

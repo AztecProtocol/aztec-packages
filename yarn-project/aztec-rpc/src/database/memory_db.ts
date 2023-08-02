@@ -122,6 +122,18 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   }
 
   /**
+   * Get auxiliary transaction data based on the leaf index.
+   *
+   * @param leafIndex - The leaf index of the note in the private data tree.
+   * @returns A single NoteSpendingInfoDao object that matches the given leaf index.
+   */
+  public getNoteSpendingInfoAtLeafIndex(leafIndex: bigint) {
+    const res = this.noteSpendingInfoTable.find(noteSpendingInfo => noteSpendingInfo.index === leafIndex);
+    if (!res) throw new Error(`No note found for leaf index ${leafIndex}`);
+    return Promise.resolve(res);
+  }
+
+  /**
    * Remove nullified transaction auxiliary data records associated with the given account and nullifiers.
    * The function filters the records based on matching account and nullifier values, and updates the
    * noteSpendingInfoTable with the remaining records. It returns an array of removed NoteSpendingInfoDao instances.
@@ -134,7 +146,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
     const [remaining, removed] = this.noteSpendingInfoTable.reduce(
       (acc: [NoteSpendingInfoDao[], NoteSpendingInfoDao[]], noteSpendingInfo) => {
-        const nullifier = noteSpendingInfo.nullifier.toString();
+        const nullifier = noteSpendingInfo.siloedNullifier.toString();
         if (noteSpendingInfo.publicKey.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(noteSpendingInfo);
         } else {
