@@ -108,7 +108,10 @@ export class PublicProcessor {
    * @param currentGlobalVariables - The global variables for this block.
    * @returns A processed tx with empty data.
    */
-  public async makeEmptyProcessedTx(prevGlobals: GlobalVariables, currentGlobalVariables: GlobalVariables): Promise<ProcessedTx> {
+  public async makeEmptyProcessedTx(
+    prevGlobals: GlobalVariables,
+    currentGlobalVariables: GlobalVariables,
+  ): Promise<ProcessedTx> {
     const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db, prevGlobals);
     return makeEmptyProcessedTx(historicTreeRoots, currentGlobalVariables.chainId, currentGlobalVariables.version);
   }

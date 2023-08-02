@@ -339,7 +339,6 @@ describe('sequencer/solo_block_builder', () => {
       processedTx.data.end.encryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.encryptedLogs));
       processedTx.data.end.unencryptedLogsHash = to2Fields(L2Block.computeKernelLogsHash(processedTx.unencryptedLogs));
 
-
       return processedTx;
     };
 

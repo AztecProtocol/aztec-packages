@@ -122,7 +122,7 @@ export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeR
  * @returns A combined historic tree roots object.
  */
 export function makeCombinedHistoricTreeRoots(seed: number, globalsHash?: Fr): CombinedHistoricTreeRoots {
-  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), globalsHash ?? fr(seed + 5) , fr(seed + 6));
+  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), globalsHash ?? fr(seed + 5), fr(seed + 6));
 }
 
 /**

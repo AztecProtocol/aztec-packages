@@ -334,8 +334,18 @@ export function computeBlockHash(
   );
 }
 
-
-export function computeBlockHashWithGloabalsHash(
+/**
+ * Computes the block hash given the blocks globals and roots.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globalsHash - The global variables hash to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
+ */
+export function computeBlockHashWithGlobalsHash(
   wasm: IWasmModule,
   globalsHash: Fr,
   privateDataTreeRoot: Fr,
@@ -362,15 +372,9 @@ export function computeBlockHashWithGloabalsHash(
  * @param globals - The global variables to put into the block hash.
  * @returns The globals hash.
  */
-export function computeGlobalsHash(
-  wasm: IWasmModule,
-  globals: GlobalVariables,
-): Fr {
+export function computeGlobalsHash(wasm: IWasmModule, globals: GlobalVariables): Fr {
   wasm.call('pedersen__init');
-  return abisComputeGlobalsHash(
-    wasm,
-    globals,
-  );
+  return abisComputeGlobalsHash(wasm, globals);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;

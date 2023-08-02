@@ -275,7 +275,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   public async getL2Block(number: number): Promise<L2Block | undefined> {
     // TODO CLEAN UP
     if (number < 0) {
-      number = this.store.getBlocksLength(); 
+      number = this.store.getBlocksLength();
       if (number === 0) {
         return Promise.resolve(undefined);
       }

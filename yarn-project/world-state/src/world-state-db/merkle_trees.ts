@@ -13,6 +13,7 @@ import {
   PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
+import { computeBlockHash } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -42,7 +43,6 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
-import { computeBlockHash, computeGlobalsHash } from '@aztec/circuits.js/abis';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -193,19 +193,18 @@ export class MerkleTrees implements MerkleTreeDb {
     const wasm = await CircuitsWasm.get();
 
     // TODO maybe use the same pattern as function below
-    const treePromises = ([
-      MerkleTreeId.PRIVATE_DATA_TREE,
-      MerkleTreeId.NULLIFIER_TREE,
-      MerkleTreeId.CONTRACT_TREE, 
-      MerkleTreeId.L1_TO_L2_MESSAGES_TREE, 
-      MerkleTreeId.PUBLIC_DATA_TREE, 
-    ] as const).map(tree => this.getTreeInfo(tree, includeUncommitted)) 
-    const trees = (await Promise.all(treePromises)).map(tree  => Fr.fromBuffer(tree.root));
+    const treePromises = (
+      [
+        MerkleTreeId.PRIVATE_DATA_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE,
+      ] as const
+    ).map(tree => this.getTreeInfo(tree, includeUncommitted));
+    const trees = (await Promise.all(treePromises)).map(tree => Fr.fromBuffer(tree.root));
 
-    const blockHash = computeBlockHash(wasm, globals, trees[0], trees[1], trees[2],trees[3], trees[4]);
-    console.log(globals);
-
-    console.log("ADDING block hash: ", blockHash.toString());
+    const blockHash = computeBlockHash(wasm, globals, trees[0], trees[1], trees[2], trees[3], trees[4]);
     await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 
@@ -556,19 +555,30 @@ export class MerkleTrees implements MerkleTreeDb {
       }
 
       // Sync the blocks tree.
-      const treeRoots = (await Promise.all([
-        MerkleTreeId.PRIVATE_DATA_TREE,
-        MerkleTreeId.NULLIFIER_TREE,
-        MerkleTreeId.CONTRACT_TREE,
-        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-        MerkleTreeId.PUBLIC_DATA_TREE,
-      ].map( tree => this.trees[tree].getRoot(true)))).map( root => Fr.fromBuffer(root));
+      const treeRoots = (
+        await Promise.all(
+          [
+            MerkleTreeId.PRIVATE_DATA_TREE,
+            MerkleTreeId.NULLIFIER_TREE,
+            MerkleTreeId.CONTRACT_TREE,
+            MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+            MerkleTreeId.PUBLIC_DATA_TREE,
+          ].map(tree => this.trees[tree].getRoot(true)),
+        )
+      ).map(root => Fr.fromBuffer(root));
 
       const wasm = await CircuitsWasm.get();
-      const blockHash = computeBlockHash(wasm, l2Block.globalVariables, treeRoots[0], treeRoots[1], treeRoots[2], treeRoots[3], treeRoots[4]);  
+      const blockHash = computeBlockHash(
+        wasm,
+        l2Block.globalVariables,
+        treeRoots[0],
+        treeRoots[1],
+        treeRoots[2],
+        treeRoots[3],
+        treeRoots[4],
+      );
       // Add the block to the historic blocks tree
-      await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()])
-
+      await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
 
       await this._commit();
     }

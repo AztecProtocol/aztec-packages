@@ -14,6 +14,7 @@ import {
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -48,7 +49,6 @@ import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
 import { Synchroniser } from '../synchroniser/index.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 
 /**
  * A remote Aztec RPC Client implementation.
@@ -161,9 +161,9 @@ export class AztecRPCServer implements AztecRPC {
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
     // If a negative block number is provided the current block height is fetched.
-    if (blockNumber < 0){
+    if (blockNumber < 0) {
       blockNumber = await this.node.getBlockHeight();
-      
+
       // TODO: FIX HACK
       if (blockNumber == 0) return undefined;
     }
@@ -188,7 +188,7 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    console.log(tx);  
+    console.log(tx);
 
     await this.db.addTx(
       TxDao.from({
@@ -345,13 +345,17 @@ export class AztecRPCServer implements AztecRPC {
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest, prevBlockData: CombinedHistoricTreeRoots, contractDataOracle?: ContractDataOracle, ) {
+  async #simulate(
+    txRequest: TxExecutionRequest,
+    prevBlockData: CombinedHistoricTreeRoots,
+    contractDataOracle?: ContractDataOracle,
+  ) {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract} = await this.#getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
     );
@@ -360,7 +364,13 @@ export class AztecRPCServer implements AztecRPC {
 
     try {
       this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, prevBlockData.privateHistoricTreeRoots);
+      const result = await simulator.run(
+        txRequest,
+        functionAbi,
+        contractAddress,
+        portalContract,
+        prevBlockData.privateHistoricTreeRoots,
+      );
       this.log('Simulation completed!');
 
       return result;
@@ -375,10 +385,15 @@ export class AztecRPCServer implements AztecRPC {
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
+   * @param prevBlockData - All data required to reconstruct the previous block hash. // TODO: Maybe just pass in one value for this instead of recomputing everywhere? Cache at the beginning?
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: ExecutionRequest, prevBlockData: CombinedHistoricTreeRoots = CombinedHistoricTreeRoots.empty(),  contractDataOracle?: ContractDataOracle) {
+  async #simulateUnconstrained(
+    execRequest: ExecutionRequest,
+    prevBlockData: CombinedHistoricTreeRoots = CombinedHistoricTreeRoots.empty(),
+    contractDataOracle?: ContractDataOracle,
+  ) {
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
@@ -420,15 +435,9 @@ export class AztecRPCServer implements AztecRPC {
 
     //TODO(MADDIAA) MAYBE WE SHOULD GET THE LATEST BLOCK TREE ROOTS HERE AND PASS THEM DOWN EVERYWHERE?
 
-
-
-
-
-
-
     // Add values that allow us to reconstruct the block hash
     const wasm = await CircuitsWasm.get();
-    const latestBlock = await this.getBlock(-1)
+    const latestBlock = await this.getBlock(-1);
     const latestGlobals = latestBlock?.globalVariables ?? GlobalVariables.empty();
     const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
     const treeRoots = this.db.getTreeRoots();
@@ -443,27 +452,22 @@ export class AztecRPCServer implements AztecRPC {
         Fr.ZERO,
       ),
       treeRoots[MerkleTreeId.PUBLIC_DATA_TREE],
-      prevBlockGlobalVariablesHash
+      prevBlockGlobalVariablesHash,
     );
-
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
 
     // TODO: maybe could put above in this kernel oracle
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const executionResult = await this.#simulate(txExecutionRequest, historicTreeRoots,  contractDataOracle);
+    const executionResult = await this.#simulate(txExecutionRequest, historicTreeRoots, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
     this.log('Proof completed!');
-    
 
     // TODO: FIX HACK< OVERWRITING THE ROOTS HERE
     publicInputs.constants.historicTreeRoots = historicTreeRoots;
-
-    
-
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 

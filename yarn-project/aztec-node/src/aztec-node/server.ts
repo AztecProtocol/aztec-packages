@@ -121,7 +121,7 @@ export class AztecNodeService implements AztecNode {
    * @param number - The block number being requested.
    * @returns The blocks requested.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined>{
+  public async getBlock(number: number): Promise<L2Block | undefined> {
     return await this.blockSource.getL2Block(number);
   }
 
@@ -196,14 +196,13 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value - CAN WE remove this i think the 
+    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value - CAN WE remove this i think the
     // kernel already supplies it
     if (tx.data.constants.historicTreeRoots.isEmpty()) {
-      
       // TODO: make this more robust - base case is for the first rollup
       const blockNumber = await this.blockSource.getBlockHeight();
       const prevBlock = await this.getBlock(blockNumber);
-      const globals = prevBlock ? prevBlock.globalVariables: GlobalVariables.empty();
+      const globals = prevBlock ? prevBlock.globalVariables : GlobalVariables.empty();
       tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest(), globals);
     }
     this.log.info(`Received tx ${await tx.getTxHash()}`);

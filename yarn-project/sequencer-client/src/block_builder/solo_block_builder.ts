@@ -26,7 +26,7 @@ import {
   VerificationKey,
   makeTuple,
 } from '@aztec/circuits.js';
-import { computeBlockHash, computeBlockHashWithGloabalsHash, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeBlockHash, computeBlockHashWithGlobalsHash, computeContractLeaf } from '@aztec/circuits.js/abis';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -106,7 +106,6 @@ export class SoloBlockBuilder implements BlockBuilder {
         MerkleTreeId.BLOCKS_TREE,
       ].map(tree => this.getTreeSnapshot(tree)),
     );
-
 
     // Check txs are good for processing
     this.validateTxs(txs);
@@ -543,17 +542,21 @@ export class SoloBlockBuilder implements BlockBuilder {
     return new MembershipWitness(height, index, assertLength(path.toFieldArray(), height));
   }
 
-
   protected async getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
     const historicTreeRoots = tx.data.constants.historicTreeRoots;
-    const {privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot} = historicTreeRoots.privateHistoricTreeRoots;
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
+      historicTreeRoots.privateHistoricTreeRoots;
     const wasm = await CircuitsWasm.get();
-    const blockHash = computeBlockHashWithGloabalsHash(wasm, historicTreeRoots.prevGlobalVariablesHash, privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, historicTreeRoots.publicDataTreeRoot);
-    return this.getMembershipWitnessFor(
-      blockHash,
-      MerkleTreeId.BLOCKS_TREE,
-      HISTORIC_BLOCKS_TREE_HEIGHT,
+    const blockHash = computeBlockHashWithGlobalsHash(
+      wasm,
+      historicTreeRoots.prevGlobalVariablesHash,
+      privateDataTreeRoot,
+      nullifierTreeRoot,
+      contractTreeRoot,
+      l1ToL2MessagesTreeRoot,
+      historicTreeRoots.publicDataTreeRoot,
     );
+    return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);
   }
 
   protected async getConstantBaseRollupData(globalVariables: GlobalVariables): Promise<ConstantBaseRollupData> {
@@ -726,18 +729,12 @@ export class SoloBlockBuilder implements BlockBuilder {
       ),
       lowNullifierMembershipWitness: lowNullifierMembershipWitnesses,
       kernelData: [this.getKernelDataFor(left), this.getKernelDataFor(right)],
-      historicContractsTreeRootMembershipWitnesses: [
-        mockContractMembershipWitnesses,
-        mockContractMembershipWitnesses 
-      ],
+      historicContractsTreeRootMembershipWitnesses: [mockContractMembershipWitnesses, mockContractMembershipWitnesses],
       historicPrivateDataTreeRootMembershipWitnesses: [
         mockPrivateDataMembershipWitnesses,
-        mockPrivateDataMembershipWitnesses
+        mockPrivateDataMembershipWitnesses,
       ],
-      historicL1ToL2MsgTreeRootMembershipWitnesses: [
-        mockL1ToL2MembershipWitnesses,
-        mockL1ToL2MembershipWitnesses
-      ],
+      historicL1ToL2MsgTreeRootMembershipWitnesses: [mockL1ToL2MembershipWitnesses, mockL1ToL2MembershipWitnesses],
       historicBlocksTreeRootMembershipWitnesses: [
         await this.getHistoricTreesMembershipWitnessFor(left),
         await this.getHistoricTreesMembershipWitnessFor(right),
