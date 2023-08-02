@@ -225,8 +225,8 @@ export class ClientTxExecutionContext {
     this.pendingNotes.push({
       contractAddress,
       storageSlot: storageSlot,
-      nonce: Fr.ZERO,
-      preimage: preimage,
+      nonce: Fr.ZERO, // nonce is cannot be known during private execution
+      preimage,
       innerNoteHash,
     });
   }

@@ -28,14 +28,6 @@ export interface NoteSpendingInfoDao {
    * The preimage of the note, containing essential information about the note.
    */
   notePreimage: NotePreimage;
-  ///**
-  // * The inner note hash (commitment before siloing with contract address or nonce)
-  // */
-  //innerNoteHash: Fr;
-  ///**
-  // * The unique siloed note hash (siloing with contract address and nonce)
-  // */
-  //uniqueSiloedNoteHash: Fr;
   /**
    * The nullifier of the note (siloed by contract address).
    */
@@ -56,8 +48,6 @@ export const createRandomNoteSpendingInfoDao = ({
   ownerAddress = AztecAddress.random(),
   storageSlot = Fr.random(),
   notePreimage = NotePreimage.random(),
-  //innerNoteHash = Fr.random(),
-  //uniqueSiloedNoteHash = Fr.random(),
   siloedNullifier = Fr.random(),
   index = Fr.random().value,
   publicKey = Point.random(),
@@ -67,8 +57,6 @@ export const createRandomNoteSpendingInfoDao = ({
   ownerAddress,
   storageSlot,
   notePreimage,
-  //innerNoteHash,
-  //uniqueSiloedNoteHash,
   siloedNullifier,
   index,
   publicKey,
