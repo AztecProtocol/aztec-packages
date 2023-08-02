@@ -24,7 +24,7 @@ export class CheatCodes {
 
   static async create(rpcUrl: string, aztecRpc: AztecRPC): Promise<CheatCodes> {
     const l1CheatCodes = new L1CheatCodes(rpcUrl);
-    const l2CheatCodes = new L2CheatCodes(aztecRpc, await CircuitsWasm.get());
+    const l2CheatCodes = new L2CheatCodes(aztecRpc, await CircuitsWasm.get(), l1CheatCodes);
     return new CheatCodes(l1CheatCodes, l2CheatCodes);
   }
 }
@@ -87,9 +87,7 @@ class L1CheatCodes {
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
     const res = await this.rpcCall('anvil_mine', `[${numberOfBlocks}]`);
-    if (res.error) {
-      throw new Error(`Error mining: ${res.error.message}`);
-    }
+    if (res.error) throw new Error(`Error mining: ${res.error.message}`);
     this.logger(`Mined ${numberOfBlocks} blocks`);
   }
 
@@ -99,9 +97,7 @@ class L1CheatCodes {
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
     const res = await this.rpcCall('anvil_setNextBlockTimestamp', `[${timestamp}]`);
-    if (res.error) {
-      throw new Error(`Error setting next block timestamp: ${res.error.message}`);
-    }
+    if (res.error) throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     this.logger(`Set next block timestamp to ${timestamp}`);
   }
 
@@ -122,6 +118,10 @@ class L2CheatCodes {
      * The circuits wasm module used for pedersen hashing
      */
     public wasm: CircuitsWasm,
+    /**
+     * The L1 cheat codes.
+     */
+    public l1: L1CheatCodes,
     /**
      * The logger to use for the l2 cheatcodes
      */
