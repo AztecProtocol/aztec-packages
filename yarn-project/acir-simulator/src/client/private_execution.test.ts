@@ -46,7 +46,7 @@ import { type MemDown, default as memdown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { DBOracle, NoteData } from './db_oracle.js';
+import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 jest.setTimeout(60_000);
@@ -223,7 +223,7 @@ describe('Private Execution test suite', () => {
       );
       const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, siloedNoteHash);
-      const nullifier = Fr.fromBuffer(
+      const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [uniqueSiloedNoteHash.toBuffer(), ownerPk.value]),
       );
 
@@ -238,7 +238,7 @@ describe('Private Execution test suite', () => {
         innerNoteHash,
         siloedNoteHash,
         uniqueSiloedNoteHash,
-        nullifier,
+        innerNullifier,
       });
     });
 

@@ -181,7 +181,6 @@ export class NoteProcessor {
       const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
       const {
         innerNoteHash: innerNoteHashTmp,
-        siloedNoteHash,
         uniqueSiloedNoteHash: uniqueSiloedNoteHashTmp,
         innerNullifier: innerNullifierTmp,
       } = await this.simulator.computeNoteHashAndNullifier(
@@ -190,7 +189,7 @@ export class NoteProcessor {
         storageSlot,
         notePreimage.items,
       );
-      if (commitment.equals(siloedNoteHash)) {
+      if (commitment.equals(uniqueSiloedNoteHashTmp)) {
         nonce = expectedNonce;
         innerNoteHash = innerNoteHashTmp;
         uniqueSiloedNoteHash = uniqueSiloedNoteHashTmp;
