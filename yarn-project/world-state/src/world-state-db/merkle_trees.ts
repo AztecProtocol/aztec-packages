@@ -58,7 +58,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param genesisConfig - The genesis config to use for initialising the trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    */
-  public async init(genesisConfig: GlobalVariables, optionalWasm?: IWasmModule) {
+  public async init(optionalWasm?: IWasmModule) {
     const wasm = optionalWasm ?? (await CircuitsWasm.get());
     const hasher = new Pedersen(wasm);
     const contractTree: AppendOnlyTree = await newTree(
@@ -140,7 +140,8 @@ export class MerkleTrees implements MerkleTreeDb {
     this.jobQueue.start();
 
     // The roots trees must contain the empty roots of their data trees
-    await this.updateHistoricBlocksTree(genesisConfig, true);
+    // The first leaf in the tree contains empty roots
+    await this.updateHistoricBlocksTree(GlobalVariables.empty(), true);
     const historicRootsTrees = [historicBlocksTree];
     await Promise.all(historicRootsTrees.map(tree => tree.commit()));
   }
@@ -153,9 +154,9 @@ export class MerkleTrees implements MerkleTreeDb {
    * @returns - A fully initialised MerkleTrees instance.
    */
   // TODO: remove genesis config
-  public static async new(db: levelup.LevelUp, genesisConfig: GlobalVariables = GlobalVariables.empty(), wasm?: IWasmModule) {
+  public static async new(db: levelup.LevelUp, wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);
-    await merkleTrees.init(genesisConfig, wasm);
+    await merkleTrees.init(wasm);
     return merkleTrees;
   }
 
@@ -202,6 +203,9 @@ export class MerkleTrees implements MerkleTreeDb {
     const trees = (await Promise.all(treePromises)).map(tree  => Fr.fromBuffer(tree.root));
 
     const blockHash = computeBlockHash(wasm, globals, trees[0], trees[1], trees[2],trees[3], trees[4]);
+    console.log(globals);
+
+    console.log("ADDING block hash: ", blockHash.toString());
     await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 
@@ -515,16 +519,8 @@ export class MerkleTrees implements MerkleTreeDb {
       compareRoot(l2Block.endNullifierTreeSnapshot.root, MerkleTreeId.NULLIFIER_TREE),
       compareRoot(l2Block.endPrivateDataTreeSnapshot.root, MerkleTreeId.PRIVATE_DATA_TREE),
       compareRoot(l2Block.endPublicDataTreeRoot, MerkleTreeId.PUBLIC_DATA_TREE),
-      compareRoot(l2Block.endTreeOfHistoricContractTreeRootsSnapshot.root, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      compareRoot(
-        l2Block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
-        MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE,
-      ),
       compareRoot(l2Block.endL1ToL2MessageTreeSnapshot.root, MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      compareRoot(
-        l2Block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
-        MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE,
-      ),
+      compareRoot(l2Block.endHistoricBlocksTreeSnapshot.root, MerkleTreeId.BLOCKS_TREE),
     ];
     const ourBlock = rootChecks.every(x => x);
     if (ourBlock) {
@@ -534,6 +530,7 @@ export class MerkleTrees implements MerkleTreeDb {
       this.log(`Block ${l2Block.number} is not ours, rolling back world state and committing state from chain..`);
       await this._rollback();
 
+      // Sync the append only trees
       for (const [tree, leaves] of [
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
         [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
@@ -545,25 +542,34 @@ export class MerkleTrees implements MerkleTreeDb {
         );
       }
 
+      // Sync the indexed trees
       await (this.trees[MerkleTreeId.NULLIFIER_TREE] as StandardIndexedTree).batchInsert(
         l2Block.newNullifiers.map(fr => fr.toBuffer()),
         BaseRollupInputs.NULLIFIER_SUBTREE_HEIGHT,
       );
 
+      // Sync the public data tree
       for (const dataWrite of l2Block.newPublicDataWrites) {
         if (dataWrite.isEmpty()) continue;
         const { newValue, leafIndex } = dataWrite;
         await this._updateLeaf(MerkleTreeId.PUBLIC_DATA_TREE, newValue.toBuffer(), leafIndex.value);
       }
 
-      for (const [newTree, rootTree] of [
-        [MerkleTreeId.PRIVATE_DATA_TREE, MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE],
-        [MerkleTreeId.CONTRACT_TREE, MerkleTreeId.CONTRACT_TREE_ROOTS_TREE],
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE],
-      ] as const) {
-        const newTreeRoot = this.trees[newTree].getRoot(true);
-        await this._appendLeaves(rootTree, [newTreeRoot]);
-      }
+      // Sync the blocks tree.
+      const treeRoots = (await Promise.all([
+        MerkleTreeId.PRIVATE_DATA_TREE,
+        MerkleTreeId.NULLIFIER_TREE,
+        MerkleTreeId.CONTRACT_TREE,
+        MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
+        MerkleTreeId.PUBLIC_DATA_TREE,
+      ].map( tree => this.trees[tree].getRoot(true)))).map( root => Fr.fromBuffer(root));
+
+      const wasm = await CircuitsWasm.get();
+      const blockHash = computeBlockHash(wasm, l2Block.globalVariables, treeRoots[0], treeRoots[1], treeRoots[2], treeRoots[3], treeRoots[4]);  
+      // Add the block to the historic blocks tree
+      await this._appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()])
+
+
       await this._commit();
     }
     for (const treeId of merkleTreeIds()) {
