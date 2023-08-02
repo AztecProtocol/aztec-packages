@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release-please:
+    name: Create Release
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
+      tag-name: ${{ steps.release.outputs.tag_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        id: release
+        uses: google-github-actions/release-please-action@v3
+        with:
+          token: ${{ secrets.NOIR_RELEASES_TOKEN }}
+          command: manifest

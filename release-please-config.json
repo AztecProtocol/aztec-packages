@@ -1,0 +1,36 @@
+{
+  "packages": {
+    "yarn-project/aztec.js": {
+      "release-type": "node",
+      "package-name": "@aztec/aztec.js"
+    },
+    "yarn-project/aztec-cli": {
+      "release-type": "node",
+      "package-name": "@aztec/cli"
+    },
+    "yarn-project/aztec-sandbox": {
+      "release-type": "node",
+      "package-name": "@aztec/sandbox"
+    },
+    "yarn-project/circuits.js": {
+      "release-type": "node",
+      "package-name": "@aztec/circuits.js"
+    },
+    "yarn-project/ethereum": {
+      "release-type": "node",
+      "package-name": "@aztec/ethereum"
+    },
+    "yarn-project/foundation": {
+      "release-type": "node",
+      "package-name": "@aztec/foundation"
+    },
+    "yarn-project/l1-artifacts": {
+      "release-type": "node",
+      "package-name": "@aztec/l1-artifacts"
+    },
+    "yarn-project/types": {
+      "release-type": "node",
+      "package-name": "@aztec/types"
+    }
+  }
+}

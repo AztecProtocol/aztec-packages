@@ -1192,7 +1192,6 @@ workflows:
       - deploy-dockerhub:
           requires:
             - e2e-end
-            - aztec-sandbox
           <<: *deploy_defaults
       - deploy-npm:
           requires:

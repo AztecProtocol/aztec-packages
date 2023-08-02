@@ -1,5 +1,5 @@
 {
-  "name": "@aztec/aztec-sandbox",
+  "name": "@aztec/sandbox",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
