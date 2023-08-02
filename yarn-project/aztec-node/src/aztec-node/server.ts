@@ -78,11 +78,7 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
-    const genesisConfig = GlobalVariables.genesis(
-      BigInt(config.chainId),
-      BigInt(config.version),
-    );  //TODO: throw this in a helper?  
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), genesisConfig, await CircuitsWasm.get());
+    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
 
     // start both and wait for them to sync from the block source
@@ -118,6 +114,15 @@ export class AztecNodeService implements AztecNode {
    */
   public async isReady() {
     return (await this.p2pClient.isReady()) ?? false;
+  }
+
+  /**
+   * Get the a given block.
+   * @param number - The block number being requested.
+   * @returns The blocks requested.
+   */
+  public async getBlock(number: number): Promise<L2Block | undefined>{
+    return await this.blockSource.getL2Block(number);
   }
 
   /**
@@ -191,10 +196,15 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
-    if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
-      // get the globals
-      tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
+    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value - CAN WE remove this i think the 
+    // kernel already supplies it
+    if (tx.data.constants.historicTreeRoots.isEmpty()) {
+      
+      // TODO: make this more robust - base case is for the first rollup
+      const blockNumber = await this.blockSource.getBlockHeight();
+      const prevBlock = await this.getBlock(blockNumber);
+      const globals = prevBlock ? prevBlock.globalVariables: GlobalVariables.empty();
+      tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest(), globals);
     }
     this.log.info(`Received tx ${await tx.getTxHash()}`);
     await this.p2pClient!.sendTx(tx);

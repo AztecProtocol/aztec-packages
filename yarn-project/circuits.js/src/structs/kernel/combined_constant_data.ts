@@ -129,7 +129,7 @@ export class CombinedHistoricTreeRoots {
   }
 
   isEmpty() {
-    return this.privateHistoricTreeRoots.isEmpty();
+    return this.privateHistoricTreeRoots.isEmpty() && this.publicDataTreeRoot.isZero() && this.prevGlobalVariablesHash.isZero();
   }
 
   static empty() {

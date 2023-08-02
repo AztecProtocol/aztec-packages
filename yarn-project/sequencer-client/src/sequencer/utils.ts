@@ -6,7 +6,7 @@ import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 /**
  * Fetches the private, nullifier, contract tree and l1 to l2 messages tree roots from a given db and assembles a CombinedHistoricTreeRoots object.
  */
-export async function getCombinedHistoricTreeRoots(db: MerkleTreeOperations, prevBlockGlobalVariables: GlobalVariables) {
+export async function getCombinedHistoricTreeRoots(db: MerkleTreeOperations, prevBlockGlobalVariables: GlobalVariables = GlobalVariables.empty()) {
   const wasm = await CircuitsWasm.get();
   const prevGlobalsHash = computeGlobalsHash(wasm, prevBlockGlobalVariables);
 

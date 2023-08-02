@@ -43,6 +43,16 @@ export class HttpNode implements AztecNode {
     return respJson.isReady;
   }
 
+  async getBlock(number: number): Promise<L2Block | undefined> {
+    const url = new URL(`${this.baseUrl}/get-block`);
+    url.searchParams.append('number', number.toString());
+    const response = await (await fetch(url.toString())).json();
+    const block = response.blocks as string;
+    if (!block) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(L2Block.decode(Buffer.from(block, 'hex')));
+  }
   /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
