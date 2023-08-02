@@ -117,6 +117,7 @@ WORKDIR /usr/src/yarn-project/noir-contracts
 
 RUN yarn build
 RUN ./scripts/types_ci.sh
+RUN yarn build
 
 # Take noir contract artifacts into the final build image
 FROM builder_ as final
