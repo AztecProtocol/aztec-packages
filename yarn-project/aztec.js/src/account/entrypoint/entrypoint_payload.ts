@@ -1,6 +1,5 @@
 import { CircuitsWasm, Fr } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256 } from '@aztec/foundation/crypto';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/types';
 
 // These must match the values defined in yarn-project/noir-libs/noir-aztec/src/entrypoint.nr
@@ -60,10 +59,9 @@ export async function buildPayload(
   };
 }
 
-/** Hashes an entrypoint payload (useful for signing) */
-export function hashPayload(payload: EntrypointPayload) {
-  // TODO: Switch to keccak when avaiable in Noir
-  return sha256(Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer())));
+/** Flattens an entrypoint payload to a buffer (useful for signing) */
+export function flattenPayloadToBuffer(payload: EntrypointPayload) {
+  return Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer()));
 }
 
 /** Flattens an entrypoint payload */

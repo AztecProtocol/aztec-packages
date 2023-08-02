@@ -44,12 +44,10 @@ contract SchnorrMultiKeyAccount {
         let public_key = storage.signing_public_key.get_note(&mut context);
 
         // Verify payload signature
-        // TODO: Use pedersen to make the payload hash cheaper to compute
         let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
 
-        // Verify signature of the payload hash
-        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, payload_hash);
+        // Verify signature of the payload bytes
+        let verification = std::schnorr::verify_signature(public_key.x, public_key.y, signature, payload_bytes);
         assert(verification == true);
 
         // Execute calls
