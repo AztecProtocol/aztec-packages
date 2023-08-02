@@ -28,7 +28,8 @@ import {
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   KernelCircuitPublicInputs,
-  L1_TO_L2_MSG_TREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -809,7 +810,7 @@ export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables
   return new RootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
-    makeTuple(L1_TO_L2_MSG_TREE_HEIGHT, fr, 0x2100),
+    makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
     makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2400),
