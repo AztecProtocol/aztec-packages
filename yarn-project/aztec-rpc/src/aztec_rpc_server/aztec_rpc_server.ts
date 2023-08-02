@@ -491,4 +491,8 @@ export class AztecRPCServer implements AztecRPC {
   public async isAccountSynchronised(account: AztecAddress) {
     return await this.synchroniser.isAccountSynchronised(account);
   }
+
+  public getSyncStatus() {
+    return Promise.resolve(this.synchroniser.getSyncStatus());
+  }
 }
