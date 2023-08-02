@@ -45,8 +45,8 @@ constexpr size_t MAX_NEW_NULLIFIERS_PER_CALL = 4;
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_CALL = 2;
-constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 4;
-constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 4;
+constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 8;
+constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 8;
 constexpr size_t MAX_READ_REQUESTS_PER_CALL = 4;
 
 
@@ -56,8 +56,8 @@ constexpr size_t MAX_NEW_NULLIFIERS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_C
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
-constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 4;
-constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 4;
+constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 8;
+constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 8;
 constexpr size_t MAX_NEW_CONTRACTS_PER_TX = 1;
 constexpr size_t MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
 constexpr size_t MAX_READ_REQUESTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_READ_REQUESTS_PER_CALL;
@@ -150,6 +150,7 @@ enum GeneratorIndex {
     SIGNED_TX_REQUEST,           // Size = 7
     GLOBAL_VARIABLES,            // Size = 4
     PARTIAL_CONTRACT_ADDRESS,    // Size = 7
+    BLOCK_HASH,                  // Size = 6
     /**
      * Indices with size ≤ 16
      */
@@ -243,7 +244,7 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     2 + RETURN_VALUES_LENGTH +  // + 1 for args_hash + 1 call_context.hash
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
-    NUM_FIELDS_PER_SHA256 +  // unencrypted_logs_hash
+    NUM_FIELDS_PER_SHA256 +  // unencrypted_logs_hash (being represented by NUM_FIELDS_PER_SHA256)
     3;                       // unencrypted_log_preimages_length + historic_public_data_tree_root + prover_address
 
 

@@ -21,6 +21,7 @@ import {
   Fr,
   FunctionData,
   G1AffineElement,
+  GlobalVariables,
   KernelCircuitPublicInputs,
   NativeAggregationState,
   NewContractData,
@@ -41,6 +42,55 @@ import {
   isCircuitError,
   toBuffer,
 } from './types.js';
+
+interface MsgpackGlobalVariables {
+  chain_id: Buffer;
+  version: Buffer;
+  block_number: Buffer;
+  timestamp: Buffer;
+}
+
+export function toGlobalVariables(o: MsgpackGlobalVariables): GlobalVariables {
+  if (o.chain_id === undefined) {
+    throw new Error('Expected chain_id in GlobalVariables deserialization');
+  }
+  if (o.version === undefined) {
+    throw new Error('Expected version in GlobalVariables deserialization');
+  }
+  if (o.block_number === undefined) {
+    throw new Error('Expected block_number in GlobalVariables deserialization');
+  }
+  if (o.timestamp === undefined) {
+    throw new Error('Expected timestamp in GlobalVariables deserialization');
+  }
+  return new GlobalVariables(
+    Fr.fromBuffer(o.chain_id),
+    Fr.fromBuffer(o.version),
+    Fr.fromBuffer(o.block_number),
+    Fr.fromBuffer(o.timestamp),
+  );
+}
+
+export function fromGlobalVariables(o: GlobalVariables): MsgpackGlobalVariables {
+  if (o.chainId === undefined) {
+    throw new Error('Expected chainId in GlobalVariables serialization');
+  }
+  if (o.version === undefined) {
+    throw new Error('Expected version in GlobalVariables serialization');
+  }
+  if (o.blockNumber === undefined) {
+    throw new Error('Expected blockNumber in GlobalVariables serialization');
+  }
+  if (o.timestamp === undefined) {
+    throw new Error('Expected timestamp in GlobalVariables serialization');
+  }
+  return {
+    chain_id: toBuffer(o.chainId),
+    version: toBuffer(o.version),
+    block_number: toBuffer(o.blockNumber),
+    timestamp: toBuffer(o.timestamp),
+  };
+}
 
 interface MsgpackG1AffineElement {
   x: Buffer;
@@ -429,8 +479,8 @@ interface MsgpackCombinedAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 4>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 4>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 8>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 8>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -1179,8 +1229,8 @@ interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 4>;
-  contract_storage_reads: Tuple<MsgpackContractStorageRead, 4>;
+  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 8>;
+  contract_storage_reads: Tuple<MsgpackContractStorageRead, 8>;
   public_call_stack: Tuple<Buffer, 4>;
   new_commitments: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
@@ -1457,6 +1507,26 @@ export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): 
 }
 export function abisSiloNullifier(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_nullifier', [toBuffer(arg0), toBuffer(arg1)]));
+}
+export function abisComputeBlockHash(
+  wasm: IWasmModule,
+  arg0: GlobalVariables,
+  arg1: Fr,
+  arg2: Fr,
+  arg3: Fr,
+  arg4: Fr,
+  arg5: Fr,
+): Fr {
+  return Fr.fromBuffer(
+    callCbind(wasm, 'abis__compute_block_hash', [
+      fromGlobalVariables(arg0),
+      toBuffer(arg1),
+      toBuffer(arg2),
+      toBuffer(arg3),
+      toBuffer(arg4),
+      toBuffer(arg5),
+    ]),
+  );
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));
