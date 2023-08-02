@@ -4,7 +4,6 @@ import { AztecAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
