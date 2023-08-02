@@ -2,18 +2,18 @@ import {
   AztecAddress,
   EthAddress,
   Fr,
+  PrivateKey,
+  TxStatus,
   Wallet,
   computeMessageSecretHash,
   createAccounts,
   createAztecRpcClient,
+  createDebugLogger,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract, UniswapContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { createPublicClient, createWalletClient, getContract, http, parseEther } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -21,7 +21,7 @@ import { foundry } from 'viem/chains';
 
 import { delay, deployAndInitializeNonNativeL2TokenContracts, deployL1Contract } from './utils.js';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
+const logger = createDebugLogger('aztec:uniswap-smoke-test');
 
 export const MNEMONIC = 'test test test test test test test test test test test junk';
 

@@ -454,7 +454,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/l1-artifacts@workspace:^, @aztec/l1-artifacts@workspace:l1-artifacts":
+"@aztec/l1-artifacts@*, @aztec/l1-artifacts@workspace:^, @aztec/l1-artifacts@workspace:l1-artifacts":
   version: 0.0.0-use.local
   resolution: "@aztec/l1-artifacts@workspace:l1-artifacts"
   dependencies:
@@ -517,7 +517,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/noir-contracts@workspace:^, @aztec/noir-contracts@workspace:noir-contracts":
+"@aztec/noir-contracts@*, @aztec/noir-contracts@workspace:^, @aztec/noir-contracts@workspace:noir-contracts":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-contracts@workspace:noir-contracts"
   dependencies:
@@ -687,6 +687,8 @@ __metadata:
   resolution: "@aztec/smoke-test@workspace:smoke-test"
   dependencies:
     "@aztec/aztec.js": "*"
+    "@aztec/l1-artifacts": "*"
+    "@aztec/noir-contracts": "*"
     "@jest/globals": ^29.5.0
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0

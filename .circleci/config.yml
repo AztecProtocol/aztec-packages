@@ -972,6 +972,17 @@ jobs:
             deploy_ecr aztec-sandbox
             deploy_dockerhub aztec-sandbox
 
+  smoke-test:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests smoke-test uniswap_trade_on_l1_from_l2.test.ts docker-compose.yml
+
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^v.*/
 defaults: &defaults
@@ -1197,4 +1208,10 @@ workflows:
       - deploy-npm:
           requires:
             - e2e-end
+          <<: *deploy_defaults
+
+      - smoke-test:
+          requires:
+            - deploy-dockerhub
+            - deploy-npm
           <<: *deploy_defaults

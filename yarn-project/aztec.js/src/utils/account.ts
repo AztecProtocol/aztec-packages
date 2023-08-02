@@ -2,6 +2,7 @@ import { Fr, PrivateKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { AccountWallet, Wallet } from '../aztec_rpc_client/wallet.js';
@@ -27,8 +28,10 @@ export async function createAccounts(
     const publicKey = await generatePublicKey(privKey);
     const deploymentInfo = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
     await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress);
+    await sleep(5000);
     const contractDeployer = new ContractDeployer(accountContractAbi, aztecRpcClient, publicKey);
     const tx = contractDeployer.deploy().send({ contractAddressSalt: salt });
+    await sleep(5000);
     await tx.isMined(0, 0.5);
     const receipt = await tx.getReceipt();
     if (receipt.status !== TxStatus.MINED) {
