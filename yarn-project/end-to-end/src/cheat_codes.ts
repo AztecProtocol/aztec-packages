@@ -3,8 +3,8 @@ import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
 
-const toFr = (what: Fr | bigint): Fr => {
-  return typeof what === 'bigint' ? new Fr(what) : what;
+const toFr = (value: Fr | bigint): Fr => {
+  return typeof value === 'bigint' ? new Fr(value) : value;
 };
 
 /**
@@ -44,9 +44,10 @@ class L1CheatCodes {
     public logger = createDebugLogger('aztec:cheat_codes:l1'),
   ) {}
 
-  async rpcCall(method: string, params: string) {
+  async rpcCall(method: string, params: any[]) {
+    const paramsString = JSON.stringify(params);
     const content = {
-      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${params}, "id": 1}`,
+      body: `{"jsonrpc":"2.0", "method": "${method}", "params": ${paramsString}, "id": 1}`,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     };
@@ -58,7 +59,7 @@ class L1CheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    const res = await this.rpcCall('eth_blockNumber', `[]`);
+    const res = await this.rpcCall('eth_blockNumber', []);
     return parseInt(res.result, 16);
   }
 
@@ -67,7 +68,7 @@ class L1CheatCodes {
    * @returns The current chainId
    */
   public async chainId(): Promise<number> {
-    const res = await this.rpcCall('eth_chainId', `[]`);
+    const res = await this.rpcCall('eth_chainId', []);
     return parseInt(res.result, 16);
   }
 
@@ -76,7 +77,7 @@ class L1CheatCodes {
    * @returns The current timestamp
    */
   public async timestamp(): Promise<number> {
-    const res = await this.rpcCall('eth_getBlockByNumber', `["latest", true]`);
+    const res = await this.rpcCall('eth_getBlockByNumber', ['latest', true]);
     return parseInt(res.result.timestamp, 16);
   }
 
@@ -86,7 +87,7 @@ class L1CheatCodes {
    * @returns The current chainId
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
-    const res = await this.rpcCall('anvil_mine', `[${numberOfBlocks}]`);
+    const res = await this.rpcCall('anvil_mine', [numberOfBlocks]);
     if (res.error) throw new Error(`Error mining: ${res.error.message}`);
     this.logger(`Mined ${numberOfBlocks} blocks`);
   }
@@ -96,7 +97,7 @@ class L1CheatCodes {
    * @param timestamp - The timestamp to set the next block to
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
-    const res = await this.rpcCall('anvil_setNextBlockTimestamp', `[${timestamp}]`);
+    const res = await this.rpcCall('anvil_setNextBlockTimestamp', [timestamp]);
     if (res.error) throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     this.logger(`Set next block timestamp to ${timestamp}`);
   }
