@@ -18,4 +18,3 @@ RUN ./scripts/install_noir.sh
 ENV PATH="/usr/src/yarn-project/noir-contracts/.nargo/bin:${PATH}"
 
 RUN ./scripts/compile_ci.sh
-RUN yarn build
