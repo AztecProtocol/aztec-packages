@@ -362,7 +362,6 @@ describe('Private Execution test suite', () => {
           storageSlot,
           nonce,
           preimage: [new Fr(amount), secret],
-          //innerNoteHash: new Fr(0),
           siloedNullifier: new Fr(0),
           index: 1n,
         },
