@@ -242,8 +242,7 @@
     "projectDir": "yarn-project/end-to-end",
     "dockerfile": "end-to-end/Dockerfile",
     "rebuildPatterns": [
-      "^yarn-project/end-to-end/",
-      "^yarn-project/noir-contracts/"
+      "^yarn-project/end-to-end/"
     ],
     "dependencies": [
       "archiver",
