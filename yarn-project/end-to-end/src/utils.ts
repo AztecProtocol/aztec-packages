@@ -17,14 +17,13 @@ import {
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
 import {
-  CircuitsWasm,
   DeploymentInfo,
   PartialContractAddress,
   PrivateKey,
   PublicKey,
   getContractDeploymentInfo,
 } from '@aztec/circuits.js';
-import { Schnorr, pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
@@ -521,28 +520,6 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
  */
 export function delay(ms: number): Promise<void> {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Calculates the slot value of a mapping within noir.
- * @param slot - The storage slot of the mapping.
- * @param key - The key within the mapping.
- * @returns The mapping's key.
- */
-export async function calculateAztecStorageSlot(slot: bigint, key: Fr): Promise<Fr> {
-  const wasm = await CircuitsWasm.get();
-  const mappingStorageSlot = new Fr(slot); // this value is manually set in the Noir contract
-
-  // Based on `at` function in
-  // aztec3-packages/yarn-project/noir-contracts/src/contracts/noir-aztec/src/state_vars/map.nr
-  const storageSlot = Fr.fromBuffer(
-    pedersenPlookupCommitInputs(
-      wasm,
-      [mappingStorageSlot, key].map(f => f.toBuffer()),
-    ),
-  );
-
-  return storageSlot; //.value;
 }
 
 /**

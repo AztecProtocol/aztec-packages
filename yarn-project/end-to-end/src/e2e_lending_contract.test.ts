@@ -47,6 +47,10 @@ describe('e2e_lending_contract', () => {
 
   // Fetch a storage snapshot from the contract that we can use to compare between transitions.
   const getStorageSnapshot = async (contract: Contract, aztecNode: AztecRPC, account: Account) => {
+    const loadPublicStorageInMap = async (slot: Fr | bigint, key: Fr | bigint) => {
+      return await cc.l2.loadPublic(contract.address, cc.l2.computeSlotInMap(slot, key));
+    };
+
     const storageValues: { [key: string]: any } = {};
     {
       const baseSlot = cc.l2.computeSlotInMap(1n, 0n);
@@ -56,19 +60,10 @@ describe('e2e_lending_contract', () => {
 
     const accountKey = await account.key();
 
-    storageValues['private_collateral'] = await cc.l2.loadPublic(
-      contract.address,
-      cc.l2.computeSlotInMap(2n, accountKey),
-    );
-    storageValues['public_collateral'] = await cc.l2.loadPublic(
-      contract.address,
-      cc.l2.computeSlotInMap(2n, account.address.toField()),
-    );
-    storageValues['private_debt'] = await cc.l2.loadPublic(contract.address, cc.l2.computeSlotInMap(3n, accountKey));
-    storageValues['public_debt'] = await cc.l2.loadPublic(
-      contract.address,
-      cc.l2.computeSlotInMap(3n, account.address.toField()),
-    );
+    storageValues['private_collateral'] = await loadPublicStorageInMap(2n, accountKey);
+    storageValues['public_collateral'] = await loadPublicStorageInMap(2n, account.address.toField());
+    storageValues['private_debt'] = await loadPublicStorageInMap(3n, accountKey);
+    storageValues['public_debt'] = await loadPublicStorageInMap(3n, account.address.toField());
 
     return storageValues;
   };
