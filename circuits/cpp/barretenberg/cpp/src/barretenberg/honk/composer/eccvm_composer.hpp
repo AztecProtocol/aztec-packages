@@ -7,7 +7,6 @@
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 namespace proof_system::honk {
-
 template <ECCVMFlavor Flavor> class ECCVMComposer_ {
   public:
     using CircuitConstructor = ECCVMCircuitBuilder<Flavor>;

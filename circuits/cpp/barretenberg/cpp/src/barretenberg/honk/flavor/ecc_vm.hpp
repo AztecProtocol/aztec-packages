@@ -823,7 +823,6 @@ class ECCVMBase {
 };
 
 class ECCVM : public ECCVMBase<grumpkin::g1, barretenberg::g1, pcs::kzg::Params, pcs::kzg::KZG> {};
-// not actually grumpkin, need to finish supporting grumpkin in ipa
 class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, grumpkin::g1, pcs::ipa::Params, pcs::ipa::IPA> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
