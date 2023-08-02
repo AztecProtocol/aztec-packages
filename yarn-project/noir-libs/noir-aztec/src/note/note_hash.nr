@@ -8,7 +8,6 @@ fn compute_inner_hash(storage_slot: Field, note_hash: Field) -> Field {
 
 fn compute_siloed_hash(contract_address: Field, inner_note_hash: Field) -> Field {
     let inputs = [contract_address, inner_note_hash];
-    // TODO(dbanks12) rename const
     pedersen_with_separator(inputs, GENERATOR_INDEX__SILOED_COMMITMENT)[0]
 }
 
