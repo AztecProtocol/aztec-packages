@@ -789,7 +789,10 @@ export function makeBaseOrMergeRollupPublicInputs(
  * @param globalVariables - The global variables to use when generating the previous rollup data.
  * @returns A previous rollup data.
  */
-export function makePreviousRollupData(seed = 0, globalVariables: GlobalVariables | undefined = undefined): PreviousRollupData {
+export function makePreviousRollupData(
+  seed = 0,
+  globalVariables: GlobalVariables | undefined = undefined,
+): PreviousRollupData {
   return new PreviousRollupData(
     makeBaseOrMergeRollupPublicInputs(seed, globalVariables),
     makeDynamicSizeBuffer(16, seed + 0x50),

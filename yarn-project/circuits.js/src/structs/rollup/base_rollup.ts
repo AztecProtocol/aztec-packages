@@ -3,9 +3,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 import {
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   HISTORIC_BLOCKS_TREE_HEIGHT,
-  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
@@ -13,7 +11,6 @@ import {
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '../../cbind/constants.gen.js';
 import { FieldsOf, assertItemsLength, assertMemberLength } from '../../utils/jsUtils.js';

@@ -188,7 +188,6 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    console.log(tx);
 
     await this.db.addTx(
       TxDao.from({

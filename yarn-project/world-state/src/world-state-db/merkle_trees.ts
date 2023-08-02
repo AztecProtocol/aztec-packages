@@ -101,14 +101,7 @@ export class MerkleTrees implements MerkleTreeDb {
       `${MerkleTreeId[MerkleTreeId.BLOCKS_TREE]}`,
       HISTORIC_BLOCKS_TREE_HEIGHT,
     );
-    this.trees = [
-      contractTree,
-      nullifierTree,
-      privateDataTree,
-      publicDataTree,
-      l1Tol2MessagesTree,
-      historicBlocksTree,
-    ];
+    this.trees = [contractTree, nullifierTree, privateDataTree, publicDataTree, l1Tol2MessagesTree, historicBlocksTree];
 
     this.jobQueue.start();
 
