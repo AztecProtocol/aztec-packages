@@ -208,7 +208,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/aztec.js@workspace:^, @aztec/aztec.js@workspace:aztec.js":
+"@aztec/aztec.js@*, @aztec/aztec.js@workspace:^, @aztec/aztec.js@workspace:aztec.js":
   version: 0.0.0-use.local
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
@@ -662,6 +662,24 @@ __metadata:
     lodash.pick: ^4.4.0
     lodash.times: ^4.3.2
     prettier: ^2.8.7
+    ts-jest: ^29.1.0
+    ts-node: ^10.9.1
+    tslib: ^2.4.0
+    typescript: ^5.0.4
+    viem: ^1.2.5
+  languageName: unknown
+  linkType: soft
+
+"@aztec/smoke-test@workspace:smoke-test":
+  version: 0.0.0-use.local
+  resolution: "@aztec/smoke-test@workspace:smoke-test"
+  dependencies:
+    "@aztec/aztec.js": "*"
+    "@jest/globals": ^29.5.0
+    "@rushstack/eslint-patch": ^1.1.4
+    "@types/jest": ^29.5.0
+    "@types/node": ^18.7.23
+    jest: ^29.5.0
     ts-jest: ^29.1.0
     ts-node: ^10.9.1
     tslib: ^2.4.0
