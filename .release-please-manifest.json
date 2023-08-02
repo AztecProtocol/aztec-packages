@@ -1,0 +1,10 @@
+{
+  "yarn-project/aztec.js": "0.1.0",
+  "yarn-project/aztec-cli": "0.1.0",
+  "yarn-project/aztec-sandbox": "0.1.0",
+  "yarn-project/circuits.js": "0.1.0",
+  "yarn-project/ethereum": "0.1.0",
+  "yarn-project/foundation": "0.1.0",
+  "yarn-project/l1-artifacts": "0.1.0",
+  "yarn-project/types": "0.1.0"
+}
