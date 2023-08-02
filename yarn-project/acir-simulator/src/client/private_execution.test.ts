@@ -168,13 +168,12 @@ describe('Private Execution test suite', () => {
     const buildNote = (amount: bigint, owner: AztecAddress, storageSlot = Fr.random()) => {
       // WARNING: this is not actually how nonces are computed!
       const nonce = new Fr(currentNoteIndex);
-      const preimage = [new Fr(amount), owner.toField(), Fr.random(), new Fr(1n)];
+      const preimage = [new Fr(amount), owner.toField(), Fr.random()];
       return {
         contractAddress,
         storageSlot,
         index: currentNoteIndex++,
         nonce,
-        innerNoteHash: new Fr(0),
         siloedNullifier: new Fr(0),
         preimage,
       };

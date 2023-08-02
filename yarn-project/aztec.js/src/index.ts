@@ -9,4 +9,24 @@ export * from './contract_deployer/deploy_method.js';
 // export * from '@aztec/aztec-rpc';
 
 export { AztecAddress, EthAddress, Point, Fr } from '@aztec/circuits.js';
-export { AztecRPC } from '@aztec/types';
+export {
+  AztecRPC,
+  ContractData,
+  ContractDeploymentTx,
+  ContractPublicData,
+  DeployedContract,
+  ExecutionRequest,
+  L2BlockL2Logs,
+  NodeInfo,
+  PackedArguments,
+  PublicKey,
+  PrivateKey,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  TxStatus,
+  emptyExecutionRequest,
+} from '@aztec/types';
+
+export { createDebugLogger } from '@aztec/foundation/log';

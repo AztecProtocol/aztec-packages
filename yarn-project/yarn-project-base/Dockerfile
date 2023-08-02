@@ -22,6 +22,7 @@ COPY aztec-rpc/package.json aztec-rpc/package.json
 COPY aztec-node/package.json aztec-node/package.json
 COPY aztec-sandbox/package.json aztec-sandbox/package.json
 COPY aztec.js/package.json aztec.js/package.json
+COPY aztec.js/package.local.json aztec.js/package.local.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum/package.json ethereum/package.json
@@ -115,8 +116,11 @@ COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
 
+# Run yarn build to have the json ABIs available for the types generator
 RUN yarn build
 RUN ./scripts/types_ci.sh
+# Run yarn build again to build the types
+RUN yarn build
 
 # Take noir contract artifacts into the final build image
 FROM builder_ as final

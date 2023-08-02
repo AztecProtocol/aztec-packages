@@ -104,6 +104,17 @@ jobs:
           name: "Build"
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
 
+  barretenberg-x86_64-linux-clang-fuzzing:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
+
   barretenberg-x86_64-linux-clang-assert:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -211,16 +222,16 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  # bb-bin-tests:
-  #   docker:
-  #     - image: aztecprotocol/alpine-build-image
-  #   resource_class: small
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
+  bb-bin-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
 
   barretenberg-benchmark-aggregator:
     docker:
@@ -793,17 +804,18 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
           working_directory: yarn-project/end-to-end
 
-  uniswap-trade-on-l1-from-l2:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
-          working_directory: yarn-project/end-to-end
+  # TODO(AD): Reenable after #1367
+  # uniswap-trade-on-l1-from-l2:
+  #   machine:
+  #     image: ubuntu-2004:202010-01
+  #   resource_class: large
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+  #         working_directory: yarn-project/end-to-end
 
   integration-archiver-l1-to-l2:
     machine:
@@ -852,7 +864,19 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
 
-  e2e-uniswap-sandbox:
+  # TODO(AD): Reenable after #1367
+  # e2e-uniswap-sandbox:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
+
+  e2e-browser-sandbox:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -861,7 +885,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-join:
     docker:
@@ -924,6 +948,12 @@ jobs:
           command: |
             deploy_ecr aztec.js
             deploy_npm aztec.js
+      - run:
+          name: "noir-contracts"
+          working_directory: noir-contracts
+          command: |
+            deploy_ecr noir-contracts
+            deploy_npm noir-contracts
       - run:
           name: "aztec-cli"
           working_directory: aztec-cli
@@ -1006,6 +1036,7 @@ workflows:
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
+      - barretenberg-x86_64-linux-clang-fuzzing: *defaults
       - barretenberg-wasm-linux-clang: *defaults
       - barretenberg-proof-system-tests: *bb_test
       - barretenberg-honk-tests: *bb_test
@@ -1015,8 +1046,7 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      # TODO(#1236): Reinstate this test once Noir support recursion again.
-      # - bb-bin-tests: *bb_test
+      - bb-bin-tests: *bb_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
@@ -1135,11 +1165,14 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
-      - uniswap-trade-on-l1-from-l2: *e2e_test
+      # TODO(AD): Reenable after #1367
+      # - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
-      - e2e-uniswap-sandbox: *e2e_test
+      # TODO(AD): Reenable after #1367
+      # - e2e-uniswap-sandbox: *e2e_test
+      - e2e-browser-sandbox: *e2e_test
 
       - e2e-end:
           requires:
@@ -1158,11 +1191,14 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-pending-commitments-contract
-            - uniswap-trade-on-l1-from-l2
+            # TODO(AD): Reenable after #1367
+            # - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
-            - e2e-uniswap-sandbox
+            # TODO(AD): Reenable after #1367
+            # - e2e-uniswap-sandbox
+            - e2e-browser-sandbox
           <<: *defaults
 
       - deploy-dockerhub:
