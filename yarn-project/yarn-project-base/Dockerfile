@@ -115,6 +115,7 @@ COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
 
+RUN yarn build
 RUN ./scripts/types_ci.sh
 RUN yarn build
 
