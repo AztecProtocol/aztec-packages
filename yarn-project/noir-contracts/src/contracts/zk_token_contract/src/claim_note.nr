@@ -42,7 +42,7 @@ impl ClaimNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(ClaimNoteInterface, self);
+        let siloed_note_hash = compute_siloed_note_hash(ClaimNoteMethods, self);
         dep::std::hash::pedersen([
             siloed_note_hash,
             self.secret_hash, // Include the secret_hash again so that the public won't know the note has been claimed.
@@ -55,10 +55,6 @@ impl ClaimNote {
             secret_hash: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        self.value == 0
     }
 
     fn set_header(&mut self, header: NoteHeader) {
@@ -86,10 +82,6 @@ fn dummy() -> ClaimNote {
     ClaimNote::dummy()
 }
 
-fn is_dummy(note: ClaimNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: ClaimNote) -> NoteHeader {
     note.header
 }
@@ -98,13 +90,12 @@ fn set_header(note: &mut ClaimNote, header: NoteHeader) {
     note.set_header(header)
 }
 
-global ClaimNoteInterface = NoteInterface {
+global ClaimNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };

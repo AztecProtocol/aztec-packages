@@ -27,7 +27,7 @@ impl AddressNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(AddressNoteInterface, self);
+        let siloed_note_hash = compute_siloed_note_hash(AddressNoteMethods, self);
         let owner_nullifying_public_key = get_public_key(self.address);
         let secret = get_secret_key(owner_nullifying_public_key);
         dep::std::hash::pedersen([
@@ -45,10 +45,6 @@ impl AddressNote {
             address: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        self.address == 0
     }
 }
 
@@ -75,10 +71,6 @@ fn dummy() -> AddressNote {
     AddressNote::dummy()
 }
 
-fn is_dummy(note: AddressNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: AddressNote) -> NoteHeader {
     note.header
 }
@@ -87,13 +79,12 @@ fn set_header(note: &mut AddressNote, header: NoteHeader) {
     note.set_header(header);
 }
 
-global AddressNoteInterface = NoteInterface {
+global AddressNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };
