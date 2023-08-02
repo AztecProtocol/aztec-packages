@@ -3,6 +3,7 @@
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
@@ -16,10 +17,9 @@
 
 namespace aztec3::circuits::kernel::private_kernel {
 
+using aztec3::circuits::silo_nullifier;
 using aztec3::circuits::apps::test_apps::basic_contract_deployment::constructor;
 using aztec3::circuits::apps::test_apps::escrow::deposit;
-
-using aztec3::circuits::kernel::private_kernel::testing_harness::compute_siloed_first_nullifier;
 using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_init;
 using aztec3::circuits::kernel::private_kernel::testing_harness::get_random_reads;
 using aztec3::circuits::kernel::private_kernel::testing_harness::validate_deployed_contract_address;
@@ -308,7 +308,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -342,7 +342,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_leaf_index)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -375,7 +375,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_sibling_path)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -409,7 +409,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     // generate two random sets of read requests and mix them so their roots don't match
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests0,
           read_request_membership_witnesses0,
           _transient_read_requests0,
@@ -488,7 +488,7 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -525,7 +525,7 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -562,7 +562,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -601,7 +601,7 @@ TEST_F(native_private_kernel_init_tests, native_read_requests_less_than_witnesse
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -628,7 +628,7 @@ TEST_F(native_private_kernel_init_tests, native_read_requests_more_than_witnesse
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -659,7 +659,7 @@ TEST_F(native_private_kernel_init_tests, native_one_transient_read_requests_work
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,
@@ -697,7 +697,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_one_transient_
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,
@@ -735,7 +735,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_all_transient_
     auto const& contract_address =
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
-    auto const first_nullifier = compute_siloed_first_nullifier(private_inputs.tx_request, contract_address);
+    auto const first_nullifier = silo_nullifier<NT>(contract_address, private_inputs.tx_request.hash());
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,

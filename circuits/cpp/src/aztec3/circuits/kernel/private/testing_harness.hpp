@@ -74,17 +74,6 @@ inline const auto& get_empty_contract_siblings()
 }
 
 /**
- * @brief Compute the siloed first nullifier of a
- *
- * @details Used when computing nonces for unique_siloed_commitments
- *
- * @param tx_request
- * @param contract_address
- * @return NT::fr first nullifier in TX used to compute commitment nonces
- */
-NT::fr compute_siloed_first_nullifier(TxRequest<NT> const& tx_request, NT::fr const& contract_address);
-
-/**
  * @brief Get the random read requests and their membership requests
  *
  * @details read requests are siloed by contract address and nonce before being
