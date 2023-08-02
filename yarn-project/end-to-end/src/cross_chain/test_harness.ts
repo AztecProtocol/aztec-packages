@@ -204,9 +204,9 @@ export class CrossChainTestHarness {
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint, publicBalanceSlot: bigint) {
-    const balance = await this.cc.loadPublic(
+    const balance = await this.cc.l2.loadPublic(
       this.l2Contract.address,
-      this.cc.computeSlotInMap(publicBalanceSlot, owner.toField()),
+      this.cc.l2.computeSlotInMap(publicBalanceSlot, owner.toField()),
     );
     expect(balance.value).toBe(expectedBalance);
   }

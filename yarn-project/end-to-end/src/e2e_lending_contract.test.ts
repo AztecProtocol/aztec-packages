@@ -50,22 +50,25 @@ describe('e2e_lending_contract', () => {
   const getStorageSnapshot = async (contract: Contract, aztecNode: AztecRPC, account: Account) => {
     const storageValues: { [key: string]: any } = {};
     {
-      const baseSlot = cc.computeSlotInMap(1n, 0n);
-      storageValues['interestAccumulator'] = await cc.loadPublic(contract.address, baseSlot);
-      storageValues['last_updated_ts'] = await cc.loadPublic(contract.address, baseSlot.value + 1n);
+      const baseSlot = cc.l2.computeSlotInMap(1n, 0n);
+      storageValues['interestAccumulator'] = await cc.l2.loadPublic(contract.address, baseSlot);
+      storageValues['last_updated_ts'] = await cc.l2.loadPublic(contract.address, baseSlot.value + 1n);
     }
 
     const accountKey = await account.key();
 
-    storageValues['private_collateral'] = await cc.loadPublic(contract.address, cc.computeSlotInMap(2n, accountKey));
-    storageValues['public_collateral'] = await cc.loadPublic(
+    storageValues['private_collateral'] = await cc.l2.loadPublic(
       contract.address,
-      cc.computeSlotInMap(2n, account.address.toField()),
+      cc.l2.computeSlotInMap(2n, accountKey),
     );
-    storageValues['private_debt'] = await cc.loadPublic(contract.address, cc.computeSlotInMap(3n, accountKey));
-    storageValues['public_debt'] = await cc.loadPublic(
+    storageValues['public_collateral'] = await cc.l2.loadPublic(
       contract.address,
-      cc.computeSlotInMap(3n, account.address.toField()),
+      cc.l2.computeSlotInMap(2n, account.address.toField()),
+    );
+    storageValues['private_debt'] = await cc.l2.loadPublic(contract.address, cc.l2.computeSlotInMap(3n, accountKey));
+    storageValues['public_debt'] = await cc.l2.loadPublic(
+      contract.address,
+      cc.l2.computeSlotInMap(3n, account.address.toField()),
     );
 
     return storageValues;
