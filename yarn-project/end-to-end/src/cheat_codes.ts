@@ -2,6 +2,7 @@ import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
+import fs from 'fs';
 
 import fs from 'fs';
 
