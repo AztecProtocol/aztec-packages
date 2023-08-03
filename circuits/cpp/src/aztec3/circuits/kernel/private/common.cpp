@@ -93,7 +93,7 @@ void common_validate_read_requests(DummyBuilder& builder,
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
-        if (read_request != 0 && !witness.is_pending_note_read) {
+        if (read_request != 0 && !witness.is_transient) {
             const auto& root_for_read_request =
                 root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
