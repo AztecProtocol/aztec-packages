@@ -1,7 +1,7 @@
 import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { AztecNode, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 
 import { Database, TxDao } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
@@ -38,7 +38,7 @@ export class Synchroniser {
    * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
-  public async start(from = 1, limit = 1, retryInterval = 1000) {
+  public async start(from = INITIAL_L2_BLOCK_NUM, limit = 1, retryInterval = 1000) {
     if (this.running) return;
     this.running = true;
 
