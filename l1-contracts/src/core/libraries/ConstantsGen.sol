@@ -45,9 +45,6 @@ library Constants {
   uint256 internal constant PUBLIC_DATA_TREE_HEIGHT = 254;
   uint256 internal constant NULLIFIER_TREE_HEIGHT = 16;
   uint256 internal constant L1_TO_L2_MSG_TREE_HEIGHT = 16;
-  uint256 internal constant PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 16;
-  uint256 internal constant CONTRACT_TREE_ROOTS_TREE_HEIGHT = 16;
-  uint256 internal constant L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 16;
   uint256 internal constant ROLLUP_VK_TREE_HEIGHT = 8;
   uint256 internal constant CONTRACT_SUBTREE_HEIGHT = 1;
   uint256 internal constant CONTRACT_SUBTREE_SIBLING_PATH_LENGTH = 15;
