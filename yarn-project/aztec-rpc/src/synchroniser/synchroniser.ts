@@ -21,7 +21,6 @@ export class Synchroniser {
   private initialSyncBlockHeight = 0;
   private synchedToBlock = 0;
   private log: DebugLogger;
-  private fromBlock?: number;
   private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
   constructor(private node: AztecNode, private db: Database, logSuffix = '') {
@@ -44,16 +43,13 @@ export class Synchroniser {
     this.running = true;
 
     await this.initialSync();
-    this.fromBlock = from;
 
     const run = async () => {
-      let fromFullSync = this.fromBlock;
-      let fromCatchUp = this.fromBlock!;
       while (this.running) {
         if (this.noteProcessorsToCatchUp.length > 0) {
-          fromCatchUp = await this.workNoteProcessorCatchUp(fromCatchUp, limit, retryInterval);
+          await this.workNoteProcessorCatchUp(limit, retryInterval);
         } else {
-          fromFullSync = await this.work(fromFullSync, limit, retryInterval);
+          from = await this.work(from, limit, retryInterval);
         }
       }
     };
@@ -135,12 +131,12 @@ export class Synchroniser {
     }
   }
 
-  private async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<number> {
+  private async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
     const noteProcessor = this.noteProcessorsToCatchUp[0];
     const from = noteProcessor.status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
     limit = Math.min(limit, this.synchedToBlock - from);
-    
+
     if (limit < 1) {
       throw new Error(`Unexpected limit ${limit} for note processor catch up`);
     }
@@ -168,6 +164,7 @@ export class Synchroniser {
 
       const blockContexts = blocks.map(block => new L2BlockContext(block));
 
+      this.log(`Forwarding ${encryptedLogs.length} encrypted logs and blocks to note processor in catch up mode`);
       await noteProcessor.process(blockContexts, encryptedLogs);
 
       if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
@@ -175,12 +172,9 @@ export class Synchroniser {
         this.noteProcessorsToCatchUp.shift();
         this.noteProcessors.push(noteProcessor);
       }
-
-      return from;
     } catch (err) {
       this.log(err);
       await this.interruptableSleep.sleep(retryInterval);
-      return from;
     }
   }
 
