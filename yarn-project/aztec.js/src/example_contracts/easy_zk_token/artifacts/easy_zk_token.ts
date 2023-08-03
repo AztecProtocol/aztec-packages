@@ -1,4 +1,8 @@
 /* eslint-disable */
+import { ContractAbi } from '@aztec/foundation/abi';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { AztecRPC, PublicKey } from '@aztec/types';
+
 import {
   AztecAddress,
   ContractBase,
@@ -6,11 +10,7 @@ import {
   ContractMethod,
   DeployMethod,
   Wallet,
-} from '@aztec/aztec.js';
-import { ContractAbi } from '@aztec/foundation/abi';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecRPC, PublicKey } from '@aztec/types';
-
+} from '../../../index.js';
 import EasyZkTokenJson from './easy_zk_token_contract.json' assert { type: 'json' };
 
 const EasyZkTokenContractAbi = EasyZkTokenJson as ContractAbi;
