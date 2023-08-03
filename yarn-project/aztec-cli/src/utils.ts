@@ -9,6 +9,20 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { encodeArgs } from './cli_encoder.js';
 
 /**
+ * Helper to get an ABI function or throw error if it doesn't exist.
+ * @param abi - Contract's ABI in JSON format.
+ * @param fnName - Function name to be found.
+ * @returns The function's ABI.
+ */
+export function getAbiFunction(abi: ContractAbi, fnName: string) {
+  const fn = abi.functions.find(({ name }) => name === fnName);
+  if (!fn) {
+    throw Error(`Function ${fnName} not found in contract ABI.`);
+  }
+  return fn;
+}
+
+/**
  * Function to execute the 'deployRollupContracts' command.
  * @param rpcUrl - The RPC URL of the ethereum node.
  * @param apiKey - The api key of the ethereum node endpoint.
@@ -92,11 +106,7 @@ export function prepTx(
     throw new Error(`Unable to parse contract address ${_contractAddress}.`);
   }
   const contractAbi = getContractAbi(contractFile, log);
-  const functionAbi = contractAbi.functions.find(({ name }) => name === functionName);
-  if (!functionAbi) {
-    throw new Error(`Function ${functionName} not found on contract ABI.`);
-  }
-
+  const functionAbi = getAbiFunction(contractAbi, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
   return { contractAddress, functionArgs, contractAbi };

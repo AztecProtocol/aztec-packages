@@ -143,11 +143,10 @@ Syntax:
 aztec-cli deploy <contractAbi> [options]
 ```
 
-- `contractAbi`: Path to the compiled Noir contract's ABI file in JSON format.
-- `constructorArgs` (optional): Contract constructor arguments.
-
 Options:
 
+- `-c, --contract-abi <fileLocation>`: Path to the compiled Noir contract's ABI file in JSON format.
+- `-a, --args <constructorArgs...>` (optional): Contract constructor arguments Default: [].
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 - `-k, --public-key <string>`: Public key of the deployer. If not provided, it will check the RPC for existing ones.
 
@@ -156,7 +155,7 @@ This command deploys a compiled Noir contract to Aztec. It requires the path to 
 Example usage:
 
 ```shell
-aztec-cli deploy path/to/contract.abi.json ...args
+aztec-cli deploy -c path/to/contract.abi.json -a ...args
 ```
 
 ### check-deploy
@@ -169,10 +168,9 @@ Syntax:
 aztec-cli check-deploy <contractAddress> [options]
 ```
 
-- `contractAddress`: An Aztec address to check if the contract has been deployed to.
-
 Options:
 
+- `-ca, --contract-address <address>`: An Aztec address to check if the contract has been deployed to.
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 
 This command checks if a contract is deployed to the specified Aztec address. It verifies if the contract is present at the given address and displays the result.
@@ -180,7 +178,7 @@ This command checks if a contract is deployed to the specified Aztec address. It
 Example usage:
 
 ```shell
-aztec-cli check-deploy 0x123456789abcdef123456789abcdef12345678
+aztec-cli check-deploy -ca 0x123456789abcdef123456789abcdef12345678
 ```
 
 ### get-tx-receipt
@@ -278,7 +276,7 @@ Example usage:
 aztec-cli get-account-public-key 0x123456789abcdef123456789abcdef12345678
 ```
 
-### call-fn
+### send
 
 Calls a function on an Aztec contract.
 
@@ -288,13 +286,13 @@ Syntax:
 aztec-cli call-fn <contractAbi> <contractAddress> <functionName> [functionArgs...] [options]
 ```
 
-- `contractAbi`: The compiled contract's ABI in JSON format.
-- `contractAddress`: Address of the contract.
 - `functionName`: Name of the function to call.
-- `functionArgs` (optional): Function arguments.
 
 Options:
 
+- `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
+- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format.
+- `-ca, --contract-address <address>`: Address of the contract.
 - `-k, --private-key <string>`: The sender's private key.
 - `-u, --rpcUrl <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 
@@ -303,7 +301,7 @@ This command calls a function on an Aztec contract. It requires the contract's A
 Example usage:
 
 ```shell
-aztec-cli call-fn path/to/contract.abi.json 0x123456789abcdef123456789abcdef12345678 transfer 100
+aztec-cli send transfer -ca 0x123456789abcdef123456789abcdef12345678 -a 100 -c path/to/abi.json
 ```
 
 ### view-fn
@@ -313,16 +311,16 @@ Simulates the execution of a view (read-only) function on a deployed contract, w
 Syntax:
 
 ```shell
-aztec-cli view-fn <contractAbi> <contractAddress> <functionName> [functionArgs...] [options]
+aztec-cli call <contractAbi> <contractAddress> <functionName> [functionArgs...] [options]
 ```
 
-- `contractAbi`: The compiled contract's ABI in JSON format.
-- `contractAddress`: Address of the contract.
 - `functionName`: Name of the function to view.
-- `functionArgs` (optional): Function arguments.
 
 Options:
 
+- `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
+- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format.
+- `-ca, --contract-address <address>`: Address of the contract.
 - `-f, --from <string>`: Public key of the transaction viewer. If empty, it will try to find an account in the RPC.
 - `-u, --rpcUrl <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 
@@ -331,7 +329,7 @@ This command simulates the execution of a view function on a deployed contract w
 Example usage:
 
 ```shell
-aztec-cli view-fn path/to/contract.abi.json 0x123456789abcdef123456789abcdef12345678 balanceOf 0xabcdef1234567890abcdef1234567890abcdef12
+aztec-cli call balanceOf -c path/to/contract.abi.json -ca 0x123456789abcdef123456789abcdef12345678 -a balanceOf 0xabcdef1234567890abcdef1234567890abcdef12
 ```
 
 ### parse-parameter-struct
