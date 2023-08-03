@@ -9,9 +9,12 @@ use crate::context::Context;
 use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
+    note_header::NoteHeader,
     utils::compute_note_hash_for_read_request,
     utils::compute_unique_siloed_note_hash,
+    utils::compute_siloed_note_hash,
 };
+use crate::messaging::get_commitment_getter_data::make_commitment_getter_data;
 use crate::oracle;
 use crate::types::option::Option;
 
@@ -46,6 +49,46 @@ fn ensure_note_exists<Note, N>(
 
     let note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, *note);
     context.push_read_request(note_hash_for_read_request);
+}
+
+// Ensure a note's commitment exists without retrieving the entire
+// note via the oracle.
+// Return the modified note populated with header info (like nonce).
+fn ensure_commitment_exists<Note, N>(
+    context: &mut Context,
+    storage_slot: Field,
+    note_interface: NoteInterface<Note, N>,
+    note: &mut Note,
+) {
+    // Get a note from oracle and early out if it doesn't exist.
+    let compute_note_hash = note_interface.compute_note_hash;
+    let inner_note_hash = compute_note_hash(*note);
+
+    let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
+    let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);
+    // TODO(dbanks12): should be unique_siloed_note_hash once public kernel applies nonces
+    let saved_siloed_note_hash = deserialized_oracle_ret.message;
+    assert(saved_siloed_note_hash != 0); // TODO(dbanks12): necessary?
+
+    // Only copy over the header to the original note to make sure the preimage is the same.
+    //let get_header = note_interface.get_header;
+    let set_header = note_interface.set_header;
+    let note_header = NoteHeader {
+        contract_address: context.inputs.call_context.storage_contract_address,
+        // TODO(dbanks12): should be nonce, not leaf index (once public kernel applies nonces)
+        nonce: deserialized_oracle_ret.leaf_index,
+        storage_slot
+    };
+    set_header(note, note_header);
+
+    check_note_header(*context, storage_slot, note_interface, *note);
+
+    // Ensure that the commitment retrieved from oracle matches the one computed from note.
+    let computed_siloed_note_hash = compute_siloed_note_hash(note_interface, *note);
+    assert(computed_siloed_note_hash == saved_siloed_note_hash);
+
+    // TODO(dbanks12): this should be unique_siloed_note_hash once public kernel applies nonces
+    context.push_read_request(computed_siloed_note_hash);
 }
 
 fn get_note<Note, N>(

@@ -231,6 +231,7 @@ contract NonNativeToken {
     ) {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
+        let pending_shields = storage.pending_shields;
 
         // Decrease user's balance.
         let sender = inputs.call_context.msg_sender;
@@ -241,16 +242,16 @@ contract NonNativeToken {
 
         // User has sufficient balance so we decrement it by `amount`
         let _void1 = sender_balance.write(current_sender_balance - amount);
-        
-        // Create a commitment to the amount
+
+        // Create a commitment to the "amount" using the "secretHash"
+        // and insert it into the set of "pending_shields" and therefore
+        // (eventually) the private data tree.
         let note = TransparentNote::new(amount, secretHash);
-        
-        // Public oracle call to emit new commitment.
-        create_commitment(note.get_commitment());
+        pending_shields.insert_from_public(note);
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
-    // in the private context. 
+    // in the private context.
     fn redeemShield(
         inputs: PrivateContextInputs,
         amount: Field,
@@ -258,14 +259,22 @@ contract NonNativeToken {
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
+        let pending_shields = storage.pending_shields;
 
         let mut context = Context::new(inputs, abi::hash_args([
             amount, secret, owner
         ]));
 
         // Assert that the note exists within the tree
-        let public_note = TransparentNote::new_from_secret(amount, secret);
-        public_note.consume_in_secret(&mut context, inputs.roots.private_data_tree_root, secret);
+        let mut public_note = TransparentNote::new_from_secret(amount, secret);
+
+        // Ensure that the note exists in the tree
+        pending_shields.assert_contains_commitment(&mut context, &mut public_note);
+        // The above call to `assert_contains()` also returns a modified note with
+        // the header which is necessary for the next step (remove).
+
+        // Consume note in secret!
+        pending_shields.remove(&mut context, public_note);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);

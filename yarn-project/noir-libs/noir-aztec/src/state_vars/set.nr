@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::note::lifecycle::{create_note, destroy_note};
 use crate::note::{
-    note_getter::{get_notes, ensure_note_exists},
+    note_getter::{get_notes, ensure_note_exists, ensure_commitment_exists},
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
 };
@@ -30,6 +30,10 @@ impl<Note, N> Set<Note, N> {
 
     fn assert_contains(self, context: &mut Context, note: &mut Note) {
         ensure_note_exists(context, self.storage_slot, self.note_interface, note);
+    }
+
+    fn assert_contains_commitment(self, context: &mut Context, note: &mut Note) {
+        ensure_commitment_exists(context, self.storage_slot, self.note_interface, note)
     }
 
     fn remove(self, context: &mut Context, note: Note) {
