@@ -1,6 +1,6 @@
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
-import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, Tx, TxExecutionRequest } from '@aztec/types';
 
 import { Wallet } from '../aztec_rpc_client/wallet.js';
 import { SentTx } from './sent_tx.js';
@@ -60,7 +60,7 @@ export class ContractFunctionInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      const executionRequest = this.getExecutionRequest(this.contractAddress);
+      const executionRequest = this.getFunctionCall(this.contractAddress);
       const txRequest = await this.wallet.createTxExecutionRequest([executionRequest], options);
       this.txRequest = txRequest;
     }
@@ -84,11 +84,11 @@ export class ContractFunctionInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public request(): ExecutionRequest {
-    return this.getExecutionRequest(this.contractAddress);
+  public request(): FunctionCall {
+    return this.getFunctionCall(this.contractAddress);
   }
 
-  protected getExecutionRequest(to: AztecAddress): ExecutionRequest {
+  protected getFunctionCall(to: AztecAddress): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
     const functionData = FunctionData.fromAbi(this.functionDao);
     return { args, functionData, to };

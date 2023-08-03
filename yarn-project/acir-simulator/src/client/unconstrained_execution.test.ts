@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
-import { ExecutionRequest } from '@aztec/types';
+import { FunctionCall } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -74,7 +74,7 @@ describe('Unconstrained Execution test suite', () => {
         })),
       );
 
-      const execRequest: ExecutionRequest = {
+      const execRequest: FunctionCall = {
         to: contractAddress,
         functionData: new FunctionData(Buffer.alloc(4), false, true, true),
         args: encodeArguments(abi, [owner]),

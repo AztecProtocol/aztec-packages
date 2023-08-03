@@ -4,7 +4,7 @@ import {
   ContractData,
   ContractPublicData,
   DeployedContract,
-  ExecutionRequest,
+  FunctionCall,
   L2BlockL2Logs,
   NodeInfo,
   SyncStatus,
@@ -28,7 +28,7 @@ export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
 
   abstract getAddress(): AztecAddress;
-  abstract createTxExecutionRequest(execs: ExecutionRequest[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
   addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress);
@@ -109,10 +109,7 @@ export class AccountWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return this.accountImpl.getAddress();
   }
-  createTxExecutionRequest(
-    executions: ExecutionRequest[],
-    opts: CreateTxRequestOpts = {},
-  ): Promise<TxExecutionRequest> {
+  createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
     return this.accountImpl.createTxExecutionRequest(executions, opts);
   }
 }

@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 export * from './account_collection.js';
 export * from './single_key_account_contract.js';
@@ -25,5 +25,5 @@ export interface AccountImplementation {
    * @param opts - Options.
    * @returns The authenticated transaction execution request.
    */
-  createTxExecutionRequest(executions: ExecutionRequest[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
+  createTxExecutionRequest(executions: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 }

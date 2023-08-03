@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
@@ -95,7 +95,7 @@ export class AcirSimulator {
    * @returns The return values of the function.
    */
   public async runUnconstrained(
-    request: ExecutionRequest,
+    request: FunctionCall,
     origin: AztecAddress,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
@@ -152,7 +152,7 @@ export class AcirSimulator {
       const preimageLen = (abi.parameters[3].type as ArrayType).length;
       const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
 
-      const execRequest: ExecutionRequest = {
+      const execRequest: FunctionCall = {
         to: AztecAddress.ZERO,
         functionData: FunctionData.empty(),
         args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),

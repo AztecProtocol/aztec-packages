@@ -28,7 +28,7 @@ import {
   ContractDataSource,
   ContractPublicData,
   EncodedContractFunction,
-  ExecutionRequest,
+  FunctionCall,
   FunctionL2Logs,
   SiblingPath,
   Tx,
@@ -204,7 +204,7 @@ function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicEx
 
 function makePublicExecutionResult(
   from: AztecAddress,
-  tx: ExecutionRequest,
+  tx: FunctionCall,
   nestedExecutions: PublicExecutionResult[] = [],
 ): PublicExecutionResult {
   const callContext = new CallContext(from, tx.to, EthAddress.ZERO, false, false, false);

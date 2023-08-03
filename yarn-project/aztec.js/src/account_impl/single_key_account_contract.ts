@@ -8,7 +8,7 @@ import {
 } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
-import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';
 
@@ -38,7 +38,7 @@ export class SingleKeyAccountContract implements AccountImplementation {
   }
 
   async createTxExecutionRequest(
-    executions: ExecutionRequest[],
+    executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
     if (opts.origin && opts.origin !== this.address) {

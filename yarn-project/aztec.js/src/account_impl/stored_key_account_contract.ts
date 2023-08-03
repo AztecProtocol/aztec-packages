@@ -2,7 +2,7 @@ import { AztecAddress, CircuitsWasm, FunctionData, PrivateKey, TxContext } from 
 import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { ExecutionRequest, PackedArguments, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';
 
@@ -33,7 +33,7 @@ export class StoredKeyAccountContract implements AccountImplementation {
   }
 
   async createTxExecutionRequest(
-    executions: ExecutionRequest[],
+    executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
     if (opts.origin && opts.origin !== this.address) {

@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/circuits.js';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { AccountImplementation, CreateTxRequestOpts } from './index.js';
 
@@ -24,7 +24,7 @@ export class AccountCollection implements AccountImplementation {
   }
 
   public createTxExecutionRequest(
-    executions: ExecutionRequest[],
+    executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
     const sender = opts.origin ?? this.getAddress();

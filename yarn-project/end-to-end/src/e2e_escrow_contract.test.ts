@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, SentTx, Wallet, generatePublicKey } from '@aztec/aztec.js';
-import { Fr, PrivateKey, TxContext, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { Fr, PrivateKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { generateFunctionSelector } from '@aztec/foundation/abi';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -93,14 +93,12 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(owner, 50n);
 
     const actions = [
-      await zkTokenContract.methods.transfer(10, owner, recipient).request(),
-      await escrowContract.methods.withdraw(zkTokenContract.address, 20, recipient).request(),
+      zkTokenContract.methods.transfer(10, owner, recipient).request(),
+      escrowContract.methods.withdraw(zkTokenContract.address, 20, recipient).request(),
     ];
 
     // TODO: We need a nicer interface for batch actions
-    const nodeInfo = await wallet.getNodeInfo();
-    const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
-    const txRequest = await wallet.createTxExecutionRequest(actions, txContext);
+    const txRequest = await wallet.createTxExecutionRequest(actions);
     logger(`Executing batch transfer from ${wallet.getAddress()}`);
     const tx = await wallet.simulateTx(txRequest);
     const sentTx = new SentTx(aztecRpcServer, wallet.sendTx(tx));

@@ -1,7 +1,7 @@
 import { AztecAddress, Fr, FunctionData } from '@aztec/circuits.js';
 
 /** A request to call a function on a contract from a given address. */
-export type ExecutionRequest = {
+export type FunctionCall = {
   /** The recipient contract */
   to: AztecAddress;
   /** The function being called */
@@ -11,10 +11,10 @@ export type ExecutionRequest = {
 };
 
 /**
- * Creates an empty execution request.
- * @returns an empty execution request.
+ * Creates an empty function call.
+ * @returns an empty function call.
  */
-export function emptyExecutionRequest() {
+export function emptyFunctionCall() {
   return {
     to: AztecAddress.ZERO,
     functionData: FunctionData.empty(),

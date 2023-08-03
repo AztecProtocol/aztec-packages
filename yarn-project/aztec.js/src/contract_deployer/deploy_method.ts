@@ -1,5 +1,4 @@
 import {
-  CircuitsWasm,
   ContractDeploymentData,
   PartialContractAddress,
   TxContext,
@@ -9,10 +8,11 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AztecRPC, ExecutionRequest, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
+import { AztecRPC, FunctionCall, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
 
-import { BaseWallet, Wallet } from '../aztec_rpc_client/wallet.js';
+import { BaseWallet } from '../aztec_rpc_client/wallet.js';
 import { Contract, ContractBase, ContractFunctionInteraction, SendMethodOptions } from '../contract/index.js';
+import { CreateTxRequestOpts } from '../index.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 
 /**
@@ -37,10 +37,7 @@ class DeployerWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return AztecAddress.ZERO;
   }
-  createTxExecutionRequest(
-    _executions: ExecutionRequest[],
-    _opts: CreateTxRequestOpts = {},
-  ): Promise<TxExecutionRequest> {
+  createTxExecutionRequest(_executions: FunctionCall[], _opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
     throw new Error(`Unsupported`);
   }
 }
@@ -100,7 +97,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Con
     );
 
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
-    const execution = this.getExecutionRequest(address);
+    const execution = this.getFunctionCall(address);
     const packedArguments = await PackedArguments.fromArgs(execution.args);
 
     const txRequest = TxExecutionRequest.from({
