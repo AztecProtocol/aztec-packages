@@ -689,9 +689,10 @@ describe('Private Execution test suite', () => {
       const gotNoteValue = execGetThenNullify.callStackItem.publicInputs.returnValues[0].value;
       expect(gotNoteValue).toEqual(amountToTransfer);
 
+      const nonce = Fr.ZERO;
       const nullifier = execGetThenNullify.callStackItem.publicInputs.newNullifiers[0];
       expect(nullifier).toEqual(
-        await acirSimulator.computeInnerNullifier(contractAddress, Fr.ZERO, note.storageSlot, note.preimage),
+        await acirSimulator.computeInnerNullifier(contractAddress, nonce, note.storageSlot, note.preimage),
       );
 
       // check that the last get_notes call return no note

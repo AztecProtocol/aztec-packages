@@ -98,7 +98,7 @@ export class PrivateFunctionExecution {
           storageSlot: fromACVMField(slot),
           nullifier: fromACVMField(nullifier),
         });
-        this.context.pushPendingNullifier(fromACVMField(nullifier));
+        this.context.pushNewNullifier(fromACVMField(nullifier));
         this.context.nullifyPendingNotes(fromACVMField(innerNoteHash), this.contractAddress, fromACVMField(slot));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },

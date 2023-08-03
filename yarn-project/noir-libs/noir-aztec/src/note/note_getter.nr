@@ -9,7 +9,7 @@ use crate::context::Context;
 use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
-    utils::compute_note_hash_for_read_request,
+    utils::compute_note_hash_for_read_or_nullify,
     utils::compute_unique_siloed_note_hash,
 };
 use crate::oracle;
@@ -44,7 +44,7 @@ fn ensure_note_exists<Note, N>(
 
     check_note_header(*context, storage_slot, note_interface, *note);
 
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, *note);
+    let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, *note);
     context.push_read_request(note_hash_for_read_request);
 }
 
@@ -57,7 +57,7 @@ fn get_note<Note, N>(
 
     check_note_header(*context, storage_slot, note_interface, note);
 
-    let note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
+    let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
 
     context.push_read_request(note_hash_for_read_request);
     note
@@ -76,8 +76,10 @@ fn get_notes<Note, N, S, P>(
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
             check_note_header(*context, storage_slot, note_interface, note);
-            note_hash_for_read_request = compute_note_hash_for_read_request(note_interface, note);
+            note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
         };
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
+        // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
         context.push_read_request(note_hash_for_read_request);
     };
     opt_notes
