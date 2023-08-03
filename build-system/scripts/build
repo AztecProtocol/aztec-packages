@@ -122,7 +122,7 @@ for STAGE in $STAGES; do
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$COMMIT_HASH-$STAGE
   # Build our dockerfile, add timing information
   docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg ARG_COMMIT_HASH=$COMMIT_HASH . \
-    | while read line ; do echo "$(date "+%H:%M")| $line"; done
+    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
