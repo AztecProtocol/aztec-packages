@@ -1,4 +1,5 @@
 {
+  "prerelease": true,
   "packages": {
     "yarn-project/aztec.js": {
       "release-type": "node",
