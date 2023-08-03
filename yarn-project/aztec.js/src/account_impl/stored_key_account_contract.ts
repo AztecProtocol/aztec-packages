@@ -36,7 +36,7 @@ export class StoredKeyAccountContract implements AccountImplementation {
     executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
-    if (opts.origin && opts.origin !== this.address) {
+    if (opts.origin && !opts.origin.equals(this.address)) {
       throw new Error(`Sender ${opts.origin.toString()} does not match account address ${this.address.toString()}`);
     }
 
