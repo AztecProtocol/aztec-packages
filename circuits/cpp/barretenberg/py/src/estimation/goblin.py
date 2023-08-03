@@ -5,6 +5,7 @@ from math import log2
 class Goblin:
     def __init__(self, circuits):
         num_eccvm_gates = 0
+        self.circuits = circuits
         for circuit in self.circuits:
             for msm in circuit.VerifierMSMs:
                 num_eccvm_gates += msm.num_gates_eccvm()

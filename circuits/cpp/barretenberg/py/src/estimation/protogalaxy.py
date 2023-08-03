@@ -3,7 +3,6 @@ from flavors import *
 from goblin import Goblin
 
 from math import log2
-from kernel import build_kernel_circuit
 
 
 class FoldingVerifier(CircuitKZG):
