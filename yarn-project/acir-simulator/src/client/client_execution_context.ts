@@ -236,7 +236,7 @@ export class ClientTxExecutionContext {
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    */
-  public pushPendingNullifier(innerNullifier: Fr) {
+  public pushNewNullifier(innerNullifier: Fr) {
     this.pendingNullifiers.add(innerNullifier);
   }
 

@@ -74,7 +74,7 @@ impl TransparentNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        // TODO(dbanks12): should be unique_siloed once public functions inject nonce!
+        // TODO(dbanks12): should use `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
         pedersen([self.secret, siloed_note_hash, self.leafIndex])[0]
     }

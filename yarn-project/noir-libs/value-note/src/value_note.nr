@@ -1,7 +1,7 @@
 use dep::aztec::note::{
     note_header::NoteHeader,
     note_interface::NoteInterface,
-    utils::compute_unique_siloed_note_hash,
+    utils::compute_note_hash_for_read_or_nullify,
 };
 use dep::aztec::oracle::{
     rand::rand,
@@ -53,13 +53,13 @@ impl ValueNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        let unique_siloed_note_hash = compute_unique_siloed_note_hash(ValueNoteMethods, self);
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
         let owner_nullifying_public_key = get_public_key(self.owner);
         // TODO: get_secret_key should just accept an address
         // TODO!
         let secret = get_secret_key(owner_nullifying_public_key);
         dep::std::hash::pedersen([
-            unique_siloed_note_hash,
+            note_hash_for_nullify,
             secret,
         ])[0]
     }

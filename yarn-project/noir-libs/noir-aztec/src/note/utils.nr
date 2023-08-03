@@ -42,7 +42,7 @@ fn compute_unique_siloed_note_hash<Note, N>(
     compute_unique_hash(header.nonce, siloed_note_hash)
 }
 
-fn compute_note_hash_for_read_request<Note, N>(
+fn compute_note_hash_for_read_or_nullify<Note, N>(
     note_interface: NoteInterface<Note, N>,
     note_with_header: Note,
 ) -> Field {
