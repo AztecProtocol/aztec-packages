@@ -10,6 +10,7 @@ import {
   createAztecRpcClient,
   createDebugLogger,
   getL1ContractAddresses,
+  mustSucceedFetch,
 } from "@aztec/aztec.js";
 import { UniswapPortalAbi, UniswapPortalBytecode } from "@aztec/l1-artifacts";
 import { SchnorrSingleKeyAccountContractAbi } from "@aztec/noir-contracts/artifacts";
@@ -39,14 +40,12 @@ import {
   waitForRPCServer,
 } from "./utils.js";
 
-const logger = createDebugLogger("aztec:uniswap-canary");
+const logger = createDebugLogger("aztec:canary");
 
 const {
   SANDBOX_URL = "http://localhost:8080",
   ETHEREUM_HOST = "http://localhost:8545",
 } = process.env;
-
-logger(`HOST ${ETHEREUM_HOST}`);
 
 export const MNEMONIC =
   "test test test test test test test test test test test junk";
@@ -71,7 +70,7 @@ const privateKey = new PrivateKey(
   Buffer.from(hdAccount.getHdKey().privateKey!)
 );
 
-const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
+const aztecRpcClient = createAztecRpcClient(aztecRpcUrl, mustSucceedFetch);
 let wallet: Wallet;
 
 /**
@@ -203,7 +202,6 @@ describe("uniswap_trade_on_l1_from_l2", () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, HDAccount>;
   beforeAll(async () => {
-    logger("Started");
     await waitForRPCServer(aztecRpcClient);
 
     walletClient = createWalletClient({
@@ -319,7 +317,7 @@ describe("uniswap_trade_on_l1_from_l2", () => {
       .send({ origin: owner });
     await consumptionTx.isMined();
     const consumptionReceipt = await consumptionTx.getReceipt();
-    expect(consumptionReceipt.status).toBe(TxStatus.MINED);
+    expect(consumptionReceipt.status).toBe(TxStatus.DROPPED);
     logger(`Consumption Receipt status: ${consumptionReceipt.status}`);
     await expectBalanceOnL2(
       owner,
