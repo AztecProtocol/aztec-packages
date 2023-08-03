@@ -29,7 +29,7 @@ services:
       - "8080:8080"
 
   canary:
-    image: aztecprotocol/canary
+    image: $ECR_URL/canary:cache-$COMMIT_HASH
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
