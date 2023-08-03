@@ -204,6 +204,8 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
     using g1_ct = typename Curve::g1_ct;
     using Builder = typename Curve::Builder;
 
+    std::chrono::steady_clock::time_point beginning = std::chrono::steady_clock::now();
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     key->program_width = program_settings::program_width;
 
     std::map<std::string, g1_ct> kate_g1_elements;
@@ -219,19 +221,64 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
     transcript.add_field_element("circuit_size", circuit_size);
     transcript.add_field_element("public_input_size", public_input_size);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Setup: ");
+    info("       ", diff.count(), "ms");
 
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("init");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir init:");
+    info("       ", diff.count(), "ms");
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("eta");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir eta:");
+    info("       ", diff.count(), "ms");
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("beta");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir beta:");
+    info("       ", diff.count(), "ms");
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("alpha");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir alpha:");
+    info("       ", diff.count(), "ms");
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("z");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir z:");
+    info("       ", diff.count(), "ms");
+    start = std::chrono::steady_clock::now();
 
+    start = std::chrono::steady_clock::now();
     fr_ct alpha = transcript.get_challenge_field_element("alpha");
     fr_ct zeta = transcript.get_challenge_field_element("z");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Get alpha and zeta:");
+    info("       ", diff.count(), "ms");
 
+    start = std::chrono::steady_clock::now();
     key->z_pow_n = zeta.pow(key->domain.domain);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Get compute_pow_zeta:");
+    info("       ", diff.count(), "ms");
 
+    start = std::chrono::steady_clock::now();
     lagrange_evaluations<Builder> lagrange_evals = get_lagrange_evaluations<Curve>(zeta, key->domain);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Get lagrange evaluations:");
+    info("       ", diff.count(), "ms");
 
     // reconstruct evaluation of quotient polynomial from prover messages
 
@@ -248,6 +295,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
     fr_ct batch_opening_scalar;
 
+    start = std::chrono::steady_clock::now();
     populate_kate_element_map<Curve, Transcript<Builder>, program_settings>(context,
                                                                             key.get(),
                                                                             transcript,
@@ -256,7 +304,13 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
                                                                             kate_fr_elements_at_zeta_large,
                                                                             kate_fr_elements_at_zeta_omega,
                                                                             batch_opening_scalar);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Populate kate element map:");
+    info("       ", diff.count(), "ms");
 
+    
+    start = std::chrono::steady_clock::now();
     std::vector<fr_ct> double_opening_scalars;
     std::vector<g1_ct> double_opening_elements;
     std::vector<fr_ct> opening_scalars;
@@ -306,8 +360,18 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
         double_opening_scalars.emplace_back(fr_value);
         double_opening_elements.emplace_back(g1_value);
     }
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Collect scalar mup data:");
+    info("       ", diff.count(), "ms");
 
+
+    start = std::chrono::steady_clock::now();
     const auto double_opening_result = g1_ct::batch_mul(double_opening_elements, double_opening_scalars, 128);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Compute biggroup batch mul:");
+    info("       ", diff.count(), "ms");
 
     opening_elements.emplace_back(double_opening_result);
     opening_scalars.emplace_back(u);
@@ -376,18 +440,30 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
         rhs_scalars.push_back(recursion_separator_challenge);
     }
 
+    start = std::chrono::steady_clock::now();
     auto opening_result = g1_ct::template bn254_endo_batch_mul_with_generator(
         big_opening_elements, big_opening_scalars, opening_elements, opening_scalars, batch_opening_scalar, 128);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Compute bn254 endo batch mul with generator:");
+    info("       ", diff.count(), "ms");
 
     opening_result = opening_result + double_opening_result;
     for (const auto& to_add : elements_to_add) {
         opening_result = opening_result + to_add;
     }
 
+
+    start = std::chrono::steady_clock::now();
     g1_ct rhs = g1_ct::template wnaf_batch_mul<128>(rhs_elements, rhs_scalars);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("compute wnaf batch mul:");
+    info("       ", diff.count(), "ms");
 
     rhs = (-rhs) - PI_Z;
 
+    start = std::chrono::steady_clock::now();
     // TODO(zac: remove this once a3-packages has migrated to calling `assign_object_to_proof_outputs`)
     std::vector<uint32_t> proof_witness_indices = {
         opening_result.x.binary_basis_limbs[0].element.normalize().witness_index,
@@ -410,6 +486,13 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
     auto result = aggregation_state<Curve>{
         opening_result, rhs, transcript.get_field_element_vector("public_inputs"), proof_witness_indices, true
     };
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("compute wnaf batch mul:");
+    info("       ", diff.count(), "ms");
+
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - beginning);
+    info("total time: ", diff.count());
     return result;
 }
 

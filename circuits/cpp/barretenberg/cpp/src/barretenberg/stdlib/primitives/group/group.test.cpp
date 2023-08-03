@@ -1,6 +1,6 @@
+#include "barretenberg/stdlib/primitives/group/group.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/primitives/group/group.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 #include <gtest/gtest.h>
 
@@ -35,7 +35,41 @@ TYPED_TEST(GroupTest, TestFixedBaseScalarMul)
 
     auto priv_key_witness = field_ct(witness_ct(&composer, fr(scalar)));
 
+    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     auto result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 1: ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
+    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 2: ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
+    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 3: ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
+    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 4: ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
+    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 5: ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
+    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("time 6: ", diff.count(), "ms");
 
     EXPECT_EQ(result.x.get_value(), pub_key.x);
     EXPECT_EQ(result.y.get_value(), pub_key.y);

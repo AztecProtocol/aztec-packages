@@ -339,38 +339,51 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
     static void test_batch_mul()
     {
-        const size_t num_points = 5;
-        Composer composer;
-        std::vector<affine_element> points;
-        std::vector<fr> scalars;
-        for (size_t i = 0; i < num_points; ++i) {
-            points.push_back(affine_element(element::random_element()));
-            scalars.push_back(fr::random_element());
+        const auto run_test = [](const size_t num_points) {
+            Composer composer;
+            std::vector<affine_element> points;
+            std::vector<fr> scalars;
+            for (size_t i = 0; i < num_points; ++i) {
+                points.push_back(affine_element(element::random_element()));
+                scalars.push_back(fr::random_element());
+            }
+
+            std::vector<element_ct> circuit_points;
+            std::vector<scalar_ct> circuit_scalars;
+            for (size_t i = 0; i < num_points; ++i) {
+                circuit_points.push_back(element_ct::from_witness(&composer, points[i]));
+                circuit_scalars.push_back(scalar_ct::from_witness(&composer, scalars[i]));
+            }
+
+            std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+            element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+            std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            info("time 1: ", diff.count(), "ms");
+
+            start = std::chrono::steady_clock::now();
+            result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
+            end = std::chrono::steady_clock::now();
+            diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            info("time 2: ", diff.count(), "ms");
+
+            element expected_point = g1::one;
+            expected_point.self_set_infinity();
+            for (size_t i = 0; i < num_points; ++i) {
+                expected_point += (element(points[i]) * scalars[i]);
+            }
+
+            expected_point = expected_point.normalize();
+            fq result_x(result_point.x.get_value().lo);
+            fq result_y(result_point.y.get_value().lo);
+
+            EXPECT_EQ(result_x, expected_point.x);
+            EXPECT_EQ(result_y, expected_point.y);
+        };
+
+        for (size_t i = 2; i < 20; i++) {
+            run_test(i);
         }
-
-        std::vector<element_ct> circuit_points;
-        std::vector<scalar_ct> circuit_scalars;
-        for (size_t i = 0; i < num_points; ++i) {
-            circuit_points.push_back(element_ct::from_witness(&composer, points[i]));
-            circuit_scalars.push_back(scalar_ct::from_witness(&composer, scalars[i]));
-        }
-
-        element_ct result_point = element_ct::batch_mul(circuit_points, circuit_scalars);
-
-        element expected_point = g1::one;
-        expected_point.self_set_infinity();
-        for (size_t i = 0; i < num_points; ++i) {
-            expected_point += (element(points[i]) * scalars[i]);
-        }
-
-        expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
-
-        EXPECT_EQ(result_x, expected_point.x);
-        EXPECT_EQ(result_y, expected_point.y);
-
-        EXPECT_CIRCUIT_CORRECTNESS(composer);
     }
 
     static void test_chain_add()

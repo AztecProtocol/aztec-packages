@@ -39,6 +39,8 @@ void prove_and_verify(auto& circuit_constructor, auto& composer, bool expected_r
     auto verifier = composer.create_verifier(circuit_constructor);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
+    info("circuit size: ", prover.key->circuit_size);
+    info("proof size:   ", proof.proof_data.size());
     EXPECT_EQ(verified, expected_result);
 };
 

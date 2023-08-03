@@ -40,12 +40,15 @@ template <typename T> class ultra_plonk_composer : public ::testing::Test {
             auto verifier = composer.create_ultra_with_keccak_verifier(builder);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
+            info("proof size: ", proof.proof_data.size());
+
             EXPECT_EQ(verified, expected_result);
         } else {
             auto prover = composer.create_prover(builder);
             auto verifier = composer.create_verifier(builder);
             auto proof = prover.construct_proof();
             bool verified = verifier.verify_proof(proof);
+            info("proof size: ", proof.proof_data.size());
             EXPECT_EQ(verified, expected_result);
         }
     };
