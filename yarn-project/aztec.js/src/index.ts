@@ -30,3 +30,6 @@ export {
 } from '@aztec/types';
 
 export { createDebugLogger } from '@aztec/foundation/log';
+
+// Including a couple of noir contracts in aztec.js make example setup faster.
+export * from './example_contracts/index.js';
