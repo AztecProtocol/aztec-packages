@@ -60,6 +60,7 @@ export async function buildPayload(
 }
 
 /** Flattens an entrypoint payload to a buffer (useful for signing) */
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/1401): Use Pedersen compress before signing payload
 export function flattenPayloadToBuffer(payload: EntrypointPayload) {
   return Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer()));
 }
