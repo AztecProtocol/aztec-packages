@@ -230,9 +230,32 @@ Example usage:
 aztec-cli get-contract-data 0x123456789abcdef123456789abcdef12345678
 ```
 
+### register-public-key
+
+Register an account's public key to the RPC server
+
+Syntax:
+
+```shell
+aztec-cli register-public-key [options]
+```
+
+Options:
+
+- `-a, --address <aztecAddress>`: The account's Aztec address.
+- `-p, --public-key <publicKey>`: 'The account public key.'
+- `-pa, --partial-address <partialAddress`: 'The partially computed address of the account contract.'
+- `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
+
+Example usage:
+
+```shell
+aztec-cli register-public-key -p 0x20d9d93c4a9eb2b4bdb70ead07d28d1edb74bfd78443a8c36b098b024cd26f0e0647f5dbe3619453f42eb788c2beed0294c84676425047aadac23294605c4af9 -a 0x111fdc0f6bf831ca59f05863199762d643b782699d7ce6feaae40a923baf60af -pa 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+```
+
 ### get-accounts
 
-Gets all the Aztec accounts.
+Gets all the Aztec accounts stored in an Aztec RPC.
 
 Syntax:
 
