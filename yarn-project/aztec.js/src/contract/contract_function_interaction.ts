@@ -14,10 +14,6 @@ export interface SendMethodOptions {
    * Sender's address initiating the transaction.
    */
   origin?: AztecAddress;
-  /**
-   * The nonce representing the order of transactions sent by the address.
-   */
-  nonce?: Fr;
 }
 
 /**
