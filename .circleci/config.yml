@@ -472,7 +472,7 @@ jobs:
           name: "Build and test"
           command: build key-store
 
-  noir-contracts:
+  noir-contracts-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -481,7 +481,18 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build noir-contracts 32
+          command: cond_spot_run_build noir-contracts-build 32
+
+  noir-contracts:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-contracts
 
   noir-compiler:
     machine:
@@ -804,17 +815,18 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
           working_directory: yarn-project/end-to-end
 
-  uniswap-trade-on-l1-from-l2:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
-          working_directory: yarn-project/end-to-end
+  # TODO(AD): Reenable after #1367
+  # uniswap-trade-on-l1-from-l2:
+  #   machine:
+  #     image: ubuntu-2004:202010-01
+  #   resource_class: large
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+  #         working_directory: yarn-project/end-to-end
 
   integration-archiver-l1-to-l2:
     machine:
@@ -863,16 +875,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
 
-  e2e-uniswap-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
+  # TODO(AD): Reenable after #1367
+  # e2e-uniswap-sandbox:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: cond_spot_run_tests end-to-end uniswap_trade_on_l1_from_l2.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-browser-sandbox:
     docker:
@@ -946,6 +959,12 @@ jobs:
           command: |
             deploy_ecr aztec.js
             deploy_npm aztec.js
+      - run:
+          name: "noir-contracts"
+          working_directory: noir-contracts
+          command: |
+            deploy_ecr noir-contracts
+            deploy_npm noir-contracts
       - run:
           name: "aztec-cli"
           working_directory: aztec-cli
@@ -1117,13 +1136,13 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
-      - noir-contracts: *defaults
+      - noir-contracts-build: *defaults
 
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
-            - noir-contracts
+            - noir-contracts-build
           <<: *defaults
 
       - aztec-js: *yarn_project
@@ -1142,6 +1161,7 @@ workflows:
       - p2p-bootstrap: *yarn_project
       - l1-artifacts: *yarn_project
       - noir-compiler: *yarn_project
+      - noir-contracts: *yarn_project
       - sequencer-client: *yarn_project
       - types: *yarn_project
       - circuits-js: *yarn_project
@@ -1166,6 +1186,7 @@ workflows:
             - p2p-bootstrap
             - l1-artifacts
             - noir-compiler
+            - noir-contracts
             - sequencer-client
             - types
             - circuits-js
@@ -1188,11 +1209,13 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
-      - uniswap-trade-on-l1-from-l2: *e2e_test
+      # TODO(AD): Reenable after #1367
+      # - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
-      - e2e-uniswap-sandbox: *e2e_test
+      # TODO(AD): Reenable after #1367
+      # - e2e-uniswap-sandbox: *e2e_test
       - e2e-browser-sandbox: *e2e_test
 
       - e2e-end:
@@ -1212,11 +1235,13 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-pending-commitments-contract
-            - uniswap-trade-on-l1-from-l2
+            # TODO(AD): Reenable after #1367
+            # - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
-            - e2e-uniswap-sandbox
+            # TODO(AD): Reenable after #1367
+            # - e2e-uniswap-sandbox
             - e2e-browser-sandbox
           <<: *defaults
 

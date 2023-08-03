@@ -1,6 +1,6 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
 FROM node:18-alpine AS builder_
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
@@ -116,8 +116,11 @@ COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
 
+# Run yarn build to have the json ABIs available for the types generator
 RUN yarn build
 RUN ./scripts/types_ci.sh
+# Run yarn build again to build the types
+RUN yarn build
 
 # Take noir contract artifacts into the final build image
 FROM builder_ as final

@@ -61,6 +61,13 @@ export class NoteProcessor {
   }
 
   /**
+   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   */
+  public get status() {
+    return { syncedToBlock: this.syncedToBlock };
+  }
+
+  /**
    * Process the given L2 block contexts and encrypted logs to update the note processor.
    * It synchronizes the user's account by decrypting the encrypted logs and processing
    * the transactions and auxiliary data associated with them.
@@ -114,20 +121,24 @@ export class NoteProcessor {
                 indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
                 (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
               );
-              userPertainingTxIndices.add(indexOfTxInABlock);
-              const { index, nonce, nullifier } = await this.findNoteIndexAndNullifier(
-                dataStartIndexForTx,
-                newCommitments,
-                newNullifiers[0],
-                noteSpendingInfo,
-              );
-              noteSpendingInfoDaos.push({
-                ...noteSpendingInfo,
-                index,
-                nonce,
-                nullifier,
-                publicKey: this.publicKey,
-              });
+              try {
+                const { index, nonce, nullifier } = await this.findNoteIndexAndNullifier(
+                  dataStartIndexForTx,
+                  newCommitments,
+                  newNullifiers[0],
+                  noteSpendingInfo,
+                );
+                noteSpendingInfoDaos.push({
+                  ...noteSpendingInfo,
+                  index,
+                  nonce,
+                  nullifier,
+                  publicKey: this.publicKey,
+                });
+                userPertainingTxIndices.add(indexOfTxInABlock);
+              } catch (e) {
+                this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+              }
             }
           }
         }
