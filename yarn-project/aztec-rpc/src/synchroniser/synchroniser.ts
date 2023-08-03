@@ -21,6 +21,8 @@ export class Synchroniser {
   private initialSyncBlockHeight = 0;
   private synchedToBlock = 0;
   private log: DebugLogger;
+  private fromBlock?: number;
+  private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
   constructor(private node: AztecNode, private db: Database, logSuffix = '') {
     this.log = createDebugLogger(
@@ -42,10 +44,17 @@ export class Synchroniser {
     this.running = true;
 
     await this.initialSync();
+    this.fromBlock = from;
 
     const run = async () => {
+      let fromFullSync = this.fromBlock;
+      let fromCatchUp = this.fromBlock!;
       while (this.running) {
-        from = await this.work(from, limit, retryInterval);
+        if (this.noteProcessorsToCatchUp.length > 0) {
+          fromCatchUp = await this.workNoteProcessorCatchUp(fromCatchUp, limit, retryInterval);
+        } else {
+          fromFullSync = await this.work(fromFullSync, limit, retryInterval);
+        }
       }
     };
 
@@ -126,6 +135,55 @@ export class Synchroniser {
     }
   }
 
+  private async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<number> {
+    const noteProcessor = this.noteProcessorsToCatchUp[0];
+    const from = noteProcessor.status.syncedToBlock + 1;
+    // Ensuring that the note processor does not sync further than the main sync.
+    limit = Math.min(limit, this.synchedToBlock - from);
+    
+    if (limit < 1) {
+      throw new Error(`Unexpected limit ${limit} for note processor catch up`);
+    }
+
+    try {
+      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
+      if (!encryptedLogs.length) {
+        // This should never happen because this function should only be called when the note processor is lagging
+        // behind main sync.
+        throw new Error('No encrypted logs in processor catch up mode');
+      }
+
+      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
+      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
+      if (!blocks.length) {
+        // This should never happen because this function should only be called when the note processor is lagging
+        // behind main sync.
+        throw new Error('No blocks in processor catch up mode');
+      }
+
+      if (blocks.length !== encryptedLogs.length) {
+        // "Trim" the encrypted logs to match the number of blocks.
+        encryptedLogs = encryptedLogs.slice(0, blocks.length);
+      }
+
+      const blockContexts = blocks.map(block => new L2BlockContext(block));
+
+      await noteProcessor.process(blockContexts, encryptedLogs);
+
+      if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
+        // Note processor caught up, move it to noteProcessors
+        this.noteProcessorsToCatchUp.shift();
+        this.noteProcessors.push(noteProcessor);
+      }
+
+      return from;
+    } catch (err) {
+      this.log(err);
+      await this.interruptableSleep.sleep(retryInterval);
+      return from;
+    }
+  }
+
   private async setTreeRootsFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
     if (block.number < this.initialSyncBlockHeight) return;
@@ -172,7 +230,15 @@ export class Synchroniser {
     if (processor) {
       return;
     }
-    this.noteProcessors.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
+
+    const noteProcessor = new NoteProcessor(publicKey, keyStore, this.db, this.node);
+    if (this.synchedToBlock === 0) {
+      // The main sync thread was never started before and for this reason the synchroniser does not have to catch up
+      this.noteProcessors.push(noteProcessor);
+    } else {
+      // The main sync thread was started before and for this reason the synchroniser has to catch up
+      this.noteProcessorsToCatchUp.push(noteProcessor);
+    }
   }
 
   /**
