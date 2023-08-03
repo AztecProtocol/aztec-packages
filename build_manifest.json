@@ -307,6 +307,19 @@
       "types"
     ]
   },
+  "noir-contracts-build": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/noir-contracts",
+    "dockerfile": "noir-contracts/Dockerfile.build",
+    "rebuildPatterns": [
+      "^yarn-project/noir-contracts/"
+    ],
+    "dependencies": [
+      "aztec.js",
+      "foundation",
+      "noir-compiler"
+    ]
+  },
   "noir-contracts": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/noir-contracts",
@@ -317,7 +330,8 @@
     "dependencies": [
       "aztec.js",
       "foundation",
-      "noir-compiler"
+      "noir-compiler",
+      "noir-contracts-build"
     ]
   },
   "noir-compiler": {
