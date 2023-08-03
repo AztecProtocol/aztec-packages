@@ -19,4 +19,5 @@ PROJECTS=(
   yarn-project-base:yarn-project
   end-to-end:yarn-project
   aztec-sandbox:yarn-project
+  canary:canary
 )

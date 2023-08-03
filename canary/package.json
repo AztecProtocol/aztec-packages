@@ -1,8 +1,9 @@
 {
-  "name": "@aztec/smoke-test",
+  "name": "@aztec/canary",
   "version": "0.0.0",
   "type": "module",
   "exports": "./dest/index.js",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
@@ -20,9 +21,9 @@
     "rootDir": "./src"
   },
   "dependencies": {
-    "@aztec/aztec.js": "latest",
-    "@aztec/l1-artifacts": "latest",
-    "@aztec/noir-contracts": "latest",
+    "@aztec/aztec.js": "^0.1.0-alpha29",
+    "@aztec/l1-artifacts": "^0.1.0-alpha29",
+    "@aztec/noir-contracts": "^0.1.0-alpha29",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^18.7.23",

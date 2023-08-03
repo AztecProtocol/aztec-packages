@@ -36,6 +36,7 @@ fi
 
 circuits/cpp/bootstrap.sh
 l1-contracts/bootstrap.sh
+cd canary && yarn build && cd ..
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158

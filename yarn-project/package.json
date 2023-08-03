@@ -38,7 +38,6 @@
     "rollup-provider",
     "aztec-node",
     "sequencer-client",
-    "smoke-test",
     "types",
     "world-state",
     "yarn-project-base"

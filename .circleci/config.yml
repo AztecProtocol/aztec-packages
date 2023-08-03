@@ -972,7 +972,27 @@ jobs:
             deploy_ecr aztec-sandbox
             deploy_dockerhub aztec-sandbox
 
-  smoke-test:
+  deploy-end:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: "Noop"
+          command: echo Noop
+
+  build-canary:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build canary
+
+  run-canary:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -981,7 +1001,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests smoke-test uniswap_trade_on_l1_from_l2.test.ts docker-compose.yml
+          command: cond_spot_run_tests canary uniswap_trade_on_l1_from_l2.test.ts docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^v.*/
@@ -1210,8 +1230,18 @@ workflows:
             - e2e-end
           <<: *deploy_defaults
 
-      - smoke-test:
+      - deploy-end:
           requires:
             - deploy-dockerhub
             - deploy-npm
+          <<: *deploy_defaults
+
+      - build-canary:
+          requires:
+            - deploy-end
+          <<: *deploy_defaults
+
+      - run-canary:
+          requires:
+            - build-canary
           <<: *deploy_defaults
