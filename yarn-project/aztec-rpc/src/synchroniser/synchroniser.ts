@@ -135,7 +135,7 @@ export class Synchroniser {
     const noteProcessor = this.noteProcessorsToCatchUp[0];
     const from = noteProcessor.status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
-    limit = Math.min(limit, this.synchedToBlock - from);
+    limit = Math.min(limit, this.synchedToBlock - from + 1);
 
     if (limit < 1) {
       throw new Error(`Unexpected limit ${limit} for note processor catch up`);
