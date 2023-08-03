@@ -14,11 +14,9 @@ fi
 if [ -n "$COMMIT_HASH" ]; then
   $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 
-  for REPO in aztec.js canary; do
-    docker pull 278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPO:cache-$COMMIT_HASH
-    docker tag 278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPO:cache-$COMMIT_HASH aztecprotocol/$REPO:latest
-  done
+  docker pull 278380418400.dkr.ecr.us-east-2.amazonaws.com/canary:cache-$COMMIT_HASH
+  docker tag 278380418400.dkr.ecr.us-east-2.amazonaws.com/canary:cache-$COMMIT_HASH aztecprotocol/canary:latest
 fi
 
 docker-compose rm -f
-docker-compose -f $COMPOSE_FILE up --exit-code-from end-to-end
+docker-compose -f $COMPOSE_FILE up --exit-code-from canary
