@@ -1530,26 +1530,6 @@ export function abisSiloNullifier(wasm: IWasmModule, arg0: Address, arg1: Fr): F
 }
 export function abisComputeBlockHash(
   wasm: IWasmModule,
-  arg0: GlobalVariables,
-  arg1: Fr,
-  arg2: Fr,
-  arg3: Fr,
-  arg4: Fr,
-  arg5: Fr,
-): Fr {
-  return Fr.fromBuffer(
-    callCbind(wasm, 'abis__compute_block_hash', [
-      fromGlobalVariables(arg0),
-      toBuffer(arg1),
-      toBuffer(arg2),
-      toBuffer(arg3),
-      toBuffer(arg4),
-      toBuffer(arg5),
-    ]),
-  );
-}
-export function abisComputeBlockHashWithGlobalsHash(
-  wasm: IWasmModule,
   arg0: Fr,
   arg1: Fr,
   arg2: Fr,
@@ -1558,8 +1538,28 @@ export function abisComputeBlockHashWithGlobalsHash(
   arg5: Fr,
 ): Fr {
   return Fr.fromBuffer(
-    callCbind(wasm, 'abis__compute_block_hash_with_globals_hash', [
+    callCbind(wasm, 'abis__compute_block_hash', [
       toBuffer(arg0),
+      toBuffer(arg1),
+      toBuffer(arg2),
+      toBuffer(arg3),
+      toBuffer(arg4),
+      toBuffer(arg5),
+    ]),
+  );
+}
+export function abisComputeBlockHashWithGlobals(
+  wasm: IWasmModule,
+  arg0: GlobalVariables,
+  arg1: Fr,
+  arg2: Fr,
+  arg3: Fr,
+  arg4: Fr,
+  arg5: Fr,
+): Fr {
+  return Fr.fromBuffer(
+    callCbind(wasm, 'abis__compute_block_hash_with_globals', [
+      fromGlobalVariables(arg0),
       toBuffer(arg1),
       toBuffer(arg2),
       toBuffer(arg3),

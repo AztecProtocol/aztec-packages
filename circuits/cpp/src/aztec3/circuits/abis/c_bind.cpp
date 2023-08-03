@@ -443,11 +443,15 @@ CBIND(abis__silo_nullifier, aztec3::circuits::silo_nullifier<NT>);
 
 /**
  * @brief Computes the block hash from the block information.
+ * Globals is provided as a hash in this instance.
  */
-CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash_with_globals<NT>);
+CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash<NT>);
 
-// TODO: FIX NAMES
-CBIND(abis__compute_block_hash_with_globals_hash, aztec3::circuits::compute_block_hash<NT>);
+/**
+ * @brief Computes the block hash from the block information.
+ * The entire globals object is provided in this instance, rather than a hash as in above.
+ */
+CBIND(abis__compute_block_hash_with_globals, aztec3::circuits::compute_block_hash_with_globals<NT>);
 
 /**
  * @brief Computes the hash of the global variables

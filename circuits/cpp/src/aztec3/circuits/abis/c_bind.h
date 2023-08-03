@@ -39,7 +39,7 @@ CBIND_DECL(abis__compute_unique_commitment);
 CBIND_DECL(abis__silo_commitment);
 CBIND_DECL(abis__silo_nullifier);
 CBIND_DECL(abis__compute_block_hash);
-CBIND_DECL(abis__compute_block_hash_with_globals_hash);
+CBIND_DECL(abis__compute_block_hash_with_globals);
 CBIND_DECL(abis__compute_globals_hash);
 
 WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_t* output);

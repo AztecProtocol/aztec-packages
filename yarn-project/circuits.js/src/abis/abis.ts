@@ -6,7 +6,7 @@ import chunk from 'lodash.chunk';
 
 import {
   abisComputeBlockHash,
-  abisComputeBlockHashWithGlobalsHash,
+  abisComputeBlockHashWithGlobals,
   abisComputeCommitmentNonce,
   abisComputeGlobalsHash,
   abisComputeUniqueCommitment,
@@ -313,7 +313,7 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
-export function computeBlockHash(
+export function computeBlockHashWithGlobals(
   wasm: IWasmModule,
   globals: GlobalVariables,
   privateDataTreeRoot: Fr,
@@ -323,7 +323,7 @@ export function computeBlockHash(
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
-  return abisComputeBlockHash(
+  return abisComputeBlockHashWithGlobals(
     wasm,
     globals,
     privateDataTreeRoot,
@@ -345,7 +345,7 @@ export function computeBlockHash(
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
-export function computeBlockHashWithGlobalsHash(
+export function computeBlockHash(
   wasm: IWasmModule,
   globalsHash: Fr,
   privateDataTreeRoot: Fr,
@@ -355,7 +355,7 @@ export function computeBlockHashWithGlobalsHash(
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
-  return abisComputeBlockHashWithGlobalsHash(
+  return abisComputeBlockHash(
     wasm,
     globalsHash,
     privateDataTreeRoot,

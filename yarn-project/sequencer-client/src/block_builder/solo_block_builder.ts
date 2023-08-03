@@ -23,7 +23,7 @@ import {
   VerificationKey,
   makeTuple,
 } from '@aztec/circuits.js';
-import { computeBlockHash, computeBlockHashWithGlobalsHash, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeBlockHash, computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -322,7 +322,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     ).map(r => r.root);
 
     const wasm = await CircuitsWasm.get();
-    const blockHash = computeBlockHash(
+    const blockHash = computeBlockHashWithGlobals(
       wasm,
       globals,
       privateDataTreeRoot,
@@ -513,7 +513,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
       historicTreeRoots.privateHistoricTreeRoots;
     const wasm = await CircuitsWasm.get();
-    const blockHash = computeBlockHashWithGlobalsHash(
+    const blockHash = computeBlockHash(
       wasm,
       historicTreeRoots.prevGlobalVariablesHash,
       privateDataTreeRoot,

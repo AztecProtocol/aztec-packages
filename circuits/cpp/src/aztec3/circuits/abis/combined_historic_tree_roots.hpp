@@ -3,6 +3,7 @@
 
 #include "aztec3/circuits/abis/append_only_tree_snapshot.hpp"
 #include "aztec3/circuits/abis/global_variables.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
@@ -22,7 +23,6 @@ template <typename NCT> struct CombinedHistoricTreeRoots {
 
     PrivateHistoricTreeRoots<NCT> private_historic_tree_roots{};
 
-    // TODO(Maddiaa) Experiment adding the rest of the block hash data here.
     fr public_data_tree_root = 0;
     fr prev_global_variables_hash = 0;
 
@@ -75,6 +75,17 @@ template <typename NCT> struct CombinedHistoricTreeRoots {
         private_historic_tree_roots.set_public();
         public_data_tree_root.set_public();
         prev_global_variables_hash.set_public();
+    }
+
+
+    fr hash()
+    {
+        return compute_block_hash(prev_global_variables_hash,
+                                  private_historic_tree_roots.private_data_tree_root,
+                                  private_historic_tree_roots.nullifier_tree_root,
+                                  private_historic_tree_roots.contract_tree_root,
+                                  private_historic_tree_roots.l1_to_l2_data_tree_root,
+                                  public_data_tree_root);
     }
 };
 

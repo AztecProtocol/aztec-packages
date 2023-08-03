@@ -18,7 +18,7 @@ import {
   makeTuple,
   range,
 } from '@aztec/circuits.js';
-import { computeBlockHash, computeContractLeaf } from '@aztec/circuits.js/abis';
+import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
@@ -151,7 +151,7 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const updateHistoricBlocksTree = async () => {
-    const blockHash = computeBlockHash(
+    const blockHash = computeBlockHashWithGlobals(
       wasm,
       globalVariables,
       rootRollupOutput.endPrivateDataTreeSnapshot.root,

@@ -10,7 +10,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeBlockHash } from '@aztec/circuits.js/abis';
+import { computeBlockHash, computeBlockHashWithGlobals } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -170,7 +170,7 @@ export class MerkleTrees implements MerkleTreeDb {
     ).map(tree => this.getTreeInfo(tree, includeUncommitted));
     const trees = (await Promise.all(treePromises)).map(tree => Fr.fromBuffer(tree.root));
 
-    const blockHash = computeBlockHash(wasm, globals, trees[0], trees[1], trees[2], trees[3], trees[4]);
+    const blockHash = computeBlockHashWithGlobals(wasm, globals, trees[0], trees[1], trees[2], trees[3], trees[4]);
     await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 
@@ -534,7 +534,7 @@ export class MerkleTrees implements MerkleTreeDb {
       ).map(root => Fr.fromBuffer(root));
 
       const wasm = await CircuitsWasm.get();
-      const blockHash = computeBlockHash(
+      const blockHash = computeBlockHashWithGlobals(
         wasm,
         l2Block.globalVariables,
         treeRoots[0],

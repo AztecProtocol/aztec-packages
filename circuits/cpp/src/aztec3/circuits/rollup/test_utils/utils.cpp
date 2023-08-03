@@ -369,15 +369,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
                                         std::array<KernelData, 4> kernel_data,
                                         std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages)
 {
-    MemoryStore historic_private_data_store;
-    MerkleTree historic_private_data_tree(historic_private_data_store, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
-
-    MemoryStore historic_contract_tree_store;
-    MerkleTree historic_contract_tree(historic_contract_tree_store, CONTRACT_TREE_ROOTS_TREE_HEIGHT);
-
-    MemoryStore historic_l1_to_l2_msg_tree_store;
-    MerkleTree historic_l1_to_l2_msg_tree(historic_l1_to_l2_msg_tree_store, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT);
-
     MemoryStore private_data_store;
     const MerkleTree private_data_tree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
 
@@ -389,12 +380,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
 
     MemoryStore historic_blocks_tree_store;
     MerkleTree historic_blocks_tree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
-
-
-    // Historic trees are initialised with an empty root at position 0.
-    historic_private_data_tree.update_element(0, private_data_tree.root());
-    historic_contract_tree.update_element(0, contract_tree.root());
-    historic_l1_to_l2_msg_tree.update_element(0, l1_to_l2_msg_tree.root());
 
     // l1 to l2 tree
     auto l1_to_l2_tree_sibling_path =
