@@ -1,7 +1,6 @@
 #!/bin/bash
 # For a given repository, init any required submodules.
 set -euo pipefail
-set -x # debug print for now until this is stable
 
 REPOSITORY=$1
 
