@@ -66,7 +66,8 @@ fn ensure_commitment_exists<Note, N>(
 
     let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
     let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);
-    // TODO(dbanks12): should be unique_siloed_note_hash once public kernel applies nonces
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
+    // unique_siloed_note_hash once public kernel applies nonces
     let saved_siloed_note_hash = deserialized_oracle_ret.message;
     assert(saved_siloed_note_hash != 0); // TODO(dbanks12): necessary?
 
@@ -75,7 +76,8 @@ fn ensure_commitment_exists<Note, N>(
     let set_header = note_interface.set_header;
     let note_header = NoteHeader {
         contract_address: context.inputs.call_context.storage_contract_address,
-        // TODO(dbanks12): should be nonce, not leaf index (once public kernel applies nonces)
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
+        // nonce, not leaf index (once public kernel applies nonces)
         nonce: deserialized_oracle_ret.leaf_index,
         storage_slot
     };
@@ -87,7 +89,8 @@ fn ensure_commitment_exists<Note, N>(
     let computed_siloed_note_hash = compute_siloed_note_hash(note_interface, *note);
     assert(computed_siloed_note_hash == saved_siloed_note_hash);
 
-    // TODO(dbanks12): this should be unique_siloed_note_hash once public kernel applies nonces
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
+    // unique_siloed_note_hash once public kernel applies nonces
     context.push_read_request(computed_siloed_note_hash);
 }
 
