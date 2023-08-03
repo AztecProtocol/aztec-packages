@@ -10,7 +10,7 @@ import {
   generatePublicKey,
   getAccountWallet,
 } from '@aztec/aztec.js';
-import { StructType } from '@aztec/foundation/abi';
+import { ContractAbi, StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -119,6 +119,22 @@ async function main() {
       const pubKeys = await Promise.all(accounts.map(acc => wallet.getPublicKey(acc)));
       log(`\nCreated account(s).`);
       accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
+    });
+
+  program
+    .command('deploy-example')
+    .description('Deploys an compiled Noir contract to Aztec from @aztec/noir-contracts.')
+    .argument('<contractName>', 'Name of the contract to be deployed', 'zk_token_contract')
+    .option('-a, --args <constructorArgs...>', 'Contract constructor arguments', [])
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .option(
+      '-k, --public-key <string>',
+      'Public key of the deployer. If not provided, it will check the RPC for existing ones.',
+      PUBLIC_KEY,
+    )
+    .action(async (contractName, options) => {
+      const artifacts = await import('@aztec/noir-contracts/artifacts');
+      const contractAbi = artifacts[contractName] as ContractAbi;
     });
 
   program

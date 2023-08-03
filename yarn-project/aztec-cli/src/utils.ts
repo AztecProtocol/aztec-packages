@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC, Contract } from '@aztec/aztec.js';
 import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
@@ -55,6 +55,12 @@ export function getContractAbi(fileDir: string, log: LogFn) {
     log('Invalid file used. Please try again.');
     throw err;
   }
+  return contractAbi;
+}
+
+async function getExampleContractAbi(contractName: string): Promise<Contract> {
+  const artifacts = await import('@aztec/noir-contracts/artifacts');
+  const contractAbi = artifacts[contractName] as Contract;
   return contractAbi;
 }
 
