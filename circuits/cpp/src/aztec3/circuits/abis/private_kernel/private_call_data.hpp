@@ -43,9 +43,6 @@ template <typename NCT> struct PrivateCallData {
     fr portal_contract_address = 0;  // an ETH address
     fr acir_hash = 0;
 
-    // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO add all fields);
-
     boolean operator==(PrivateCallData<NCT> const& other) const
     {
         // WARNING: proof skipped!
@@ -90,6 +87,36 @@ template <typename NCT> struct PrivateCallData {
         return data;
     };
 };  // namespace aztec3::circuits::abis::private_kernel
+
+template <typename NCT> void read(uint8_t const*& it, PrivateCallData<NCT>& obj)
+{
+    using serialize::read;
+
+    read(it, obj.call_stack_item);
+    read(it, obj.private_call_stack_preimages);
+    read(it, obj.proof);
+    read(it, obj.vk);
+    read(it, obj.function_leaf_membership_witness);
+    read(it, obj.contract_leaf_membership_witness);
+    read(it, obj.read_request_membership_witnesses);
+    read(it, obj.portal_contract_address);
+    read(it, obj.acir_hash);
+};
+
+template <typename NCT> void write(std::vector<uint8_t>& buf, PrivateCallData<NCT> const& obj)
+{
+    using serialize::write;
+
+    write(buf, obj.call_stack_item);
+    write(buf, obj.private_call_stack_preimages);
+    write(buf, obj.proof);
+    write(buf, *obj.vk);
+    write(buf, obj.function_leaf_membership_witness);
+    write(buf, obj.contract_leaf_membership_witness);
+    write(buf, obj.read_request_membership_witnesses);
+    write(buf, obj.portal_contract_address);
+    write(buf, obj.acir_hash);
+};
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateCallData<NCT> const& obj)
 {

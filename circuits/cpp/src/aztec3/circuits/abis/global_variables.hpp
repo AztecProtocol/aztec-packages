@@ -24,7 +24,6 @@ template <typename NCT> struct GlobalVariables {
     fr block_number = 0;
     fr timestamp = 0;
 
-    // For serialization, update with new fields
     MSGPACK_FIELDS(chain_id, version, block_number, timestamp);
 
     boolean operator==(GlobalVariables<NCT> const& other) const
@@ -62,5 +61,33 @@ template <typename NCT> struct GlobalVariables {
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
     }
 };
+
+template <typename NCT> void read(uint8_t const*& it, GlobalVariables<NCT>& globals)
+{
+    using serialize::read;
+
+    read(it, globals.chain_id);
+    read(it, globals.version);
+    read(it, globals.block_number);
+    read(it, globals.timestamp);
+};
+
+template <typename NCT> void write(std::vector<uint8_t>& buf, GlobalVariables<NCT> const& globals)
+{
+    using serialize::write;
+
+    write(buf, globals.chain_id);
+    write(buf, globals.version);
+    write(buf, globals.block_number);
+    write(buf, globals.timestamp);
+};
+
+template <typename NCT> std::ostream& operator<<(std::ostream& os, GlobalVariables<NCT> const& globals)
+{
+    return os << "chain_id: " << globals.chain_id << "\n"
+              << "version: " << globals.version << "\n"
+              << "block_number: " << globals.block_number << "\n"
+              << "timestamp: " << globals.timestamp << "\n";
+}
 
 }  // namespace aztec3::circuits::abis
