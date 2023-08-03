@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "**/v*"
 
 jobs:
   release-please:
@@ -17,5 +19,5 @@ jobs:
         id: release
         uses: google-github-actions/release-please-action@v3
         with:
-          token: ${{ secrets.NOIR_RELEASES_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           command: manifest
