@@ -42,6 +42,11 @@ export class Synchroniser {
     if (this.running) return;
     this.running = true;
 
+    if (from < this.synchedToBlock + 1) {
+      throw new Error(`From block ${from} is smaller than the currently synched block ${this.synchedToBlock}`);
+    }
+    this.synchedToBlock = from - 1;
+
     await this.initialSync();
 
     const run = async () => {
@@ -49,7 +54,7 @@ export class Synchroniser {
         if (this.noteProcessorsToCatchUp.length > 0) {
           await this.workNoteProcessorCatchUp(limit, retryInterval);
         } else {
-          from = await this.work(from, limit, retryInterval);
+          await this.work(limit, retryInterval);
         }
       }
     };
@@ -68,25 +73,26 @@ export class Synchroniser {
     await this.db.setTreeRoots(treeRoots);
   }
 
-  protected async work(from = 1, limit = 1, retryInterval = 1000): Promise<number> {
+  protected async work(limit = 1, retryInterval = 1000): Promise<void> {
+    const from = this.synchedToBlock + 1;
     try {
       let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       let unencryptedLogs = await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
       if (!unencryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
       const blocks = await this.node.getBlocks(from, encryptedLogs.length);
       if (!blocks.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       if (blocks.length !== encryptedLogs.length) {
@@ -121,13 +127,10 @@ export class Synchroniser {
 
       await this.updateBlockInfoInBlockTxs(blockContexts);
 
-      from += encryptedLogs.length;
       this.synchedToBlock = latestBlock.block.number;
-      return from;
     } catch (err) {
       this.log(err);
       await this.interruptableSleep.sleep(retryInterval);
-      return from;
     }
   }
 
