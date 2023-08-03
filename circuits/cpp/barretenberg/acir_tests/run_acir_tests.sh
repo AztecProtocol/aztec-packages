@@ -65,10 +65,8 @@ function test() {
 
   set +e
   if [ -n "$VERBOSE" ]; then
-    echo "message content" >&2
     $BB prove_and_verify -v -c $CRS_PATH -j ./target/$dir_name.json
   else
-    echo "message content" >&2
     $BB prove_and_verify -c $CRS_PATH -j ./target/$dir_name.json > /dev/null 2>&1
   fi
   result=$?
