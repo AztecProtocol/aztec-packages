@@ -130,13 +130,9 @@ describe('Contract Class', () => {
     expect(result).toBe(mockViewResultValue);
   });
 
-  it('should not call send on an unconstrained function', async () => {
+  it('should not call create on an unconstrained function', async () => {
     const fooContract = await Contract.create(contractAddress, defaultAbi, wallet);
-    expect(() =>
-      fooContract.methods.qux().send({
-        origin: account,
-      }),
-    ).toThrow();
+    await expect(fooContract.methods.qux().create({ origin: account })).rejects.toThrow();
   });
 
   it('should not call view on a secret or open function', async () => {
