@@ -87,10 +87,10 @@ fn ensure_commitment_exists<Note, N>(
 
     // Ensure that the commitment retrieved from oracle matches the one computed from note.
     let computed_siloed_note_hash = compute_siloed_note_hash(note_interface, *note);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
+    // compute_note_hash_for_read_or_nullify once public kernel applies nonces
     assert(computed_siloed_note_hash == saved_siloed_note_hash);
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
-    // unique_siloed_note_hash once public kernel applies nonces
     context.push_read_request(computed_siloed_note_hash);
 }
 
