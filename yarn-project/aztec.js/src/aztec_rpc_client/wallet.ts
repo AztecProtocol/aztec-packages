@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
@@ -14,7 +14,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { AccountImplementation } from '../account_impl/index.js';
+import { AccountImplementation, CreateTxRequestOpts } from '../account_impl/index.js';
 
 /**
  * The wallet interface.
@@ -26,11 +26,10 @@ export type Wallet = AccountImplementation & AztecRPC;
  */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
+
   abstract getAddress(): AztecAddress;
-  abstract createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
-  ): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(execs: ExecutionRequest[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
+
   addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress);
   }
@@ -110,7 +109,10 @@ export class AccountWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return this.accountImpl.getAddress();
   }
-  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
-    return this.accountImpl.createAuthenticatedTxRequest(executions, txContext);
+  createTxExecutionRequest(
+    executions: ExecutionRequest[],
+    opts: CreateTxRequestOpts = {},
+  ): Promise<TxExecutionRequest> {
+    return this.accountImpl.createTxExecutionRequest(executions, opts);
   }
 }

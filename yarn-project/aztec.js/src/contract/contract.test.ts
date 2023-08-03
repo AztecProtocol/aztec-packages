@@ -93,7 +93,7 @@ describe('Contract Class', () => {
 
   beforeEach(() => {
     wallet = mock<Wallet>();
-    wallet.createAuthenticatedTxRequest.mockResolvedValue(mockTxRequest);
+    wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.isContractDeployed.mockResolvedValue(true);
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);
@@ -115,7 +115,7 @@ describe('Contract Class', () => {
 
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
-    expect(wallet.createAuthenticatedTxRequest).toHaveBeenCalledTimes(1);
+    expect(wallet.createTxExecutionRequest).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });

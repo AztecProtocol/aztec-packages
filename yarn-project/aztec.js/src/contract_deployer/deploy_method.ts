@@ -37,19 +37,11 @@ class DeployerWallet extends BaseWallet {
   getAddress(): AztecAddress {
     return AztecAddress.ZERO;
   }
-  async createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
+  createTxExecutionRequest(
+    _executions: ExecutionRequest[],
+    _opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
-    if (executions.length !== 1) {
-      throw new Error(`Deployer wallet can only run one execution at a time (requested ${executions.length})`);
-    }
-    const [execution] = executions;
-    const wasm = await CircuitsWasm.get();
-    const packedArguments = await PackedArguments.fromArgs(execution.args, wasm);
-    return Promise.resolve(
-      new TxExecutionRequest(execution.to, execution.functionData, packedArguments.hash, txContext, [packedArguments]),
-    );
+    throw new Error(`Unsupported`);
   }
 }
 
@@ -108,8 +100,16 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Con
     );
 
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
-    const executionRequest = await this.getExecutionRequest(address, AztecAddress.ZERO);
-    const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+    const execution = this.getExecutionRequest(address);
+    const packedArguments = await PackedArguments.fromArgs(execution.args);
+
+    const txRequest = TxExecutionRequest.from({
+      origin: execution.to,
+      functionData: execution.functionData,
+      argsHash: packedArguments.hash,
+      txContext,
+      packedArguments: [packedArguments],
+    });
 
     this.txRequest = txRequest;
     this.partialContractAddress = partialAddress;

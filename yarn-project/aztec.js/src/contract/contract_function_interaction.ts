@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { ExecutionRequest, Tx, TxExecutionRequest } from '@aztec/types';
 
@@ -60,10 +60,8 @@ export class ContractFunctionInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      const executionRequest = await this.getExecutionRequest(this.contractAddress, options.origin);
-      const nodeInfo = await this.wallet.getNodeInfo();
-      const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
-      const txRequest = await this.wallet.createAuthenticatedTxRequest([executionRequest], txContext);
+      const executionRequest = this.getExecutionRequest(this.contractAddress);
+      const txRequest = await this.wallet.createTxExecutionRequest([executionRequest], options);
       this.txRequest = txRequest;
     }
     return this.txRequest;
@@ -86,26 +84,14 @@ export class ContractFunctionInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public request(options: SendMethodOptions = {}): Promise<ExecutionRequest> {
-    return this.getExecutionRequest(this.contractAddress, options.origin);
+  public request(): ExecutionRequest {
+    return this.getExecutionRequest(this.contractAddress);
   }
 
-  protected async getExecutionRequest(to: AztecAddress, from?: AztecAddress): Promise<ExecutionRequest> {
-    const flatArgs = encodeArguments(this.functionDao, this.args);
-    from = from ?? this.wallet.getAddress();
-
-    const accounts = await this.wallet.getAccounts();
-    // Zero address is used during deployment and does not need to be in the wallet
-    if (!from.equals(AztecAddress.ZERO) && !accounts.some(acc => from!.equals(acc))) {
-      throw new Error(`The specified 'from' address ${from} is not in the wallet's accounts.`);
-    }
-
-    return {
-      args: flatArgs,
-      functionData: FunctionData.fromAbi(this.functionDao),
-      to,
-      from,
-    };
+  protected getExecutionRequest(to: AztecAddress): ExecutionRequest {
+    const args = encodeArguments(this.functionDao, this.args);
+    const functionData = FunctionData.fromAbi(this.functionDao);
+    return { args, functionData, to };
   }
 
   /**

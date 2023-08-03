@@ -193,9 +193,9 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
-    const txRequest = await this.#getExecutionRequest(functionName, args, to, from ?? AztecAddress.ZERO);
+    const txRequest = await this.#getExecutionRequest(functionName, args, to);
 
-    const executionResult = await this.#simulateUnconstrained(txRequest);
+    const executionResult = await this.#simulateUnconstrained(txRequest, from);
 
     // TODO - Return typed result based on the function abi.
     return executionResult;
@@ -254,12 +254,7 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
   }
 
-  async #getExecutionRequest(
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
-    from: AztecAddress,
-  ): Promise<ExecutionRequest> {
+  async #getExecutionRequest(functionName: string, args: any[], to: AztecAddress): Promise<ExecutionRequest> {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(`Unknown contract ${to}: add it to Aztec RPC server by calling server.addContracts(...)`);
@@ -272,7 +267,6 @@ export class AztecRPCServer implements AztecRPC {
 
     return {
       args: encodeArguments(functionDao, args),
-      from,
       functionData: FunctionData.fromAbi(functionDao),
       to,
     };
@@ -369,14 +363,11 @@ export class AztecRPCServer implements AztecRPC {
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
+   * @param from - The origin of the request.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
-    if (!contractDataOracle) {
-      contractDataOracle = new ContractDataOracle(this.db, this.node);
-    }
-
+  async #simulateUnconstrained(execRequest: ExecutionRequest, from?: AztecAddress) {
+    const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
@@ -387,6 +378,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
       execRequest,
+      from ?? AztecAddress.ZERO,
       functionAbi,
       contractAddress,
       portalContract,

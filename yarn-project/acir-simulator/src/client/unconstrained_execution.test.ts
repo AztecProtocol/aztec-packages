@@ -75,7 +75,6 @@ describe('Unconstrained Execution test suite', () => {
       );
 
       const execRequest: ExecutionRequest = {
-        from: AztecAddress.random(),
         to: contractAddress,
         functionData: new FunctionData(Buffer.alloc(4), false, true, true),
         args: encodeArguments(abi, [owner]),
@@ -83,6 +82,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const result = await acirSimulator.runUnconstrained(
         execRequest,
+        AztecAddress.random(),
         abi,
         AztecAddress.random(),
         EthAddress.ZERO,

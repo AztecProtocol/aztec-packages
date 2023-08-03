@@ -87,6 +87,7 @@ export class AcirSimulator {
   /**
    * Runs an unconstrained function.
    * @param request - The transaction request.
+   * @param origin - The sender of the request.
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
@@ -95,6 +96,7 @@ export class AcirSimulator {
    */
   public async runUnconstrained(
     request: ExecutionRequest,
+    origin: AztecAddress,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
@@ -104,7 +106,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
     const callContext = new CallContext(
-      request.from!,
+      origin,
       contractAddress,
       portalContractAddress,
       false,
@@ -151,7 +153,6 @@ export class AcirSimulator {
       const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
 
       const execRequest: ExecutionRequest = {
-        from: AztecAddress.ZERO,
         to: AztecAddress.ZERO,
         functionData: FunctionData.empty(),
         args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
@@ -159,6 +160,7 @@ export class AcirSimulator {
 
       const [[innerNoteHash, uniqueNoteHash, siloedNoteHash, innerNullifier]] = await this.runUnconstrained(
         execRequest,
+        AztecAddress.ZERO,
         abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,

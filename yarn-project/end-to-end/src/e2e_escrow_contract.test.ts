@@ -100,7 +100,7 @@ describe('e2e_escrow_contract', () => {
     // TODO: We need a nicer interface for batch actions
     const nodeInfo = await wallet.getNodeInfo();
     const txContext = TxContext.empty(new Fr(nodeInfo.chainId), new Fr(nodeInfo.version));
-    const txRequest = await wallet.createAuthenticatedTxRequest(actions, txContext);
+    const txRequest = await wallet.createTxExecutionRequest(actions, txContext);
     logger(`Executing batch transfer from ${wallet.getAddress()}`);
     const tx = await wallet.simulateTx(txRequest);
     const sentTx = new SentTx(aztecRpcServer, wallet.sendTx(tx));
