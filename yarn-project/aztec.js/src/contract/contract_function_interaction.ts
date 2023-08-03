@@ -1,20 +1,11 @@
 import { AztecAddress, FunctionData } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
-import { FunctionCall, Tx, TxExecutionRequest } from '@aztec/types';
+import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { Wallet } from '../aztec_rpc_client/wallet.js';
-import { SentTx } from './sent_tx.js';
+import { BaseContractInteraction, SendMethodOptions } from './base_contract_interaction.js';
 
-/**
- * Represents options for calling a (constrained) function in a contract.
- * Allows the user to specify the sender address and nonce for a transaction.
- */
-export interface SendMethodOptions {
-  /**
-   * Sender's address initiating the transaction.
-   */
-  origin?: AztecAddress;
-}
+export { SendMethodOptions };
 
 /**
  * Represents the options for a view method in a contract function interaction.
@@ -29,29 +20,24 @@ export interface ViewMethodOptions {
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
- * It contains available interactions one can call on a method.
+ * It contains available interactions one can call on a method, including view.
  */
-export class ContractFunctionInteraction {
-  protected tx?: Tx;
-  protected txRequest?: TxExecutionRequest;
-
+export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(
     protected wallet: Wallet,
     protected contractAddress: AztecAddress,
     protected functionDao: FunctionAbi,
     protected args: any[],
   ) {
+    super(wallet);
     if (args.some(arg => arg === undefined || arg === null)) {
       throw new Error('All function interaction arguments must be defined and not null. Received: ' + args);
     }
   }
 
   /**
-   * Create an Aztec transaction instance by combining the transaction request and its signature.
-   * This function will first check if a signature exists, and if not, it will call the `sign` method
-   * to obtain the signature before creating the transaction. Throws an error if the function is
-   * of unconstrained type or if the transaction request and signature are missing.
-   *
+   * Create a transaction execution request that represents this call, encoded and authenticated by the
+   * user's wallet, ready to be simulated.
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
@@ -60,22 +46,9 @@ export class ContractFunctionInteraction {
       throw new Error("Can't call `create` on an unconstrained function.");
     }
     if (!this.txRequest) {
-      const executionRequest = this.getFunctionCall(this.contractAddress);
-      const txRequest = await this.wallet.createTxExecutionRequest([executionRequest], options);
-      this.txRequest = txRequest;
+      this.txRequest = await this.wallet.createTxExecutionRequest([this.request()], options);
     }
     return this.txRequest;
-  }
-
-  /**
-   * Simulates a transaction's execution.
-   * @param options - optional arguments to be used in the creation of the transaction
-   * @returns The resulting transaction
-   */
-  public async simulate(options: SendMethodOptions = {}): Promise<Tx> {
-    const txRequest = this.txRequest ?? (await this.create(options));
-    this.tx = await this.wallet.simulateTx(txRequest);
-    return this.tx;
   }
 
   /**
@@ -85,43 +58,15 @@ export class ContractFunctionInteraction {
    * @returns An execution request wrapped in promise.
    */
   public request(): FunctionCall {
-    return this.getFunctionCall(this.contractAddress);
-  }
-
-  protected getFunctionCall(to: AztecAddress): FunctionCall {
     const args = encodeArguments(this.functionDao, this.args);
     const functionData = FunctionData.fromAbi(this.functionDao);
-    return { args, functionData, to };
-  }
-
-  /**
-   * Sends a transaction to the contract function with the specified options.
-   * This function throws an error if called on an unconstrained function.
-   * It creates and signs the transaction if necessary, and returns a SentTx instance,
-   * which can be used to track the transaction status, receipt, and events.
-   *
-   * @param options - An optional object containing 'from' property representing
-   * the AztecAddress of the sender. If not provided, the default address is used.
-   * @returns A SentTx instance for tracking the transaction status and information.
-   */
-  public send(options: SendMethodOptions = {}) {
-    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
-      throw new Error("Can't call `send` on an unconstrained function.");
-    }
-
-    const promise = (async () => {
-      const tx = this.tx ?? (await this.simulate(options));
-      return this.wallet.sendTx(tx);
-    })();
-
-    return new SentTx(this.wallet, promise);
+    return { args, functionData, to: this.contractAddress };
   }
 
   /**
    * Execute a view (read-only) transaction on an unconstrained function.
    * This method is used to call functions that do not modify the contract state and only return data.
    * Throws an error if called on a non-unconstrained function.
-   *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the view transaction as returned by the contract function.
    */
