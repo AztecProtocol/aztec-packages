@@ -60,10 +60,6 @@ describe('sequencer', () => {
       makeEmptyProcessedTx: () => makeEmptyProcessedTx(CombinedHistoricTreeRoots.empty(), chainId, version),
     });
 
-    publicProcessorFactory = mock<PublicProcessorFactory>({
-      create: () => publicProcessor,
-    });
-
     l2BlockSource = mock<L2BlockSource>({
       getBlockHeight: () => Promise.resolve(lastBlockNumber),
     });
@@ -80,7 +76,7 @@ describe('sequencer', () => {
       blockBuilder,
       l2BlockSource,
       l1ToL2MessageSource,
-      publicProcessorFactory,
+      publicProcessor,
       {
         chainId: Number(chainId.value),
         version: Number(version.value),

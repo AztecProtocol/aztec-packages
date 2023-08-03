@@ -22,7 +22,7 @@ import { L1Publisher } from '../publisher/l1-publisher.js';
 import { ceilPowerOfTwo } from '../utils.js';
 import { SequencerConfig } from './config.js';
 import { ProcessedTx } from './processed_tx.js';
-import { PublicProcessorFactory } from './public_processor.js';
+import { PublicProcessor } from './public_processor.js';
 
 /**
  * Sequencer client
@@ -51,7 +51,7 @@ export class Sequencer {
     private blockBuilder: BlockBuilder,
     private l2BlockSource: L2BlockSource,
     private l1ToL2MessageSource: L1ToL2MessageSource,
-    private publicProcessorFactory: PublicProcessorFactory,
+    private publicProcessor: PublicProcessor,
     config: SequencerConfig,
     private log = createDebugLogger('aztec:sequencer'),
   ) {
@@ -145,8 +145,7 @@ export class Sequencer {
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create();
-      const [processedTxs, failedTxs] = await processor.process(validTxs, globalVariables);
+      const [processedTxs, failedTxs] = await this.publicProcessor.process(validTxs, globalVariables);
       if (failedTxs.length > 0) {
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxs)).join(', ')}`);
         await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
@@ -164,7 +163,7 @@ export class Sequencer {
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
-      const emptyTx = await processor.makeEmptyProcessedTx(this.chainId, this.version);
+      const emptyTx = await this.publicProcessor.makeEmptyProcessedTx(this.chainId, this.version);
 
       const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, globalVariables);
       this.log(`Assembled block ${block.number}`);

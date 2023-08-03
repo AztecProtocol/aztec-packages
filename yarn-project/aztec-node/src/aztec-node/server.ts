@@ -9,7 +9,12 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import {
+  PublicProcessor,
+  PublicProcessorFactory,
+  SequencerClient,
+  getCombinedHistoricTreeRoots,
+} from '@aztec/sequencer-client';
 import {
   AztecNode,
   ContractData,
@@ -57,6 +62,7 @@ export class AztecNodeService implements AztecNode {
     protected sequencer: SequencerClient,
     protected chainId: number,
     protected version: number,
+    protected publicProcessor: PublicProcessor,
     private log = createDebugLogger('aztec:node'),
   ) {}
 
@@ -83,6 +89,9 @@ export class AztecNodeService implements AztecNode {
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
 
+    const publicProcessorFactory = new PublicProcessorFactory(worldStateSynchroniser.getLatest(), archiver, archiver);
+    const publicProcessor = publicProcessorFactory.create();
+
     // now create the sequencer
     const sequencer = await SequencerClient.new(
       config,
@@ -90,7 +99,7 @@ export class AztecNodeService implements AztecNode {
       worldStateSynchroniser,
       archiver,
       archiver,
-      archiver,
+      publicProcessor,
     );
     return new AztecNodeService(
       p2pClient,
@@ -104,6 +113,7 @@ export class AztecNodeService implements AztecNode {
       sequencer,
       config.chainId,
       config.version,
+      publicProcessor,
     );
   }
 
