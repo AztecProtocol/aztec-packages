@@ -185,7 +185,7 @@ void apply_commitment_nonces(NT::fr const& first_nullifier,
 {
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
         // Apply nonce to all non-zero/non-empty commitments
-        // Nonce is just index in new_commitments array
+        // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_commitments array
         const auto nonce = compute_commitment_nonce<NT>(first_nullifier, c_idx);
         unique_siloed_commitments[c_idx] =
             siloed_commitments[c_idx] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[c_idx]);

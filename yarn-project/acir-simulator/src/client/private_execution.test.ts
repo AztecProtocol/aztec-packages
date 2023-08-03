@@ -167,6 +167,11 @@ describe('Private Execution test suite', () => {
 
     const buildNote = (amount: bigint, owner: AztecAddress, storageSlot = Fr.random()) => {
       // WARNING: this is not actually how nonces are computed!
+      // For the purpose of this test we just use the note index here which is fine because
+      // nonces are only enforced later by the kernel/later circuits which are not relevant to this test.
+      // In practice, the kernel first squashes all transient noteHashes with their matching nullifiers.
+      // It then reorders the remaining "persistable" noteHashes. The indexes in that final ordering
+      // are used to derive nonce via: `hash(first_nullifier, noteHashIndex)`
       const nonce = new Fr(currentNoteIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random()];
       return {
