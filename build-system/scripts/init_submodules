@@ -8,7 +8,7 @@ BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
 if [ -d "$BUILD_DIR" ] && [ "$(git submodule status $BUILD_DIR)" ]; then
   # We have submodules, initialize them
   echo "Initialising any submodules under $REPOSITORY buildDir: $BUILD_DIR"
-  retry_10 git submodule update --init --recursive $BUILD_DIR
+  retry_10 git submodule update --init --recursive $BUILD_DIR && exit
 fi
 
 SUBMODULE_PATH=$(query_manifest submodulePath $REPOSITORY)
