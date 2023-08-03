@@ -70,10 +70,7 @@ describe('e2e_public_token_contract', () => {
 
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    const balance = await cc.l2.loadPublic(
-      deployedContract.address,
-      cc.l2.computeSlotInMap(balanceSlot, recipient.toField()),
-    );
+    const balance = await cc.l2.loadPublic(contract.address, cc.l2.computeSlotInMap(balanceSlot, recipient.toField()));
     expect(balance.value).toBe(mintAmount);
 
     await expectLogsFromLastBlockToBe(['Coins minted']);
@@ -98,10 +95,7 @@ describe('e2e_public_token_contract', () => {
     expect(receipts.map(r => r.status)).toEqual(times(3, () => TxStatus.MINED));
     expect(receipts.map(r => r.blockNumber)).toEqual(times(3, () => receipts[0].blockNumber));
 
-    const balance = await cc.l2.loadPublic(
-      deployedContract.address,
-      cc.l2.computeSlotInMap(balanceSlot, recipient.toField()),
-    );
+    const balance = await cc.l2.loadPublic(contract.address, cc.l2.computeSlotInMap(balanceSlot, recipient.toField()));
     expect(balance.value).toBe(mintAmount * 3n);
 
     await expectLogsFromLastBlockToBe(['Coins minted', 'Coins minted', 'Coins minted']);
