@@ -366,8 +366,6 @@ template <typename Flavor> class SumcheckProverRound {
     }
 };
 
-/////////////////////////////////////////////////////////////////////
-
 template <typename Flavor> class SumcheckVerifierRound {
 
     using Relations = typename Flavor::Relations;
