@@ -76,6 +76,7 @@ export class AztecNodeService implements AztecNode {
     // create the tx pool and the p2p client, which will need the l2 block source
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
+    // @todo @lherskind
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
