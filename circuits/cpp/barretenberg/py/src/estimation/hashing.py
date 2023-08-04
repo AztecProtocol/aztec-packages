@@ -1,11 +1,13 @@
 # not in use yet
 
-# class Pedersen:
-#     # estimate derived by looking at UltraPlonk 
-#     # recursive verification of UltraPlonk proofs.
-#     def num_gates_to_hash(self, num_bytes):
-#         return 7 * num_bytes
+class Pedersen:
+    # estimate derived by looking at UltraPlonk 
+    # recursive verification of UltraPlonk proofs.
+    def num_gates_to_hash(self, num_bytes):
+        return 7 * num_bytes
+    def time_to_hash(self, num_bytes):
+        return 1 + int(0.053 * num_bytes) # ms
     
-# if __name__ == "__main__":
-#     hasher = Pedersen()
-#     print(hasher.num_gates_to_hash(98))
+if __name__ == "__main__":
+    hasher = Pedersen()
+    print(hasher.num_gates_to_hash(98))

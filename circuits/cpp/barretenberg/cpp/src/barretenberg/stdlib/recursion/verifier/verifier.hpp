@@ -288,8 +288,19 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
     fr_ct t_eval = quotient_numerator_eval / lagrange_evals.vanishing_poly;
     transcript.add_field_element("t", t_eval);
 
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("nu");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir nu:");
+    info("       ", diff.count(), "ms");
+
+    start = std::chrono::steady_clock::now();
     transcript.apply_fiat_shamir("separator");
+    end = std::chrono::steady_clock::now();
+    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    info("Fiat Shamir separator:");
+    info("       ", diff.count(), "ms");
 
     fr_ct u = transcript.get_challenge_field_element("separator", 0);
 

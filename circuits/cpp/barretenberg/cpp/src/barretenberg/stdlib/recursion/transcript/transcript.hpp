@@ -190,6 +190,7 @@ template <typename Composer> class Transcript {
             preimage_buffer.add_element(current_challenge);
         }
         for (auto manifest_element : get_manifest().get_round_manifest(current_round).elements) {
+            info("num_bytes: ", manifest_element.num_bytes);
             if (manifest_element.num_bytes == 32 && manifest_element.name != "public_inputs") {
                 preimage_buffer.add_element(get_field_element(manifest_element.name));
             } else if (manifest_element.num_bytes == 64 && manifest_element.name != "public_inputs") {
