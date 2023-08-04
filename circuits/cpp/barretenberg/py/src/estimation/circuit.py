@@ -1,4 +1,5 @@
 from flavors import *
+from utils import info
 from msm import MSM
 
 
@@ -60,9 +61,10 @@ class CircuitIPA(CircuitNoPCS):
     def __init__(self, flavor, log_n, num_public_inputs):
         super(CircuitIPA, self).__init__(
             flavor, log_n, num_public_inputs)
-        self.VerifierMSMs += [MSM(2 * log_n), MSM(1 << log_n)]
+        self.VerifierMSMs += [MSM(2 * self.log_n), MSM(1 << self.log_n)]
+
         # IPA: L and R commitments
-        self.proof_size += 2 * COMMITMENT_SIZE * log_n
+        self.proof_size += 2 * COMMITMENT_SIZE * self.log_n
         # IPAL a_0 commitment
         self.proof_size += FIELD_ELEMENT_SIZE
 

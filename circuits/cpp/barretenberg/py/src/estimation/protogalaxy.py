@@ -1,8 +1,8 @@
-from circuit import *
-from flavors import *
+from circuit import CircuitKZG
+from flavors import Ultra
 from goblin import Goblin
-
-from math import log2
+from msm import MSM
+from utils import get_circuit_size, print_circuit_data, info
 
 
 class FoldingVerifier(CircuitKZG):
@@ -18,21 +18,21 @@ class FoldingVerifier(CircuitKZG):
         # our constants include 2 Lagrange polynoma
         num_msms -= 2
         self.msms = [MSM(num_instances_to_fold) for _ in range(num_msms)]
-
-        log_n = 1 + int(log2(sum([msm.num_gates_non_native()
-                                  for msm in self.msms])))
-
+        log_n = get_circuit_size(sum([msm.num_gates_non_native()
+                                      for msm in self.msms]))
         super(FoldingVerifier, self).__init__(
             flavor, log_n, num_public_inputs=0)
-
         assert (type(self.flavor) == Ultra)
+
+    def summary(self):
+        print_circuit_data("FoldingVerifier: ", self, native_msm=False)
 
 
 class Decider(CircuitKZG):
     # k instances folded into 1
     def __init__(self, folding_verifier):
         super(Decider, self).__init__(
-            Ultra(), 1+int(log2(folding_verifier.num_gates_non_native())), num_public_inputs=0)
+            Ultra(), get_circuit_size(folding_verifier.num_gates_non_native()), num_public_inputs=0)
 
 
 if __name__ == "__main__":
