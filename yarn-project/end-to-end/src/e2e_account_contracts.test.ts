@@ -14,7 +14,7 @@ import { ChildContract } from '@aztec/noir-contracts/types';
 
 import { setup } from './fixtures/utils.js';
 
-function itShouldBehaveLikeAnAccountContract(getAccountContract: () => AccountContract) {
+function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey: PrivateKey) => AccountContract) {
   describe(`behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
     let child: ChildContract;
@@ -25,7 +25,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: () => AccountCo
     beforeEach(async () => {
       context = await setup();
       encryptionPrivateKey = PrivateKey.random();
-      account = new Account(context.aztecRpcServer, encryptionPrivateKey, getAccountContract());
+      account = new Account(context.aztecRpcServer, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
       wallet = await account.deploy().then(tx => tx.getWallet());
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
@@ -57,7 +57,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: () => AccountCo
       const invalidWallet = await new Account(
         context.aztecRpcServer,
         encryptionPrivateKey,
-        getAccountContract(),
+        getAccountContract(PrivateKey.random()),
         accountAddress,
       ).getWallet();
       const childWithInvalidWallet = await ChildContract.create(child.address, invalidWallet);
@@ -70,7 +70,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: () => AccountCo
 
 describe('e2e_account_contracts', () => {
   describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new SingleKeyAccountContract(PrivateKey.random()));
+    itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new SingleKeyAccountContract(encryptionKey));
   });
 
   describe('schnorr multi-key account', () => {
