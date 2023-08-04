@@ -29,7 +29,6 @@ services:
       - "8080:8080"
 
   canary:
-    #image: $ECR_URL/canary:cache-$COMMIT_HASH
     image: aztecprotocol/canary:latest
     environment:
       ETHEREUM_HOST: http://fork:8545
