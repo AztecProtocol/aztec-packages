@@ -6,7 +6,7 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
-  CombinedHistoricTreeRoots,
+  ConstantBlockHashData,
   FunctionData,
   GlobalVariables,
   PartialContractAddress,
@@ -343,7 +343,7 @@ export class AztecRPCServer implements AztecRPC {
 
   async #simulate(
     txRequest: TxExecutionRequest,
-    prevBlockData: CombinedHistoricTreeRoots,
+    prevBlockData: ConstantBlockHashData,
     contractDataOracle?: ContractDataOracle,
   ) {
     // TODO - Pause syncing while simulating.
@@ -387,7 +387,7 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateUnconstrained(
     execRequest: ExecutionRequest,
-    prevBlockData: CombinedHistoricTreeRoots = CombinedHistoricTreeRoots.empty(),
+    prevBlockData: ConstantBlockHashData = ConstantBlockHashData.empty(),
     contractDataOracle?: ContractDataOracle,
   ) {
     if (!contractDataOracle) {
@@ -438,7 +438,7 @@ export class AztecRPCServer implements AztecRPC {
     const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
     const treeRoots = this.db.getTreeRoots();
 
-    const historicTreeRoots = new CombinedHistoricTreeRoots(
+    const historicTreeRoots = new ConstantBlockHashData(
       new PrivateHistoricTreeRoots(
         treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
         treeRoots[MerkleTreeId.NULLIFIER_TREE],
@@ -463,7 +463,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log('Proof completed!');
 
     // TODO: FIX HACK< OVERWRITING THE ROOTS HERE
-    publicInputs.constants.historicTreeRoots = historicTreeRoots;
+    publicInputs.constants.ConstantBlockHashData = historicTreeRoots;
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 

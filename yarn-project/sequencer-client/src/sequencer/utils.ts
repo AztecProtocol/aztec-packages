@@ -1,6 +1,6 @@
 import {
   CircuitsWasm,
-  CombinedHistoricTreeRoots,
+  ConstantBlockHashData,
   Fr,
   GlobalVariables,
   PrivateHistoricTreeRoots,
@@ -19,7 +19,7 @@ export async function getCombinedHistoricTreeRoots(
   const wasm = await CircuitsWasm.get();
   const prevGlobalsHash = computeGlobalsHash(wasm, prevBlockGlobalVariables);
 
-  return new CombinedHistoricTreeRoots(
+  return new ConstantBlockHashData(
     new PrivateHistoricTreeRoots(
       Fr.fromBuffer((await db.getTreeInfo(MerkleTreeId.PRIVATE_DATA_TREE)).root),
       Fr.fromBuffer((await db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root),

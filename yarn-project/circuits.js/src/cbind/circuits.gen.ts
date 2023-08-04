@@ -13,7 +13,7 @@ import {
   CircuitError,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedHistoricTreeRoots,
+  ConstantBlockHashData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -696,38 +696,38 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
   };
 }
 
-interface MsgpackCombinedHistoricTreeRoots {
+interface MsgpackConstantBlockHashData {
   private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
   public_data_tree_root: Buffer;
   prev_global_variables_hash: Buffer;
 }
 
-export function toCombinedHistoricTreeRoots(o: MsgpackCombinedHistoricTreeRoots): CombinedHistoricTreeRoots {
+export function toConstantBlockHashData(o: MsgpackConstantBlockHashData): ConstantBlockHashData {
   if (o.private_historic_tree_roots === undefined) {
-    throw new Error('Expected private_historic_tree_roots in CombinedHistoricTreeRoots deserialization');
+    throw new Error('Expected private_historic_tree_roots in ConstantBlockHashData deserialization');
   }
   if (o.public_data_tree_root === undefined) {
-    throw new Error('Expected public_data_tree_root in CombinedHistoricTreeRoots deserialization');
+    throw new Error('Expected public_data_tree_root in ConstantBlockHashData deserialization');
   }
   if (o.prev_global_variables_hash === undefined) {
-    throw new Error('Expected prev_global_variables_hash in CombinedHistoricTreeRoots deserialization');
+    throw new Error('Expected prev_global_variables_hash in ConstantBlockHashData deserialization');
   }
-  return new CombinedHistoricTreeRoots(
+  return new ConstantBlockHashData(
     toPrivateHistoricTreeRoots(o.private_historic_tree_roots),
     Fr.fromBuffer(o.public_data_tree_root),
     Fr.fromBuffer(o.prev_global_variables_hash),
   );
 }
 
-export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): MsgpackCombinedHistoricTreeRoots {
+export function fromConstantBlockHashData(o: ConstantBlockHashData): MsgpackConstantBlockHashData {
   if (o.privateHistoricTreeRoots === undefined) {
-    throw new Error('Expected privateHistoricTreeRoots in CombinedHistoricTreeRoots serialization');
+    throw new Error('Expected privateHistoricTreeRoots in ConstantBlockHashData serialization');
   }
   if (o.publicDataTreeRoot === undefined) {
-    throw new Error('Expected publicDataTreeRoot in CombinedHistoricTreeRoots serialization');
+    throw new Error('Expected publicDataTreeRoot in ConstantBlockHashData serialization');
   }
   if (o.prevGlobalVariablesHash === undefined) {
-    throw new Error('Expected prevGlobalVariablesHash in CombinedHistoricTreeRoots serialization');
+    throw new Error('Expected prevGlobalVariablesHash in ConstantBlockHashData serialization');
   }
   return {
     private_historic_tree_roots: fromPrivateHistoricTreeRoots(o.privateHistoricTreeRoots),
@@ -890,29 +890,29 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
 }
 
 interface MsgpackCombinedConstantData {
-  historic_tree_roots: MsgpackCombinedHistoricTreeRoots;
+  block_hash_values: MsgpackConstantBlockHashData;
   tx_context: MsgpackTxContext;
 }
 
 export function toCombinedConstantData(o: MsgpackCombinedConstantData): CombinedConstantData {
-  if (o.historic_tree_roots === undefined) {
-    throw new Error('Expected historic_tree_roots in CombinedConstantData deserialization');
+  if (o.block_hash_values === undefined) {
+    throw new Error('Expected block_hash_values in CombinedConstantData deserialization');
   }
   if (o.tx_context === undefined) {
     throw new Error('Expected tx_context in CombinedConstantData deserialization');
   }
-  return new CombinedConstantData(toCombinedHistoricTreeRoots(o.historic_tree_roots), toTxContext(o.tx_context));
+  return new CombinedConstantData(toConstantBlockHashData(o.block_hash_values), toTxContext(o.tx_context));
 }
 
 export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
-  if (o.historicTreeRoots === undefined) {
-    throw new Error('Expected historicTreeRoots in CombinedConstantData serialization');
+  if (o.ConstantBlockHashData === undefined) {
+    throw new Error('Expected ConstantBlockHashData in CombinedConstantData serialization');
   }
   if (o.txContext === undefined) {
     throw new Error('Expected txContext in CombinedConstantData serialization');
   }
   return {
-    historic_tree_roots: fromCombinedHistoricTreeRoots(o.historicTreeRoots),
+    block_hash_values: fromConstantBlockHashData(o.ConstantBlockHashData),
     tx_context: fromTxContext(o.txContext),
   };
 }

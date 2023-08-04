@@ -34,7 +34,7 @@ export {
   ReadRequestMembershipWitness,
   CombinedAccumulatedData,
   PrivateHistoricTreeRoots,
-  CombinedHistoricTreeRoots,
+  ConstantBlockHashData,
   ContractDeploymentData,
   TxContext,
   CombinedConstantData,

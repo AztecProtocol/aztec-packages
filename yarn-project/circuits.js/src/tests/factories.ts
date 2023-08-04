@@ -16,8 +16,8 @@ import {
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedHistoricTreeRoots,
   ConstantBaseRollupData,
+  ConstantBlockHashData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -118,8 +118,8 @@ export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeR
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
-  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed), fr(seed + 6), fr(seed + 7));
+export function makeCombinedHistoricTreeRoots(seed: number): ConstantBlockHashData {
+  return new ConstantBlockHashData(makePrivateHistoricTreeRoots(seed), fr(seed + 6), fr(seed + 7));
 }
 
 /**

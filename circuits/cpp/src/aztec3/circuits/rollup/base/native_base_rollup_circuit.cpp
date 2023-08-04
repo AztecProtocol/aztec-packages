@@ -139,7 +139,7 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
 
     for (size_t i = 0; i < 2; i++) {
         // Rebuild the block hash
-        auto historic_block = baseRollupInputs.kernel_data[i].public_inputs.constants.historic_tree_roots;
+        auto historic_block = baseRollupInputs.kernel_data[i].public_inputs.constants.block_hash_values;
         auto historic_tree_roots = historic_block.private_historic_tree_roots;
 
         auto private_data_tree_root = historic_tree_roots.private_data_tree_root;

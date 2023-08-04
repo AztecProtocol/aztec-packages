@@ -6,7 +6,7 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/constant_block_hash_data.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
@@ -35,7 +35,7 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
+using aztec3::circuits::abis::ConstantBlockHashData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
 using aztec3::circuits::abis::PreviousKernelData;
@@ -360,22 +360,20 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     };
 
     // TODO(914) Should this be unused?
-    [[maybe_unused]] CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
-                                                                                     .private_data_tree_root = 1000,
-                                                                                     .contract_tree_root = 2000,
-                                                                                     .l1_to_l2_messages_tree_root =
-                                                                                         3000,
-                                                                                     .private_kernel_vk_tree_root =
-                                                                                         4000,
-                                                                                 } };
+    [[maybe_unused]] ConstantBlockHashData<NT> const historic_tree_roots = { .private_historic_tree_roots = {
+                                                                                 .private_data_tree_root = 1000,
+                                                                                 .contract_tree_root = 2000,
+                                                                                 .l1_to_l2_messages_tree_root = 3000,
+                                                                                 .private_kernel_vk_tree_root = 4000,
+                                                                             } };
 
     CombinedConstantData<NT> const end_constants = {
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{ .private_historic_tree_roots =
-                                               PrivateHistoricTreeRoots<NT>{ .private_data_tree_root = ++seed,
-                                                                             .nullifier_tree_root = ++seed,
-                                                                             .contract_tree_root = ++seed,
-                                                                             .private_kernel_vk_tree_root = ++seed } },
+        .block_hash_values =
+            ConstantBlockHashData<NT>{ .private_historic_tree_roots =
+                                           PrivateHistoricTreeRoots<NT>{ .private_data_tree_root = ++seed,
+                                                                         .nullifier_tree_root = ++seed,
+                                                                         .contract_tree_root = ++seed,
+                                                                         .private_kernel_vk_tree_root = ++seed } },
         .tx_context =
             TxContext<NT>{
                 .is_fee_payment_tx = false,

@@ -89,7 +89,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_contract_tr
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     // Set private_historic_tree_roots to a random scalar.
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .contract_tree_root = NT::fr::random_element();
 
     // Invoke the native private kernel circuit
@@ -248,7 +248,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
@@ -276,7 +276,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
@@ -303,7 +303,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
 
@@ -331,7 +331,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
 
     // generate two random sets of read requests and mix them so their roots don't match
     auto [read_requests0, read_request_membership_witnesses0, root] = get_random_reads(contract_address, 2);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     auto [read_requests1, read_request_membership_witnesses1, _root] = get_random_reads(contract_address, 2);
@@ -397,7 +397,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 1);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -428,7 +428,7 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto [read_requests, read_request_membership_witnesses, root] = get_random_reads(contract_address, 2);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -460,7 +460,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
 
     auto [read_requests, read_request_membership_witnesses, root] =
         get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -492,7 +492,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_less_than_witness
         get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
 
     read_requests[MAX_READ_REQUESTS_PER_CALL - 1] = fr(0);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -519,7 +519,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_requests_more_than_witness
     read_request_membership_witnesses[MAX_READ_REQUESTS_PER_CALL - 1] =
         ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>{};
 
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -577,7 +577,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient
 
     auto [read_requests, read_request_membership_witnesses, root] =
         get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -615,7 +615,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_all_transient
 
     auto [read_requests, read_request_membership_witnesses, root] =
         get_random_reads(contract_address, MAX_READ_REQUESTS_PER_CALL);
-    private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
+    private_inputs.previous_kernel.public_inputs.constants.block_hash_values.private_historic_tree_roots
         .private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.historic_private_data_tree_root = root;
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;

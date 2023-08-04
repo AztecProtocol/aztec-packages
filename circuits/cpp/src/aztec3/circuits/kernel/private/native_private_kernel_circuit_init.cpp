@@ -2,14 +2,14 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/constant_block_hash_data.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
+using aztec3::circuits::abis::ConstantBlockHashData;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
@@ -46,8 +46,8 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
     // Define the constants data.
     auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
     auto const constants = CombinedConstantData<NT>{
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{
+        .block_hash_values =
+            ConstantBlockHashData<NT>{
                 .private_historic_tree_roots =
                     PrivateHistoricTreeRoots<NT>{
                         // TODO(dbanks12): remove historic root from app circuit public inputs and
@@ -191,7 +191,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder
     common_validate_read_requests(
         builder,
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        public_inputs.constants.block_hash_values.private_historic_tree_roots.private_data_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 
