@@ -129,7 +129,7 @@ for STAGE in $STAGES; do
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
 
   echo "Pushing stage: $STAGE"
-  docker push $STAGE_IMAGE_COMMIT_URI
+  docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
 done
 
