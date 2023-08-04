@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::note::lifecycle::{create_note, destroy_note};
 use crate::note::{
-    note_getter::{get_notes, ensure_note_exists, ensure_commitment_exists},
+    note_getter::{get_notes, ensure_note_exists, ensure_note_hash_exists},
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
     utils::compute_inner_note_hash,
@@ -32,8 +32,11 @@ impl<Note, N> Set<Note, N> {
         ensure_note_exists(context, self.storage_slot, self.note_interface, note);
     }
 
-    fn assert_contains_commitment(self, context: &mut Context, note: &mut Note) {
-        ensure_commitment_exists(context, self.storage_slot, self.note_interface, note)
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): rename to
+    // `assert_contains` and replace function above ^ once public kernel injects
+    // nonces to note hashes.
+    fn assert_contains_note_hash(self, context: &mut Context, note: &mut Note) {
+        ensure_note_hash_exists(context, self.storage_slot, self.note_interface, note)
     }
 
     fn remove(self, context: &mut Context, note: Note) {

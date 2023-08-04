@@ -52,10 +52,10 @@ fn ensure_note_exists<Note, N>(
     context.push_read_request(note_hash_for_read_request);
 }
 
-// Ensure a note's commitment exists without retrieving the entire
-// note via the oracle.
-// Return the modified note populated with header info (like nonce).
-fn ensure_commitment_exists<Note, N>(
+// Ensure a note's hash exists in the tree without retrieving the entire
+// notes via the oracle.
+// Modifies the note by populating it with header info.
+fn ensure_note_hash_exists<Note, N>(
     context: &mut Context,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
@@ -86,7 +86,7 @@ fn ensure_commitment_exists<Note, N>(
 
     check_note_header(*context, storage_slot, note_interface, *note);
 
-    // Ensure that the commitment retrieved from oracle matches the one computed from note.
+    // Ensure that the note hash retrieved from oracle matches the one computed from note.
     let computed_siloed_note_hash = compute_siloed_note_hash(note_interface, *note);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
     // compute_note_hash_for_read_or_nullify once public kernel applies nonces

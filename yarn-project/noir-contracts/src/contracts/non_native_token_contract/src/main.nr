@@ -273,7 +273,7 @@ contract NonNativeToken {
         let mut public_note = TransparentNote::new_from_secret(amount, secret);
 
         // Ensure that the note exists in the tree
-        pending_shields.assert_contains_commitment(&mut context, &mut public_note);
+        pending_shields.assert_contains_note_hash(&mut context, &mut public_note);
         // The above call to `assert_contains()` also returns a modified note with
         // the header which is necessary for the next step (remove).
 
