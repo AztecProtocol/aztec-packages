@@ -10,7 +10,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeBlockHashWithGlobals } from '@aztec/circuits.js/abis';
+import { computeBlockHashWithGlobals, computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -52,7 +52,6 @@ export class MerkleTrees implements MerkleTreeDb {
 
   /**
    * Initialises the collection of Merkle Trees.
-   * @param genesisConfig - The genesis config to use for initialising the trees.
    * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    */
   public async init(optionalWasm?: IWasmModule) {
@@ -105,8 +104,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
     this.jobQueue.start();
 
-    // The roots trees must contain the empty roots of their data trees
-    // The first leaf in the tree contains empty roots
+    // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
     await this.updateHistoricBlocksTree(GlobalVariables.empty(), true);
     await historicBlocksTree.commit();
   }
@@ -114,11 +112,9 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Method to asynchronously create and initialise a MerkleTrees instance.
    * @param db - The db instance to use for data persistance.
-   * @param genesisConfig - Initial global variables to initialise the blockHash.
    * @param wasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
    * @returns - A fully initialised MerkleTrees instance.
    */
-  // TODO: remove genesis config
   public static async new(db: levelup.LevelUp, wasm?: IWasmModule) {
     const merkleTrees = new MerkleTrees(db);
     await merkleTrees.init(wasm);
@@ -179,11 +175,11 @@ export class MerkleTrees implements MerkleTreeDb {
 
     return {
       privateDataTreeRoot: roots[0],
-      contractDataTreeRoot: roots[1],
-      l1Tol2MessagesTreeRoot: roots[2],
-      nullifierTreeRoot: roots[3],
-      blocksTreeRoot: roots[4],
-      publicDataTreeRoot: roots[5],
+      nullifierTreeRoot: roots[1],
+      contractDataTreeRoot: roots[2],
+      l1Tol2MessagesTreeRoot: roots[3],
+      publicDataTreeRoot: roots[4],
+      blocksTreeRoot: roots[5],
     };
   }
 
@@ -196,11 +192,11 @@ export class MerkleTrees implements MerkleTreeDb {
   getAllTreeRoots(includeUncommitted: boolean): Buffer[] {
     return [
       MerkleTreeId.PRIVATE_DATA_TREE,
+      MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.CONTRACT_TREE,
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      MerkleTreeId.NULLIFIER_TREE,
+      MerkleTreeId.PUBLIC_DATA_TREE,
       MerkleTreeId.BLOCKS_TREE,
-      MerkleTreeId.PRIVATE_DATA_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
   }
 

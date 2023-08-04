@@ -1,20 +1,17 @@
 import {
+  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
   ConstantBlockHashData,
   FunctionData,
-  GlobalVariables,
   PartialContractAddress,
-  PrivateHistoricTreeRoots,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -30,7 +27,6 @@ import {
   L2Block,
   L2BlockL2Logs,
   LogType,
-  MerkleTreeId,
   NodeInfo,
   Tx,
   TxExecutionRequest,
@@ -343,9 +339,9 @@ export class AztecRPCServer implements AztecRPC {
 
   async #simulate(
     txRequest: TxExecutionRequest,
-    prevBlockData: ConstantBlockHashData,
+    constantBlockHashData: ConstantBlockHashData,
     contractDataOracle?: ContractDataOracle,
-  ) {
+  ): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
@@ -365,7 +361,7 @@ export class AztecRPCServer implements AztecRPC {
         functionAbi,
         contractAddress,
         portalContract,
-        prevBlockData.privateHistoricTreeRoots,
+        constantBlockHashData,
       );
       this.log('Simulation completed!');
 
@@ -381,13 +377,13 @@ export class AztecRPCServer implements AztecRPC {
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param prevBlockData - All data required to reconstruct the previous block hash. // TODO: Maybe just pass in one value for this instead of recomputing everywhere? Cache at the beginning?
+   * @param constantBlockHashData - All data required to reconstruct the previous block hash. // TODO: Maybe just pass in one value for this instead of recomputing everywhere? Cache at the beginning?
    * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(
     execRequest: ExecutionRequest,
-    prevBlockData: ConstantBlockHashData = ConstantBlockHashData.empty(),
+    constantBlockHashData: ConstantBlockHashData = ConstantBlockHashData.empty(),
     contractDataOracle?: ContractDataOracle,
   ) {
     if (!contractDataOracle) {
@@ -407,12 +403,13 @@ export class AztecRPCServer implements AztecRPC {
       functionAbi,
       contractAddress,
       portalContract,
-      prevBlockData.privateHistoricTreeRoots,
+      constantBlockHashData,
     );
     this.log('Unconstrained simulation completed!');
 
     return result;
   }
+
 
   /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
@@ -429,35 +426,14 @@ export class AztecRPCServer implements AztecRPC {
   async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
 
-    //TODO(MADDIAA) MAYBE WE SHOULD GET THE LATEST BLOCK TREE ROOTS HERE AND PASS THEM DOWN EVERYWHERE?
-
-    // Add values that allow us to reconstruct the block hash
-    const wasm = await CircuitsWasm.get();
-    const latestBlock = await this.getBlock(-1);
-    const latestGlobals = latestBlock?.globalVariables ?? GlobalVariables.empty();
-    const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
-    const treeRoots = this.db.getTreeRoots();
-
-
-
-    const historicTreeRoots = new ConstantBlockHashData(
-      new PrivateHistoricTreeRoots(
-        treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-        treeRoots[MerkleTreeId.NULLIFIER_TREE],
-        treeRoots[MerkleTreeId.CONTRACT_TREE],
-        treeRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-        treeRoots[MerkleTreeId.BLOCKS_TREE],
-        Fr.ZERO,
-      ),
-      treeRoots[MerkleTreeId.PUBLIC_DATA_TREE],
-      prevBlockGlobalVariablesHash,
-    );
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-
-    // TODO: maybe could put above in this kernel oracle
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const executionResult = await this.#simulate(txExecutionRequest, historicTreeRoots, contractDataOracle);
+
+    // Get values that allow us to reconstruct the block hash
+    const constantBlockHashData = await kernelOracle.getConstantBlockHashData();
+
+    const executionResult = await this.#simulate(txExecutionRequest, constantBlockHashData, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
@@ -465,7 +441,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log('Proof completed!');
 
     // TODO: FIX HACK< OVERWRITING THE ROOTS HERE
-    publicInputs.constants.blockHashValues = historicTreeRoots;
+    publicInputs.constants.blockHashValues = constantBlockHashData;
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 

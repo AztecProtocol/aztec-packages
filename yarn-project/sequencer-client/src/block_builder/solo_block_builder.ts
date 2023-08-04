@@ -509,18 +509,19 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
-    const historicTreeRoots = tx.data.constants.blockHashValues;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
-      historicTreeRoots.privateHistoricTreeRoots;
     const wasm = await CircuitsWasm.get();
+
+    const blockHashValues = tx.data.constants.blockHashValues;
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
+      blockHashValues.privateHistoricTreeRoots;
     const blockHash = computeBlockHash(
       wasm,
-      historicTreeRoots.prevGlobalVariablesHash,
+      blockHashValues.prevGlobalVariablesHash,
       privateDataTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
-      historicTreeRoots.publicDataTreeRoot,
+      blockHashValues.publicDataTreeRoot,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);
   }
