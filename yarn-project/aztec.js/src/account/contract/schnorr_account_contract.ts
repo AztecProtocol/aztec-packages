@@ -7,6 +7,10 @@ import { CompleteAddress } from '../complete_address.js';
 import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures
+ * verified against a Grumpkin public key stored in an immutable encrypted note.
+ */
 export class SchnorrAccountContract implements AccountContract {
   constructor(private signingPrivateKey: PrivateKey) {}
 

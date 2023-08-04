@@ -10,9 +10,18 @@ import { SingleKeyAccountContract } from './contract/single_key_account_contract
 export { Account } from './account.js';
 export { AccountContract } from './contract/index.js';
 export { Entrypoint, EntrypointCollection } from './entrypoint/index.js';
+export { CompleteAddress };
 
+/** A contract deployment salt. */
 export type Salt = Fr | number | bigint;
 
+/**
+ * Creates an Account that relies on an ECDSA signing key for authentication.
+ * @param rpc - An AztecRPC server instance.
+ * @param encryptionPrivateKey - Grumpkin key used for note encryption.
+ * @param signingPrivateKey - Secp256k1 key used for signing transactions.
+ * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
+ */
 export function getEcdsaAccount(
   rpc: AztecRPC,
   encryptionPrivateKey: PrivateKey,
@@ -22,6 +31,13 @@ export function getEcdsaAccount(
   return new Account(rpc, encryptionPrivateKey, new EcdsaAccountContract(signingPrivateKey), saltOrAddress);
 }
 
+/**
+ * Creates an Account that relies on a Grumpkin signing key for authentication.
+ * @param rpc - An AztecRPC server instance.
+ * @param encryptionPrivateKey - Grumpkin key used for note encryption.
+ * @param signingPrivateKey - Grumpkin key used for signing transactions.
+ * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
+ */
 export function getSchnorrAccount(
   rpc: AztecRPC,
   encryptionPrivateKey: PrivateKey,
@@ -31,6 +47,12 @@ export function getSchnorrAccount(
   return new Account(rpc, encryptionPrivateKey, new SchnorrAccountContract(signingPrivateKey), saltOrAddress);
 }
 
+/**
+ * Creates an Account that uses the same Grumpkin key for encryption and authentication.
+ * @param rpc - An AztecRPC server instance.
+ * @param encryptionAndSigningPrivateKey - Grumpkin key used for note encryption and signing transactions.
+ * @param saltOrAddress - Deployment salt or complete address if account contract is already deployed.
+ */
 export function getUnsafeSchnorrAccount(
   rpc: AztecRPC,
   encryptionAndSigningPrivateKey: PrivateKey,

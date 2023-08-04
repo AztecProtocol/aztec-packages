@@ -7,7 +7,10 @@ import { CompleteAddress } from '../complete_address.js';
 import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
-export class EcdsaAccountContract implements AccountContract {
+/**
+ * Account contract that authenticates transactions using ECDSA signatures
+ * verified against a secp256k1 public key stored in an immutable encrypted note.
+ */ export class EcdsaAccountContract implements AccountContract {
   constructor(private signingPrivateKey: PrivateKey) {}
 
   public async getDeploymentArgs() {

@@ -7,6 +7,10 @@ import { CompleteAddress } from '../complete_address.js';
 import { SingleKeyAccountEntrypoint } from '../entrypoint/single_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
+/**
+ * Account contract that authenticates transactions using Schnorr signatures verified against
+ * the note encryption key, relying on a single private key for both encryption and authentication.
+ */
 export class SingleKeyAccountContract implements AccountContract {
   constructor(private encryptionPrivateKey: PrivateKey) {}
 
