@@ -2,7 +2,6 @@ import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/azte
 import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
   AccountCollection,
-  AccountImplementation,
   AccountWallet,
   AztecAddress,
   Contract,
@@ -11,6 +10,7 @@ import {
   EthAddress,
   SentTx,
   SingleKeyAccountContract,
+  TxEntrypoint,
   Wallet,
   createAztecRpcClient as createJsonRpcClient,
   generatePublicKey,
@@ -388,7 +388,7 @@ export type CreateAccountImplFn = (
   useProperKey: boolean,
   partialAddress: PartialContractAddress,
   encryptionPrivateKey: PrivateKey,
-) => Promise<AccountImplementation>;
+) => Promise<TxEntrypoint>;
 
 /**
  * Creates a new account.

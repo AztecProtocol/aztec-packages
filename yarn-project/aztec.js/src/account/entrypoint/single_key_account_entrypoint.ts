@@ -1,32 +1,37 @@
-import { AztecAddress, CircuitsWasm, FunctionData, PrivateKey, TxContext } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  FunctionData,
+  PartialContractAddress,
+  PrivateKey,
+  TxContext,
+} from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import partition from 'lodash.partition';
 
-import EcdsaAccountContractAbi from '../abis/ecdsa_account_contract.json' assert { type: 'json' };
-import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../utils/defaults.js';
+import SchnorrSingleKeyAccountContractAbi from '../../abis/schnorr_single_key_account_contract.json' assert { type: 'json' };
+import { generatePublicKey } from '../../index.js';
+import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../../utils/defaults.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
-import { AccountImplementation, CreateTxRequestOpts } from './index.js';
+import { CreateTxRequestOpts, Entrypoint } from './index.js';
 
 /**
- * Account contract implementation that keeps a signing public key in storage, and is retrieved on
- * every new request in order to validate the payload signature.
+ * Account contract implementation that uses a single key for signing and encryption. This public key is not
+ * stored in the contract, but rather verified against the contract address. Note that this approach is not
+ * secure and should not be used in real use cases.
  */
-export class StoredKeyAccountContract implements AccountImplementation {
-  private log: DebugLogger;
-
+export class SingleKeyAccountEntrypoint implements Entrypoint {
   constructor(
     private address: AztecAddress,
+    private partialContractAddress: PartialContractAddress,
     private privateKey: PrivateKey,
     private signer: Signer,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
-  ) {
-    this.log = createDebugLogger('aztec:client:accounts:stored_key');
-  }
+  ) {}
 
   async createTxExecutionRequest(
     executions: FunctionCall[],
@@ -40,10 +45,10 @@ export class StoredKeyAccountContract implements AccountImplementation {
     const wasm = await CircuitsWasm.get();
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls);
     const hash = hashPayload(payload);
-    const signature = this.signer.constructSignature(hash, this.privateKey).toBuffer();
-    this.log(`Signed challenge ${hash.toString('hex')} as ${signature.toString('hex')}`);
 
-    const args = [payload, signature];
+    const signature = this.signer.constructSignature(hash, this.privateKey).toBuffer();
+    const publicKey = await generatePublicKey(this.privateKey);
+    const args = [payload, publicKey.toBuffer(), signature, this.partialContractAddress];
     const abi = this.getEntrypointAbi();
     const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args), wasm);
     const txRequest = TxExecutionRequest.from({
@@ -58,10 +63,10 @@ export class StoredKeyAccountContract implements AccountImplementation {
   }
 
   private getEntrypointAbi() {
-    // We use the EcdsaAccountContractAbi because it implements the interface we need, but ideally
-    // we should have an interface that defines the entrypoint for StoredKeyAccountContracts and
+    // We use the SchnorrSingleKeyAccountContract because it implements the interface we need, but ideally
+    // we should have an interface that defines the entrypoint for SingleKeyAccountContracts and
     // load the abi from it.
-    const abi = (EcdsaAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
+    const abi = (SchnorrSingleKeyAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }
