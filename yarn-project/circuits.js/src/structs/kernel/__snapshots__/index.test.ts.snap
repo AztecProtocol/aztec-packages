@@ -412,7 +412,7 @@ value: 0xd09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -951,7 +951,7 @@ value: 0xd09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -1462,7 +1462,7 @@ value: 0xd09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -1698,7 +1698,7 @@ value: 0xd09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104

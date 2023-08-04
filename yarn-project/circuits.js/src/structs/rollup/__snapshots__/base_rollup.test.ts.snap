@@ -206,7 +206,7 @@ value: 0xe08
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x200
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x200
 nullifier_tree_root: 0x201
 contract_tree_root: 0x202
 l1_to_l2_messages_tree_root: 0x203
@@ -451,7 +451,7 @@ value: 0xf08
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x300
+block_hash_values: private_historic_tree_roots: private_data_tree_root: 0x300
 nullifier_tree_root: 0x301
 contract_tree_root: 0x302
 l1_to_l2_messages_tree_root: 0x303
