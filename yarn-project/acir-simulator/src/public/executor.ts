@@ -1,11 +1,11 @@
 import {
   AztecAddress,
   CallContext,
+  ConstantBlockHashData,
   EthAddress,
   Fr,
   FunctionData,
   GlobalVariables,
-  PrivateHistoricTreeRoots,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -37,17 +37,14 @@ const NOIR_MAX_RETURN_VALUES = 4;
  * Handles execution of public functions.
  */
 export class PublicExecutor {
-  private treeRoots: PrivateHistoricTreeRoots;
   constructor(
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
+    private readonly blockHashData: ConstantBlockHashData,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
-  ) {
-    // Store the tree roots on instantiation.
-    this.treeRoots = this.commitmentsDb.getTreeRoots();
-  }
+  ) {}
 
   /**
    * Executes a public execution request.
@@ -63,7 +60,7 @@ export class PublicExecutor {
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress.toString()}:${selectorHex}`);
 
-    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.treeRoots, globalVariables);
+    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockHashData, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];
@@ -85,14 +82,14 @@ export class PublicExecutor {
       },
       getL1ToL2Message: async ([msgKey]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
-        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.treeRoots.l1ToL2MessagesTreeRoot);
+        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
           execution.contractAddress,
           fromACVMField(commitment),
         );
-        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.treeRoots.privateDataTreeRoot);
+        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockHashData.privateHistoricTreeRoots.privateDataTreeRoot);
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);
@@ -217,7 +214,7 @@ export class PublicExecutor {
  * Generates the initial witness for a public function.
  * @param args - The arguments to the function.
  * @param callContext - The call context of the function.
- * @param historicTreeRoots - The historic tree roots.
+ * @param constantBlockHashData - Historic Trees roots and data required to reconstruct block hash.
  * @param globalVariables - The global variables.
  * @param witnessStartIndex - The index where to start inserting the parameters.
  * @returns The initial witness.
@@ -225,10 +222,12 @@ export class PublicExecutor {
 function getInitialWitness(
   args: Fr[],
   callContext: CallContext,
-  historicTreeRoots: PrivateHistoricTreeRoots,
+  constantBlockHashData: ConstantBlockHashData,
   globalVariables: GlobalVariables,
   witnessStartIndex = 1,
 ) {
+  const { privateHistoricTreeRoots } = constantBlockHashData;
+
   return toACVMWitness(witnessStartIndex, [
     callContext.msgSender,
     callContext.storageContractAddress,
@@ -237,11 +236,13 @@ function getInitialWitness(
     callContext.isStaticCall,
     callContext.isContractDeployment,
 
-    historicTreeRoots.privateDataTreeRoot,
-    historicTreeRoots.nullifierTreeRoot,
-    historicTreeRoots.contractTreeRoot,
-    historicTreeRoots.l1ToL2MessagesTreeRoot,
-    historicTreeRoots.blocksTreeRoot,
+    privateHistoricTreeRoots.privateDataTreeRoot,
+    privateHistoricTreeRoots.nullifierTreeRoot,
+    privateHistoricTreeRoots.contractTreeRoot,
+    privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+    privateHistoricTreeRoots.blocksTreeRoot,
+    constantBlockHashData.prevGlobalVariablesHash,
+    constantBlockHashData.publicDataTreeRoot,
 
     globalVariables.chainId,
     globalVariables.version,
