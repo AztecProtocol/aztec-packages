@@ -8,8 +8,8 @@ import { SchnorrAccountContract } from './contract/schnorr_account_contract.js';
 import { SingleKeyAccountContract } from './contract/single_key_account_contract.js';
 
 export { Account } from './account.js';
-export { AccountContract } from './contract/index.js';
-export { Entrypoint, EntrypointCollection } from './entrypoint/index.js';
+export * from './contract/index.js';
+export * from './entrypoint/index.js';
 export { CompleteAddress };
 
 /** A contract deployment salt. */

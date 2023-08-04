@@ -1,7 +1,7 @@
 import { Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { AztecRPC, PrivateKey } from '@aztec/types';
 
-import { AccountWallet, ContractDeployer, Wallet, generatePublicKey } from '../index.js';
+import { AccountWallet, ContractDeployer, WaitOpts, Wallet, generatePublicKey } from '../index.js';
 import { CompleteAddress, isCompleteAddress } from './complete_address.js';
 import { DeployAccountSentTx } from './deploy_account_sent_tx.js';
 import { AccountContract, Salt } from './index.js';
@@ -80,8 +80,9 @@ export class Account {
   }
 
   /**
-   * Deploys the account contract that backs this account. Uses the salt provided in the constructor
-   * or a randomly generated one. Note that if the Account is constructed with an explicit complete address
+   * Deploys the account contract that backs this account.
+   * Uses the salt provided in the constructor or a randomly generated one.
+   * Note that if the Account is constructed with an explicit complete address
    * it is assumed that the account contract has already been deployed and this method will throw.
    * Registers the account in the RPC server before deploying the contract.
    * @returns A SentTx object that can be waited to get the associated Wallet.
@@ -94,5 +95,18 @@ export class Account {
     const args = await this.accountContract.getDeploymentArgs();
     const sentTx = deployer.deploy(...args).send({ contractAddressSalt: this.salt });
     return new DeployAccountSentTx(wallet, sentTx.getTxHash());
+  }
+
+  /**
+   * Deploys the account contract that backs this account and awaits the tx to be mined.
+   * Uses the salt provided in the constructor or a randomly generated one.
+   * Note that if the Account is constructed with an explicit complete address
+   * it is assumed that the account contract has already been deployed and this method will throw.
+   * Registers the account in the RPC server before deploying the contract.
+   * @param opts - Options to wait for the tx to be mined.
+   * @returns A Wallet instance.
+   */
+  public async waitDeploy(opts: WaitOpts): Promise<Wallet> {
+    return (await this.deploy()).getWallet(opts);
   }
 }
