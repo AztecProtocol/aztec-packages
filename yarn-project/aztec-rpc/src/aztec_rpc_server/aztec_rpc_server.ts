@@ -128,14 +128,6 @@ export class AztecRPCServer implements AztecRPC {
     return await this.db.getAccounts();
   }
 
-  public async getPublicKey(address: AztecAddress): Promise<PublicKey> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) {
-      throw new Error(`Unable to retrieve public key for address ${address.toString()}`);
-    }
-    return Promise.resolve(result[0]);
-  }
-
   public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result) {

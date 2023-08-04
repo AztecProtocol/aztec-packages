@@ -81,15 +81,6 @@ export interface AztecRPC {
   getAccounts(): Promise<AztecAddress[]>;
 
   /**
-   * Retrieve the public key associated with an address.
-   * Throws an error if the account is not found in the key store.
-   *
-   * @param address - The AztecAddress instance representing the account to get public key for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
-   */
-  getPublicKey(address: AztecAddress): Promise<PublicKey>;
-
-  /**
    * Add an array of deployed contracts to the database.
    * Each contract should contain ABI, address, and portalContract information.
    *

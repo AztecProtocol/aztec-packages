@@ -123,9 +123,13 @@ async function main() {
         1,
       );
       const accounts = await wallet.getAccounts();
-      const pubKeys = await Promise.all(accounts.map(acc => wallet.getPublicKey(acc)));
+      const pubKeysAndPartialAddresses = await Promise.all(
+        accounts.map(acc => wallet.getPublicKeyAndPartialAddress(acc)),
+      );
       log(`\nCreated account(s).`);
-      accounts.map((acc, i) => log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeys[i].toString()}\n`));
+      accounts.map((acc, i) =>
+        log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeysAndPartialAddresses[i][0].toString()}\n`),
+      );
     });
 
   program
@@ -156,7 +160,7 @@ async function main() {
         if (!accounts) {
           throw new Error('No public key provided or found in Aztec RPC.');
         }
-        publicKey = await client.getPublicKey(accounts[0]);
+        publicKey = (await client.getPublicKeyAndPartialAddress(accounts[0]))[0];
       }
 
       log(`Using Public Key: ${publicKey.toString()}`);
