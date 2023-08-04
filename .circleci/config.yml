@@ -41,13 +41,20 @@ checkout: &checkout
         exit 1
       }
       cd $HOME
+      mkdir -p .ssh
+      chmod 0700 .ssh
+      retry_10 ssh-keyscan -t rsa github.com >> .ssh/known_hosts
 
+      # A read only key for cloning the repository.
+      echo $GIT_CHECKOUT_KEY | base64 -d > .ssh/id_rsa
+
+      chmod 0600 .ssh/id_rsa
       # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/remote_build/remote_build
       # Shallow checkout this commit.
       mkdir -p project
       cd project
       git init
-      git remote add origin https://github.com/AztecProtocol/aztec-packages
+      git remote add origin $CIRCLE_REPOSITORY_URL
 
       # Only download metadata when fetching.
       retry_10 git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
@@ -472,7 +479,7 @@ jobs:
           name: "Build and test"
           command: build key-store
 
-  noir-contracts:
+  noir-contracts-build:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -481,7 +488,18 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build noir-contracts 32
+          command: cond_spot_run_build noir-contracts-build 32
+
+  noir-contracts:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: build noir-contracts
 
   noir-compiler:
     machine:
@@ -804,18 +822,18 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
           working_directory: yarn-project/end-to-end
 
-  # TODO(AD): Reenable after #1367
-  # uniswap-trade-on-l1-from-l2:
-  #   machine:
-  #     image: ubuntu-2004:202010-01
-  #   resource_class: large
-  #   steps:
-  #     - *checkout
-  #     - *setup_env
-  #     - run:
-  #         name: "Test"
-  #         command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
-  #         working_directory: yarn-project/end-to-end
+
+  uniswap-trade-on-l1-from-l2:
+    machine:       
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts
+          working_directory: yarn-project/end-to-end
 
   integration-archiver-l1-to-l2:
     machine:
@@ -1094,13 +1112,13 @@ workflows:
           <<: *defaults
 
       - l1-contracts: *defaults
-      - noir-contracts: *defaults
+      - noir-contracts-build: *defaults
 
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
             - l1-contracts
-            - noir-contracts
+            - noir-contracts-build
           <<: *defaults
 
       - aztec-js: *yarn_project
@@ -1119,6 +1137,7 @@ workflows:
       - p2p-bootstrap: *yarn_project
       - l1-artifacts: *yarn_project
       - noir-compiler: *yarn_project
+      - noir-contracts: *yarn_project
       - sequencer-client: *yarn_project
       - types: *yarn_project
       - circuits-js: *yarn_project
@@ -1143,6 +1162,7 @@ workflows:
             - p2p-bootstrap
             - l1-artifacts
             - noir-compiler
+            - noir-contracts
             - sequencer-client
             - types
             - circuits-js
@@ -1165,8 +1185,7 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
-      # TODO(AD): Reenable after #1367
-      # - uniswap-trade-on-l1-from-l2: *e2e_test
+      - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
@@ -1191,8 +1210,7 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-pending-commitments-contract
-            # TODO(AD): Reenable after #1367
-            # - uniswap-trade-on-l1-from-l2
+            - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
