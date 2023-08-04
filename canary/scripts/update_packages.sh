@@ -1,6 +1,6 @@
 set -e
 
-VERSION=$1
+VERSION=$(npx semver $1)
 
 echo "Updating Aztec dependencies to version $VERSION"
 

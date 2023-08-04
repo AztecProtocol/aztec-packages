@@ -1,5 +1,5 @@
 FROM node:18-alpine AS builder
-RUN apk update && apk add --no-cache jq
+RUN apk update && apk add --no-cache jq bash
 
 ARG COMMIT_TAG=""
 
@@ -7,6 +7,6 @@ ARG COMMIT_TAG=""
 WORKDIR /usr/src/canary
 COPY . .
 RUN ./scripts/update_packages.sh $COMMIT_TAG
-RUN yarn && yarn info --name-only && yarn build
+RUN yarn && yarn build
 
 ENTRYPOINT ["yarn", "test"]
