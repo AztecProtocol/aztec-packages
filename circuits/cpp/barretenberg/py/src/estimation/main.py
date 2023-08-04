@@ -10,7 +10,11 @@ class ClientStraightGoblin:
         self.num_circuits = num_circuits
         circuits = [CircuitKZG(Ultra(), log_n=13, num_public_inputs=0)
                     for _ in range(num_circuits)]
-        self.goblin = Goblin(circuits)
+        opqueue = []
+        for circuit in circuits[1:]:
+            opqueue += circuit.verifier_msms
+    
+        self.goblin = Goblin(circuits[-1], opqueue)
 
     def summary(self):
         self.goblin.summary()
@@ -24,7 +28,11 @@ class ClientProtogalaxiedGoblin:
                     for _ in range(num_circuits)]
         self.folding_verifier = FoldingVerifier(circuits)
         self.decider = Decider(self.folding_verifier)
-        self.goblin = Goblin([self.folding_verifier, self.decider])
+
+        opqueue = []
+        opqueue += self.folding_verifier.msms
+        opqueue += self.decider.verifier_msms
+        self.goblin = Goblin(self.decider, opqueue)
 
     def summary(self):
         # self.folding_verifier.summary()
@@ -34,7 +42,7 @@ class ClientProtogalaxiedGoblin:
 if __name__ == "__main__":
     num_circuits = 2
     for _ in range(10):
-        print("num circuits: " + str(num_circuits))
+        print(f"num circuits: {num_circuits}")
         print("STRAIGHT GOBLIN")
         client_stack = ClientStraightGoblin(num_circuits)
         client_stack.summary()

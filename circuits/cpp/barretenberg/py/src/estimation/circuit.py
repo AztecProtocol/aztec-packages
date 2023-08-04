@@ -18,7 +18,7 @@ class CircuitNoPCS:
         self.log_n = log_n
         self.num_public_inputs = num_pub_inputs
 
-        self.VerifierMSMs = [MSM(flavor.NUM_POLYNOMIALS),
+        self.verifier_msms = [MSM(flavor.NUM_POLYNOMIALS),
                              MSM(flavor.NUM_SHIFTED_POLYNOMIALS),
                              MSM(2),
                              MSM(2),
@@ -40,20 +40,20 @@ class CircuitNoPCS:
         self.proof_size += COMMITMENT_SIZE
 
     def num_gates_non_native(self):
-        return sum([msm.num_gates_non_native() for msm in self.VerifierMSMs])
+        return sum([msm.num_gates_non_native() for msm in self.verifier_msms])
 
     def num_gates_eccvm(self):
-        return sum([msm.num_gates_eccvm() for msm in self.VerifierMSMs])
+        return sum([msm.num_gates_eccvm() for msm in self.verifier_msms])
 
     def num_gates_translator(self):
-        return sum([msm.num_gates_translator() for msm in self.VerifierMSMs])
+        return sum([msm.num_gates_translator() for msm in self.verifier_msms])
 
 
 class CircuitKZG(CircuitNoPCS):
     def __init__(self, flavor, log_n, num_public_inputs):
         super(CircuitKZG, self).__init__(
             flavor, log_n, num_public_inputs)
-        self.VerifierMSMs += [MSM(1)]
+        self.verifier_msms += [MSM(1)]
         self.proof_size += COMMITMENT_SIZE
 
 
@@ -61,7 +61,7 @@ class CircuitIPA(CircuitNoPCS):
     def __init__(self, flavor, log_n, num_public_inputs):
         super(CircuitIPA, self).__init__(
             flavor, log_n, num_public_inputs)
-        self.VerifierMSMs += [MSM(2 * self.log_n), MSM(1 << self.log_n)]
+        self.verifier_msms += [MSM(2 * self.log_n), MSM(1 << self.log_n)]
 
         # IPA: L and R commitments
         self.proof_size += 2 * COMMITMENT_SIZE * self.log_n
@@ -73,5 +73,5 @@ if __name__ == "__main__":
     # Check against UltraHonkComposerTests.PublicInputs where size is 3816
     circuit = CircuitKZG(
         flavor=Ultra(), log_n=12, num_public_inputs=0)
-    print("Proof size: " + str(circuit.proof_size))
-    print("Non-native verifier size: " + str(circuit.num_gates_eccvm()))
+    print(f"Proof size: {circuit.proof_size}")
+    print(f"Non-native verifier size: {circuit.num_gates_eccvm()}")
