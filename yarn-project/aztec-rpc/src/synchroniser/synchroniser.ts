@@ -138,9 +138,11 @@ export class Synchroniser {
 
   protected async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
     const noteProcessor = this.noteProcessorsToCatchUp[0];
-    if (this.synchedToBlock === 0) {
-      // `work(...)` has not been called yet so the note processor has nothing to catch up to.
-      this.noteProcessors.push(this.noteProcessorsToCatchUp.shift()!);
+    if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
+      // Note processor already synched, nothing to do
+      this.noteProcessorsToCatchUp.shift();
+      this.noteProcessors.push(noteProcessor);
+      return;
     }
 
     const from = noteProcessor.status.syncedToBlock + 1;
