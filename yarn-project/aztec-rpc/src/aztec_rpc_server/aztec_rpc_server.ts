@@ -374,14 +374,11 @@ export class AztecRPCServer implements AztecRPC {
    * @param from - The origin of the request.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(
-    execRequest: FunctionCall,
-    from?: AztecAddress,
-  ) {
+  async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
     const constantBlockHashData = await kernelOracle.getConstantBlockHashData();
-    
+
     const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
