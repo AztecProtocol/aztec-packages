@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
@@ -127,8 +127,69 @@ export class L1CheatCodes {
     this.logger(`Loaded state from ${fileName}`);
   }
 
-  // Good basis for the remaining functions:
-  // https://github.com/foundry-rs/foundry/blob/master/anvil/core/src/eth/mod.rs
+  /**
+   * Load the value at a storage slot of a contract address on L1
+   * @param contract - The contract address
+   * @param slot - The storage slot
+   * @returns - The value at the storage slot in hex
+   */
+  public async getStorageAt(contract: EthAddress, slot: `0x${string}`): Promise<`0x${string}`> {
+    const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), slot, 'latest']);
+    return res.result;
+  }
+
+  /**
+   * Set the value at a storage slot of a contract address on L1
+   * @param contract - The contract address
+   * @param slot - The storage slot
+   * @param value - The value to set the storage slot to
+   */
+  public async setStorageAt(contract: EthAddress, slot: `0x${string}`, value: `0x${string}`): Promise<void> {
+    const res = await this.rpcCall('anvil_setStorageAt', [contract.toString(), slot, value]);
+    if (res.error) throw new Error(`Error setting storage at ${slot}: ${res.error.message}`);
+    this.logger(`Set storage at ${slot} to ${value}`);
+  }
+
+  /**
+   * Send transactions impersonating an externally owned account or contract.
+   * @param who - The address to impersonate
+   */
+  public async impersonate(who: EthAddress): Promise<void> {
+    const res = await this.rpcCall('anvil_impersonateAccount', [who.toString()]);
+    if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
+    this.logger(`Impersonating ${who}`);
+  }
+
+  /**
+   * Stop impersonating an account that you are currently impersonating.
+   * @param who - The address to stop impersonating
+   */
+  public async stopImpersonating(who: EthAddress): Promise<void> {
+    const res = await this.rpcCall('anvil_stopImpersonatingAccount', [who.toString()]);
+    if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
+    this.logger(`Stopped impersonating ${who}`);
+  }
+
+  /**
+   * Set the bytecode for a contract
+   * @param contract - The contract address
+   * @param bytecode - The bytecode to set
+   */
+  public async setBytecode(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
+    const res = await this.rpcCall('anvil_setCode', [contract.toString(), bytecode]);
+    if (res.error) throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
+    this.logger(`Set bytecode for ${contract} to ${bytecode}`);
+  }
+
+  /**
+   * Get the bytecode for a contract
+   * @param contract - The contract address
+   * @returns The bytecode for the contract
+   */
+  public async getBytecode(contract: EthAddress): Promise<`0x${string}`> {
+    const res = await this.rpcCall('eth_getCode', [contract.toString(), 'latest']);
+    return res.result;
+  }
 }
 
 /**

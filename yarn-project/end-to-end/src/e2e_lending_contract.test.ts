@@ -7,7 +7,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { CheatCodes } from './cheat_codes.js';
+import { CheatCodes } from './fixtures/cheat_codes.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_lending_contract', () => {
