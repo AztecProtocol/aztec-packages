@@ -47,7 +47,7 @@ function fetch_image() {
 }
 
 # Ensure ECR repository exists.
-#ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 
 LAST_SUCCESSFUL_COMMIT=$(last_successful_commit $REPOSITORY)
 echo "Last successful commit: $LAST_SUCCESSFUL_COMMIT"
