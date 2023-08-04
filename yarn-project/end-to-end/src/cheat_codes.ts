@@ -5,8 +5,6 @@ import { AztecRPC } from '@aztec/types';
 
 import fs from 'fs';
 
-import fs from 'fs';
-
 const toFr = (value: Fr | bigint): Fr => {
   return typeof value === 'bigint' ? new Fr(value) : value;
 };
