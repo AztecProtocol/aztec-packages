@@ -61,10 +61,10 @@ fn ensure_note_hash_exists<Note, N>(
     note_interface: NoteInterface<Note, N>,
     note: &mut Note,
 ) {
-    // Get a note from oracle and early out if it doesn't exist.
-    let inner_note_hash = compute_inner_note_hash(note_interface, *note);
-
-    // Initialize header of note. Must be done before siloing.
+    // Initialize header of note. Must be done before computing note hashes as it initializes the:
+    // - storage slot (used in inner note hash)
+    // - the contract address (used in siloed note hash)
+    // - and the nonce (used in the unique siloed note hash)
     let set_header = note_interface.set_header;
     let note_header = NoteHeader {
         contract_address: context.inputs.call_context.storage_contract_address,
@@ -74,6 +74,9 @@ fn ensure_note_hash_exists<Note, N>(
         storage_slot
     };
     set_header(note, note_header);
+
+    // Get a note from oracle and early out if it doesn't exist.
+    let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
     let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
     let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);

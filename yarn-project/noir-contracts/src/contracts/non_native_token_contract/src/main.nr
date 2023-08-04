@@ -341,9 +341,9 @@ contract NonNativeToken {
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         if (storage_slot == 2) {
-            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
-        } else {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
     }
 }
