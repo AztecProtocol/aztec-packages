@@ -44,7 +44,7 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
     const [privateCalls, publicCalls] = partition(executions, exec => exec.functionData.isPrivate);
     const wasm = await CircuitsWasm.get();
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(privateCalls, publicCalls);
-    const message = flattenPayloadToBuffer(payload);
+    const message = hashPayload(payload, wasm);
 
     const signature = this.signer.constructSignature(message, this.privateKey).toBuffer();
     const publicKey = await generatePublicKey(this.privateKey);

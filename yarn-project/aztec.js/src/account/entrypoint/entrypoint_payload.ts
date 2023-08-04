@@ -1,5 +1,7 @@
-import { CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, GeneratorIndex } from '@aztec/circuits.js';
+import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { padArrayEnd } from '@aztec/foundation/collection';
+import { IWasmModule } from '@aztec/foundation/wasm';
 import { FunctionCall, PackedArguments, emptyFunctionCall } from '@aztec/types';
 
 // These must match the values defined in yarn-project/noir-libs/noir-aztec/src/entrypoint.nr
@@ -59,10 +61,13 @@ export async function buildPayload(
   };
 }
 
-/** Flattens an entrypoint payload to a buffer (useful for signing) */
-// TODO(https://github.com/AztecProtocol/aztec-packages/issues/1401): Use Pedersen compress before signing payload
-export function flattenPayloadToBuffer(payload: EntrypointPayload) {
-  return Buffer.concat(flattenPayload(payload).map(fr => fr.toBuffer()));
+/** Compresses an entrypoint payload to a 32-byte buffer (useful for signing) */
+export function hashPayload(payload: EntrypointPayload, wasm: IWasmModule) {
+  return pedersenPlookupCompressWithHashIndex(
+    wasm,
+    flattenPayload(payload).map(fr => fr.toBuffer()),
+    GeneratorIndex.CONSTRUCTOR,
+  );
 }
 
 /** Flattens an entrypoint payload */
