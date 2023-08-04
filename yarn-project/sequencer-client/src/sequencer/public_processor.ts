@@ -57,7 +57,10 @@ export class PublicProcessorFactory {
    * @param globalVariables - The global variables for the block being processed.
    * @returns A new instance of a PublicProcessor.
    */
-  public async create(prevGlobalVariables: GlobalVariables, globalVariables: GlobalVariables): Promise<PublicProcessor> {
+  public async create(
+    prevGlobalVariables: GlobalVariables,
+    globalVariables: GlobalVariables,
+  ): Promise<PublicProcessor> {
     const blockHashData = await getConstantBlockHashData(this.merkleTree, prevGlobalVariables);
     return new PublicProcessor(
       this.merkleTree,
@@ -66,7 +69,7 @@ export class PublicProcessorFactory {
       new EmptyPublicProver(),
       this.contractDataSource,
       globalVariables,
-      blockHashData
+      blockHashData,
     );
   }
 }
@@ -131,9 +134,7 @@ export class PublicProcessor {
     }
   }
 
-  protected async processEnqueuedPublicCalls(
-    tx: Tx,
-  ): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
+  protected async processEnqueuedPublicCalls(tx: Tx): Promise<[PublicKernelPublicInputs, Proof, FunctionL2Logs[]]> {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 

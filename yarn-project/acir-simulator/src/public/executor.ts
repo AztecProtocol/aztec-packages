@@ -60,7 +60,12 @@ export class PublicExecutor {
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress.toString()}:${selectorHex}`);
 
-    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockHashData, globalVariables);
+    const initialWitness = getInitialWitness(
+      execution.args,
+      execution.callContext,
+      this.blockHashData,
+      globalVariables,
+    );
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];
@@ -82,14 +87,20 @@ export class PublicExecutor {
       },
       getL1ToL2Message: async ([msgKey]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
-        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot);
+        return toAcvmL1ToL2MessageLoadOracleInputs(
+          messageInputs,
+          this.blockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+        );
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
           execution.contractAddress,
           fromACVMField(commitment),
         );
-        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockHashData.privateHistoricTreeRoots.privateDataTreeRoot);
+        return toAcvmCommitmentLoadOracleInputs(
+          commitmentInputs,
+          this.blockHashData.privateHistoricTreeRoots.privateDataTreeRoot,
+        );
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);

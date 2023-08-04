@@ -39,7 +39,6 @@ describe('ACIR public execution simulator', () => {
   let executor: PublicExecutor;
   let blockHashData: ConstantBlockHashData;
 
-
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
   });

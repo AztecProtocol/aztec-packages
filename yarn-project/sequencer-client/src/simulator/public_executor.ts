@@ -6,7 +6,14 @@ import {
   PublicExecutor,
   PublicStateDB,
 } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, ConstantBlockHashData, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  ConstantBlockHashData,
+  EthAddress,
+  Fr,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
@@ -21,13 +28,13 @@ export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
-  blockHashData: ConstantBlockHashData
+  blockHashData: ConstantBlockHashData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
     new ContractsDataSourcePublicDB(contractDataSource),
     new WorldStateDB(merkleTree, l1toL2MessageSource),
-    blockHashData
+    blockHashData,
   );
 }
 
