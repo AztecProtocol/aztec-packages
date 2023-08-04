@@ -138,6 +138,11 @@ export class Synchroniser {
 
   protected async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
     const noteProcessor = this.noteProcessorsToCatchUp[0];
+    if (this.synchedToBlock === 0) {
+      // `work(...)` has not been called yet so the note processor has nothing to catch up to.
+      this.noteProcessors.push(this.noteProcessorsToCatchUp.shift()!);
+    }
+
     const from = noteProcessor.status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
     limit = Math.min(limit, this.synchedToBlock - from + 1);
@@ -230,14 +235,7 @@ export class Synchroniser {
       return;
     }
 
-    const noteProcessor = new NoteProcessor(publicKey, keyStore, this.db, this.node);
-    if (this.synchedToBlock === 0) {
-      // The main sync thread was never started before and for this reason the synchroniser does not have to catch up
-      this.noteProcessors.push(noteProcessor);
-    } else {
-      // The main sync thread was started before and for this reason the synchroniser has to catch up
-      this.noteProcessorsToCatchUp.push(noteProcessor);
-    }
+    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
   }
 
   /**
