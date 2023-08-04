@@ -317,7 +317,7 @@ describe("uniswap_trade_on_l1_from_l2", () => {
       .send({ origin: owner });
     await consumptionTx.isMined();
     const consumptionReceipt = await consumptionTx.getReceipt();
-    expect(consumptionReceipt.status).toBe(TxStatus.DROPPED);
+    expect(consumptionReceipt.status).toBe(TxStatus.MINED);
     logger(`Consumption Receipt status: ${consumptionReceipt.status}`);
     await expectBalanceOnL2(
       owner,
