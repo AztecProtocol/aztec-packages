@@ -218,6 +218,7 @@ export class PrivateFunctionExecution {
    */
   private writeInputs() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
+
     const blockData = this.context.constantBlockHashData;
     const { privateHistoricTreeRoots } = blockData;
 
@@ -234,8 +235,6 @@ export class PrivateFunctionExecution {
       privateHistoricTreeRoots.contractTreeRoot,
       privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
       privateHistoricTreeRoots.blocksTreeRoot,
-
-      // TODO: may need these
       blockData.prevGlobalVariablesHash,
       blockData.publicDataTreeRoot,
 

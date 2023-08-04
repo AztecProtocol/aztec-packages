@@ -371,16 +371,17 @@ export class AztecRPCServer implements AztecRPC {
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param constantBlockHashData - Data required to rebuild the block hash, it also contains current db roots.
    * @param from - The origin of the request.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
   async #simulateUnconstrained(
     execRequest: FunctionCall,
-    constantBlockHashData: ConstantBlockHashData = ConstantBlockHashData.empty(),
     from?: AztecAddress,
   ) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
+    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
+    const constantBlockHashData = await kernelOracle.getConstantBlockHashData();
+    
     const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
@@ -429,9 +430,6 @@ export class AztecRPCServer implements AztecRPC {
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
     this.log('Proof completed!');
-
-    // TODO: FIX HACK< OVERWRITING THE ROOTS HERE
-    publicInputs.constants.blockHashValues = constantBlockHashData;
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 
