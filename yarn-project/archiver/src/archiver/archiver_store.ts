@@ -256,10 +256,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
-    }
-    if (from > this.l2Blocks.length) {
+    // Return an empty array if we are outside of range
+    if (from < INITIAL_L2_BLOCK_NUM  || from > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;

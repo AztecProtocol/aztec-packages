@@ -163,9 +163,6 @@ export class AztecRPCServer implements AztecRPC {
     // If a negative block number is provided the current block height is fetched.
     if (blockNumber < 0) {
       blockNumber = await this.node.getBlockHeight();
-
-      // TODO: FIX HACK
-      if (blockNumber == 0) return undefined;
     }
     return await this.node.getBlock(blockNumber);
   }

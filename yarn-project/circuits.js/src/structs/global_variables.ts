@@ -31,16 +31,6 @@ export class GlobalVariables {
     return new GlobalVariables(...GlobalVariables.getFields(fields));
   }
 
-  /**
-   * Get the genesis GlobalVariables given a chainId and version.
-   * @param chainId - The chainId of the L2 block.
-   * @param version - The version of the L2 block.
-   * @returns GlobalVariables for the genesis block.
-   */
-  static genesis(chainId: bigint, version: bigint): GlobalVariables {
-    return new GlobalVariables(new Fr(chainId), new Fr(version), Fr.zero(), Fr.zero());
-  }
-
   static empty(): GlobalVariables {
     return new GlobalVariables(Fr.zero(), Fr.zero(), Fr.zero(), Fr.zero());
   }

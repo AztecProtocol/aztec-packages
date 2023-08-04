@@ -84,6 +84,31 @@ describe('HttpNode', () => {
     });
   });
 
+  describe('getBlock', () => {
+    it('should fetch and parse a block', async () => {
+      const block1 = L2Block.random(1);
+      const response = {
+        block: block1.encode(),
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getBlock(1);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block?number=1`);
+      expect(result).toEqual(block1);
+    });
+
+    it('should return undefined if the block is not available', async () => {
+      const response = { block: undefined };
+      setFetchMock(response);
+
+      const result = await httpNode.getBlock(2);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block?number=2`);
+      expect(result).toEqual(undefined);
+    });
+  });
+
   describe('getBlockHeight', () => {
     it('should fetch and return the block height', async () => {
       const response = { blockHeight: 100 };
