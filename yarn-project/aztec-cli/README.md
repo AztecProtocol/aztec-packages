@@ -145,7 +145,7 @@ aztec-cli deploy <contractAbi> [options]
 
 Options:
 
-- `-c, --contract-abi <fileLocation>`: Path to the compiled Noir contract's ABI file in JSON format.
+- `-c, --contract-abi <fileLocation>`: Path to the compiled Noir contract's ABI file in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. ZkTokenContractAbi.
 - `-a, --args <constructorArgs...>` (optional): Contract constructor arguments Default: [].
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 - `-k, --public-key <string>`: Public key of the deployer. If not provided, it will check the RPC for existing ones.
@@ -156,6 +156,12 @@ Example usage:
 
 ```shell
 aztec-cli deploy -c path/to/contract.abi.json -a ...args
+```
+
+With an Aztec example contract:
+
+```shell
+aztec-cli deploy -c ZkTokenContractAbi -a 333 0x134567890abcdef
 ```
 
 ### check-deploy
@@ -314,7 +320,7 @@ aztec-cli call-fn <contractAbi> <contractAddress> <functionName> [functionArgs..
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format.
+- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. ZkTokenContractAbi.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-k, --private-key <string>`: The sender's private key.
 - `-u, --rpcUrl <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
@@ -342,7 +348,7 @@ aztec-cli call <contractAbi> <contractAddress> <functionName> [functionArgs...] 
 Options:
 
 - `'-a, --args [functionArgs...]` (optional): Function arguments. Default: [].
-- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format.
+- `-c, --contract-abi <fileLocation>`: The compiled contract's ABI in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. ZkTokenContractAbi.
 - `-ca, --contract-address <address>`: Address of the contract.
 - `-f, --from <string>`: Public key of the transaction viewer. If empty, it will try to find an account in the RPC.
 - `-u, --rpcUrl <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.

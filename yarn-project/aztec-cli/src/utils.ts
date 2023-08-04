@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC, Contract } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
 import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
@@ -7,6 +7,13 @@ import fs from 'fs';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './cli_encoder.js';
+
+/**
+ * Helper type to dynamically import contarcts.
+ */
+interface ArtifactsType {
+  [key: string]: ContractAbi;
+}
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
@@ -46,8 +53,21 @@ export async function deployAztecContracts(
  * @param fileDir - The directory of the compiled contract ABI.
  * @returns The parsed ContractABI.
  */
-export function getContractAbi(fileDir: string, log: LogFn) {
-  const contents = fs.readFileSync(fileDir, 'utf8');
+export async function getContractAbi(fileDir: string, log: LogFn) {
+  // first check if it's a noir-contracts example
+  let contents: string;
+  const artifacts: ArtifactsType = await import('@aztec/noir-contracts/artifacts');
+  if (artifacts[fileDir]) {
+    return artifacts[fileDir] as ContractAbi;
+  }
+
+  try {
+    contents = fs.readFileSync(fileDir, 'utf8');
+  } catch {
+    throw Error(`Contract ${fileDir} not found`);
+  }
+
+  // if not found, try reading as path directly
   let contractAbi: ContractAbi;
   try {
     contractAbi = JSON.parse(contents) as ContractAbi;
@@ -55,12 +75,6 @@ export function getContractAbi(fileDir: string, log: LogFn) {
     log('Invalid file used. Please try again.');
     throw err;
   }
-  return contractAbi;
-}
-
-async function getExampleContractAbi(contractName: string): Promise<Contract> {
-  const artifacts = await import('@aztec/noir-contracts/artifacts');
-  const contractAbi = artifacts[contractName] as Contract;
   return contractAbi;
 }
 
@@ -98,7 +112,7 @@ export async function getTxSender(client: AztecRPC, _from?: string) {
  * @param log - Logger instance that will output to the CLI
  * @returns Formatted contract address, function arguments and caller's aztec address.
  */
-export function prepTx(
+export async function prepTx(
   contractFile: string,
   _contractAddress: string,
   functionName: string,
@@ -111,7 +125,7 @@ export function prepTx(
   } catch {
     throw new Error(`Unable to parse contract address ${_contractAddress}.`);
   }
-  const contractAbi = getContractAbi(contractFile, log);
+  const contractAbi = await getContractAbi(contractFile, log);
   const functionAbi = getAbiFunction(contractAbi, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
