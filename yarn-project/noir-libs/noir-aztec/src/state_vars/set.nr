@@ -4,6 +4,7 @@ use crate::note::{
     note_getter::{get_notes, ensure_note_exists, ensure_commitment_exists},
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
+    utils::compute_inner_note_hash,
 };
 use crate::oracle::create_commitment::create_commitment;
 use crate::types::option::Option;
@@ -23,8 +24,7 @@ impl<Note, N> Set<Note, N> {
     }
 
     fn insert_from_public(self, note: Note) {
-        let compute_note_hash = self.note_interface.compute_note_hash;
-        let note_hash = compute_note_hash(note);
+        let note_hash = compute_inner_note_hash(self.note_interface, note);
         create_commitment(note_hash);
     }
 

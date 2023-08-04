@@ -12,6 +12,7 @@ use crate::note::{
     note_header::NoteHeader,
     utils::compute_note_hash_for_read_or_nullify,
     utils::compute_unique_siloed_note_hash,
+    utils::compute_inner_note_hash,
     utils::compute_siloed_note_hash,
 };
 use crate::messaging::get_commitment_getter_data::make_commitment_getter_data;
@@ -61,14 +62,14 @@ fn ensure_commitment_exists<Note, N>(
     note: &mut Note,
 ) {
     // Get a note from oracle and early out if it doesn't exist.
-    let compute_note_hash = note_interface.compute_note_hash;
-    let inner_note_hash = compute_note_hash(*note);
+    let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
     let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
     let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
     // unique_siloed_note_hash once public kernel applies nonces
     let saved_siloed_note_hash = deserialized_oracle_ret.message;
+
     assert(saved_siloed_note_hash != 0); // TODO(dbanks12): necessary?
 
     // Only copy over the header to the original note to make sure the preimage is the same.

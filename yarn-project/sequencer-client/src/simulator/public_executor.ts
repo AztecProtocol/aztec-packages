@@ -93,20 +93,20 @@ export class WorldStateDB implements CommitmentsDB {
 
     return {
       message: message.toFieldArray(),
-      index,
       siblingPath: siblingPath.toFieldArray(),
+      index,
     };
   }
 
-  public async getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, commitment);
+  public async getCommitmentOracle(address: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, innerCommitment);
     const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedCommitment.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
     return {
       commitment: siloedCommitment,
-      index,
       siblingPath: siblingPath.toFieldArray(),
+      index,
     };
   }
 

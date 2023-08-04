@@ -24,7 +24,11 @@ contract NonNativeToken {
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
-    use crate::transparent_note::TransparentNote;
+    use crate::transparent_note::{
+        TransparentNote,
+        TransparentNoteMethods,
+        TRANSPARENT_NOTE_LEN,
+    };
 
     use crate::storage::Storage;
     use crate::hash::{get_mint_content_hash, get_withdraw_content_hash};
@@ -336,6 +340,10 @@ contract NonNativeToken {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        if (storage_slot == 2) {
+            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
+        }
     }
 }
