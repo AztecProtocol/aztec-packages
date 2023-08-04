@@ -822,9 +822,8 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
           working_directory: yarn-project/end-to-end
 
-
   uniswap-trade-on-l1-from-l2:
-    machine:       
+    machine:
       image: ubuntu-2004:202010-01
     resource_class: large
     steps:
@@ -1016,7 +1015,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: build canary
+          command: build canary true
 
   run-canary:
     docker:

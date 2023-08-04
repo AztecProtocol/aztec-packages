@@ -35,7 +35,11 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
 fi
 
 circuits/cpp/bootstrap.sh
-cd canary && yarn build && cd ..
+
+# Build the canary
+cd canary 
+yarn build 
+cd ..
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
