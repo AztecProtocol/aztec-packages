@@ -134,7 +134,7 @@ export class Synchroniser {
     }
   }
 
-  private async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
+  protected async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
     const noteProcessor = this.noteProcessorsToCatchUp[0];
     const from = noteProcessor.status.syncedToBlock + 1;
     // Ensuring that the note processor does not sync further than the main sync.
