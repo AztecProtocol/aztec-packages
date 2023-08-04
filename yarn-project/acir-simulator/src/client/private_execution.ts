@@ -219,7 +219,7 @@ export class PrivateFunctionExecution {
   private writeInputs() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
     const blockData = this.context.constantBlockHashData;
-    const {privateHistoricTreeRoots} = blockData;
+    const { privateHistoricTreeRoots } = blockData;
 
     const fields = [
       this.callContext.msgSender,

@@ -1,4 +1,9 @@
-import { CircuitsWasm, ConstantBlockHashData, FunctionData, PrivateHistoricTreeRoots, PrivateKey } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  ConstantBlockHashData,
+  FunctionData,
+  PrivateKey,
+} from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';

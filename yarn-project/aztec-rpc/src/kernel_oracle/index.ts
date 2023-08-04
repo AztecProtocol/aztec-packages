@@ -1,10 +1,19 @@
-import { AztecAddress, CircuitsWasm, ConstantBlockHashData, Fr, GlobalVariables, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  ConstantBlockHashData,
+  Fr,
+  GlobalVariables,
+  MembershipWitness,
+  PRIVATE_DATA_TREE_HEIGHT,
+  PrivateHistoricTreeRoots,
+} from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { Tuple } from '@aztec/foundation/serialize';
 import { AztecNode, MerkleTreeId } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
-import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.

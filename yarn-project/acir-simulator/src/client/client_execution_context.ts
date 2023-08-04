@@ -199,7 +199,10 @@ export class ClientTxExecutionContext {
    */
   public async getL1ToL2Message(msgKey: Fr): Promise<ACVMField[]> {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
-    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.constantBlockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot);
+    return toAcvmL1ToL2MessageLoadOracleInputs(
+      messageInputs,
+      this.constantBlockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+    );
   }
 
   /**
@@ -212,7 +215,10 @@ export class ClientTxExecutionContext {
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.constantBlockHashData.privateHistoricTreeRoots.privateDataTreeRoot);
+    return toAcvmCommitmentLoadOracleInputs(
+      commitmentInputs,
+      this.constantBlockHashData.privateHistoricTreeRoots.privateDataTreeRoot,
+    );
   }
 
   /**

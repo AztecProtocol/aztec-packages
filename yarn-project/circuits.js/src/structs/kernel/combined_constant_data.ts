@@ -1,8 +1,8 @@
 import { BufferReader } from '@aztec/foundation/serialize';
+
 import { serializeToBuffer } from '../../utils/serialize.js';
 import { TxContext } from '../tx_context.js';
 import { ConstantBlockHashData } from './constant_block_hash_data.js';
-
 
 /**
  * Data that is constant/not modified by neither of the kernels.

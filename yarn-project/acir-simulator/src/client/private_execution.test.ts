@@ -132,11 +132,7 @@ describe('Private Execution test suite', () => {
     const prevRoots = blockHashData.privateHistoricTreeRoots.toBuffer();
     const rootIndex = name === 'privateData' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.slice(0, rootIndex), newRoot, prevRoots.slice(rootIndex + 32)]);
-    blockHashData = new ConstantBlockHashData(
-      PrivateHistoricTreeRoots.fromBuffer(newRoots),
-        Fr.ZERO,
-      Fr.ZERO, 
-    );
+    blockHashData = new ConstantBlockHashData(PrivateHistoricTreeRoots.fromBuffer(newRoots), Fr.ZERO, Fr.ZERO);
 
     return trees[name];
   };

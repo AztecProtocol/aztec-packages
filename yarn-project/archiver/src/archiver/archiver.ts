@@ -278,7 +278,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
       number = this.store.getBlocksLength();
     }
     const blocks = await this.store.getL2Blocks(number, 1);
-    return (blocks.length === 0) ? undefined : blocks[0];
+    return blocks.length === 0 ? undefined : blocks[0];
   }
 
   /**

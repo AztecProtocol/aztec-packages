@@ -3,14 +3,13 @@ import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
   Fr,
-  GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getConstantBlockHashData } from '@aztec/sequencer-client';
+import { SequencerClient } from '@aztec/sequencer-client';
 import {
   AztecNode,
   ContractData,

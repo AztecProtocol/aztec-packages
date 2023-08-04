@@ -410,7 +410,6 @@ export class AztecRPCServer implements AztecRPC {
     return result;
   }
 
-
   /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
    * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
@@ -425,7 +424,6 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateAndProve(txExecutionRequest: TxExecutionRequest, newContract: ContractDao | undefined) {
     // TODO - Pause syncing while simulating.
-
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);

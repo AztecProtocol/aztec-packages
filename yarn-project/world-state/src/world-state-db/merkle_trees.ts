@@ -10,7 +10,7 @@ import {
   PRIVATE_DATA_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { computeBlockHashWithGlobals, computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { computeBlockHashWithGlobals } from '@aztec/circuits.js/abis';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -151,7 +151,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    */
   public async updateHistoricBlocksTree(globals: GlobalVariables, includeUncommitted: boolean) {
-    const blockHash = await this.getCurrentBlockHash(globals, includeUncommitted)
+    const blockHash = await this.getCurrentBlockHash(globals, includeUncommitted);
     await this.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 

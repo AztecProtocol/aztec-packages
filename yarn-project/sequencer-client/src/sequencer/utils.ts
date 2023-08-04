@@ -1,10 +1,4 @@
-import {
-  CircuitsWasm,
-  ConstantBlockHashData,
-  Fr,
-  GlobalVariables,
-  PrivateHistoricTreeRoots,
-} from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantBlockHashData, Fr, GlobalVariables, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
