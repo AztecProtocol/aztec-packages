@@ -19,7 +19,6 @@ struct TransparentNote {
     secret_hash: Field,
     // the fields below are not serialised/deserialised
     secret: Field,
-    leafIndex: Field,
     header: NoteHeader,
 }
 
@@ -32,7 +31,6 @@ impl TransparentNote {
             amount: amount,
             secret_hash: secret_hash,
             secret: 0,
-            leafIndex: 0,
             header: NoteHeader::empty(),
         }
     }
@@ -44,7 +42,6 @@ impl TransparentNote {
             amount: amount,
             secret_hash: TransparentNote::compute_secret_hash(secret),
             secret: secret,
-            leafIndex: 0,
             header: NoteHeader::empty(),
         }
     }
@@ -61,7 +58,6 @@ impl TransparentNote {
             amount: preimage[0],
             secret_hash: preimage[1],
             secret: 0,
-            leafIndex: 0,
             header: NoteHeader::empty(),
         }
     }
@@ -77,7 +73,7 @@ impl TransparentNote {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should use
         // `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
-        pedersen([self.secret, siloed_note_hash, self.leafIndex])[0]
+        pedersen([self.secret, siloed_note_hash])[0]
     }
 
     fn dummy() -> Self {
@@ -85,7 +81,6 @@ impl TransparentNote {
             amount: 0,
             secret_hash: 0,
             secret: 0,
-            leafIndex: 0,
             header: NoteHeader::empty(),
         }
     }

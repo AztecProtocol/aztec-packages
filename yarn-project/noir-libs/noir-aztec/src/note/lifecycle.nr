@@ -16,13 +16,12 @@ fn create_note<Note, N>(
     note: &mut Note,
     note_interface: NoteInterface<Note, N>,
 ) {
-    let mut inner_note_hash = 0;
     let contract_address = context.inputs.call_context.storage_contract_address;
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0 };
     let set_header = note_interface.set_header;
     set_header(note, header);
-    inner_note_hash = compute_inner_note_hash(note_interface, *note);
+    let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
     let serialise = note_interface.serialise;
     let preimage = serialise(*note);
@@ -37,13 +36,12 @@ fn create_note_hash_from_public<Note, N>(
     note: &mut Note,
     note_interface: NoteInterface<Note, N>,
 ) {
-    let mut inner_note_hash = 0;
     let contract_address = inputs.call_context.storage_contract_address;
 
     let header = NoteHeader { contract_address, storage_slot, nonce: 0 };
     let set_header = note_interface.set_header;
     set_header(note, header);
-    inner_note_hash = compute_inner_note_hash(note_interface, *note);
+    let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
     create_commitment(inner_note_hash);
 }
