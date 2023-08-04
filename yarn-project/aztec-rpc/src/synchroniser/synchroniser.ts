@@ -52,8 +52,10 @@ export class Synchroniser {
     const run = async () => {
       while (this.running) {
         if (this.noteProcessorsToCatchUp.length > 0) {
+          // There is a note processor that needs to catch up. We hijack the main loop to catch up the note processor.
           await this.workNoteProcessorCatchUp(limit, retryInterval);
         } else {
+          // No note processor needs to catch up. We continue with the normal flow.
           await this.work(limit, retryInterval);
         }
       }
@@ -171,7 +173,7 @@ export class Synchroniser {
       await noteProcessor.process(blockContexts, encryptedLogs);
 
       if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
-        // Note processor caught up, move it to noteProcessors
+        // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
         this.noteProcessorsToCatchUp.shift();
         this.noteProcessors.push(noteProcessor);
       }
