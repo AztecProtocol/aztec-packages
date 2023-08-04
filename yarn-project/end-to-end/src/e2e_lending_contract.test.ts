@@ -49,15 +49,15 @@ describe('e2e_lending_contract', () => {
     const toFields = (res: any) => res[0].map((v: number | bigint | Fr) => new Fr(v));
 
     [storageValues['interestAccumulator'], storageValues['last_updated_ts']] = toFields(
-      await contract.methods.getTot(0).view({ from: account.address }),
+      await contract.methods.getTot(0).view(),
     );
 
     [storageValues['private_collateral'], storageValues['private_debt']] = toFields(
-      await contract.methods.getPosition(accountKey).view({ from: account.address }),
+      await contract.methods.getPosition(accountKey).view(),
     );
 
     [storageValues['public_collateral'], storageValues['public_debt']] = toFields(
-      await contract.methods.getPosition(account.address.toField()).view({ from: account.address }),
+      await contract.methods.getPosition(account.address.toField()).view(),
     );
 
     return storageValues;
