@@ -28,10 +28,6 @@ export class StoredKeyAccountContract implements AccountImplementation {
     this.log = createDebugLogger('aztec:client:accounts:stored_key');
   }
 
-  getAddress(): AztecAddress {
-    return this.address;
-  }
-
   async createTxExecutionRequest(
     executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},

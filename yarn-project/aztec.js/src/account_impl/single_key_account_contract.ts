@@ -33,10 +33,6 @@ export class SingleKeyAccountContract implements AccountImplementation {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  getAddress(): AztecAddress {
-    return this.address;
-  }
-
   async createTxExecutionRequest(
     executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},

@@ -14,12 +14,6 @@ export type CreateTxRequestOpts = {
 /** Represents an implementation for a user account contract. Knows how to encode and sign a tx for that particular implementation. */
 export interface AccountImplementation {
   /**
-   * Returns the address for the account contract used by this implementation.
-   * @returns The address.
-   */
-  getAddress(): AztecAddress;
-
-  /**
    * Generates an authenticated request out of set of intents
    * @param executions - The execution intents to be run.
    * @param opts - Options.

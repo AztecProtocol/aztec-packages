@@ -18,18 +18,13 @@ export class AccountCollection implements AccountImplementation {
     this.accounts.set(addr.toString(), impl);
   }
 
-  getAddress(): AztecAddress {
-    if (!this.accounts) throw new Error(`No accounts registered`);
-    return AztecAddress.fromString(this.accounts.keys().next().value as string);
-  }
-
   public createTxExecutionRequest(
     executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
-    const sender = opts.origin ?? this.getAddress();
-    const impl = this.accounts.get(sender.toString());
-    if (!impl) throw new Error(`No account implementation registered for ${sender}`);
+    const defaultAccount = this.accounts.values().next().value as AccountImplementation;
+    const impl = opts.origin ? this.accounts.get(opts.origin.toString()) : defaultAccount;
+    if (!impl) throw new Error(`No account implementation registered for ${opts.origin}`);
     return impl.createTxExecutionRequest(executions, opts);
   }
 }
