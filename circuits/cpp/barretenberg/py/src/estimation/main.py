@@ -42,16 +42,17 @@ class ClientProtogalaxiedGoblin:
 if __name__ == "__main__":
     num_circuits = 2
     for _ in range(10):
+        print("===========================")
         print(f"num circuits: {num_circuits}")
         print("STRAIGHT GOBLIN")
         client_stack = ClientStraightGoblin(num_circuits)
         client_stack.summary()
-        print("---------------------")
+        print("---------------------------")
 
         print("PROTOGALAXIED GOBLIN")
         client_stack = ClientProtogalaxiedGoblin(num_circuits)
 
         client_stack.summary()
-        print("=====================")
+        print("===========================\n")
 
         num_circuits *= 2

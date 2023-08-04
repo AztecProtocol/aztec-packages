@@ -15,10 +15,10 @@ class MSM:
         return 300 + 2 * self.length
 
     def time_native(self):
-        return 5 * self.length
+        return 1 * self.length
 
     def time_non_native(self):
-        return 2457 + 316 * self.length
+        return 286 + 43 * self.length
 
 
 if __name__ == "__main__":

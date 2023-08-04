@@ -381,7 +381,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(result_y, expected_point.y);
         };
 
-        for (size_t i = 2; i < 20; i++) {
+        for (size_t i = 2; i < 40; i++) {
             run_test(i);
         }
     }
