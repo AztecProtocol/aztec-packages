@@ -20,7 +20,7 @@
     "@jridgewell/gen-mapping" "^0.3.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
-"@aztec/aztec.js@0.1.0-alpha30", "@aztec/aztec.js@^0.1.0-alpha29":
+"@aztec/aztec.js@0.1.0-alpha30", "@aztec/aztec.js@latest":
   version "0.1.0-alpha30"
   resolved "https://registry.yarnpkg.com/@aztec/aztec.js/-/aztec.js-0.1.0-alpha30.tgz#4299d7611f921fb4b71394e0cd7991f6150940c8"
   integrity sha512-0JBvcEgDys7RVwGX1bdVCeiFfanyOI/Uz0OArRZGUhHgl8dSXcAtwvC+HsXbefcSGygbiQs+WWWo4+UXXXhqMA==
@@ -70,14 +70,14 @@
     memdown "^6.1.1"
     sha3 "^2.1.4"
 
-"@aztec/l1-artifacts@^0.1.0-alpha29":
-  version "0.1.0-alpha29"
-  resolved "https://registry.yarnpkg.com/@aztec/l1-artifacts/-/l1-artifacts-0.1.0-alpha29.tgz#05d9388d9e31fcc135bbe0c3a3a92bbdfd499eae"
-  integrity sha512-Wg8o47sI/7y43CuyrWv9JrL8pqS2fIRR8b176iidzL++7SH2js38MKec2qz/Ltz2D/Nqa0eZSP45OzMuVbwbqQ==
+"@aztec/l1-artifacts@latest":
+  version "0.1.0-alpha30"
+  resolved "https://registry.yarnpkg.com/@aztec/l1-artifacts/-/l1-artifacts-0.1.0-alpha30.tgz#1d53e2a78ec5b4217648033889a83b52ae965884"
+  integrity sha512-Wom3Hw16HxG5fMNLk6ckx6x5O/+aj/AbB4puoYnXrcM51wqfbdo8wSXGjj4z0isIItJlU46XL6DXgc2/we5q8g==
   dependencies:
     tslib "^2.4.0"
 
-"@aztec/noir-contracts@^0.1.0-alpha29":
+"@aztec/noir-contracts@latest":
   version "0.1.0-alpha30"
   resolved "https://registry.yarnpkg.com/@aztec/noir-contracts/-/noir-contracts-0.1.0-alpha30.tgz#92b9f06a520e12313ed423a4e724b61e2961351a"
   integrity sha512-PIeZOj7gXF6+TWiJV+p7PLmTa57lcUhVZAyuBDUa9OiMLHQ8c/1hXXU3hCMz2wiGUxhcwjdhVSsahjU+fb8Iqw==

@@ -1,13 +1,12 @@
 FROM node:18-alpine AS builder
+RUN apk update && apk add --no-cache jq
 
-# Build canary
+ARG COMMIT_TAG=""
+
+#Build canary
 WORKDIR /usr/src/canary
 COPY . .
-RUN yarn && yarn build
+RUN ./scripts/update_packages.sh $COMMIT_TAG
+RUN yarn && yarn info --name-only && yarn build
 
-# Create final, minimal size image.
-FROM node:18-alpine
-RUN apk update && apk add --no-cache curl jq bash
-COPY --from=builder /usr/src /usr/src
-WORKDIR /usr/src/canary
 ENTRYPOINT ["yarn", "test"]
