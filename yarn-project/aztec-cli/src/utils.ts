@@ -49,6 +49,15 @@ export async function deployAztecContracts(
 }
 
 /**
+ * Gets all contracts available in \@aztec/noir-contracts.
+ * @returns The contract ABIs.
+ */
+export async function getExampleContractArtifacts() {
+  const artifacts: ArtifactsType = await import('@aztec/noir-contracts/artifacts');
+  return artifacts;
+}
+
+/**
  * Reads a file and converts it to an Aztec Contract ABI.
  * @param fileDir - The directory of the compiled contract ABI.
  * @returns The parsed ContractABI.
@@ -56,7 +65,7 @@ export async function deployAztecContracts(
 export async function getContractAbi(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
   let contents: string;
-  const artifacts: ArtifactsType = await import('@aztec/noir-contracts/artifacts');
+  const artifacts = await getExampleContractArtifacts();
   if (artifacts[fileDir]) {
     return artifacts[fileDir] as ContractAbi;
   }

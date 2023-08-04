@@ -20,7 +20,14 @@ import { Command } from 'commander';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { encodeArgs, parseStructString } from './cli_encoder.js';
-import { deployAztecContracts, getAbiFunction, getContractAbi, getTxSender, prepTx } from './utils.js';
+import {
+  deployAztecContracts,
+  getAbiFunction,
+  getContractAbi,
+  getExampleContractArtifacts,
+  getTxSender,
+  prepTx,
+} from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
 
@@ -428,6 +435,15 @@ async function main() {
       const client = createAztecRpcClient(options.rpcUrl);
       const num = await client.getBlockNum();
       log(`${num}\n`);
+    });
+
+  program
+    .command('example-contracts')
+    .description('Lists the example contracts available to deploy from @aztec/noir-contracts')
+    .action(async () => {
+      const abisList = await getExampleContractArtifacts();
+      const names = Object.keys(abisList);
+      names.forEach(name => log(name));
     });
 
   await program.parseAsync(process.argv);

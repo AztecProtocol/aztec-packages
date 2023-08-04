@@ -145,7 +145,7 @@ aztec-cli deploy <contractAbi> [options]
 
 Options:
 
-- `-c, --contract-abi <fileLocation>`: Path to the compiled Noir contract's ABI file in JSON format. You can also use one of Aztec's example contracts found in (@aztec/noir-contracts)[https://www.npmjs.com/package/@aztec/noir-contracts], e.g. ZkTokenContractAbi.
+- `-c, --contract-abi <fileLocation>`: Path to the compiled Noir contract's ABI file in JSON format. You can also use one of Aztec's example contracts found in [@aztec/noir-contracts](https://www.npmjs.com/package/@aztec/noir-contracts), e.g. ZkTokenContractAbi. You can get a full ist of the available contracts with `aztec-cli example-contracts`
 - `-a, --args <constructorArgs...>` (optional): Contract constructor arguments Default: [].
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 - `-k, --public-key <string>`: Public key of the deployer. If not provided, it will check the RPC for existing ones.
@@ -238,7 +238,8 @@ aztec-cli get-contract-data 0x123456789abcdef123456789abcdef12345678
 
 ### register-public-key
 
-Register an account's public key to the RPC server
+Register an account's public key to the RPC server.
+To read about how keys are generated and used, head to our docs [here](https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/aztec/developer/wallet-providers/keys.md#addresses-partial-addresses-and-public-keys).
 
 Syntax:
 
@@ -415,7 +416,7 @@ Gets the current Aztec L2 block number.
 Syntax:
 
 ```shell
-aztec-cli block-num [options]
+aztec-cli block-number
 ```
 
 Options:
@@ -424,10 +425,14 @@ Options:
 
 This command retrieves and displays the current Aztec L2 block number.
 
-Example usage:
+### example-contracts
+
+Lists the contracts available in [@aztec/noir-contracts](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts)
+
+Syntax:
 
 ```shell
-aztec-cli block-num
+aztec-cli example-contracts
 ```
 
 ## Conclusion
