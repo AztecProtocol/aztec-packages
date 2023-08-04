@@ -46,7 +46,7 @@ describe('e2e_lending_contract', () => {
   const getStorageSnapshot = async (contract: LendingContract, aztecNode: AztecRPC, account: Account) => {
     const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
-    const toFields = (res: any) => res[0].map((v: number | bigint | Fr) => new Fr(v));
+    const toFields = (res: any[]) => res[0].map((v: number | bigint | Fr) => new Fr(v));
 
     [storageValues['interestAccumulator'], storageValues['last_updated_ts']] = toFields(
       await contract.methods.getTot(0).view(),

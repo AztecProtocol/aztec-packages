@@ -30,7 +30,7 @@ export class UnconstrainedFunctionExecution {
    * @param aztecNode - The aztec node.
    * @returns The return values of the executed function.
    */
-  public async run(aztecNode: AztecNode | undefined = undefined): Promise<any[]> {
+  public async run(aztecNode?: AztecNode): Promise<any[]> {
     this.log(
       `Executing unconstrained function ${this.contractAddress.toShortString()}:${this.functionData.functionSelectorBuffer.toString(
         'hex',
@@ -57,7 +57,7 @@ export class UnconstrainedFunctionExecution {
       getL1ToL2Message: ([msgKey]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
       getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
       storageRead: async ([slot], [numberOfElements]) => {
-        if (aztecNode === undefined) {
+        if (!aztecNode) {
           this.log(`Aztec node is undefined, cannot read public storage`);
           throw new Error(`Aztec node is undefined, cannot read public storage`);
         }
