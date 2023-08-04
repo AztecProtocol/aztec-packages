@@ -5,40 +5,22 @@
 #include "aztec3/circuits/abis/constant_block_hash_data.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
-#include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
+
+
+namespace {
+using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::ConstantBlockHashData;
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
+using aztec3::utils::CircuitErrorCode;
+using aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::is_array_empty;
-using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
 
-namespace aztec3::circuits::kernel::private_kernel {
-
-// using plonk::stdlib::merkle_tree::
-
-// // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
-// // private_call.call_stack_item.public_inputs!
-// CT::AggregationObject verify_proofs(Builder& builder,
-//                                     PrivateKernelInputsInit<CT> const& private_inputs,
-//                                     size_t const& num_private_call_public_inputs,
-//                                     size_t const& num_private_kernel_public_inputs)
-// {
-//     CT::AggregationObject aggregation_object = Aggregator::aggregate(
-//         &builder, private_inputs.private_call.vk, private_inputs.private_call.proof,
-//         num_private_call_public_inputs);
-
-//     Aggregator::aggregate(&builder,
-//                           private_inputs.previous_kernel.vk,
-//                           private_inputs.previous_kernel.proof,
-//                           num_private_kernel_public_inputs,
-//                           aggregation_object);
-
-//     return aggregation_object;
-// }
 
 void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                            KernelCircuitPublicInputs<NT>& public_inputs)
@@ -68,8 +50,33 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
     // Set the constants in public_inputs.
     public_inputs.constants = constants;
 }
+}  // namespace
 
-void validate_this_private_call_against_tx_request(DummyBuilder& builder,
+namespace aztec3::circuits::kernel::private_kernel {
+
+// using plonk::stdlib::merkle_tree::
+
+// // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
+// // private_call.call_stack_item.public_inputs!
+// CT::AggregationObject verify_proofs(Builder& builder,
+//                                     PrivateKernelInputsInit<CT> const& private_inputs,
+//                                     size_t const& num_private_call_public_inputs,
+//                                     size_t const& num_private_kernel_public_inputs)
+// {
+//     CT::AggregationObject aggregation_object = Aggregator::aggregate(
+//         &builder, private_inputs.private_call.vk, private_inputs.private_call.proof,
+//         num_private_call_public_inputs);
+
+//     Aggregator::aggregate(&builder,
+//                           private_inputs.previous_kernel.vk,
+//                           private_inputs.previous_kernel.proof,
+//                           num_private_kernel_public_inputs,
+//                           aggregation_object);
+
+//     return aggregation_object;
+// }
+
+void validate_this_private_call_against_tx_request(DummyCircuitBuilder& builder,
                                                    PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
@@ -96,7 +103,7 @@ void validate_this_private_call_against_tx_request(DummyBuilder& builder,
         CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
-void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
+void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -126,7 +133,7 @@ void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& p
                       CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
-void update_end_values(DummyBuilder& builder,
+void update_end_values(DummyCircuitBuilder& builder,
                        PrivateKernelInputsInit<NT> const& private_inputs,
                        KernelCircuitPublicInputs<NT>& public_inputs)
 {
@@ -171,7 +178,7 @@ void update_end_values(DummyBuilder& builder,
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
 // more-safely ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder& builder,
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuitBuilder& builder,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
@@ -184,15 +191,10 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder
 
     validate_this_private_call_against_tx_request(builder, private_inputs);
 
-    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
-    // Noir doesn't have hash index so it can't hash private call stack item correctly
-    // TODO(dbanks12): may need to comment out hash check in here according to TODO above
-    // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
-    // common_validate_call_stack(builder, private_inputs.private_call);
+    common_validate_call_stack(builder, private_inputs.private_call);
 
     common_validate_read_requests(
         builder,
-        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
         public_inputs.constants.block_hash_values.private_historic_tree_roots.private_data_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);

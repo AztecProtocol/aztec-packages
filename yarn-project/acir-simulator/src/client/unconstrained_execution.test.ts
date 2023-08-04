@@ -1,9 +1,4 @@
-import {
-  CircuitsWasm,
-  ConstantBlockHashData,
-  FunctionData,
-  PrivateKey,
-} from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantBlockHashData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -11,7 +6,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
-import { ExecutionRequest } from '@aztec/types';
+import { FunctionCall } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -74,13 +69,12 @@ describe('Unconstrained Execution test suite', () => {
           nonce: Fr.random(),
           isSome: new Fr(1),
           preimage,
-          nullifier: Fr.random(),
+          siloedNullifier: Fr.random(),
           index: BigInt(index),
         })),
       );
 
-      const execRequest: ExecutionRequest = {
-        from: AztecAddress.random(),
+      const execRequest: FunctionCall = {
         to: contractAddress,
         functionData: new FunctionData(Buffer.alloc(4), false, true, true),
         args: encodeArguments(abi, [owner]),
@@ -88,6 +82,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const result = await acirSimulator.runUnconstrained(
         execRequest,
+        AztecAddress.random(),
         abi,
         AztecAddress.random(),
         EthAddress.ZERO,
