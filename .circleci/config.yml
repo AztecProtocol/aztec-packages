@@ -1026,7 +1026,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests canary uniswap_trade_on_l1_from_l2.test.ts docker-compose.yml
+          command: spot_run_tests canary uniswap_trade_on_l1_from_l2.test.ts docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^v.*/
