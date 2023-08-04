@@ -64,6 +64,17 @@ fn ensure_note_hash_exists<Note, N>(
     // Get a note from oracle and early out if it doesn't exist.
     let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
+    // Initialize header of note. Must be done before siloing.
+    let set_header = note_interface.set_header;
+    let note_header = NoteHeader {
+        contract_address: context.inputs.call_context.storage_contract_address,
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
+        // real nonce (once public kernel applies nonces).
+        nonce: 0,
+        storage_slot
+    };
+    set_header(note, note_header);
+
     let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
     let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
@@ -71,18 +82,6 @@ fn ensure_note_hash_exists<Note, N>(
     let saved_siloed_note_hash = deserialized_oracle_ret.message;
 
     assert(saved_siloed_note_hash != 0); // TODO(dbanks12): necessary?
-
-    // Only copy over the header to the original note to make sure the preimage is the same.
-    //let get_header = note_interface.get_header;
-    let set_header = note_interface.set_header;
-    let note_header = NoteHeader {
-        contract_address: context.inputs.call_context.storage_contract_address,
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
-        // nonce, not leaf index (once public kernel applies nonces)
-        nonce: deserialized_oracle_ret.leaf_index,
-        storage_slot
-    };
-    set_header(note, note_header);
 
     check_note_header(*context, storage_slot, note_interface, *note);
 

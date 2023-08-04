@@ -250,8 +250,8 @@ contract NonNativeToken {
         // Create a commitment to the "amount" using the "secretHash"
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
-        let note = TransparentNote::new(amount, secretHash);
-        pending_shields.insert_from_public(note);
+        let mut note = TransparentNote::new(amount, secretHash);
+        pending_shields.insert_from_public(inputs, &mut note);
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
