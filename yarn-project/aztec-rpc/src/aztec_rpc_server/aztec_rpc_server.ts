@@ -438,6 +438,8 @@ export class AztecRPCServer implements AztecRPC {
     const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
     const treeRoots = this.db.getTreeRoots();
 
+
+
     const historicTreeRoots = new ConstantBlockHashData(
       new PrivateHistoricTreeRoots(
         treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
@@ -463,7 +465,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log('Proof completed!');
 
     // TODO: FIX HACK< OVERWRITING THE ROOTS HERE
-    publicInputs.constants.ConstantBlockHashData = historicTreeRoots;
+    publicInputs.constants.blockHashValues = historicTreeRoots;
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 

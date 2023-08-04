@@ -10,7 +10,7 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import { SequencerClient, getConstantBlockHashData } from '@aztec/sequencer-client';
 import {
   AztecNode,
   ContractData,

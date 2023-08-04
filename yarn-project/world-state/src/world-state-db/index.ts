@@ -66,7 +66,7 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * The current roots of the commitment trees
  */
-export type CurrentCommitmentTreeRoots = {
+export type CurrentTreeRoots = {
   /** Private data tree root. */
   privateDataTreeRoot: Buffer;
   /** Contract data tree root. */
@@ -77,6 +77,8 @@ export type CurrentCommitmentTreeRoots = {
   nullifierTreeRoot: Buffer;
   /** Blocks tree root. */
   blocksTreeRoot: Buffer;
+  /** Public data tree root */
+  publicDataTreeRoot: Buffer;
 };
 
 /**
@@ -113,7 +115,7 @@ export interface MerkleTreeOperations {
   /**
    * Gets the current roots of the commitment trees.
    */
-  getCommitmentTreeRoots(): CurrentCommitmentTreeRoots;
+  getTreeRoots(): CurrentTreeRoots;
 
   /**
    * Gets sibling path for a leaf.

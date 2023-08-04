@@ -12,7 +12,7 @@ export class CombinedConstantData {
     /**
      * Roots of the trees relevant for both kernel circuits.
      */
-    public ConstantBlockHashData: ConstantBlockHashData,
+    public blockHashValues: ConstantBlockHashData,
     /**
      * Context of the transaction.
      */
@@ -20,7 +20,7 @@ export class CombinedConstantData {
   ) {}
 
   toBuffer() {
-    return serializeToBuffer(this.ConstantBlockHashData, this.txContext);
+    return serializeToBuffer(this.blockHashValues, this.txContext);
   }
 
   /**

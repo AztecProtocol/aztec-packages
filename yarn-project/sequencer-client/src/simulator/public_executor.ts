@@ -111,7 +111,7 @@ export class WorldStateDB implements CommitmentsDB {
   }
 
   public getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getCommitmentTreeRoots();
+    const roots = this.db.getTreeRoots();
 
     return PrivateHistoricTreeRoots.from({
       privateKernelVkTreeRoot: Fr.ZERO,

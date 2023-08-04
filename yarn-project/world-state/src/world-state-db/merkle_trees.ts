@@ -32,7 +32,7 @@ import { default as levelup } from 'levelup';
 
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import {
-  CurrentCommitmentTreeRoots,
+  CurrentTreeRoots,
   INITIAL_NULLIFIER_TREE_SIZE,
   IndexedTreeId,
   MerkleTreeDb,
@@ -174,7 +174,7 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current roots of the trees.
    */
-  public getCommitmentTreeRoots(includeUncommitted: boolean): CurrentCommitmentTreeRoots {
+  public getTreeRoots(includeUncommitted: boolean): CurrentTreeRoots {
     const roots = this.getAllTreeRoots(includeUncommitted);
 
     return {
@@ -183,6 +183,7 @@ export class MerkleTrees implements MerkleTreeDb {
       l1Tol2MessagesTreeRoot: roots[2],
       nullifierTreeRoot: roots[3],
       blocksTreeRoot: roots[4],
+      publicDataTreeRoot: roots[5],
     };
   }
 
@@ -199,6 +200,7 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.BLOCKS_TREE,
+      MerkleTreeId.PRIVATE_DATA_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
   }
 

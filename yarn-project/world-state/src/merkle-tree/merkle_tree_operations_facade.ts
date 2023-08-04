@@ -2,7 +2,7 @@ import { GlobalVariables } from '@aztec/circuits.js';
 import { LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
-import { CurrentCommitmentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
+import { CurrentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
 /**
  * Wraps a MerkleTreeDbOperations to call all functions with a preset includeUncommitted flag.
@@ -24,8 +24,8 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * Get the current roots of the commitment trees.
    * @returns The current roots of the trees.
    */
-  getCommitmentTreeRoots(): CurrentCommitmentTreeRoots {
-    return this.trees.getCommitmentTreeRoots(this.includeUncommitted);
+  getTreeRoots(): CurrentTreeRoots {
+    return this.trees.getTreeRoots(this.includeUncommitted);
   }
 
   /**

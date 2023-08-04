@@ -183,7 +183,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         'nullifierTreeRoot',
         'l1ToL2MessagesTreeRoot',
       ] as const) {
-        if (tx.data.constants.ConstantBlockHashData.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
+        if (tx.data.constants.blockHashValues.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
           throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
         }
       }
@@ -509,7 +509,7 @@ export class SoloBlockBuilder implements BlockBuilder {
   }
 
   protected async getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
-    const historicTreeRoots = tx.data.constants.ConstantBlockHashData;
+    const historicTreeRoots = tx.data.constants.blockHashValues;
     const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
       historicTreeRoots.privateHistoricTreeRoots;
     const wasm = await CircuitsWasm.get();

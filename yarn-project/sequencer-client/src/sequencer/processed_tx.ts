@@ -65,7 +65,7 @@ export function makeEmptyProcessedTx(
   version: Fr,
 ): Promise<ProcessedTx> {
   const emptyKernelOutput = KernelCircuitPublicInputs.empty();
-  emptyKernelOutput.constants.ConstantBlockHashData = historicTreeRoots;
+  emptyKernelOutput.constants.blockHashValues = historicTreeRoots;
   emptyKernelOutput.constants.txContext.chainId = chainId;
   emptyKernelOutput.constants.txContext.version = version;
   const emptyProof = makeEmptyProof();

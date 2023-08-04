@@ -905,14 +905,14 @@ export function toCombinedConstantData(o: MsgpackCombinedConstantData): Combined
 }
 
 export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
-  if (o.ConstantBlockHashData === undefined) {
-    throw new Error('Expected ConstantBlockHashData in CombinedConstantData serialization');
+  if (o.blockHashValues === undefined) {
+    throw new Error('Expected blockHashValues in CombinedConstantData serialization');
   }
   if (o.txContext === undefined) {
     throw new Error('Expected txContext in CombinedConstantData serialization');
   }
   return {
-    block_hash_values: fromConstantBlockHashData(o.ConstantBlockHashData),
+    block_hash_values: fromConstantBlockHashData(o.blockHashValues),
     tx_context: fromTxContext(o.txContext),
   };
 }

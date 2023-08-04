@@ -38,7 +38,7 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getCombinedHistoricTreeRoots } from './utils.js';
+import { getConstantBlockHashData } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -112,7 +112,7 @@ export class PublicProcessor {
     prevGlobals: GlobalVariables,
     currentGlobalVariables: GlobalVariables,
   ): Promise<ProcessedTx> {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(this.db, prevGlobals);
+    const historicTreeRoots = await getConstantBlockHashData(this.db, prevGlobals);
     return makeEmptyProcessedTx(historicTreeRoots, currentGlobalVariables.chainId, currentGlobalVariables.version);
   }
 

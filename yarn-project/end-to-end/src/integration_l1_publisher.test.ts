@@ -25,7 +25,7 @@ import {
   L1Publisher,
   SoloBlockBuilder,
   WasmRollupCircuitSimulator,
-  getCombinedHistoricTreeRoots,
+  getConstantBlockHashData,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
@@ -155,7 +155,7 @@ describe('L1Publisher integration', () => {
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb, prevGlobals);
+    const historicTreeRoots = await getConstantBlockHashData(builderDb, prevGlobals);
     const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
       historicTreeRoots,
       new Fr(config.chainId),
@@ -169,7 +169,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(config.chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.ConstantBlockHashData = await getCombinedHistoricTreeRoots(builderDb, prevGlobals);
+    kernelOutput.constants.blockHashValues = await getConstantBlockHashData(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
