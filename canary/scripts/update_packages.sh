@@ -1,6 +1,17 @@
 set -e
 
-VERSION=$(npx semver $1)
+COMMIT_TAG=$1
+
+if [ -z "$COMMIT_TAG" ]; then 
+  echo "No commit tag provided." 
+  exit 1
+fi
+
+VERSION=$(npx semver $COMMIT_TAG)
+if [ -z "$VERSION" ]; then 
+  echo "$COMMIT_TAG is not a semantic version." 
+  exit 1
+fi
 
 echo "Updating Aztec dependencies to version $VERSION"
 
