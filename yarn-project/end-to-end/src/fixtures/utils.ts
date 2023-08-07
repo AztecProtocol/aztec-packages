@@ -1,16 +1,16 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
-  AccountCollection,
-  AccountImplementation,
   AccountWallet,
   AztecAddress,
   Contract,
   ContractDeployer,
   DeployMethod,
+  Entrypoint,
+  EntrypointCollection,
   EthAddress,
   SentTx,
-  SingleKeyAccountContract,
+  SingleKeyAccountEntrypoint,
   Wallet,
   createAztecRpcClient as createJsonRpcClient,
   generatePublicKey,
@@ -51,7 +51,7 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { CheatCodes } from './cheat_codes.js';
+import { CheatCodes, L1CheatCodes } from '../cheat_codes.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
@@ -192,7 +192,7 @@ export async function setupAztecRPCServer(
 
   const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
 
-  const accountCollection = new AccountCollection();
+  const accountCollection = new EntrypointCollection();
   const txContexts: TxContext[] = [];
 
   logger('RPC server created, deploying accounts...');
@@ -250,7 +250,7 @@ export async function setupAztecRPCServer(
     );
     accountCollection.registerAccount(
       context.deploymentData.address,
-      new SingleKeyAccountContract(
+      new SingleKeyAccountEntrypoint(
         context.deploymentData.address,
         context.deploymentData.partialAddress,
         context.privateKey,
@@ -275,7 +275,10 @@ export async function setupAztecRPCServer(
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  */
-export async function setup(numberOfAccounts = 1): Promise<{
+export async function setup(
+  numberOfAccounts = 1,
+  stateLoad: string | undefined = undefined,
+): Promise<{
   /**
    * The Aztec Node service.
    */
@@ -310,6 +313,12 @@ export async function setup(numberOfAccounts = 1): Promise<{
   cheatCodes: CheatCodes;
 }> {
   const config = getConfigEnvVars();
+
+  if (stateLoad) {
+    const l1CheatCodes = new L1CheatCodes(config.rpcUrl);
+    await l1CheatCodes.loadChainState(stateLoad);
+  }
+
   const logger = getLogger();
   const hdAccount = mnemonicToAccount(MNEMONIC);
 
@@ -379,7 +388,7 @@ export type CreateAccountImplFn = (
   useProperKey: boolean,
   partialAddress: PartialContractAddress,
   encryptionPrivateKey: PrivateKey,
-) => Promise<AccountImplementation>;
+) => Promise<Entrypoint>;
 
 /**
  * Creates a new account.

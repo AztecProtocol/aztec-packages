@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, StoredKeyAccountContract, Wallet, generatePublicKey } from '@aztec/aztec.js';
+import { AztecAddress, StoredKeyAccountEntrypoint, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -13,7 +13,7 @@ import {
   expectUnencryptedLogsFromLastBlockToBe,
   expectsNumOfEncryptedLogsInTheLastBlockToBe,
   setup,
-} from './utils.js';
+} from './fixtures/utils.js';
 
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -35,7 +35,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
       logger(`Deploying account contract ${i}/3...`);
       const signingPrivateKey = PrivateKey.random();
       const createWallet = async (address: AztecAddress, useProperKey: boolean) =>
-        new StoredKeyAccountContract(
+        new StoredKeyAccountEntrypoint(
           address,
           useProperKey ? signingPrivateKey : PrivateKey.random(),
           await Schnorr.new(),
