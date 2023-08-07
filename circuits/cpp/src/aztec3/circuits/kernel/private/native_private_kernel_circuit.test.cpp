@@ -168,6 +168,10 @@ TEST_F(native_private_kernel_tests, native_skip_empty_nullified_commitment)
         fr(EMPTY_NULLIFIED_COMMITMENT);
     private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(23);
 
+    // update the private call stack contents to reflect the above changes which affect the item hash
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+        private_inputs_inner.private_call.call_stack_item.hash();
+
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_skip_empty_nullified_commitment");
 
     auto public_inputs = native_private_kernel_circuit_inner(builder, private_inputs_inner);

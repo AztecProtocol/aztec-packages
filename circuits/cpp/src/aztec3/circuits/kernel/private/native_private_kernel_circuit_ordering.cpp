@@ -107,11 +107,22 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
 // regarding matching a nullifier to a commitment
 // i.e., we get pairs i,j such that new_nullifiers[i] == new_commitments[j]
 
-// A non-zero entry in nullified_commitments at position i implies that
-// 1) new_commitments array contains at least an occurence of nullified_commitments[i]
-// 2) this commitment is nullified by new_nullifiers[i] (according to app circuit, the kernel cannot check this on its
-// own.)
-// Remark: We do not check that new_nullifiers[i] is non-empty. (app circuit responsibility)
+/**
+ * @brief This function matches transient nullifiers to commitments and squashes (deletes) them both.
+ *
+ * @details A non-zero entry in nullified_commitments at position i implies that
+ * 1) new_commitments array contains at least an occurence of nullified_commitments[i]
+ * 2) this commitment is nullified by new_nullifiers[i] (according to app circuit, the kernel cannot check this on its
+ * own.)
+ * Remark: We do not check that new_nullifiers[i] is non-empty. (app circuit responsibility)
+ *
+ * @param builder
+ * @param new_nullifiers public_input's nullifiers that should be squashed when matching a transient commitment
+ * @param nullified_commitments commitments that each new_nullifier nullifies. 0 here implies non-transient nullifier,
+ * and a non-zero `nullified_commitment` implies a transient nullifier that MUST be matched to a new_commitment.
+ * @param new_commitments public_input's commitments to be matched against and squashed when matched to a transient
+ * nullifier.
+ */
 void match_nullifiers_to_commitments_and_squash(DummyCircuitBuilder& builder,
                                                 std::array<fr, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
                                                 std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullified_commitments,
@@ -119,6 +130,9 @@ void match_nullifiers_to_commitments_and_squash(DummyCircuitBuilder& builder,
 {
     // match reads to commitments from the previous call(s)
     for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
+        // 0 nullified_commitment implies non-transient (persistable) nullifier
+        // (no attempt will be made to match it to a commitment)
+        // nonzero nullified_commitment is transient and MUST be matched to a commitment below
         if (nullified_commitments[n_idx] != fr(0)) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
@@ -128,6 +142,9 @@ void match_nullifiers_to_commitments_and_squash(DummyCircuitBuilder& builder,
             }
 
             if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
+                // match found!
+                // squash both the nullifier and the commitment
+                // (set to 0 here and then rearrange array after loop)
                 new_commitments[match_pos] = fr(0);
                 new_nullifiers[n_idx] = fr(0);
             } else {
@@ -143,8 +160,8 @@ void match_nullifiers_to_commitments_and_squash(DummyCircuitBuilder& builder,
                                   CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
             }
         }
-        // non-transient nullifiers are just kept in new_nullifiers array and forwarded to
-        // public inputs (used later by base rollup circuit)
+        // non-transient (persistable) nullifiers are just kept in new_nullifiers array and forwarded
+        // to public inputs (used later by base rollup circuit)
     }
     // Move all zero-ed (removed) entries of these arrays to the end and preserve ordering of other entries
     array_rearrange(new_commitments);
@@ -181,7 +198,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCircui
     // Matching read requests to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match reads against new_commitments in
     // previous_kernel.public_inputs.end, where "previous kernel" is the last "inner" kernel iteration.
-    // Remark: The commitments in public_inputs.end have already been SILOED!
+    // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_reads_to_commitments(builder,
                                previous_kernel.public_inputs.end.read_requests,
                                previous_kernel.public_inputs.end.read_request_membership_witnesses,
@@ -190,9 +207,10 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCircui
     // shouldn't even include read_requests and read_request_membership_witnesses as they should be empty.
 
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over
-    // all iterations of the private kernel. Therefore, we match reads against new_commitments in public_inputs.end
-    // which has been initialized to previous_kernel.public_inputs.end in common_initialise_*() above.
-    // Remark: The commitments in public_inputs.end have already been SILOED!
+    // all iterations of the private kernel. Therefore, we match nullifiers (their nullified_commitments)
+    // against new_commitments in public_inputs.end which has been initialized to
+    // previous_kernel.public_inputs.end in common_initialise_*() above.
+    // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_nullifiers_to_commitments_and_squash(builder,
                                                public_inputs.end.new_nullifiers,
                                                public_inputs.end.nullified_commitments,
