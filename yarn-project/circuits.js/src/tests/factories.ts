@@ -109,7 +109,16 @@ export function makeTxContext(seed: number): TxContext {
  * @returns A combined historic tree roots object.
  */
 export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlockData {
-  return new ConstantHistoricBlockData(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4), fr(seed + 5), fr(seed + 6), fr(seed + 7));
+  return new ConstantHistoricBlockData(
+    fr(seed),
+    fr(seed + 1),
+    fr(seed + 2),
+    fr(seed + 3),
+    fr(seed + 4),
+    fr(seed + 5),
+    fr(seed + 6),
+    fr(seed + 7),
+  );
 }
 
 /**

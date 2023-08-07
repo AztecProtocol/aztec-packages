@@ -87,20 +87,14 @@ export class PublicExecutor {
       },
       getL1ToL2Message: async ([msgKey]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
-        return toAcvmL1ToL2MessageLoadOracleInputs(
-          messageInputs,
-          this.blockHashData.l1ToL2MessagesTreeRoot,
-        );
+        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockHashData.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
           execution.contractAddress,
           fromACVMField(commitment),
         );
-        return toAcvmCommitmentLoadOracleInputs(
-          commitmentInputs,
-          this.blockHashData.privateDataTreeRoot,
-        );
+        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockHashData.privateDataTreeRoot);
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);

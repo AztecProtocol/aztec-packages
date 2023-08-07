@@ -14,12 +14,12 @@ export async function getconstantHistoricBlockData(
   const roots = db.getTreeRoots();
 
   return new ConstantHistoricBlockData(
-      Fr.fromBuffer(roots.privateDataTreeRoot),
-      Fr.fromBuffer(roots.nullifierTreeRoot),
-      Fr.fromBuffer(roots.contractDataTreeRoot),
-      Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
-      Fr.fromBuffer(roots.blocksTreeRoot),
-      Fr.ZERO,
+    Fr.fromBuffer(roots.privateDataTreeRoot),
+    Fr.fromBuffer(roots.nullifierTreeRoot),
+    Fr.fromBuffer(roots.contractDataTreeRoot),
+    Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
+    Fr.fromBuffer(roots.blocksTreeRoot),
+    Fr.ZERO,
     Fr.fromBuffer(roots.publicDataTreeRoot),
     prevGlobalsHash,
   );

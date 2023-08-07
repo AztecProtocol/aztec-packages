@@ -43,24 +43,22 @@ export class ConstantHistoricBlockData {
     public readonly prevGlobalVariablesHash: Fr,
   ) {}
 
-    static from(fields: FieldsOf<ConstantHistoricBlockData>) {
-      return new ConstantHistoricBlockData(...ConstantHistoricBlockData.getFields(fields));
-    }
+  static from(fields: FieldsOf<ConstantHistoricBlockData>) {
+    return new ConstantHistoricBlockData(...ConstantHistoricBlockData.getFields(fields));
+  }
 
-    static getFields(fields: FieldsOf<ConstantHistoricBlockData>) {
-      return [
+  static getFields(fields: FieldsOf<ConstantHistoricBlockData>) {
+    return [
       fields.privateDataTreeRoot,
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
       fields.blocksTreeRoot,
       fields.privateKernelVkTreeRoot,
-    fields.publicDataTreeRoot,
-     fields.prevGlobalVariablesHash
-      ] as const;
-
-    }
-
+      fields.publicDataTreeRoot,
+      fields.prevGlobalVariablesHash,
+    ] as const;
+  }
 
   toBuffer() {
     return serializeToBuffer(...ConstantHistoricBlockData.getFields(this));
@@ -79,7 +77,9 @@ export class ConstantHistoricBlockData {
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),
-      reader.readFr(), reader.readFr());
+      reader.readFr(),
+      reader.readFr(),
+    );
   }
 
   isEmpty() {
@@ -96,13 +96,6 @@ export class ConstantHistoricBlockData {
   }
 
   static empty() {
-    return new ConstantHistoricBlockData(
-       Fr.ZERO,
-       Fr.ZERO,
-       Fr.ZERO,
-       Fr.ZERO,
-       Fr.ZERO,
-       Fr.ZERO,
-       Fr.ZERO, Fr.ZERO);
+    return new ConstantHistoricBlockData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
   }
 }

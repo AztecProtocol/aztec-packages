@@ -54,12 +54,12 @@ export class KernelOracle implements ProvingDataOracle {
     const treeRoots = await this.node.getTreeRoots();
 
     return new ConstantHistoricBlockData(
-        treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-        treeRoots[MerkleTreeId.NULLIFIER_TREE],
-        treeRoots[MerkleTreeId.CONTRACT_TREE],
-        treeRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-        treeRoots[MerkleTreeId.BLOCKS_TREE],
-        Fr.ZERO,
+      treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
+      treeRoots[MerkleTreeId.NULLIFIER_TREE],
+      treeRoots[MerkleTreeId.CONTRACT_TREE],
+      treeRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      treeRoots[MerkleTreeId.BLOCKS_TREE],
+      Fr.ZERO,
       treeRoots[MerkleTreeId.PUBLIC_DATA_TREE],
       prevBlockGlobalVariablesHash,
     );
