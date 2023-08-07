@@ -66,7 +66,7 @@ export function hashPayload(payload: EntrypointPayload, wasm: IWasmModule) {
   return pedersenPlookupCompressWithHashIndex(
     wasm,
     flattenPayload(payload).map(fr => fr.toBuffer()),
-    GeneratorIndex.CONSTRUCTOR,
+    GeneratorIndex.SIGNATURE_PAYLOAD,
   );
 }
 
