@@ -94,6 +94,7 @@ std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages(
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
     BaseRollupInputs inputs, std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers, size_t spacing);
 
+NullifierMemoryTreeTestingHarness get_initial_nullifier_tree_empty();
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values);
 
 KernelData get_empty_kernel();

@@ -6,6 +6,7 @@
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/base/init.hpp"
 #include "aztec3/constants.hpp"
@@ -154,6 +155,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     baseRollupInputs.start_public_data_tree_root = public_data_tree.root();
 
     // create the original historic blocks tree leaf
+    info("block hash base inputs");
     auto block_hash = compute_block_hash<NT>(prev_global_variables_hash,
                                              private_data_tree.root(),
                                              nullifier_tree.root(),
@@ -365,12 +367,17 @@ MergeRollupInputs get_merge_rollup_inputs(utils::DummyBuilder& builder, std::arr
     return inputs;
 }
 
+
 RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
                                         std::array<KernelData, 4> kernel_data,
                                         std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> l1_to_l2_messages)
 {
+    abis::GlobalVariables<NT> globals = { 0, 0, 0, 0 };
+
     MemoryStore private_data_store;
     const MerkleTree private_data_tree(private_data_store, PRIVATE_DATA_TREE_HEIGHT);
+
+    auto nullifier_tree = get_initial_nullifier_tree_empty();
 
     MemoryStore contract_tree_store;
     const MerkleTree contract_tree(contract_tree_store, CONTRACT_TREE_HEIGHT);
@@ -378,8 +385,29 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     MemoryStore l1_to_l2_msg_tree_store;
     MerkleTree l1_to_l2_msg_tree(l1_to_l2_msg_tree_store, L1_TO_L2_MSG_TREE_HEIGHT);
 
+    MemoryStore public_data_tree_store;
+    MerkleTree public_data_tree(public_data_tree_store, PUBLIC_DATA_TREE_HEIGHT);
+
     MemoryStore historic_blocks_tree_store;
     MerkleTree historic_blocks_tree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
+
+    // Start blocks tree
+    auto block_hash = compute_block_hash_with_globals(globals,
+                                                      private_data_tree.root(),
+                                                      nullifier_tree.root(),
+                                                      contract_tree.root(),
+                                                      l1_to_l2_msg_tree.root(),
+                                                      public_data_tree.root());
+    historic_blocks_tree.update_element(0, block_hash);
+
+    // Blocks tree snapshots
+    AppendOnlyTreeSnapshot const start_historic_blocks_tree_snapshot = {
+        .root = historic_blocks_tree.root(),
+        .next_available_leaf_index = 1,
+    };
+
+    // Blocks tree
+    auto blocks_tree_sibling_path = get_sibling_path<HISTORIC_BLOCKS_TREE_HEIGHT>(historic_blocks_tree, 1, 0);
 
     // l1 to l2 tree
     auto l1_to_l2_tree_sibling_path =
@@ -388,15 +416,6 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     // l1_to_l2_message tree snapshots
     AppendOnlyTreeSnapshot const start_l1_to_l2_msg_tree_snapshot = {
         .root = l1_to_l2_msg_tree.root(),
-        .next_available_leaf_index = 0,
-    };
-
-    // Blocks tree
-    auto blocks_tree_sibling_path = get_sibling_path<HISTORIC_BLOCKS_TREE_HEIGHT>(historic_blocks_tree, 0, 0);
-
-    // Blocks tree snapshots
-    AppendOnlyTreeSnapshot const start_historic_blocks_tree_snapshot = {
-        .root = historic_blocks_tree.root(),
         .next_available_leaf_index = 0,
     };
 
@@ -414,6 +433,20 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
 //////////////////////////
 // NULLIFIER TREE BELOW //
 //////////////////////////
+
+/**
+ * @brief Get initial nullifier tree object
+ *
+ * @return NullifierMemoryTreeTestingHarness
+ */
+NullifierMemoryTreeTestingHarness get_initial_nullifier_tree_empty()
+{
+    NullifierMemoryTreeTestingHarness nullifier_tree = NullifierMemoryTreeTestingHarness(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < (MAX_NEW_NULLIFIERS_PER_TX * 2 - 1); i++) {
+        nullifier_tree.update_element(i + 1);
+    }
+    return nullifier_tree;
+}
 
 /**
  * @brief Get initial nullifier tree object
