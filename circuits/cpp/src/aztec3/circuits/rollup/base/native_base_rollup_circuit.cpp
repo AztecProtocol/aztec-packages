@@ -139,13 +139,12 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
 
     for (size_t i = 0; i < 2; i++) {
         // Rebuild the block hash
-        auto historic_block = baseRollupInputs.kernel_data[i].public_inputs.constants.block_hash_values;
-        auto historic_tree_roots = historic_block.private_historic_tree_roots;
+        auto historic_block = baseRollupInputs.kernel_data[i].public_inputs.constants.block_data;
 
-        auto private_data_tree_root = historic_tree_roots.private_data_tree_root;
-        auto nullifier_tree_root = historic_tree_roots.nullifier_tree_root;
-        auto contract_tree_root = historic_tree_roots.contract_tree_root;
-        auto l1_to_l2_data_tree_root = historic_tree_roots.l1_to_l2_messages_tree_root;
+        auto private_data_tree_root = historic_block.private_data_tree_root;
+        auto nullifier_tree_root = historic_block.nullifier_tree_root;
+        auto contract_tree_root = historic_block.contract_tree_root;
+        auto l1_to_l2_data_tree_root = historic_block.l1_to_l2_messages_tree_root;
         auto public_data_tree_root = historic_block.public_data_tree_root;
 
         auto previous_block_hash = compute_block_hash<NT>(historic_block.prev_global_variables_hash,
