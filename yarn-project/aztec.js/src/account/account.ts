@@ -130,7 +130,7 @@ export class Account {
    * @param opts - Options to wait for the tx to be mined.
    * @returns A Wallet instance.
    */
-  public async waitDeploy(opts: WaitOpts): Promise<Wallet> {
+  public async waitDeploy(opts: WaitOpts = {}): Promise<Wallet> {
     return (await this.deploy()).getWallet(opts);
   }
 }

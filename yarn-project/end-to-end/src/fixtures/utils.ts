@@ -6,16 +6,14 @@ import {
   AztecAddress,
   Contract,
   ContractDeployer,
-  Entrypoint,
   EntrypointCollection,
   EthAddress,
   Wallet,
   createAztecRpcClient as createJsonRpcClient,
-  generatePublicKey,
   getL1ContractAddresses,
   getUnsafeSchnorrAccount,
 } from '@aztec/aztec.js';
-import { PartialContractAddress, PrivateKey, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
@@ -281,50 +279,6 @@ export async function deployContract(
   expect(await tx.isMined({ interval: 0.1 })).toBeTruthy();
   const receipt = await tx.getReceipt();
   return { address: receipt.contractAddress!, partialContractAddress: deployMethod.partialContractAddress! };
-}
-
-/**
- * Represents a function that creates an AccountImplementation object asynchronously.
- *
- * @param address - The Aztec address associated with the account.
- * @param useProperKey - A flag indicating whether the proper key should be used during account creation.
- * @param partialAddress - The partial contract address associated with the account.
- * @param encryptionPrivateKey - The encryption private key used during account creation.
- * @returns A Promise that resolves to an AccountImplementation object.
- */
-export type CreateAccountImplFn = (
-  address: AztecAddress,
-  useProperKey: boolean,
-  partialAddress: PartialContractAddress,
-  encryptionPrivateKey: PrivateKey,
-) => Promise<Entrypoint>;
-
-/**
- * Creates a new account.
- * @param aztecRpcServer - The AztecRPC server to interact with.
- * @param abi - The ABI (Application Binary Interface) of the account contract.
- * @param args - The arguments to pass to the account contract's constructor.
- * @param encryptionPrivateKey - The encryption private key used by the account.
- * @param useProperKey - A flag indicating whether the proper key should be used during account creation.
- * @param createAccountImpl - A function that creates an AccountImplementation object.
- * @returns A Promise that resolves to an object containing the created wallet, account address, and partial address.
- */
-export async function createNewAccount(
-  aztecRpcServer: AztecRPC,
-  abi: ContractAbi,
-  args: any[],
-  encryptionPrivateKey: PrivateKey,
-  useProperKey: boolean,
-  createAccountImpl: CreateAccountImplFn,
-) {
-  const salt = Fr.random();
-  const publicKey = await generatePublicKey(encryptionPrivateKey);
-  const { address, partialAddress } = await getContractDeploymentInfo(abi, args, salt, publicKey);
-  await aztecRpcServer.addAccount(encryptionPrivateKey, address, partialAddress);
-  await deployContract(aztecRpcServer, publicKey, abi, args, salt);
-  const account = await createAccountImpl(address, useProperKey, partialAddress, encryptionPrivateKey);
-  const wallet = new AccountWallet(aztecRpcServer, account);
-  return { wallet, address, partialAddress };
 }
 
 /**
