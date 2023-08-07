@@ -12,7 +12,7 @@ import {
   expectsNumOfEncryptedLogsInTheLastBlockToBe,
   setup,
   setupAztecRPCServer,
-} from './utils.js';
+} from './fixtures/utils.js';
 
 const { SANDBOX_URL = '' } = process.env;
 
@@ -70,7 +70,7 @@ describe('e2e_2_rpc_servers', () => {
     await awaitUserSynchronised(wallet, owner);
 
     // Then check the balance
-    const contractWithWallet = new ZkTokenContract(tokenAddress, wallet);
+    const contractWithWallet = await ZkTokenContract.create(tokenAddress, wallet);
     const [balance] = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
@@ -80,7 +80,7 @@ describe('e2e_2_rpc_servers', () => {
     logger(`Deploying ZkToken contract...`);
     const tx = ZkTokenContract.deploy(aztecRpcServerA, initialBalance, owner).send();
     const receipt = await tx.getReceipt();
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const minedReceipt = await tx.getReceipt();
     expect(minedReceipt.status).toEqual(TxStatus.MINED);
     logger('L2 contract deployed');
@@ -118,10 +118,10 @@ describe('e2e_2_rpc_servers', () => {
     await expectUnencryptedLogsFromLastBlockToBe(aztecNode, ['Balance set in constructor']);
 
     // Transfer funds from A to B via RPC server A
-    const contractWithWalletA = new ZkTokenContract(tokenAddress, walletA);
+    const contractWithWalletA = await ZkTokenContract.create(tokenAddress, walletA);
     const txAToB = contractWithWalletA.methods.transfer(transferAmount1, userA, userB).send({ origin: userA });
 
-    await txAToB.isMined(0, 0.1);
+    await txAToB.isMined({ interval: 0.1 });
     const receiptAToB = await txAToB.getReceipt();
 
     expect(receiptAToB.status).toBe(TxStatus.MINED);
@@ -133,10 +133,10 @@ describe('e2e_2_rpc_servers', () => {
     await expectUnencryptedLogsFromLastBlockToBe(aztecNode, ['Coins transferred']);
 
     // Transfer funds from B to A via RPC server B
-    const contractWithWalletB = new ZkTokenContract(tokenAddress, walletB);
+    const contractWithWalletB = await ZkTokenContract.create(tokenAddress, walletB);
     const txBToA = contractWithWalletB.methods.transfer(transferAmount2, userB, userA).send({ origin: userB });
 
-    await txBToA.isMined(0, 0.1);
+    await txBToA.isMined({ interval: 0.1 });
     const receiptBToA = await txBToA.getReceipt();
 
     expect(receiptBToA.status).toBe(TxStatus.MINED);
@@ -152,7 +152,7 @@ describe('e2e_2_rpc_servers', () => {
     logger(`Deploying Child contract...`);
     const tx = ChildContract.deploy(aztecRpcServerA).send();
     const receipt = await tx.getReceipt();
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const minedReceipt = await tx.getReceipt();
     expect(minedReceipt.status).toEqual(TxStatus.MINED);
     logger('Child contract deployed');
@@ -186,9 +186,9 @@ describe('e2e_2_rpc_servers', () => {
 
     const newValueToSet = 256n;
 
-    const childContractWithWalletB = new ChildContract(childAddress, walletB);
+    const childContractWithWalletB = await ChildContract.create(childAddress, walletB);
     const tx = childContractWithWalletB.methods.pubStoreValue(newValueToSet).send({ origin: userB });
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
 
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);

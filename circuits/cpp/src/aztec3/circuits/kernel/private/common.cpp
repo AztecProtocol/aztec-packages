@@ -61,15 +61,14 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param storage_contract_address Contract address to use when siloing read requests
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
- * @param read_requests the commitments being read by this private call
+ * @param read_requests the commitments being read by this private call - 'pending note reads' here are
+ * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
  * @param read_request_membership_witnesses used to compute the private data root
  * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
-                                   NT::fr const& storage_contract_address,
                                    NT::fr const& historic_private_data_tree_root,
                                    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
@@ -89,41 +88,40 @@ void common_validate_read_requests(DummyBuilder& builder,
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
-        // the read request comes un-siloed from the app circuit so we must silo it here
-        // so that it matches the private data tree leaf that we are membership checking
-        const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
         // A transient read is when we try to "read" a pending commitment
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
-        // but we use the leaf index as a placeholder to detect a transient read.
+        // but we use the leaf index as a placeholder to detect a 'pending note read'.
         if (read_request != 0 && !witness.is_transient) {
             const auto& root_for_read_request =
-                root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
-            builder.do_assert(root_for_read_request == historic_private_data_tree_root,
-                              format("private data tree root mismatch at read_request[",
-                                     rr_idx,
-                                     "]",
-                                     "\n\texpected root:    ",
-                                     historic_private_data_tree_root,
-                                     "\n\tbut got root*:    ",
-                                     root_for_read_request,
-                                     "\n\tread_request:     ",
-                                     read_request,
-                                     "\n\tsiloed-rr (leaf): ",
-                                     leaf,
-                                     "\n\tleaf_index: ",
-                                     witness.leaf_index,
-                                     "\n\tis_transient: ",
-                                     witness.is_transient,
-                                     "\n\thint_to_commitment: ",
-                                     witness.hint_to_commitment,
-                                     "\n\t* got root by siloing read_request (compressing with "
-                                     "storage_contract_address to get leaf) "
-                                     "and merkle-hashing to a root using membership witness"),
-                              CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+                root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
+            builder.do_assert(
+                root_for_read_request == historic_private_data_tree_root,
+                format("private data tree root mismatch at read_request[",
+                       rr_idx,
+                       "]",
+                       "\n\texpected root:    ",
+                       historic_private_data_tree_root,
+                       "\n\tbut got root*:    ",
+                       root_for_read_request,
+                       "\n\tread_request**:   ",
+                       read_request,
+                       "\n\tleaf_index: ",
+                       witness.leaf_index,
+                       "\n\tis_transient: ",
+                       witness.is_transient,
+                       "\n\thint_to_commitment: ",
+                       witness.hint_to_commitment,
+                       "\n\t* got root by treating the read_request as a leaf in the private data tree "
+                       "and merkle-hashing to a root using the membership witness"
+                       "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
+                       "(it has been hashed with contract address and then a nonce)"),
+                CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
+            // that a non-transient read_request was derived from the proper/current contract address?
         }
     }
 }
@@ -227,13 +225,9 @@ void common_update_end_values(DummyBuilder& builder,
 
         // commitments
         std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
-        const auto& first_nullifier = public_inputs.end.new_nullifiers[0];
-        const auto index_start = array_length(public_inputs.end.new_commitments);
         for (size_t i = 0; i < new_commitments.size(); ++i) {
-            const auto nonce = compute_commitment_nonce<NT>(first_nullifier, index_start + i);
-            const auto unique_commitment = compute_unique_commitment<NT>(nonce, new_commitments[i]);
             siloed_new_commitments[i] =
-                new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, unique_commitment);
+                new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
         }
         push_array_to_array(
             builder,

@@ -4,9 +4,9 @@ use crate::context::Context;
 use crate::private_call_stack_item::PrivateCallStackItem;
 use crate::public_call_stack_item::PublicCallStackItem;    
 
-global ACCOUNT_MAX_PRIVATE_CALLS: comptime Field = 1;
-global ACCOUNT_MAX_PUBLIC_CALLS: comptime Field = 1;
-global ACCOUNT_MAX_CALLS: comptime Field = 2;
+global ACCOUNT_MAX_PRIVATE_CALLS: comptime Field = 2;
+global ACCOUNT_MAX_PUBLIC_CALLS: comptime Field = 2;
+global ACCOUNT_MAX_CALLS: comptime Field = 4;
 // 1 (ARGS_HASH) + 1 (FUNCTION_SELECTOR) + 1 (TARGET_ADDRESS)
 global FUNCTION_CALL_SIZE: comptime Field = 3;
 
@@ -23,8 +23,8 @@ impl FunctionCall {
 }
 
 // FUNCTION_CALL_SIZE * (ACCOUNT_MAX_PUBLIC_CALLS + ACCOUNT_MAX_PRIVATE_CALLS) + 1
-global ENTRYPOINT_PAYLOAD_SIZE: comptime Field = 7;
-global ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES: comptime Field = 224;
+global ENTRYPOINT_PAYLOAD_SIZE: comptime Field = 13;
+global ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES: comptime Field = 416;
 
 struct EntrypointPayload {
   // Noir doesnt support nested arrays or structs yet so we flatten everything
@@ -43,10 +43,10 @@ impl EntrypointPayload {
   // Serializes the entrypoint struct
   fn serialize(self) -> [Field; ENTRYPOINT_PAYLOAD_SIZE] {
     let mut fields: BoundedVec<Field, ENTRYPOINT_PAYLOAD_SIZE> = BoundedVec::new(0); 
-    fields = fields.push_array(self.flattened_args_hashes);
-    fields = fields.push_array(self.flattened_selectors);
-    fields = fields.push_array(self.flattened_targets);
-    fields = fields.push(self.nonce);
+    fields.push_array(self.flattened_args_hashes);
+    fields.push_array(self.flattened_selectors);
+    fields.push_array(self.flattened_targets);
+    fields.push(self.nonce);
     fields.storage
   }
 
@@ -88,14 +88,13 @@ impl EntrypointPayload {
   }
 
   // Executes all private and public calls 
-  fn execute_calls(self, mut context: Context) -> Context {
+  fn execute_calls(self, context: &mut Context) {
     for i in 0..ACCOUNT_MAX_PRIVATE_CALLS {
         let target_address = self.flattened_targets[i];
         if target_address != 0 {
             let function_selector = self.flattened_selectors[i];
             let args_hash = self.flattened_args_hashes[i];
-            let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-            context = updated_context;
+            let _callStackItem = context.call_private_function_with_packed_args(target_address, function_selector, args_hash);
         }
     }
     for i in ACCOUNT_MAX_PRIVATE_CALLS..ACCOUNT_MAX_CALLS {
@@ -103,42 +102,8 @@ impl EntrypointPayload {
         if target_address != 0 {
             let function_selector = self.flattened_selectors[i];
             let args_hash = self.flattened_args_hashes[i];
-            let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-            context = updated_context;
+            let _callStackItem = context.call_public_function_with_packed_args(target_address, function_selector, args_hash);
         }
     }
-    context
-  }
-
-  // TODO: This function returns all zeroes. Figure out why!
-  fn to_be_bytes_fail(self) -> [u8; ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] {
-    let mut bytes: BoundedVec<u8, ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES> = BoundedVec::new(0);
-
-    // Noir crashes if we try to push_bytes the whole item_bytes into the vec
-    // See https://github.com/noir-lang/noir/issues/1023
-    for item in self.flattened_args_hashes {
-      let item_bytes = item.to_be_bytes(32);
-      for i in 0..32 { 
-        bytes.push(item_bytes[i]); 
-      }
-    }
-    for item in self.flattened_selectors {
-      let item_bytes = item.to_be_bytes(32);
-      for i in 0..32 { 
-        bytes.push(item_bytes[i]); 
-      }
-    }
-    for item in self.flattened_targets {
-      let item_bytes = item.to_be_bytes(32);
-      for i in 0..32 { 
-        bytes.push(item_bytes[i]); 
-      }
-    }
-    
-    let nonce_bytes = self.nonce.to_be_bytes(32);
-    for i in 0..32 { 
-      bytes.push(nonce_bytes[i]); 
-    }
-    bytes.storage
   }
 }

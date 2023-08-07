@@ -1,7 +1,7 @@
 use dep::std::hash::pedersen;
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
-use dep::aztec::note::utils::compute_siloed_note_hash;
+use dep::aztec::note::utils::compute_unique_siloed_note_hash;
 use dep::aztec::oracle::get_secret_key::get_secret_key;
 use dep::aztec::oracle::get_public_key::get_public_key;
 
@@ -27,18 +27,17 @@ impl AddressNote {
     }
 
     fn compute_nullifier(self) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(AddressNoteInterface, self);
+        let unique_siloed_note_hash = compute_unique_siloed_note_hash(AddressNoteMethods, self);
         let owner_nullifying_public_key = get_public_key(self.address);
         let secret = get_secret_key(owner_nullifying_public_key);
         dep::std::hash::pedersen([
-            siloed_note_hash,
+            unique_siloed_note_hash,
             secret,
         ])[0]
     }
 
-    fn set_header(mut self: Self, header: NoteHeader) -> Self {
+    fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
-        self
     }
 
     fn dummy() -> Self {
@@ -46,10 +45,6 @@ impl AddressNote {
             address: 0,
             header: NoteHeader::empty(),
         }
-    }
-
-    fn is_dummy(self) -> bool {
-        self.address == 0
     }
 }
 
@@ -76,25 +71,20 @@ fn dummy() -> AddressNote {
     AddressNote::dummy()
 }
 
-fn is_dummy(note: AddressNote) -> bool {
-    note.is_dummy()
-}
-
 fn get_header(note: AddressNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: AddressNote, header: NoteHeader) -> AddressNote {
-    note.set_header(header)
+fn set_header(note: &mut AddressNote, header: NoteHeader) {
+    note.set_header(header);
 }
 
-global AddressNoteInterface = NoteInterface {
+global AddressNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,
     compute_nullifier,
     dummy,
-    is_dummy,
     get_header,
     set_header,
 };

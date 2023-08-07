@@ -1,5 +1,4 @@
-import { Contract, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
-import { AztecAddress, Fr, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, Contract, Fr, PrivateKey, Wallet, createAccounts, createAztecRpcClient } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ZkTokenContract } from '@aztec/noir-contracts/types';
@@ -25,9 +24,8 @@ async function deployZKContract(owner: AztecAddress) {
   logger('Deploying L2 contract...');
   const tx = ZkTokenContract.deploy(aztecRpcClient, INITIAL_BALANCE, owner).send();
   const receipt = await tx.getReceipt();
-  const contract = new ZkTokenContract(receipt.contractAddress!, wallet);
+  const contract = await ZkTokenContract.create(receipt.contractAddress!, wallet);
   await tx.isMined();
-  await tx.getReceipt();
   logger('L2 contract deployed');
   return contract;
 }
@@ -63,7 +61,7 @@ async function main() {
   // Mint more tokens
   logger(`Minting ${SECONDARY_AMOUNT} more coins`);
   const mintTx = zkContract.methods.mint(SECONDARY_AMOUNT, ownerAddress).send({ origin: ownerAddress });
-  await mintTx.isMined(0, 0.5);
+  await mintTx.isMined({ interval: 0.5 });
   const balanceAfterMint = await getBalance(zkContract, ownerAddress);
   logger(`Owner's balance is now: ${balanceAfterMint}`);
 
@@ -72,7 +70,7 @@ async function main() {
   const transferTx = zkContract.methods
     .transfer(SECONDARY_AMOUNT, ownerAddress, address2)
     .send({ origin: ownerAddress });
-  await transferTx.isMined(0, 0.5);
+  await transferTx.isMined({ interval: 0.5 });
   const balanceAfterTransfer = await getBalance(zkContract, ownerAddress);
   const receiverBalance = await getBalance(zkContract, address2);
   logger(`Owner's balance is now ${balanceAfterTransfer}`);

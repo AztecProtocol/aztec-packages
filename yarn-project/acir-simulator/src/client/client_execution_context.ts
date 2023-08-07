@@ -1,7 +1,7 @@
-import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
-import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
+import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import {
   ACVMField,
@@ -23,6 +23,9 @@ export class ClientTxExecutionContext {
   // output by an app circuit via public inputs.
   private readRequestPartialWitnesses: ReadRequestMembershipWitness[] = [];
 
+  /** Logger instance */
+  private logger = createDebugLogger('aztec:simulator:execution_context');
+
   constructor(
     /**  The database oracle. */
     public db: DBOracle,
@@ -40,6 +43,8 @@ export class ClientTxExecutionContext {
     /** The list of nullifiers created in this transaction. The commitment/note which is nullified
      *  might be pending or not (i.e., was generated in a previous transaction) */
     private pendingNullifiers: Set<Fr> = new Set<Fr>(),
+
+    private log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {}
 
   /**
@@ -126,7 +131,7 @@ export class ClientTxExecutionContext {
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
     // Remove notes which were already nullified during this transaction.
-    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.siloedNullifier as Fr));
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
@@ -136,8 +141,26 @@ export class ClientTxExecutionContext {
       offset,
     });
 
+    this.logger(
+      `Returning ${notes.length} notes for ${contractAddress} at ${storageSlotField}: ${notes
+        .map(n => `${n.nonce.toString()}:[${n.preimage.map(i => i.toString()).join(',')}]`)
+        .join(', ')}`,
+    );
+
+    // TODO: notice, that if we don't have a note in our DB, we don't know how big the preimage needs to be, and so we don't actually know how many dummy notes to return, or big to make those dummy notes, or where to position `is_some` booleans to inform the noir program that _all_ the notes should be dummies.
+    // By a happy coincidence, a `0` field is interpreted as `is_none`, and since in this case (of an empty db) we'll return all zeros (paddedZeros), the noir program will treat the returned data as all dummies, but this is luck. Perhaps a preimage size should be conveyed by the get_notes noir oracle?
+    const preimageLength = notes?.[0]?.preimage.length ?? 0;
+    if (
+      !notes.every(({ preimage }) => {
+        return preimageLength === preimage.length;
+      })
+    )
+      throw new Error('Preimages for a particular note type should all be the same length');
+
     // Combine pending and db preimages into a single flattened array.
-    const preimages = notes.flatMap(({ nonce, preimage }) => [nonce, ...preimage]);
+    const isSome = new Fr(1); // Boolean. Indicates whether the Noir Option<Note>::is_some();
+
+    const realNotePreimages = notes.flatMap(({ nonce, preimage }) => [nonce, isSome, ...preimage]);
 
     // Add a partial witness for each note.
     // It contains the note index for db notes. And flagged as transient for pending notes.
@@ -147,8 +170,25 @@ export class ClientTxExecutionContext {
       );
     });
 
-    const paddedZeros = Array(Math.max(0, returnSize - 2 - preimages.length)).fill(Fr.ZERO);
-    return [notes.length, contractAddress, ...preimages, ...paddedZeros].map(v => toACVMField(v));
+    const returnHeaderLength = 2; // is for the header values: `notes.length` and `contractAddress`.
+    const extraPreimageLength = 2; // is for the nonce and isSome fields.
+    const extendedPreimageLength = preimageLength + extraPreimageLength;
+    const numRealNotes = notes.length;
+    const numReturnNotes = Math.floor((returnSize - returnHeaderLength) / extendedPreimageLength);
+    const numDummyNotes = numReturnNotes - numRealNotes;
+
+    const dummyNotePreimage = Array(extendedPreimageLength).fill(Fr.ZERO);
+    const dummyNotePreimages = Array(numDummyNotes)
+      .fill(dummyNotePreimage)
+      .flatMap(note => note);
+
+    const paddedZeros = Array(
+      Math.max(0, returnSize - returnHeaderLength - realNotePreimages.length - dummyNotePreimages.length),
+    ).fill(Fr.ZERO);
+
+    return [notes.length, contractAddress, ...realNotePreimages, ...dummyNotePreimages, ...paddedZeros].map(v =>
+      toACVMField(v),
+    );
   }
 
   /**
@@ -179,16 +219,13 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
-   * @param nullifier - note nullifier
    * @param innerNoteHash - inner note hash
    */
-  public async pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
-    const wasm = await CircuitsWasm.get();
-    const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
+  public pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
     this.pendingNotes.push({
       contractAddress,
       storageSlot: storageSlot,
-      nonce,
+      nonce: Fr.ZERO, // nonce is cannot be known during private execution
       preimage,
       innerNoteHash,
     });
@@ -197,10 +234,10 @@ export class ClientTxExecutionContext {
   /**
    * Adding a nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
-   * @param nullifier - The pending nullifier to add in the list.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
    */
-  public pushPendingNullifier(nullifier: Fr) {
-    this.pendingNullifiers.add(nullifier);
+  public pushNewNullifier(innerNullifier: Fr) {
+    this.pendingNullifiers.add(innerNullifier);
   }
 
   /**

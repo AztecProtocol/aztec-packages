@@ -46,6 +46,7 @@ using aztec3::circuits::abis::StorageSlotGeneratorIndexPacker;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
 using NT = aztec3::utils::types::NativeTypes;
+using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::PublicTypes;
 
 // Cbind helper functions
@@ -54,7 +55,7 @@ using aztec3::circuits::abis::PublicTypes;
  * @brief Fill in zero-leaves to get a full tree's bottom layer.
  *
  * @details Given the a vector of nonzero leaves starting at the left,
- * append zeroleaves to that list until it represents a FULL set of leaves
+ * append zero leaves to that list until it represents a FULL set of leaves
  * for a tree of the given height.
  * **MODIFIES THE INPUT `leaves` REFERENCE!**
  *
@@ -77,7 +78,7 @@ template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>
 }  // namespace
 
 // Note: We don't have a simple way of calling the barretenberg c-bind.
-// Mimick bbmalloc behaviour.
+// Mimic bbmalloc behaviour.
 static void* bbmalloc(size_t size)
 {
     auto* ptr = aligned_alloc(64, size);
@@ -441,6 +442,11 @@ CBIND(abis__silo_commitment, aztec3::circuits::silo_commitment<NT>);
 CBIND(abis__silo_nullifier, aztec3::circuits::silo_nullifier<NT>);
 
 /**
+ * @brief Computes the block hash from the block information.
+ */
+CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash<NT>);
+
+/**
  * @brief Generates a signed tx request hash from it's pre-image
  * This is a WASM-export that can be called from Typescript.
  *
@@ -459,7 +465,14 @@ WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* tx_request_buf, u
     NT::fr::serialize_to_buffer(to_write, output);
 }
 
-WASM_EXPORT void abis__compute_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
+WASM_EXPORT void abis__compute_private_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
+{
+    CallStackItem<NT, PrivateTypes> call_stack_item;
+    serialize::read(call_stack_item_buf, call_stack_item);
+    NT::fr::serialize_to_buffer(call_stack_item.hash(), output);
+}
+
+WASM_EXPORT void abis__compute_public_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
 {
     CallStackItem<NT, PublicTypes> call_stack_item;
     serialize::read(call_stack_item_buf, call_stack_item);

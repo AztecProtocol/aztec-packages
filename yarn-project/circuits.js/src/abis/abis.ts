@@ -5,6 +5,7 @@ import { Buffer } from 'buffer';
 import chunk from 'lodash.chunk';
 
 import {
+  abisComputeBlockHash,
   abisComputeCommitmentNonce,
   abisComputeUniqueCommitment,
   abisSiloCommitment,
@@ -16,7 +17,9 @@ import {
   Fr,
   FunctionData,
   FunctionLeafPreimage,
+  GlobalVariables,
   NewContractData,
+  PrivateCallStackItem,
   PublicCallStackItem,
   PublicKey,
   TxRequest,
@@ -260,18 +263,6 @@ export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, com
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
- * @param wasm - A module providing low-level wasm access.
- * @param nonce - The contract address.
- * @param innerCommitment - An inner commitment.
- * @returns A siloed commitment.
- */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, innerCommitment: Fr): Fr {
-  wasm.call('pedersen__init');
-  return abisComputeUniqueCommitment(wasm, nonce, innerCommitment);
-}
-
-/**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
@@ -285,6 +276,18 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, unique
 }
 
 /**
+ * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
+ * @param wasm - A module providing low-level wasm access.
+ * @param nonce - The contract address.
+ * @param siloedCommitment - An siloed commitment.
+ * @returns A unique commitment.
+ */
+export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedCommitment: Fr): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeUniqueCommitment(wasm, nonce, siloedCommitment);
+}
+
+/**
  * Computes a siloed nullifier, given the contract address and the inner nullifier.
  * A siloed nullifier effectively namespaces a nullifier to a specific contract.
  * @param wasm - A module providing low-level wasm access.
@@ -295,6 +298,35 @@ export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, unique
 export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNullifier: Fr): Fr {
   wasm.call('pedersen__init');
   return abisSiloNullifier(wasm, contract, innerNullifier);
+}
+
+/**
+ * Computes the block hash given the blocks globals and roots.
+ * A siloed nullifier effectively namespaces a nullifier to a specific contract.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contract - The contract address.
+ * @param innerNullifier - The nullifier to silo.
+ * @returns A siloed nullifier.
+ */
+export function computeBlockHash(
+  wasm: IWasmModule,
+  globals: GlobalVariables,
+  privateDataTreeRoot: Fr,
+  nullifierTreeRoot: Fr,
+  contractTreeRoot: Fr,
+  l1ToL2DataTreeRoot: Fr,
+  publicDataTreeRoot: Fr,
+): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeBlockHash(
+    wasm,
+    globals,
+    privateDataTreeRoot,
+    nullifierTreeRoot,
+    contractTreeRoot,
+    l1ToL2DataTreeRoot,
+    publicDataTreeRoot,
+  );
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;
@@ -359,9 +391,40 @@ export function computeTxHash(wasm: IWasmModule, txRequest: TxRequest): Fr {
  * @param callStackItem - The call stack item.
  * @returns The call stack item hash.
  */
-export function computeCallStackItemHash(wasm: IWasmModule, callStackItem: PublicCallStackItem): Fr {
+export function computeCallStackItemHash(
+  wasm: IWasmModule,
+  callStackItem: PrivateCallStackItem | PublicCallStackItem,
+): Fr {
+  if (callStackItem instanceof PrivateCallStackItem) {
+    return computePrivateCallStackItemHash(wasm, callStackItem);
+  } else if (callStackItem instanceof PublicCallStackItem) {
+    return computePublicCallStackItemHash(wasm, callStackItem);
+  } else {
+    throw new Error(`Unexpected call stack item type`);
+  }
+}
+
+/**
+ * Computes a call stack item hash.
+ * @param wasm - Relevant WASM wrapper.
+ * @param callStackItem - The call stack item.
+ * @returns The call stack item hash.
+ */
+export function computePrivateCallStackItemHash(wasm: IWasmModule, callStackItem: PrivateCallStackItem): Fr {
   wasm.call('pedersen__init');
-  const value = wasmSyncCall(wasm, 'abis__compute_call_stack_item_hash', callStackItem, 32);
+  const value = wasmSyncCall(wasm, 'abis__compute_private_call_stack_item_hash', callStackItem, 32);
+  return Fr.fromBuffer(value);
+}
+
+/**
+ * Computes a call stack item hash.
+ * @param wasm - Relevant WASM wrapper.
+ * @param callStackItem - The call stack item.
+ * @returns The call stack item hash.
+ */
+export function computePublicCallStackItemHash(wasm: IWasmModule, callStackItem: PublicCallStackItem): Fr {
+  wasm.call('pedersen__init');
+  const value = wasmSyncCall(wasm, 'abis__compute_public_call_stack_item_hash', callStackItem, 32);
   return Fr.fromBuffer(value);
 }
 

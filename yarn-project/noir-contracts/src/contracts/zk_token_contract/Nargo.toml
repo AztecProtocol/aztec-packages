@@ -1,6 +1,8 @@
 [package]
+name = "zk_token_contract"
 authors = [""]
 compiler_version = "0.1"
+type = "bin"
 
 [dependencies]
 aztec = { path = "../../../../noir-libs/noir-aztec" }

@@ -5,7 +5,7 @@ contract EasyZkToken {
     use dep::value_note::{
             balance_utils,
             value_note::{
-                ValueNoteInterface,
+                ValueNoteMethods,
                 VALUE_NOTE_LEN,
             },
     };
@@ -17,7 +17,7 @@ contract EasyZkToken {
         log::emit_unencrypted_log,
         note::{
             note_header::NoteHeader,
-            utils::compute_note_hash_and_nullifier,
+            utils as note_utils,
         },
     };
 
@@ -36,9 +36,9 @@ contract EasyZkToken {
         let storage = Storage::init();
         let balances = storage.balances;
 
-        context = balances.at(owner).add(context, initial_supply, owner);
+        balances.at(owner).add(&mut context, initial_supply, owner);
 
-        context = emit_unencrypted_log(context, "Balance set in constructor");
+        emit_unencrypted_log(&mut context, "Balance set in constructor");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -57,9 +57,9 @@ contract EasyZkToken {
         let storage = Storage::init();
         let balances = storage.balances;
 
-        context = balances.at(owner).add(context, amount, owner);
+        balances.at(owner).add(&mut context, amount, owner);
 
-        context = emit_unencrypted_log(context, "Coins minted");
+        emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -79,11 +79,11 @@ contract EasyZkToken {
         let storage = Storage::init();
         let balances = storage.balances;
 
-        context = balances.at(sender).sub(context, amount, sender);
+        balances.at(sender).sub(&mut context, amount, sender);
 
-        context = balances.at(recipient).add(context, amount, recipient);
+        balances.at(recipient).add(&mut context, amount, recipient);
         
-        context = emit_unencrypted_log(context, "Coins transferred");
+        emit_unencrypted_log(&mut context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -100,8 +100,11 @@ contract EasyZkToken {
         balance_utils::get_balance(balances.at(owner).storage_slot)
     }
 
-    unconstrained fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    // Computes note hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
 }
