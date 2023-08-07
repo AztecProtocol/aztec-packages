@@ -1,5 +1,7 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
+import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
+import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
 
@@ -131,10 +133,10 @@ export class L1CheatCodes {
    * Load the value at a storage slot of a contract address on L1
    * @param contract - The contract address
    * @param slot - The storage slot
-   * @returns - The value at the storage slot in hex
+   * @returns - The value at the storage slot in hex (padded to 32)
    */
-  public async getStorageAt(contract: EthAddress, slot: `0x${string}`): Promise<`0x${string}`> {
-    const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), slot, 'latest']);
+  public async getStorageAt(contract: EthAddress, slot: bigint): Promise<`0x${string}`> {
+    const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), toHex(slot), 'latest']);
     return res.result;
   }
 
@@ -144,17 +146,27 @@ export class L1CheatCodes {
    * @param slot - The storage slot
    * @param value - The value to set the storage slot to
    */
-  public async setStorageAt(contract: EthAddress, slot: `0x${string}`, value: `0x${string}`): Promise<void> {
-    const res = await this.rpcCall('anvil_setStorageAt', [contract.toString(), slot, value]);
-    if (res.error) throw new Error(`Error setting storage at ${slot}: ${res.error.message}`);
-    this.logger(`Set storage at ${slot} to ${value}`);
+  public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
+    // note - value has to be a 32 byte hex string.
+    const res = await this.rpcCall('anvil_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
+    if (res.error) throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
+    this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
+  }
+
+  /**
+   * Do keccak256 hash of the input. Useful when computing storage slots of maps or dynamic arrays
+   * @param input - The input to hash
+   * @returns hash in big int.
+   */
+  public keccak256(input: bigint): bigint {
+    return toBigIntBE(keccak(toBufferBE(input, 32)));
   }
 
   /**
    * Send transactions impersonating an externally owned account or contract.
    * @param who - The address to impersonate
    */
-  public async impersonate(who: EthAddress): Promise<void> {
+  public async prank(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('anvil_impersonateAccount', [who.toString()]);
     if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
     this.logger(`Impersonating ${who}`);
@@ -164,7 +176,7 @@ export class L1CheatCodes {
    * Stop impersonating an account that you are currently impersonating.
    * @param who - The address to stop impersonating
    */
-  public async stopImpersonating(who: EthAddress): Promise<void> {
+  public async stopPrank(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('anvil_stopImpersonatingAccount', [who.toString()]);
     if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
     this.logger(`Stopped impersonating ${who}`);
@@ -175,7 +187,7 @@ export class L1CheatCodes {
    * @param contract - The contract address
    * @param bytecode - The bytecode to set
    */
-  public async setBytecode(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
+  public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
     const res = await this.rpcCall('anvil_setCode', [contract.toString(), bytecode]);
     if (res.error) throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
     this.logger(`Set bytecode for ${contract} to ${bytecode}`);

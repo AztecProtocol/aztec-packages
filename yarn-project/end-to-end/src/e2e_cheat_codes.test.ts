@@ -58,24 +58,27 @@ describe('e2e_cheat_codes', () => {
     });
 
     it('getStorageAt', async () => {
-      const res = await cc.l1.getStorageAt(EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'), '0x0');
-      expect(res).toBe('0x0000000000000000000000000000000000000000000000000000000000000000');
+      // check that storage slot 0 is empty as expected
+      const res = await cc.l1.getStorageAt(EthAddress.ZERO, 0n);
+      expect(res).toBe('0x' + Buffer.alloc(32).toString('hex'));
     });
 
     it.each(['1', 'bc40fbf4394cd00f78fae9763b0c2c71b21ea442c42fdadc5b720537240ebac1'])(
-      'setStorageAt',
-      async storageSlot => {
-        const storageSlotInHex: `0x${string}` = `0x${storageSlot}`;
-        const valueToSet = '0x0000000000000000000000000000000000000000000000000000000000000005';
+      'setStorageAt for a slot and its keccak value of the slot ',
+      async storageSlotInHex => {
+        const storageSlot = BigInt('0x' + storageSlotInHex);
+        const valueToSet = 5n;
         const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
-        await cc.l1.setStorageAt(contractAddress, storageSlotInHex, valueToSet);
-        expect(await cc.l1.getStorageAt(contractAddress, storageSlotInHex)).toBe(valueToSet);
+        await cc.l1.store(contractAddress, storageSlot, valueToSet);
+        // also test with the keccak value of the slot - can be used to compute storage slots of maps or dynamic arrays
+        await cc.l1.store(contractAddress, cc.l1.keccak256(storageSlot), valueToSet);
+        expect(BigInt(await cc.l1.getStorageAt(contractAddress, cc.l1.keccak256(storageSlot)))).toBe(valueToSet);
       },
     );
 
     it('set bytecode correctly', async () => {
       const contractAddress = EthAddress.fromString('0x70997970C51812dc3A010C7d01b50e0d17dc79C8');
-      await cc.l1.setBytecode(contractAddress, '0x1234');
+      await cc.l1.etch(contractAddress, '0x1234');
       expect(await cc.l1.getBytecode(contractAddress)).toBe('0x1234');
     });
 
@@ -92,7 +95,7 @@ describe('e2e_cheat_codes', () => {
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
-      await cc.l1.impersonate(EthAddress.fromString(randomAddress));
+      await cc.l1.prank(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
       await walletClient.sendTransaction({
@@ -103,7 +106,7 @@ describe('e2e_cheat_codes', () => {
       expect(await publicClient.getBalance({ address: randomAddress })).toBeLessThan(beforeBalance - amountToSend); // account for fees too
 
       // stop impersonating
-      await cc.l1.stopImpersonating(EthAddress.fromString(randomAddress));
+      await cc.l1.stopPrank(EthAddress.fromString(randomAddress));
 
       // making calls from random address should not be successful
       try {
