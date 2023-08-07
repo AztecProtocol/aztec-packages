@@ -9,7 +9,107 @@
  */
 #include "goblin_translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/plonk/proof_system/constants.hpp"
+#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include <cstddef>
 namespace proof_system {
+
+typename GoblinTranslatorCircuitBuilder::RangeList GoblinTranslatorCircuitBuilder::create_range_list(
+    const uint64_t target_range)
+{
+    RangeList result;
+    const auto range_tag = get_new_tag(); // current_tag + 1;
+    const auto tau_tag = get_new_tag();   // current_tag + 2;
+    create_tag(range_tag, tau_tag);
+    create_tag(tau_tag, range_tag);
+    result.target_range = target_range;
+    result.range_tag = range_tag;
+    result.tau_tag = tau_tag;
+
+    // uint64_t num_multiples_of_three = (target_range / DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
+
+    // result.variable_indices.reserve((uint32_t)num_multiples_of_three);
+    // for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
+    //     const uint32_t index = this->add_variable(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
+    //     result.variable_indices.emplace_back(index);
+    //     assign_tag(index, result.range_tag);
+    // }
+    // {
+    //     const uint32_t index = this->add_variable(target_range);
+    //     result.variable_indices.emplace_back(index);
+    //     assign_tag(index, result.range_tag);
+    // }
+    // Need this because these variables will not appear in the witness otherwise
+    // TODO: create dummy constraints later
+    // create_dummy_constraints(result.variable_indices);
+
+    return result;
+}
+
+/**
+ * @brief Constrain a variable to a range
+ *
+ * @details Checks if the range [0, target_range] already exists. If it doesn't, then creates a new range. Then tags
+ * variable as belonging to this set.
+ *
+ * @param variable_index
+ * @param target_range
+ */
+void GoblinTranslatorCircuitBuilder::create_new_range_constraint(const uint32_t variable_index,
+                                                                 const uint64_t target_range,
+                                                                 std::string const msg)
+{
+
+    if (uint256_t(this->get_variable(variable_index)).data[0] > target_range) {
+        if (!this->failed()) {
+            this->failure(msg);
+        }
+    }
+    if (range_lists.count(target_range) == 0) {
+        range_lists.insert({ target_range, create_range_list(target_range) });
+    }
+
+    const auto existing_tag = this->real_variable_tags[this->real_variable_index[variable_index]];
+    auto& list = range_lists[target_range];
+
+    // If the variable's tag matches the target range list's tag, do nothing.
+    if (existing_tag != list.range_tag) {
+        // If the variable is 'untagged' (i.e., it has the dummy tag), assign it the appropriate tag.
+        // Otherwise, find the range for which the variable has already been tagged.
+        if (existing_tag != DUMMY_TAG) {
+            bool found_tag = false;
+            for (const auto& r : range_lists) {
+                if (r.second.range_tag == existing_tag) {
+                    found_tag = true;
+                    if (r.first < target_range) {
+                        // The variable already has a more restrictive range check, so do nothing.
+                        return;
+                    } else {
+                        // The range constraint we are trying to impose is more restrictive than the existing range
+                        // constraint. It would be difficult to remove an existing range check. Instead deep-copy the
+                        // variable and apply a range check to new variable
+                        const uint32_t copied_witness = this->add_variable(this->get_variable(variable_index));
+                        create_add_gate({ .a = variable_index,
+                                          .b = copied_witness,
+                                          .c = this->zero_idx,
+                                          .a_scaling = 1,
+                                          .b_scaling = -1,
+                                          .c_scaling = 0,
+                                          .const_scaling = 0 });
+                        // Recurse with new witness that has no tag attached.
+                        create_new_range_constraint(copied_witness, target_range, msg);
+                        return;
+                    }
+                }
+            }
+            ASSERT(found_tag == true);
+        }
+        assign_tag(variable_index, list.range_tag);
+        list.variable_indices.emplace_back(variable_index);
+    }
+}
+
 template <typename Fq, typename Fr>
 GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     Fr op_code, Fr p_x_lo, Fr p_x_hi, Fr p_y_lo, Fr p_y_hi, Fr z_1, Fr z_2, Fq previous_accumulator, Fq v, Fq x)
@@ -260,6 +360,71 @@ GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
         // info("Stored: ", single_accumulation_step.current_accumulator_microlimbs[i][5], " at ", i);
     }
     return input;
+}
+
+template <typename Fq>
+GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one_ecc_op(ECCOp ecc_op,
+                                                                                        Fq previous_accumulator,
+                                                                                        Fq v,
+                                                                                        Fq x)
+{
+    using Fr = barretenberg::fr;
+    Fr op(0);
+    Fr p_x_lo(0);
+    Fr p_x_hi(0);
+    Fr p_y_lo(0);
+    Fr p_y_hi(0);
+    if (ecc_op.add) {
+        op = 1;
+    } else if (ecc_op.eq) {
+        op = 2;
+    } else if (ecc_op.mul) {
+        op = 3;
+    }
+    if (!op.is_zero()) {
+        p_x_lo = Fr(uint256_t(ecc_op.base_point.x).slice(0, 2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
+        p_x_hi = Fr(uint256_t(ecc_op.base_point.x)
+                        .slice(2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS,
+                               4 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
+        p_y_lo = Fr(uint256_t(ecc_op.base_point.y).slice(0, 2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
+        p_y_hi = Fr(uint256_t(ecc_op.base_point.y)
+                        .slice(2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS,
+                               4 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
+    }
+    return generate_witness_values(
+        op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, ecc_op.scalar_1, ecc_op.scalar_2, previous_accumulator, v, x);
+}
+void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue, barretenberg::fq v, barretenberg::fq x)
+{
+    using Fr = barretenberg::fr;
+    using Fq = barretenberg::fq;
+    std::vector<Fq> accumulator_trace;
+    Fq current_accumulator(0);
+
+    for (size_t i = 0; i < ecc_op_queue.raw_ops.size(); i++) {
+        auto& ecc_op = ecc_op_queue.raw_ops[ecc_op_queue.raw_ops.size() - 1 - i];
+        Fr op(0);
+        if (ecc_op.add) {
+            op = 1;
+        } else if (ecc_op.eq) {
+            op = 2;
+        } else if (ecc_op.mul) {
+            op = 3;
+        }
+        current_accumulator *= x;
+        current_accumulator +=
+            (op + v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.scalar_1 + v * ecc_op.scalar_2))));
+        accumulator_trace.push_back(current_accumulator);
+    }
+    accumulator_trace.pop_back();
+    for (auto& raw_op : ecc_op_queue.raw_ops) {
+        Fq previous_accumulator = 0;
+        if (!accumulator_trace.empty()) {
+            previous_accumulator = accumulator_trace.back();
+            accumulator_trace.pop_back();
+        }
+        compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
+    }
 }
 template GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
     barretenberg::fr op_code,

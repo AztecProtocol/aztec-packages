@@ -10,6 +10,7 @@
  */
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
+#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
 #include <cstddef>
@@ -18,6 +19,17 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
     // We don't need templating for Goblin
     using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
+    struct RangeList {
+        uint64_t target_range;
+        uint32_t range_tag;
+        uint32_t tau_tag;
+        std::vector<uint32_t> variable_indices;
+        bool operator==(const RangeList& other) const noexcept
+        {
+            return target_range == other.target_range && range_tag == other.range_tag && tau_tag == other.tau_tag &&
+                   variable_indices == other.variable_indices;
+        }
+    };
 
   public:
     /**
@@ -117,6 +129,7 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
                              // constraints
 
     };
+    static constexpr size_t DEFAULT_PLOOKUP_RANGE_STEP_SIZE = 12;
     static constexpr size_t MAX_OPERAND = 3;
     static constexpr size_t NUM_LIMB_BITS = 68;
     static constexpr size_t NUM_Z_LIMBS = 2;
@@ -143,27 +156,6 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
         -Fr(Fq::modulus)
     };
-    static constexpr std::string_view NAME_STRING = "GoblinTranslatorArithmetization";
-    // TODO(kesha): fix size hints
-    GoblinTranslatorCircuitBuilder()
-        : CircuitBuilderBase({}, 0)
-    {
-        // We'll have to shift all wires, so we need the starting element to be zero
-        for (auto& wire : wires) {
-            wire.push_back(0);
-        }
-    };
-    GoblinTranslatorCircuitBuilder(const GoblinTranslatorCircuitBuilder& other) = delete;
-    GoblinTranslatorCircuitBuilder(GoblinTranslatorCircuitBuilder&& other) noexcept
-        : CircuitBuilderBase(std::move(other)){};
-    GoblinTranslatorCircuitBuilder& operator=(const GoblinTranslatorCircuitBuilder& other) = delete;
-    GoblinTranslatorCircuitBuilder& operator=(GoblinTranslatorCircuitBuilder&& other) noexcept
-    {
-        CircuitBuilderBase::operator=(std::move(other));
-        return *this;
-    };
-    ~GoblinTranslatorCircuitBuilder() override = default;
-
     /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
@@ -212,6 +204,28 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
         std::array<Fr, NUM_BINARY_LIMBS + 1> v_cubed_limbs = { 0 };
         std::array<Fr, NUM_BINARY_LIMBS + 1> v_quarted_limbs = { 0 };
     };
+    static constexpr std::string_view NAME_STRING = "GoblinTranslatorArithmetization";
+
+    std::map<uint64_t, RangeList> range_lists;
+    // TODO(kesha): fix size hints
+    GoblinTranslatorCircuitBuilder()
+        : CircuitBuilderBase({}, 0)
+    {
+        // We'll have to shift all wires, so we need the starting element to be zero
+        for (auto& wire : wires) {
+            wire.push_back(0);
+        }
+    };
+    GoblinTranslatorCircuitBuilder(const GoblinTranslatorCircuitBuilder& other) = delete;
+    GoblinTranslatorCircuitBuilder(GoblinTranslatorCircuitBuilder&& other) noexcept
+        : CircuitBuilderBase(std::move(other)){};
+    GoblinTranslatorCircuitBuilder& operator=(const GoblinTranslatorCircuitBuilder& other) = delete;
+    GoblinTranslatorCircuitBuilder& operator=(GoblinTranslatorCircuitBuilder&& other) noexcept
+    {
+        CircuitBuilderBase::operator=(std::move(other));
+        return *this;
+    };
+    ~GoblinTranslatorCircuitBuilder() override = default;
 
     /**
      * @brief Create bigfield representations of x and powers of v
@@ -376,36 +390,101 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
                 wires[starting_wire + i].push_back(add_variable(input[i]));
             }
         };
-        lay_limbs_in_row(acc_step.P_x_microlimbs[0], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_x_microlimbs[1], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_x_microlimbs[2], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_x_microlimbs[3], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_y_microlimbs[0], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_y_microlimbs[1], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_y_microlimbs[2], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.P_y_microlimbs[3], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.z_1_microlimbs[0], Z_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.z_2_microlimbs[0], Z_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.z_1_microlimbs[1], Z_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.z_2_microlimbs[1], Z_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        auto lay_limbs_in_row_and_range_constrain =
+            [this, lay_limbs_in_row]<size_t array_size>(
+                std::array<Fr, array_size> input, WireIds starting_wire, size_t number_of_elements) {
+                lay_limbs_in_row(input, starting_wire, number_of_elements);
+                for (size_t i = 0; i < number_of_elements; i++) {
+                    create_range_constraint(
+                        wires[starting_wire + i].back(), MICRO_LIMB_BITS, "Range constraint for microlimbs failed");
+                }
+            };
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_x_microlimbs[0], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_x_microlimbs[1], P_X_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_x_microlimbs[2], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_x_microlimbs[3], P_X_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_y_microlimbs[0], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_y_microlimbs[1], P_Y_LOW_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_y_microlimbs[2], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.P_y_microlimbs[3], P_Y_HIGH_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.z_1_microlimbs[0], Z_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.z_2_microlimbs[0], Z_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.z_1_microlimbs[1], Z_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.z_2_microlimbs[1], Z_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
         lay_limbs_in_row(acc_step.current_accumulator, ACCUMULATORS_BINARY_LIMBS_0, NUM_BINARY_LIMBS);
         lay_limbs_in_row(acc_step.previous_accumulator, ACCUMULATORS_BINARY_LIMBS_0, NUM_BINARY_LIMBS);
-        lay_limbs_in_row(
+        lay_limbs_in_row_and_range_constrain(
             acc_step.current_accumulator_microlimbs[0], ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(
+        lay_limbs_in_row_and_range_constrain(
             acc_step.current_accumulator_microlimbs[1], ACCUMULATOR_LO_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(
+        lay_limbs_in_row_and_range_constrain(
             acc_step.current_accumulator_microlimbs[2], ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(
+        lay_limbs_in_row_and_range_constrain(
             acc_step.current_accumulator_microlimbs[3], ACCUMULATOR_HI_LIMBS_RANGE_CONSTRAINT_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.quotient_microlimbs[0], QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.quotient_microlimbs[1], QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.quotient_microlimbs[2], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
-        lay_limbs_in_row(acc_step.quotient_microlimbs[3], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.quotient_microlimbs[0], QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.quotient_microlimbs[1], QUOTIENT_LO_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.quotient_microlimbs[2], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
+        lay_limbs_in_row_and_range_constrain(
+            acc_step.quotient_microlimbs[3], QUOTIENT_HI_LIMBS_RANGE_CONSTRAIN_0, NUM_MICRO_LIMBS);
 
         num_gates += 2;
     }
+    void assign_tag(const uint32_t variable_index, const uint32_t tag)
+    {
+        ASSERT(tag <= this->current_tag);
+        // If we've already assigned this tag to this variable, return (can happen due to copy constraints)
+        if (this->real_variable_tags[this->real_variable_index[variable_index]] == tag) {
+            return;
+        }
+        ASSERT(this->real_variable_tags[this->real_variable_index[variable_index]] == DUMMY_TAG);
+        this->real_variable_tags[this->real_variable_index[variable_index]] = tag;
+    }
 
+    uint32_t create_tag(const uint32_t tag_index, const uint32_t tau_index)
+    {
+        this->tau.insert({ tag_index, tau_index });
+        this->current_tag++; // Why exactly?
+        return this->current_tag;
+    }
+
+    uint32_t get_new_tag()
+    {
+        this->current_tag++;
+        return this->current_tag;
+    }
+    RangeList create_range_list(uint64_t target_range);
+    void create_new_range_constraint(uint32_t variable_index,
+                                     uint64_t target_range,
+                                     std::string msg = "create_new_range_constraint");
+    void create_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
+    {
+        create_new_range_constraint(variable_index, 1ULL << num_bits, msg);
+    }
+
+    /**
+     * @brief Generate all the gates required to proof the correctness of batched evalution of polynomials representing
+     * commitments to ECCOpQueue
+     *
+     * @param ecc_op_queue The queue
+     * @param v Polynomial batching challenge
+     * @param x Evaluation point
+     */
+    void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue, barretenberg::fq v, barretenberg::fq x);
     /**
      * @brief Check the witness satisifies the circuit
      *
@@ -418,6 +497,10 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
      */
     bool check_circuit(Fq x, Fq v)
     {
+        info("Range lists:");
+        for (auto& range_list : range_lists) {
+            info("Size: ", range_list.first, "count: ", range_list.second.variable_indices.size());
+        }
         // Compute the limbs of x and powers of v (these go into the relation)
         RelationInputs relation_inputs = compute_relation_inputs_limbs(x, v);
 
@@ -469,7 +552,7 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
          * @brief Enumerate through the gates
          *
          */
-        for (size_t i = 0; i < num_gates; i++) {
+        for (size_t i = 1; i < num_gates; i++) {
             // The main relation is computed between odd and the next even indices. For example, 1 and 2
             if (i & 1) {
                 // Get the values
@@ -696,6 +779,25 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
                         SHIFT_1;
                 if (high_wide_relation_limb_check != (high_wide_relation_limb * SHIFT_2)) {
                     return false;
+                }
+            } else {
+                const std::vector current_accumulator_binary_limbs_copy = {
+                    get_variable(accumulators_binary_limbs_0_wire[i]),
+                    get_variable(accumulators_binary_limbs_1_wire[i]),
+                    get_variable(accumulators_binary_limbs_2_wire[i]),
+                    get_variable(accumulators_binary_limbs_3_wire[i]),
+                };
+                const std::vector current_accumulator_binary_limbs = {
+                    get_variable(accumulators_binary_limbs_0_wire[i + 1]),
+                    get_variable(accumulators_binary_limbs_1_wire[i + 1]),
+                    get_variable(accumulators_binary_limbs_2_wire[i + 1]),
+                    get_variable(accumulators_binary_limbs_3_wire[i + 1]),
+                };
+
+                for (size_t j = 0; j < current_accumulator_binary_limbs.size(); j++) {
+                    if (current_accumulator_binary_limbs_copy[j] != current_accumulator_binary_limbs[j]) {
+                        return false;
+                    }
                 }
             }
         }
