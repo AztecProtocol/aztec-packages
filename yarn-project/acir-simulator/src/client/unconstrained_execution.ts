@@ -58,20 +58,27 @@ export class UnconstrainedFunctionExecution {
       getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
       storageRead: async ([slot], [numberOfElements]) => {
         if (!aztecNode) {
-          this.log(`Aztec node is undefined, cannot read public storage`);
-          throw new Error(`Aztec node is undefined, cannot read public storage`);
+          const errMsg = `Aztec node is undefined, cannot read storage`;
+          this.log(errMsg);
+          throw new Error(errMsg);
         }
+
+        const makeLogMsg = (slot: bigint, value: string) =>
+          `Oracle storage read: slot=${slot.toString()} value=${value}`;
+
         const startStorageSlot = fromACVMField(slot);
         const values = [];
         for (let i = 0; i < Number(numberOfElements); i++) {
           const storageSlot = startStorageSlot.value + BigInt(i);
           const value = await aztecNode.getPublicStorageAt(this.contractAddress, storageSlot);
           if (value === undefined) {
-            this.log(`Oracle storage read: slot=${storageSlot.toString()} value=undefined`);
-            throw new Error(`Oracle storage read: slot=${storageSlot.toString()} value=undefined`);
+            const logMsg = makeLogMsg(storageSlot, 'undefined');
+            this.log(logMsg);
+            throw new Error(logMsg);
           }
           const frValue = Fr.fromBuffer(value);
-          this.log(`Oracle storage read: slot=${storageSlot.toString()} value=${frValue.toString()}`);
+          const logMsg = makeLogMsg(storageSlot, frValue.toString());
+          this.log(logMsg);
           values.push(frValue);
         }
         return values.map(v => toACVMField(v));
