@@ -155,7 +155,6 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     baseRollupInputs.start_public_data_tree_root = public_data_tree.root();
 
     // create the original historic blocks tree leaf
-    info("block hash base inputs");
     auto block_hash = compute_block_hash<NT>(prev_global_variables_hash,
                                              private_data_tree.root(),
                                              nullifier_tree.root(),
