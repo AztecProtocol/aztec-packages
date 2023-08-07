@@ -49,6 +49,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     fr historic_nullifier_tree_root = 0;
     fr historic_contract_tree_root = 0;
     fr historic_l1_to_l2_messages_tree_root = 0;
+    fr historic_transactions_tree_root = 0;
     fr historic_blocks_tree_root = 0;
     fr historic_global_variables_hash = 0;
     fr historic_public_data_tree_root = 0;
@@ -115,6 +116,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(historic_nullifier_tree_root),
             to_ct(historic_contract_tree_root),
             to_ct(historic_l1_to_l2_messages_tree_root),
+            to_ct(historic_transactions_tree_root),
             to_ct(historic_blocks_tree_root),
             to_ct(historic_global_variables_hash),
             to_ct(historic_public_data_tree_root),
@@ -160,6 +162,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(historic_nullifier_tree_root),
             to_nt(historic_contract_tree_root),
             to_nt(historic_l1_to_l2_messages_tree_root),
+            to_nt(historic_transactions_tree_root),
             to_nt(historic_blocks_tree_root),
             to_nt(historic_global_variables_hash),
             to_nt(historic_public_data_tree_root),
@@ -204,6 +207,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         inputs.push_back(historic_nullifier_tree_root);
         inputs.push_back(historic_contract_tree_root);
         inputs.push_back(historic_l1_to_l2_messages_tree_root);
+        inputs.push_back(historic_transactions_tree_root);
         inputs.push_back(historic_blocks_tree_root);
         inputs.push_back(historic_global_variables_hash);
         inputs.push_back(historic_public_data_tree_root);
@@ -249,6 +253,7 @@ template <typename NCT> void read(uint8_t const*& it, PrivateCircuitPublicInputs
     read(it, pis.historic_nullifier_tree_root);
     read(it, pis.historic_contract_tree_root);
     read(it, pis.historic_l1_to_l2_messages_tree_root);
+    read(it, pis.historic_transactions_tree_root);
     read(it, pis.historic_blocks_tree_root);
     read(it, pis.historic_global_variables_hash);
     read(it, pis.historic_public_data_tree_root);
@@ -282,6 +287,7 @@ void write(std::vector<uint8_t>& buf, PrivateCircuitPublicInputs<NCT> const& pri
     write(buf, pis.historic_nullifier_tree_root);
     write(buf, pis.historic_contract_tree_root);
     write(buf, pis.historic_l1_to_l2_messages_tree_root);
+    write(buf, pis.historic_transactions_tree_root);
     write(buf, pis.historic_blocks_tree_root);
     write(buf, pis.historic_global_variables_hash);
     write(buf, pis.historic_public_data_tree_root);
@@ -314,6 +320,7 @@ std::ostream& operator<<(std::ostream& os, PrivateCircuitPublicInputs<NCT> const
               << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
               << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
               << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
+              << "historic_transactions_tree_root: " << pis.historic_transactions_tree_root << "\n"
               << "historic_blocks_tree_root: " << pis.historic_blocks_tree_root << "\n"
               << "historic_global_variables_hash: " << pis.historic_global_variables_hash << "\n"
               << "historic_public_data_tree_root: " << pis.historic_public_data_tree_root << "\n"
@@ -356,6 +363,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     opt_fr historic_nullifier_tree_root;
     opt_fr historic_contract_tree_root;
     opt_fr historic_l1_to_l2_messages_tree_root;
+    opt_fr historic_transactions_tree_root;
     opt_fr historic_blocks_tree_root;
     opt_fr historic_global_variables_hash;
     opt_fr historic_public_data_tree_root;
@@ -393,6 +401,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         opt_fr const& historic_nullifier_tree_root,
         opt_fr const& historic_contract_tree_root,
         opt_fr const& historic_l1_to_l2_messages_tree_root,
+        opt_fr const& historic_transactions_tree_root,
         opt_fr const& historic_blocks_tree_root,
         opt_fr const& historic_global_variables_hash,
         opt_fr const& historic_public_data_tree_root,
@@ -419,6 +428,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , historic_nullifier_tree_root(historic_nullifier_tree_root)
         , historic_contract_tree_root(historic_contract_tree_root)
         , historic_l1_to_l2_messages_tree_root(historic_l1_to_l2_messages_tree_root)
+        , historic_transactions_tree_root(historic_transactions_tree_root)
         , historic_blocks_tree_root(historic_blocks_tree_root)
         , historic_global_variables_hash(historic_global_variables_hash)
         , historic_public_data_tree_root(historic_public_data_tree_root)
@@ -457,6 +467,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         new_inputs.historic_nullifier_tree_root = std::nullopt;
         new_inputs.historic_contract_tree_root = std::nullopt;
         new_inputs.historic_l1_to_l2_messages_tree_root = std::nullopt;
+        new_inputs.historic_transactions_tree_root = std::nullopt;
         new_inputs.historic_blocks_tree_root = std::nullopt;
         new_inputs.historic_global_variables_hash = std::nullopt;
         new_inputs.historic_public_data_tree_root = std::nullopt;
@@ -528,6 +539,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         make_unused_element_zero(builder, historic_nullifier_tree_root);
         make_unused_element_zero(builder, historic_contract_tree_root);
         make_unused_element_zero(builder, historic_l1_to_l2_messages_tree_root);
+        make_unused_element_zero(builder, historic_transactions_tree_root);
         make_unused_element_zero(builder, historic_blocks_tree_root);
         make_unused_element_zero(builder, historic_global_variables_hash);
         make_unused_element_zero(builder, historic_public_data_tree_root);
@@ -573,6 +585,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         (*historic_nullifier_tree_root).set_public();
         (*historic_contract_tree_root).set_public();
         (*historic_l1_to_l2_messages_tree_root).set_public();
+        (*historic_transactions_tree_root).set_public();
         (*historic_blocks_tree_root).set_public();
         (*historic_global_variables_hash).set_public();
         (*historic_public_data_tree_root).set_public();
@@ -620,6 +633,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             to_ct(historic_nullifier_tree_root),
             to_ct(historic_contract_tree_root),
             to_ct(historic_l1_to_l2_messages_tree_root),
+            to_ct(historic_transactions_tree_root),
             to_ct(historic_blocks_tree_root),
             to_ct(historic_global_variables_hash),
             to_ct(historic_public_data_tree_root),
@@ -667,6 +681,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                                                 to_nt(historic_nullifier_tree_root),
                                                                 to_nt(historic_contract_tree_root),
                                                                 to_nt(historic_l1_to_l2_messages_tree_root),
+                                                                to_nt(historic_transactions_tree_root),
                                                                 to_nt(historic_blocks_tree_root),
                                                                 to_nt(historic_global_variables_hash),
                                                                 to_nt(historic_public_data_tree_root),
@@ -715,6 +730,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         inputs.push_back(*historic_nullifier_tree_root);
         inputs.push_back(*historic_contract_tree_root);
         inputs.push_back(*historic_l1_to_l2_messages_tree_root);
+        inputs.push_back(*historic_transactions_tree_root);
         inputs.push_back(*historic_blocks_tree_root);
         inputs.push_back(*historic_global_variables_hash);
         inputs.push_back(*historic_public_data_tree_root);
@@ -758,6 +774,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
             .historic_nullifier_tree_root = historic_nullifier_tree_root.value(),
             .historic_contract_tree_root = historic_contract_tree_root.value(),
             .historic_l1_to_l2_messages_tree_root = historic_l1_to_l2_messages_tree_root.value(),
+            .historic_transactions_tree_root = historic_transactions_tree_root.value(),
             .historic_blocks_tree_root = historic_blocks_tree_root.value(),
             .historic_global_variables_hash = historic_global_variables_hash.value(),
             .historic_public_data_tree_root = historic_public_data_tree_root.value(),
@@ -860,6 +877,7 @@ void read(uint8_t const*& it, OptionalPrivateCircuitPublicInputs<NCT>& private_c
     read(it, pis.historic_nullifier_tree_root);
     read(it, pis.historic_contract_tree_root);
     read(it, pis.historic_l1_to_l2_messages_tree_root);
+    read(it, pis.historic_transactions_tree_root);
     read(it, pis.historic_blocks_tree_root);
     read(it, pis.historic_global_variables_hash);
     read(it, pis.historic_public_data_tree_root);
@@ -893,6 +911,7 @@ void write(std::vector<uint8_t>& buf, OptionalPrivateCircuitPublicInputs<NCT> co
     write(buf, pis.historic_nullifier_tree_root);
     write(buf, pis.historic_contract_tree_root);
     write(buf, pis.historic_l1_to_l2_messages_tree_root);
+    write(buf, pis.historic_transactions_tree_root);
     write(buf, pis.historic_blocks_tree_root);
     write(buf, pis.historic_global_variables_hash);
     write(buf, pis.historic_public_data_tree_root);
@@ -924,6 +943,7 @@ std::ostream& operator<<(std::ostream& os, OptionalPrivateCircuitPublicInputs<NC
               << "historic_nullifier_tree_root: " << pis.historic_nullifier_tree_root << "\n"
               << "historic_contract_tree_root: " << pis.historic_contract_tree_root << "\n"
               << "historic_l1_to_l2_messages_tree_root: " << pis.historic_l1_to_l2_messages_tree_root << "\n"
+              << "historic_transactions_tree_root: " << pis.historic_transactions_tree_root << "\n"
               << "historic_blocks_tree_root: " << pis.historic_blocks_tree_root << "\n"
               << "historic_global_variables_hash: " << pis.historic_global_variables_hash << "\n"
               << "historic_public_data_tree_root: " << pis.historic_public_data_tree_root << "\n"

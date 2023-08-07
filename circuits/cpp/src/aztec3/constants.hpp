@@ -94,6 +94,8 @@ constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
 constexpr size_t NULLIFIER_TREE_HEIGHT = 16;
 constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
 constexpr size_t HISTORIC_BLOCKS_TREE_HEIGHT = 16;
+// TODO(Maddiaa): what is a suitable value for this constant?
+constexpr size_t TRANSACTIONS_TREE_HEIGHT = 8;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 
 

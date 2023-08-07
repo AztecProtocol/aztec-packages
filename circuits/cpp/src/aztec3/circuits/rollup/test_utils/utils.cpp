@@ -87,7 +87,12 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     // @todo Look at the starting points for all of these.
     // By supporting as inputs we can make very generic tests, where it is trivial to try new setups.
     MemoryStore historic_blocks_tree_store;
-    MerkleTree historic_blocks_tree = MerkleTree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
+    MerkleTree historic_blocks_tree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
+
+    // TODO(Maddiaa): Should this move around, maybe elsewhere
+    // This tree is just required to work out the previous block hash
+    MemoryStore tx_store;
+    MerkleTree tx_tree(historic_blocks_tree_store, TRANSACTIONS_TREE_HEIGHT);
 
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
@@ -160,6 +165,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
                                              nullifier_tree.root(),
                                              contract_tree.root(),
                                              l1_to_l2_msg_tree.root(),
+                                             tx_tree.root(),
                                              public_data_tree.root());
     historic_blocks_tree.update_element(0, block_hash);
 
@@ -382,12 +388,17 @@ RootRollupInputs get_root_rollup_inputs(utils::DummyBuilder& builder,
     MemoryStore historic_blocks_tree_store;
     MerkleTree historic_blocks_tree(historic_blocks_tree_store, HISTORIC_BLOCKS_TREE_HEIGHT);
 
+    MemoryStore tx_store;
+    MerkleTree tx_tree(tx_store, TRANSACTIONS_TREE_HEIGHT);
+
+
     // Start blocks tree
     auto block_hash = compute_block_hash_with_globals(globals,
                                                       private_data_tree.root(),
                                                       nullifier_tree.root(),
                                                       contract_tree.root(),
                                                       l1_to_l2_msg_tree.root(),
+                                                      tx_tree.root(),
                                                       public_data_tree.root());
     historic_blocks_tree.update_element(0, block_hash);
 

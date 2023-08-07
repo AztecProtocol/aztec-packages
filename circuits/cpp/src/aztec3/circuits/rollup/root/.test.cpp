@@ -181,6 +181,10 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     MemoryStore public_store;
     MerkleTree public_data_tree(public_store, PUBLIC_DATA_TREE_HEIGHT);
 
+    // Last blocks tx tree
+    MemoryStore tx_store;
+    MerkleTree tx_tree(tx_store, TRANSACTIONS_TREE_HEIGHT);
+
     // Create initial nullifier tree with 32 initial nullifiers
     auto nullifier_tree = get_initial_nullifier_tree_empty();
 
@@ -199,6 +203,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
                                                             nullifier_tree.root(),
                                                             contract_tree.root(),
                                                             l1_to_l2_messages_tree.root(),
+                                                            tx_tree.root(),
                                                             public_data_tree.root());
     blocks_tree.update_element(0, start_block_hash);
     AppendOnlyTreeSnapshot<NT> start_blocks_tree_snapshot = { .root = blocks_tree.root(),
@@ -250,6 +255,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
                                                           nullifier_tree.root(),
                                                           contract_tree.root(),
                                                           l1_to_l2_messages_tree.root(),
+                                                          tx_tree.root(),
                                                           public_data_tree.root());
     blocks_tree.update_element(1, end_block_hash);
     AppendOnlyTreeSnapshot<NT> end_blocks_tree_snapshot = { .root = blocks_tree.root(),

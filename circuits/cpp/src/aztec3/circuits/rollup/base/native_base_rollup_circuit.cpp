@@ -145,6 +145,7 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
         auto nullifier_tree_root = historic_block.nullifier_tree_root;
         auto contract_tree_root = historic_block.contract_tree_root;
         auto l1_to_l2_data_tree_root = historic_block.l1_to_l2_messages_tree_root;
+        auto transactions_tree_root = historic_block.transactions_tree_root;
         auto public_data_tree_root = historic_block.public_data_tree_root;
 
         auto previous_block_hash = compute_block_hash<NT>(historic_block.prev_global_variables_hash,
@@ -152,6 +153,7 @@ void perform_historical_blocks_tree_membership_checks(DummyBuilder& builder, Bas
                                                           nullifier_tree_root,
                                                           contract_tree_root,
                                                           l1_to_l2_data_tree_root,
+                                                          transactions_tree_root,
                                                           public_data_tree_root);
 
         abis::MembershipWitness<NT, HISTORIC_BLOCKS_TREE_HEIGHT> const historic_root_witness =

@@ -26,6 +26,10 @@ export class ConstantHistoricBlockData {
      */
     public l1ToL2MessagesTreeRoot: Fr,
     /**
+     * Root of the transactions tree at the time of when this information was assembled.
+     */
+    public transactionsTreeRoot: Fr,
+    /**
      * Root of the historic blocks tree at the time of when this information was assembled.
      */
     public blocksTreeRoot: Fr,
@@ -53,6 +57,7 @@ export class ConstantHistoricBlockData {
       fields.nullifierTreeRoot,
       fields.contractTreeRoot,
       fields.l1ToL2MessagesTreeRoot,
+      fields.transactionsTreeRoot,
       fields.blocksTreeRoot,
       fields.privateKernelVkTreeRoot,
       fields.publicDataTreeRoot,
@@ -79,6 +84,7 @@ export class ConstantHistoricBlockData {
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),
+      reader.readFr(),
     );
   }
 
@@ -88,6 +94,7 @@ export class ConstantHistoricBlockData {
       this.nullifierTreeRoot.isZero() &&
       this.contractTreeRoot.isZero() &&
       this.l1ToL2MessagesTreeRoot.isZero() &&
+      this.transactionsTreeRoot.isZero() &&
       this.blocksTreeRoot.isZero() &&
       this.privateKernelVkTreeRoot.isZero() &&
       this.publicDataTreeRoot.isZero() &&

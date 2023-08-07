@@ -75,6 +75,21 @@ std::array<NT::fr, NUM_FIELDS_PER_SHA256> compute_messages_hash(
     return { high, low };
 }
 
+/**
+ * @brief Calculates the tx tree root from the txs array
+ *
+ * NOTE: THIS METHOD IS CURRENTLY STUBBED:
+ * See:  https://github.com/AztecProtocol/aztec-packages/issues/1444
+ * @return fr - the root of the transactions tree
+ */
+fr calculate_transactions_tree_root()
+{
+    MemoryStore tx_store;
+    MerkleTree tx_tree(tx_store, TRANSACTIONS_TREE_HEIGHT);
+
+    return tx_tree.root();
+}
+
 RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInputs const& rootRollupInputs)
 {
     // TODO: Verify the previous rollup proofs
@@ -106,6 +121,9 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                "l1 to l2 message tree not empty at location where subtree would be inserted"));
 
+    // stubbed: see https://github.com/AztecProtocol/aztec-packages/issues/1444
+    auto transactions_tree_root = calculate_transactions_tree_root();
+
     // Build the block hash for this iteration from the tree roots and global variables
     // Then insert the block into the historic blocks tree
     auto block_hash = compute_block_hash_with_globals(left.constants.global_variables,
@@ -113,6 +131,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
                                                       right.end_nullifier_tree_snapshot.root,
                                                       right.end_contract_tree_snapshot.root,
                                                       new_l1_to_l2_messages_tree_snapshot.root,
+                                                      transactions_tree_root,
                                                       right.end_public_data_tree_root);
 
     // Update the historic blocks tree
@@ -142,6 +161,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         .end_l1_to_l2_messages_tree_snapshot = new_l1_to_l2_messages_tree_snapshot,
         .start_historic_blocks_tree_snapshot = rootRollupInputs.start_historic_blocks_tree_snapshot,
         .end_historic_blocks_tree_snapshot = end_historic_blocks_tree_snapshot,
+        .transactions_tree_root = transactions_tree_root,
         .calldata_hash = components::compute_calldata_hash(rootRollupInputs.previous_rollup_data),
         .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.l1_to_l2_messages)
     };
