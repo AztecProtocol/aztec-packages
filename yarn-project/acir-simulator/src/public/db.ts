@@ -1,4 +1,4 @@
-import { EthAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { ConstantHistoricBlockData, EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -73,8 +73,8 @@ export interface CommitmentsDB {
   getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs>;
 
   /**
-   * Gets the current tree roots from the merkle db.
-   * @returns current tree roots.
+   * Gets the current historic block data from the merkle db.
+   * @returns the previous blocks roots and global variables hash.
    */
-  getTreeRoots(): PrivateHistoricTreeRoots;
+  getHistoricBlockData(): ConstantHistoricBlockData;
 }

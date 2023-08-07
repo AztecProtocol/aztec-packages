@@ -6,7 +6,7 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   FunctionData,
   PartialContractAddress,
   PrivateKey,
@@ -333,7 +333,7 @@ export class AztecRPCServer implements AztecRPC {
 
   async #simulate(
     txRequest: TxExecutionRequest,
-    constantBlockHashData: ConstantBlockHashData,
+    constantHistoricBlockData: ConstantHistoricBlockData,
     contractDataOracle?: ContractDataOracle,
   ): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
@@ -355,7 +355,7 @@ export class AztecRPCServer implements AztecRPC {
         functionAbi,
         contractAddress,
         portalContract,
-        constantBlockHashData,
+        constantHistoricBlockData,
       );
       this.log('Simulation completed!');
 
@@ -377,7 +377,7 @@ export class AztecRPCServer implements AztecRPC {
   async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const constantBlockHashData = await kernelOracle.getConstantBlockHashData();
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
 
     const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
@@ -393,7 +393,7 @@ export class AztecRPCServer implements AztecRPC {
       functionAbi,
       contractAddress,
       portalContract,
-      constantBlockHashData,
+      constantHistoricBlockData,
     );
     this.log('Unconstrained simulation completed!');
 
@@ -419,9 +419,9 @@ export class AztecRPCServer implements AztecRPC {
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
 
     // Get values that allow us to reconstruct the block hash
-    const constantBlockHashData = await kernelOracle.getConstantBlockHashData();
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
 
-    const executionResult = await this.#simulate(txExecutionRequest, constantBlockHashData, contractDataOracle);
+    const executionResult = await this.#simulate(txExecutionRequest, constantHistoricBlockData, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);

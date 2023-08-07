@@ -9,10 +9,9 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   EthAddress,
   Fr,
-  PrivateHistoricTreeRoots,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
@@ -28,7 +27,7 @@ export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
-  blockHashData: ConstantBlockHashData,
+  blockHashData: ConstantHistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
@@ -119,16 +118,21 @@ export class WorldStateDB implements CommitmentsDB {
     };
   }
 
-  public getTreeRoots(): PrivateHistoricTreeRoots {
+  public getHistoricBlockData(): ConstantHistoricBlockData {
     const roots = this.db.getTreeRoots();
 
-    return PrivateHistoricTreeRoots.from({
+    return ConstantHistoricBlockData.from({
       privateKernelVkTreeRoot: Fr.ZERO,
+
+      // TODO: work out how to get the previous globals hash in here
+      prevGlobalVariablesHash: Fr.ZERO,
+
       privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
       contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
       nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
       l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
       blocksTreeRoot: Fr.fromBuffer(roots.blocksTreeRoot),
+      publicDataTreeRoot: Fr.fromBuffer(roots.publicDataTreeRoot),
     });
   }
 }

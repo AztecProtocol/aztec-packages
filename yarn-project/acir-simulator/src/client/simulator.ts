@@ -1,4 +1,4 @@
-import { CallContext, CircuitsWasm, ConstantBlockHashData, FunctionData, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, ConstantHistoricBlockData, FunctionData, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
@@ -32,7 +32,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param constantBlockHashData - Data required to reconstruct the block hash, this also contains the historic tree roots.
+   * @param constantHistoricBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
    * @param curve - The curve instance for elliptic curve operations.
    * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
@@ -42,7 +42,7 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    constantBlockHashData: ConstantBlockHashData,
+    constantHistoricBlockData: ConstantHistoricBlockData,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -70,7 +70,7 @@ export class AcirSimulator {
         this.db,
         txNullifier,
         request.txContext,
-        constantBlockHashData,
+        constantHistoricBlockData,
         await PackedArgsCache.create(request.packedArguments),
       ),
       entryPointABI,
@@ -91,7 +91,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
-   * @param constantBlockHashData - Block data containing historic roots.
+   * @param constantHistoricBlockData - Block data containing historic roots.
    * @returns The return values of the function.
    */
   public async runUnconstrained(
@@ -100,7 +100,7 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    constantBlockHashData: ConstantBlockHashData,
+    constantHistoricBlockData: ConstantHistoricBlockData,
   ) {
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
@@ -119,7 +119,7 @@ export class AcirSimulator {
         this.db,
         Fr.ZERO,
         TxContext.empty(),
-        constantBlockHashData,
+        constantHistoricBlockData,
         await PackedArgsCache.create([]),
       ),
       entryPointABI,
@@ -164,7 +164,7 @@ export class AcirSimulator {
         abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
-        ConstantBlockHashData.empty(),
+        ConstantHistoricBlockData.empty(),
       );
 
       return {

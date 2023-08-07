@@ -1,7 +1,7 @@
 import {
   AztecAddress,
   CallContext,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   EthAddress,
   Fr,
   FunctionData,
@@ -41,7 +41,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockHashData: ConstantBlockHashData,
+    private readonly blockHashData: ConstantHistoricBlockData,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}
@@ -89,7 +89,7 @@ export class PublicExecutor {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(
           messageInputs,
-          this.blockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+          this.blockHashData.l1ToL2MessagesTreeRoot,
         );
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]) => {
@@ -99,7 +99,7 @@ export class PublicExecutor {
         );
         return toAcvmCommitmentLoadOracleInputs(
           commitmentInputs,
-          this.blockHashData.privateHistoricTreeRoots.privateDataTreeRoot,
+          this.blockHashData.privateDataTreeRoot,
         );
       },
       storageRead: async ([slot], [numberOfElements]) => {
@@ -225,7 +225,7 @@ export class PublicExecutor {
  * Generates the initial witness for a public function.
  * @param args - The arguments to the function.
  * @param callContext - The call context of the function.
- * @param constantBlockHashData - Historic Trees roots and data required to reconstruct block hash.
+ * @param constantHistoricBlockData - Historic Trees roots and data required to reconstruct block hash.
  * @param globalVariables - The global variables.
  * @param witnessStartIndex - The index where to start inserting the parameters.
  * @returns The initial witness.
@@ -233,12 +233,10 @@ export class PublicExecutor {
 function getInitialWitness(
   args: Fr[],
   callContext: CallContext,
-  constantBlockHashData: ConstantBlockHashData,
+  constantHistoricBlockData: ConstantHistoricBlockData,
   globalVariables: GlobalVariables,
   witnessStartIndex = 1,
 ) {
-  const { privateHistoricTreeRoots } = constantBlockHashData;
-
   return toACVMWitness(witnessStartIndex, [
     callContext.msgSender,
     callContext.storageContractAddress,
@@ -247,13 +245,13 @@ function getInitialWitness(
     callContext.isStaticCall,
     callContext.isContractDeployment,
 
-    privateHistoricTreeRoots.privateDataTreeRoot,
-    privateHistoricTreeRoots.nullifierTreeRoot,
-    privateHistoricTreeRoots.contractTreeRoot,
-    privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
-    privateHistoricTreeRoots.blocksTreeRoot,
-    constantBlockHashData.prevGlobalVariablesHash,
-    constantBlockHashData.publicDataTreeRoot,
+    constantHistoricBlockData.privateDataTreeRoot,
+    constantHistoricBlockData.nullifierTreeRoot,
+    constantHistoricBlockData.contractTreeRoot,
+    constantHistoricBlockData.l1ToL2MessagesTreeRoot,
+    constantHistoricBlockData.blocksTreeRoot,
+    constantHistoricBlockData.prevGlobalVariablesHash,
+    constantHistoricBlockData.publicDataTreeRoot,
 
     globalVariables.chainId,
     globalVariables.version,

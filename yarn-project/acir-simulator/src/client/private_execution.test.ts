@@ -1,14 +1,13 @@
 import {
   CallContext,
   CircuitsWasm,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   ContractDeploymentData,
   FieldsOf,
   FunctionData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
-  PrivateHistoricTreeRoots,
   PrivateKey,
   PublicCallRequest,
   TxContext,
@@ -59,7 +58,7 @@ describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
-  let blockHashData = ConstantBlockHashData.empty();
+  let blockHashData = ConstantHistoricBlockData.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -125,10 +124,10 @@ describe('Private Execution test suite', () => {
 
     // Update root.
     const newRoot = trees[name].getRoot(false);
-    const prevRoots = blockHashData.privateHistoricTreeRoots.toBuffer();
+    const prevRoots = blockHashData.toBuffer();
     const rootIndex = name === 'privateData' ? 0 : 32 * 3;
-    const newRoots = Buffer.concat([prevRoots.slice(0, rootIndex), newRoot, prevRoots.slice(rootIndex + 32)]);
-    blockHashData = new ConstantBlockHashData(PrivateHistoricTreeRoots.fromBuffer(newRoots), Fr.ZERO, Fr.ZERO);
+    const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
+    blockHashData = ConstantHistoricBlockData.fromBuffer(newRoots);
 
     return trees[name];
   };

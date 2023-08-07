@@ -17,7 +17,7 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantBaseRollupData,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -63,7 +63,6 @@ import {
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateHistoricTreeRoots,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
   PrivateKey,
@@ -104,22 +103,13 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary private historic tree roots object with the given seed.
- * @param seed - The seed to use for generating the private historic tree roots.
- * @returns A private historic tree roots object.
- */
-export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
-  return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4), fr(seed + 5));
-}
-
-/**
  * Creates an arbitrary combined historic tree roots object from the given seed.
  * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeCombinedHistoricTreeRoots(seed: number): ConstantBlockHashData {
-  return new ConstantBlockHashData(makePrivateHistoricTreeRoots(seed), fr(seed + 6), fr(seed + 7));
+export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlockData {
+  return new ConstantHistoricBlockData(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4), fr(seed + 5), fr(seed + 6), fr(seed + 7));
 }
 
 /**
@@ -128,7 +118,7 @@ export function makeCombinedHistoricTreeRoots(seed: number): ConstantBlockHashDa
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeConstantHistoricBlockData(seed), makeTxContext(seed + 4));
 }
 
 /**

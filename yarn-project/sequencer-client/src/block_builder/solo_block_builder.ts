@@ -183,7 +183,7 @@ export class SoloBlockBuilder implements BlockBuilder {
         'nullifierTreeRoot',
         'l1ToL2MessagesTreeRoot',
       ] as const) {
-        if (tx.data.constants.blockHashValues.privateHistoricTreeRoots[historicTreeRoot].isZero()) {
+        if (tx.data.constants.blockData[historicTreeRoot].isZero()) {
           throw new Error(`Empty ${historicTreeRoot} for tx: ${toFriendlyJSON(tx)}`);
         }
       }
@@ -511,17 +511,17 @@ export class SoloBlockBuilder implements BlockBuilder {
   protected async getHistoricTreesMembershipWitnessFor(tx: ProcessedTx) {
     const wasm = await CircuitsWasm.get();
 
-    const blockHashValues = tx.data.constants.blockHashValues;
+    const blockData = tx.data.constants.blockData;
     const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } =
-      blockHashValues.privateHistoricTreeRoots;
+      blockData;
     const blockHash = computeBlockHash(
       wasm,
-      blockHashValues.prevGlobalVariablesHash,
+      blockData.prevGlobalVariablesHash,
       privateDataTreeRoot,
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
-      blockHashValues.publicDataTreeRoot,
+      blockData.publicDataTreeRoot,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);
   }

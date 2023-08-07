@@ -4,7 +4,7 @@ import {
   AztecAddress,
   CallContext,
   CircuitsWasm,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   EthAddress,
   Fr,
   FunctionData,
@@ -90,7 +90,7 @@ describe('public_processor', () => {
         publicProver,
         contractDataSource,
         GlobalVariables.empty(),
-        ConstantBlockHashData.empty(),
+        ConstantHistoricBlockData.empty(),
       );
     });
 
@@ -136,7 +136,7 @@ describe('public_processor', () => {
         publicProver,
         contractDataSource,
         GlobalVariables.empty(),
-        ConstantBlockHashData.empty(),
+        ConstantHistoricBlockData.empty(),
       );
     });
 

@@ -2,7 +2,7 @@ import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecuti
 import {
   AztecAddress,
   CircuitsWasm,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -39,7 +39,7 @@ import { PublicKernelCircuitSimulator } from '../simulator/index.js';
 import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
-import { getConstantBlockHashData } from './utils.js';
+import { getconstantHistoricBlockData } from './utils.js';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -61,7 +61,7 @@ export class PublicProcessorFactory {
     prevGlobalVariables: GlobalVariables,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockHashData = await getConstantBlockHashData(this.merkleTree, prevGlobalVariables);
+    const blockHashData = await getconstantHistoricBlockData(this.merkleTree, prevGlobalVariables);
     return new PublicProcessor(
       this.merkleTree,
       getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1Tol2MessagesDataSource, blockHashData),
@@ -86,7 +86,7 @@ export class PublicProcessor {
     protected publicProver: PublicProver,
     protected contractDataSource: ContractDataSource,
     protected globalVariables: GlobalVariables,
-    protected blockHashData: ConstantBlockHashData,
+    protected blockHashData: ConstantHistoricBlockData,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}

@@ -1,4 +1,4 @@
-import { ConstantBlockHashData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { ConstantHistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -34,7 +34,7 @@ export class ClientTxExecutionContext {
     /** The tx context. */
     public txContext: TxContext,
     /** Data required to reconstruct the block hash, it contains historic roots. */
-    public constantBlockHashData: ConstantBlockHashData,
+    public constantHistoricBlockData: ConstantHistoricBlockData,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending notes created (and not nullified) up to current point in execution.
@@ -56,7 +56,7 @@ export class ClientTxExecutionContext {
       this.db,
       this.txNullifier,
       this.txContext,
-      this.constantBlockHashData,
+      this.constantHistoricBlockData,
       this.packedArgsCache,
       this.pendingNotes,
       this.pendingNullifiers,
@@ -200,7 +200,7 @@ export class ClientTxExecutionContext {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
     return toAcvmL1ToL2MessageLoadOracleInputs(
       messageInputs,
-      this.constantBlockHashData.privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
+      this.constantHistoricBlockData.l1ToL2MessagesTreeRoot,
     );
   }
 
@@ -216,7 +216,7 @@ export class ClientTxExecutionContext {
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
     return toAcvmCommitmentLoadOracleInputs(
       commitmentInputs,
-      this.constantBlockHashData.privateHistoricTreeRoots.privateDataTreeRoot,
+      this.constantHistoricBlockData.privateDataTreeRoot,
     );
   }
 

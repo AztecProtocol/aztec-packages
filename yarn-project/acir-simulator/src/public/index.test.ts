@@ -1,7 +1,7 @@
 import {
   CallContext,
   CircuitsWasm,
-  ConstantBlockHashData,
+  ConstantHistoricBlockData,
   FunctionData,
   GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -37,7 +37,7 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockHashData: ConstantBlockHashData;
+  let blockHashData: ConstantHistoricBlockData;
 
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
@@ -48,7 +48,7 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockHashData = ConstantBlockHashData.empty();
+    blockHashData = ConstantHistoricBlockData.empty();
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHashData);
   }, 10000);
 

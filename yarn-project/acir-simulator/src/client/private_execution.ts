@@ -219,8 +219,7 @@ export class PrivateFunctionExecution {
   private writeInputs() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
-    const blockData = this.context.constantBlockHashData;
-    const { privateHistoricTreeRoots } = blockData;
+    const blockData = this.context.constantHistoricBlockData;
 
     const fields = [
       this.callContext.msgSender,
@@ -230,11 +229,11 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
-      privateHistoricTreeRoots.privateDataTreeRoot,
-      privateHistoricTreeRoots.nullifierTreeRoot,
-      privateHistoricTreeRoots.contractTreeRoot,
-      privateHistoricTreeRoots.l1ToL2MessagesTreeRoot,
-      privateHistoricTreeRoots.blocksTreeRoot,
+      blockData.privateDataTreeRoot,
+      blockData.nullifierTreeRoot,
+      blockData.contractTreeRoot,
+      blockData.l1ToL2MessagesTreeRoot,
+      blockData.blocksTreeRoot,
       blockData.prevGlobalVariablesHash,
       blockData.publicDataTreeRoot,
 
