@@ -1,17 +1,15 @@
+
 # Each source represents a separate benchmark suite 
 set(BENCHMARK_SOURCES
-standard_honk.bench.cpp
-standard_plonk.bench.cpp
-ultra_honk.bench.cpp
-ultra_plonk.bench.cpp
+simulator.bench.cpp
+native.bench.cpp
 )
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-  stdlib_sha256
-  stdlib_keccak
-  stdlib_merkle_tree
-  benchmark::benchmark
+stdlib_primitives
+stdlib_pedersen_commitment
+benchmark::benchmark
 )
 
 # Add executable and custom target for each suite, e.g. standard_honk_bench
