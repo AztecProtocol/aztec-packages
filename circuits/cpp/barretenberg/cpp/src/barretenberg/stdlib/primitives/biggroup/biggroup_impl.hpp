@@ -601,7 +601,19 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const std::vector<Fr>& scalars,
                                                        const size_t max_num_bits)
 {
-
+    if constexpr (IsSimulator<C> && std::same_as<G, barretenberg::g1>) {
+        // WORKTODO: We only handle bn254 case here because there is no uniform interface when Fr is a bigfield, in
+        // which case get_value returns a uint512_t.
+        auto context = points[0].get_context();
+        using element_t = typename G::element;
+        element_t result = G::one;
+        result.self_set_infinity();
+        for (size_t i = 0; i < points.size(); i++) {
+            result += (element_t(points[i].get_value()) * scalars[i].get_value());
+        }
+        result = result.normalize();
+        return from_witness(context, result);
+    }
     const size_t num_points = points.size();
     ASSERT(scalars.size() == num_points);
     batch_lookup_table point_table(points);
