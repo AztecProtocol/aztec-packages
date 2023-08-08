@@ -1,5 +1,6 @@
 #include "goblin_translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -184,6 +185,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 {
     using point = barretenberg::g1::affine_element;
     using scalar = barretenberg::fr;
+    using Fq = barretenberg::fq;
 
     auto P1 = point::random_element();
     auto P2 = point::random_element();
@@ -193,19 +195,32 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     ECCOpQueue op_queue;
     op_queue.add_accumulate(P1);
     op_queue.mul_accumulate(P2, z);
-    std::vector<fq> ops;
-    std::vector<fq> p_x;
-    std::vector<fq> p_y;
-    std::vector<fq> z_1;
-    std::vector<fq> z_2;
-    for (auto& ecc_op : op_queue.raw_ops) {
-        if (ecc_op.add)
-    }
+    Fq op_accumulator = 0;
+    Fq p_x_accumulator = 0;
+    Fq p_y_accumulator = 0;
+    Fq z_1_accumulator = 0;
+    Fq z_2_accumulator = 0;
+    Fq batching_challenge = fq::random_element();
+    Fq x = Fq::random_element();
+    Fq x_inv = x.invert();
 
+    for (auto& ecc_op : op_queue.raw_ops) {
+        op_accumulator = op_accumulator * x_inv + ecc_op.getOpcode();
+        p_x_accumulator = p_x_accumulator * x_inv + ecc_op.base_point.x;
+        p_y_accumulator = p_y_accumulator * x_inv + ecc_op.base_point.y;
+        z_1_accumulator = z_1_accumulator * x_inv + ecc_op.scalar_1;
+        z_2_accumulator = z_2_accumulator * x_inv + ecc_op.scalar_2;
+    }
+    Fq x_pow = x.pow(op_queue.raw_ops.size() - 1);
+    Fq result = ((((z_2_accumulator * batching_challenge + z_1_accumulator) * batching_challenge + p_y_accumulator) *
+                      batching_challenge +
+                  p_x_accumulator) *
+                     batching_challenge +
+                 op_accumulator) *
+                x_pow;
     auto circuit_builder = GoblinTranslatorCircuitBuilder();
-    fq batching_challenge = fq::random_element();
-    fq x = fq::random_element();
     circuit_builder.feed_ecc_op_queue_into_circuit(op_queue, batching_challenge, x);
     EXPECT_TRUE(circuit_builder.check_circuit(x, batching_challenge));
+    EXPECT_EQ(result, circuit_builder.get_computation_result());
 }
 } // namespace proof_system

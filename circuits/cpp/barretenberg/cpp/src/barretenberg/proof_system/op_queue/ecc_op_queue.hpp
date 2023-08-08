@@ -4,12 +4,13 @@
 
 namespace proof_system {
 
-enum EccOpCode { ADD_ACCUM, MUL_ACCUM, EQUALITY, NULL_OP };
+enum EccOpCode { NULL_OP = 0, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
 /**
  * @brief Raw description of an ECC operation used to produce equivalent descriptions over different curves.
  */
 struct ECCOp {
+
     const bool add = false;
     const bool mul = false;
     const bool eq = false;
@@ -18,6 +19,19 @@ struct ECCOp {
     const uint256_t scalar_1 = 0;
     const uint256_t scalar_2 = 0;
     const barretenberg::fr mul_scalar_full = 0;
+    [[nodiscard]] EccOpCode getOpcode() const
+    {
+        if (add) {
+            return EccOpCode::ADD_ACCUM;
+        }
+        if (mul) {
+            return EccOpCode::MUL_ACCUM;
+        }
+        if (eq) {
+            return EccOpCode::EQUALITY;
+        }
+        return EccOpCode::NULL_OP;
+    }
 };
 
 /**

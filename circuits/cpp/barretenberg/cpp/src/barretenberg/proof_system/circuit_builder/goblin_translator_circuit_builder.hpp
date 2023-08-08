@@ -9,6 +9,7 @@
  *
  */
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
 #include "circuit_builder_base.hpp"
@@ -146,6 +147,7 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
     static constexpr auto SHIFT_1 = uint256_t(1) << NUM_LIMB_BITS;
     static constexpr auto SHIFT_2 = uint256_t(1) << (NUM_LIMB_BITS << 1);
     static constexpr auto SHIFT_2_INVERSE = Fr(SHIFT_2).invert();
+    static constexpr auto SHIFT_3 = uint256_t(1) << (NUM_LIMB_BITS * 3);
     static constexpr uint512_t MODULUS_U512 = uint512_t(Fq::modulus);
     static constexpr uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (NUM_LIMB_BITS << 2);
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
@@ -476,6 +478,14 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
         create_new_range_constraint(variable_index, 1ULL << num_bits, msg);
     }
 
+    barretenberg::fq get_computation_result()
+    {
+        ASSERT(num_gates > 1);
+        return (uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_0][1])) +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_1][1])) * SHIFT_1 +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_2][1])) * SHIFT_2 +
+                uint256_t(get_variable(wires[WireIds::ACCUMULATORS_BINARY_LIMBS_3][1])) * SHIFT_3);
+    }
     /**
      * @brief Generate all the gates required to proof the correctness of batched evalution of polynomials representing
      * commitments to ECCOpQueue

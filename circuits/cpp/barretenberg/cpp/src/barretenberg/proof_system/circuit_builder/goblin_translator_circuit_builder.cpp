@@ -369,19 +369,13 @@ GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one
                                                                                         Fq x)
 {
     using Fr = barretenberg::fr;
-    Fr op(0);
+    Fr op(ecc_op.getOpcode());
     Fr p_x_lo(0);
     Fr p_x_hi(0);
     Fr p_y_lo(0);
     Fr p_y_hi(0);
-    if (ecc_op.add) {
-        op = 1;
-    } else if (ecc_op.eq) {
-        op = 2;
-    } else if (ecc_op.mul) {
-        op = 3;
-    }
-    if (!op.is_zero()) {
+
+    if (!ecc_op.reset) {
         p_x_lo = Fr(uint256_t(ecc_op.base_point.x).slice(0, 2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
         p_x_hi = Fr(uint256_t(ecc_op.base_point.x)
                         .slice(2 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS,
@@ -404,17 +398,10 @@ void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& 
 
     for (size_t i = 0; i < ecc_op_queue.raw_ops.size(); i++) {
         auto& ecc_op = ecc_op_queue.raw_ops[ecc_op_queue.raw_ops.size() - 1 - i];
-        Fq op(0);
-        if (ecc_op.add) {
-            op = 1;
-        } else if (ecc_op.eq) {
-            op = 2;
-        } else if (ecc_op.mul) {
-            op = 3;
-        }
         current_accumulator *= x;
         current_accumulator +=
-            (op + v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.scalar_1 + v * ecc_op.scalar_2))));
+            (Fq(ecc_op.getOpcode()) +
+             v * (ecc_op.base_point.x + v * (ecc_op.base_point.y + v * (ecc_op.scalar_1 + v * ecc_op.scalar_2))));
         accumulator_trace.push_back(current_accumulator);
     }
     accumulator_trace.pop_back();
