@@ -256,8 +256,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested L2 blocks.
    */
   public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
+    if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
+      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
     }
     if (from > this.l2Blocks.length) {
       return Promise.resolve([]);
@@ -297,8 +297,8 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @returns The requested logs.
    */
   getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
+    if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
+      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
     }
     const logs = logType === LogType.ENCRYPTED ? this.encryptedLogs : this.unencryptedLogs;
     if (from > logs.length) {
