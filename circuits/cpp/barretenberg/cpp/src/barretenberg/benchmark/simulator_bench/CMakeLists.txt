@@ -9,6 +9,7 @@ native.bench.cpp
 set(LINKED_LIBRARIES
 stdlib_primitives
 stdlib_pedersen_commitment
+stdlib_blake3s
 benchmark::benchmark
 )
 

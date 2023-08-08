@@ -3,6 +3,7 @@
 #include "barretenberg/benchmark/benchmark_utilities.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
+#include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 
 using namespace benchmark;
 
@@ -46,7 +47,7 @@ void pedersen_compress_pair(State& state) noexcept
         field_ct left = witness_ct(&simulator, left_in);
         field_ct right = witness_ct(&simulator, right_in);
         state.ResumeTiming();
-        field_ct result = proof_system::plonk::stdlib::pedersen_commitment<Simulator>::compress(left, right);
+        auto result = proof_system::plonk::stdlib::pedersen_commitment<Simulator>::compress(left, right);
         DoNotOptimize(result);
     }
 };
@@ -75,7 +76,25 @@ void pedersen_compress_array(State& state) noexcept
     }
 };
 
-// Define benchmarks
-BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS);
-BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS);
+/**
+ * @brief Benchmark: Construction of a Ultra Honk proof for a circuit determined by the provided circuit function
+ */
+void blake3s(State& state) noexcept
+{
+    for (auto _ : state) {
+        state.PauseTiming();
+        auto simulator = Simulator();
+        std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+        std::vector<uint8_t> input_v(input.begin(), input.end());
+
+        byte_array_ct input_arr(&simulator, input_v);
+        state.ResumeTiming();
+        byte_array_ct result = proof_system::plonk::stdlib::blake3s(input_arr);
+        DoNotOptimize(result);
+    }
+};
+
+BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+BENCHMARK(blake3s)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
 } // namespace simulator_bench

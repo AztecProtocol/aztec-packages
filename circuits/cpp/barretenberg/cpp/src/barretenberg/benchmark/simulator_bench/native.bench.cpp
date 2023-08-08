@@ -1,16 +1,12 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/benchmark_utilities.hpp"
-#include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
-#include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
+#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/crypto/blake3s/blake3s.hpp"
 
 using namespace benchmark;
 
 namespace simulator_bench {
-
-using Simulator = proof_system::CircuitSimulatorBN254;
-using witness_ct = proof_system::plonk::stdlib::witness_t<Simulator>;
-using field_ct = proof_system::plonk::stdlib::field_t<Simulator>;
 
 // Number of times to perform operation of interest in the benchmark circuits, e.g. # of hashes to perform
 constexpr size_t MIN_NUM_ITERATIONS = bench_utils::BenchParams::MIN_NUM_ITERATIONS;
@@ -29,7 +25,6 @@ void pedersen_compress_pair(State& state) noexcept
 {
     for (auto _ : state) {
         state.PauseTiming();
-        Simulator simulator;
 
         fr left_in = fr::random_element();
         fr right_in = fr::random_element();
@@ -42,10 +37,8 @@ void pedersen_compress_pair(State& state) noexcept
             right_in += fr::one();
         }
 
-        field_ct left = witness_ct(&simulator, left_in);
-        field_ct right = witness_ct(&simulator, right_in);
         state.ResumeTiming();
-        fr result = crypto::pedersen_commitment::compress_native({ left.get_value(), right.get_value() });
+        fr result = crypto::pedersen_commitment::compress_native({ left_in, right_in });
         DoNotOptimize(result);
     }
 };
@@ -55,8 +48,6 @@ void pedersen_compress_array(State& state) noexcept
     for (auto _ : state) {
         state.PauseTiming();
         const size_t num_input_bytes = 351;
-
-        Simulator simulator;
 
         std::vector<uint8_t> input;
         input.reserve(num_input_bytes);
@@ -70,7 +61,20 @@ void pedersen_compress_array(State& state) noexcept
     }
 };
 
+void blake3s(State& state) noexcept
+{
+    for (auto _ : state) {
+        state.PauseTiming();
+        std::string input = "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz0123456789";
+        std::vector<uint8_t> input_v(input.begin(), input.end());
 
-BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS);
-BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS);
+        state.ResumeTiming();
+        auto result = blake3::blake3s(input_v);
+        DoNotOptimize(result);
+    }
+};
+
+BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+BENCHMARK(blake3s)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
 } // namespace simulator_bench
