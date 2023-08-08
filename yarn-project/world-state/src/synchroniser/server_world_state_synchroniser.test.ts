@@ -1,30 +1,17 @@
 import {
-  AppendOnlyTreeSnapshot,
   CircuitsWasm,
-  Fr,
-  GlobalVariables,
-  MAX_NEW_COMMITMENTS_PER_TX,
-  MAX_NEW_CONTRACTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
-  MAX_NEW_NULLIFIERS_PER_TX,
-  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
 import {
-  ContractData,
   L2Block,
-  L2BlockL2Logs,
   L2BlockSource,
   MerkleTreeId,
-  PublicDataWrite,
   SiblingPath,
 } from '@aztec/types';
 
 import { jest } from '@jest/globals';
-import times from 'lodash.times';
 
 import { MerkleTreeDb } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
@@ -46,54 +33,8 @@ const consumeNextBlocks = () => {
   return Promise.resolve(blocks);
 };
 
-const getMockTreeSnapshot = () => {
-  return new AppendOnlyTreeSnapshot(Fr.random(), 16);
-};
-
-const getMockContractData = () => {
-  return ContractData.random();
-};
-
-const getMockGlobalVariables = () => {
-  return GlobalVariables.from({
-    chainId: Fr.random(),
-    version: Fr.random(),
-    blockNumber: Fr.random(),
-    timestamp: Fr.random(),
-  });
-};
-
-const getMockL1ToL2MessagesData = () => {
-  return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
-};
-
-const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
-  const newEncryptedLogs = L2BlockL2Logs.random(1, 2, 3);
-  const block = L2Block.fromFields({
-    number: blockNumber,
-    globalVariables: getMockGlobalVariables(),
-    startPrivateDataTreeSnapshot: getMockTreeSnapshot(),
-    startNullifierTreeSnapshot: getMockTreeSnapshot(),
-    startContractTreeSnapshot: getMockTreeSnapshot(),
-    startPublicDataTreeRoot: Fr.random(),
-    startL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    startHistoricBlocksTreeSnapshot: getMockTreeSnapshot(),
-    endPrivateDataTreeSnapshot: getMockTreeSnapshot(),
-    endNullifierTreeSnapshot: getMockTreeSnapshot(),
-    endContractTreeSnapshot: getMockTreeSnapshot(),
-    endPublicDataTreeRoot: Fr.random(),
-    endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    endHistoricBlocksTreeSnapshot: getMockTreeSnapshot(),
-    newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
-    newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-    newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
-    newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
-    newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
-    newL1ToL2Messages: getMockL1ToL2MessagesData(),
-    newL2ToL1Msgs: times(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.random),
-    newEncryptedLogs,
-  });
-  return block;
+const getMockBlock = (blockNumber: number) => {
+  return L2Block.random(blockNumber);
 };
 
 const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
@@ -277,7 +218,7 @@ describe('server_world_state_synchroniser', () => {
     const totalBlocks = LATEST_BLOCK_NUMBER + 1;
     nextBlocks = Array(totalBlocks)
       .fill(0)
-      .map((_, index) => getMockBlock(index, [Buffer.alloc(32, index)]));
+      .map((_, index) => getMockBlock(index));
     // sync the server
     await server.start();
 
