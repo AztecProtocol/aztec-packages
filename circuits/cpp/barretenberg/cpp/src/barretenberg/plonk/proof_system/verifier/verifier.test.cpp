@@ -1,3 +1,4 @@
+#include "verifier.hpp"
 #include "../../../transcript/transcript.hpp"
 #include "../prover/prover.hpp"
 #include "../utils/permutation.hpp"
@@ -9,7 +10,6 @@
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-#include "verifier.hpp"
 #include <gtest/gtest.h>
 
 namespace verifier_helpers {
