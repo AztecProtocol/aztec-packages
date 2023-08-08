@@ -201,7 +201,7 @@ contract NonNativeToken {
 
 
     // Transfers `amount` of tokens from `sender`'s private balance to a `recipient`.
-    // Note: Copied from ZkToken
+    // Note: Copied from PrivateToken
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
@@ -345,5 +345,12 @@ contract NonNativeToken {
         } else {
             note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
+    }
+
+    unconstrained fn publicBalanceOf(
+        owner: Field,
+    ) -> Field {
+        let storage = Storage::init();
+        storage.public_balances.at(owner).read()
     }
 }

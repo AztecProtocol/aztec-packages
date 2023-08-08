@@ -6,7 +6,6 @@ contract PublicToken {
     use dep::aztec::abi::PublicContextInputs;
     use dep::aztec::context::Context;
     use dep::aztec::oracle::logs::emit_unencrypted_log;
-    use dep::aztec::types::point::Point;
     use crate::storage::Storage;
 
     // Constructs the contract.
@@ -61,4 +60,10 @@ contract PublicToken {
         }
     }
 
+    unconstrained fn publicBalanceOf(
+        owner: Field,
+    ) -> Field {
+        let storage = Storage::init();
+        storage.balances.at(owner).read()
+    }
 }
