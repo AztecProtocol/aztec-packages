@@ -1,6 +1,6 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { toBigIntBE, toBufferBE, toHex } from '@aztec/foundation/bigint-buffer';
+import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
@@ -135,7 +135,7 @@ export class L1CheatCodes {
    * @param slot - The storage slot
    * @returns - The value at the storage slot in hex (padded to 32)
    */
-  public async getStorageAt(contract: EthAddress, slot: bigint): Promise<`0x${string}`> {
+  public async load(contract: EthAddress, slot: bigint): Promise<`0x${string}`> {
     const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), toHex(slot), 'latest']);
     return res.result;
   }
@@ -147,26 +147,29 @@ export class L1CheatCodes {
    * @param value - The value to set the storage slot to
    */
   public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
-    // note - value has to be a 32 byte hex string.
+    // for the rpc call, we need to change value to be a 32 byte hex string.
     const res = await this.rpcCall('anvil_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
     if (res.error) throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
 
   /**
-   * Do keccak256 hash of the input. Useful when computing storage slots of maps or dynamic arrays
-   * @param input - The input to hash
-   * @returns hash in big int.
+   * Computes the slot value for a given map and key.
+   * @param baseSlot - The base slot of the map (specified in noir contract)
+   * @param key - The key to lookup in the map in hex (padded to 32 for value types, unpadded data for string or byte array)
+   * @returns The storage slot of the value in the map
    */
-  public keccak256(input: bigint): bigint {
-    return toBigIntBE(keccak(toBufferBE(input, 32)));
+  public keccak256(baseSlot: bigint, key: `0x${string}`): bigint {
+    // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
+    const abiEncoded = key.substring(2) + toHex(baseSlot, true).substring(2);
+    return toBigIntBE(keccak(Buffer.from(abiEncoded, 'hex')));
   }
 
   /**
    * Send transactions impersonating an externally owned account or contract.
    * @param who - The address to impersonate
    */
-  public async prank(who: EthAddress): Promise<void> {
+  public async startPrank(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('anvil_impersonateAccount', [who.toString()]);
     if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
     this.logger(`Impersonating ${who}`);

@@ -1,5 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
+import { toHex } from '@aztec/foundation/bigint-buffer';
 import { AztecRPC } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, parseEther } from 'viem';
@@ -57,22 +58,25 @@ describe('e2e_cheat_codes', () => {
       expect(await cc.l1.timestamp()).toBe(timestamp + increment);
     });
 
-    it('getStorageAt', async () => {
+    it('load a value at a particular storage slot', async () => {
       // check that storage slot 0 is empty as expected
-      const res = await cc.l1.getStorageAt(EthAddress.ZERO, 0n);
+      const res = await cc.l1.load(EthAddress.ZERO, 0n);
       expect(res).toBe('0x' + Buffer.alloc(32).toString('hex'));
     });
 
     it.each(['1', 'bc40fbf4394cd00f78fae9763b0c2c71b21ea442c42fdadc5b720537240ebac1'])(
-      'setStorageAt for a slot and its keccak value of the slot ',
+      'store a value at a given slot and its keccak value of the slot (if it were in a map) ',
       async storageSlotInHex => {
         const storageSlot = BigInt('0x' + storageSlotInHex);
         const valueToSet = 5n;
         const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
         await cc.l1.store(contractAddress, storageSlot, valueToSet);
-        // also test with the keccak value of the slot - can be used to compute storage slots of maps or dynamic arrays
-        await cc.l1.store(contractAddress, cc.l1.keccak256(storageSlot), valueToSet);
-        expect(BigInt(await cc.l1.getStorageAt(contractAddress, cc.l1.keccak256(storageSlot)))).toBe(valueToSet);
+        // also test with the keccak value of the slot - can be used to compute storage slots of maps
+        // in solidity, for value types you pad to 32 bytes and for string or byte array you don't pad
+        // for the second test the following line won't pad since it is 32 bytes anyway
+        const paddedStorageSlot = toHex(storageSlot, true);
+        await cc.l1.store(contractAddress, cc.l1.keccak256(0n, paddedStorageSlot), valueToSet);
+        expect(BigInt(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, paddedStorageSlot)))).toBe(valueToSet);
       },
     );
 
@@ -95,7 +99,7 @@ describe('e2e_cheat_codes', () => {
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
-      await cc.l1.prank(EthAddress.fromString(randomAddress));
+      await cc.l1.startPrank(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
       await walletClient.sendTransaction({
