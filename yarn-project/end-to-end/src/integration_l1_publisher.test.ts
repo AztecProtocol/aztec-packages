@@ -25,9 +25,9 @@ import {
   L1Publisher,
   SoloBlockBuilder,
   WasmRollupCircuitSimulator,
+  getConstantHistoricBlockData,
   getL1Publisher,
   getVerificationKeys,
-  getConstantHistoricBlockData,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
   makeProcessedTx,
 } from '@aztec/sequencer-client';

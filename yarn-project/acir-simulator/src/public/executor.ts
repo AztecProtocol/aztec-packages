@@ -60,12 +60,7 @@ export class PublicExecutor {
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);
     if (!acir) throw new Error(`Bytecode not found for ${execution.contractAddress.toString()}:${selectorHex}`);
 
-    const initialWitness = getInitialWitness(
-      execution.args,
-      execution.callContext,
-      this.blockData,
-      globalVariables,
-    );
+    const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockData, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
     const newL2ToL1Messages: Fr[] = [];

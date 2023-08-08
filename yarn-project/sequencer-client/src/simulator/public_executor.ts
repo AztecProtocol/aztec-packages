@@ -115,5 +115,4 @@ export class WorldStateDB implements CommitmentsDB {
       index,
     };
   }
-
 }

@@ -102,7 +102,7 @@ export class AcirSimulator {
     portalContractAddress: EthAddress,
     constantHistoricBlockData: ConstantHistoricBlockData,
     aztecNode?: AztecNode,
-  ){
+  ) {
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }

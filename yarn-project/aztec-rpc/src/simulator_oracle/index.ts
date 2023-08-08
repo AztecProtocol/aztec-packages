@@ -101,5 +101,4 @@ export class SimulatorOracle implements DBOracle {
       index,
     });
   }
-
 }

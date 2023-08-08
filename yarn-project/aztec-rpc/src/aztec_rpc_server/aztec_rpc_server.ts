@@ -395,7 +395,7 @@ export class AztecRPCServer implements AztecRPC {
       portalContract,
       constantHistoricBlockData,
       this.node,
-    );    
+    );
     this.log('Unconstrained simulation completed!');
 
     return result;
