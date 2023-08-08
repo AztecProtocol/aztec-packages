@@ -2,7 +2,7 @@
 import * as AztecJs from '@aztec/aztec.js';
 import { AztecAddress, PrivateKey } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
 import { Server } from 'http';
 import Koa from 'koa';
@@ -110,14 +110,14 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     expect(result).toEqual(account.toString());
   });
 
-  it('Deploys ZK Token contract', async () => {
+  it('Deploys Private Token contract', async () => {
     const txHash = await page.evaluate(
-      async (rpcUrl, initialBalance, ZkTokenContractAbi) => {
+      async (rpcUrl, initialBalance, PrivateTokenContractAbi) => {
         const { DeployMethod, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const owner = (await client.getAccounts())[0];
         const publicKey = await client.getPublicKey(owner);
-        const tx = new DeployMethod(publicKey, client, ZkTokenContractAbi, [initialBalance, owner]).send();
+        const tx = new DeployMethod(publicKey, client, PrivateTokenContractAbi, [initialBalance, owner]).send();
         await tx.wait();
         const receipt = await tx.getReceipt();
         console.log(`Contract Deployed: ${receipt.contractAddress}`);
@@ -125,7 +125,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       },
       SANDBOX_URL,
       initialBalance,
-      ZkTokenContractAbi,
+      PrivateTokenContractAbi,
     );
 
     const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
@@ -135,21 +135,25 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, ZkTokenContractAbi) => {
+      async (rpcUrl, privateKeyString, contractAddress, PrivateTokenContractAbi) => {
         const { Contract, AztecAddress, PrivateKey, createAztecRpcClient, getUnsafeSchnorrWallet, mustSucceedFetch } =
           window.AztecJs;
         const privateKey = PrivateKey.fromString(privateKeyString);
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const [owner] = await client.getAccounts();
         const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
-        const contract = await Contract.create(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const contract = await Contract.create(
+          AztecAddress.fromString(contractAddress),
+          PrivateTokenContractAbi,
+          wallet,
+        );
         const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
         return balance;
       },
       SANDBOX_URL,
       privKey.toString(),
       contractAddress.toString(),
-      ZkTokenContractAbi,
+      PrivateTokenContractAbi,
     );
     logger('Owner balance:', result);
     expect(result).toEqual(initialBalance);
@@ -157,7 +161,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it('Sends a transfer TX', async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, transferAmount, ZkTokenContractAbi) => {
+      async (rpcUrl, privateKeyString, contractAddress, transferAmount, PrivateTokenContractAbi) => {
         console.log(`Starting transfer tx`);
         const {
           AztecAddress,
@@ -176,7 +180,11 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         console.log(`Created 2nd Account: ${receiver.toString()}`);
         const [owner] = await client.getAccounts();
         const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
-        const contract = await Contract.create(AztecAddress.fromString(contractAddress), ZkTokenContractAbi, wallet);
+        const contract = await Contract.create(
+          AztecAddress.fromString(contractAddress),
+          PrivateTokenContractAbi,
+          wallet,
+        );
         await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner }).wait();
         console.log(`Transfered ${transferAmount} tokens to new Account`);
         const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
@@ -186,7 +194,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       privKey.toString(),
       contractAddress.toString(),
       transferAmount,
-      ZkTokenContractAbi,
+      PrivateTokenContractAbi,
     );
     expect(result).toEqual(transferAmount);
   }, 60_000);
