@@ -1,10 +1,10 @@
+#include "field.hpp"
 #include "../bool/bool.hpp"
 #include "array.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-#include "field.hpp"
 #include <gtest/gtest.h>
 #include <utility>
 
@@ -163,27 +163,24 @@ template <typename Composer> class stdlib_field : public testing::Test {
                      */
                     if (true_when_y_val_zero) {
                         // constraint: 0*x + 1*y + 0*0 + 0 == 0
-                        add_triple t{ .a = x.witness_index,
-                                      .b = y.witness_index,
-                                      .c = composer.zero_idx,
-                                      .a_scaling = 0,
-                                      .b_scaling = 1,
-                                      .c_scaling = 0,
-                                      .const_scaling = 0 };
-
-                        composer.create_add_gate(t);
+                        composer.create_add_gate({ .a = x.witness_index,
+                                                   .b = y.witness_index,
+                                                   .c = composer.zero_idx,
+                                                   .a_scaling = 0,
+                                                   .b_scaling = 1,
+                                                   .c_scaling = 0,
+                                                   .const_scaling = 0 });
                         expected_result = false;
                     } else {
                         // constraint: 0*x + 1*y + 0*0 - 1 == 0
-                        add_triple t{ .a = x.witness_index,
-                                      .b = y.witness_index,
-                                      .c = composer.zero_idx,
-                                      .a_scaling = 0,
-                                      .b_scaling = 1,
-                                      .c_scaling = 0,
-                                      .const_scaling = -1 };
+                        composer.create_add_gate({ .a = x.witness_index,
+                                                   .b = y.witness_index,
+                                                   .c = composer.zero_idx,
+                                                   .a_scaling = 0,
+                                                   .b_scaling = 1,
+                                                   .c_scaling = 0,
+                                                   .const_scaling = -1 });
 
-                        composer.create_add_gate(t);
                         expected_result = true;
                     }
                 }

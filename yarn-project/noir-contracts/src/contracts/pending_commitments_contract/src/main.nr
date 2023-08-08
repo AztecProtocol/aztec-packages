@@ -9,7 +9,7 @@ contract PendingCommitments {
     use dep::value_note::{
         balance_utils,
         filter::get_2_notes,
-        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteInterface},
+        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
 
     use crate::storage::Storage;
@@ -22,7 +22,7 @@ contract PendingCommitments {
         note_getter::NoteGetterOptions,
         note_getter_options::Sort,
         note_header::NoteHeader,
-        utils::compute_note_hash_and_nullifier,
+        utils as note_utils,
     };
     use dep::aztec::types::point::Point;
     use dep::aztec::state_vars::map::Map;
@@ -41,8 +41,6 @@ contract PendingCommitments {
         inputs: PrivateContextInputs
         //*********************************/
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        //let context = Context::new(inputs, abi::hash_args([]));
         let context = Context::new(inputs, 0);
         context.finish()
     }
@@ -61,29 +59,22 @@ contract PendingCommitments {
         let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
         let owner_balance = storage.balances.at(owner);
-        let note = ValueNote::new(amount, owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // get note inserted above
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let note0 = maybe_notes[0].unwrap();
+        assert(note.value == note0.value);
+        assert(maybe_notes[1].is_none());
 
-        assert(note.value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        context.return_values.push(note0.value);
 
-        context.return_values = context.return_values.push(got_notes[0].value);
-
-        context = owner_balance.remove(context, got_notes[0]);
+        owner_balance.remove(&mut context, note0);
 
         context.finish()
     }
@@ -102,28 +93,18 @@ contract PendingCommitments {
 
         let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
-
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         // get note (note inserted at bottom of function shouldn't exist yet)
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        assert(!got_notes[0].is_real);
-        assert(got_notes[0].value == 0);
-        assert(!got_notes[1].is_real);
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        context.return_values.push(0);
 
         // Insert note and emit encrypted note preimage via oracle call
-        let note = ValueNote::new(amount, owner);
-        context = owner_balance.insert(context, note);
+        let mut note = ValueNote::new(amount, owner);
+        owner_balance.insert(&mut context, &mut note);
 
         context.finish()
     }
@@ -141,10 +122,10 @@ contract PendingCommitments {
         let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
         let owner_balance = storage.balances.at(owner);
-        let note = ValueNote::new(amount, owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
 
         context.finish()
     }
@@ -163,24 +144,14 @@ contract PendingCommitments {
 
         let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let mut sorting = [Sort::nada(); VALUE_NOTE_LEN];
-        sorting[0] = Sort::new(0, context.oracle_connector as u8);
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let note = owner_balance.get_notes(&mut context, options)[0].unwrap();
 
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        assert(expected_value == note.value);
 
-        assert(expected_value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        context.return_values.push(expected_value);
 
-        context.return_values = context.return_values.push(got_notes[0].value);
-
-        context = owner_balance.remove(context, got_notes[0]);
+        owner_balance.remove(&mut context, note);
 
         context.finish()
     }
@@ -199,11 +170,10 @@ contract PendingCommitments {
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        assert(!got_notes[0].is_real);
-        assert(!got_notes[1].is_real);
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
         context.finish()
     }
@@ -229,14 +199,11 @@ contract PendingCommitments {
         args[1] = owner;
 
         // nested call to create/insert note
-        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, insert_fn_selector, args, context);
-        context = context_tmp0;
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
         // nested call to read that note / pending commitment
-        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args, context);
-        context = context_tmp1;
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
          // nested call to confirm that balance is zero
-         let (_callStackItem3, mut context_tmp2) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner], context);
-         context = context_tmp2;
+         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
 
         context.finish()
     }
@@ -259,11 +226,11 @@ contract PendingCommitments {
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
 
-    // stev function needs to be defined by every contract producing logs. Having it in all the contracts gives us the ability to
-    // compute the note hash and nullifier differently for different kind of notes.
-    // Note: "stev" is just a placeholder name before we come up with a better one.
-    unconstrained fn stev(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+    // Computes note hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        compute_note_hash_and_nullifier(ValueNoteInterface, note_header, preimage)
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
 }

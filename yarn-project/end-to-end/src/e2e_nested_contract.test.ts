@@ -8,7 +8,7 @@ import { ChildContractAbi, ParentContractAbi } from '@aztec/noir-contracts/artif
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_nested_contract', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -39,10 +39,10 @@ describe('e2e_nested_contract', () => {
     const deployer = new ContractDeployer(abi, aztecRpcServer);
     const tx = deployer.deploy().send();
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
 
     const receipt = await tx.getReceipt();
-    const contract = new Contract(receipt.contractAddress!, abi, wallet);
+    const contract = await Contract.create(receipt.contractAddress!, abi, wallet);
     logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
     return contract;
   };
@@ -60,7 +60,7 @@ describe('e2e_nested_contract', () => {
       .entryPoint(childContract.address, Fr.fromBuffer(childContract.methods.value.selector))
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -71,7 +71,7 @@ describe('e2e_nested_contract', () => {
       .pubEntryPoint(childContract.address, Fr.fromBuffer(childContract.methods.pubValue.selector), 42n)
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
@@ -82,7 +82,7 @@ describe('e2e_nested_contract', () => {
       .enqueueCallToChild(childContract.address, Fr.fromBuffer(childContract.methods.pubStoreValue.selector), 42n)
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
@@ -100,7 +100,7 @@ describe('e2e_nested_contract', () => {
       )
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
@@ -116,7 +116,7 @@ describe('e2e_nested_contract', () => {
       )
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
@@ -134,7 +134,7 @@ describe('e2e_nested_contract', () => {
       )
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
@@ -153,7 +153,7 @@ describe('e2e_nested_contract', () => {
       )
       .send({ origin: accounts[0] });
 
-    await tx.isMined(0, 0.1);
+    await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);

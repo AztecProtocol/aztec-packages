@@ -48,8 +48,8 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   router.get('/get-blocks', async (ctx: Koa.Context) => {
     const from = +ctx.query.from!;
-    const take = +ctx.query.take!;
-    const blocks = await node.getBlocks(from, take);
+    const limit = +ctx.query.limit!;
+    const blocks = await node.getBlocks(from, limit);
     const strs = blocks.map(x => x.encode().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
@@ -114,13 +114,13 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   router.get('/get-logs', async (ctx: Koa.Context) => {
     const from = +ctx.query.from!;
-    const take = +ctx.query.take!;
+    const limit = +ctx.query.limit!;
     const logType = Number(ctx.query.logType);
     if (logType !== 0 && logType !== 1) {
       throw new Error('Invalid log type: ' + ctx.query.logType);
     }
 
-    const logs = await node.getLogs(from, take, logType);
+    const logs = await node.getLogs(from, limit, logType);
     const strs = logs.map(x => x.toBuffer().toString('hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
@@ -205,11 +205,11 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
-  router.get('/storage-at', async (ctx: Koa.Context) => {
-    logger('storage-at');
+  router.get('/public-storage-at', async (ctx: Koa.Context) => {
+    logger('public-storage-at');
     const address = ctx.query.address!;
     const slot = ctx.query.slot!;
-    const value = await node.getStorageAt(AztecAddress.fromString(address as string), BigInt(slot as string));
+    const value = await node.getPublicStorageAt(AztecAddress.fromString(address as string), BigInt(slot as string));
     ctx.set('content-type', 'application/json');
     ctx.body = {
       value: value?.toString('hex'),

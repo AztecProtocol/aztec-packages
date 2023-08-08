@@ -118,11 +118,11 @@ export class AztecNodeService implements AztecNode {
   /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
-   * @param take - The number of blocks desired.
+   * @param limit - The maximum number of blocks to obtain.
    * @returns The blocks requested.
    */
-  public async getBlocks(from: number, take: number): Promise<L2Block[]> {
-    return (await this.blockSource.getL2Blocks(from, take)) ?? [];
+  public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
+    return (await this.blockSource.getL2Blocks(from, limit)) ?? [];
   }
 
   /**
@@ -170,15 +170,15 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Gets the `take` amount of logs starting from `from`.
+   * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param take - The number of logs to return.
+   * @param limit - The maximum number of logs to return.
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, take, logType);
+    return logSource.getLogs(from, limit, logType);
   }
 
   /**
@@ -292,7 +292,7 @@ export class AztecNodeService implements AztecNode {
    * @returns Storage value at the given contract slot (or undefined if not found).
    * Note: Aztec's version of `eth_getStorageAt`.
    */
-  public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
+  public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
   }

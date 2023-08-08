@@ -1,6 +1,5 @@
-import { randomBytes } from 'crypto';
-
 import { toBigIntBE, toBufferBE, toHex } from '../bigint-buffer/index.js';
+import { randomBytes } from '../crypto/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 
 /**
@@ -19,11 +18,12 @@ export class Fr {
    */
   public readonly value: bigint;
 
-  constructor(value: bigint | number) {
-    this.value = BigInt(value);
-    // if (value > Fr.MAX_VALUE) {
-    //   throw new Error(`Fr out of range ${value}.`);
-    // }
+  constructor(value: bigint | number | Fr) {
+    const isFr = (value: bigint | number | Fr): value is Fr => !!(value as Fr).toBigInt;
+    this.value = isFr(value) ? value.toBigInt() : BigInt(value);
+    if (this.value > Fr.MAX_VALUE) {
+      throw new Error(`Fr out of range ${value}.`);
+    }
   }
 
   /**
@@ -171,7 +171,7 @@ export class Fq {
     public readonly value: bigint,
   ) {
     if (value > Fq.MAX_VALUE) {
-      throw new Error(`Fr out of range ${value}.`);
+      throw new Error(`Fq out of range ${value}.`);
     }
   }
 

@@ -14,7 +14,7 @@ import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
@@ -65,7 +65,7 @@ describe('e2e_p2p_network', () => {
     // now ensure that all txs were successfully mined
     for (const context of contexts) {
       for (const tx of context.txs) {
-        const isMined = await tx.isMined(0, 0.1);
+        const isMined = await tx.isMined({ interval: 0.1 });
         const receiptAfterMined = await tx.getReceipt();
 
         expect(isMined).toBe(true);

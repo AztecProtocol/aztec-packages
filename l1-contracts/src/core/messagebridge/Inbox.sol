@@ -7,6 +7,7 @@ import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IRegistry} from "@aztec/core/interfaces/messagebridge/IRegistry.sol";
 
 // Libraries
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Hash} from "@aztec/core/libraries/Hash.sol";
@@ -25,12 +26,6 @@ contract Inbox is IInbox {
 
   mapping(bytes32 entryKey => DataStructures.Entry entry) internal entries;
   mapping(address account => uint256 balance) public feesAccrued;
-
-  modifier onlyRollup() {
-    // @todo: (issue #624) handle different versions
-    if (msg.sender != address(REGISTRY.getRollup())) revert Errors.Inbox__Unauthorized();
-    _;
-  }
 
   constructor(address _registry) {
     REGISTRY = IRegistry(_registry);
@@ -53,7 +48,16 @@ contract Inbox is IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external payable override(IInbox) returns (bytes32) {
+    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
+    }
     if (_deadline <= block.timestamp) revert Errors.Inbox__DeadlineBeforeNow();
+    if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ContentTooLarge(_content);
+    }
+    if (uint256(_secretHash) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__SecretHashTooLarge(_secretHash);
+    }
     // `fee` is uint64 for slot packing of the Entry struct. uint64 caps at ~18.4 ETH which should be enough.
     // we revert here to safely cast msg.value into uint64.
     if (msg.value > type(uint64).max) revert Errors.Inbox__FeeTooHigh();
@@ -68,7 +72,8 @@ contract Inbox is IInbox {
     });
 
     bytes32 key = computeEntryKey(message);
-    entries.insert(key, fee, _deadline, _errIncompatibleEntryArguments);
+    // Unsafe cast to uint32, but as we increment by 1 for versions to lookup the snapshots, we should be fine.
+    entries.insert(key, fee, uint32(_recipient.version), _deadline, _errIncompatibleEntryArguments);
 
     emit MessageAdded(
       key,
@@ -117,12 +122,16 @@ contract Inbox is IInbox {
   function batchConsume(bytes32[] memory _entryKeys, address _feeCollector)
     external
     override(IInbox)
-    onlyRollup
   {
     uint256 totalFee = 0;
+    // This MUST revert if not called by a listed rollup contract
+    uint32 expectedVersion = uint32(REGISTRY.getVersionFor(msg.sender));
     for (uint256 i = 0; i < _entryKeys.length; i++) {
       if (_entryKeys[i] == bytes32(0)) continue;
       DataStructures.Entry memory entry = get(_entryKeys[i]);
+      if (entry.version != expectedVersion) {
+        revert Errors.Inbox__InvalidVersion(entry.version, expectedVersion);
+      }
       // cant consume if we are already past deadline.
       if (block.timestamp > entry.deadline) revert Errors.Inbox__PastDeadline();
       entries.consume(_entryKeys[i], _errNothingToConsume);
@@ -195,6 +204,8 @@ contract Inbox is IInbox {
    * @param _entryKey - The key to lookup
    * @param _storedFee - The fee stored in the entry
    * @param _feePassed - The fee passed into the insertion
+   * @param _storedVersion - The version stored in the entry
+   * @param _versionPassed - The version passed into the insertion
    * @param _storedDeadline - The deadline stored in the entry
    * @param _deadlinePassed - The deadline passed into the insertion
    */
@@ -202,11 +213,19 @@ contract Inbox is IInbox {
     bytes32 _entryKey,
     uint64 _storedFee,
     uint64 _feePassed,
+    uint32 _storedVersion,
+    uint32 _versionPassed,
     uint32 _storedDeadline,
     uint32 _deadlinePassed
   ) internal pure {
     revert Errors.Inbox__IncompatibleEntryArguments(
-      _entryKey, _storedFee, _feePassed, _storedDeadline, _deadlinePassed
+      _entryKey,
+      _storedFee,
+      _feePassed,
+      _storedVersion,
+      _versionPassed,
+      _storedDeadline,
+      _deadlinePassed
     );
   }
 }

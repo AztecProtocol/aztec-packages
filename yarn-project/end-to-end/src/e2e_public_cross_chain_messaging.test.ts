@@ -6,8 +6,8 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { delay, setup } from './utils.js';
+import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
+import { delay, setup } from './fixtures/utils.js';
 
 describe('e2e_public_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -33,6 +33,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       accounts,
       wallet,
       logger: logger_,
+      cheatCodes,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
       initialBalance,
@@ -42,6 +43,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       accounts,
       wallet,
       logger_,
+      cheatCodes,
     );
 
     l2Contract = crossChainTestHarness.l2Contract;
@@ -70,7 +72,7 @@ describe('e2e_public_cross_chain_messaging', () => {
       .withdrawPublic(withdrawAmount, ethAccount.toField(), EthAddress.ZERO.toField())
       .send({ origin: ownerAddress });
 
-    await withdrawTx.isMined(0, 0.1);
+    await withdrawTx.isMined({ interval: 0.1 });
     const withdrawReceipt = await withdrawTx.getReceipt();
 
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -80,7 +82,6 @@ describe('e2e_public_cross_chain_messaging', () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
-    const publicBalanceSlot = 2n;
 
     const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
 
@@ -96,14 +97,14 @@ describe('e2e_public_cross_chain_messaging', () => {
     await crossChainTestHarness.performL2Transfer(transferAmount);
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
 
     // time to withdraw the funds again!
     logger('Withdrawing funds from L2');
     const withdrawAmount = 9n;
     const entryKey = await crossChainTestHarness.checkEntryIsNotInOutbox(withdrawAmount);
     await withdrawFundsFromAztec(withdrawAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount, publicBalanceSlot);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - withdrawAmount);
 
     // Check balance before and after exit.
     expect(await underlyingERC20.read.balanceOf([ethAccount.toString()])).toBe(l1TokenBalance - bridgeAmount);
