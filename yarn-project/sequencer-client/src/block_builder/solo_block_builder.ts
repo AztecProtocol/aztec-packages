@@ -111,6 +111,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endPublicDataTreeRoot,
       endL1ToL2MessageTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
+      transactionsTreeRoot
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -153,6 +154,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endL1ToL2MessageTreeSnapshot,
       startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
+      transactionsTreeRoot,
       newCommitments,
       newNullifiers,
       newL2ToL1Msgs,
@@ -308,7 +310,13 @@ export class SoloBlockBuilder implements BlockBuilder {
     await this.db.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
   }
 
+  protected calculateTransactionsTreeHash() {
+    // TODO(Maddiaa): Stubbed until issue x
+    return Fr.ZERO;
+  }
+
   protected async calculateBlockHash(globals: GlobalVariables) {
+    const txTreeRoot = this.calculateTransactionsTreeHash();
     const [privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, publicDataTreeRoot, l1ToL2MessageTreeRoot] = (
       await Promise.all(
         [
@@ -329,6 +337,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessageTreeRoot,
+      txTreeRoot,
       publicDataTreeRoot,
     );
     return blockHash;
@@ -512,7 +521,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     const blockData = tx.data.constants.blockData;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot } = blockData;
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, transactionsTreeRoot } = blockData;
     const blockHash = computeBlockHash(
       wasm,
       blockData.prevGlobalVariablesHash,
@@ -520,6 +529,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       nullifierTreeRoot,
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
+      transactionsTreeRoot,
       blockData.publicDataTreeRoot,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);

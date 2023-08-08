@@ -320,6 +320,7 @@ export function computeBlockHashWithGlobals(
   nullifierTreeRoot: Fr,
   contractTreeRoot: Fr,
   l1ToL2DataTreeRoot: Fr,
+  transactionsTreeRoot: Fr,
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
@@ -330,6 +331,7 @@ export function computeBlockHashWithGlobals(
     nullifierTreeRoot,
     contractTreeRoot,
     l1ToL2DataTreeRoot,
+  transactionsTreeRoot,
     publicDataTreeRoot,
   );
 }
@@ -352,6 +354,7 @@ export function computeBlockHash(
   nullifierTreeRoot: Fr,
   contractTreeRoot: Fr,
   l1ToL2DataTreeRoot: Fr,
+  transactionsTreeRoot: Fr,
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
@@ -362,6 +365,7 @@ export function computeBlockHash(
     nullifierTreeRoot,
     contractTreeRoot,
     l1ToL2DataTreeRoot,
+  transactionsTreeRoot,
     publicDataTreeRoot,
   );
 }

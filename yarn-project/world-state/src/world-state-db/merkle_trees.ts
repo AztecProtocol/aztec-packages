@@ -186,7 +186,10 @@ export class MerkleTrees implements MerkleTreeDb {
   async getCurrentBlockHash(globals: GlobalVariables, includeUncommitted: boolean): Promise<Fr> {
     const roots = this.getAllTreeRoots(includeUncommitted).map(root => Fr.fromBuffer(root));
     const wasm = await CircuitsWasm.get();
-    return computeBlockHashWithGlobals(wasm, globals, roots[0], roots[1], roots[2], roots[3], roots[4]);
+
+    // TODO(md): there needs to be a way to make this data available
+    const transactionsTreeRoot = Fr.ZERO; // TODO(insert issue here for indexing the transactions hashes, maybe just indexing these values for entire blocks)
+    return computeBlockHashWithGlobals(wasm, globals, roots[0], roots[1], roots[2], roots[3], transactionsTreeRoot, roots[4]);
   }
 
   getAllTreeRoots(includeUncommitted: boolean): Buffer[] {

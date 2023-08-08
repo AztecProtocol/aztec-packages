@@ -13,12 +13,17 @@ export async function getConstantHistoricBlockData(
   const prevGlobalsHash = computeGlobalsHash(wasm, prevBlockGlobalVariables);
   const roots = db.getTreeRoots();
 
+
+  // TODO(Maddiaa): index the whole block to retrieve this stuff easier:  place issue number here
+  const transactionsTreeRoot = Fr.ZERO;
+
   return new ConstantHistoricBlockData(
     Fr.fromBuffer(roots.privateDataTreeRoot),
     Fr.fromBuffer(roots.nullifierTreeRoot),
     Fr.fromBuffer(roots.contractDataTreeRoot),
     Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
     Fr.fromBuffer(roots.blocksTreeRoot),
+    transactionsTreeRoot,
     Fr.ZERO,
     Fr.fromBuffer(roots.publicDataTreeRoot),
     prevGlobalsHash,

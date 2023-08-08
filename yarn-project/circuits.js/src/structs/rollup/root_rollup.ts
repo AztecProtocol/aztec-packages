@@ -167,7 +167,10 @@ export class RootRollupPublicInputs {
      * Snapshot of the historic blocks tree roots tree at the end of the rollup.
      */
     public endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
-
+    /**
+     * The root of the transaction tree for the current rollup.
+     */
+    public transactionsTreeRoot: Fr,
     /**
      * Hash of the calldata.
      */
@@ -200,6 +203,7 @@ export class RootRollupPublicInputs {
       fields.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.startHistoricBlocksTreeSnapshot,
       fields.endHistoricBlocksTreeSnapshot,
+      fields.transactionsTreeRoot,
       fields.calldataHash,
       fields.l1ToL2MessagesHash,
     ] as const;
@@ -258,6 +262,7 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readFr(),
       [reader.readFr(), reader.readFr()],
       [reader.readFr(), reader.readFr()],
     );

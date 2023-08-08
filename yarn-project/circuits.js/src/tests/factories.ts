@@ -118,6 +118,7 @@ export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlo
     fr(seed + 5),
     fr(seed + 6),
     fr(seed + 7),
+    fr(seed + 8),
   );
 }
 
@@ -849,6 +850,7 @@ export function makeRootRollupPublicInputs(
     endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     startHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
     endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot((seed += 0x100)),
+    transactionsTreeRoot: fr((seed += 0x100)),
     calldataHash: [new Fr(1n), new Fr(2n)],
     l1ToL2MessagesHash: [new Fr(3n), new Fr(4n)],
   });

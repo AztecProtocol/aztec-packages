@@ -103,6 +103,10 @@ export class L2Block {
      */
     public endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
+     * The root of the transactions tree for this specific block.
+     */
+    public transactionsTreeRoot: Fr,
+    /**
      * The commitments to be inserted into the private data tree.
      */
     public newCommitments: Fr[],
@@ -188,6 +192,7 @@ export class L2Block {
       endPublicDataTreeRoot: Fr.random(),
       endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
       endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
+      transactionsTreeRoot: Fr.random(),
       newCommitments,
       newNullifiers,
       newContracts,
@@ -263,6 +268,10 @@ export class L2Block {
      */
     endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
     /**
+     * The root of the transactions tree created in the current block.
+     */
+    transactionsTreeRoot: Fr;
+    /**
      * The commitments to be inserted into the private data tree.
      */
     newCommitments: Fr[];
@@ -314,6 +323,7 @@ export class L2Block {
       fields.endPublicDataTreeRoot,
       fields.endL1ToL2MessageTreeSnapshot,
       fields.endHistoricBlocksTreeSnapshot,
+      fields.transactionsTreeRoot,
       fields.newCommitments,
       fields.newNullifiers,
       fields.newPublicDataWrites,
@@ -349,6 +359,7 @@ export class L2Block {
       this.endPublicDataTreeRoot,
       this.endL1ToL2MessageTreeSnapshot,
       this.endHistoricBlocksTreeSnapshot,
+      this.transactionsTreeRoot,
       this.newCommitments.length,
       this.newCommitments,
       this.newNullifiers.length,
@@ -396,6 +407,7 @@ export class L2Block {
     const endPublicDataTreeRoot = reader.readObject(Fr);
     const endL1ToL2MessageTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endHistoricBlocksTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
+    const transactionsTreeRoot = reader.readObject(Fr);
     const newCommitments = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
@@ -422,6 +434,7 @@ export class L2Block {
       endPublicDataTreeRoot,
       endL1ToL2MessageTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
+      transactionsTreeRoot,
       newCommitments,
       newNullifiers,
       newPublicDataWrites,
@@ -486,6 +499,7 @@ export class L2Block {
       this.endPublicDataTreeRoot,
       this.endL1ToL2MessageTreeSnapshot,
       this.endHistoricBlocksTreeSnapshot,
+      this.transactionsTreeRoot,
       this.getCalldataHash(),
       this.getL1ToL2MessagesHash(),
     );
@@ -705,6 +719,7 @@ export class L2Block {
       `endPublicDataTreeRoot: ${this.endPublicDataTreeRoot.toString()}`,
       `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
       `endHistoricBlocksTreeSnapshot: ${inspectTreeSnapshot(this.endHistoricBlocksTreeSnapshot)}`,
+      `transactionsTreeRoot: ${this.transactionsTreeRoot.toString()}`,
       `newCommitments: ${inspectFrArray(this.newCommitments)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,

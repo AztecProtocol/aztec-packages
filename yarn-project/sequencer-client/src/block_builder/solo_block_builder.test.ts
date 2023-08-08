@@ -157,6 +157,7 @@ describe('sequencer/solo_block_builder', () => {
       rootRollupOutput.endNullifierTreeSnapshot.root,
       rootRollupOutput.endContractTreeSnapshot.root,
       rootRollupOutput.endL1ToL2MessageTreeSnapshot.root,
+      rootRollupOutput.transactionsTreeRoot,
       rootRollupOutput.endPublicDataTreeRoot,
     );
     await expectsDb.appendLeaves(MerkleTreeId.BLOCKS_TREE, [blockHash.toBuffer()]);
@@ -244,6 +245,7 @@ describe('sequencer/solo_block_builder', () => {
       endL1ToL2MessageTreeSnapshot: rootRollupOutput.endL1ToL2MessageTreeSnapshot,
       startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
+      transactionsTreeRoot: rootRollupOutput.transactionsTreeRoot,
       newCommitments,
       newNullifiers,
       newContracts,

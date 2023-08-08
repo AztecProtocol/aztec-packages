@@ -633,6 +633,7 @@ interface MsgpackConstantHistoricBlockData {
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   l1_to_l2_messages_tree_root: Buffer;
+  transactions_tree_root: Buffer;
   blocks_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
   public_data_tree_root: Buffer;
@@ -652,6 +653,9 @@ export function toConstantHistoricBlockData(o: MsgpackConstantHistoricBlockData)
   if (o.l1_to_l2_messages_tree_root === undefined) {
     throw new Error('Expected l1_to_l2_messages_tree_root in ConstantHistoricBlockData deserialization');
   }
+  if (o.transactions_tree_root === undefined) {
+    throw new Error('Expected transactions_tree_root in ConstantHistoricBlockData deserialization');
+  }
   if (o.blocks_tree_root === undefined) {
     throw new Error('Expected blocks_tree_root in ConstantHistoricBlockData deserialization');
   }
@@ -669,6 +673,7 @@ export function toConstantHistoricBlockData(o: MsgpackConstantHistoricBlockData)
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
     Fr.fromBuffer(o.l1_to_l2_messages_tree_root),
+    Fr.fromBuffer(o.transactions_tree_root),
     Fr.fromBuffer(o.blocks_tree_root),
     Fr.fromBuffer(o.private_kernel_vk_tree_root),
     Fr.fromBuffer(o.public_data_tree_root),
@@ -689,6 +694,9 @@ export function fromConstantHistoricBlockData(o: ConstantHistoricBlockData): Msg
   if (o.l1ToL2MessagesTreeRoot === undefined) {
     throw new Error('Expected l1ToL2MessagesTreeRoot in ConstantHistoricBlockData serialization');
   }
+  if (o.transactionsTreeRoot === undefined) {
+    throw new Error('Expected transactionsTreeRoot in ConstantHistoricBlockData serialization');
+  }
   if (o.blocksTreeRoot === undefined) {
     throw new Error('Expected blocksTreeRoot in ConstantHistoricBlockData serialization');
   }
@@ -706,6 +714,7 @@ export function fromConstantHistoricBlockData(o: ConstantHistoricBlockData): Msg
     nullifier_tree_root: toBuffer(o.nullifierTreeRoot),
     contract_tree_root: toBuffer(o.contractTreeRoot),
     l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
+    transactions_tree_root: toBuffer(o.transactionsTreeRoot),
     blocks_tree_root: toBuffer(o.blocksTreeRoot),
     private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
     public_data_tree_root: toBuffer(o.publicDataTreeRoot),
@@ -1513,6 +1522,7 @@ export function abisComputeBlockHash(
   arg3: Fr,
   arg4: Fr,
   arg5: Fr,
+  arg6: Fr,
 ): Fr {
   return Fr.fromBuffer(
     callCbind(wasm, 'abis__compute_block_hash', [
@@ -1522,6 +1532,7 @@ export function abisComputeBlockHash(
       toBuffer(arg3),
       toBuffer(arg4),
       toBuffer(arg5),
+      toBuffer(arg6),
     ]),
   );
 }
@@ -1533,6 +1544,7 @@ export function abisComputeBlockHashWithGlobals(
   arg3: Fr,
   arg4: Fr,
   arg5: Fr,
+  arg6: Fr,
 ): Fr {
   return Fr.fromBuffer(
     callCbind(wasm, 'abis__compute_block_hash_with_globals', [
@@ -1542,6 +1554,7 @@ export function abisComputeBlockHashWithGlobals(
       toBuffer(arg3),
       toBuffer(arg4),
       toBuffer(arg5),
+      toBuffer(arg6),
     ]),
   );
 }
