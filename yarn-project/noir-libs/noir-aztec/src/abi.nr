@@ -131,8 +131,8 @@ struct ConstantBlockData {
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
-    blocks_tree_root: Field,
     transactions_tree_root: Field,
+    blocks_tree_root: Field,
     prev_global_variables_hash: Field,
     public_data_tree_root: Field,
 }
@@ -154,7 +154,7 @@ impl ConstantBlockData {
 }
 
 fn empty_block_data() -> ConstantBlockData {
-    ConstantBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, transactions_tree_root: 0, prev_global_variables_hash: 0, public_data_tree_root: 0 }
+    ConstantBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, transactions_tree_root: 0, blocks_tree_root: 0, prev_global_variables_hash: 0, public_data_tree_root: 0 }
 }
 
 struct FunctionData {

@@ -310,6 +310,7 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
  * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param transactionsTreeRoot - The root of the previous block's transaction data tree.
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */
@@ -344,6 +345,7 @@ export function computeBlockHashWithGlobals(
  * @param nullifierTreeRoot - The root of the nullifier tree.
  * @param contractTreeRoot - The root of the contract tree.
  * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param transactionsTreeRoot - The root of the previous block's transaction data tree.
  * @param publicDataTreeRoot - The root of the public data tree.
  * @returns The block hash.
  */

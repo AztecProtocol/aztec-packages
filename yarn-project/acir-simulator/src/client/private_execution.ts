@@ -233,8 +233,8 @@ export class PrivateFunctionExecution {
       blockData.nullifierTreeRoot,
       blockData.contractTreeRoot,
       blockData.l1ToL2MessagesTreeRoot,
-      blockData.blocksTreeRoot,
       blockData.transactionsTreeRoot,
+      blockData.blocksTreeRoot,
       blockData.prevGlobalVariablesHash,
       blockData.publicDataTreeRoot,
 

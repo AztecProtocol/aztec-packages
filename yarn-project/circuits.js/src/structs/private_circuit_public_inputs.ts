@@ -98,13 +98,13 @@ export class PrivateCircuitPublicInputs {
      */
     public historicL1ToL2MessagesTreeRoot: Fr,
     /**
-     * Root of the Blocks roots tree.
-     */
-    public historicBlocksTreeRoot: Fr,
-    /**
      * Previous block's transactions tree root.
      */
     public historicTransactionsTreeRoot: Fr,
+    /**
+     * Root of the Blocks roots tree.
+     */
+    public historicBlocksTreeRoot: Fr,
     /**
      * Previous blocks global variables hash.
      */
@@ -209,8 +209,8 @@ export class PrivateCircuitPublicInputs {
       fields.historicPrivateNullifierTreeRoot,
       fields.historicContractTreeRoot,
       fields.historicL1ToL2MessagesTreeRoot,
-      fields.historicBlocksTreeRoot,
       fields.historicTransactionsTreeRoot,
+      fields.historicBlocksTreeRoot,
       fields.historicGlobalVariablesHash,
       fields.historicPublicDataTreeRoot,
       fields.contractDeploymentData,

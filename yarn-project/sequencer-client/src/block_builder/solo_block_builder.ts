@@ -521,8 +521,9 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     const blockData = tx.data.constants.blockData;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, transactionsTreeRoot } =
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, transactionsTreeRoot, publicDataTreeRoot } =
       blockData;
+
     const blockHash = computeBlockHash(
       wasm,
       blockData.prevGlobalVariablesHash,
@@ -531,7 +532,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       contractTreeRoot,
       l1ToL2MessagesTreeRoot,
       transactionsTreeRoot,
-      blockData.publicDataTreeRoot,
+      publicDataTreeRoot,
     );
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);
   }

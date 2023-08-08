@@ -6,6 +6,8 @@
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/constants.hpp"
 
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -84,10 +86,7 @@ std::array<NT::fr, NUM_FIELDS_PER_SHA256> compute_messages_hash(
  */
 fr calculate_transactions_tree_root()
 {
-    MemoryStore tx_store;
-    MerkleTree tx_tree(tx_store, TRANSACTIONS_TREE_HEIGHT);
-
-    return tx_tree.root();
+    return fr::zero();
 }
 
 RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInputs const& rootRollupInputs)
