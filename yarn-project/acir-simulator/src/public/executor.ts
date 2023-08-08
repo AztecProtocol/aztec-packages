@@ -239,6 +239,7 @@ function getInitialWitness(
     constantHistoricBlockData.contractTreeRoot,
     constantHistoricBlockData.l1ToL2MessagesTreeRoot,
     constantHistoricBlockData.blocksTreeRoot,
+    constantHistoricBlockData.transactionsTreeRoot,
     constantHistoricBlockData.prevGlobalVariablesHash,
     constantHistoricBlockData.publicDataTreeRoot,
 

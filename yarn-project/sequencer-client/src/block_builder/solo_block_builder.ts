@@ -111,7 +111,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endPublicDataTreeRoot,
       endL1ToL2MessageTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
-      transactionsTreeRoot
+      transactionsTreeRoot,
     } = circuitsOutput;
 
     // Collect all new nullifiers, commitments, and contracts from all txs in this block
@@ -521,7 +521,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     const blockData = tx.data.constants.blockData;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, transactionsTreeRoot } = blockData;
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, transactionsTreeRoot } =
+      blockData;
     const blockHash = computeBlockHash(
       wasm,
       blockData.prevGlobalVariablesHash,

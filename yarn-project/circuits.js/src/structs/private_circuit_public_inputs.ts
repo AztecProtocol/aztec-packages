@@ -102,6 +102,10 @@ export class PrivateCircuitPublicInputs {
      */
     public historicBlocksTreeRoot: Fr,
     /**
+     * Previous block's transactions tree root.
+     */
+    public historicTransactionsTreeRoot: Fr,
+    /**
      * Previous blocks global variables hash.
      */
     public historicGlobalVariablesHash: Fr,
@@ -173,6 +177,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       Fr.ZERO,
       Fr.ZERO,
+      Fr.ZERO,
       ContractDeploymentData.empty(),
       Fr.ZERO,
       Fr.ZERO,
@@ -205,6 +210,7 @@ export class PrivateCircuitPublicInputs {
       fields.historicContractTreeRoot,
       fields.historicL1ToL2MessagesTreeRoot,
       fields.historicBlocksTreeRoot,
+      fields.historicTransactionsTreeRoot,
       fields.historicGlobalVariablesHash,
       fields.historicPublicDataTreeRoot,
       fields.contractDeploymentData,

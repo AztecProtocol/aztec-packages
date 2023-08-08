@@ -1,15 +1,8 @@
-import {
-  CircuitsWasm,
-} from '@aztec/circuits.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
-import {
-  L2Block,
-  L2BlockSource,
-  MerkleTreeId,
-  SiblingPath,
-} from '@aztec/types';
+import { L2Block, L2BlockSource, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 import { jest } from '@jest/globals';
 

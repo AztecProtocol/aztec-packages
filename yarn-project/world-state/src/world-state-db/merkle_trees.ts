@@ -189,7 +189,16 @@ export class MerkleTrees implements MerkleTreeDb {
 
     // TODO(md): there needs to be a way to make this data available
     const transactionsTreeRoot = Fr.ZERO; // TODO(insert issue here for indexing the transactions hashes, maybe just indexing these values for entire blocks)
-    return computeBlockHashWithGlobals(wasm, globals, roots[0], roots[1], roots[2], roots[3], transactionsTreeRoot, roots[4]);
+    return computeBlockHashWithGlobals(
+      wasm,
+      globals,
+      roots[0],
+      roots[1],
+      roots[2],
+      roots[3],
+      transactionsTreeRoot,
+      roots[4],
+    );
   }
 
   getAllTreeRoots(includeUncommitted: boolean): Buffer[] {

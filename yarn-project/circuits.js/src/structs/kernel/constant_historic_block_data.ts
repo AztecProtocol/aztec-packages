@@ -103,6 +103,16 @@ export class ConstantHistoricBlockData {
   }
 
   static empty() {
-    return new ConstantHistoricBlockData(Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO, Fr.ZERO);
+    return new ConstantHistoricBlockData(
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+      Fr.ZERO,
+    );
   }
 }

@@ -652,11 +652,12 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     historicPrivateNullifierTreeRoot: fr(seed + 0xf00),
     historicL1ToL2MessagesTreeRoot: fr(seed + 0x1000),
     historicBlocksTreeRoot: fr(seed + 0x1100),
-    historicGlobalVariablesHash: fr(seed + 0x1200),
-    historicPublicDataTreeRoot: fr(seed + 0x1300),
+    historicTransactionsTreeRoot: fr(seed + 0x1200),
+    historicGlobalVariablesHash: fr(seed + 0x1300),
+    historicPublicDataTreeRoot: fr(seed + 0x1400),
     contractDeploymentData: makeContractDeploymentData(),
-    chainId: fr(seed + 0x1400),
-    version: fr(seed + 0x1500),
+    chainId: fr(seed + 0x1500),
+    version: fr(seed + 0x1600),
   });
 }
 

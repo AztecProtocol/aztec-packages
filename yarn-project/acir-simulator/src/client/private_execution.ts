@@ -234,6 +234,7 @@ export class PrivateFunctionExecution {
       blockData.contractTreeRoot,
       blockData.l1ToL2MessagesTreeRoot,
       blockData.blocksTreeRoot,
+      blockData.transactionsTreeRoot,
       blockData.prevGlobalVariablesHash,
       blockData.publicDataTreeRoot,
 

@@ -331,7 +331,7 @@ export function computeBlockHashWithGlobals(
     nullifierTreeRoot,
     contractTreeRoot,
     l1ToL2DataTreeRoot,
-  transactionsTreeRoot,
+    transactionsTreeRoot,
     publicDataTreeRoot,
   );
 }
@@ -365,7 +365,7 @@ export function computeBlockHash(
     nullifierTreeRoot,
     contractTreeRoot,
     l1ToL2DataTreeRoot,
-  transactionsTreeRoot,
+    transactionsTreeRoot,
     publicDataTreeRoot,
   );
 }
