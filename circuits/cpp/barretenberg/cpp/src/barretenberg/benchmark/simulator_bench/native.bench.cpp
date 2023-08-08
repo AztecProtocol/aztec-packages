@@ -98,6 +98,34 @@ void ecdsa(State& state) noexcept
     }
 };
 
+void biggroup_batch_mul(State& state) noexcept
+{
+    using element_t = barretenberg::g1::element;
+    using affine_element_t = barretenberg::g1::affine_element;
+
+    for (auto _ : state) {
+        state.PauseTiming();
+
+        const size_t num_points = 20;
+        std::vector<affine_element_t> points;
+        std::vector<fr> scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element_t(element_t::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        state.ResumeTiming();
+        element_t result = g1::one;
+        result.self_set_infinity();
+        for (size_t i = 0; i < num_points; ++i) {
+            result += (element_t(points[i]) * scalars[i]);
+        }
+        result = result.normalize();
+        DoNotOptimize(result);
+    }
+};
+
+
 BENCHMARK(pedersen_compress_pair)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
@@ -111,6 +139,10 @@ BENCHMARK(blake3s)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kNanosecond);
 BENCHMARK(ecdsa)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(biggroup_batch_mul)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kNanosecond);

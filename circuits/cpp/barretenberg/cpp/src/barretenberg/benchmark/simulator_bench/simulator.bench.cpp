@@ -5,6 +5,7 @@
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 using namespace benchmark;
@@ -133,6 +134,39 @@ void ecdsa(State& state) noexcept
     }
 };
 
+void biggroup_batch_mul(State& state) noexcept
+{
+    using curve = proof_system::plonk::stdlib::bn254<Simulator>;
+    using element_t = barretenberg::g1::element;
+    using affine_element_t = barretenberg::g1::affine_element;
+    using element_ct = typename curve::g1_ct;
+    using scalar_ct = typename curve::fr_ct;
+
+    for (auto _ : state) {
+        state.PauseTiming();
+
+        const size_t num_points = 20;
+        Simulator simulator;
+        std::vector<affine_element_t> points;
+        std::vector<fr> scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element_t(element_t::random_element()));
+            scalars.push_back(fr::random_element());
+        }
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < num_points; ++i) {
+            circuit_points.push_back(element_ct::from_witness(&simulator, points[i]));
+            circuit_scalars.push_back(scalar_ct::from_witness(&simulator, scalars[i]));
+        }
+
+        state.ResumeTiming();
+        element_ct result = element_ct::batch_mul(circuit_points, circuit_scalars);
+        DoNotOptimize(result);
+    }
+};
+
 BENCHMARK(pedersen_compress_pair)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
@@ -146,6 +180,10 @@ BENCHMARK(blake3s)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kNanosecond);
 BENCHMARK(ecdsa)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(biggroup_batch_mul)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kNanosecond);

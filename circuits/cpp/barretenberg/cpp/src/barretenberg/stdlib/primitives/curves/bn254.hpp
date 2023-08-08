@@ -20,17 +20,17 @@ template <typename CircuitBuilder> struct bn254 {
 
     using Builder = CircuitBuilder;
     using Composer = CircuitBuilder;
-    typedef witness_t<CircuitBuilder> witness_ct;
-    typedef public_witness_t<CircuitBuilder> public_witness_ct;
-    typedef field_t<CircuitBuilder> fr_ct;
-    typedef byte_array<CircuitBuilder> byte_array_ct;
-    typedef bool_t<CircuitBuilder> bool_ct;
-    typedef stdlib::uint32<CircuitBuilder> uint32_ct;
+    using witness_ct = witness_t<CircuitBuilder> ;
+    using public_witness_ct = public_witness_t<CircuitBuilder> ;
+    using fr_ct = field_t<CircuitBuilder> ;
+    using byte_array_ct = byte_array<CircuitBuilder> ;
+    using bool_ct = bool_t<CircuitBuilder> ;
+    using uint32_ct = stdlib::uint32<CircuitBuilder> ;
 
-    typedef bigfield<CircuitBuilder, barretenberg::Bn254FqParams> fq_ct;
-    typedef bigfield<CircuitBuilder, barretenberg::Bn254FrParams> bigfr_ct;
-    typedef element<CircuitBuilder, fq_ct, fr_ct, Group> g1_ct;
-    typedef element<CircuitBuilder, fq_ct, bigfr_ct, Group> g1_bigfr_ct;
+    using fq_ct = bigfield<CircuitBuilder, barretenberg::Bn254FqParams> ;
+    using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams> ;
+    using g1_ct = element<CircuitBuilder, fq_ct, fr_ct, Group> ;
+    using g1_bigfr_ct = element<CircuitBuilder, fq_ct, bigfr_ct, Group> ;
 
 }; // namespace bn254
 } // namespace stdlib
