@@ -92,7 +92,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     // TODO(Maddiaa): Should this move around, maybe elsewhere
     // This tree is just required to work out the previous block hash
     MemoryStore tx_store;
-    MerkleTree tx_tree(historic_blocks_tree_store, TRANSACTIONS_TREE_HEIGHT);
+    MerkleTree tx_tree(tx_store, TRANSACTIONS_TREE_HEIGHT);
 
 
     BaseRollupInputs baseRollupInputs = { .kernel_data = kernel_data,
@@ -183,6 +183,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         kernel_data[i].public_inputs.constants.block_data.contract_tree_root = contract_tree.root();
         kernel_data[i].public_inputs.constants.block_data.l1_to_l2_messages_tree_root = l1_to_l2_msg_tree.root();
         kernel_data[i].public_inputs.constants.block_data.blocks_tree_root = historic_blocks_tree.root();
+        kernel_data[i].public_inputs.constants.block_data.transactions_tree_root = tx_tree.root();
         kernel_data[i].public_inputs.constants.block_data.public_data_tree_root = public_data_tree.root();
         kernel_data[i].public_inputs.constants.block_data.prev_global_variables_hash = prev_global_variables_hash;
     }
