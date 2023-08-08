@@ -263,7 +263,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    const endIndex = from + limit;
+    const endIndex = startIndex + limit;
     return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
   }
 
@@ -305,7 +305,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    const endIndex = from + limit;
+    const endIndex = startIndex + limit;
     return Promise.resolve(logs.slice(startIndex, endIndex));
   }
 
