@@ -10,7 +10,7 @@ auto& engine = numeric::random::get_debug_engine();
 }
 namespace proof_system {
 
-TEST(translator_circuit_builder, scoping_out_the_circuit)
+TEST(TranslatorCircuitBuilder, ScopingOutTheCircuit)
 {
     // Questions:
     // 1. Do we need 68-bit limbs at all?
@@ -146,7 +146,7 @@ TEST(translator_circuit_builder, scoping_out_the_circuit)
     EXPECT_EQ(prime_relation, 0);
 }
 
-TEST(translator_circuit_builder, circuit_builder_base_case)
+TEST(TranslatorCircuitBuilder, CircuitBuilderBaseCase)
 {
     // Questions:
     // 1. Do we need 68-bit limbs at all?
@@ -178,5 +178,34 @@ TEST(translator_circuit_builder, circuit_builder_base_case)
     auto circuit_builder = GoblinTranslatorCircuitBuilder();
     circuit_builder.create_accumulation_gate(single_accumulation_step);
     EXPECT_TRUE(circuit_builder.check_circuit(x, v));
+}
+
+TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
+{
+    using point = barretenberg::g1::affine_element;
+    using scalar = barretenberg::fr;
+
+    auto P1 = point::random_element();
+    auto P2 = point::random_element();
+    auto z = scalar::random_element();
+
+    // Add the same operations to the ECC op queue; the native computation is performed under the hood.
+    ECCOpQueue op_queue;
+    op_queue.add_accumulate(P1);
+    op_queue.mul_accumulate(P2, z);
+    std::vector<fq> ops;
+    std::vector<fq> p_x;
+    std::vector<fq> p_y;
+    std::vector<fq> z_1;
+    std::vector<fq> z_2;
+    for (auto& ecc_op : op_queue.raw_ops) {
+        if (ecc_op.add)
+    }
+
+    auto circuit_builder = GoblinTranslatorCircuitBuilder();
+    fq batching_challenge = fq::random_element();
+    fq x = fq::random_element();
+    circuit_builder.feed_ecc_op_queue_into_circuit(op_queue, batching_challenge, x);
+    EXPECT_TRUE(circuit_builder.check_circuit(x, batching_challenge));
 }
 } // namespace proof_system
