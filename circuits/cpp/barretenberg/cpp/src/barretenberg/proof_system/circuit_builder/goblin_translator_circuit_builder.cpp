@@ -392,18 +392,19 @@ GoblinTranslatorCircuitBuilder::AccumulationInput compute_witness_values_for_one
                                4 * GoblinTranslatorCircuitBuilder::NUM_LIMB_BITS));
     }
     return generate_witness_values(
-        op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, ecc_op.scalar_1, ecc_op.scalar_2, previous_accumulator, v, x);
+        op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, Fr(ecc_op.scalar_1), Fr(ecc_op.scalar_2), previous_accumulator, v, x);
 }
-void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue, barretenberg::fq v, barretenberg::fq x)
+void GoblinTranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue,
+                                                                    barretenberg::fq v,
+                                                                    barretenberg::fq x)
 {
-    using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
 
     for (size_t i = 0; i < ecc_op_queue.raw_ops.size(); i++) {
         auto& ecc_op = ecc_op_queue.raw_ops[ecc_op_queue.raw_ops.size() - 1 - i];
-        Fr op(0);
+        Fq op(0);
         if (ecc_op.add) {
             op = 1;
         } else if (ecc_op.eq) {
@@ -423,7 +424,8 @@ void feed_ecc_op_queue_into_circuit(ECCOpQueue& ecc_op_queue, barretenberg::fq v
             previous_accumulator = accumulator_trace.back();
             accumulator_trace.pop_back();
         }
-        compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
+        auto one_accumulation_step = compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
+        create_accumulation_gate(one_accumulation_step);
     }
 }
 template GoblinTranslatorCircuitBuilder::AccumulationInput generate_witness_values(
