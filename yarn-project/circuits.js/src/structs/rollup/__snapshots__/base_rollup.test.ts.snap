@@ -210,10 +210,11 @@ block_data: private_data_tree_root: 0x200
 nullifier_tree_root: 0x201
 contract_tree_root: 0x202
 l1_to_l2_messages_tree_root: 0x203
-blocks_tree_root: 0x204
-private_kernel_vk_tree_root: 0x205
-public_data_tree_root: 0x206
-prev_global_variables_hash: 0x207
+transactions_tree_root: 0x204
+blocks_tree_root: 0x205
+private_kernel_vk_tree_root: 0x206
+public_data_tree_root: 0x207
+prev_global_variables_hash: 0x208
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
@@ -454,10 +455,11 @@ block_data: private_data_tree_root: 0x300
 nullifier_tree_root: 0x301
 contract_tree_root: 0x302
 l1_to_l2_messages_tree_root: 0x303
-blocks_tree_root: 0x304
-private_kernel_vk_tree_root: 0x305
-public_data_tree_root: 0x306
-prev_global_variables_hash: 0x307
+transactions_tree_root: 0x304
+blocks_tree_root: 0x305
+private_kernel_vk_tree_root: 0x306
+public_data_tree_root: 0x307
+prev_global_variables_hash: 0x308
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0

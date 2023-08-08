@@ -230,6 +230,7 @@ next_available_leaf_index: 4608
 end_historic_blocks_tree_snapshot: root: 0x1300
 next_available_leaf_index: 4864
 
+transactions_tree_root: 0x1400
 calldata_hash: [ 0x1 0x2 ]
 l1_to_l2_messages_hash: [ 0x3 0x4 ]
 "
