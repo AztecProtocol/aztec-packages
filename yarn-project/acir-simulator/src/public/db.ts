@@ -1,4 +1,4 @@
-import { ConstantHistoricBlockData, EthAddress } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
