@@ -60,19 +60,19 @@ class CircuitSimulatorBN254 {
 
     [[nodiscard]] size_t get_num_gates() const { return 0; }
 
-    void create_add_gate([[maybe_unused]] const add_triple& in){};
-    void create_mul_gate([[maybe_unused]] const mul_triple& in){};
+    void create_add_gate([[maybe_unused]] const add_triple_<FF>& in){};
+    void create_mul_gate([[maybe_unused]] const mul_triple_<FF>& in){};
     void create_bool_gate([[maybe_unused]] const uint32_t a){};
-    void create_poly_gate([[maybe_unused]] const poly_triple& in){};
-    void create_big_add_gate([[maybe_unused]] const add_quad& in){};
-    void create_big_add_gate_with_bit_extraction([[maybe_unused]] const add_quad& in){};
-    void create_big_mul_gate([[maybe_unused]] const mul_quad& in){};
-    void create_balanced_add_gate([[maybe_unused]] const add_quad& in){};
-    void create_fixed_group_add_gate([[maybe_unused]] const fixed_group_add_quad& in){};
-    void create_fixed_group_add_gate_with_init([[maybe_unused]] const fixed_group_add_quad& in,
-                                               [[maybe_unused]] const fixed_group_init_quad& init){};
-    void create_fixed_group_add_gate_final([[maybe_unused]] const add_quad& in){};
-    void create_ecc_add_gate([[maybe_unused]] const ecc_add_gate& in){};
+    void create_poly_gate([[maybe_unused]] const poly_triple_<FF>& in){};
+    void create_big_add_gate([[maybe_unused]] const add_quad_<FF>& in){};
+    void create_big_add_gate_with_bit_extraction([[maybe_unused]] const add_quad_<FF>& in){};
+    void create_big_mul_gate([[maybe_unused]] const mul_quad_<FF>& in){};
+    void create_balanced_add_gate([[maybe_unused]] const add_quad_<FF>& in){};
+    void create_fixed_group_add_gate([[maybe_unused]] const fixed_group_add_quad_<FF>& in){};
+    void create_fixed_group_add_gate_with_init([[maybe_unused]] const fixed_group_add_quad_<FF>& in,
+                                               [[maybe_unused]] const fixed_group_init_quad_<FF>& init){};
+    void create_fixed_group_add_gate_final([[maybe_unused]] const add_quad_<FF>& in){};
+    void create_ecc_add_gate([[maybe_unused]] const ecc_add_gate_<FF>& in){};
 
     plookup::ReadData<uint32_t> create_gates_from_plookup_accumulators(
         [[maybe_unused]] const plookup::MultiTableId& id,
@@ -106,13 +106,13 @@ class CircuitSimulatorBN254 {
                                            [[maybe_unused]] const FF&){};
     void assign_tag([[maybe_unused]] const uint32_t variable_index, [[maybe_unused]] const uint32_t tag){};
 
-    accumulator_triple create_and_constraint([[maybe_unused]] const uint32_t a,
+    accumulator_triple_<FF> create_and_constraint([[maybe_unused]] const uint32_t a,
                                              [[maybe_unused]] const uint32_t b,
                                              [[maybe_unused]] const size_t num_bits)
     {
         return { { 1028 }, { 1028 }, { 1028 } };
     };
-    accumulator_triple create_xor_constraint([[maybe_unused]] const uint32_t a,
+    accumulator_triple_<FF> create_xor_constraint([[maybe_unused]] const uint32_t a,
                                              [[maybe_unused]] const uint32_t b,
                                              [[maybe_unused]] const size_t num_bits)
     {
