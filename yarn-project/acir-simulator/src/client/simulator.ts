@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { FunctionCall, TxExecutionRequest } from '@aztec/types';
+import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
@@ -92,7 +92,7 @@ export class AcirSimulator {
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
    * @param constantHistoricBlockData - Block data containing historic roots.
-   * @returns The return values of the function.
+   * @param aztecNode - The AztecNode instance.
    */
   public async runUnconstrained(
     request: FunctionCall,
@@ -101,7 +101,8 @@ export class AcirSimulator {
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     constantHistoricBlockData: ConstantHistoricBlockData,
-  ) {
+    aztecNode?: AztecNode,
+  ){
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
@@ -129,7 +130,7 @@ export class AcirSimulator {
       callContext,
     );
 
-    return execution.run();
+    return execution.run(aztecNode);
   }
 
   /**
