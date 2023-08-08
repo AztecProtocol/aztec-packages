@@ -1746,6 +1746,10 @@ template <typename C, typename T> void bigfield<C, T>::assert_equal(const bigfie
 {
     C* ctx = this->context ? this->context : other.context;
 
+    if constexpr (IsSimulator<C>) {
+        return;
+    }
+
     if (is_constant() && other.is_constant()) {
         std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
         return;

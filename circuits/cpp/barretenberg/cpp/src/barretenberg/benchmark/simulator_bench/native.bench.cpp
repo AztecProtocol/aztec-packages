@@ -1,8 +1,9 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/benchmark_utilities.hpp"
-#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
 #include "barretenberg/crypto/blake3s/blake3s.hpp"
+#include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 
 using namespace benchmark;
 
@@ -56,7 +57,7 @@ void pedersen_compress_array(State& state) noexcept
         }
 
         state.ResumeTiming();
-        fr result = crypto::pedersen_commitment::compress_native(input);        
+        fr result = crypto::pedersen_commitment::compress_native(input);
         DoNotOptimize(result);
     }
 };
@@ -74,7 +75,44 @@ void blake3s(State& state) noexcept
     }
 };
 
-BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
-BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
-BENCHMARK(blake3s)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+void ecdsa(State& state) noexcept
+{
+
+    for (auto _ : state) {
+        state.PauseTiming();
+
+        std::string message_string = "Instructions unclear, ask again later.";
+
+        crypto::ecdsa::key_pair<secp256k1::fr, secp256k1::g1> account;
+        account.private_key = secp256k1::fr::random_element();
+        account.public_key = secp256k1::g1::one * account.private_key;
+
+        crypto::ecdsa::signature signature =
+            crypto::ecdsa::construct_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+                message_string, account);
+
+        state.ResumeTiming();
+        auto result = crypto::ecdsa::verify_signature<Sha256Hasher, secp256k1::fq, secp256k1::fr, secp256k1::g1>(
+            message_string, account.public_key, signature);
+        DoNotOptimize(result);
+    }
+};
+
+BENCHMARK(pedersen_compress_pair)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(pedersen_compress_array)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(blake3s)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(ecdsa)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+
 } // namespace simulator_bench

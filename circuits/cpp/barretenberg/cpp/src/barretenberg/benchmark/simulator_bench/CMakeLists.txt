@@ -7,9 +7,9 @@ native.bench.cpp
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-stdlib_primitives
-stdlib_pedersen_commitment
 stdlib_blake3s
+stdlib_sha256
+stdlib_pedersen_commitment
 benchmark::benchmark
 )
 

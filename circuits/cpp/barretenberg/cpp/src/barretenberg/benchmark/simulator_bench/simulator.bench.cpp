@@ -3,7 +3,9 @@
 #include "barretenberg/benchmark/benchmark_utilities.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
 #include "barretenberg/stdlib/commitment/pedersen/pedersen.hpp"
+#include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
+#include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 
 using namespace benchmark;
 
@@ -94,7 +96,58 @@ void blake3s(State& state) noexcept
     }
 };
 
-BENCHMARK(pedersen_compress_pair)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
-BENCHMARK(pedersen_compress_array)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
-BENCHMARK(blake3s)->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)->Repetitions(NUM_REPETITIONS)->Unit(::benchmark::kNanosecond);
+void ecdsa(State& state) noexcept
+{
+    using curve = proof_system::plonk::stdlib::secp256k1<Simulator>;
+    using namespace proof_system::plonk::stdlib;
+
+    for (auto _ : state) {
+        state.PauseTiming();
+
+        auto simulator = Simulator();
+        std::string message_string = "Instructions unclear, ask again later.";
+
+        crypto::ecdsa::key_pair<curve::fr, curve::g1> account;
+        account.private_key = curve::fr::random_element();
+        account.public_key = curve::g1::one * account.private_key;
+
+        crypto::ecdsa::signature signature =
+            crypto::ecdsa::construct_signature<Sha256Hasher, curve::fq, curve::fr, curve::g1>(message_string, account);
+
+        curve::g1_bigfr_ct public_key = curve::g1_bigfr_ct::from_witness(&simulator, account.public_key);
+
+        std::vector<uint8_t> rr(signature.r.begin(), signature.r.end());
+        std::vector<uint8_t> ss(signature.s.begin(), signature.s.end());
+        uint8_t vv = signature.v;
+
+        ecdsa::signature<Simulator> sig{ curve::byte_array_ct(&simulator, rr),
+                                         curve::byte_array_ct(&simulator, ss),
+                                         uint8<Simulator>(&simulator, vv) };
+
+        curve::byte_array_ct message(&simulator, message_string);
+
+        state.ResumeTiming();
+        auto result = verify_signature<Simulator, curve, curve::fq_ct, curve::bigfr_ct, curve::g1_bigfr_ct>(
+            message, public_key, sig);
+        DoNotOptimize(result);
+    }
+};
+
+BENCHMARK(pedersen_compress_pair)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(pedersen_compress_array)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(blake3s)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+BENCHMARK(ecdsa)
+    ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
+    ->Repetitions(NUM_REPETITIONS)
+    ->Unit(::benchmark::kNanosecond);
+
 } // namespace simulator_bench
