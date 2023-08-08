@@ -7,6 +7,8 @@ import {IInbox} from "./IInbox.sol";
 import {IOutbox} from "./IOutbox.sol";
 
 interface IRegistry {
+  function numberOfVersions() external view returns (uint256);
+
   function upgrade(address _rollup, address _inbox, address _outbox) external returns (uint256);
 
   function getRollup() external view returns (IRollup);
