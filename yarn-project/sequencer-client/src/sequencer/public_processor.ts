@@ -61,15 +61,15 @@ export class PublicProcessorFactory {
     prevGlobalVariables: GlobalVariables,
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
-    const blockHashData = await getconstantHistoricBlockData(this.merkleTree, prevGlobalVariables);
+    const blockData = await getconstantHistoricBlockData(this.merkleTree, prevGlobalVariables);
     return new PublicProcessor(
       this.merkleTree,
-      getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1Tol2MessagesDataSource, blockHashData),
+      getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1Tol2MessagesDataSource, blockData),
       new WasmPublicKernelCircuitSimulator(),
       new EmptyPublicProver(),
       this.contractDataSource,
       globalVariables,
-      blockHashData,
+      blockData,
     );
   }
 }
@@ -86,7 +86,7 @@ export class PublicProcessor {
     protected publicProver: PublicProver,
     protected contractDataSource: ContractDataSource,
     protected globalVariables: GlobalVariables,
-    protected blockHashData: ConstantHistoricBlockData,
+    protected blockData: ConstantHistoricBlockData,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}
@@ -118,7 +118,7 @@ export class PublicProcessor {
    */
   public makeEmptyProcessedTx(): Promise<ProcessedTx> {
     const { chainId, version } = this.globalVariables;
-    return makeEmptyProcessedTx(this.blockHashData, chainId, version);
+    return makeEmptyProcessedTx(this.blockData, chainId, version);
   }
 
   protected async processTx(tx: Tx): Promise<ProcessedTx> {

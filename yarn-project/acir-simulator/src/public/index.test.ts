@@ -37,7 +37,7 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockHashData: ConstantHistoricBlockData;
+  let blockData: ConstantHistoricBlockData;
 
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
@@ -48,8 +48,8 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockHashData = ConstantHistoricBlockData.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockHashData);
+    blockData = ConstantHistoricBlockData.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 
   describe('PublicToken contract', () => {

@@ -21,13 +21,13 @@ export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
-  blockHashData: ConstantHistoricBlockData,
+  blockData: ConstantHistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
     new ContractsDataSourcePublicDB(contractDataSource),
     new WorldStateDB(merkleTree, l1toL2MessageSource),
-    blockHashData,
+    blockData,
   );
 }
 

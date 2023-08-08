@@ -10,7 +10,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     GENERATOR_INDEX__FUNCTION_ARGS,
-    BLOCK_HASH_DATA_LENGTH,
+    BLOCK_DATA_LENGTH,
     CONTRACT_DEPLOYMENT_DATA_LENGTH,
     CALL_CONTEXT_LENGTH,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -35,7 +35,7 @@ use crate::types::point::Point;
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
     call_context : CallContext,
-    block_hash_data: BlockHashData,
+    block_data: ConstantBlockData,
 
     contract_deployment_data: ContractDeploymentData,
 
@@ -45,7 +45,7 @@ struct PrivateContextInputs {
 // PublicContextInputs are expected to be provided to each public function
 struct PublicContextInputs {
     call_context: CallContext,
-    block_hash_data: BlockHashData,
+    block_data: ConstantBlockData,
 
     public_global_variables: PublicGlobalVariables,
 }
@@ -77,7 +77,7 @@ impl CallContext {
     }
 }
 
-struct BlockHashData {
+struct ConstantBlockData {
     private_data_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
@@ -87,9 +87,9 @@ struct BlockHashData {
     public_data_tree_root: Field,
 }
 
-impl BlockHashData {
+impl ConstantBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; BLOCK_HASH_DATA_LENGTH] {
+    fn serialize(self) -> [Field; Block_DATA_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
@@ -102,8 +102,8 @@ impl BlockHashData {
     }
 }
 
-fn empty_block_hash_data() -> BlockHashData {
-    BlockHashData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, prev_global_variables_hash: 0, public_data_tree_root: 0 }
+fn empty_block_data() -> ConstantBlockData {
+    ConstantBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, prev_global_variables_hash: 0, public_data_tree_root: 0 }
 }
 
 struct ContractDeploymentData {
@@ -190,7 +190,7 @@ struct PrivateCircuitPublicInputs {
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-    block_hash_data: BlockHashData,
+    block_data: ConstantBlockData,
     contract_deployment_data: ContractDeploymentData,
     chain_id: Field,
     version: Field,
@@ -213,7 +213,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_hash_data.serialize());
+        fields.push_array(self.block_data.serialize());
         fields.push(self.contract_deployment_data.hash());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -236,7 +236,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_hash_data.serialize());
+        fields.push_array(self.block_data.serialize());
         fields.push_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -296,7 +296,7 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_hash_data: BlockHashData, // TODO: This is not present in cpp or ts, do we need to include it?
+    block_data: ConstantBlockData, // TODO: This is not present in cpp or ts, do we need to include it?
     historic_public_data_tree_root: Field,
     prover_address: Field,
 }
@@ -319,8 +319,8 @@ impl PublicCircuitPublicInputs {
         inputs.push_array(self.new_nullifiers);
         inputs.push_array(self.new_l2_to_l1_msgs);
 
-        // We do not include block_hash_data since it's not in the cpp hash
-        // inputs.push(self.block_hash_data.hash());
+        // We do not include block_data since it's not in the cpp hash
+        // inputs.push(self.block_data.hash());
 
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
@@ -347,7 +347,7 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_hash_data.serialize());
+        fields.push_array(self.block_data.serialize());
         fields.push(self.historic_public_data_tree_root);
         fields.push(self.prover_address);
         fields.storage

@@ -41,7 +41,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockHashData: ConstantHistoricBlockData,
+    private readonly blockData: ConstantHistoricBlockData,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}
@@ -63,7 +63,7 @@ export class PublicExecutor {
     const initialWitness = getInitialWitness(
       execution.args,
       execution.callContext,
-      this.blockHashData,
+      this.blockData,
       globalVariables,
     );
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
@@ -87,14 +87,14 @@ export class PublicExecutor {
       },
       getL1ToL2Message: async ([msgKey]) => {
         const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
-        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockHashData.l1ToL2MessagesTreeRoot);
+        return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockData.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
       getCommitment: async ([commitment]) => {
         const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
           execution.contractAddress,
           fromACVMField(commitment),
         );
-        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockHashData.privateDataTreeRoot);
+        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockData.privateDataTreeRoot);
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);

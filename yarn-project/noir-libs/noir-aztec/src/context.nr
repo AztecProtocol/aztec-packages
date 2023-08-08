@@ -15,13 +15,13 @@ use crate::constants_gen::{
 use crate::abi;
 
 use crate::abi::{
-    empty_block_hash_data,
+    empty_block_data,
     empty_contract_storage_read,
     empty_contract_storage_update_request,
     hash_args,
     CallContext,
     ContractDeploymentData,
-    BlockHashData,
+    ConstantBlockData,
     FunctionData,
     PrivateCircuitPublicInputs,
     PublicCircuitPublicInputs,
@@ -118,7 +118,7 @@ impl Context {
             unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: encrypted_log_preimages_length,
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,
-            block_hash_data: self.inputs.block_hash_data,
+            block_data: self.inputs.block_data,
             contract_deployment_data: self.inputs.contract_deployment_data,
             chain_id: self.inputs.private_global_variables.chain_id,
             version: self.inputs.private_global_variables.version,
@@ -146,7 +146,7 @@ impl Context {
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     fn consume_l1_to_l2_message(&mut self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) {
-        let nullifier = process_l1_to_l2_message(inputs.block_hash_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(inputs.block_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -214,7 +214,7 @@ impl Context {
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 44),
                 encrypted_log_preimages_length: fields[46],
                 unencrypted_log_preimages_length: fields[47],
-                block_hash_data: BlockHashData {
+                block_data: ConstantBlockData {
                     // Must match order in `private_circuit_public_inputs.hpp`
                     private_data_tree_root : fields[48],
                     nullifier_tree_root : fields[49],
@@ -308,7 +308,7 @@ impl Context {
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
-                block_hash_data: empty_block_hash_data(),
+                block_data: empty_block_data(),
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
