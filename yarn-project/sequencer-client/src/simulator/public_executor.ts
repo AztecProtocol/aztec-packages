@@ -116,21 +116,4 @@ export class WorldStateDB implements CommitmentsDB {
     };
   }
 
-  public getHistoricBlockData(): ConstantHistoricBlockData {
-    const roots = this.db.getTreeRoots();
-
-    return ConstantHistoricBlockData.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-
-      // TODO: work out how to get the previous globals hash in here
-      prevGlobalVariablesHash: Fr.ZERO,
-
-      privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
-      contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
-      nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
-      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
-      blocksTreeRoot: Fr.fromBuffer(roots.blocksTreeRoot),
-      publicDataTreeRoot: Fr.fromBuffer(roots.publicDataTreeRoot),
-    });
-  }
 }

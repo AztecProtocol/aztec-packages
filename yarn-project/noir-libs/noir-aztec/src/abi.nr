@@ -89,7 +89,7 @@ struct ConstantBlockData {
 
 impl ConstantBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; Block_DATA_LENGTH] {
+    fn serialize(self) -> [Field; BLOCK_DATA_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,

@@ -102,19 +102,4 @@ export class SimulatorOracle implements DBOracle {
     });
   }
 
-  getHistoricBlockData(): ConstantHistoricBlockData {
-    const roots = this.db.getTreeRoots();
-
-    return ConstantHistoricBlockData.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      // TODO: work out how to get the previous globals hash in here
-      prevGlobalVariablesHash: Fr.ZERO,
-      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
-      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
-      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: roots[MerkleTreeId.BLOCKS_TREE],
-      publicDataTreeRoot: roots[MerkleTreeId.PUBLIC_DATA_TREE],
-    });
-  }
 }

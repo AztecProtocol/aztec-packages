@@ -71,10 +71,4 @@ export interface CommitmentsDB {
    * @returns - The Commitment data oracle object
    */
   getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs>;
-
-  /**
-   * Gets the current historic block data from the merkle db.
-   * @returns the previous blocks roots and global variables hash.
-   */
-  getHistoricBlockData(): ConstantHistoricBlockData;
 }
