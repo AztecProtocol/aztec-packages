@@ -71,8 +71,8 @@ describe('e2e_p2p_network', () => {
         expect(isMined).toBe(true);
         expect(receiptAfterMined.status).toBe(TxStatus.MINED);
         const contractAddress = receiptAfterMined.contractAddress!;
-        expect(await context.rpcServer.isContractDeployed(contractAddress)).toBe(true);
-        expect(await context.rpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+        expect(await context.rpcServer.getContractData(contractAddress)).toBeTruthy();
+        expect(await context.rpcServer.getContractData(AztecAddress.random())).toBeFalsy();
       }
     }
 

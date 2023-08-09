@@ -188,7 +188,7 @@ async function main() {
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(options.contractAddress);
-      const isDeployed = await client.isContractDeployed(address);
+      const isDeployed = (await client.getContractData(address)) !== undefined;
       log(`\n${isDeployed.toString()}\n`);
     });
 

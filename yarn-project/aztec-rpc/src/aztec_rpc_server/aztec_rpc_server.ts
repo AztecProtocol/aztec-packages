@@ -142,7 +142,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
-    if (!(await this.isContractDeployed(contract))) {
+    if ((await this.getContractData(contract)) === undefined) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
@@ -154,10 +154,6 @@ export class AztecRPCServer implements AztecRPC {
       blockNumber = await this.node.getBlockHeight();
     }
     return await this.node.getBlock(blockNumber);
-  }
-
-  public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContractData(contractAddress));
   }
 
   public async simulateTx(txRequest: TxExecutionRequest) {

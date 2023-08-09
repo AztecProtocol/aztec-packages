@@ -51,7 +51,9 @@ describe('e2e_block_building', () => {
     expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
     // Assert all contracts got deployed
-    const areDeployed = await Promise.all(receipts.map(r => aztecRpcServer.isContractDeployed(r.contractAddress!)));
+    const areDeployed = await Promise.all(
+      receipts.map(async r => (await aztecRpcServer.getContractData(r.contractAddress!)) !== undefined),
+    );
     expect(areDeployed).toEqual(times(TX_COUNT, () => true));
   }, 60_000);
 });

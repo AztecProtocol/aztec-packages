@@ -90,13 +90,6 @@ export interface AztecRPC {
   addContracts(contracts: DeployedContract[]): Promise<void>;
 
   /**
-   * Is an L2 contract deployed at this address?
-   * @param contract - The contract data address.
-   * @returns Whether the contract was deployed.
-   */
-  isContractDeployed(contract: AztecAddress): Promise<boolean>;
-
-  /**
    * Create a transaction for a contract function call with the provided arguments.
    * Throws an error if the contract or function is unknown.
    *
