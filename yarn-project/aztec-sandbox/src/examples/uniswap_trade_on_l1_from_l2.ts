@@ -129,7 +129,6 @@ async function deployAllContracts(owner: AztecAddress) {
     wethTokenPortalAddress,
     uniswapL2Contract,
     uniswapPortal,
-    uniswapPortalAddress,
   };
 }
 
@@ -185,7 +184,6 @@ async function main() {
     wethTokenPortalAddress,
     uniswapL2Contract,
     uniswapPortal,
-    uniswapPortalAddress,
   } = result;
 
   // Give me some WETH so I can deposit to L2 and do the swap...

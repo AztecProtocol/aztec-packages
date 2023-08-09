@@ -23,8 +23,7 @@ import { delay, deployAndInitializeNonNativeL2TokenContracts, setup } from './fi
 
 const dumpedState = 'src/fixtures/dumps/uniswap_state';
 // When taking a dump use the block number of the fork to improve speed.
-// const EXPECTED_FORKED_BLOCK = 0; //17514288;
-const EXPECTED_FORKED_BLOCK = 17514288;
+const EXPECTED_FORKED_BLOCK = 0; //17514288;
 // We tell the archiver to only sync from this block.
 process.env.SEARCH_START_BLOCK = EXPECTED_FORKED_BLOCK.toString();
 
