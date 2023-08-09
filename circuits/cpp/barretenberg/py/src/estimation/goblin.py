@@ -26,7 +26,13 @@ class Goblin:
 
         total_proof_size = self.final_circuit.proof_size + \
             self.eccvm.proof_size + self.translator.proof_size
+
+        total_memory_size = self.final_circuit.max_memory + \
+            self.eccvm.max_memory + self.translator.max_memory
+
+        print("\n")
         print(f"Total proof size: {total_proof_size} B")
+        print(f"Total memory :    {total_memory_size} MiB")
 
 
 if __name__ == "__main__":

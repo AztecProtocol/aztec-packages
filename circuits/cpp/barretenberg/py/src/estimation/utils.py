@@ -8,6 +8,7 @@ def print_circuit_data(msg, circuit, native_msm):
     else:
         msm_time = sum([msm.time_non_native()
                         for msm in circuit.verifier_msms])
+    print(f"  max memory:     {circuit.max_memory} MiB")
     print(f"  time to verify: {msm_time} ms")
     proof_size = circuit.proof_size
     print(f"  proof_size:     {proof_size} B")
