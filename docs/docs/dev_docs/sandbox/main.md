@@ -2,11 +2,14 @@
 title: Aztec Sandbox
 ---
 
+import Image from "@theme/IdealImage";
+import GithubCode from '../../../src/components/GithubCode';
+
 ## Introduction
 
 The Aztec Sandbox aims to provide a complete layer 2 system against which DApp developers can build and deploy contracts in a fast, safe and free environment.
 
-Here we will walkthrough the complete process of retrieving the sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
+Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
 
 ## What do you need?
 
@@ -32,6 +35,8 @@ It will need to create servers on localhost ports 8545 (Anvil) and 8080 (Sandbox
 
 Within a few seconds the Sandbox should be ready for use!
 
+<Image img={require("/img/sandbox.png")} />
+
 ## Great, but I want to know more about it
 
 Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
@@ -45,7 +50,7 @@ Aztec's Layer 2 network is a fully programmable combined private/public ZK rollu
 - Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
 
-All of this is included in the sandbox, with the exception of Aztec.js which you can use to interact with it.
+All of this is included in the Sandbox, with the exception of Aztec.js which you can use to interact with it.
 
 With the help of Aztec.js you will be able to:
 
@@ -58,9 +63,9 @@ With the help of Aztec.js you will be able to:
 - Retrieve and view unencrypted logs emitted by contracts
 - Query chain state such as chain id, block number etc.
 
-## I have the sandbox running, show me how to use it!
+## I have the Sandbox running, show me how to use it!
 
-Let's have a complete walkthrough from start to finish. I'm using WSL2 Ubuntu under Windows but the following should work under regular Linux or MacOS. We will deploy and use a private token contract on our sandbox. Writing the contract itself is out of scope for this tutorial, we will use the Private Token Contract supplied as one of the example contracts.
+Let's have a complete walkthrough from start to finish. I'm using WSL2 Ubuntu under Windows but the following should work under regular Linux or MacOS. We will deploy and use a private token contract on our Sandbox. Writing the contract itself is out of scope for this tutorial, we will use the Private Token Contract supplied as one of the example contracts.
 
 Let's create an empty project called `private-token`. If you are familiar with setting up Typescript projects then you can fast-forward the next couple of steps.
 
@@ -180,9 +185,11 @@ Running `yarn start` should give:
   private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
 ```
 
-Great!. The sandbox is running and you are able to interact with it.
+Great!. The Sandbox is running and you are able to interact with it.
 
-The next step is to create some accounts. I won't go into detail about accounts as that is covered [here](../../concepts/foundation/accounts/main.md). But creating an account on the sandbox does 2 things:
+## Account Creation/Deployment
+
+The next step is to create some accounts. I won't go into detail about accounts as that is covered [here](../../concepts/foundation/accounts/main.md). But creating an account on the Sandbox does 2 things:
 
 1. Deploys an account contract reprepresenting you allowing you to perform actions on the network (deploy contracts, call functions etc).
 2. Adds your encryption keys to the RPC Server allowing it to decrypt and manage your private state.
@@ -249,16 +256,18 @@ Running `yarn start` should now output:
 
 That might seem like a lot to digest but it can be broken down into the following steps:
 
-1. We create 2 `Account` objects in Typescript. This object heavily abstracts away the mechanics of configuring and deploying an account contract.
+1. We create 2 `Account` objects in Typescript. This object heavily abstracts away the mechanics of configuring and deploying an account contract and setting up a 'wallet' for signing transactions. If you aren't interest in building new types of account contracts or wallets then you don't need to be too concerned with it. In this example we have constructed account contracts and corresposing wallets that sign/verify transactions using schnorr signatures.
 2. We wait for the deployment of the 2 account contracts to complete.
-3. We retrieve the expected account addresses from the `Account` objects and ensure that they are present in the set of account addresses registered on the sandbox.
+3. We retrieve the expected account addresses from the `Account` objects and ensure that they are present in the set of account addresses registered on the Sandbox.
 
 Note, we use the `getAccounts` api to verify that the addresses computed as part of the
-account contract deployment have been successfully added to the sandbox.
+account contract deployment have been successfully added to the Sandbox.
 
-If you were looking at your terminal that is running the sandbox you should hopefully have seen a lot of activity. This is because the sandbox will have simulated the deployment of both contracts, executed the private kernel circuit for each before submitted 2 transactions to the pool. The sequencer will have picked them up and inserted them into a rollup and executed the recursive rollup circuits before publising the rollup to Anvil. Once this has completed, the rollup is retrieved and pulled down to the internal RPC Server so that any new account state can be decrypted.
+If you were looking at your terminal that is running the Sandbox you should hopefully have seen a lot of activity. This is because the Sandbox will have simulated the deployment of both contracts, executed the private kernel circuit for each before submitted 2 transactions to the pool. The sequencer will have picked them up and inserted them into a rollup and executed the recursive rollup circuits before publising the rollup to Anvil. Once this has completed, the rollup is retrieved and pulled down to the internal RPC Server so that any new account state can be decrypted.
 
-Now let's move on to deploy our private token contract. Add this to `index.ts`:
+## Token Contract Deployment
+
+Now that we have our accounts setup, let's move on to deploy our private token contract. Add this to `index.ts`:
 
 ```
 ////////////// DEPLOY OUR PRIVATE TOKEN CONTRACT //////////////
@@ -306,7 +315,11 @@ We can break this down as follows:
 4. We use the `getContractInfo()` api on the RPC Server to retrieve information about the reported contract address.
 5. The fact that this api returns a valid object tells us that the contract was successfully deployed in a prior block.
 
-The Private Token Contract emits an unencrypted log message during construction `emit_unencrypted_log(&mut context, "Balance set in constructor");`. We can retrieve this emitted log:
+The Private Token Contract emits an unencrypted log message during construction:
+
+<GithubCode owner="AztecProtocol" language="rust" repo="aztec-packages" branch="master" filePath="yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr" startLine={25} endLine={45} />
+
+We can retrieve this emitted log using the `getUnencryptedLogs()` api:
 
 ```
 ////////////// RETRIEVE THE UNENCRYPTED LOGS EMITTED DURING DEPLOYMENT //////////////
@@ -339,7 +352,11 @@ Our output will now be:
 
 Note how we used the `getBlockNum()` api to retrieve the number of the last mined block. This is the block for which we want to retrieve logs as it is the last mined block number.
 
-As part of the deployment, tokens were minted to Alice's account. We can now call a `view` function to retrieve balances:
+## Viewing the balance of an account
+
+A token contract wouldn't be very useful if you aren't able to query the balance of an account. As part of the deployment, tokens were minted to Alice. We can now call the contract's `getBalance()` function to retrieve the balances of the accounts.
+
+<GithubCode owner="AztecProtocol" language="rust" repo="aztec-packages" branch="master" filePath="yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr" startLine={96} endLine={106} />
 
 ```
 ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
@@ -392,11 +409,15 @@ In this section, we first created 2 instances of the `PrivateTokenContract` cont
 
 We can see that each account has the expected balance of tokens.
 
+## Creating and submitting transactions
+
 Now lets transfer some funds from Alice to Bob by calling the `transfer` function on the contract. This function takes 3 arguments:
 
 1. The quantity of tokens to transfer.
 2. The sender.
 3. The recipient.
+
+<GithubCode owner="AztecProtocol" language="rust" repo="aztec-packages" branch="master" filePath="yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr" startLine={69} endLine={93} />
 
 We will again view the unencrypted logs emitted by the function and check the balances after the transfer:
 
@@ -447,6 +468,8 @@ Finally, the contract has a `mint` function that can be used to generate new tok
 1. The quantity of tokens to be minted.
 2. The recipient of the new tokens.
 
+<GithubCode owner="AztecProtocol" language="rust" repo="aztec-packages" branch="master" filePath="yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr" startLine={48} endLine={66} />
+
 Let's mint some tokens to Bob's account:
 
 ```
@@ -494,9 +517,11 @@ Our complete output should now be:
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
 
+## Accounts and Keys
+
 One last thing to discuss is around accounts. In this walkthrough, we setup 2 accounts from private keys that we generated. As a result we were able to perform transactions as either Alice or Bob and we had full access to the balance of each account. Of course, a real scenario wouldn't allow Alice to view the balance of Bob's account (unless he was willing to give her his private key!). So if Alice doesn't have Bob's private key, how would she be able to send funds to him? She needs to encrypt some state in a way only Bob can decrypt and use it.
 
-The following api on the `AztecRpc` allows a user's public credentials to be added to the sandbox:
+The following api on the `AztecRpc` allows a user's public credentials to be added to the Sandbox:
 
 ```
   /**
@@ -513,4 +538,4 @@ The following api on the `AztecRpc` allows a user's public credentials to be add
   ): Promise<void>;
 ```
 
-The first argument is Bob's account address, the second is his public key and the third is an intermediate value produced during the computation of his address. Bob will have all 3 of these as a result of him creating an account and deploying his account contract so he can provide them to Alice. Once Alice has registered these credentials with the sandbox she can then transfer funds to him. She will however be unable to execute transactions that attempt to spend funds owned by Bob or even view Bob's balance.
+The first argument is Bob's account address, the second is his public key and the third is an intermediate value produced during the computation of his address. Bob will have all 3 of these as a result of him creating an account and deploying his account contract so he can provide them to Alice. Once Alice has registered these credentials with the Sandbox she can then transfer funds to him. She will however be unable to execute transactions that attempt to spend funds owned by Bob or even view Bob's balance.
