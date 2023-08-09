@@ -274,9 +274,39 @@ class UltraRecursive {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    // WORKTODO: may want to add a constructor here that constructs the VK with stdlib types from a native VK rather
-    // than having a standalone function in the stdlib?
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> 
+    {
+      public:
+        VerificationKey(CircuitBuilder* builder, auto native_key)
+            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size, native_key->num_public_inputs)
+        {
+            q_m = Commitment::from_witness(builder, native_key->q_m);
+            q_l = Commitment::from_witness(builder, native_key->q_l);
+            q_r = Commitment::from_witness(builder, native_key->q_r);
+            q_o = Commitment::from_witness(builder, native_key->q_o);
+            q_4 = Commitment::from_witness(builder, native_key->q_4);
+            q_c = Commitment::from_witness(builder, native_key->q_c);
+            q_arith = Commitment::from_witness(builder, native_key->q_arith);
+            q_sort = Commitment::from_witness(builder, native_key->q_sort);
+            q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
+            q_aux = Commitment::from_witness(builder, native_key->q_aux);
+            q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
+            sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
+            sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
+            sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
+            sigma_4 = Commitment::from_witness(builder, native_key->sigma_4);
+            id_1 = Commitment::from_witness(builder, native_key->id_1);
+            id_2 = Commitment::from_witness(builder, native_key->id_2);
+            id_3 = Commitment::from_witness(builder, native_key->id_3);
+            id_4 = Commitment::from_witness(builder, native_key->id_4);
+            table_1 = Commitment::from_witness(builder, native_key->table_1);
+            table_2 = Commitment::from_witness(builder, native_key->table_2);
+            table_3 = Commitment::from_witness(builder, native_key->table_3);
+            table_4 = Commitment::from_witness(builder, native_key->table_4);
+            lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
+            lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
+        };
+    };
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

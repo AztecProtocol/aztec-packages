@@ -9,7 +9,6 @@
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/utility.hpp"
 #include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/recursion/verification_key/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -25,8 +24,7 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
     using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive>;
-
-    using Utility = RecursiveVerifierUtility<::proof_system::honk::flavor::UltraRecursive>;
+    using VerificationKey = ::proof_system::honk::flavor::UltraRecursive::VerificationKey;
 
     using inner_curve = bn254<InnerBuilder>;
     // using outer_curve = bn254<OuterBuilder>;
@@ -75,9 +73,9 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         // Compute native verification key
         const auto native_verification_key = inner_composer.compute_verification_key(inner_circuit);
 
-        // Convert the recursive verification key from the native verification key
-        auto verification_key = Utility::from_witness(&outer_builder, native_verification_key);
-
+        // Instantiate the recursive verification key from the native verification key
+        auto verification_key = std::make_shared<VerificationKey>(&outer_builder, native_verification_key);
+        
         // Instantiate the recursive verifier and construct the recusive verification circuit
         RecursiveVerifier verifier(&outer_builder, verification_key);
         auto result = verifier.verify_proof(proof_to_recursively_verify);
@@ -133,6 +131,36 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         EXPECT_EQ(outer_circuit.failed(), false);
         EXPECT_TRUE(outer_circuit.check_circuit());
     }
+
+    static void test_recursive_verification_key_creation()
+    {
+        InnerBuilder inner_circuit;
+        OuterBuilder outer_circuit;
+
+        std::vector<inner_scalar_field> inner_public_inputs{ inner_scalar_field::random_element(),
+                                                             inner_scalar_field::random_element(),
+                                                             inner_scalar_field::random_element() };
+
+        // Create an arbitrary inner circuit
+        create_inner_circuit(inner_circuit, inner_public_inputs);
+
+        // Compute native verification key
+        InnerComposer inner_composer;
+        auto prover = inner_composer.create_prover(inner_circuit); // A prerequisite for computing VK
+        const auto native_verification_key = inner_composer.compute_verification_key(inner_circuit);
+
+        // Instantiate the recursive verification key from the native verification key
+        auto verification_key = std::make_shared<VerificationKey>(&outer_circuit, native_verification_key);
+
+        // Spot check some values in the recursive VK to ensure it was constructed correctly
+        EXPECT_EQ(verification_key->circuit_size, native_verification_key->circuit_size);
+        EXPECT_EQ(verification_key->log_circuit_size, native_verification_key->log_circuit_size);
+        EXPECT_EQ(verification_key->num_public_inputs, native_verification_key->num_public_inputs);
+        EXPECT_EQ(verification_key->q_m.get_value(), native_verification_key->q_m);
+        EXPECT_EQ(verification_key->q_r.get_value(), native_verification_key->q_r);
+        EXPECT_EQ(verification_key->sigma_1.get_value(), native_verification_key->sigma_1);
+        EXPECT_EQ(verification_key->id_3.get_value(), native_verification_key->id_3);
+    }
 };
 
 using OuterCircuitTypes = testing::Types< ::proof_system::honk::UltraComposer>;
@@ -142,6 +170,11 @@ TYPED_TEST_SUITE(RecursiveVerifierTest, OuterCircuitTypes);
 HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
 {
     TestFixture::test_inner_circuit();
+}
+
+HEAVY_TYPED_TEST(RecursiveVerifierTest, RecursiveVerificationKey)
+{
+    TestFixture::test_recursive_verification_key_creation();
 }
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, RecursiveProofComposition)
