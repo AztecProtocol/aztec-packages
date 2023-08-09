@@ -160,10 +160,10 @@ void update_end_values(DummyCircuitBuilder& builder,
         is_array_empty(public_inputs.end.read_request_membership_witnesses),
         "public_inputs.end.read_request_membership_witnesses must start as empty in initial kernel iteration",
         CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == fr(0),
+    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == NT::fr(0),
                       "public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == fr(0),
+    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == NT::fr(0),
                       "public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
@@ -177,7 +177,7 @@ void update_end_values(DummyCircuitBuilder& builder,
     // be paired with a nonzero (real or "empty") nullified commitment
     array_push(builder,
                public_inputs.end.nullified_commitments,
-               fr(EMPTY_NULLIFIED_COMMITMENT),
+               NT::fr(EMPTY_NULLIFIED_COMMITMENT),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 

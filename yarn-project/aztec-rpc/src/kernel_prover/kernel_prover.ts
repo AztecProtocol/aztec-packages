@@ -84,7 +84,6 @@ export class KernelProver {
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
-
       executionStack.push(...currentExecution.nestedExecutions);
       const privateCallStackPreimages = currentExecution.nestedExecutions.map(result => result.callStackItem);
       if (privateCallStackPreimages.length > MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL) {

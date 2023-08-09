@@ -109,7 +109,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_some_read_requests_to_commitments_works");
     auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
-    ASSERT_FALSE(builder.failed());
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == MAX_NEW_COMMITMENTS_PER_TX);
     // ensure that commitments had nonce applied properly and all appear at output
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
