@@ -156,28 +156,7 @@ yarn add @aztec/aztec.js
 
 Create an `index.ts` under the `src` directory:
 
-```
-import {
-	AztecRPC,
-	L2BlockL2Logs,
-	PrivateKey,
-	createAztecRpcClient,
-	createDebugLogger,
-	getSchnorrAccount,
-	mustSucceedFetch,
-} from '@aztec/aztec.js';
-import { PrivateTokenContract } from '@aztec/noir-contracts/types';
-
-////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
-const logger = createDebugLogger('private-token');
-const sandboxUrl = 'http://localhost:8080';
-
-const aztecRpc = createAztecRpcClient(sandboxUrl, mustSucceedFetch);
-
-const nodeInfo = await aztecRpc.getNodeInfo();
-
-logger('Aztec Sandbox Info ', nodeInfo);
-```
+#include_code index.ts /docs/src/code_examples/sandbox_example.ts typescript
 
 Running `yarn start` should give:
 
@@ -194,56 +173,9 @@ The next step is to create some accounts. I won't go into detail about accounts 
 1. Deploys an account contract reprepresenting you allowing you to perform actions on the network (deploy contracts, call functions etc).
 2. Adds your encryption keys to the RPC Server allowing it to decrypt and manage your private state.
 
-Continue with adding the following to `index.ts`:
+Continue with adding the following to our example:
 
-```
-////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
-// Creates new accounts using an account contract that verifies schnorr signatures
-// Returns once the deployment transactions have settled
-const createSchnorrAccounts = async (
-	numAccounts: number,
-	aztecRpc: AztecRPC
-) => {
-	const accountManagers = Array(numAccounts)
-		.fill(0)
-		.map((x) =>
-			getSchnorrAccount(
-				aztecRpc,
-				PrivateKey.random(), // encryption private key
-				PrivateKey.random() // signing private key
-			)
-		);
-	return await Promise.all(
-		accountManagers.map(async (x) => {
-			await x.waitDeploy({});
-			return x;
-		})
-	);
-};
-
-// Create 2 accounts and wallets to go with each
-logger(`Creating accounts using schnorr signers...`);
-const accounts = await createSchnorrAccounts(2, aztecRpc);
-
-////////////// VERIFY THE ACCOUNTS WERE CREATED SUCCESSFULLY //////////////
-
-const [alice, bob] = (
-	await Promise.all(accounts.map((x) => x.getCompleteAddress()))
-).map((x) => x.address);
-
-// Verify that the accounts were deployed
-const registeredAccounts = await aztecRpc.getAccounts();
-for (const [account, name] of [
-	[alice, 'Alice'],
-	[bob, 'Bob'],
-] as const) {
-	if (registeredAccounts.find((acc) => acc.equals(account))) {
-		logger(`Created ${name}'s account at ${account.toShortString()}`);
-		continue;
-	}
-	logger(`Failed to create account for ${name}!`);
-}
-```
+#include_code Accounts /docs/src/code_examples/sandbox_example.ts typescript
 
 Running `yarn start` should now output:
 
@@ -269,31 +201,7 @@ If you were looking at your terminal that is running the Sandbox you should hope
 
 Now that we have our accounts setup, let's move on to deploy our private token contract. Add this to `index.ts`:
 
-```
-////////////// DEPLOY OUR PRIVATE TOKEN CONTRACT //////////////
-
-// Deploy a private token contract, create a contract abstraction object and link it to the owner's wallet
-// The contract's constructor takes 2 arguments, the initial supply and the owner of that initial supply
-const initialSupply = 1_000_000;
-logger(
-	`Deploying private token contract minting an initial ${initialSupply} tokens to Alice...`
-);
-const tokenContractTx = PrivateTokenContract.deploy(
-	aztecRpc,
-	initialSupply, // the initial supply
-	alice // the owner of the initial supply
-).send();
-// wait for the tx to settle
-await tokenContractTx.isMined();
-const receipt = await tokenContractTx.getReceipt();
-logger(`Transaction status is ${receipt.status}`);
-const contractInfo = await aztecRpc.getContractInfo(receipt.contractAddress!);
-if (contractInfo) {
-	logger(
-		`Contract successfully deployed at address ${receipt.contractAddress!.toShortString()}`
-	);
-}
-```
+#include_code Deployment /docs/src/code_examples/sandbox_example.ts typescript
 
 `yarn start` will now give the following output:
 
@@ -321,20 +229,7 @@ The Private Token Contract emits an unencrypted log message during construction:
 
 We can retrieve this emitted log using the `getUnencryptedLogs()` api:
 
-```
-////////////// RETRIEVE THE UNENCRYPTED LOGS EMITTED DURING DEPLOYMENT //////////////
-
-// We can view the unencrypted logs emitted by the contract...
-const viewUnencryptedLogs = async () => {
-	const lastBlock = await aztecRpc.getBlockNum();
-	logger(`Retrieving unencrypted logs for block ${lastBlock}`);
-	const logs = await aztecRpc.getUnencryptedLogs(lastBlock, 1);
-	const unrolledLogs = L2BlockL2Logs.unrollLogs(logs);
-	const asciiLogs = unrolledLogs.map((log) => log.toString('ascii'));
-	logger(`Emitted logs: `, asciiLogs);
-};
-await viewUnencryptedLogs();
-```
+#include_code Logs /docs/src/code_examples/sandbox_example.ts typescript
 
 Our output will now be:
 
@@ -358,36 +253,9 @@ A token contract wouldn't be very useful if you aren't able to query the balance
 
 <GithubCode owner="AztecProtocol" language="rust" repo="aztec-packages" branch="master" filePath="yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr" startLine={96} endLine={106} />
 
-```
-////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
+Call this function using the following code:
 
-// Create the contract abstraction and link to Alice's wallet for future signing
-const tokenContractAlice = await PrivateTokenContract.create(
-	receipt.contractAddress!,
-	await accounts[0].getWallet()
-);
-
-// Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it with his wallet
-const tokenContractBob = await PrivateTokenContract.create(
-	receipt.contractAddress!,
-	await accounts[1].getWallet()
-);
-
-const checkBalances = async () => {
-	// Check Alice's balance
-	logger(
-		`Alice's balance ${await tokenContractAlice.methods
-			.getBalance(alice)
-			.view()}`
-	);
-	// Check Bob's balance
-	logger(
-		`Bob's balance ${await tokenContractBob.methods.getBalance(bob).view()}`
-	);
-};
-// Check the initial balances
-await checkBalances();
-```
+#include_code Balance /docs/src/code_examples/sandbox_example.ts typescript
 
 Running now should yield output:
 
@@ -421,24 +289,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 
 We will again view the unencrypted logs emitted by the function and check the balances after the transfer:
 
-```
-////////////// TRANSFER FUNDS FROM ALICE TO BOB //////////////
-
-// We will now transfer tokens from ALice to Bob
-const transferQuantity = 543;
-logger(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-const transferTx = tokenContractAlice.methods
-	.transfer(transferQuantity, alice, bob)
-	.send();
-// Now send the transaction to the network and wait for it to settle
-await transferTx.wait();
-
-// See if any logs were emitted
-await viewUnencryptedLogs();
-
-// Check the new balances
-await checkBalances();
-```
+#include_code Transfer /docs/src/code_examples/sandbox_example.ts typescript
 
 Our output should now look like this:
 
@@ -472,22 +323,7 @@ Finally, the contract has a `mint` function that can be used to generate new tok
 
 Let's mint some tokens to Bob's account:
 
-```
-////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
-
-// Now mint some further funds for Bob
-const mintQuantity = 10_000;
-logger(`Minting ${mintQuantity} tokens to Bob...`);
-const mintTx = tokenContractBob.methods.mint(mintQuantity, bob).send();
-// Now send the transaction to the network and wait for it to settle
-await mintTx.wait();
-
-// See if any logs were emitted
-await viewUnencryptedLogs();
-
-// Check the new balances
-await checkBalances();
-```
+#include_code Mint /docs/src/code_examples/sandbox_example.ts typescript
 
 Our complete output should now be:
 
@@ -523,7 +359,7 @@ One last thing to discuss is around accounts. In this walkthrough, we setup 2 ac
 
 The following api on the `AztecRpc` allows a user's public credentials to be added to the Sandbox:
 
-```
+```typescript
   /**
    * Adds public key and partial address to a database.
    * @param address - Address of the account to add public key and partial address for.
