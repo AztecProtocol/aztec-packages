@@ -20,6 +20,8 @@ describe('Archiver Memory Store', () => {
       [3 + INITIAL_L2_BLOCK_NUM, 3],
       [1 + INITIAL_L2_BLOCK_NUM, 7],
       [5 + INITIAL_L2_BLOCK_NUM, 8],
+      [10 + INITIAL_L2_BLOCK_NUM, 1],
+      [11 + INITIAL_L2_BLOCK_NUM, 1],
     ]) {
       const expected = blocks.slice(from - INITIAL_L2_BLOCK_NUM, from - INITIAL_L2_BLOCK_NUM + limit);
       const actual = await archiverStore.getL2Blocks(from, limit);
@@ -38,6 +40,8 @@ describe('Archiver Memory Store', () => {
       [3 + INITIAL_L2_BLOCK_NUM, 3],
       [1 + INITIAL_L2_BLOCK_NUM, 7],
       [5 + INITIAL_L2_BLOCK_NUM, 8],
+      [10 + INITIAL_L2_BLOCK_NUM, 1],
+      [11 + INITIAL_L2_BLOCK_NUM, 1],
     ]) {
       const expected = logs.slice(from - INITIAL_L2_BLOCK_NUM, from - INITIAL_L2_BLOCK_NUM + limit);
       const actual = await archiverStore.getLogs(from, limit, logType);
