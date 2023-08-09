@@ -12,8 +12,7 @@ contract Test {
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
         create_nullifier::create_nullifier,
-        get_public_key::get_public_key,
-        context::get_portal_address
+        get_public_key::get_public_key
     };
 
     fn constructor(
@@ -38,7 +37,7 @@ contract Test {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([]));
-        let portal_address = get_portal_address();
+        let portal_address = context.this_portal_address();
         context.return_values.push_array([portal_address]);
         context.finish()
     }
