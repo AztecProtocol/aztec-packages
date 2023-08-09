@@ -1747,47 +1747,49 @@ template <typename C, typename T> void bigfield<C, T>::assert_equal(const bigfie
     C* ctx = this->context ? this->context : other.context;
 
     if constexpr (IsSimulator<C>) {
+        // WORKTODO: tests shouldn't pass with this function doing nothing, but they do??
         return;
+    } else {
+        if (is_constant() && other.is_constant()) {
+            std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?"
+                      << std::endl;
+            return;
+        } else if (other.is_constant()) {
+            // evaluate a strict equality - make sure *this is reduced first, or an honest prover
+            // might not be able to satisfy these constraints.
+            field_t<C> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
+            field_t<C> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
+            field_t<C> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
+            field_t<C> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
+            field_t<C> t4 = (prime_basis_limb - other.prime_basis_limb);
+            t0.assert_is_zero();
+            t1.assert_is_zero();
+            t2.assert_is_zero();
+            t3.assert_is_zero();
+            t4.assert_is_zero();
+            return;
+        } else if (is_constant()) {
+            other.assert_equal(*this);
+            return;
+        }
+
+        bigfield diff = *this - other;
+        const uint512_t diff_val = diff.get_value();
+        const uint512_t modulus(target_basis.modulus);
+
+        const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
+        if (remainder_512 != 0)
+            std::cerr << "bigfield: remainder not zero!" << std::endl;
+        ASSERT(remainder_512 == 0);
+        bigfield quotient;
+
+        const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
+        quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
+                            witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
+                            false,
+                            num_quotient_bits);
+        unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
     }
-
-    if (is_constant() && other.is_constant()) {
-        std::cerr << "bigfield: calling assert equal on 2 CONSTANT bigfield elements...is this intended?" << std::endl;
-        return;
-    } else if (other.is_constant()) {
-        // evaluate a strict equality - make sure *this is reduced first, or an honest prover
-        // might not be able to satisfy these constraints.
-        field_t<C> t0 = (binary_basis_limbs[0].element - other.binary_basis_limbs[0].element);
-        field_t<C> t1 = (binary_basis_limbs[1].element - other.binary_basis_limbs[1].element);
-        field_t<C> t2 = (binary_basis_limbs[2].element - other.binary_basis_limbs[2].element);
-        field_t<C> t3 = (binary_basis_limbs[3].element - other.binary_basis_limbs[3].element);
-        field_t<C> t4 = (prime_basis_limb - other.prime_basis_limb);
-        t0.assert_is_zero();
-        t1.assert_is_zero();
-        t2.assert_is_zero();
-        t3.assert_is_zero();
-        t4.assert_is_zero();
-        return;
-    } else if (is_constant()) {
-        other.assert_equal(*this);
-        return;
-    }
-
-    bigfield diff = *this - other;
-    const uint512_t diff_val = diff.get_value();
-    const uint512_t modulus(target_basis.modulus);
-
-    const auto [quotient_512, remainder_512] = (diff_val).divmod(modulus);
-    if (remainder_512 != 0)
-        std::cerr << "bigfield: remainder not zero!" << std::endl;
-    ASSERT(remainder_512 == 0);
-    bigfield quotient;
-
-    const size_t num_quotient_bits = get_quotient_max_bits({ 0 });
-    quotient = bigfield(witness_t(ctx, fr(quotient_512.slice(0, NUM_LIMB_BITS * 2).lo)),
-                        witness_t(ctx, fr(quotient_512.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 4).lo)),
-                        false,
-                        num_quotient_bits);
-    unsafe_evaluate_multiply_add(diff, { one() }, {}, quotient, { zero() });
 }
 
 // construct a proof that points are different mod p, when they are different mod r

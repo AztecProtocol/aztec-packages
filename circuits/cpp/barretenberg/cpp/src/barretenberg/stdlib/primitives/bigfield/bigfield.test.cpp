@@ -1,20 +1,8 @@
-#include <gtest/gtest.h>
-
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-
-#include "barretenberg/ecc/curves/bn254/fq.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-
-#include "../bool/bool.hpp"
-#include "../byte_array/byte_array.hpp"
-#include "../field/field.hpp"
-#include "./bigfield.hpp"
-#include "barretenberg/plonk/proof_system/prover/prover.hpp"
-#include "barretenberg/plonk/proof_system/verifier/verifier.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
-
-#include "barretenberg/polynomials/polynomial_arithmetic.hpp"
+#include <gtest/gtest.h>
 #include <memory>
 #include <utility>
 
