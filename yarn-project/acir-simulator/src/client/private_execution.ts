@@ -175,6 +175,10 @@ export class PrivateFunctionExecution {
 
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      getPortalAddress: () => {
+        // TODO: should this look into the oracle itself?
+        return Promise.resolve(toACVMField(this.callContext.portalContractAddress));
+      },
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);

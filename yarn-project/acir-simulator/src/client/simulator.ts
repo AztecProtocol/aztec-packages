@@ -41,6 +41,7 @@ export class AcirSimulator {
     request: TxExecutionRequest,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
+    // TODO: should this be fetched first - where is it calculated
     portalContractAddress: EthAddress,
     constantHistoricBlockData: ConstantHistoricBlockData,
   ): Promise<ExecutionResult> {

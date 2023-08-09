@@ -47,6 +47,7 @@ use crate::oracle::{
     call_private_function::call_private_function_internal,
     public_call::call_public_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal,
+    context::get_portal_address,
 };
 
 
@@ -104,8 +105,9 @@ impl Context {
         self.inputs.call_context.storage_contract_address
     }
 
-    fn this_portal_address(self) -> Field {
-        self.inputs.call_context.portal_contract_address
+    fn this_portal_address(_self: Self) -> Field {
+        // Get the portal contract address from an oracle call
+        get_portal_address()
     }
 
     fn chain_id(self) -> Field {
