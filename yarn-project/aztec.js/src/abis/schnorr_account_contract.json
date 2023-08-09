@@ -1,5 +1,5 @@
 {
-  "name": "SchnorrMultiKeyAccount",
+  "name": "SchnorrAccount",
   "functions": [
     {
       "name": "compute_note_hash_and_nullifier",
