@@ -1,6 +1,5 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
-import { toHex } from '@aztec/foundation/bigint-buffer';
 import { AztecRPC } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, parseEther } from 'viem';
@@ -72,11 +71,8 @@ describe('e2e_cheat_codes', () => {
         const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
         await cc.l1.store(contractAddress, storageSlot, valueToSet);
         // also test with the keccak value of the slot - can be used to compute storage slots of maps
-        // in solidity, for value types you pad to 32 bytes and for string or byte array you don't pad
-        // for the second test the following line won't pad since it is 32 bytes anyway
-        const paddedStorageSlot = toHex(storageSlot, true);
-        await cc.l1.store(contractAddress, cc.l1.keccak256(0n, paddedStorageSlot), valueToSet);
-        expect(BigInt(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, paddedStorageSlot)))).toBe(valueToSet);
+        await cc.l1.store(contractAddress, cc.l1.keccak256(0n, storageSlot), valueToSet);
+        expect(BigInt(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, storageSlot)))).toBe(valueToSet);
       },
     );
 

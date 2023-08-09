@@ -155,13 +155,14 @@ export class L1CheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
+   * Both the baseSlot and key will be padded to 32 bytes in the function.
    * @param baseSlot - The base slot of the map (specified in noir contract)
-   * @param key - The key to lookup in the map in hex (padded to 32 for value types, unpadded data for string or byte array)
+   * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public keccak256(baseSlot: bigint, key: `0x${string}`): bigint {
+  public keccak256(baseSlot: bigint, key: bigint): bigint {
     // abi encode (removing the 0x) - concat key and baseSlot (both padded to 32 bytes)
-    const abiEncoded = key.substring(2) + toHex(baseSlot, true).substring(2);
+    const abiEncoded = toHex(key, true).substring(2) + toHex(baseSlot, true).substring(2);
     return toBigIntBE(keccak(Buffer.from(abiEncoded, 'hex')));
   }
 
