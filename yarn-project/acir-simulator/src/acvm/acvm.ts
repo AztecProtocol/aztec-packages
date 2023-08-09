@@ -38,7 +38,7 @@ type ORACLE_NAMES =
   | 'createNullifier'
   | 'getCommitment'
   | 'getL1ToL2Message'
-  | 'getPortalAddress'
+  | 'getPortalContractAddress'
   | 'emitEncryptedLog'
   | 'emitUnencryptedLog'
   | 'getPublicKey'

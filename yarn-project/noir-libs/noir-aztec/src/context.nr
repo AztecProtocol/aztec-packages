@@ -105,9 +105,8 @@ impl Context {
         self.inputs.call_context.storage_contract_address
     }
 
-    fn this_portal_address(_self: Self) -> Field {
-        // Get the portal contract address from an oracle call
-        get_portal_address()
+    fn this_portal_address(self) -> Field {
+        self.inputs.call_context.portal_contract_address
     }
 
     fn chain_id(self) -> Field {

@@ -175,9 +175,10 @@ export class PrivateFunctionExecution {
 
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      getPortalAddress: () => {
-        // TODO: should this look into the oracle itself?
-        return Promise.resolve(toACVMField(this.callContext.portalContractAddress));
+      getPortalContractAddress: async ([aztecAddress]) => {
+        const contractAddress = AztecAddress.fromString(aztecAddress);
+        const portalContactAddress = await this.context.db.getPortalContractAddress(contractAddress);
+        return Promise.resolve(toACVMField(portalContactAddress));
       },
     });
 

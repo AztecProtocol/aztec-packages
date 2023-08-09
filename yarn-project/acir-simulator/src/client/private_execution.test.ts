@@ -986,13 +986,17 @@ describe('Private Execution test suite', () => {
   describe('Context oracles', () => {
     it("Should be able to get and return the contract's portal contract address", async () => {
       const portalContractAddress = EthAddress.random();
+      const aztecAddressToQuery = AztecAddress.random();
 
       // Tweak the contract ABI so we can extract return values
-      const abi = TestContractAbi.functions.find(f => f.name === 'getPortalAddress')!;
+      const abi = TestContractAbi.functions.find(f => f.name === 'getPortalContractAddress')!;
       abi.returnTypes = [{ kind: 'field' }];
 
-      // Generate a partial address, pubkey, and resulting address
-      const result = await runSimulator({ origin: AztecAddress.random(), abi, args: [], portalContractAddress });
+      const args = [aztecAddressToQuery.toField()];
+
+      // Overwrite the oracle return value
+      oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
       expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
     });
   });
