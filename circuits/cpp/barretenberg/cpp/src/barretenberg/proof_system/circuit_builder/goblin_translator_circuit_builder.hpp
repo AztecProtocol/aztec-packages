@@ -12,11 +12,12 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/proof_system/types/circuit_type.hpp"
 #include "circuit_builder_base.hpp"
 #include <array>
 #include <cstddef>
 namespace proof_system {
-class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::GoblinTranslator> {
+class GoblinTranslatorCircuitBuilder : public CircuitBuilderBase<arithmetization::GoblinTranslator> {
     // We don't need templating for Goblin
     using Fr = barretenberg::fr;
     using Fq = barretenberg::fq;
@@ -33,6 +34,7 @@ class GoblinTranslatorCircuitBuilder : CircuitBuilderBase<arithmetization::Gobli
     };
 
   public:
+    static constexpr CircuitType CIRCUIT_TYPE = CircuitType::CUSTOM;
     /**
      * We won't need these standard gates that are defined as virtual in circuit builder base
      *

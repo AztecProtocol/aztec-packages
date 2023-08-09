@@ -15,7 +15,7 @@ template <typename Flavor> class GoblinTranslatorComposer_ {
     using PCS = typename Flavor::PCS;
     using PCSCommitmentKey = typename PCSParams::CommitmentKey;
     using PCSVerificationKey = typename PCSParams::VerificationKey;
-
+    using TargetCircuitSize = Flavor::TargetCircuitSize;
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
 
