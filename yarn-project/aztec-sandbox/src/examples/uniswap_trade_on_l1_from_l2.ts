@@ -246,18 +246,15 @@ async function main() {
     .swap(
       selector,
       wethL2Contract.address.toField(),
-      wethTokenPortalAddress.toField(),
       wethAmountToBridge,
       new Fr(3000),
       daiL2Contract.address.toField(),
-      daiTokenPortalAddress.toField(),
       new Fr(minimumOutputAmount),
       owner,
       owner,
       secretHash,
       new Fr(2 ** 32 - 1),
       ethAccount.toField(),
-      uniswapPortalAddress,
       ethAccount.toField(),
     )
     .send({ origin: owner });
