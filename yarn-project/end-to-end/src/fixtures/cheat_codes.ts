@@ -133,11 +133,11 @@ export class L1CheatCodes {
    * Load the value at a storage slot of a contract address on L1
    * @param contract - The contract address
    * @param slot - The storage slot
-   * @returns - The value at the storage slot in hex (padded to 32)
+   * @returns - The value at the storage slot
    */
-  public async load(contract: EthAddress, slot: bigint): Promise<`0x${string}`> {
+  public async load(contract: EthAddress, slot: bigint): Promise<bigint> {
     const res = await this.rpcCall('eth_getStorageAt', [contract.toString(), toHex(slot), 'latest']);
-    return res.result;
+    return BigInt(res.result);
   }
 
   /**

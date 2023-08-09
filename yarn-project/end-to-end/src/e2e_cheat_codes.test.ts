@@ -60,7 +60,7 @@ describe('e2e_cheat_codes', () => {
     it('load a value at a particular storage slot', async () => {
       // check that storage slot 0 is empty as expected
       const res = await cc.l1.load(EthAddress.ZERO, 0n);
-      expect(res).toBe('0x' + Buffer.alloc(32).toString('hex'));
+      expect(res).toBe(0n);
     });
 
     it.each(['1', 'bc40fbf4394cd00f78fae9763b0c2c71b21ea442c42fdadc5b720537240ebac1'])(
@@ -70,9 +70,10 @@ describe('e2e_cheat_codes', () => {
         const valueToSet = 5n;
         const contractAddress = EthAddress.fromString('0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266');
         await cc.l1.store(contractAddress, storageSlot, valueToSet);
+        expect(await cc.l1.load(contractAddress, storageSlot)).toBe(valueToSet);
         // also test with the keccak value of the slot - can be used to compute storage slots of maps
         await cc.l1.store(contractAddress, cc.l1.keccak256(0n, storageSlot), valueToSet);
-        expect(BigInt(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, storageSlot)))).toBe(valueToSet);
+        expect(await cc.l1.load(contractAddress, cc.l1.keccak256(0n, storageSlot))).toBe(valueToSet);
       },
     );
 
