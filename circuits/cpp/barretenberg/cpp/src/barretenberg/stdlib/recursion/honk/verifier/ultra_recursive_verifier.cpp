@@ -1,18 +1,20 @@
 // #include "./ultra_verifier.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
+#include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
+                                                         std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
     : key(verifier_key)
+    , builder(builder)
 {}
 
 template <typename Flavor>
@@ -21,7 +23,8 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(UltraRecursiveVerifier_
     , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
-template <typename Flavor> UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(UltraRecursiveVerifier_&& other) noexcept
+template <typename Flavor>
+UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(UltraRecursiveVerifier_&& other) noexcept
 {
     key = other.key;
     pcs_verification_key = (std::move(other.pcs_verification_key));
@@ -48,7 +51,7 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     RelationParameters<FF> relation_parameters;
 
-    auto transcript = Transcript<Builder>{ builder, proof.proof_data };
+    transcript = Transcript<Builder>{ builder, proof.proof_data };
 
     auto commitments = VerifierCommitments(key);
     auto commitment_labels = CommitmentLabels();
@@ -104,9 +107,10 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     // Get permutation challenges
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
 
-    const FF public_input_delta =
-        proof_system::honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, circuit_size, pub_inputs_offset_native);
-    const FF lookup_grand_product_delta = proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
+    const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
+        public_inputs, beta, gamma, circuit_size, pub_inputs_offset_native);
+    const FF lookup_grand_product_delta =
+        proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -122,15 +126,15 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
-    return true; // WORKTODO: DEBUG
+    // Note(luke): Temporary. Done only to complete manifest through sumcheck. Delete once we proceed to Gemini.
+    [[maybe_unused]] FF rho = transcript.get_challenge("rho");
 
-    // // If Sumcheck does not return an output, sumcheck verification has failed
-    // if (!sumcheck_output.has_value()) {
-    //     return false;
-    // }
-    // else {
-    //     return true;
-    // }
+    // If Sumcheck does not return an output, sumcheck verification has failed
+    if (!sumcheck_output.has_value()) {
+        return false;
+    } else {
+        return true;
+    }
 
     // auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
 

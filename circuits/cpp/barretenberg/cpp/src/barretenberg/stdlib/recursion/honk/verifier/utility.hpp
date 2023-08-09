@@ -20,6 +20,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierUtility {
     static std::shared_ptr<VerificationKey> from_witness(Builder* builder, auto native_key)
     {
         std::shared_ptr<VerificationKey> key = std::make_shared<VerificationKey>();
+
+        key->circuit_size = native_key->circuit_size;
+        key->log_circuit_size = native_key->log_circuit_size;
+        key->num_public_inputs = native_key->num_public_inputs;
         
         // Add commitments to the precomputed polynomials to the recursive VK
         key->q_m = Commitment::from_witness(builder, native_key->q_m);

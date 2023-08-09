@@ -16,7 +16,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using Builder = typename Flavor::CircuitBuilder;
 
   public:
-    explicit UltraRecursiveVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
+    explicit UltraRecursiveVerifier_(Builder* builder, std::shared_ptr<VerificationKey> verifier_key = nullptr);
     UltraRecursiveVerifier_(UltraRecursiveVerifier_&& other) noexcept;
     UltraRecursiveVerifier_(const UltraRecursiveVerifier_& other) = delete;
     UltraRecursiveVerifier_& operator=(const UltraRecursiveVerifier_& other) = delete;
@@ -28,8 +28,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     std::map<std::string, Commitment> commitments;
     std::map<std::string, FF> pcs_fr_elements;
     std::shared_ptr<PCSVerificationKey> pcs_verification_key;
-    // Transcript<Builder> trancript;
-    Builder* builder; // needed only for recursive verfifier (i.e. recursive flavors..)
+    Builder* builder;
+    Transcript<Builder> transcript;
 };
 
 extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;

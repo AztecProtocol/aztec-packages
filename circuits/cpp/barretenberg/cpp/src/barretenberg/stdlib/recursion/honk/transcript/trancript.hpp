@@ -25,6 +25,8 @@ template <typename Builder> class Transcript {
     VerifierTranscript native_transcript;
     Builder* builder;
 
+    Transcript() = default;
+
     Transcript(Builder* builder, auto proof_data)
         : native_transcript(proof_data)
         , builder(builder){};
