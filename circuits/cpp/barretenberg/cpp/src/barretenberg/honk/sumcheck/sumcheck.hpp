@@ -162,14 +162,12 @@ template <typename Flavor> class SumcheckVerifier {
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
     static constexpr size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
 
-    VerifierTranscript<FF>& transcript;
     const size_t multivariate_d;
     SumcheckVerifierRound<Flavor> round;
 
     // verifier instantiates sumcheck with circuit size and a verifier transcript
-    explicit SumcheckVerifier(size_t multivariate_n, VerifierTranscript<FF>& transcript)
-        : transcript(transcript)
-        , multivariate_d(numeric::get_msb(multivariate_n))
+    explicit SumcheckVerifier(size_t multivariate_n)
+        : multivariate_d(numeric::get_msb(multivariate_n))
         , round(){};
 
     /**
@@ -179,7 +177,7 @@ template <typename Flavor> class SumcheckVerifier {
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
      */
-    std::optional<SumcheckOutput<Flavor>> verify(const RelationParameters<FF>& relation_parameters)
+    std::optional<SumcheckOutput<Flavor>> verify(const RelationParameters<FF>& relation_parameters, auto& transcript)
     {
         bool verified(true);
 
@@ -221,7 +219,14 @@ template <typename Flavor> class SumcheckVerifier {
 
         FF full_honk_relation_purported_value = round.compute_full_honk_relation_purported_value(
             purported_evaluations._data, relation_parameters, pow_univariate, alpha);
-        verified = verified && (full_honk_relation_purported_value == round.target_total_sum);
+
+        bool checked = false;
+        if constexpr (IsRecursiveFlavor<Flavor>) {
+            checked = (full_honk_relation_purported_value == round.target_total_sum).get_value();
+        } else {
+            checked = (full_honk_relation_purported_value == round.target_total_sum);
+        }
+        verified = verified && checked;
         if (!verified) {
             return std::nullopt;
         }

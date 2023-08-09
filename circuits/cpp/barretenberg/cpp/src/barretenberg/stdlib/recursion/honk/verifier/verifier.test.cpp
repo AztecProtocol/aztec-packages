@@ -1,4 +1,5 @@
 #include "barretenberg/honk/proof_system/ultra_verifier.hpp"
+#include "barretenberg/honk/flavor/ultra_recursive.hpp"
 
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
@@ -8,6 +9,8 @@
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/utility.hpp"
+#include "barretenberg/stdlib/recursion/honk/verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/recursion/verification_key/verification_key.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -18,7 +21,11 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
     using InnerComposer = ::proof_system::honk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
-    // using OuterBuilder = typename OuterComposer::CircuitBuilder;
+    using OuterBuilder = typename OuterComposer::CircuitBuilder;
+
+    using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive>;
+    // using RecursiveVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::UltraRecursive>;
+    using Utility = RecursiveVerifierUtility<::proof_system::honk::flavor::UltraRecursive>;
 
     using inner_curve = bn254<InnerBuilder>;
     // using outer_curve = bn254<OuterBuilder>;
@@ -84,50 +91,38 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         big_a* big_b;
     };
 
-    // static circuit_outputs create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)
-    // {
-    //     info("Creating ultra (inner) prover...");
-    //     ProverOfInnerCircuit prover;
-    //     InnerComposer inner_composer;
-    //     if constexpr (is_ultra_to_ultra) {
-    //         prover = inner_composer.create_prover(inner_circuit);
-    //     } else {
-    //         prover = inner_composer.create_ultra_to_standard_prover(inner_circuit);
-    //     }
+    static void create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)
+    {
+        (void)outer_builder;
+        info("Creating ultra (inner) prover...");
+        InnerComposer inner_composer;
+        auto prover = inner_composer.create_prover(inner_circuit);;
 
-    //     info("Computing verification key...");
-    //     const auto verification_key_native = inner_composer.compute_verification_key(inner_circuit);
-    //     // Convert the verification key's elements into _circuit_ types, using the OUTER composer.
-    //     std::shared_ptr<verification_key_pt> verification_key =
-    //         verification_key_pt::from_witness(&outer_builder, verification_key_native);
+        info("Computing verification key...");
+        const auto verification_key_native = inner_composer.compute_verification_key(inner_circuit);
 
-    //     info("Constructing the ultra (inner) proof ...");
-    //     plonk::proof proof_to_recursively_verify = prover.construct_proof();
+        // // Convert the verification key's elements into _circuit_ types, using the OUTER composer.
+        auto verification_key = Utility::from_witness(&outer_builder, verification_key_native);
+        RecursiveVerifier verifier(verification_key);
 
-    //     {
-    //         // Native check is mainly for comparison vs circuit version of the verifier.
-    //         info("Creating a native ultra (inner) verifier...");
-    //         VerifierOfInnerProof native_verifier;
+        // std::shared_ptr<verification_key_pt> verification_key =
+        //     verification_key_pt::from_witness(&outer_builder, verification_key_native);
 
-    //         if constexpr (is_ultra_to_ultra) {
-    //             native_verifier = inner_composer.create_verifier(inner_circuit);
-    //         } else {
-    //             native_verifier = inner_composer.create_ultra_to_standard_verifier(inner_circuit);
-    //         }
+        // info("Constructing the ultra (inner) proof ...");
+        // plonk::proof proof_to_recursively_verify = prover.construct_proof();
 
-    //         info("Verifying the ultra (inner) proof natively...");
-    //         auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
+        // // Native check is mainly for comparison vs circuit version of the verifier.
+        // {
+        //     auto native_verifier = inner_composer.create_verifier(inner_circuit);;
+        //     auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
+        //     info("Native result: ", native_result);
+        // }
 
-    //         info("Native result: ", native_result);
-    //     }
+        // auto output = recursion::verify_proof<outer_curve, RecursiveSettings>(
+        //     &outer_builder, verification_key, recursive_manifest, proof_to_recursively_verify);
 
-    //     transcript::Manifest recursive_manifest = InnerComposer::create_manifest(prover.key->num_public_inputs);
-
-    //     auto output = recursion::verify_proof<outer_curve, RecursiveSettings>(
-    //         &outer_builder, verification_key, recursive_manifest, proof_to_recursively_verify);
-
-    //     return { output, verification_key };
-    // };
+        // return { output, verification_key };
+    };
 
     /**
      * @brief Check the correctness of the recursive proof public inputs
@@ -224,27 +219,28 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         EXPECT_EQ(result, true);
     }
 
-    // static void test_recursive_proof_composition()
-    // {
-    //     InnerBuilder inner_circuit;
-    //     OuterBuilder outer_circuit;
+    static void test_recursive_proof_composition()
+    {
+        InnerBuilder inner_circuit;
+        OuterBuilder outer_circuit;
 
-    //     std::vector<inner_scalar_field> inner_public_inputs{ inner_scalar_field::random_element(),
-    //                                                          inner_scalar_field::random_element(),
-    //                                                          inner_scalar_field::random_element() };
+        std::vector<inner_scalar_field> inner_public_inputs{ inner_scalar_field::random_element(),
+                                                             inner_scalar_field::random_element(),
+                                                             inner_scalar_field::random_element() };
 
-    //     create_inner_circuit(inner_circuit, inner_public_inputs);
+        create_inner_circuit(inner_circuit, inner_public_inputs);
 
-    //     auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
-    //     EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_public_inputs[0]);
-    //     EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_public_inputs[1]);
+        create_outer_circuit(inner_circuit, outer_circuit);
+        // auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
+        // EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_public_inputs[0]);
+        // EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_public_inputs[1]);
 
-    //     circuit_output.aggregation_state.assign_object_to_proof_outputs();
-    //     EXPECT_EQ(outer_circuit.failed(), false);
+        // circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        // EXPECT_EQ(outer_circuit.failed(), false);
 
-    //     check_pairing(circuit_output);
-    //     check_recursive_verification_circuit(outer_circuit, true);
-    // }
+        // check_pairing(circuit_output);
+        // check_recursive_verification_circuit(outer_circuit, true);
+    }
 };
 
 using OuterCircuitTypes = testing::Types< ::proof_system::honk::UltraComposer>;
@@ -256,9 +252,9 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
     TestFixture::test_inner_circuit();
 }
 
-// HEAVY_TYPED_TEST(stdlib_verifier, recursive_proof_composition)
-// {
-//     TestFixture::test_recursive_proof_composition();
-// };
+HEAVY_TYPED_TEST(RecursiveVerifierTest, RecursiveProofComposition)
+{
+    TestFixture::test_recursive_proof_composition();
+};
 
 } // namespace proof_system::plonk::stdlib

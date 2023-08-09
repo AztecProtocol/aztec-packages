@@ -278,6 +278,7 @@ class StandardGrumpkin;
 class Ultra;
 class UltraGrumpkin;
 class GoblinUltra;
+class UltraRecursive;
 } // namespace proof_system::honk::flavor
 
 // Forward declare plonk flavors
@@ -308,6 +309,9 @@ concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrump
 
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra>;
+
+template <typename T> 
+concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive>;
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
 

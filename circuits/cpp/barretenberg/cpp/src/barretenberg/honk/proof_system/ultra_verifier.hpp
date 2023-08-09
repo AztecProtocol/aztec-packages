@@ -15,10 +15,10 @@ template <typename Flavor> class UltraVerifier_ {
 
   public:
     explicit UltraVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
-    UltraVerifier_(UltraVerifier_&& other);
+    UltraVerifier_(UltraVerifier_&& other) noexcept;
     UltraVerifier_(const UltraVerifier_& other) = delete;
     UltraVerifier_& operator=(const UltraVerifier_& other) = delete;
-    UltraVerifier_& operator=(UltraVerifier_&& other);
+    UltraVerifier_& operator=(UltraVerifier_&& other) noexcept;
 
     bool verify_proof(const plonk::proof& proof);
 
@@ -32,7 +32,6 @@ template <typename Flavor> class UltraVerifier_ {
 extern template class UltraVerifier_<honk::flavor::Ultra>;
 extern template class UltraVerifier_<honk::flavor::UltraGrumpkin>;
 extern template class UltraVerifier_<honk::flavor::GoblinUltra>;
-extern template class UltraVerifier_<honk::flavor::UltraRecursive>;
 
 using UltraVerifier = UltraVerifier_<honk::flavor::Ultra>;
 

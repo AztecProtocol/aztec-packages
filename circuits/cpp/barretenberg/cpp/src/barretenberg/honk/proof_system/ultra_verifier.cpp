@@ -14,12 +14,12 @@ UltraVerifier_<Flavor>::UltraVerifier_(std::shared_ptr<typename Flavor::Verifica
 {}
 
 template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other)
+UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other) noexcept
     : key(std::move(other.key))
     , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
-template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other)
+template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other) noexcept
 {
     key = other.key;
     pcs_verification_key = (std::move(other.pcs_verification_key));
@@ -111,15 +111,15 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     commitments.z_lookup = transcript.template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
 
-    std::optional sumcheck_output = sumcheck.verify(relation_parameters);
+    std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {
         return false;
     }
-
+    
     auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
 
     // Execute Gemini/Shplonk verification:
@@ -145,7 +145,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        batched_commitment_unshifted += commitment * rhos[commitment_idx];
+            batched_commitment_unshifted += commitment * rhos[commitment_idx];
         ++commitment_idx;
     }
 

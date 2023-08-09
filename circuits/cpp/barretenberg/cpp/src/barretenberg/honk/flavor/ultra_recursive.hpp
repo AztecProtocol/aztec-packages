@@ -274,6 +274,8 @@ class UltraRecursive {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
+    // WORKTODO: may want to add a constructor here that constructs the VK with stdlib types from a native VK rather
+    // than having a standalone function in the stdlib?
     using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
 
     /**
@@ -336,9 +338,8 @@ class UltraRecursive {
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
-            static_cast<void>(transcript);
             q_m = verification_key->q_m;
             q_l = verification_key->q_l;
             q_r = verification_key->q_r;
