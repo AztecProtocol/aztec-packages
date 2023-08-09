@@ -3,6 +3,7 @@ import {
   ABIVariable,
   ContractAbi,
   FunctionAbi,
+  FunctionType,
   StructType,
   generateFunctionSelector,
 } from '@aztec/foundation/abi';
@@ -227,7 +228,9 @@ function collectStructs(params: ABIVariable[], parentNames: string[]): StructInf
  */
 export function generateNoirContractInterface(abi: ContractAbi) {
   const contractStruct: string = generateContractInterfaceStruct(abi.name);
-  const methods = compact(abi.functions.filter(f => f.name !== 'constructor'));
+  const methods = compact(
+    abi.functions.filter(f => f.name !== 'constructor' && !f.isInternal && f.functionType === FunctionType.SECRET),
+  );
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const functionInterfaces = methods.map(generateFunctionInterface);
   const contractImpl: string = generateContractInterfaceImpl(abi.name, functionInterfaces);
