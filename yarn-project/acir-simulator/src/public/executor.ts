@@ -152,6 +152,12 @@ export class PublicExecutor {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      getPortalContractAddress: async ([aztecAddress]) => {
+        const contractAddress = AztecAddress.fromString(aztecAddress);
+        let portalContactAddress = await this.contractsDb.getPortalContractAddress(contractAddress);
+        if (!portalContactAddress) portalContactAddress = EthAddress.ZERO;
+        return Promise.resolve(toACVMField(portalContactAddress));
+      },
     });
 
     const returnValues = extractReturnWitness(acir, partialWitness).map(fromACVMField);
