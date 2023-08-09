@@ -1,3 +1,5 @@
+// docs:start:index
+import { PrivateTokenContract } from "@aztec/noir-contracts/types";
 import {
   AztecRPC,
   L2BlockL2Logs,
@@ -7,9 +9,7 @@ import {
   getSchnorrAccount,
   mustSucceedFetch,
 } from "@aztec/aztec.js";
-import { PrivateTokenContract } from "@aztec/noir-contracts/types";
 
-// docs:start:index.ts
 ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
 const logger = createDebugLogger("private-token");
 const sandboxUrl = "http://localhost:8080";
@@ -19,7 +19,7 @@ const aztecRpc = createAztecRpcClient(sandboxUrl, mustSucceedFetch);
 const nodeInfo = await aztecRpc.getNodeInfo();
 
 logger("Aztec Sandbox Info ", nodeInfo);
-// docs:end:index.ts
+// docs:end:index
 
 // docs:start:Accounts
 ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////

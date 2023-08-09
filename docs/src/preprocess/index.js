@@ -60,6 +60,7 @@ function processHighlighting(codeSnippet, identifier) {
 }
 
 function extractCodeSnippet(filePath, identifier) {
+  console.log(filePath);
   let fileContent = fs.readFileSync(filePath, "utf-8");
   let lineRemovalCount = 0;
   let linesToRemove = [];
@@ -94,6 +95,7 @@ function extractCodeSnippet(filePath, identifier) {
           for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             if (line.trim() == match[0].trim()) {
+              console.log(line);
               linesToRemove.push(i);
               ++lineRemovalCount;
             }
@@ -120,10 +122,12 @@ function extractCodeSnippet(filePath, identifier) {
   if (startMatch !== null) {
     const startIdentifiers = startMatch[1].split(":");
     startMatch = startIdentifiers.includes(identifier) ? startMatch : null;
+    console.log(lineNum1);
   }
   if (endMatch !== null) {
     const endIdentifiers = endMatch[1].split(":");
     endMatch = endIdentifiers.includes(identifier) ? endMatch : null;
+    console.log(lineNum2);
   }
 
   if (startMatch === null || endMatch === null) {
@@ -144,6 +148,9 @@ function extractCodeSnippet(filePath, identifier) {
 
   let startIndex = startMatch.index;
   let endIndex = endMatch.index;
+  console.log(
+    `start index ${startIndex}, end index ${endIndex}, removal ${lineRemovalCount}`
+  );
 
   let lines = fileContent.split("\n");
 
@@ -162,6 +169,11 @@ function extractCodeSnippet(filePath, identifier) {
   const startLine = getLineNumberFromIndex(fileContent, startIndex) + 1;
   const endLine =
     getLineNumberFromIndex(fileContent, endIndex) - 1 - lineRemovalCount;
+
+  console.log(
+    `start line ${startLine}, end line ${endLine}, snippet `,
+    codeSnippet
+  );
 
   codeSnippet = processHighlighting(codeSnippet, identifier);
 

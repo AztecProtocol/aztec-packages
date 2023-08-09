@@ -156,7 +156,7 @@ yarn add @aztec/aztec.js
 
 Create an `index.ts` under the `src` directory:
 
-#include_code index.ts /docs/src/code_examples/sandbox_example.ts typescript
+#include_code index /docs/src/code_examples/sandbox_example.ts typescript
 
 Running `yarn start` should give:
 
