@@ -26,7 +26,6 @@ if __name__ == "__main__":
         msm = MSM(i)
         print(msm.num_gates_non_native() // msm.num_gates_native())
 
-    # MSMs account for 97% of the comutation time
     timings = [0, 1, 9, 5, 10, 9, 0, 2, 0, 0, 0, 385, 852, 144]
     total = sum(timings)
     print(sum([(100 * time // total) for time in timings]))
