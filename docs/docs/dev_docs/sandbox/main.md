@@ -41,12 +41,7 @@ Within a few seconds the Sandbox should be ready for use!
 
 Aztec's Layer 2 network is a fully programmable combined private/public ZK rollup. To achieve this, the network contains the following primary components:
 
-- Archiver - Syncs with L1 and maintains a read-only repository of on-L1 state.
-- World State - The collection of Merkle Trees.
-- P2P - Currently just a locally stored collection of pending transactions.
-- Sequencer - Responsible for ordering transactions into the rollup, executing the rollup circuits and publishing blocks.
-- Aztec Node - Aggregates the above components and provides a facade to 'clients'.
-
+- Aztec Node - Aggregates all of the 'backend' services necessary for the building and publishing of rollups.
 - Aztec RPC Server - Normally residing with the end client, this decrypts and stores a client's private state, executes simulations and submits transactions to the Aztec Node.
 - Aztec.js - Aztec's client library for interacting with the Aztec RPC Server (think Ethers.js).
 
@@ -69,12 +64,14 @@ Let's have a complete walkthrough from start to finish. I'm using WSL2 Ubuntu un
 
 Let's create an empty project called `private-token`. If you are familiar with setting up Typescript projects then you can fast-forward the next couple of steps.
 
+Also, although I am using `yarn`, vanilla `npm` would work just as well.
+
 ```
-phil@LAPTOP-E72241SF:~$ node -v
+~$ node -v
 v18.8.0
-phil@LAPTOP-E72241SF:~$ mkdir private-token
-phil@LAPTOP-E72241SF:~$ cd private-token
-phil@LAPTOP-E72241SF:~/private-token$ yarn init
+~$ mkdir private-token
+~$ cd private-token
+~/private-token$ yarn init
 yarn init v1.22.19
 question name (private-token):
 question version (1.0.0):
@@ -86,13 +83,13 @@ question license (MIT):
 question private:
 success Saved package.json
 Done in 23.60s.
-phil@LAPTOP-E72241SF:~/private-token$ mkdir src
+~/private-token$ mkdir src
 ```
 
 We use Typescript here at Aztec, so lets add this to the project.
 
 ```
-phil@LAPTOP-E72241SF:~/zk-token yarn add typescript @types/node --dev
+~/private-token yarn add typescript @types/node --dev
 ```
 
 Add a `tsconfig.json` file into the project root, here is an example:
@@ -150,8 +147,7 @@ Add a `scripts` section to `package.json` and set `"type": "module"`:
 Now we want to install 2 Aztec packages from npm:
 
 ```
-yarn add @aztec/noir-contracts
-yarn add @aztec/aztec.js
+yarn add @aztec/noir-contracts @aztec/aztec.js
 ```
 
 Create an `index.ts` under the `src` directory:
@@ -352,26 +348,3 @@ Our complete output should now be:
 ```
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
-
-## Accounts and Keys
-
-One last thing to discuss is around accounts. In this walkthrough, we setup 2 accounts from private keys that we generated. As a result we were able to perform transactions as either Alice or Bob and we had full access to the balance of each account. Of course, a real scenario wouldn't allow Alice to view the balance of Bob's account (unless he was willing to give her his private key!). So if Alice doesn't have Bob's private key, how would she be able to send funds to him? She needs to encrypt some state in a way only Bob can decrypt and use it.
-
-The following api on the `AztecRpc` allows a user's public credentials to be added to the Sandbox:
-
-```typescript
-  /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
-   */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
-  ): Promise<void>;
-```
-
-The first argument is Bob's account address, the second is his public key and the third is an intermediate value produced during the computation of his address. Bob will have all 3 of these as a result of him creating an account and deploying his account contract so he can provide them to Alice. Once Alice has registered these credentials with the Sandbox she can then transfer funds to him. She will however be unable to execute transactions that attempt to spend funds owned by Bob or even view Bob's balance.
