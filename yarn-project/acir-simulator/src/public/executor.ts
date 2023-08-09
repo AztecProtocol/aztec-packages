@@ -154,8 +154,8 @@ export class PublicExecutor {
       },
       getPortalContractAddress: async ([aztecAddress]) => {
         const contractAddress = AztecAddress.fromString(aztecAddress);
-        let portalContactAddress = await this.contractsDb.getPortalContractAddress(contractAddress);
-        if (!portalContactAddress) portalContactAddress = EthAddress.ZERO;
+        const portalContactAddress =
+          (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
         return Promise.resolve(toACVMField(portalContactAddress));
       },
     });
