@@ -6,11 +6,7 @@ import { PrivateTokenAirdropContract } from '@aztec/noir-contracts/types';
 import { MultiTransferContract } from '@aztec/noir-contracts/types';
 import { AztecRPC } from '@aztec/types';
 
-import {
-  expectUnencryptedLogsFromLastBlockToBe,
-  expectsNumOfEncryptedLogsInTheLastBlockToBe,
-  setup,
-} from './fixtures/utils.js';
+import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('multi-transfer payments', () => {
   const numberOfAccounts = 6;
@@ -41,7 +37,7 @@ describe('multi-transfer payments', () => {
     if (aztecRpcServer instanceof AztecRPCServer) {
       await aztecRpcServer?.stop();
     }
-  });
+  }, 500_000);
 
   const deployZkTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying zk token contract...`);
@@ -71,16 +67,15 @@ describe('multi-transfer payments', () => {
 
     logger(`self batchTransfer()`);
     const batchTransferTx = zkTokenContract.methods
-      .batchTransfer(ownerAddress, [400n, 300n, 200n], [ownerAddress, ownerAddress, ownerAddress], 0, 0)
+      .batchTransfer(ownerAddress, [200n, 300n, 400n], [ownerAddress, ownerAddress, ownerAddress], 0, 0)
       .send({ origin: ownerAddress });
     await batchTransferTx.isMined();
     const batchTransferTxReceipt = await batchTransferTx.getReceipt();
     logger(`consumption Receipt status: ${batchTransferTxReceipt.status}`);
     await expectBalance(zkTokenContract, ownerAddress, initialNote);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecNode, ['Balance set in constructor']);
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 4);
 
-    const amounts: bigint[] = [50n, 50n, 50n, 20n, 20n, 20n, 15n, 15n, 15n, 30n, 30n, 30n];
+    const amounts: bigint[] = [20n, 20n, 20n, 50n, 50n, 50n, 80n, 80n, 80n, 100n, 100n, 100n];
     const amountSum = amounts.reduce((a, b) => a + b, 0n);
 
     logger(`multiTransfer()...`);
@@ -103,7 +98,6 @@ describe('multi-transfer payments', () => {
     await expectBalance(zkTokenContract, recipients[3], amounts[3] + amounts[numberOfAccounts + 3]);
     await expectBalance(zkTokenContract, recipients[4], amounts[4] + amounts[numberOfAccounts + 4]);
     await expectBalance(zkTokenContract, recipients[5], amounts[5] + amounts[numberOfAccounts + 5]);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecNode, ['Balance set in constructor']);
-  }, 240_000);
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
+  }, 540_000);
 });

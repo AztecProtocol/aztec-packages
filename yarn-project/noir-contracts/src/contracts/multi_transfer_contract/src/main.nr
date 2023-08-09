@@ -8,6 +8,16 @@ contract MultiTransfer {
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use dep::aztec::types::point::Point;
+
+    // Libs
+    use dep::value_note::{
+        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
+    };
+    use dep::aztec::note::{
+        note_header::NoteHeader,
+        utils as note_utils,
+    };
+
     fn constructor(
         inputs: PrivateContextInputs
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -76,8 +86,8 @@ contract MultiTransfer {
             addresses[3],
             addresses[4],
             addresses[5],
-            1 as Field,
-            1 as Field,
+            0 as Field,
+            0 as Field,
         ]);
         let result2 = return_values_2[0];
         context.return_values.push(result2);
@@ -91,8 +101,8 @@ contract MultiTransfer {
             addresses[6],
             addresses[7],
             addresses[8],
-            2 as Field,
-            2 as Field,
+            0 as Field,
+            0 as Field,
         ]);
         let result3 = return_values_3[0];
         context.return_values.push(result3);
@@ -106,12 +116,20 @@ contract MultiTransfer {
             addresses[9],
             addresses[10],
             addresses[11],
-            3 as Field,
-            3 as Field,
+            0 as Field,
+            0 as Field,
         ]);
         let result4 = return_values_4[0];
         context.return_values.push(result4);
 
         context.finish()
+    }
+
+    // Computes note hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
 }
