@@ -1,5 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecRPCServer, EthAddress } from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPCServer, EthAddress, Fr } from '@aztec/aztec-rpc';
+import { Wallet } from '@aztec/aztec.js';
+import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC } from '@aztec/types';
 
 import { Account, Chain, HttpTransport, PublicClient, WalletClient, parseEther } from 'viem';
@@ -10,6 +12,9 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_cheat_codes', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
+  let wallet: Wallet;
+  let recipient: AztecAddress;
+  let rollupAddress: EthAddress;
 
   let cc: CheatCodes;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -17,9 +22,12 @@ describe('e2e_cheat_codes', () => {
 
   beforeAll(async () => {
     let deployL1ContractsValues;
-    ({ aztecNode, aztecRpcServer, cheatCodes: cc, deployL1ContractsValues } = await setup());
+    let accounts;
+    ({ aztecNode, aztecRpcServer, wallet, accounts, cheatCodes: cc, deployL1ContractsValues } = await setup());
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
+    rollupAddress = deployL1ContractsValues.rollupAddress;
+    recipient = accounts[0];
   }, 100_000);
 
   afterAll(async () => {
@@ -122,5 +130,28 @@ describe('e2e_cheat_codes', () => {
         expect(e.message).toContain('No Signer available');
       }
     });
+
+    it('can modify L1 block time', async () => {
+      // deploy lending contract
+      const tx = LendingContract.deploy(aztecRpcServer).send();
+      await tx.isMined({ interval: 0.1 });
+      const receipt = await tx.getReceipt();
+      const contract = await LendingContract.create(receipt.contractAddress!, wallet);
+
+      // now update time:
+      const timestamp = await cc.l1.timestamp();
+      const newTimestamp = timestamp + 100_000_000;
+      await cc.l2.warp(newTimestamp, rollupAddress);
+
+      // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
+      // this should be the new timestamp
+      const txInit = contract.methods.init().send({ origin: recipient });
+      await txInit.isMined({ interval: 0.1 });
+
+      // fetch last updated ts from L2 contract and expect it to me same as new timestamp
+      const lastUpdatedTs = new Fr((await contract.methods.getTot(0).view())[0][1]);
+      expect(Number(lastUpdatedTs.value)).toEqual(newTimestamp);
+      expect(await cc.l1.timestamp()).toEqual(newTimestamp);
+    }, 50_000);
   });
 });
