@@ -108,6 +108,7 @@ export class ContractDataAndBytecode {
    * The contract's encoded ACIR code. This should become Brillig code once implemented.
    */
   public bytecode: Buffer;
+
   constructor(
     /**
      * The base contract data: aztec & portal addresses.
@@ -117,12 +118,21 @@ export class ContractDataAndBytecode {
     /**
      * ABIs of public functions.
      */
-    public publicFunctions: EncodedContractFunction[],
+    private publicFunctions: EncodedContractFunction[],
   ) {
     if (!publicFunctions.length) {
       throw Error('No public functions provided for ContractDataAndBytecode.');
     }
     this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
+  }
+
+  /**
+   * Gets the public function data or undefined.
+   * @param functionSelector - The function selector of the function to fetch.
+   * @returns The public function data (if found).
+   */
+  public getPublicFunction(functionSelector: Buffer): EncodedContractFunction | undefined {
+    return this.publicFunctions.find(fn => fn.functionSelector.equals(functionSelector));
   }
 
   /**

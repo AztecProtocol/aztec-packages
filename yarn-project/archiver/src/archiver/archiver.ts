@@ -331,8 +331,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
     functionSelector: Buffer,
   ): Promise<EncodedContractFunction | undefined> {
     const contractData = await this.getContractDataAndBytecode(contractAddress);
-    const result = contractData?.publicFunctions?.find(fn => fn.functionSelector.equals(functionSelector));
-    return result;
+    return contractData?.getPublicFunction(functionSelector);
   }
 
   /**
