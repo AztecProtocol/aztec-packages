@@ -90,7 +90,6 @@ describe('e2e_pending_commitments_contract', () => {
       )
       .send({ origin: owner });
 
-
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);

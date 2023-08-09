@@ -179,7 +179,7 @@ TEST_F(native_private_kernel_ordering_tests, native_unresolved_non_transient_rea
     ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
 }
 
-TEST_F(native_private_kernel_ordering_tests, native_nullifier_matching_transient_commitments_works)
+TEST_F(native_private_kernel_ordering_tests, native_squash_one_of_one_transient_matches_works)
 {
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
@@ -187,23 +187,135 @@ TEST_F(native_private_kernel_ordering_tests, native_nullifier_matching_transient
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
-    new_commitments[0] = fr(763);
-    new_commitments[1] = fr(213);
+    const auto commitment0 = fr(213);
+    new_commitments[0] = commitment0;
 
     new_nullifiers[0] = fr(32);
-    nullifier_commitments[0] = fr(213);
+    nullifier_commitments[0] = commitment0;
 
     private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
     private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
     private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
 
     DummyBuilder builder =
-        DummyBuilder("native_private_kernel_ordering_tests__native_nullifier_matching_transient_commitments_works");
+        DummyBuilder("native_private_kernel_ordering_tests__native_squash_one_of_one_transient_matches_works");
     auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 0);  // 1/1 squashed
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);   // 1/1 squashed
+}
+
+TEST_F(native_private_kernel_ordering_tests, native_squash_one_of_two_transient_matches_works)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    const auto commitment1 = fr(213);
+    new_commitments[0] = fr(763);
+    new_commitments[1] = commitment1;
+
+    new_nullifiers[0] = fr(32);
+    nullifier_commitments[0] = commitment1;
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_squash_one_of_two_transient_matches_works");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);  // 1/2 squashed
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);   // 1/1 squashed
+}
+
+TEST_F(native_private_kernel_ordering_tests, native_squash_two_of_two_transient_matches_works)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    const auto commitment0 = fr(763);
+    const auto commitment1 = fr(213);
+    new_commitments[0] = commitment0;
+    new_commitments[1] = commitment1;
+
+    new_nullifiers[0] = fr(32);
+    new_nullifiers[1] = fr(43);
+    nullifier_commitments[0] = commitment1;
+    nullifier_commitments[1] = commitment0;
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder =
+        DummyBuilder("native_private_kernel_ordering_tests__native_squash_two_of_two_transient_matches_works");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 0);  // 2/2 squashed
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);   // 2/2 squashed
+}
+
+TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_means_persistent_nullifier_0)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    new_commitments[0] = fr(213);
+
+    new_nullifiers[0] = fr(32);
+    nullifier_commitments[0] = fr(EMPTY_NULLIFIED_COMMITMENT);
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder = DummyBuilder(
+        "native_private_kernel_ordering_tests__native_empty_nullified_commitment_means_persistent_nullifier_0");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
+    // nullifier and commitment present at output (will become persistant)
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
-    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 0);
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);
+}
+
+// same as previous test, but this time there are 0 commitments!
+TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_means_persistent_nullifier_1)
+{
+    auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
+
+    new_nullifiers[0] = fr(32);
+    nullifier_commitments[0] = fr(EMPTY_NULLIFIED_COMMITMENT);
+
+    private_inputs.previous_kernel.public_inputs.end.new_commitments = new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
+    private_inputs.previous_kernel.public_inputs.end.nullified_commitments = nullifier_commitments;
+
+    DummyBuilder builder = DummyBuilder(
+        "native_private_kernel_ordering_tests__native_empty_nullified_commitment_means_persistent_nullifier_1");
+    auto public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs.previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 0);
+    // nullifier present at output (will become persistant)
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel
