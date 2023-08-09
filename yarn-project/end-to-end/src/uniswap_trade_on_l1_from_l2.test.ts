@@ -206,7 +206,6 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         secretHash,
         new Fr(2 ** 32 - 1),
         ethAccount.toField(),
-        uniswapPortalAddress,
         ethAccount.toField(),
       )
       .send({ origin: ownerAddress });
