@@ -15,12 +15,14 @@ import upperFirst from 'lodash.upperfirst';
 
 /**
  * Generates a call to a private function using the context.
- * @param selector - The function selector of a function
+ * @param selector - The selector of a function.
+ * @param functionType - Type of the function.
  * @returns A code string.
  */
-function generateCallStatement(selector: string) {
+function generateCallStatement(selector: string, functionType: FunctionType) {
+  const callMethod = functionType === FunctionType.SECRET ? 'call_private_function' : 'call_public_function';
   return `
-    context.call_private_function(self.address, ${selector}, serialised_args)`;
+    context.${callMethod}(self.address, ${selector}, serialised_args)`;
 }
 
 /**
@@ -130,7 +132,7 @@ function generateFunctionInterface(functionData: FunctionAbi) {
   const { name, parameters } = functionData;
   const selector = '0x' + generateFunctionSelector(name, parameters).toString('hex');
   const serialisation = generateSerialisation(parameters);
-  const callStatement = generateCallStatement(selector);
+  const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', 'context: &mut Context', ...parameters.map(p => generateParameter(p, functionData))];
 
   return `
@@ -228,9 +230,7 @@ function collectStructs(params: ABIVariable[], parentNames: string[]): StructInf
  */
 export function generateNoirContractInterface(abi: ContractAbi) {
   const contractStruct: string = generateContractInterfaceStruct(abi.name);
-  const methods = compact(
-    abi.functions.filter(f => f.name !== 'constructor' && !f.isInternal && f.functionType === FunctionType.SECRET),
-  );
+  const methods = compact(abi.functions.filter(f => f.name !== 'constructor' && !f.isInternal));
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const functionInterfaces = methods.map(generateFunctionInterface);
   const contractImpl: string = generateContractInterfaceImpl(abi.name, functionInterfaces);

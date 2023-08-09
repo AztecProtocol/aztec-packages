@@ -37,6 +37,34 @@ impl TestContractInterface {
       }
   }
   
+  fn createL2ToL1MessagePublic(
+    self,
+    context: &mut Context,
+    amount: Field,
+    secretHash: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = secretHash;
+
+    context.call_public_function(self.address, 0x1c031d17, serialised_args)
+  }
+  
+
+  fn createNullifierPublic(
+    self,
+    context: &mut Context,
+    amount: Field,
+    secretHash: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = secretHash;
+
+    context.call_public_function(self.address, 0x0217ef40, serialised_args)
+  }
+  
+
   fn getPortalContractAddress(
     self,
     context: &mut Context,
