@@ -16,20 +16,21 @@ using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_length;
 using aztec3::utils::array_rearrange;
 using aztec3::utils::CircuitErrorCode;
 using aztec3::utils::DummyCircuitBuilder;
-}  // namespace
-
-
-namespace aztec3::circuits::kernel::private_kernel {
 
 void initialise_end_values(PreviousKernelData<NT> const& previous_kernel, KernelCircuitPublicInputs<NT>& public_inputs)
 {
     common_initialise_end_values(previous_kernel, public_inputs);
     public_inputs.end.new_contracts = previous_kernel.public_inputs.end.new_contracts;
 }
+}  // namespace
+
+
+namespace aztec3::circuits::kernel::private_kernel {
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): optimized based on hints
 // regarding matching a read request to a commitment

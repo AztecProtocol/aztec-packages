@@ -416,13 +416,14 @@ value: 0xe09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_data: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
-
+public_data_tree_root: 0x107
+prev_global_variables_hash: 0x108
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
@@ -516,6 +517,8 @@ historic_nullifier_tree_root: 0x1f11
 historic_contract_tree_root: 0x1d11
 historic_l1_to_l2_messages_tree_root: 0x2011
 historic_blocks_tree_root: 0x2111
+historic_global_variables_hash: 0x2211
+historic_public_data_tree_root: 0x2311
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -524,8 +527,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2211
-version: 0x2311
+chain_id: 0x2411
+version: 0x2511
 
 is_execution_request: 0
 
@@ -561,6 +564,8 @@ historic_nullifier_tree_root: 0x1f21
 historic_contract_tree_root: 0x1d21
 historic_l1_to_l2_messages_tree_root: 0x2021
 historic_blocks_tree_root: 0x2121
+historic_global_variables_hash: 0x2221
+historic_public_data_tree_root: 0x2321
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -569,8 +574,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2221
-version: 0x2321
+chain_id: 0x2421
+version: 0x2521
 
 is_execution_request: 0
  contract_address: 0x1012
@@ -604,6 +609,8 @@ historic_nullifier_tree_root: 0x1f22
 historic_contract_tree_root: 0x1d22
 historic_l1_to_l2_messages_tree_root: 0x2022
 historic_blocks_tree_root: 0x2122
+historic_global_variables_hash: 0x2222
+historic_public_data_tree_root: 0x2322
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -612,8 +619,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2222
-version: 0x2322
+chain_id: 0x2422
+version: 0x2522
 
 is_execution_request: 0
  contract_address: 0x1013
@@ -647,6 +654,8 @@ historic_nullifier_tree_root: 0x1f23
 historic_contract_tree_root: 0x1d23
 historic_l1_to_l2_messages_tree_root: 0x2023
 historic_blocks_tree_root: 0x2123
+historic_global_variables_hash: 0x2223
+historic_public_data_tree_root: 0x2323
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -655,8 +664,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2223
-version: 0x2323
+chain_id: 0x2423
+version: 0x2523
 
 is_execution_request: 0
  contract_address: 0x1014
@@ -690,6 +699,8 @@ historic_nullifier_tree_root: 0x1f24
 historic_contract_tree_root: 0x1d24
 historic_l1_to_l2_messages_tree_root: 0x2024
 historic_blocks_tree_root: 0x2124
+historic_global_variables_hash: 0x2224
+historic_public_data_tree_root: 0x2324
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -698,8 +709,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2224
-version: 0x2324
+chain_id: 0x2424
+version: 0x2524
 
 is_execution_request: 0
  ]
@@ -955,13 +966,14 @@ value: 0xe09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_data: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
-
+public_data_tree_root: 0x107
+prev_global_variables_hash: 0x108
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
@@ -1028,6 +1040,8 @@ historic_nullifier_tree_root: 0x1f11
 historic_contract_tree_root: 0x1d11
 historic_l1_to_l2_messages_tree_root: 0x2011
 historic_blocks_tree_root: 0x2111
+historic_global_variables_hash: 0x2211
+historic_public_data_tree_root: 0x2311
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -1036,8 +1050,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2211
-version: 0x2311
+chain_id: 0x2411
+version: 0x2511
 
 is_execution_request: 0
 
@@ -1073,6 +1087,8 @@ historic_nullifier_tree_root: 0x1f21
 historic_contract_tree_root: 0x1d21
 historic_l1_to_l2_messages_tree_root: 0x2021
 historic_blocks_tree_root: 0x2121
+historic_global_variables_hash: 0x2221
+historic_public_data_tree_root: 0x2321
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -1081,8 +1097,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2221
-version: 0x2321
+chain_id: 0x2421
+version: 0x2521
 
 is_execution_request: 0
  contract_address: 0x1012
@@ -1116,6 +1132,8 @@ historic_nullifier_tree_root: 0x1f22
 historic_contract_tree_root: 0x1d22
 historic_l1_to_l2_messages_tree_root: 0x2022
 historic_blocks_tree_root: 0x2122
+historic_global_variables_hash: 0x2222
+historic_public_data_tree_root: 0x2322
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -1124,8 +1142,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2222
-version: 0x2322
+chain_id: 0x2422
+version: 0x2522
 
 is_execution_request: 0
  contract_address: 0x1013
@@ -1159,6 +1177,8 @@ historic_nullifier_tree_root: 0x1f23
 historic_contract_tree_root: 0x1d23
 historic_l1_to_l2_messages_tree_root: 0x2023
 historic_blocks_tree_root: 0x2123
+historic_global_variables_hash: 0x2223
+historic_public_data_tree_root: 0x2323
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -1167,8 +1187,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2223
-version: 0x2323
+chain_id: 0x2423
+version: 0x2523
 
 is_execution_request: 0
  contract_address: 0x1014
@@ -1202,6 +1222,8 @@ historic_nullifier_tree_root: 0x1f24
 historic_contract_tree_root: 0x1d24
 historic_l1_to_l2_messages_tree_root: 0x2024
 historic_blocks_tree_root: 0x2124
+historic_global_variables_hash: 0x2224
+historic_public_data_tree_root: 0x2324
 contract_deployment_data: deployer_public_key: x: 0x1
 y: 0x2
 
@@ -1210,8 +1232,8 @@ function_tree_root: 0x3
 contract_address_salt: 0x4
 portal_contract_address: 0x505050505050505050505050505050505050505
 
-chain_id: 0x2224
-version: 0x2324
+chain_id: 0x2424
+version: 0x2524
 
 is_execution_request: 0
  ]
@@ -1466,13 +1488,14 @@ value: 0xe09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_data: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
-
+public_data_tree_root: 0x107
+prev_global_variables_hash: 0x108
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
@@ -1702,13 +1725,14 @@ value: 0xe09
  ]
 
 constants:
-historic_tree_roots: private_historic_tree_roots: private_data_tree_root: 0x101
+block_data: private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
-
+public_data_tree_root: 0x107
+prev_global_variables_hash: 0x108
 
 tx_context: is_fee_payment_tx: 0
 is_rebate_payment_tx: 0

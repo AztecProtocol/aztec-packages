@@ -15,14 +15,11 @@ using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
+using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_length;
 using aztec3::utils::array_pop;
 using aztec3::utils::CircuitErrorCode;
 using aztec3::utils::DummyCircuitBuilder;
-
-}  // namespace
-
-namespace aztec3::circuits::kernel::private_kernel {
 
 void initialise_end_values(PreviousKernelData<NT> const& previous_kernel, KernelCircuitPublicInputs<NT>& public_inputs)
 {
@@ -35,8 +32,9 @@ void initialise_end_values(PreviousKernelData<NT> const& previous_kernel, Kernel
     end.read_requests = start.read_requests;
     end.read_request_membership_witnesses = start.read_request_membership_witnesses;
 }
+}  // namespace
 
-// using plonk::stdlib::merkle_tree::
+namespace aztec3::circuits::kernel::private_kernel {
 
 // // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
 // // private_call.call_stack_item.public_inputs!
@@ -83,8 +81,7 @@ void validate_contract_tree_root(DummyCircuitBuilder& builder, PrivateKernelInpu
     auto const& purported_contract_tree_root =
         private_inputs.private_call.call_stack_item.public_inputs.historic_contract_tree_root;
     auto const& previous_kernel_contract_tree_root =
-        private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
-            .contract_tree_root;
+        private_inputs.previous_kernel.public_inputs.constants.block_data.contract_tree_root;
     builder.do_assert(
         purported_contract_tree_root == previous_kernel_contract_tree_root,
         "purported_contract_tree_root doesn't match previous_kernel_contract_tree_root",
@@ -142,7 +139,7 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBu
 
     common_validate_read_requests(
         builder,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        public_inputs.constants.block_data.private_data_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 
