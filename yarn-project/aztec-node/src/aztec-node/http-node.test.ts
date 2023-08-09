@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Pedersen } from '@aztec/merkle-tree';
 import {
@@ -142,6 +142,18 @@ describe('HttpNode', () => {
 
       expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-chain-id`);
       expect(result).toBe(1234);
+    });
+  });
+
+  describe('getRollupAddress', () => {
+    it('should fetch and return the rollup address', async () => {
+      const response = { rollupAddress: EthAddress.random().toString() };
+      setFetchMock(response);
+
+      const result = await httpNode.getRollupAddress();
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-rollup-address`);
+      expect(result).toBe(EthAddress.fromString(response.rollupAddress));
     });
   });
 

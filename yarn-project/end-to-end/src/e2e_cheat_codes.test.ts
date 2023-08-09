@@ -14,7 +14,6 @@ describe('e2e_cheat_codes', () => {
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let recipient: AztecAddress;
-  let rollupAddress: EthAddress;
 
   let cc: CheatCodes;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -26,7 +25,6 @@ describe('e2e_cheat_codes', () => {
     ({ aztecNode, aztecRpcServer, wallet, accounts, cheatCodes: cc, deployL1ContractsValues } = await setup());
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
-    rollupAddress = deployL1ContractsValues.rollupAddress;
     recipient = accounts[0];
   }, 100_000);
 
@@ -143,7 +141,11 @@ describe('e2e_cheat_codes', () => {
       // now update time:
       const timestamp = await cc.l1.timestamp();
       const newTimestamp = timestamp + 100_000_000;
-      await cc.l2.warp(newTimestamp, rollupAddress);
+      await cc.l2.warp(newTimestamp);
+
+      // todo: @rahul-kothari add explicit check that `lastBlockTs` was updated in contract.
+      // currently it is only done implicitly through below check. Better to have an explicit check.
+      // That will make it more clear if the storage slot is changed so the wrong value is updated.
 
       // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
       // this should be the new timestamp
