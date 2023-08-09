@@ -2,6 +2,7 @@
 contract Test {
     use dep::aztec::{
         abi,
+        types::vec::BoundedVec,
         abi::{
             PublicContextInputs,
             PrivateContextInputs
@@ -64,6 +65,37 @@ contract Test {
         context.finish()
     }
 
+    // Test codegen for noir interfaces
+    fn testCodeGen(
+        inputs: PrivateContextInputs,
+        aField: Field,
+        aBool: bool,
+        aNumber: u32,
+        anArray: [Field; 2],
+        aStruct: DummyNote,
+        aDeepStruct: DeepStruct,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut args: BoundedVec<Field, 17> = BoundedVec::new(0);
+        args.push(aField);
+        args.push(aBool as Field);
+        args.push(aNumber as Field);
+        args.push_array(anArray);
+        args.push(aStruct.amount);
+        args.push(aStruct.secretHash);
+        args.push(aDeepStruct.aField);
+        args.push(aDeepStruct.aBool as Field);
+        args.push(aDeepStruct.aNote.amount);
+        args.push(aDeepStruct.aNote.secretHash);
+        for note in aDeepStruct.manyNotes {
+            args.push(note.amount);
+            args.push(note.secretHash);            
+        }
+        let args_hash = abi::hash_args(args.storage);
+        let mut context = Context::new(inputs, args_hash);
+        context.return_values.push(args_hash);
+        context.finish()
+    }
+
     // Purely exists for testing
     open fn createL2ToL1MessagePublic(
         _inputs: PublicContextInputs,
@@ -108,5 +140,12 @@ contract Test {
         fn get_commitment(self) -> pub Field {
             dep::std::hash::pedersen([self.amount, self.secretHash])[0]
         }
+    }
+
+    struct DeepStruct {
+        aField: Field,
+        aBool: bool,
+        aNote: DummyNote,
+        manyNotes: [DummyNote; 3],
     }
 }

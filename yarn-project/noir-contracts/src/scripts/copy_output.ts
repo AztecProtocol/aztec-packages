@@ -20,6 +20,8 @@ const PROJECT_CONTRACTS = [
   { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: [] },
 ];
 
+const INTERFACE_CONTRACTS = ['test'];
+
 /**
  * Writes the contract to a specific project folder, if needed.
  * @param abi - The Abi to write.
@@ -125,9 +127,15 @@ const main = () => {
   log(`Written ${tsInterfaceDestFilePath}`);
 
   // Write a .nr contract interface, for consumption by other Noir Contracts
-  const noirInterfaceDestFilePath = `${projectDirPath}/src/${projectName}_interface.nr`;
-  writeFileSync(noirInterfaceDestFilePath, generateNoirContractInterface(sourceCode, artifactJson));
-  log(`Written ${noirInterfaceDestFilePath}`);
+  if (INTERFACE_CONTRACTS.includes(name)) {
+    const noirInterfaceDestFilePath = `${projectDirPath}/src/${projectName}_interface.nr`;
+    try {
+      writeFileSync(noirInterfaceDestFilePath, generateNoirContractInterface(artifactJson));
+      log(`Written ${noirInterfaceDestFilePath}`);
+    } catch (err) {
+      log(`Error generating noir interface for ${name}: ${err}`);
+    }
+  }
 };
 
 try {
