@@ -2,7 +2,7 @@ import { AztecAddress, EthAddress, Fr, PartialContractAddress, PrivateKey, Publi
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   L2BlockL2Logs,
   Tx,
   TxExecutionRequest,
@@ -160,15 +160,15 @@ export interface AztecRPC {
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the L2 contract data for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Gets L2 block unencrypted logs.

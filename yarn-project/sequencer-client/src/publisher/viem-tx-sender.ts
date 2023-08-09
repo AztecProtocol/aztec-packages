@@ -1,7 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ContractPublicData } from '@aztec/types';
+import { ContractDataAndBytecode } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -126,16 +126,16 @@ export class ViemTxSender implements L1PublisherTxSender {
   async sendEmitContractDeploymentTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    newContractData: ContractPublicData[],
+    newContractData: ContractDataAndBytecode[],
   ): Promise<(string | undefined)[]> {
     const hashes: string[] = [];
-    for (const contractPublicData of newContractData) {
+    for (const contractDataAndBytecode of newContractData) {
       const args = [
         BigInt(l2BlockNum),
-        contractPublicData.contractData.contractAddress.toString() as Hex,
-        contractPublicData.contractData.portalContractAddress.toString() as Hex,
+        contractDataAndBytecode.contractData.contractAddress.toString() as Hex,
+        contractDataAndBytecode.contractData.portalContractAddress.toString() as Hex,
         `0x${l2BlockHash.toString('hex')}`,
-        `0x${contractPublicData.bytecode.toString('hex')}`,
+        `0x${contractDataAndBytecode.bytecode.toString('hex')}`,
       ] as const;
 
       const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {

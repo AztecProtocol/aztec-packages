@@ -217,25 +217,25 @@ async function main() {
     .action(async (contractAddress, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(contractAddress);
-      const contractDataOrInfo = options.includeBytecode
-        ? await client.getContractData(address)
-        : await client.getContractInfo(address);
+      const contractDataWithOrWithoutBytecode = options.includeBytecode
+        ? await client.getContractDataAndBytecode(address)
+        : await client.getContractData(address);
 
-      if (!contractDataOrInfo) {
+      if (!contractDataWithOrWithoutBytecode) {
         log(`No contract data found at ${contractAddress}`);
         return;
       }
       let contractData: ContractData;
 
-      if ('contractData' in contractDataOrInfo) {
-        contractData = contractDataOrInfo.contractData;
+      if ('contractData' in contractDataWithOrWithoutBytecode) {
+        contractData = contractDataWithOrWithoutBytecode.contractData;
       } else {
-        contractData = contractDataOrInfo;
+        contractData = contractDataWithOrWithoutBytecode;
       }
       log(`\nContract Data: \nAddress: ${contractData.contractAddress.toString()}`);
       log(`Portal: ${contractData.portalContractAddress.toString()}`);
-      if ('bytecode' in contractDataOrInfo) {
-        log(`Bytecode: ${contractDataOrInfo.bytecode}`);
+      if ('bytecode' in contractDataWithOrWithoutBytecode) {
+        log(`Bytecode: ${contractDataWithOrWithoutBytecode.bytecode}`);
       }
       log('\n');
     });

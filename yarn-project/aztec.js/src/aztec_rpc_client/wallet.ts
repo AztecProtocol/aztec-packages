@@ -2,7 +2,7 @@ import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from 
 import {
   AztecRPC,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   DeployedContract,
   FunctionCall,
   L2BlockL2Logs,
@@ -67,11 +67,11 @@ export abstract class BaseWallet implements Wallet {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
     return this.rpc.viewTx(functionName, args, to, from);
   }
-  getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    return this.rpc.getContractData(contractAddress);
+  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    return this.rpc.getContractDataAndBytecode(contractAddress);
   }
-  getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return this.rpc.getContractInfo(contractAddress);
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return this.rpc.getContractData(contractAddress);
   }
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
     return this.rpc.getUnencryptedLogs(from, limit);

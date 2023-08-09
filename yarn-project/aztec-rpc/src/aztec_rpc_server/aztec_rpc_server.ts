@@ -20,7 +20,7 @@ import {
   AztecRPC,
   ContractDao,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   DeployedContract,
   FunctionCall,
   INITIAL_L2_BLOCK_NUM,
@@ -157,7 +157,7 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContractInfo(contractAddress));
+    return !!(await this.node.getContractData(contractAddress));
   }
 
   public async simulateTx(txRequest: TxExecutionRequest) {
@@ -243,12 +243,12 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getBlockHeight();
   }
 
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    return await this.node.getContractData(contractAddress);
+  public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    return await this.node.getContractDataAndBytecode(contractAddress);
   }
 
-  public async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractInfo(contractAddress);
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return await this.node.getContractData(contractAddress);
   }
 
   public async getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
