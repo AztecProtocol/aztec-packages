@@ -5,6 +5,7 @@
 #include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 
 
@@ -170,6 +171,13 @@ void update_end_values(DummyCircuitBuilder& builder,
     array_push(builder,
                public_inputs.end.new_nullifiers,
                private_inputs.tx_request.hash(),
+               format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                      "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
+    // Push an empty nullified commitment too since each nullifier must
+    // be paired with a nonzero (real or "empty") nullified commitment
+    array_push(builder,
+               public_inputs.end.nullified_commitments,
+               fr(EMPTY_NULLIFIED_COMMITMENT),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 

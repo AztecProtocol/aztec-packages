@@ -135,7 +135,7 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
         nullifier,
     };
 
-    return NCT::compress(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
 }
 
 template <typename NCT> typename NCT::fr compute_block_hash(typename abis::GlobalVariables<NCT> globals,

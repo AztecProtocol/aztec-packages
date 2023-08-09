@@ -235,13 +235,20 @@ void common_update_end_values(DummyBuilder& builder,
             public_inputs.end.new_commitments,
             format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
 
-        // nullified commitments
+        // nullified commitments (for matching transient nullifiers to transient commitments)
+        // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
+        // is used here for nullified_commitments of persistable nullifiers. EMPTY will still
+        // take up a slot in the nullified_commitments array so that the array lines up properly
+        // with new_nullifiers. This is necessary since the constant-size circuit-array functions
+        // we use assume that the first 0-valued array entry designates the end of the array.
         std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_commitments{};
         for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
             siloed_nullified_commitments[i] =
-                (nullified_commitments[i] == fr(0) || nullified_commitments[i] == fr(EMPTY_NULLIFIED_COMMITMENT))
-                    ? fr(0)  // all instances of EMPTY_NULLIFIED_COMMITMENT become 0
-                    : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
+                nullified_commitments[i] == fr(0)
+                    ? fr(0)  // don't silo when empty
+                    : nullified_commitments[i] == fr(EMPTY_NULLIFIED_COMMITMENT)
+                          ? fr(EMPTY_NULLIFIED_COMMITMENT)  // don't silo when empty
+                          : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
         }
 
         push_array_to_array(

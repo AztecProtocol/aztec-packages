@@ -130,10 +130,11 @@ void match_nullifiers_to_commitments_and_squash(DummyCircuitBuilder& builder,
 {
     // match reads to commitments from the previous call(s)
     for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
-        // 0 nullified_commitment implies non-transient (persistable) nullifier
-        // (no attempt will be made to match it to a commitment)
-        // nonzero nullified_commitment is transient and MUST be matched to a commitment below
-        if (nullified_commitments[n_idx] != fr(0)) {
+        // Nullified_commitment of value `EMPTY_NULLIFIED_COMMITMENT` implies non-transient (persistable)
+        // nullifier in which case no attempt will be made to match it to a commitment.
+        // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a commitment below!
+        // 0-valued nullified_commitment is empty and will be ignored
+        if (nullified_commitments[n_idx] != fr(0) && nullified_commitments[n_idx] != fr(EMPTY_NULLIFIED_COMMITMENT)) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
             // O(n^2) inner loop will be optimized via matching hints
@@ -188,8 +189,11 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCircui
 
     // Do this before any functions can modify the inputs.
     common_initialise_end_values(previous_kernel, public_inputs);
+    public_inputs.end.new_contracts = previous_kernel.public_inputs.end.new_contracts;
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1329): validate that 0th nullifier is nonzero
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
+    // len(nullified_commitments)`
 
     common_validate_previous_kernel_read_requests(builder,
                                                   previous_kernel.public_inputs.end.read_requests,

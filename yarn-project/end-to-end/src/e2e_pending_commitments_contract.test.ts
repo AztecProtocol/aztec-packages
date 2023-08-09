@@ -53,7 +53,7 @@ describe('e2e_pending_commitments_contract', () => {
     expect(receipt.status).toBe(TxStatus.MINED);
   }, 60_000);
 
-  it('Noir function can "get" notes inserted in a previous function call in same TX', async () => {
+  it('Noir function can "get" and "nullify" notes inserted in a previous function call in same TX', async () => {
     const mintAmount = 65n;
     const [owner] = accounts;
 
@@ -72,6 +72,42 @@ describe('e2e_pending_commitments_contract', () => {
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
+  }, 60_000);
+
+  it('Noir function can "create" and "nullify" note in the same TX and the kernel will squash the noteHash and its nullifier', async () => {
+    const mintAmount = 65n;
+    const [owner] = accounts;
+
+    const deployedContract = await deployContract();
+
+    const tx = deployedContract.methods
+      .test_insert_then_get_then_nullify_all_in_nested_calls(
+        mintAmount,
+        owner,
+        Fr.fromBuffer(deployedContract.methods.insert_note.selector),
+        Fr.fromBuffer(deployedContract.methods.get_then_nullify_note.selector),
+        Fr.fromBuffer(deployedContract.methods.get_note_zero_balance.selector),
+      )
+      .send({ origin: owner });
+
+
+    await tx.isMined({ interval: 0.1 });
+    const receipt = await tx.getReceipt();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    const toBlock = await aztecNode!.getBlockHeight();
+    const block = (await aztecNode!.getBlocks(toBlock, 1))[0];
+
+    // all new commitments should be zero (should be squashed)
+    for (let c = 0; c < block.newCommitments.length; c++) {
+      expect(block.newCommitments[c]).toEqual(Fr.ZERO);
+    }
+
+    // 0th nullifier should be nonzero (txHash), all others should be zero (should be squashed)
+    expect(block.newNullifiers[0]).not.toEqual(Fr.ZERO); // 0th nullifier is txHash
+    for (let n = 1; n < block.newNullifiers.length; n++) {
+      expect(block.newNullifiers[n]).toEqual(Fr.ZERO);
+    }
   }, 60_000);
 
   // TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): test nullify & squash of pending notes

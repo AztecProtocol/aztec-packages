@@ -84,6 +84,7 @@ export class KernelProver {
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
+
       executionStack.push(...currentExecution.nestedExecutions);
       const privateCallStackPreimages = currentExecution.nestedExecutions.map(result => result.callStackItem);
       if (privateCallStackPreimages.length > MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL) {
@@ -162,10 +163,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    // TODO(jeanmon): Temporary milestone where we only feed new commitments of the output
-    // of ordering circuit into the final output. Longer-term goal is to output the ordering circuit output.
-    const orderedOutput = await this.proofCreator.createProofOrdering(previousKernelData);
-    output.publicInputs.end.newCommitments = orderedOutput.publicInputs.end.newCommitments;
+    output = await this.proofCreator.createProofOrdering(previousKernelData);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = output.publicInputs.end.newCommitments;
