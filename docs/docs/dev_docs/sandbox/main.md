@@ -164,7 +164,7 @@ Running `yarn start` should give:
   private-token Aztec Sandbox Info  { version: 1, chainId: 31337 } +0ms
 ```
 
-Great!. The Sandbox is running and you are able to interact with it.
+Great!. The Sandbox is running and we are able to interact with it.
 
 ## Account Creation/Deployment
 
