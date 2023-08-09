@@ -125,7 +125,7 @@ typename G1::affine_element recover_public_key(const std::string& message, const
 }
 
 template <typename Hash, typename Fq, typename Fr, typename G1>
-bool verify_signature(const std::string& message, const typename G1::affine_element& public_key, const signature& sig)
+bool verify_signature(const auto& message, const typename G1::affine_element& public_key, const signature& sig)
 {
     using serialize::read;
     uint256_t r_uint;

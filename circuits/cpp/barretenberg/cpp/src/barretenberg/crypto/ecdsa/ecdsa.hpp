@@ -32,7 +32,7 @@ template <typename Hash, typename Fq, typename Fr, typename G1>
 typename G1::affine_element recover_public_key(const std::string& message, const signature& sig);
 
 template <typename Hash, typename Fq, typename Fr, typename G1>
-bool verify_signature(const std::string& message,
+bool verify_signature(const auto& message,
                       const typename G1::affine_element& public_key,
                       const signature& signature);
 
