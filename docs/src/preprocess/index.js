@@ -98,7 +98,7 @@ function extractCodeSnippet(filePath, identifier) {
           for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             if (line.trim() == match[0].trim()) {
-              linesToRemove.push(i);
+              linesToRemove.push(i + 1); // lines are indexed from 1
               ++lineRemovalCount;
             }
           }
@@ -157,12 +157,12 @@ function extractCodeSnippet(filePath, identifier) {
 
   // Remove lines which contain `docs:` comments for unrelated identifiers:
   lines = lines.filter((l, i) => {
-    return !linesToRemove.includes(i);
+    return !linesToRemove.includes(i + 1); // lines are indexed from 1
   });
 
   // Remove lines from the snippet which fall outside the `docs:start` and `docs:end` values.
   lines = lines.filter((l, i) => {
-    return i + 1 > startLineNum && i + 1 < endLineNum - linesToRemove.length;
+    return i + 1 > startLineNum && i + 1 < endLineNum - linesToRemove.length; // lines are indexed from 1
   });
 
   // We have our code snippet!
