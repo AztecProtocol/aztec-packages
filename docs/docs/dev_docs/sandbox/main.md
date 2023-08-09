@@ -7,7 +7,7 @@ import GithubCode from '../../../src/components/GithubCode';
 
 ## Introduction
 
-The Aztec Sandbox aims to provide a complete layer 2 system against which DApp developers can build and deploy contracts in a fast, safe and free environment.
+The Aztec Sandbox aims to provide a local development system against which you can build and test Noir contracts in a fast, safe, and free environment.
 
 Here we will walkthrough the process of retrieving the Sandbox, installing the client libraries and using it to deploy and use a fully private token contract on the Aztec network.
 
@@ -147,7 +147,7 @@ Add a `scripts` section to `package.json` and set `"type": "module"`:
 Now we want to install 2 Aztec packages from npm:
 
 ```
-yarn add @aztec/noir-contracts @aztec/aztec.js
+yarn add @aztec/aztec.js @aztec/noir-contracts
 ```
 
 Create an `index.ts` under the `src` directory:
@@ -184,7 +184,7 @@ Running `yarn start` should now output:
 
 That might seem like a lot to digest but it can be broken down into the following steps:
 
-1. We create 2 `Account` objects in Typescript. This object heavily abstracts away the mechanics of configuring and deploying an account contract and setting up a 'wallet' for signing transactions. If you aren't interest in building new types of account contracts or wallets then you don't need to be too concerned with it. In this example we have constructed account contracts and corresposing wallets that sign/verify transactions using schnorr signatures.
+1. We create 2 `Account` objects in Typescript. This object heavily abstracts away the mechanics of configuring and deploying an account contract and setting up a 'wallet' for signing transactions. If you aren't interested in building new types of account contracts or wallets then you don't need to be too concerned with it. In this example we have constructed account contracts and corresposing wallets that sign/verify transactions using schnorr signatures.
 2. We wait for the deployment of the 2 account contracts to complete.
 3. We retrieve the expected account addresses from the `Account` objects and ensure that they are present in the set of account addresses registered on the Sandbox.
 
