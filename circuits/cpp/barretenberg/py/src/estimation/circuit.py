@@ -18,7 +18,7 @@ class CircuitNoPCS:
         self.log_n = log_n
         self.num_public_inputs = num_pub_inputs
 
-        self.max_memory = flavor.NUM_POLYNOMIALS * (1<<log_n) * 32 // 2**20 # size in mebibytes
+        self.max_memory = flavor.NUM_POLYNOMIALS * (1<<log_n) * 32 // 2**10 # size in kibibytes
 
         self.verifier_msms = [MSM(flavor.NUM_POLYNOMIALS),
                              MSM(flavor.NUM_SHIFTED_POLYNOMIALS),

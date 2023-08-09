@@ -19,6 +19,11 @@ class ClientStraightGoblin:
     def summary(self):
         self.goblin.summary()
 
+    def log(self, recursion_list, eccvm_list, translator_list):
+        self.goblin.log(recursion_list, eccvm_list, translator_list)
+
+    def process_logs(self, recursion_list, eccvm_list, translator_list):
+        self.goblin.process_logs(recursion_list, eccvm_list, translator_list)
 
 class ClientProtogalaxiedGoblin:
     # create circuits to fold
@@ -38,21 +43,29 @@ class ClientProtogalaxiedGoblin:
         # self.folding_verifier.summary()
         self.goblin.summary()
 
+    def log(self, recursion_list, eccvm_list, translator_list):
+        self.goblin.log(recursion_list, eccvm_list, translator_list)
+
+    def process_logs(self, recursion_list, eccvm_list, translator_list):
+        self.goblin.process_logs(recursion_list, eccvm_list, translator_list)
+
 
 if __name__ == "__main__":
-    num_circuits = 2
-    for _ in range(10):
-        print("===========================")
-        print(f"num circuits: {num_circuits}")
-        print("STRAIGHT GOBLIN")
+    print("STRAIGHT GOBLIN")
+    recursion_list, eccvm_list, translator_list = [], [], []
+    for log_k in range(1, 11):
+        num_circuits = 1 << log_k
         client_stack = ClientStraightGoblin(num_circuits)
-        client_stack.summary()
-        print("---------------------------")
+        client_stack.log(recursion_list, eccvm_list, translator_list)
 
-        print("PROTOGALAXIED GOBLIN")
+    client_stack.process_logs(recursion_list, eccvm_list, translator_list)
+
+    print("\n====================\n")
+    print("PROTOGALAXIED GOBLIN")
+    recursion_list, eccvm_list, translator_list = [], [], []
+    for log_k in range(1, 11):
+        num_circuits = 1 << log_k
         client_stack = ClientProtogalaxiedGoblin(num_circuits)
+        client_stack.log(recursion_list, eccvm_list, translator_list)
 
-        client_stack.summary()
-        print("===========================\n")
-
-        num_circuits *= 2
+    client_stack.process_logs(recursion_list, eccvm_list, translator_list)
