@@ -132,6 +132,7 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
         result_mod_r.prime_basis_limb.assert_equal(r.prime_basis_limb);
         return bool_t<Composer>(ctx, true);
     }
+}
 
 /**
  * @brief Verify ECDSA signature. Returns 0 if signature fails (i.e. does not produce unsatisfiable constraints)
