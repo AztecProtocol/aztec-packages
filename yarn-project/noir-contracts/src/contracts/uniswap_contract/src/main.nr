@@ -4,7 +4,10 @@ contract Uniswap {
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::oracle::public_call;
+    use dep::aztec::oracle::{
+        public_call,
+        context::get_portal_address
+    };
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use dep::aztec::types::point::Point;
@@ -28,11 +31,9 @@ contract Uniswap {
         inputs: PrivateContextInputs,
         withdrawFnSelector: Field, // withdraw method on inputAsset (l2 contract) that would withdraw to L1
         inputAsset: Field, 
-        inputAssetPortalAddress: Field, // l1 portal of input asset
         inputAmount: Field,
         uniswapFeeTier: Field, // which uniswap tier to use (eg 3000 for 0.3% fee)
         outputAsset: Field,
-        outputAssetPortalAddress: Field, // l1 portal of output asset
         minimumOutputAmount: Field, // minimum output amount to receive (slippage protection for the swap)
         sender: Field, 
         recipient: Field, // receiver address of output asset after the swap
@@ -45,11 +46,9 @@ contract Uniswap {
         let mut context = Context::new(inputs, abi::hash_args([
             withdrawFnSelector,
             inputAsset,
-            inputAssetPortalAddress,
             inputAmount,
             uniswapFeeTier,
             outputAsset,
-            outputAssetPortalAddress,
             minimumOutputAmount,
             sender,
             recipient,
@@ -72,6 +71,10 @@ contract Uniswap {
         
         let result = return_values[0];
         context.return_values.push(result);
+
+        // Get portal addresses
+        let inputAssetPortalAddress = get_portal_address(inputAsset);
+        let outputAssetPortalAddress = get_portal_address(outputAsset);
 
         // Send the swap message to L1 portal
         let content_hash = _compute_swap_content_hash(
