@@ -134,11 +134,12 @@ function generateFunctionInterface(functionData: FunctionAbi) {
   const serialisation = generateSerialisation(parameters);
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', 'context: &mut Context', ...parameters.map(p => generateParameter(p, functionData))];
+  const retType = functionData.functionType === FunctionType.SECRET ? `-> [Field; RETURN_VALUES_LENGTH] ` : ``;
 
   return `
   fn ${name}(
     ${allParams.join(',\n    ')}
-  ) -> [Field; RETURN_VALUES_LENGTH] {
+  ) ${retType}{
 ${serialisation}
 ${callStatement}
   }

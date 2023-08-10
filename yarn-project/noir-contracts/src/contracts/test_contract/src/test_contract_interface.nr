@@ -42,7 +42,7 @@ impl TestContractInterface {
     context: &mut Context,
     amount: Field,
     secretHash: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
+  ) {
     let mut serialised_args = [0; 2];
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
@@ -56,7 +56,7 @@ impl TestContractInterface {
     context: &mut Context,
     amount: Field,
     secretHash: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
+  ) {
     let mut serialised_args = [0; 2];
     serialised_args[0] = amount;
     serialised_args[1] = secretHash;
