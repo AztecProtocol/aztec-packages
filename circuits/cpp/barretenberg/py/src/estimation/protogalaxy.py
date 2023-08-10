@@ -18,7 +18,7 @@ class FoldingVerifier(CircuitKZG):
         # our constants include 2 Lagrange polynoma
         num_msms -= 2
         self.msms = [MSM(num_instances_to_fold) for _ in range(num_msms)]
-        log_n = get_circuit_size(sum([msm.num_gates_non_native()
+        log_n = get_circuit_size(sum([msm.num_gates_eccvm() # TODO: this is a placeholder. Actual size?
                                       for msm in self.msms]))
         super(FoldingVerifier, self).__init__(
             flavor, log_n, num_public_inputs=0)
