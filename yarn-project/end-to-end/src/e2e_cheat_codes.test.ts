@@ -1,10 +1,11 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer, EthAddress, Fr } from '@aztec/aztec-rpc';
 import { Wallet } from '@aztec/aztec.js';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC } from '@aztec/types';
 
-import { Account, Chain, HttpTransport, PublicClient, WalletClient, parseEther } from 'viem';
+import { Account, Chain, HttpTransport, PublicClient, WalletClient, getAddress, getContract, parseEther } from 'viem';
 
 import { CheatCodes } from './fixtures/cheat_codes.js';
 import { setup } from './fixtures/utils.js';
@@ -13,18 +14,21 @@ describe('e2e_cheat_codes', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
-  let recipient: AztecAddress;
-
   let cc: CheatCodes;
+
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
   let publicClient: PublicClient<HttpTransport, Chain>;
+  let rollupAddress: EthAddress;
+  let recipient: AztecAddress;
 
   beforeAll(async () => {
     let deployL1ContractsValues;
     let accounts;
     ({ aztecNode, aztecRpcServer, wallet, accounts, cheatCodes: cc, deployL1ContractsValues } = await setup());
+
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
+    rollupAddress = deployL1ContractsValues.rollupAddress;
     recipient = accounts[0];
   }, 100_000);
 
@@ -143,9 +147,9 @@ describe('e2e_cheat_codes', () => {
       const newTimestamp = timestamp + 100_000_000;
       await cc.l2.warp(newTimestamp);
 
-      // todo: @rahul-kothari add explicit check that `lastBlockTs` was updated in contract.
-      // currently it is only done implicitly through below check. Better to have an explicit check.
-      // That will make it more clear if the storage slot is changed so the wrong value is updated.
+      // ensure rollup contract is correctly updated
+      const rollup = getContract({ address: getAddress(rollupAddress.toString()), abi: RollupAbi, publicClient });
+      expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
 
       // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
       // this should be the new timestamp
@@ -153,9 +157,13 @@ describe('e2e_cheat_codes', () => {
       await txInit.isMined({ interval: 0.1 });
 
       // fetch last updated ts from L2 contract and expect it to me same as new timestamp
-      const lastUpdatedTs = new Fr((await contract.methods.getTot(0).view())[0][1]);
-      expect(Number(lastUpdatedTs.value)).toEqual(newTimestamp);
+      const lastUpdatedTs = Number(new Fr((await contract.methods.getTot(0).view())[0][1]).value);
+      expect(lastUpdatedTs).toEqual(newTimestamp);
+      // ensure anvil is correctly updated
       expect(await cc.l1.timestamp()).toEqual(newTimestamp);
+      // ensure rollup contract is correctly updated
+      expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
+      expect;
     }, 50_000);
   });
 });
