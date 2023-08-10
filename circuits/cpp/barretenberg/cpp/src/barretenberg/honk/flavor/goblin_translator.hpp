@@ -222,7 +222,7 @@ class Ultra {
         AllEntities(const AllEntities& other)
             : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
 
-        AllEntities(AllEntities&& other)
+        AllEntities(AllEntities&& other) noexcept
             : AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>(other){};
 
         AllEntities& operator=(const AllEntities& other)
@@ -234,7 +234,7 @@ class Ultra {
             return *this;
         }
 
-        AllEntities& operator=(AllEntities&& other)
+        AllEntities& operator=(AllEntities&& other) noexcept
         {
             AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES>::operator=(other);
             return *this;
