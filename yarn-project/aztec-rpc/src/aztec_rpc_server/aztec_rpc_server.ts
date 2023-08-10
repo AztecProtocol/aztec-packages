@@ -8,7 +8,7 @@ import {
   AztecAddress,
   ConstantHistoricBlockData,
   FunctionData,
-  PartialContractAddress,
+  PartialAddress,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
@@ -88,18 +88,18 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: PartialContractAddress) {
+  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
     // TODO(#1007): ECDSA contract breaks this check, since the ecdsa public key does not match the one derived from the keystore.
     // Once we decouple the ecdsa contract signing and encryption keys, we can re-enable this check.
     // const wasm = await CircuitsWasm.get();
-    // const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialContractAddress);
+    // const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
     // if (!expectedAddress.equals(address)) {
     //   throw new Error(
     //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
     //   );
     // }
-    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialContractAddress);
+    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialAddress);
     this.synchroniser.addAccount(pubKey, this.keyStore);
     this.log.info(`Added account ${address.toString()}`);
     return address;
@@ -108,7 +108,7 @@ export class AztecRPCServer implements AztecRPC {
   public async addPublicKeyAndPartialAddress(
     address: AztecAddress,
     publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
+    partialAddress: PartialAddress,
   ): Promise<void> {
     await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
     this.log.info(`Added public key for ${address.toString()}`);
@@ -128,7 +128,7 @@ export class AztecRPCServer implements AztecRPC {
     return await this.db.getAccounts();
   }
 
-  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
+  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result) {
       throw new Error(`Unable to get public key for address ${address.toString()}`);

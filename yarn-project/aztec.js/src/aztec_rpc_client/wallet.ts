@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
@@ -30,13 +30,13 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
-    return this.rpc.addAccount(privKey, address, partialContractAddress);
+  addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: Fr): Promise<AztecAddress> {
+    return this.rpc.addAccount(privKey, address, partialAddress);
   }
   addPublicKeyAndPartialAddress(
     address: AztecAddress,
     publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
+    partialAddress: PartialAddress,
   ): Promise<void> {
     return this.rpc.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
   }
@@ -79,7 +79,7 @@ export abstract class BaseWallet implements Wallet {
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
   }
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
     return this.rpc.getPublicKeyAndPartialAddress(address);
   }
   isGlobalStateSynchronised() {

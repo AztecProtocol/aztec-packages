@@ -297,9 +297,7 @@ async function main() {
         log(`Accounts found: \n`);
         for (const address of accounts) {
           const [pk, partialAddress] = await client.getPublicKeyAndPartialAddress(address);
-          log(
-            `Address: ${address}\nPublic Key: ${pk.toString()}\nPartial Contract Address: ${partialAddress.toString()}\n`,
-          );
+          log(`Address: ${address}\nPublic Key: ${pk.toString()}\nPartial Address: ${partialAddress.toString()}\n`);
         }
       }
     });
@@ -317,7 +315,7 @@ async function main() {
       if (!pk) {
         log(`Unknown account ${_address}`);
       } else {
-        log(`Public Key: \n ${pk.toString()}\nPartial Contract Address: ${partialAddress.toString()}\n`);
+        log(`Public Key: \n ${pk.toString()}\nPartial Address: ${partialAddress.toString()}\n`);
       }
     });
 

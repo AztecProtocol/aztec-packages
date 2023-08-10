@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   ContractData,
@@ -63,14 +63,10 @@ export interface AztecRPC {
    *
    * @param privKey - Private key of the corresponding user master public key.
    * @param address - Address of the account contract.
-   * @param partialContractAddress - The partially computed address of the account contract.
+   * @param partialAddress - The partially computed address of the account contract.
    * @returns The address of the account contract.
    */
-  addAccount(
-    privKey: PrivateKey,
-    address: AztecAddress,
-    partialContractAddress: PartialContractAddress,
-  ): Promise<AztecAddress>;
+  addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress): Promise<AztecAddress>;
 
   /**
    * Retrieves the list of Aztec addresses added to this rpc server
@@ -193,19 +189,19 @@ export interface AztecRPC {
   addPublicKeyAndPartialAddress(
     address: AztecAddress,
     publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
+    partialAddress: PartialAddress,
   ): Promise<void>;
 
   /**
-   * Retrieve the public key and partial contract address associated with an address.
+   * Retrieve the public key and partial address associated with an address.
    * Throws an error if the account is not found in the key store.
    *
    * @param address - The AztecAddress instance representing the account to get public key and partial address for.
    * @returns A Promise resolving to the PublicKey instance representing the public key.
-   * @remarks The public key and partial contract address form a preimage of a contract address. See
+   * @remarks The public key and partial address form a preimage of a contract address. See
    * https://github.com/AztecProtocol/aztec-packages/blob/janb/rpc-interface-cleanup/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
    */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
