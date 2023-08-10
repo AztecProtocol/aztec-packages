@@ -6,7 +6,9 @@ import chunk from 'lodash.chunk';
 
 import {
   abisComputeBlockHash,
+  abisComputeBlockHashWithGlobals,
   abisComputeCommitmentNonce,
+  abisComputeGlobalsHash,
   abisComputeUniqueCommitment,
   abisSiloCommitment,
   abisSiloNullifier,
@@ -263,18 +265,6 @@ export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, com
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
- * @param wasm - A module providing low-level wasm access.
- * @param nonce - The contract address.
- * @param innerCommitment - An inner commitment.
- * @returns A siloed commitment.
- */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, innerCommitment: Fr): Fr {
-  wasm.call('pedersen__init');
-  return abisComputeUniqueCommitment(wasm, nonce, innerCommitment);
-}
-
-/**
  * Computes a siloed commitment, given the contract address and the commitment itself.
  * A siloed commitment effectively namespaces a commitment to a specific contract.
  * @param wasm - A module providing low-level wasm access.
@@ -285,6 +275,18 @@ export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, innerCommi
 export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, uniqueCommitment: Fr): Fr {
   wasm.call('pedersen__init');
   return abisSiloCommitment(wasm, contract, uniqueCommitment);
+}
+
+/**
+ * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
+ * @param wasm - A module providing low-level wasm access.
+ * @param nonce - The contract address.
+ * @param siloedCommitment - An siloed commitment.
+ * @returns A unique commitment.
+ */
+export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedCommitment: Fr): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeUniqueCommitment(wasm, nonce, siloedCommitment);
 }
 
 /**
@@ -302,13 +304,16 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * A siloed nullifier effectively namespaces a nullifier to a specific contract.
  * @param wasm - A module providing low-level wasm access.
- * @param contract - The contract address.
- * @param innerNullifier - The nullifier to silo.
- * @returns A siloed nullifier.
+ * @param globals - The global variables to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
  */
-export function computeBlockHash(
+export function computeBlockHashWithGlobals(
   wasm: IWasmModule,
   globals: GlobalVariables,
   privateDataTreeRoot: Fr,
@@ -318,7 +323,7 @@ export function computeBlockHash(
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
-  return abisComputeBlockHash(
+  return abisComputeBlockHashWithGlobals(
     wasm,
     globals,
     privateDataTreeRoot,
@@ -327,6 +332,49 @@ export function computeBlockHash(
     l1ToL2DataTreeRoot,
     publicDataTreeRoot,
   );
+}
+
+/**
+ * Computes the block hash given the blocks globals and roots.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globalsHash - The global variables hash to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
+ */
+export function computeBlockHash(
+  wasm: IWasmModule,
+  globalsHash: Fr,
+  privateDataTreeRoot: Fr,
+  nullifierTreeRoot: Fr,
+  contractTreeRoot: Fr,
+  l1ToL2DataTreeRoot: Fr,
+  publicDataTreeRoot: Fr,
+): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeBlockHash(
+    wasm,
+    globalsHash,
+    privateDataTreeRoot,
+    nullifierTreeRoot,
+    contractTreeRoot,
+    l1ToL2DataTreeRoot,
+    publicDataTreeRoot,
+  );
+}
+
+/**
+ * Computes the globals hash given the globals.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globals - The global variables to put into the block hash.
+ * @returns The globals hash.
+ */
+export function computeGlobalsHash(wasm: IWasmModule, globals: GlobalVariables): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeGlobalsHash(wasm, globals);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;

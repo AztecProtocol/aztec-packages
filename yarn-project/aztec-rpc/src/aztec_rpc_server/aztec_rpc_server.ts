@@ -1,13 +1,14 @@
 import {
+  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  ConstantHistoricBlockData,
   FunctionData,
   PartialContractAddress,
-  PrivateHistoricTreeRoots,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
@@ -21,11 +22,12 @@ import {
   ContractData,
   ContractPublicData,
   DeployedContract,
-  ExecutionRequest,
+  FunctionCall,
+  INITIAL_L2_BLOCK_NUM,
   KeyStore,
+  L2Block,
   L2BlockL2Logs,
   LogType,
-  MerkleTreeId,
   NodeInfo,
   Tx,
   TxExecutionRequest,
@@ -69,7 +71,7 @@ export class AztecRPCServer implements AztecRPC {
    * @returns A promise that resolves when the server has started successfully.
    */
   public async start() {
-    await this.synchroniser.start(1, 1, this.config.l2BlockPollingIntervalMS);
+    await this.synchroniser.start(INITIAL_L2_BLOCK_NUM, 1, this.config.l2BlockPollingIntervalMS);
     const info = await this.getNodeInfo();
     this.log.info(`Started RPC server connected to chain ${info.chainId} version ${info.version}`);
   }
@@ -154,6 +156,14 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
   }
 
+  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    // If a negative block number is provided the current block height is fetched.
+    if (blockNumber < 0) {
+      blockNumber = await this.node.getBlockHeight();
+    }
+    return await this.node.getBlock(blockNumber);
+  }
+
   public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
     return !!(await this.node.getContractInfo(contractAddress));
   }
@@ -193,9 +203,8 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress) {
-    const txRequest = await this.#getExecutionRequest(functionName, args, to, from ?? AztecAddress.ZERO);
-
-    const executionResult = await this.#simulateUnconstrained(txRequest);
+    const functionCall = await this.#getFunctionCall(functionName, args, to);
+    const executionResult = await this.#simulateUnconstrained(functionCall, from);
 
     // TODO - Return typed result based on the function abi.
     return executionResult;
@@ -254,12 +263,7 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
   }
 
-  async #getExecutionRequest(
-    functionName: string,
-    args: any[],
-    to: AztecAddress,
-    from: AztecAddress,
-  ): Promise<ExecutionRequest> {
+  async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
     const contract = await this.db.getContract(to);
     if (!contract) {
       throw new Error(`Unknown contract ${to}: add it to Aztec RPC server by calling server.addContracts(...)`);
@@ -272,7 +276,6 @@ export class AztecRPCServer implements AztecRPC {
 
     return {
       args: encodeArguments(functionDao, args),
-      from,
       functionData: FunctionData.fromAbi(functionDao),
       to,
     };
@@ -311,41 +314,34 @@ export class AztecRPCServer implements AztecRPC {
    * @returns An object containing the contract address, function ABI, portal contract address, and historic tree roots.
    */
   async #getSimulationParameters(
-    execRequest: ExecutionRequest | TxExecutionRequest,
+    execRequest: FunctionCall | TxExecutionRequest,
     contractDataOracle: ContractDataOracle,
   ) {
-    const contractAddress = (execRequest as ExecutionRequest).to ?? (execRequest as TxExecutionRequest).origin;
+    const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
     const functionAbi = await contractDataOracle.getFunctionAbi(
       contractAddress,
       execRequest.functionData.functionSelectorBuffer,
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
-    const currentRoots = this.db.getTreeRoots();
-    const historicRoots = PrivateHistoricTreeRoots.from({
-      contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
-      privateDataTreeRoot: currentRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-      l1ToL2MessagesTreeRoot: currentRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: currentRoots[MerkleTreeId.BLOCKS_TREE],
-      privateKernelVkTreeRoot: Fr.ZERO,
-    });
-
     return {
       contractAddress,
       functionAbi,
       portalContract,
-      historicRoots,
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  async #simulate(
+    txRequest: TxExecutionRequest,
+    constantHistoricBlockData: ConstantHistoricBlockData,
+    contractDataOracle?: ContractDataOracle,
+  ): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
     );
@@ -354,7 +350,13 @@ export class AztecRPCServer implements AztecRPC {
 
     try {
       this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+      const result = await simulator.run(
+        txRequest,
+        functionAbi,
+        contractAddress,
+        portalContract,
+        constantHistoricBlockData,
+      );
       this.log('Simulation completed!');
 
       return result;
@@ -369,15 +371,15 @@ export class AztecRPCServer implements AztecRPC {
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
    * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param contractDataOracle - Optional instance of ContractDataOracle for fetching and caching contract information.
+   * @param from - The origin of the request.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: ExecutionRequest, contractDataOracle?: ContractDataOracle) {
-    if (!contractDataOracle) {
-      contractDataOracle = new ContractDataOracle(this.db, this.node);
-    }
+  async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
+    const contractDataOracle = new ContractDataOracle(this.db, this.node);
+    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
     );
@@ -387,10 +389,12 @@ export class AztecRPCServer implements AztecRPC {
     this.log('Executing unconstrained simulator...');
     const result = await simulator.runUnconstrained(
       execRequest,
+      from ?? AztecAddress.ZERO,
       functionAbi,
       contractAddress,
       portalContract,
-      historicRoots,
+      constantHistoricBlockData,
+      this.node,
     );
     this.log('Unconstrained simulation completed!');
 
@@ -413,9 +417,12 @@ export class AztecRPCServer implements AztecRPC {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const executionResult = await this.#simulate(txExecutionRequest, contractDataOracle);
+
+    // Get values that allow us to reconstruct the block hash
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
+
+    const executionResult = await this.#simulate(txExecutionRequest, constantHistoricBlockData, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
@@ -444,5 +451,9 @@ export class AztecRPCServer implements AztecRPC {
 
   public async isAccountSynchronised(account: AztecAddress) {
     return await this.synchroniser.isAccountSynchronised(account);
+  }
+
+  public getSyncStatus() {
+    return Promise.resolve(this.synchroniser.getSyncStatus());
   }
 }

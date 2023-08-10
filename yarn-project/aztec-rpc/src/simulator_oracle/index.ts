@@ -5,13 +5,12 @@ import {
   EthAddress,
   Fr,
   PartialContractAddress,
-  PrivateHistoricTreeRoots,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -43,12 +42,12 @@ export class SimulatorOracle implements DBOracle {
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, nullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
       nonce,
       preimage: notePreimage.items,
-      nullifier,
+      siloedNullifier,
       // RPC Client can use this index to get full MembershipWitness
       index,
     }));
@@ -85,12 +84,12 @@ export class SimulatorOracle implements DBOracle {
   /**
    * Retrieves the noir oracle data required to prove existence of a given commitment.
    * @param contractAddress - The contract Address.
-   * @param commitment - The key of the message being fetched.
+   * @param innerCommitment - The key of the message being fetched.
    * @returns - A promise that resolves to the commitment data, a sibling path and the
    *            index of the message in the private data tree.
    */
-  async getCommitmentOracle(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, commitment);
+  async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
     const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
     if (!index) throw new Error('Commitment not found');
 
@@ -99,19 +98,6 @@ export class SimulatorOracle implements DBOracle {
       commitment: siloedCommitment,
       siblingPath: siblingPath.toFieldArray(),
       index,
-    });
-  }
-
-  getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getTreeRoots();
-
-    return PrivateHistoricTreeRoots.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
-      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
-      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: roots[MerkleTreeId.BLOCKS_TREE],
     });
   }
 }

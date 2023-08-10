@@ -1,7 +1,0 @@
-[package]
-name = "schnorr_multi_key_account_contract"
-authors = [""]
-compiler_version = "0.1"
-
-[dependencies]
-aztec = { path = "../../../../noir-libs/noir-aztec" }

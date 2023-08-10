@@ -7,11 +7,10 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/constant_historic_block_data.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
@@ -32,11 +31,10 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
+using aztec3::circuits::abis::ConstantHistoricBlockData;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
@@ -47,18 +45,22 @@ using aztec3::utils::array_length;
 /**
  * @brief Get the random read requests and their membership requests
  *
- * @details read requests are siloed by contract address before being
+ * @details read requests are siloed by contract address and nonce before being
  * inserted into mock private data tree
  *
+ * @param first_nullifier used when computing nonce for unique_siloed_commitments (private data tree leaves)
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
 std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
-get_random_reads(NT::fr const& contract_address, int const num_read_requests)
+get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, int const num_read_requests)
 {
+    std::array<fr, MAX_READ_REQUESTS_PER_CALL> transient_read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_CALL> leaves{};
 
@@ -69,8 +71,16 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
     // randomize private app circuit's read requests
     for (size_t rr = 0; rr < final_num_rr; rr++) {
         // randomize commitment and its leaf index
-        read_requests[rr] = NT::fr::random_element();
-        leaves[rr] = silo_commitment<NT>(contract_address, read_requests[rr]);
+        // transient read requests are raw (not siloed and not unique at input to kernel circuit)
+        transient_read_requests[rr] = NT::fr::random_element();
+
+        const auto siloed_commitment = silo_commitment<NT>(contract_address, read_requests[rr]);
+        const auto nonce = compute_commitment_nonce<NT>(first_nullifier, rr);
+        const auto unique_siloed_commitment =
+            siloed_commitment == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitment);
+
+        leaves[rr] = unique_siloed_commitment;
+        read_requests[rr] = unique_siloed_commitment;
     }
 
     // this set and the following loop lets us generate totally random leaf indices
@@ -95,17 +105,30 @@ get_random_reads(NT::fr const& contract_address, int const num_read_requests)
 
     // compute the merkle sibling paths for each request
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>
+        transient_read_request_membership_witnesses{};
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>
         read_request_membership_witnesses{};
     for (size_t i = 0; i < array_length(read_requests); i++) {
         read_request_membership_witnesses[i] = { .leaf_index = NT::fr(rr_leaf_indices[i]),
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
                                                      private_data_tree, rr_leaf_indices[i], 0),
+                                                 .is_transient = false,
                                                  .hint_to_commitment = 0 };
+        transient_read_request_membership_witnesses[i] = {
+            .leaf_index = NT::fr(0),
+            .sibling_path = compute_empty_sibling_path<NT, PRIVATE_DATA_TREE_HEIGHT>(0),
+            .is_transient = true,
+            .hint_to_commitment = 0
+        };
     }
 
 
-    return { read_requests, read_request_membership_witnesses, private_data_tree.root() };
-}
+    return { read_requests,
+             read_request_membership_witnesses,
+             transient_read_requests,
+             transient_read_request_membership_witnesses,
+             private_data_tree.root() };
+}  // namespace aztec3::circuits::kernel::private_kernel::testing_harness
 
 std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_deploy_data(
     bool const is_constructor,
@@ -460,13 +483,10 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     // Fill in some important fields in public inputs
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{
-                .private_historic_tree_roots =
-                    PrivateHistoricTreeRoots<NT>{
-                        .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
-                        .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
-                    },
+        .block_data =
+            ConstantHistoricBlockData<NT>{
+                .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
+                .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
             },
         .tx_context = tx_context,
     };

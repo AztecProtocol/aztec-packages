@@ -1,35 +1,35 @@
-import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
   ContractPublicData,
   DeployedContract,
-  ExecutionRequest,
+  FunctionCall,
   L2BlockL2Logs,
   NodeInfo,
+  SyncStatus,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
 } from '@aztec/types';
 
-import { AccountImplementation } from '../account_impl/index.js';
+import { CreateTxRequestOpts, Entrypoint } from '../account/entrypoint/index.js';
+import { CompleteAddress } from '../index.js';
 
 /**
  * The wallet interface.
  */
-export type Wallet = AccountImplementation & AztecRPC;
+export type Wallet = Entrypoint & AztecRPC;
 
 /**
  * A base class for Wallet implementations
  */
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
-  abstract getAddress(): AztecAddress;
-  abstract createAuthenticatedTxRequest(
-    executions: ExecutionRequest[],
-    txContext: TxContext,
-  ): Promise<TxExecutionRequest>;
+
+  abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
+
   addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: Fr): Promise<AztecAddress> {
     return this.rpc.addAccount(privKey, address, partialContractAddress);
   }
@@ -94,19 +94,33 @@ export abstract class BaseWallet implements Wallet {
   isAccountSynchronised(account: AztecAddress) {
     return this.rpc.isAccountSynchronised(account);
   }
+  getSyncStatus(): Promise<SyncStatus> {
+    return this.rpc.getSyncStatus();
+  }
 }
 
 /**
- * A simple wallet implementation that forwards authentication requests to a provided account implementation.
+ * A simple wallet implementation that forwards authentication requests to a provided entrypoint implementation.
  */
-export class AccountWallet extends BaseWallet {
-  constructor(rpc: AztecRPC, protected accountImpl: AccountImplementation) {
+export class EntrypointWallet extends BaseWallet {
+  constructor(rpc: AztecRPC, protected accountImpl: Entrypoint) {
     super(rpc);
   }
-  getAddress(): AztecAddress {
-    return this.accountImpl.getAddress();
+  createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
+    return this.accountImpl.createTxExecutionRequest(executions, opts);
   }
-  createAuthenticatedTxRequest(executions: ExecutionRequest[], txContext: TxContext): Promise<TxExecutionRequest> {
-    return this.accountImpl.createAuthenticatedTxRequest(executions, txContext);
+}
+
+/**
+ * A wallet implementation that forwards authentication requests to a provided account.
+ */
+export class AccountWallet extends EntrypointWallet {
+  constructor(rpc: AztecRPC, protected accountImpl: Entrypoint, protected address: CompleteAddress) {
+    super(rpc, accountImpl);
+  }
+
+  /** Returns the complete address of the account that implements this wallet. */
+  public getCompleteAddress() {
+    return this.address;
   }
 }

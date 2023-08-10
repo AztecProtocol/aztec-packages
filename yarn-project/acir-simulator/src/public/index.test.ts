@@ -1,10 +1,10 @@
 import {
   CallContext,
   CircuitsWasm,
+  ConstantHistoricBlockData,
   FunctionData,
   GlobalVariables,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  PrivateHistoricTreeRoots,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
@@ -37,6 +37,7 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
+  let blockData: ConstantHistoricBlockData;
 
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
@@ -47,8 +48,8 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    commitmentsDb.getTreeRoots.mockReturnValue(PrivateHistoricTreeRoots.empty());
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb);
+    blockData = ConstantHistoricBlockData.empty();
+    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 
   describe('PublicToken contract', () => {
@@ -297,11 +298,13 @@ describe('ACIR public execution simulator', () => {
       // Assert the commitment was created
       expect(result.newCommitments.length).toEqual(1);
 
-      const expectedNewCommitmentValue = pedersenPlookupCommitInputs(
+      const expectedNoteHash = pedersenPlookupCommitInputs(
         wasm,
         params.map(a => a.toBuffer()),
       );
-      expect(result.newCommitments[0].toBuffer()).toEqual(expectedNewCommitmentValue);
+      const storageSlot = new Fr(2); // matches storage.nr
+      const expectedInnerNoteHash = pedersenPlookupCommitInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
+      expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {

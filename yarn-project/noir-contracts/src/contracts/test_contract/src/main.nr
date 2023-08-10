@@ -12,7 +12,8 @@ contract Test {
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
         create_nullifier::create_nullifier,
-        get_public_key::get_public_key
+        get_public_key::get_public_key,
+        context::get_portal_address
     };
 
     fn constructor(
@@ -29,6 +30,37 @@ contract Test {
         let mut context = Context::new(inputs, abi::hash_args([address]));
         let pub_key = get_public_key(address);
         context.return_values.push_array([pub_key.x, pub_key.y]);
+        context.finish()
+    }
+
+    // Get the portal contract address through an oracle call
+    fn getPortalContractAddress(
+        inputs: PrivateContextInputs,
+        aztec_address: Field
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([]));
+        let portal_address = get_portal_address(aztec_address);
+        context.return_values.push_array([portal_address]);
+        context.finish()
+    }
+
+    // Get the address of the l1 portal for this contract (taken from the input context)
+    fn getThisPortalAddress(
+        inputs: PrivateContextInputs,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([]));
+        let this_portal_address = context.this_portal_address();
+        context.return_values.push_array([this_portal_address]);
+        context.finish()
+    }
+
+    // Get the address of this contract (taken from the input context)
+    fn getThisAddress(
+        inputs: PrivateContextInputs,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([]));
+        let this_address = context.this_address();
+        context.return_values.push_array([this_address]);
         context.finish()
     }
 

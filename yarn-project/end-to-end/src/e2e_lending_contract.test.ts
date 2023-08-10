@@ -1,13 +1,13 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { calculateAztecStorageSlot, setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_lending_contract', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -16,7 +16,7 @@ describe('e2e_lending_contract', () => {
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
-  let contract: Contract;
+  let contract: LendingContract;
 
   const deployContract = async () => {
     logger(`Deploying L2 public contract...`);
@@ -43,26 +43,22 @@ describe('e2e_lending_contract', () => {
   });
 
   // Fetch a storage snapshot from the contract that we can use to compare between transitions.
-  const getStorageSnapshot = async (contract: Contract, aztecNode: AztecRPC, account: Account) => {
-    const storageValues: { [key: string]: any } = {};
-
-    const readValue = async (slot: Fr) =>
-      Fr.fromBuffer((await aztecNode.getPublicStorageAt(contract.address, slot)) ?? Buffer.alloc(0));
-
-    {
-      const baseSlot = await calculateAztecStorageSlot(1n, Fr.ZERO);
-      storageValues['interestAccumulator'] = await readValue(baseSlot);
-      storageValues['last_updated_ts'] = await readValue(new Fr(baseSlot.value + 1n));
-    }
-
+  const getStorageSnapshot = async (contract: LendingContract, aztecNode: AztecRPC, account: Account) => {
+    const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
+    const toFields = (res: any[]) => res[0].map((v: number | bigint | Fr) => new Fr(v));
 
-    storageValues['private_collateral'] = await readValue(await calculateAztecStorageSlot(2n, accountKey));
-    storageValues['public_collateral'] = await readValue(
-      await calculateAztecStorageSlot(2n, account.address.toField()),
+    [storageValues['interestAccumulator'], storageValues['last_updated_ts']] = toFields(
+      await contract.methods.getTot(0).view(),
     );
-    storageValues['private_debt'] = await readValue(await calculateAztecStorageSlot(3n, accountKey));
-    storageValues['public_debt'] = await readValue(await calculateAztecStorageSlot(3n, account.address.toField()));
+
+    [storageValues['private_collateral'], storageValues['private_debt']] = toFields(
+      await contract.methods.getPosition(accountKey).view(),
+    );
+
+    [storageValues['public_collateral'], storageValues['public_debt']] = toFields(
+      await contract.methods.getPosition(account.address.toField()).view(),
+    );
 
     return storageValues;
   };

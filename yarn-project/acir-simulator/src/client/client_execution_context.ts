@@ -1,5 +1,5 @@
-import { CircuitsWasm, PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
-import { computeCommitmentNonce } from '@aztec/circuits.js/abis';
+import { CircuitsWasm, ConstantHistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -34,8 +34,8 @@ export class ClientTxExecutionContext {
     private txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
-    /** The old roots. */
-    public historicRoots: PrivateHistoricTreeRoots,
+    /** Data required to reconstruct the block hash, it contains historic roots. */
+    public constantHistoricBlockData: ConstantHistoricBlockData,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending notes created (and not nullified) up to current point in execution.
@@ -57,7 +57,7 @@ export class ClientTxExecutionContext {
       this.db,
       this.txNullifier,
       this.txContext,
-      this.historicRoots,
+      this.constantHistoricBlockData,
       this.packedArgsCache,
       this.pendingNotes,
       this.pendingNullifiers,
@@ -132,7 +132,7 @@ export class ClientTxExecutionContext {
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
     // Remove notes which were already nullified during this transaction.
-    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.nullifier as Fr));
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.siloedNullifier as Fr));
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
@@ -199,7 +199,7 @@ export class ClientTxExecutionContext {
    */
   public async getL1ToL2Message(msgKey: Fr): Promise<ACVMField[]> {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
-    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.historicRoots.l1ToL2MessagesTreeRoot);
+    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.constantHistoricBlockData.l1ToL2MessagesTreeRoot);
   }
 
   /**
@@ -209,10 +209,14 @@ export class ClientTxExecutionContext {
    * @returns The commitment data.
    */
   public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): only works
+    // for noteHashes/commitments created by public functions! Once public kernel or
+    // base rollup circuit injects nonces, this can be used with commitments created by
+    // private functions as well.
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
+    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.constantHistoricBlockData.privateDataTreeRoot);
   }
 
   /**
@@ -220,28 +224,28 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
    * @param preimage - new note preimage.
-   * @param nullifier - note nullifier
    * @param innerNoteHash - inner note hash
    */
-  public async pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
-    const wasm = await CircuitsWasm.get();
-    const nonce = computeCommitmentNonce(wasm, this.txNullifier, this.pendingNotes.length);
+  public pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
     this.pendingNotes.push({
       contractAddress,
       storageSlot: storageSlot,
-      nonce,
+      nonce: Fr.ZERO, // nonce is cannot be known during private execution
       preimage,
       innerNoteHash,
     });
   }
 
   /**
-   * Adding a nullifier into the current set of all pending nullifiers created
+   * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
-   * @param nullifier - The pending nullifier to add in the list.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
+   * @param contractAddress - The contract address
    */
-  public pushPendingNullifier(nullifier: Fr) {
-    this.pendingNullifiers.add(nullifier);
+  public async pushNewNullifier(innerNullifier: Fr, contractAddress: AztecAddress) {
+    const wasm = await CircuitsWasm.get();
+    const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier);
+    this.pendingNullifiers.add(siloedNullifier);
   }
 
   /**

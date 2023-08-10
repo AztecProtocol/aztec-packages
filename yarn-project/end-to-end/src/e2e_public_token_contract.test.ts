@@ -7,7 +7,7 @@ import { AztecRPC, L2BlockL2Logs, TxStatus } from '@aztec/types';
 
 import times from 'lodash.times';
 
-import { expectAztecStorageSlot, setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_public_token_contract', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -17,7 +17,6 @@ describe('e2e_public_token_contract', () => {
   let logger: DebugLogger;
 
   let contract: PublicTokenContract;
-  const balanceSlot = 1n;
 
   const deployContract = async () => {
     logger(`Deploying L2 public contract...`);
@@ -66,7 +65,10 @@ describe('e2e_public_token_contract', () => {
     const receipt = await tx.getReceipt();
 
     expect(receipt.status).toBe(TxStatus.MINED);
-    await expectAztecStorageSlot(logger, aztecRpcServer, contract, balanceSlot, recipient.toField(), mintAmount);
+
+    const balance = (await contract.methods.publicBalanceOf(recipient.toField()).view({ from: recipient }))[0];
+    expect(balance).toBe(mintAmount);
+
     await expectLogsFromLastBlockToBe(['Coins minted']);
   }, 45_000);
 
@@ -89,7 +91,9 @@ describe('e2e_public_token_contract', () => {
     expect(receipts.map(r => r.status)).toEqual(times(3, () => TxStatus.MINED));
     expect(receipts.map(r => r.blockNumber)).toEqual(times(3, () => receipts[0].blockNumber));
 
-    await expectAztecStorageSlot(logger, aztecRpcServer, contract, balanceSlot, recipient.toField(), mintAmount * 3n);
+    const balance = (await contract.methods.publicBalanceOf(recipient.toField()).view({ from: recipient }))[0];
+    expect(balance).toBe(mintAmount * 3n);
+
     await expectLogsFromLastBlockToBe(['Coins minted', 'Coins minted', 'Coins minted']);
   }, 60_000);
 });
