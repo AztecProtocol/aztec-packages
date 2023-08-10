@@ -315,7 +315,7 @@ async function main() {
       const [pk, partialAddress] = await client.getPublicKeyAndPartialAddress(address);
 
       if (!pk) {
-        log(`Unkown account ${_address}`);
+        log(`Unknown account ${_address}`);
       } else {
         log(`Public Key: \n ${pk.toString()}\nPartial Contract Address: ${partialAddress.toString()}\n`);
       }
