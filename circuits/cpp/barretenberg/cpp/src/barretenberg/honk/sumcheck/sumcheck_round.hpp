@@ -3,7 +3,6 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "polynomials/barycentric_data.hpp"
-#include "polynomials/barycentric_data_recursive.hpp"
 #include "polynomials/pow.hpp"
 #include "polynomials/univariate.hpp"
 #include "relations/relation_parameters.hpp"
@@ -450,15 +449,9 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         // IMPROVEMENT(Cody): Use barycentric static method, maybe implement evaluation as member
         // function on Univariate.
-        if constexpr (IsRecursiveFlavor<Flavor>) {
-            auto barycentric = BarycentricDataRecursive<FF, MAX_RANDOM_RELATION_LENGTH, MAX_RANDOM_RELATION_LENGTH>();
-            // Evaluate T^{l}(u_{l})
-            target_total_sum = barycentric.evaluate(univariate, round_challenge);
-        } else {
-            auto barycentric = BarycentricData<FF, MAX_RANDOM_RELATION_LENGTH, MAX_RANDOM_RELATION_LENGTH>();
-            // Evaluate T^{l}(u_{l})
-            target_total_sum = barycentric.evaluate(univariate, round_challenge);
-        }
+        auto barycentric = BarycentricData<FF, MAX_RANDOM_RELATION_LENGTH, MAX_RANDOM_RELATION_LENGTH>();
+        // Evaluate T^{l}(u_{l})
+        target_total_sum = barycentric.evaluate(univariate, round_challenge);
 
         return target_total_sum;
     }
