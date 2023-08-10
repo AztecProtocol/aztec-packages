@@ -90,7 +90,7 @@ describe('e2e_non_contract_account', () => {
     const contractWithNoContractWallet = await PokeableTokenContract.create(contract.address, pokerWallet);
 
     const isUserSynchronised = async () => {
-      return await wallet.isAccountSynchronised(poker);
+      return await wallet.isAccountStateSynchronised(poker);
     };
     await retryUntil(isUserSynchronised, poker.toString(), 5);
 
