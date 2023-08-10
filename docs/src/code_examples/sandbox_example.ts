@@ -148,11 +148,10 @@ await checkBalances();
 // We will now transfer tokens from ALice to Bob
 const transferQuantity = 543;
 logger(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-const transferTx = tokenContractAlice.methods
+await tokenContractAlice.methods
   .transfer(transferQuantity, alice, bob)
-  .send();
-// Now send the transaction to the network and wait for it to settle
-await transferTx.wait();
+  .send()
+  .wait();
 
 // See if any logs were emitted
 await viewUnencryptedLogs();
@@ -166,9 +165,7 @@ await checkBalances();
 // Now mint some further funds for Bob
 const mintQuantity = 10_000;
 logger(`Minting ${mintQuantity} tokens to Bob...`);
-const mintTx = tokenContractBob.methods.mint(mintQuantity, bob).send();
-// Now send the transaction to the network and wait for it to settle
-await mintTx.wait();
+await tokenContractBob.methods.mint(mintQuantity, bob).send().wait();
 
 // See if any logs were emitted
 await viewUnencryptedLogs();
