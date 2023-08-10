@@ -1210,6 +1210,7 @@ workflows:
             - circuits-js
             - rollup-provider
             - aztec-sandbox
+            - build-canary
           <<: *defaults
 
       - e2e-2-rpc-servers: *e2e_test
