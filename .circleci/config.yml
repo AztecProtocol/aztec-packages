@@ -622,6 +622,17 @@ jobs:
           name: "Build and test"
           command: build sequencer-client
 
+  build-canary:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build"
+          command: cond_spot_run_build noir-contracts-build 32
+
   end-to-end:
     machine:
       image: ubuntu-2004:202010-01
@@ -1006,7 +1017,7 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  build-canary:
+  build-deployment-canary:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -1017,7 +1028,7 @@ jobs:
           name: "Build and test"
           command: build canary true
 
-  run-canary:
+  run-deployment-canary:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
