@@ -21,7 +21,7 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async create(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
-    if (await isContractDeployed(wallet, address)) {
+    if (!(await isContractDeployed(wallet, address))) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
     return new Contract(address, abi, wallet);
