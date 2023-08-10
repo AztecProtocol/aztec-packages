@@ -9,6 +9,7 @@ import {
   createAztecRpcClient,
   generatePublicKey,
   getAccountWallet,
+  isContractDeployed,
 } from '@aztec/aztec.js';
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
@@ -188,7 +189,7 @@ async function main() {
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(options.contractAddress);
-      const isDeployed = (await client.getContractData(address)) !== undefined;
+      const isDeployed = await isContractDeployed(client, address);
       log(`\n${isDeployed.toString()}\n`);
     });
 
