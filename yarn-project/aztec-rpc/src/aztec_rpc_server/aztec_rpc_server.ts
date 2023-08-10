@@ -223,7 +223,7 @@ export class AztecRPCServer implements AztecRPC {
     // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
     // until the synchroniser picks this up
 
-    const isSynchronised = await this.synchroniser.isSynchronised();
+    const isSynchronised = await this.synchroniser.isBlockHeadSynchronised();
     if (!isSynchronised) {
       // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
       return partialReceipt;
@@ -433,8 +433,8 @@ export class AztecRPCServer implements AztecRPC {
     );
   }
 
-  public async isSynchronised() {
-    return await this.synchroniser.isSynchronised();
+  public async isBlockHeadSynchronised() {
+    return await this.synchroniser.isBlockHeadSynchronised();
   }
 
   public async isAccountSynchronised(account: AztecAddress) {

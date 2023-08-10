@@ -206,16 +206,19 @@ export interface AztecRPC {
   getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
 
   /**
-   * Return true if the top level block synchronisation is up to date
-   * This indicates that blocks and transactions are synched even if notes are not
-   * @returns True if there are no outstanding blocks to be synched
+   * Checks whether all the blocks were processed.
+   * @returns True if there are no outstanding blocks to be synched.
+   * @remarks This indicates that blocks and transactions are synched even if notes are not.
+   * @remarks Compares local block height with the block height from aztec node.
    */
-  isSynchronised(): Promise<boolean>;
+  isBlockHeadSynchronised(): Promise<boolean>;
 
   /**
    * Returns true if the account specified by the given address is synched to the latest block
    * @param account - The aztec address for which to query the sync status
    * @returns True if the account is fully synched, false otherwise
+   * @remarks This checks whether all the notes from all the blocks have been processed. If it's not the case, the
+   *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
   isAccountSynchronised(account: AztecAddress): Promise<boolean>;
 

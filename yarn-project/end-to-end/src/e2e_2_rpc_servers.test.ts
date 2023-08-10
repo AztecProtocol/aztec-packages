@@ -162,7 +162,7 @@ describe('e2e_2_rpc_servers', () => {
 
   const awaitServerSynchronised = async (server: AztecRPC) => {
     const isServerSynchronised = async () => {
-      return await server.isSynchronised();
+      return await server.isBlockHeadSynchronised();
     };
     await retryUntil(isServerSynchronised, 'server sync', 10);
   };
