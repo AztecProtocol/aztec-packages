@@ -147,13 +147,14 @@ describe('HttpNode', () => {
 
   describe('getRollupAddress', () => {
     it('should fetch and return the rollup address', async () => {
-      const response = { rollupAddress: EthAddress.random().toString() };
+      const addr = EthAddress.random();
+      const response = { rollupAddress: addr.toString() };
       setFetchMock(response);
 
       const result = await httpNode.getRollupAddress();
 
       expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-rollup-address`);
-      expect(result).toBe(EthAddress.fromString(response.rollupAddress));
+      expect(result).toEqual(addr);
     });
   });
 
