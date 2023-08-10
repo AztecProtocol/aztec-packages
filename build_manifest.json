@@ -190,7 +190,7 @@
     "dependencies": ["circuits.js", "foundation", "types"]
   },
   "canary": {
-    "buildDir": "canary",
+    "buildDir": "yarn-project",
     "projectDir": "yarn-project/canary",
     "dockerfile": "canary/Dockerfile",
     "rebuildPatterns": ["^yarn-project/canary/"],
