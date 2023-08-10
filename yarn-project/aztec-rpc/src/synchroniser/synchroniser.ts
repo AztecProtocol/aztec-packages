@@ -239,9 +239,9 @@ export class Synchroniser {
 
   /**
    * Checks if the specified account is synchronised.
-   * @param account - The aztec address for which to query the sync status
-   * @returns True if the account is fully synched, false otherwise
-   * @remarks This checks whether all the notes from all the blocks have been processed. If it's not the case, the
+   * @param account - The aztec address for which to query the sync status.
+   * @returns True if the account is fully synched, false otherwise.
+   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
    *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
   public async isAccountStateSynchronised(account: AztecAddress) {
