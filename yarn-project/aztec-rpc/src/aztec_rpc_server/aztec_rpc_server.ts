@@ -6,12 +6,14 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  CircuitsWasm,
   ConstantHistoricBlockData,
   FunctionData,
   PartialAddress,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
+import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -90,15 +92,13 @@ export class AztecRPCServer implements AztecRPC {
 
   public async addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
-    // TODO(#1007): ECDSA contract breaks this check, since the ecdsa public key does not match the one derived from the keystore.
-    // Once we decouple the ecdsa contract signing and encryption keys, we can re-enable this check.
-    // const wasm = await CircuitsWasm.get();
-    // const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-    // if (!expectedAddress.equals(address)) {
-    //   throw new Error(
-    //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
-    //   );
-    // }
+    const wasm = await CircuitsWasm.get();
+    const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+    if (!expectedAddress.equals(address)) {
+      throw new Error(
+        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+      );
+    }
     await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialAddress);
     this.synchroniser.addAccount(pubKey, this.keyStore);
     this.log.info(`Added account ${address.toString()}`);
@@ -110,6 +110,13 @@ export class AztecRPCServer implements AztecRPC {
     publicKey: PublicKey,
     partialAddress: PartialAddress,
   ): Promise<void> {
+    const wasm = await CircuitsWasm.get();
+    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
+    if (!expectedAddress.equals(address)) {
+      throw new Error(
+        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+      );
+    }
     await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
     this.log.info(`Added public key for ${address.toString()}`);
   }
@@ -270,11 +277,16 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
+    const [version, chainId, rollupAddress] = await Promise.all([
+      this.node.getVersion(),
+      this.node.getChainId(),
+      this.node.getRollupAddress(),
+    ]);
 
     return {
       version,
       chainId,
+      rollupAddress,
     };
   }
 

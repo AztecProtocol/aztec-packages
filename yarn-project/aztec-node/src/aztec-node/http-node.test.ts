@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Pedersen } from '@aztec/merkle-tree';
 import {
@@ -145,21 +145,34 @@ describe('HttpNode', () => {
     });
   });
 
+  describe('getRollupAddress', () => {
+    it('should fetch and return the rollup address', async () => {
+      const addr = EthAddress.random();
+      const response = { rollupAddress: addr.toString() };
+      setFetchMock(response);
+
+      const result = await httpNode.getRollupAddress();
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-rollup-address`);
+      expect(result).toEqual(addr);
+    });
+  });
+
   describe('getContractDataAndBytecode', () => {
-    it('should fetch and return contract data and bytecode', async () => {
-      const contractData = ContractDataAndBytecode.random();
+    it('should fetch and return contract public data', async () => {
+      const contractDataAndBytecode = ContractDataAndBytecode.random();
       const response = {
-        contractData: contractData.toBuffer(),
+        contractData: contractDataAndBytecode.toBuffer(),
       };
 
       setFetchMock(response);
 
-      const result = await httpNode.getContractDataAndBytecode(contractData.contractData.contractAddress);
+      const result = await httpNode.getContractDataAndBytecode(contractDataAndBytecode.contractData.contractAddress);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${TEST_URL}contract-data-and-bytecode?address=${contractData.contractData.contractAddress.toString()}`,
+        `${TEST_URL}contract-data-and-bytecode?address=${contractDataAndBytecode.contractData.contractAddress.toString()}`,
       );
-      expect(result).toEqual(contractData);
+      expect(result).toEqual(contractDataAndBytecode);
     });
 
     it('should return undefined if contract data is not available', async () => {
