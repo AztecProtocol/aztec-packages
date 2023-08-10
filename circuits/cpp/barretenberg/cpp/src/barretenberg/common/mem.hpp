@@ -75,6 +75,5 @@ inline void aligned_free(void* mem)
 //     info("Top-most, releasable space (keepcost): ", minfo.keepcost);
 // }
 
-
 WASM_EXPORT void* bbmalloc(size_t size);
 WASM_EXPORT void bbfree(void* ptr);
