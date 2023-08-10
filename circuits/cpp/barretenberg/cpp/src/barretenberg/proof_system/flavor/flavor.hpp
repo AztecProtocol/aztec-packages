@@ -250,25 +250,6 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
     }
 }
 
-/**
- * @brief Recursive helper function to instantiate BarycentricData to extend each Relation in a tuple
- * @details Instantiate with lengths 2, 3, ... ExtendedLength
- * @note The purpose of this function is simply to instantiate some BarycentricData so that the static member
- * arrays are computed at compile time. It thus does not need a return value. It's awkward however to make
- * void functions execute at compile time so we make it return true upon completion and wrap the call in a
- * static_assert to ensure it has executed correctly.
- */
-template <class FF, size_t ExtendedLength, std::size_t Length = 2> static constexpr bool instantiate_barycentric_utils()
-{
-    if constexpr (Length > ExtendedLength) { // include ExtendedLength
-        return true;                         // Return true when finished
-    } else {
-        // We dont need to keep the result, we just want to ensure compile time computation of static members
-        [[maybe_unused]] auto barycentric_data = sumcheck::BarycentricData<FF, Length, ExtendedLength>{};
-        return instantiate_barycentric_utils<FF, ExtendedLength, Length + 1>();
-    }
-}
-
 } // namespace proof_system::honk::flavor
 
 // Forward declare honk flavors

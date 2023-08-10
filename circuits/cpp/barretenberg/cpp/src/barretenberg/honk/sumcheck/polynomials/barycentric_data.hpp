@@ -374,9 +374,35 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataR
     };
 };
 
+
+/**
+ * @brief Helper to determine whether input is bberg::field type
+ * 
+ * @tparam T 
+ */
+template <typename T>
+struct is_field_type {
+    static constexpr bool value = false;
+};
+
+template <typename Params>
+struct is_field_type<barretenberg::field<Params>> {
+    static constexpr bool value = true;
+};
+
+template<typename T>
+inline constexpr bool is_field_type_v = is_field_type<T>::value;
+
+/**
+ * @brief Exposes BarycentricData with compile time arrays if the type is bberg::field and runtime arrays otherwise 
+ * @details This method is also needed for stdlib field, for which the arrays are not compile time computable
+ * @tparam Fr 
+ * @tparam domain_size 
+ * @tparam num_evals 
+ */
 template <class Fr, size_t domain_size, size_t num_evals>
 using BarycentricData = std::conditional_t<
-    std::is_literal_type_v<Fr>, 
+    is_field_type_v<Fr>, 
     BarycentricDataCompileTime<Fr, domain_size, num_evals>, 
     BarycentricDataRunTime<Fr, domain_size, num_evals>
 >;
