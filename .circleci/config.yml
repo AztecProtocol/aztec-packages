@@ -1184,6 +1184,7 @@ workflows:
       - circuits-js: *yarn_project
       - rollup-provider: *yarn_project
       - aztec-sandbox: *yarn_project
+      - build-canary: *yarn_project
 
       - e2e-join:
           requires:
