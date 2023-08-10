@@ -1,12 +1,4 @@
-import {
-  AztecAddress,
-  CircuitsWasm,
-  Fr,
-  PartialAddress,
-  PrivateKey,
-  PublicKey,
-  TxContext,
-} from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, PartialAddress, PrivateKey, PublicKey, TxContext } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
