@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, ContractDeployer, Fr } from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, Fr, isContractDeployed } from '@aztec/aztec.js';
 import { getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -52,8 +52,8 @@ describe('e2e_deploy_contract', () => {
     expect(isMined).toBe(true);
     expect(receiptAfterMined.status).toBe(TxStatus.MINED);
     const contractAddress = receipt.contractAddress!;
-    expect(await aztecRpcServer.getContractData(contractAddress)).toBeTruthy();
-    expect(await aztecRpcServer.getContractData(AztecAddress.random())).toBeFalsy();
+    expect(await isContractDeployed(aztecRpcServer, contractAddress)).toBe(true);
+    expect(await isContractDeployed(aztecRpcServer, AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
