@@ -238,8 +238,8 @@ fn send_notes(
     emit_encrypted_log(
         context,
         context.inputs.call_context.storage_contract_address,
-        recipient_balances[1].storage_slot,
-        recipients[1],
+        recipient_balances[2].storage_slot,
+        recipients[2],
         recipient2_encryption_pub_key,
         recipient2_encrypted_data,
     );
