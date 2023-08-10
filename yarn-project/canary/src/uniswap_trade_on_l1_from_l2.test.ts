@@ -262,7 +262,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
     logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
-    // recipient is the uniswap portal
+    // recipient is the uniswap portal contract
     const selector = Fr.fromBuffer(wethL2Contract.methods.withdraw.selector);
     const minimumOutputAmount = 0n;
 
