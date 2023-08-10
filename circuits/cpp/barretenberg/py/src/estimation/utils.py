@@ -19,7 +19,11 @@ def log_circuit_data(lists, circuit, native_msm):
     else:
         msm_time = sum([msm.time_non_native()
                         for msm in circuit.verifier_msms])
-    datum = [circuit.log_n, circuit.max_memory, msm_time, circuit.proof_size]
+    datum = [circuit.log_n, 
+             round(circuit.max_memory / (1<<20), 1), # KiB 
+             round(msm_time / 1000, 1),              # seconds
+             round(circuit.proof_size / (1<<10), 1)  # KiB
+             ]
     lists.append(datum)
 
 

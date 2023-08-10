@@ -25,6 +25,7 @@ class ClientStraightGoblin:
     def process_logs(self, recursion_list, eccvm_list, translator_list):
         self.goblin.process_logs(recursion_list, eccvm_list, translator_list)
 
+
 class ClientProtogalaxiedGoblin:
     # create circuits to fold
     def __init__(self, num_circuits):
@@ -40,7 +41,6 @@ class ClientProtogalaxiedGoblin:
         self.goblin = Goblin(self.decider, opqueue)
 
     def summary(self):
-        # self.folding_verifier.summary()
         self.goblin.summary()
 
     def log(self, recursion_list, eccvm_list, translator_list):

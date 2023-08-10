@@ -61,7 +61,10 @@ class Goblin:
         # make a data frame for ease of visualization
         df = pd.DataFrame(arr)
         proof_types = ["Last circuit", "ECCVM", "Translator"]
-        attribute_strings = ["log_n", "max memory     (KiB)", "time to verify (ms)", "proof_size     (KiB)"]
+        attribute_strings = ["log(circuit size)", 
+                             "max memory        (KiB)", 
+                             "verification time (s)", 
+                             "proof_size        (KiB)"]
         index = pd.MultiIndex.from_product([proof_types, attribute_strings])
         df.index = index
         df.columns = [1<<(1+i) for i in range(num_log_points)] # TODO: these should be supplied at log time
