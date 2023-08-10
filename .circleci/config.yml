@@ -1053,13 +1053,13 @@ defaults: &defaults
         event: fail
         branch_pattern: "master"
 deploy_defaults: &deploy_defaults
-  filters:
-    branches:
-      only:
-        - master
-        - stage
-    tags:
-      only: *tag_regex
+  # filters:
+  #   branches:
+  #     only:
+  #       - master
+  #       - stage
+  #   tags:
+  #     only: *tag_regex
   context:
     - build
     - slack
@@ -1276,12 +1276,12 @@ workflows:
             - deploy-npm
           <<: *deploy_defaults
 
-      - build-canary:
+      - build-deployment-canary:
           requires:
             - deploy-end
           <<: *deploy_defaults
 
-      - run-canary:
+      - run-deployment-canary:
           requires:
-            - build-canary
+            - build-deployment-canary
           <<: *deploy_defaults
