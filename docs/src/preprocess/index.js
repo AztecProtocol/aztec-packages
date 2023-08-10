@@ -72,7 +72,6 @@ function processHighlighting(codeSnippet, identifier) {
  * @returns the code snippet, and start and end line numbers which can later be used for creating a link to github source code.
  */
 function extractCodeSnippet(filePath, identifier) {
-  console.log(filePath);
   let fileContent = fs.readFileSync(filePath, "utf-8");
   let lineRemovalCount = 0;
   let linesToRemove = [];
@@ -126,12 +125,10 @@ function extractCodeSnippet(filePath, identifier) {
   if (startMatch !== null) {
     const startIdentifiers = startMatch[1].split(":");
     startMatch = startIdentifiers.includes(identifier) ? startMatch : null;
-    console.log(lineNum1);
   }
   if (endMatch !== null) {
     const endIdentifiers = endMatch[1].split(":");
     endMatch = endIdentifiers.includes(identifier) ? endMatch : null;
-    console.log(lineNum2);
   }
 
   if (startMatch === null || endMatch === null) {
