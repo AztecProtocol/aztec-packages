@@ -1,7 +1,7 @@
 // TODO: Delete this cbind once funcs working in root cbind of ecc module.
 #include "grumpkin.hpp"
+#include "barretenberg/common/wasm_export.hpp"
 
-#define WASM_EXPORT __attribute__((visibility("default")))
 
 extern "C" {
 
