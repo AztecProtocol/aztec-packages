@@ -192,7 +192,7 @@
   "canary": {
     "buildDir": "canary",
     "projectDir": "yarn-project/canary",
-    "dockerfile": "Dockerfile",
+    "dockerfile": "canary/Dockerfile",
     "rebuildPatterns": ["^yarn-project/canary/"],
     "dependencies": ["aztec.js", "l1-artifacts", "noir-contracts"]
   },
