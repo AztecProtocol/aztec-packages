@@ -5,7 +5,8 @@ namespace barretenberg {
 namespace polynomial_arithmetic {
 
 template <typename T>
-concept SupportsFFT = std::same_as<T, barretenberg::fr>;
+concept SupportsFFT = T::Params::has_high_2adicity;
+
 template <typename Fr> struct LagrangeEvaluations {
     Fr vanishing_poly;
     Fr l_start;

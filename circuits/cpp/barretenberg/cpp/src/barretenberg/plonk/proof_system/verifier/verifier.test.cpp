@@ -1,4 +1,3 @@
-#include "verifier.hpp"
 #include "../../../transcript/transcript.hpp"
 #include "../prover/prover.hpp"
 #include "../utils/permutation.hpp"

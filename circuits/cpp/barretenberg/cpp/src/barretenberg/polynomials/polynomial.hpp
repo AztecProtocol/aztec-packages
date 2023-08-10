@@ -10,7 +10,6 @@
 #include <span>
 namespace barretenberg {
 template <typename Fr> class Polynomial {
-
   public:
     /**
      * Implements requirements of `std::ranges::contiguous_range` and `std::ranges::sized_range`
