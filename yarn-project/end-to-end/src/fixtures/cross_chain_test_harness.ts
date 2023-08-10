@@ -12,7 +12,7 @@ import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { Chain, HttpTransport, PublicClient, getContract } from 'viem';
 
-import { CheatCodes } from '../cheat_codes.js';
+import { CheatCodes } from './cheat_codes.js';
 import { deployAndInitializeNonNativeL2TokenContracts } from './utils.js';
 
 /**
@@ -203,12 +203,9 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint, publicBalanceSlot: bigint) {
-    const balance = await this.cc.l2.loadPublic(
-      this.l2Contract.address,
-      this.cc.l2.computeSlotInMap(publicBalanceSlot, owner.toField()),
-    );
-    expect(balance.value).toBe(expectedBalance);
+  async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
+    const balance = (await this.l2Contract.methods.publicBalanceOf(owner.toField()).view({ from: owner }))[0];
+    expect(balance).toBe(expectedBalance);
   }
 
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {

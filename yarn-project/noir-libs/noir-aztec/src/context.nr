@@ -15,13 +15,13 @@ use crate::constants_gen::{
 use crate::abi;
 
 use crate::abi::{
-    empty_commitment_trees_roots,
+    empty_block_data,
     empty_contract_storage_read,
     empty_contract_storage_update_request,
     hash_args,
     CallContext,
     ContractDeploymentData,
-    CommitmentTreesRoots,
+    ConstantHistoricBlockData,
     FunctionData,
     PrivateCircuitPublicInputs,
     PublicCircuitPublicInputs,
@@ -47,6 +47,7 @@ use crate::oracle::{
     call_private_function::call_private_function_internal,
     public_call::call_public_function_internal,
     enqueue_public_function_call::enqueue_public_function_call_internal,
+    context::get_portal_address,
 };
 
 
@@ -96,6 +97,26 @@ impl Context {
         }
     }
 
+    fn msg_sender(self) -> Field {
+        self.inputs.call_context.msg_sender
+    }
+
+    fn this_address(self) -> Field {
+        self.inputs.call_context.storage_contract_address
+    }
+
+    fn this_portal_address(self) -> Field {
+        self.inputs.call_context.portal_contract_address
+    }
+
+    fn chain_id(self) -> Field {
+        self.inputs.private_global_variables.chain_id
+    }
+
+    fn version(self) -> Field {
+        self.inputs.private_global_variables.version
+    }
+
     fn finish(self) -> abi::PrivateCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let encrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
@@ -118,7 +139,7 @@ impl Context {
             unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: encrypted_log_preimages_length,
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,
-            commitment_trees_roots: self.inputs.roots,
+            block_data: self.inputs.block_data,
             contract_deployment_data: self.inputs.contract_deployment_data,
             chain_id: self.inputs.private_global_variables.chain_id,
             version: self.inputs.private_global_variables.version,
@@ -146,7 +167,7 @@ impl Context {
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
     fn consume_l1_to_l2_message(&mut self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) {
-        let nullifier = process_l1_to_l2_message(inputs.roots.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
+        let nullifier = process_l1_to_l2_message(inputs.block_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
@@ -165,10 +186,18 @@ impl Context {
         contract_address: Field, 
         function_selector: Field, 
         args: [Field; ARGS_COUNT]
-    ) -> PrivateCallStackItem {
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_private_function_with_packed_args(contract_address, function_selector, args_hash)
+    }
+
+    fn call_private_function_no_args(
+        &mut self,
+        contract_address: Field, 
+        function_selector: Field, 
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        self.call_private_function_with_packed_args(contract_address, function_selector, 0)
     }
 
     fn call_private_function_with_packed_args(
@@ -176,7 +205,7 @@ impl Context {
         contract_address: Field,
         function_selector: Field,
         args_hash: Field
-    ) -> PrivateCallStackItem {
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let fields = call_private_function_internal(
             contract_address, 
             function_selector, 
@@ -214,25 +243,27 @@ impl Context {
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 44),
                 encrypted_log_preimages_length: fields[46],
                 unencrypted_log_preimages_length: fields[47],
-                commitment_trees_roots: CommitmentTreesRoots {
+                block_data: ConstantHistoricBlockData {
                     // Must match order in `private_circuit_public_inputs.hpp`
                     private_data_tree_root : fields[48],
                     nullifier_tree_root : fields[49],
                     contract_tree_root : fields[50],
                     l1_to_l2_messages_tree_root : fields[51],
                     blocks_tree_root : fields[52],
+                    prev_global_variables_hash: fields[53],
+                    public_data_tree_root: fields[54],
                 },
                 contract_deployment_data: ContractDeploymentData {
-                    deployer_public_key: Point::new(fields[53], fields[54]),
-                    constructor_vk_hash : fields[55],
-                    function_tree_root : fields[56],
-                    contract_address_salt : fields[57],
-                    portal_contract_address : fields[58],
+                    deployer_public_key: Point::new(fields[55], fields[56]),
+                    constructor_vk_hash : fields[57],
+                    function_tree_root : fields[58],
+                    contract_address_salt : fields[59],
+                    portal_contract_address : fields[60],
                 },
-                chain_id: fields[59],
-                version: fields[60],
+                chain_id: fields[61],
+                version: fields[62],
             },
-            is_execution_request: fields[61] as bool,
+            is_execution_request: fields[63] as bool,
         };
         assert(contract_address == item.contract_address);
         assert(function_selector == item.function_data.function_selector);
@@ -253,7 +284,7 @@ impl Context {
 
         self.private_call_stack.push(item.hash());
 
-        item
+        item.public_inputs.return_values
     }
 
     fn call_public_function<ARGS_COUNT>(
@@ -261,10 +292,18 @@ impl Context {
         contract_address: Field, 
         function_selector: Field, 
         args: [Field; ARGS_COUNT]
-    ) -> PublicCallStackItem {
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash)
+    }
+
+    fn call_public_function_no_args(
+        &mut self,
+        contract_address: Field, 
+        function_selector: Field,
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        self.call_public_function_with_packed_args(contract_address, function_selector, 0)
     }
 
     fn call_public_function_with_packed_args(
@@ -272,7 +311,7 @@ impl Context {
         contract_address: Field,
         function_selector: Field,
         args_hash: Field
-    ) -> PublicCallStackItem {
+    ) -> [Field; RETURN_VALUES_LENGTH] {
         let fields = enqueue_public_function_call_internal(
             contract_address, 
             function_selector, 
@@ -306,7 +345,7 @@ impl Context {
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
-                commitment_trees_roots: empty_commitment_trees_roots(),
+                block_data: empty_block_data(),
                 historic_public_data_tree_root: 0,
                 prover_address: 0,
             },
@@ -330,6 +369,6 @@ impl Context {
 
         self.public_call_stack.push(item.hash());
 
-        item
+        item.public_inputs.return_values
     }
 }

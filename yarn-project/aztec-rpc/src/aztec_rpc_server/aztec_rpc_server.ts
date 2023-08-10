@@ -1,4 +1,5 @@
 import {
+  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
@@ -6,9 +7,9 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
+  ConstantHistoricBlockData,
   FunctionData,
   PartialContractAddress,
-  PrivateHistoricTreeRoots,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
@@ -26,9 +27,9 @@ import {
   FunctionCall,
   INITIAL_L2_BLOCK_NUM,
   KeyStore,
+  L2Block,
   L2BlockL2Logs,
   LogType,
-  MerkleTreeId,
   NodeInfo,
   Tx,
   TxExecutionRequest,
@@ -160,6 +161,14 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
+  }
+
+  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    // If a negative block number is provided the current block height is fetched.
+    if (blockNumber < 0) {
+      blockNumber = await this.node.getBlockHeight();
+    }
+    return await this.node.getBlock(blockNumber);
   }
 
   public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
@@ -322,31 +331,24 @@ export class AztecRPCServer implements AztecRPC {
     );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
-    const currentRoots = this.db.getTreeRoots();
-    const historicRoots = PrivateHistoricTreeRoots.from({
-      contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
-      privateDataTreeRoot: currentRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-      l1ToL2MessagesTreeRoot: currentRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: currentRoots[MerkleTreeId.BLOCKS_TREE],
-      privateKernelVkTreeRoot: Fr.ZERO,
-    });
-
     return {
       contractAddress,
       functionAbi,
       portalContract,
-      historicRoots,
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  async #simulate(
+    txRequest: TxExecutionRequest,
+    constantHistoricBlockData: ConstantHistoricBlockData,
+    contractDataOracle?: ContractDataOracle,
+  ): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
     );
@@ -355,7 +357,13 @@ export class AztecRPCServer implements AztecRPC {
 
     try {
       this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
+      const result = await simulator.run(
+        txRequest,
+        functionAbi,
+        contractAddress,
+        portalContract,
+        constantHistoricBlockData,
+      );
       this.log('Simulation completed!');
 
       return result;
@@ -375,7 +383,10 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
+
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
     );
@@ -389,7 +400,8 @@ export class AztecRPCServer implements AztecRPC {
       functionAbi,
       contractAddress,
       portalContract,
-      historicRoots,
+      constantHistoricBlockData,
+      this.node,
     );
     this.log('Unconstrained simulation completed!');
 
@@ -412,9 +424,12 @@ export class AztecRPCServer implements AztecRPC {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const executionResult = await this.#simulate(txExecutionRequest, contractDataOracle);
+
+    // Get values that allow us to reconstruct the block hash
+    const constantHistoricBlockData = await kernelOracle.getconstantHistoricBlockData();
+
+    const executionResult = await this.#simulate(txExecutionRequest, constantHistoricBlockData, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);

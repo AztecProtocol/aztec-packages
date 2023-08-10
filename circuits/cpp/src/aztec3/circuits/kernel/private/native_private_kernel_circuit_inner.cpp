@@ -74,13 +74,14 @@ namespace aztec3::circuits::kernel::private_kernel {
 //     return aggregation_object;
 // }
 
-void validate_this_private_call_hash(DummyCircuitBuilder& builder,
-                                     PrivateCallData<NT> const& private_call,
-                                     KernelCircuitPublicInputs<NT>& public_inputs)
+void pop_and_validate_this_private_call_hash(
+    DummyCircuitBuilder& builder,
+    PrivateCallData<NT> const& private_call,
+    std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>& private_call_stack)
 {
     // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
     // tx, and the 'gas rebate' tx).
-    const auto popped_private_call_hash = array_pop(public_inputs.end.private_call_stack);
+    const auto popped_private_call_hash = array_pop(private_call_stack);
     const auto calculated_this_private_call_hash = private_call.call_stack_item.hash();
 
     builder.do_assert(
@@ -98,8 +99,7 @@ void validate_contract_tree_root(DummyCircuitBuilder& builder, PrivateKernelInpu
     auto const& purported_contract_tree_root =
         private_inputs.private_call.call_stack_item.public_inputs.historic_contract_tree_root;
     auto const& previous_kernel_contract_tree_root =
-        private_inputs.previous_kernel.public_inputs.constants.historic_tree_roots.private_historic_tree_roots
-            .contract_tree_root;
+        private_inputs.previous_kernel.public_inputs.constants.block_data.contract_tree_root;
     builder.do_assert(
         purported_contract_tree_root == previous_kernel_contract_tree_root,
         "purported_contract_tree_root doesn't match previous_kernel_contract_tree_root",
@@ -151,13 +151,13 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_inner(DummyCircuitBu
 
     validate_inputs(builder, private_inputs);
 
-    validate_this_private_call_hash(builder, private_inputs.private_call, public_inputs);
+    pop_and_validate_this_private_call_hash(builder, private_inputs.private_call, public_inputs.end.private_call_stack);
 
     common_validate_call_stack(builder, private_inputs.private_call);
 
     common_validate_read_requests(
         builder,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        public_inputs.constants.block_data.private_data_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 
