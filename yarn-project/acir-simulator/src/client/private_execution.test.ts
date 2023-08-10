@@ -85,11 +85,13 @@ describe('Private Execution test suite', () => {
     args = [],
     origin = AztecAddress.random(),
     contractAddress = defaultContractAddress,
+    portalContractAddress = EthAddress.ZERO,
     txContext = {},
   }: {
     abi: FunctionAbi;
     origin?: AztecAddress;
     contractAddress?: AztecAddress;
+    portalContractAddress?: EthAddress;
     args?: any[];
     txContext?: Partial<FieldsOf<TxContext>>;
   }) => {
@@ -107,7 +109,7 @@ describe('Private Execution test suite', () => {
       txRequest,
       abi,
       functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
-      EthAddress.ZERO,
+      portalContractAddress,
       blockData,
     );
   };
@@ -978,6 +980,48 @@ describe('Private Execution test suite', () => {
       oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
+    });
+  });
+
+  describe('Context oracles', () => {
+    it("Should be able to get and return the contract's portal contract address", async () => {
+      const portalContractAddress = EthAddress.random();
+      const aztecAddressToQuery = AztecAddress.random();
+
+      // Tweak the contract ABI so we can extract return values
+      const abi = TestContractAbi.functions.find(f => f.name === 'getPortalContractAddress')!;
+      abi.returnTypes = [{ kind: 'field' }];
+
+      const args = [aztecAddressToQuery.toField()];
+
+      // Overwrite the oracle return value
+      oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
+    });
+
+    it('this_address should return the current context address', async () => {
+      const contractAddress = AztecAddress.random();
+
+      // Tweak the contract ABI so we can extract return values
+      const abi = TestContractAbi.functions.find(f => f.name === 'getThisAddress')!;
+      abi.returnTypes = [{ kind: 'field' }];
+
+      // Overwrite the oracle return value
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args: [], contractAddress });
+      expect(result.returnValues).toEqual([contractAddress.toField().value]);
+    });
+
+    it("this_portal_address should return the current context's portal address", async () => {
+      const portalContractAddress = EthAddress.random();
+
+      // Tweak the contract ABI so we can extract return values
+      const abi = TestContractAbi.functions.find(f => f.name === 'getThisPortalAddress')!;
+      abi.returnTypes = [{ kind: 'field' }];
+
+      // Overwrite the oracle return value
+      const result = await runSimulator({ origin: AztecAddress.random(), abi, args: [], portalContractAddress });
+      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
     });
   });
 });
