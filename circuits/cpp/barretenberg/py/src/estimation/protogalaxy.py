@@ -2,14 +2,14 @@ from circuit import CircuitKZG
 from flavors import Ultra
 from goblin import Goblin
 from msm import MSM
-from utils import get_circuit_size, print_circuit_data, info
+from utils import *
 
 
 class FoldingVerifier(CircuitKZG):
     # k instances folded into 1
     def __init__(self, circuits):
         flavor = Ultra()
-        num_instances_to_fold = len(circuits)  # k
+        num_instances_to_fold = len(circuits) # k
         num_msms = flavor.NUM_POLYNOMIALS
         # don't need to fold shifts?
         num_msms -= flavor.NUM_SHIFTED_POLYNOMIALS

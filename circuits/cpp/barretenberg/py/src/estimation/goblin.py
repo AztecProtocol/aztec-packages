@@ -20,7 +20,7 @@ class Goblin:
             num_translator_gates), num_public_inputs=0)
 
     def summary(self):
-        print_circuit_data("Recursion Circuit: ",
+        print_circuit_data("Last Circuit: ",
                            self.final_circuit, native_msm=False)
         print_circuit_data("ECCVM: ", self.eccvm, native_msm=True)
         print_circuit_data("Translator: ",

@@ -36,7 +36,7 @@ class ClientProtogalaxiedGoblin:
 
         opqueue = []
         opqueue += self.folding_verifier.msms
-        opqueue += self.decider.verifier_msms
+        opqueue += self.folding_verifier.verifier_msms
         self.goblin = Goblin(self.decider, opqueue)
 
     def summary(self):
@@ -60,7 +60,8 @@ if __name__ == "__main__":
 
     client_stack.process_logs(recursion_list, eccvm_list, translator_list)
 
-    print("\n====================\n")
+    print("\n========================================\n")
+
     print("PROTOGALAXIED GOBLIN")
     recursion_list, eccvm_list, translator_list = [], [], []
     for log_k in range(1, 11):
