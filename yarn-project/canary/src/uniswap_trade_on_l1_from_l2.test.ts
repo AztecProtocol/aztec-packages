@@ -269,6 +269,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const withdrawTx = uniswapL2Contract.methods
       .swap(
         selector,
+        wethL2Contract.address.toField(),
         wethAmountToBridge,
         new Fr(3000),
         daiL2Contract.address.toField(),
