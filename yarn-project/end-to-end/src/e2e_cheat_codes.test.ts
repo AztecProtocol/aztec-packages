@@ -14,7 +14,6 @@ describe('e2e_cheat_codes', () => {
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let recipient: AztecAddress;
-  let rollupAddress: EthAddress;
 
   let cc: CheatCodes;
   let walletClient: WalletClient<HttpTransport, Chain, Account>;
@@ -26,7 +25,6 @@ describe('e2e_cheat_codes', () => {
     ({ aztecNode, aztecRpcServer, wallet, accounts, cheatCodes: cc, deployL1ContractsValues } = await setup());
     walletClient = deployL1ContractsValues.walletClient;
     publicClient = deployL1ContractsValues.publicClient;
-    rollupAddress = deployL1ContractsValues.rollupAddress;
     recipient = accounts[0];
   }, 100_000);
 
@@ -95,7 +93,7 @@ describe('e2e_cheat_codes', () => {
       // we will transfer 1 eth to a random address. Then impersonate the address to be able to send funds
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];
-      const randomAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
+      const randomAddress = EthAddress.random().toString();
       await walletClient.sendTransaction({
         account: myAddress,
         to: randomAddress,
@@ -107,12 +105,14 @@ describe('e2e_cheat_codes', () => {
       await cc.l1.startPrank(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
-      await walletClient.sendTransaction({
+      const txHash = await walletClient.sendTransaction({
         account: randomAddress,
         to: myAddress,
         value: amountToSend,
       });
-      expect(await publicClient.getBalance({ address: randomAddress })).toBeLessThan(beforeBalance - amountToSend); // account for fees too
+      const tx = await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const feePaid = tx.gasUsed * tx.effectiveGasPrice;
+      expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
       await cc.l1.stopPrank(EthAddress.fromString(randomAddress));
@@ -141,7 +141,11 @@ describe('e2e_cheat_codes', () => {
       // now update time:
       const timestamp = await cc.l1.timestamp();
       const newTimestamp = timestamp + 100_000_000;
-      await cc.l2.warp(newTimestamp, rollupAddress);
+      await cc.l2.warp(newTimestamp);
+
+      // todo: @rahul-kothari add explicit check that `lastBlockTs` was updated in contract.
+      // currently it is only done implicitly through below check. Better to have an explicit check.
+      // That will make it more clear if the storage slot is changed so the wrong value is updated.
 
       // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
       // this should be the new timestamp
