@@ -5,7 +5,7 @@ use crate::constants_gen::{
     MAX_NOTES_PER_PAGE,
     VIEW_NOTE_ORACLE_RETURN_LENGTH,
 };
-use crate::context::Context;
+use crate::context::PrivateContext;
 use crate::note::{
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
@@ -20,7 +20,7 @@ use crate::oracle;
 use crate::types::option::Option;
 
 fn check_note_header<Note, N>(
-    context: Context,
+    context: PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     note: Note,
@@ -33,7 +33,7 @@ fn check_note_header<Note, N>(
 }
 
 fn ensure_note_exists<Note, N>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     note: &mut Note,
@@ -56,7 +56,7 @@ fn ensure_note_exists<Note, N>(
 // notes via the oracle.
 // Modifies the note by populating it with header info.
 fn ensure_note_hash_exists<Note, N>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     note: &mut Note,
@@ -98,7 +98,7 @@ fn ensure_note_hash_exists<Note, N>(
 }
 
 fn get_note<Note, N>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> Note {
@@ -113,7 +113,7 @@ fn get_note<Note, N>(
 }
 
 fn get_notes<Note, N, S, P>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,

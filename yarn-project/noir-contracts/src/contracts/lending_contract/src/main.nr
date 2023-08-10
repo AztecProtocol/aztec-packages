@@ -6,7 +6,10 @@ contract Lending {
         abi::PrivateContextInputs,
         abi::PublicContextInputs
     };
-    use dep::aztec::context::Context;
+    use dep::aztec::context::{
+        PrivateContext,
+        PublicContext
+    };
     use dep::aztec::oracle::{
         logs::emit_unencrypted_log,
         create_nullifier::create_nullifier,
@@ -23,12 +26,14 @@ contract Lending {
         inputs: PrivateContextInputs
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+        PrivateContext::new(inputs, 0).finish()
     }
 
     open fn init(
         inputs: PublicContextInputs
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([]));
+
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
@@ -51,11 +56,13 @@ contract Lending {
     open fn update_tot(
         inputs: PublicContextInputs
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([]));
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
         let mut tot = asset.read();
 
+        // TODO(MADDIAA): Get all timestamps in this file from the context!!
         let dt: u120 = inputs.public_global_variables.timestamp as u120  - tot.last_updated_ts;
 
         // Need proper interest computation here.
@@ -80,7 +87,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             owner,
             amount
@@ -111,6 +118,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
         call_public_function(inputs.call_context.storage_contract_address, 3009041984, [owner, amount])[0]
@@ -121,6 +129,8 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
         let storage = Storage::init();
@@ -137,7 +147,7 @@ contract Lending {
         secret: Field,
         amount: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             amount
         ]));
@@ -158,6 +168,8 @@ contract Lending {
         inputs: PublicContextInputs,
         amount: Field
     ) -> pub Field {
+        // TODO(MADDIAA): GET ALL OF THE STUFF FROM CONTEXT IN THIS FILE!!!!! -> ADD TO THE PUBLIC CONTEXT
+        let mut _context = PublicContext::new(inputs, abi::hash_args([amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
         call_public_function(inputs.call_context.storage_contract_address, 1065861440, [inputs.call_context.msg_sender, amount])[0]
@@ -170,6 +182,8 @@ contract Lending {
         amount: Field
     ) -> pub Field {
         // Access control.
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
         let storage = Storage::init();
@@ -194,7 +208,7 @@ contract Lending {
         secret: Field,
         amount: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             amount
         ]));
@@ -215,6 +229,7 @@ contract Lending {
         inputs: PublicContextInputs,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([amount]));
         call_public_function(inputs.call_context.storage_contract_address, 1462609836, [inputs.call_context.msg_sender, amount])[0]
     }
 
@@ -223,6 +238,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // Access control.
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
@@ -250,7 +266,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             owner,
             amount
@@ -280,6 +296,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens from msg.sender to this contract.
         call_public_function(inputs.call_context.storage_contract_address, 3985016136, [owner, amount])[0]
     }
@@ -289,6 +306,7 @@ contract Lending {
         owner: Field,
         amount: Field
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
         let storage = Storage::init();

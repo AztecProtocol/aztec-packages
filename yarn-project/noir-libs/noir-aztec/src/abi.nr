@@ -261,6 +261,10 @@ impl ContractStorageRead {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
     }
+
+    fn empty() -> Self {
+        Self { storage_slot: 0, value: 0 }
+    }
 }
 
 struct ContractStorageUpdateRequest {
@@ -276,6 +280,10 @@ impl ContractStorageUpdateRequest {
 
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
+    }
+
+    fn empty() -> Self {
+        Self { storage_slot: 0, old_value: 0, new_value: 0 }
     }
 }
 
@@ -296,9 +304,12 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    block_data: ConstantHistoricBlockData,
+    // block_data: ConstantHistoricBlockData,
     historic_public_data_tree_root: Field,
     prover_address: Field,
+
+
+    // TODO: include globals in here and check them elsewhere
 }
 
 impl PublicCircuitPublicInputs {
@@ -347,7 +358,7 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.block_data.serialize());
+        // fields.push_array(self.block_data.serialize());
         fields.push(self.historic_public_data_tree_root);
         fields.push(self.prover_address);
         fields.storage

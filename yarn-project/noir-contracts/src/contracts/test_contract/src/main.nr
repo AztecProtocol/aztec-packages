@@ -7,7 +7,10 @@ contract Test {
             PrivateContextInputs
         }
     };
-    use dep::aztec::context::Context;
+    use dep::aztec::context::{
+        PrivateContext,
+        PublicContext
+    };
 
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
@@ -20,14 +23,14 @@ contract Test {
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+        PrivateContext::new(inputs, 0).finish()
     }
 
     fn getPublicKey(
         inputs: PrivateContextInputs,
         address: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([address]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([address]));
         let pub_key = get_public_key(address);
         context.return_values.push_array([pub_key.x, pub_key.y]);
         context.finish()
@@ -38,7 +41,7 @@ contract Test {
         inputs: PrivateContextInputs,
         aztec_address: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let portal_address = get_portal_address(aztec_address);
         context.return_values.push_array([portal_address]);
         context.finish()
@@ -48,7 +51,7 @@ contract Test {
     fn getThisPortalAddress(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let this_portal_address = context.this_portal_address();
         context.return_values.push_array([this_portal_address]);
         context.finish()
@@ -58,7 +61,7 @@ contract Test {
     fn getThisAddress(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let this_address = context.this_address();
         context.return_values.push_array([this_address]);
         context.finish()
@@ -66,10 +69,11 @@ contract Test {
 
     // Purely exists for testing
     open fn createL2ToL1MessagePublic(
-        _inputs: PublicContextInputs,
+        inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
     ) {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);
         
@@ -79,10 +83,11 @@ contract Test {
 
     // Purely exists for testing
     open fn createNullifierPublic(
-        _inputs: PublicContextInputs,
+        inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
     ) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
     
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);

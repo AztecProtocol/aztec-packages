@@ -3,13 +3,16 @@ contract Parent {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::Context;
+    use dep::aztec::context::{
+        PrivateContext,
+        PublicContext,
+    };
     use dep::aztec::public_call_stack_item::call_public_function;
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        Context::new(inputs, 0).finish()
+        PrivateContext::new(inputs, 0).finish()
     }
 
     // Private function to call another private function in the targetContract using the provided selector
@@ -18,7 +21,7 @@ contract Parent {
         targetContract: Field,
         targetSelector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             targetContract,
             targetSelector,
         ]));
@@ -35,12 +38,16 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
-    open fn pubEntryPoint(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+    open fn pubEntryPoint(inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
+
         call_public_function(targetContract, targetSelector, [initValue])[0]
     }
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    open fn pubEntryPointTwice(_inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+    open fn pubEntryPointTwice(inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
+
         let returnValue = call_public_function(targetContract, targetSelector, [initValue])[0];
         call_public_function(targetContract, targetSelector, [returnValue])[0]
     }
@@ -52,7 +59,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             targetContract,
             targetSelector,
             targetValue,
@@ -71,7 +78,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             targetContract,
             targetSelector,
             targetValue,
@@ -93,7 +100,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             targetContract,
             targetSelector,
             targetValue,
@@ -114,7 +121,7 @@ contract Parent {
         targetSelector: Field,
         targetValue: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             targetContract,
             targetSelector,
             targetValue,

@@ -199,6 +199,11 @@ export class PublicProcessor {
   }
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
+    // NOTE This fills in the public circuit public inputs stuff for us.
+    // Which does not make sense to me, it should be passed in and returned?
+
+    // The serialisation of these exists but is never used in noir
+
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);

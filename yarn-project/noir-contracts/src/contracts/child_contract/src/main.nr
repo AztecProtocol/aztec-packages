@@ -5,14 +5,17 @@ contract Child {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::Context;
+    use dep::aztec::context::{
+        PrivateContext,
+        PublicContext
+    };
     use crate::storage::Storage;
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+        PrivateContext::new(inputs, 0).finish()
     }
 
     // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
@@ -20,7 +23,7 @@ contract Child {
         inputs: PrivateContextInputs,
         input: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([input]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([input]));
 
         context.return_values.push(input + inputs.private_global_variables.chain_id + inputs.private_global_variables.version);
 
@@ -34,7 +37,9 @@ contract Child {
     }
 
     // Increments `current_value` by `new_value` and returns `new_value` + 1.
-    open fn pubStoreValue(_inputs: PublicContextInputs, new_value: Field) -> pub Field {
+    open fn pubStoreValue(inputs: PublicContextInputs, new_value: Field) -> pub Field {
+        let mut _context = PublicContext::new(inputs, abi::hash_args([new_value]));
+
         let storage = Storage::init();
         let old_value = storage.current_value.read();
         // Compiler complains if we don't assign the result to anything

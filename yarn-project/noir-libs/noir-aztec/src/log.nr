@@ -1,9 +1,9 @@
-use crate::context::Context;
+use crate::context::PrivateContext;
 use crate::oracle;
 use crate::types::point::Point;
 
 fn emit_encrypted_log<N>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     contract_address: Field,
     storage_slot: Field,
     owner: Field,
@@ -15,7 +15,7 @@ fn emit_encrypted_log<N>(
 }
 
 fn emit_unencrypted_log<T>(
-    context: &mut Context,
+    context: &mut PrivateContext,
     log: T,
 ) {
     let _ = oracle::logs::emit_unencrypted_log(log);
