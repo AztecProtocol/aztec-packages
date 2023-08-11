@@ -34,7 +34,7 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
   exit 1
 fi
 
-circuits/cpp/bootstrap.sh
+#circuits/cpp/bootstrap.sh
 
 if [ "$(uname)" = "Darwin" ]; then
   # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
