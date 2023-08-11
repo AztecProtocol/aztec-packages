@@ -37,7 +37,7 @@ describe('multi-transfer payments', () => {
     if (aztecRpcServer instanceof AztecRPCServer) {
       await aztecRpcServer?.stop();
     }
-  }, 500_000);
+  });
 
   const deployZkTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying zk token contract...`);
@@ -88,7 +88,7 @@ describe('multi-transfer payments', () => {
         Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
       )
       .send({ origin: ownerAddress });
-    await multiTransferTx.isMined();
+    await multiTransferTx.isMined({ timeout: 1000 });
     const multiTransferTxReceipt = await multiTransferTx.getReceipt();
     logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
     await expectBalance(zkTokenContract, ownerAddress, initialNote - amountSum);
