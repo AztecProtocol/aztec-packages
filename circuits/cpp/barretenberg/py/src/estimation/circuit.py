@@ -1,5 +1,5 @@
 from flavors import *
-from utils import info
+from utils import info, DataLog
 from msm import MSM
 
 
@@ -18,8 +18,8 @@ class CircuitNoPCS:
         self.log_n = log_n
         self.num_public_inputs = num_pub_inputs
 
-        # Each polynomial consists of n 32-byte field elements. After the first 
-        # round of sumcheck, we also have a partial evaluation oach polynomials, 
+        # Each polynomial consists of n 32-byte field elements. After the first
+        # round of sumcheck, we also have a partial evaluation oach polynomials,
         # which consists of n/2 32-byte field elements
         self.max_memory = int(flavor.NUM_POLYNOMIALS *
                               (1 << log_n) * 32 * 1.5)  # bytes
@@ -57,16 +57,14 @@ class CircuitNoPCS:
 
 class CircuitKZG(CircuitNoPCS):
     def __init__(self, flavor, log_n, num_public_inputs):
-        super(CircuitKZG, self).__init__(
-            flavor, log_n, num_public_inputs)
+        super(CircuitKZG, self).__init__(flavor, log_n, num_public_inputs)
         self.verifier_msms += [MSM(1)]
         self.proof_size += COMMITMENT_SIZE
 
 
 class CircuitIPA(CircuitNoPCS):
     def __init__(self, flavor, log_n, num_public_inputs):
-        super(CircuitIPA, self).__init__(
-            flavor, log_n, num_public_inputs)
+        super(CircuitIPA, self).__init__(flavor, log_n, num_public_inputs)
         self.verifier_msms += [MSM(2 * self.log_n), MSM(1 << self.log_n)]
 
         # IPA: L and R commitments

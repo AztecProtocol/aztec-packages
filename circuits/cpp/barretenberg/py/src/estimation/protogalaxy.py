@@ -40,7 +40,9 @@ class Decider(CircuitKZG):
         return
 
     def __init__(self, folding_verifier):
-        super(Decider, self).__init__(GoblinUltra(), 
-                                      folding_verifier.log_n_in_stack, 
+        super(Decider, self).__init__(GoblinUltra(),
+                                      folding_verifier.log_n_in_stack,
                                       num_public_inputs=0)
 
+    def summary(self):
+        print_circuit_data("FoldingDecider: ", self, native_msm=False)

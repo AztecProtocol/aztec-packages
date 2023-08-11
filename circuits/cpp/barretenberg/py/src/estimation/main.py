@@ -2,6 +2,7 @@ from flavors import GoblinUltra
 from circuit import CircuitKZG
 from goblin import Goblin
 from protogalaxy import FoldingVerifier, Decider
+from utils import DataLog
 
 # App circuits an kernel circuits are in a "stack" and all
 # are assumed to have a fixed size
@@ -20,15 +21,6 @@ class ClientStraightGoblin:
 
         self.goblin = Goblin(circuits[-1], opqueue)
 
-    def summary(self):
-        self.goblin.summary()
-
-    def log(self, recursion_list, eccvm_list, translator_list):
-        self.goblin.log(recursion_list, eccvm_list, translator_list)
-
-    def process_logs(self, recursion_list, eccvm_list, translator_list):
-        self.goblin.process_logs(recursion_list, eccvm_list, translator_list)
-
 
 class ClientProtogalaxiedGoblin:
     # create circuits to fold
@@ -44,33 +36,27 @@ class ClientProtogalaxiedGoblin:
         opqueue += self.folding_verifier.verifier_msms
         self.goblin = Goblin(self.decider, opqueue)
 
-    def summary(self):
-        self.goblin.summary()
-
-    def log(self, recursion_list, eccvm_list, translator_list):
-        self.goblin.log(recursion_list, eccvm_list, translator_list)
-
-    def process_logs(self, recursion_list, eccvm_list, translator_list):
-        self.goblin.process_logs(recursion_list, eccvm_list, translator_list)
-
 
 if __name__ == "__main__":
     print("STRAIGHT GOBLIN")
-    recursion_list, eccvm_list, translator_list = [], [], []
+    data_log = DataLog()
     for log_k in range(1, 11):
         num_circuits = 1 << log_k
         client_stack = ClientStraightGoblin(num_circuits)
-        client_stack.log(recursion_list, eccvm_list, translator_list)
-
-    client_stack.process_logs(recursion_list, eccvm_list, translator_list)
+        data_log.add_entries(client_stack.goblin.final_circuit,
+                             client_stack.goblin.eccvm, 
+                             client_stack.goblin.translator)
+    data_log.print()
 
     print("\n========================================\n")
 
     print("PROTOGALAXIED GOBLIN")
-    recursion_list, eccvm_list, translator_list = [], [], []
+    data_log = DataLog()
     for log_k in range(1, 11):
         num_circuits = 1 << log_k
         client_stack = ClientProtogalaxiedGoblin(num_circuits)
-        client_stack.log(recursion_list, eccvm_list, translator_list)
+        data_log.add_entries(client_stack.goblin.final_circuit,
+                             client_stack.goblin.eccvm, 
+                             client_stack.goblin.translator)
 
-    client_stack.process_logs(recursion_list, eccvm_list, translator_list)
+    data_log.print()
