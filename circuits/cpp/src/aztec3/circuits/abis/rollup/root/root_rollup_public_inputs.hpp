@@ -53,7 +53,28 @@ template <typename NCT> struct RootRollupPublicInputs {
     std::array<fr, NUM_FIELDS_PER_SHA256> l1_to_l2_messages_hash;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO list all fields here);
+    MSGPACK_FIELDS(end_aggregation_object,
+                   globalVariables,
+                   start_private_data_tree_snapshot,
+                   end_private_data_tree_snapshot,
+                   start_nullifier_tree_snapshot,
+                   end_nullifier_tree_snapshot,
+                   start_contract_tree_snapshot,
+                   end_contract_tree_snapshot,
+                   start_public_data_tree_root,
+                   end_public_data_tree_root,
+                   start_tree_of_historic_private_data_tree_roots_snapshot,
+                   end_tree_of_historic_private_data_tree_roots_snapshot,
+                   start_tree_of_historic_contract_tree_roots_snapshot,
+                   end_tree_of_historic_contract_tree_roots_snapshot,
+                   start_l1_to_l2_messages_tree_snapshot,
+                   end_l1_to_l2_messages_tree_snapshot,
+                   start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+                   end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot,
+                   start_historic_blocks_tree_snapshot,
+                   end_historic_blocks_tree_snapshot,
+                   calldata_hash,
+                   l1_to_l2_messages_hash);
 
     bool operator==(RootRollupPublicInputs<NCT> const&) const = default;
 

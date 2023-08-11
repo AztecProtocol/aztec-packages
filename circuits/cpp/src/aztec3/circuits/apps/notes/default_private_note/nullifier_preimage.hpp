@@ -19,7 +19,7 @@ template <typename NCT> struct DefaultPrivateNoteNullifierPreimage {
     fr owner_private_key;
     boolean is_dummy = false;
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO list all fields here);
+    MSGPACK_FIELDS(commitment, owner_private_key, is_dummy);
 
     bool operator==(DefaultPrivateNoteNullifierPreimage<NCT> const&) const = default;
 

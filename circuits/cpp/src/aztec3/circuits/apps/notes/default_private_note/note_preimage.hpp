@@ -29,7 +29,7 @@ template <typename NCT, typename V> struct DefaultPrivateNotePreimage {
 
     boolean is_dummy = false;
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO list all fields here);
+    MSGPACK_FIELDS(value, owner, creator_address, memo, salt, nonce, is_dummy);
 
     bool operator==(DefaultPrivateNotePreimage<NCT, V> const&) const = default;
 

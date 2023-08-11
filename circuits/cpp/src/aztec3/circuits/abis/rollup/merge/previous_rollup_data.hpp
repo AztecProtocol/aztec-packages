@@ -20,7 +20,7 @@ template <typename NCT> struct PreviousRollupData {
     MembershipWitness<NCT, ROLLUP_VK_TREE_HEIGHT> vk_sibling_path;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO list all fields here);
+    MSGPACK_FIELDS(base_or_merge_rollup_public_inputs, proof, vk, vk_index, vk_sibling_path);
 
     bool operator==(PreviousRollupData<NCT> const&) const = default;
 };

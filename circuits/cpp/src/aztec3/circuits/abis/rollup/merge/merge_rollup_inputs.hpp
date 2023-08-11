@@ -10,7 +10,7 @@ template <typename NCT> struct MergeRollupInputs {
     std::array<PreviousRollupData<NCT>, 2> previous_rollup_data;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO list all fields here);
+    MSGPACK_FIELDS(previous_rollup_data);
     bool operator==(MergeRollupInputs<NCT> const&) const = default;
 };
 
