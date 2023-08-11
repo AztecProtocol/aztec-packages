@@ -67,7 +67,6 @@ class ReturnValuesDecoder {
    */
   public decode(): DecodedReturn {
     if (this.abi.returnTypes.length > 1) {
-      console.log(this.abi.returnTypes);
       throw new Error('Multiple return values not supported');
     }
     if (this.abi.returnTypes.length === 0) {

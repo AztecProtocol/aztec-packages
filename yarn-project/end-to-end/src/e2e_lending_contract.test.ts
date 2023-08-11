@@ -53,10 +53,10 @@ describe('e2e_lending_contract', () => {
 
     storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
     storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
-    storageValues['private_collateral'] = new Fr(privatePos["collateral"]);
-    storageValues['private_debt'] = new Fr(privatePos["static_debt"]);
-    storageValues['public_collateral'] = new Fr(publicPos["collateral"]);
-    storageValues['public_debt'] = new Fr(publicPos["static_debt"]);
+    storageValues['private_collateral'] = new Fr(privatePos['collateral']);
+    storageValues['private_debt'] = new Fr(privatePos['static_debt']);
+    storageValues['public_collateral'] = new Fr(publicPos['collateral']);
+    storageValues['public_debt'] = new Fr(publicPos['static_debt']);
 
     return storageValues;
   };
