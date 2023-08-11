@@ -56,7 +56,7 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
 # https://github.com/yarnpkg/berry/issues/1789
 #
-# To work around this, we construct a global cache from the local cache using hard links (requires a hacky rename).
+# To work around this, we will construct a global cache from the local cache using hard links (requires a hacky rename).
 # When we build an upstream docker image, we:
 # - Do the build.
 # - Erase the local cache with a `yarn cache clean`. Files remain in global cache due to hard link.
