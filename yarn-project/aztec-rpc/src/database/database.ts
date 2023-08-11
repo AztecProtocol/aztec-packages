@@ -113,24 +113,6 @@ export interface Database extends ContractDatabase {
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
   /**
-   * Retrieve the stored Global Variables hash from the database.
-   * The function returns a Promise that resolves to a Field containing the hash.
-   * This data is required to reproduce block attestations.
-   * Throws an error if the hash is not available within the database.
-   */
-  getGlobalVariablesHash(): Fr;
-
-  /**
-   * Set the latest GlobaVariablesHash.
-   * This function updates the 'globalVariablesHash' property of the instance
-   * Note that this will overwrite any existing hash in the database.
-   *
-   * @param hash - A Field representing the most recent hash.
-   * @returns A Promise that resolves when the hash has been successfully updated in the database.
-   */
-  setGlobalVariablesHash(hash: Fr): Promise<void>;
-
-  /**
    * Retrieve the stored Historic Block Data from the database.
    * The function returns a Promise that resolves to the Historic Block Data.
    * This data is required to reproduce block attestations.

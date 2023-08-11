@@ -98,21 +98,9 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getGlobalVariablesHash(): Fr {
-    const hash = this.globalVariablesHash;
-    if (!hash) throw new Error(`Global variables hash not set in memory database`);
-    return hash;
-  }
-
-  public setGlobalVariablesHash(hash: Fr) {
-    this.globalVariablesHash = hash;
-    return Promise.resolve();
-  }
-
-  // TODO / Reviewers note: shall i remove the tree roots and globals hash entirely and just have this? Its all the sim needs.
-  getHistoricBlockData(): ConstantHistoricBlockData {
+  public getHistoricBlockData(): ConstantHistoricBlockData {
     const roots = this.getTreeRoots();
-    const globalVariablesHash = this.getGlobalVariablesHash();
+    if (!this.globalVariablesHash) throw new Error(`Global variables hash not set in memory database`);
     return new ConstantHistoricBlockData(
       roots[MerkleTreeId.PRIVATE_DATA_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
@@ -121,12 +109,12 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       roots[MerkleTreeId.BLOCKS_TREE],
       Fr.ZERO, // todo: private kernel vk tree root
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
-      globalVariablesHash,
+      this.globalVariablesHash,
     );
   }
 
-  async setHistoricBlockData(historicBlockData: ConstantHistoricBlockData): Promise<void> {
-    await this.setGlobalVariablesHash(historicBlockData.globalVariablesHash);
+  public async setHistoricBlockData(historicBlockData: ConstantHistoricBlockData): Promise<void> {
+    this.globalVariablesHash = historicBlockData.globalVariablesHash;
     await this.setTreeRoots({
       [MerkleTreeId.PRIVATE_DATA_TREE]: historicBlockData.privateDataTreeRoot,
       [MerkleTreeId.NULLIFIER_TREE]: historicBlockData.nullifierTreeRoot,
