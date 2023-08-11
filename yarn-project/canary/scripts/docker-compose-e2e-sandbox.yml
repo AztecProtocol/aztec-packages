@@ -28,7 +28,7 @@ services:
     ports:
       - '8080:8080'
 
-  end-to-end:
+  canary:
     image: aztecprotocol/canary:latest
     environment:
       ETHEREUM_HOST: http://fork:8545
