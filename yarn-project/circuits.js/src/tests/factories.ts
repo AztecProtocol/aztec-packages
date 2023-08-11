@@ -108,7 +108,7 @@ export function makeTxContext(seed: number): TxContext {
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeConstantHistoricBlockData(seed: number): HistoricBlockData {
+export function makeHistoricBlockData(seed: number): HistoricBlockData {
   return new HistoricBlockData(
     fr(seed),
     fr(seed + 1),
@@ -127,7 +127,7 @@ export function makeConstantHistoricBlockData(seed: number): HistoricBlockData {
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeConstantHistoricBlockData(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHistoricBlockData(seed), makeTxContext(seed + 4));
 }
 
 /**

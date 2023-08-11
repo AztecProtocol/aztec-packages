@@ -127,10 +127,10 @@ export interface Database extends ContractDatabase {
    * This function updates the 'global variables hash' and `tree roots` property of the instance
    * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param constantHistoricBlockData - An object containing the most recent historic block data.
+   * @param historicBlockData - An object containing the most recent historic block data.
    * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  setHistoricBlockData(constantHistoricBlockData: HistoricBlockData): Promise<void>;
+  setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void>;
 
   /**
    * Adds public key and partial address to a database.

@@ -106,9 +106,9 @@ export class SimulatorOracle implements DBOracle {
    * Retrieve the databases view of the Historic Block Data object.
    * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
    *
-   * @returns A Promise that resolves to a ConstantHistoricBlockData object.
+   * @returns A Promise that resolves to a HistoricBlockData object.
    */
-  getConstantHistoricBlockData(): Promise<HistoricBlockData> {
+  getHistoricBlockData(): Promise<HistoricBlockData> {
     return Promise.resolve(this.db.getHistoricBlockData());
   }
 }

@@ -145,7 +145,7 @@ describe('Private Execution test suite', () => {
   beforeEach(() => {
     oracle = mock<DBOracle>();
     oracle.getSecretKey.mockResolvedValue(ownerPk);
-    oracle.getConstantHistoricBlockData.mockResolvedValue(blockData);
+    oracle.getHistoricBlockData.mockResolvedValue(blockData);
 
     acirSimulator = new AcirSimulator(oracle);
   });

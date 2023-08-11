@@ -32,7 +32,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param constantHistoricBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
+   * @param historicBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
    * @param curve - The curve instance for elliptic curve operations.
    * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
@@ -53,7 +53,7 @@ export class AcirSimulator {
 
     const curve = await Grumpkin.new();
 
-    const constantHistoricBlockData = await this.db.getConstantHistoricBlockData();
+    const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
       AztecAddress.ZERO,
       contractAddress,
@@ -70,7 +70,7 @@ export class AcirSimulator {
         this.db,
         txNullifier,
         request.txContext,
-        constantHistoricBlockData,
+        historicBlockData,
         await PackedArgsCache.create(request.packedArguments),
       ),
       entryPointABI,
@@ -91,7 +91,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
-   * @param constantHistoricBlockData - Block data containing historic roots.
+   * @param historicBlockData - Block data containing historic roots.
    * @param aztecNode - The AztecNode instance.
    */
   public async runUnconstrained(
@@ -106,7 +106,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
 
-    const constantHistoricBlockData = await this.db.getConstantHistoricBlockData();
+    const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
       origin,
       contractAddress,
@@ -121,7 +121,7 @@ export class AcirSimulator {
         this.db,
         Fr.ZERO,
         TxContext.empty(),
-        constantHistoricBlockData,
+        historicBlockData,
         await PackedArgsCache.create([]),
       ),
       entryPointABI,
