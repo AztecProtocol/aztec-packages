@@ -1,4 +1,4 @@
-import { PartialAddress } from '@aztec/circuits.js';
+import { ConstantHistoricBlockData, PartialAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -107,6 +107,34 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   public setGlobalVariablesHash(hash: Fr) {
     this.globalVariablesHash = hash;
     return Promise.resolve();
+  }
+
+  // TODO / Reviewers note: shall i remove the tree roots and globals hash entirely and just have this? Its all the sim needs.
+  getHistoricBlockData(): ConstantHistoricBlockData {
+    const roots = this.getTreeRoots();
+    const globalVariablesHash = this.getGlobalVariablesHash()
+    return new ConstantHistoricBlockData(
+      roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      roots[MerkleTreeId.NULLIFIER_TREE],
+      roots[MerkleTreeId.CONTRACT_TREE],
+      roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      roots[MerkleTreeId.BLOCKS_TREE],
+      Fr.ZERO, // todo: private kernel vk tree root
+      roots[MerkleTreeId.PUBLIC_DATA_TREE],
+      globalVariablesHash,
+    );
+  };
+
+  async setHistoricBlockData(historicBlockData: ConstantHistoricBlockData): Promise<void> {
+    await this.setGlobalVariablesHash(historicBlockData.globalVariablesHash);
+    await this.setTreeRoots({
+      [MerkleTreeId.PRIVATE_DATA_TREE]: historicBlockData.privateDataTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: historicBlockData.nullifierTreeRoot,
+      [MerkleTreeId.CONTRACT_TREE]: historicBlockData.contractTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: historicBlockData.l1ToL2MessagesTreeRoot,
+      [MerkleTreeId.BLOCKS_TREE]: historicBlockData.blocksTreeRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: historicBlockData.publicDataTreeRoot,
+    });
   }
 
   addPublicKeyAndPartialAddress(

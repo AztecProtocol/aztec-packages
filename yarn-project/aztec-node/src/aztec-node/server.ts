@@ -330,7 +330,7 @@ export class AztecNodeService implements AztecNode {
     };
   }
 
-  /** TODOL ADD TO THE APP.ts
+  /**
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
