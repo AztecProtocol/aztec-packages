@@ -623,9 +623,9 @@ jobs:
           command: build sequencer-client
 
   canary:
-    machine:
-      image: aztecprotocol/alpine-build-image
-    resource_class: large
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
     steps:
       - *checkout
       - *setup_env
