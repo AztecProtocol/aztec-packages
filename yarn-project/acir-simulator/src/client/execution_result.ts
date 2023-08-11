@@ -3,6 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { FunctionL2Logs } from '@aztec/types';
 
 import { ACVMField } from '../acvm/index.js';
+import { DecodedReturn } from '@aztec/foundation/abi';
 
 /**
  * The contents of a new note.
@@ -56,7 +57,7 @@ export interface ExecutionResult {
   /** The preimages of the executed function. */
   preimages: ExecutionPreimages;
   /** The decoded return values of the executed function. */
-  returnValues: any[];
+  returnValues: DecodedReturn;
   /** The nested executions. */
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
