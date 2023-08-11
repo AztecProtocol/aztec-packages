@@ -27,7 +27,7 @@ describe('e2e_pending_commitments_contract', () => {
     }
   });
 
-  const expectCommitmentsSquashedExcept = async(exceptFirstFew: number) => {
+  const expectCommitmentsSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode!.getBlockHeight();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
@@ -39,9 +39,9 @@ describe('e2e_pending_commitments_contract', () => {
     for (let c = exceptFirstFew; c < block.newCommitments.length; c++) {
       expect(block.newCommitments[c]).toEqual(Fr.ZERO);
     }
-  }
+  };
 
-  const expectNullifiersSquashedExcept = async(exceptFirstFew: number) => {
+  const expectNullifiersSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode!.getBlockHeight();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
@@ -53,7 +53,7 @@ describe('e2e_pending_commitments_contract', () => {
     for (let n = exceptFirstFew + 1; n < block.newNullifiers.length; n++) {
       expect(block.newNullifiers[n]).toEqual(Fr.ZERO);
     }
-  }
+  };
 
   const deployContract = async () => {
     logger(`Deploying L2 contract...`);
@@ -171,11 +171,7 @@ describe('e2e_pending_commitments_contract', () => {
     const deployedContract = await deployContract();
 
     // create persistent note
-    const tx0 = deployedContract.methods
-      .insert_note(
-        mintAmount,
-        owner,
-      ).send({ origin: owner });
+    const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send({ origin: owner });
 
     const ownerPub = await aztecRpcServer.getPublicKey(owner);
 
@@ -187,7 +183,7 @@ describe('e2e_pending_commitments_contract', () => {
     const syncedToBlock = (await aztecRpcServer.getSyncStatus()).notes[ownerPub.toString()];
     expect(syncedToBlock).toBe(latestBlockNum);
 
-    logger("Done with initial create tx");
+    logger('Done with initial create tx');
 
     await expectCommitmentsSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
