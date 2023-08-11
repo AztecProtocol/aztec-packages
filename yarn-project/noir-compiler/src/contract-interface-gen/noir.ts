@@ -14,13 +14,22 @@ import times from 'lodash.times';
 import upperFirst from 'lodash.upperfirst';
 
 /**
+ * Returns whether this function type corresponds to a private call.
+ * @param functionType - The function type.
+ * @returns Whether this function type corresponds to a private call.
+ */
+function isPrivateCall(functionType: FunctionType) {
+  return functionType === FunctionType.SECRET;
+}
+
+/**
  * Generates a call to a private function using the context.
  * @param selector - The selector of a function.
  * @param functionType - Type of the function.
  * @returns A code string.
  */
 function generateCallStatement(selector: string, functionType: FunctionType) {
-  const callMethod = functionType === FunctionType.SECRET ? 'call_private_function' : 'call_public_function';
+  const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
     context.${callMethod}(self.address, ${selector}, serialised_args)`;
 }
@@ -134,7 +143,7 @@ function generateFunctionInterface(functionData: FunctionAbi) {
   const serialisation = generateSerialisation(parameters);
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = ['self', 'context: &mut Context', ...parameters.map(p => generateParameter(p, functionData))];
-  const retType = functionData.functionType === FunctionType.SECRET ? `-> [Field; RETURN_VALUES_LENGTH] ` : ``;
+  const retType = isPrivateCall(functionData.functionType) ? `-> [Field; RETURN_VALUES_LENGTH] ` : ``;
 
   return `
   fn ${name}(
@@ -230,8 +239,13 @@ function collectStructs(params: ABIVariable[], parentNames: string[]): StructInf
  * @returns The corresponding ts code.
  */
 export function generateNoirContractInterface(abi: ContractAbi) {
+  // We don't allow calling a constructor, internal fns, or unconstrained fns from other contracts
+  const methods = compact(
+    abi.functions.filter(
+      f => f.name !== 'constructor' && !f.isInternal && f.functionType !== FunctionType.UNCONSTRAINED,
+    ),
+  );
   const contractStruct: string = generateContractInterfaceStruct(abi.name);
-  const methods = compact(abi.functions.filter(f => f.name !== 'constructor' && !f.isInternal));
   const paramStructs = methods.flatMap(m => collectStructs(m.parameters, [m.name])).map(generateStruct);
   const functionInterfaces = methods.map(generateFunctionInterface);
   const contractImpl: string = generateContractInterfaceImpl(abi.name, functionInterfaces);
