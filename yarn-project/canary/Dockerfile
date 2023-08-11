@@ -6,7 +6,7 @@ ARG COMMIT_TAG="0.1.0-alpha36"
 #Build canary
 WORKDIR /usr/src/
 COPY ./canary .
-RUN ./scripts/update_packages.sh $COMMIT_TAG
+RUN ./scripts/update_packages.sh "0.1.0-alpha36"
 RUN yarn && yarn build
 
 ENTRYPOINT ["yarn", "test"]
