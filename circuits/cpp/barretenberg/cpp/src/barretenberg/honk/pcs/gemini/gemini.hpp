@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../claim.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
@@ -135,9 +134,9 @@ template <typename Curve> class GeminiVerifier_ {
                                                                                Fr r);
 }; // namespace proof_system::honk::pcs::gemini
 
-extern template class GeminiProver_<kzg::Params::Curve>;
-extern template class GeminiProver_<ipa::Params::Curve>;
-extern template class GeminiVerifier_<kzg::Params::Curve>;
-extern template class GeminiVerifier_<ipa::Params::Curve>;
+extern template class GeminiProver_<curve::BN254>;
+extern template class GeminiProver_<curve::Grumpkin>;
+extern template class GeminiVerifier_<curve::BN254>;
+extern template class GeminiVerifier_<curve::Grumpkin>;
 
 } // namespace proof_system::honk::pcs::gemini

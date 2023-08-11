@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/ipa/ipa.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
@@ -24,9 +23,8 @@ class StandardGrumpkin {
     // purposes. This will be changed to Grumpkin once generating Honk proofs over Grumpkin has been enabled.
   public:
     using CircuitBuilder = StandardGrumpkinCircuitBuilder;
-    using PCSParams = pcs::ipa::Params;
-    using PCS = pcs::ipa::IPA<PCSParams::Curve>;
-    using Curve = PCSParams::Curve;
+    using Curve = curve::Grumpkin;
+    using PCS = pcs::ipa::IPA<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;

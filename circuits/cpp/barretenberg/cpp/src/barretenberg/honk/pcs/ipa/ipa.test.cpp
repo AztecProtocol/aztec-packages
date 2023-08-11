@@ -3,7 +3,6 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
@@ -12,12 +11,12 @@
 using namespace barretenberg;
 namespace proof_system::honk::pcs::ipa {
 
-class IPATest : public CommitmentTest<Params::Curve> {
+class IPATest : public CommitmentTest<curve::Grumpkin> {
   public:
-    using Fr = typename Params::Curve::ScalarField;
-    using GroupElement = typename Params::Curve::Element;
-    using CK = CommitmentKey<Params::Curve>;
-    using VK = VerificationKey<Params::Curve>;
+    using Fr = typename curve::Grumpkin::ScalarField;
+    using GroupElement = typename curve::Grumpkin::Element;
+    using CK = CommitmentKey<curve::Grumpkin>;
+    using VK = VerificationKey<curve::Grumpkin>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 
@@ -59,14 +58,14 @@ TEST_F(IPATest, Commit)
 
 TEST_F(IPATest, Open)
 {
-    using IPA = IPA<Params::Curve>;
+    using IPA = IPA<curve::Grumpkin>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
     auto poly = this->random_polynomial(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
-    const OpeningPair<Params::Curve> opening_pair = { x, eval };
-    const OpeningClaim<Params::Curve> opening_claim{ opening_pair, commitment };
+    const OpeningPair<curve::Grumpkin> opening_pair = { x, eval };
+    const OpeningClaim<curve::Grumpkin> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
     ProverTranscript<Fr> prover_transcript;
@@ -83,11 +82,11 @@ TEST_F(IPATest, Open)
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
-    using IPA = IPA<Params::Curve>;
-    using ShplonkProver = shplonk::ShplonkProver_<Params::Curve>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<Params::Curve>;
-    using GeminiProver = gemini::GeminiProver_<Params::Curve>;
-    using GeminiVerifier = gemini::GeminiVerifier_<Params::Curve>;
+    using IPA = IPA<curve::Grumpkin>;
+    using ShplonkProver = shplonk::ShplonkProver_<curve::Grumpkin>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<curve::Grumpkin>;
+    using GeminiProver = gemini::GeminiProver_<curve::Grumpkin>;
+    using GeminiVerifier = gemini::GeminiVerifier_<curve::Grumpkin>;
 
     const size_t n = 8;
     const size_t log_n = 3;

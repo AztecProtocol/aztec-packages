@@ -314,8 +314,8 @@ std::pair<typename Curve::Element, typename Curve::Element> GeminiVerifier_<Curv
     return { C0_r_pos, C0_r_neg };
 };
 
-template class GeminiProver_<proof_system::honk::pcs::kzg::Params::Curve>;
-template class GeminiProver_<proof_system::honk::pcs::ipa::Params::Curve>;
-template class GeminiVerifier_<proof_system::honk::pcs::kzg::Params::Curve>;
-template class GeminiVerifier_<proof_system::honk::pcs::ipa::Params::Curve>;
+template class GeminiProver_<curve::BN254>;
+template class GeminiProver_<curve::Grumpkin>;
+template class GeminiVerifier_<curve::BN254>;
+template class GeminiVerifier_<curve::Grumpkin>;
 }; // namespace proof_system::honk::pcs::gemini

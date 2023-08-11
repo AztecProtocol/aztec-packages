@@ -13,7 +13,7 @@
 namespace proof_system::honk::pcs::shplonk {
 template <class Params> class ShplonkTest : public CommitmentTest<Params> {};
 
-using ParamsTypes = ::testing::Types<kzg::Params::Curve, ipa::Params::Curve>;
+using ParamsTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
 TYPED_TEST_SUITE(ShplonkTest, ParamsTypes);
 
 // Test of Shplonk prover/verifier for two polynomials of different size, each opened at a single (different) point

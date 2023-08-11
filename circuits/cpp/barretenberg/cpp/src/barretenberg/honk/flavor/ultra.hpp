@@ -1,6 +1,5 @@
 #pragma once
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
@@ -28,9 +27,8 @@ namespace proof_system::honk::flavor {
 class Ultra {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
-    using PCSParams = pcs::kzg::Params;
-    using PCS = pcs::kzg::KZG<PCSParams::Curve>;
-    using Curve = PCSParams::Curve;
+    using Curve = curve::BN254;
+    using PCS = pcs::kzg::KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;
     using CommitmentHandle = Curve::AffineElement;

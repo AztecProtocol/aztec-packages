@@ -21,7 +21,6 @@ template <StandardFlavor Flavor> class StandardProver_ {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using PCSParams = typename Flavor::PCSParams;
     using PCSCommitmentKey = typename Flavor::CommitmentKey;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;

@@ -17,7 +17,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
     using PCSCommitmentKey = typename Flavor::CommitmentKey;
     using PCSVerificationKey = typename Flavor::PCSVerificationKey;

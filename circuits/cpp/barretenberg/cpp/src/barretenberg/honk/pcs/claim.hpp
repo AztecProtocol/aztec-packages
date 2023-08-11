@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/honk/pcs/commitment_key_new.hpp"
+#include "barretenberg/honk/pcs/commitment_key.hpp"
 
 namespace proof_system::honk::pcs {
 /**

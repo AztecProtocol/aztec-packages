@@ -101,7 +101,7 @@ template <class Curve> class GeminiTest : public CommitmentTest<Curve> {
     }
 };
 
-using ParamsTypes = ::testing::Types<kzg::Params::Curve, ipa::Params::Curve>;
+using ParamsTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
 TYPED_TEST_SUITE(GeminiTest, ParamsTypes);
 
 TYPED_TEST(GeminiTest, Single)

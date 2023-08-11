@@ -14,7 +14,6 @@
 namespace proof_system::honk {
 template <StandardFlavor Flavor> class StandardComposer_ {
   public:
-    using PCSParams = typename Flavor::PCSParams;
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;

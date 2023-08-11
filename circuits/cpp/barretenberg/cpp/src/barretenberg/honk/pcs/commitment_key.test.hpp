@@ -11,34 +11,35 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
+#include "barretenberg/honk/pcs/commitment_key.hpp"
+#include "barretenberg/honk/pcs/verification_key.hpp"
 
 #include "../../transcript/transcript_wrappers.hpp"
 
 #include "claim.hpp"
-#include "commitment_key.hpp"
 
 namespace proof_system::honk::pcs {
 
-using KZGCommitmentKey = CommitmentKey<kzg::Params::Curve>;
-using IPACommitmentKey = CommitmentKey<ipa::Params::Curve>;
-using KZGVerificationKey = VerificationKey<kzg::Params::Curve>;
-using IPAVerificationKey = VerificationKey<ipa::Params::Curve>;
+using KZGCommitmentKey = CommitmentKey<curve::BN254>;
+using IPACommitmentKey = CommitmentKey<curve::Grumpkin>;
+using KZGVerificationKey = VerificationKey<curve::BN254>;
+using IPAVerificationKey = VerificationKey<curve::Grumpkin>;
 
 template <class CK> inline std::shared_ptr<CK> CreateCommitmentKey();
 
 template <> inline std::shared_ptr<KZGCommitmentKey> CreateCommitmentKey<KZGCommitmentKey>()
 {
     constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<kzg::Params::Curve>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<kzg::Params::Curve>("../srs_db/ignition", 4096));
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
+        new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
     return std::make_shared<KZGCommitmentKey>(n, crs_factory);
 }
 // For IPA
 template <> inline std::shared_ptr<IPACommitmentKey> CreateCommitmentKey<IPACommitmentKey>()
 {
     constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<ipa::Params::Curve>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<ipa::Params::Curve>("../srs_db/grumpkin", 4096));
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
+        new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
     return std::make_shared<IPACommitmentKey>(n, crs_factory);
 }
 
@@ -53,16 +54,16 @@ template <class VK> inline std::shared_ptr<VK> CreateVerificationKey();
 template <> inline std::shared_ptr<KZGVerificationKey> CreateVerificationKey<KZGVerificationKey>()
 {
     constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<kzg::Params::Curve>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<kzg::Params::Curve>("../srs_db/ignition", 4096));
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
+        new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
     return std::make_shared<KZGVerificationKey>(n, crs_factory);
 }
 // For IPA
 template <> inline std::shared_ptr<IPAVerificationKey> CreateVerificationKey<IPAVerificationKey>()
 {
     constexpr size_t n = 4096;
-    std::shared_ptr<barretenberg::srs::factories::CrsFactory<ipa::Params::Curve>> crs_factory(
-        new barretenberg::srs::factories::FileCrsFactory<ipa::Params::Curve>("../srs_db/grumpkin", 4096));
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
+        new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
     return std::make_shared<IPAVerificationKey>(n, crs_factory);
 }
 template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
@@ -205,8 +206,8 @@ typename std::shared_ptr<CommitmentKey<Curve>> CommitmentTest<Curve>::commitment
 template <typename Curve>
 typename std::shared_ptr<VerificationKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
 
-using CommitmentSchemeParams = ::testing::Types<kzg::Params::Curve>;
-using IpaCommitmentSchemeParams = ::testing::Types<ipa::Params::Curve>;
+using CommitmentSchemeParams = ::testing::Types<curve::BN254>;
+using IpaCommitmentSchemeParams = ::testing::Types<curve::Grumpkin>;
 // IMPROVEMENT: reinstate typed-tests for multiple field types, i.e.:
 // using CommitmentSchemeParams =
 //     ::testing::Types<fake::Params<barretenberg::g1>, fake::Params<grumpkin::g1>, kzg::Params>;

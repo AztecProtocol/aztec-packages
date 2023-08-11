@@ -3,7 +3,6 @@
  * @brief Contains some functions that are shared between the various Plonk composers.
  */
 #include "composer_lib.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
 
 namespace proof_system::plonk {
@@ -50,7 +49,7 @@ std::shared_ptr<plonk::verification_key> compute_verification_key_common(
     auto circuit_verification_key = std::make_shared<plonk::verification_key>(
         proving_key->circuit_size, proving_key->num_public_inputs, vrs, proving_key->circuit_type);
     // TODO(kesha): Dirty hack for now. Need to actually make commitment-agnositc
-    using KZGCommitmentKey = honk::pcs::CommitmentKey<proof_system::honk::pcs::kzg::Params::Curve>;
+    using KZGCommitmentKey = honk::pcs::CommitmentKey<proof_system::honk::pcs::curve::BN254>;
     auto commitment_key = KZGCommitmentKey(proving_key->circuit_size, proving_key->reference_string);
 
     for (size_t i = 0; i < proving_key->polynomial_manifest.size(); ++i) {
