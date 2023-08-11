@@ -9,8 +9,8 @@ namespace proof_system::honk::pcs {
  *
  * @tparam Params for the given commitment scheme
  */
-template <typename Params> class OpeningPair {
-    using Fr = typename Params::Fr;
+template <typename Curve> class OpeningPair {
+    using Fr = typename Curve::ScalarField;
 
   public:
     Fr challenge;  // r
@@ -26,14 +26,14 @@ template <typename Params> class OpeningPair {
  *
  * @tparam Params for the given commitment scheme
  */
-template <typename Params> class OpeningClaim {
-    using CK = CommitmentKey<typename Params::Curve>;
-    using Commitment = typename Params::Commitment;
-    using Fr = typename Params::Fr;
+template <typename Curve> class OpeningClaim {
+    using CK = CommitmentKey<Curve>;
+    using Commitment = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
 
   public:
     // (challenge r, evaluation v = p(r))
-    OpeningPair<Params> opening_pair;
+    OpeningPair<Curve> opening_pair;
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
@@ -78,9 +78,9 @@ template <typename Params> class OpeningClaim {
  *
  * @tparam CommitmentKey
  */
-template <typename Params> class MLEOpeningClaim {
-    using Commitment = typename Params::Commitment;
-    using Fr = typename Params::Fr;
+template <typename Curve> class MLEOpeningClaim {
+    using Commitment = typename Curve::AffineElement;
+    using Fr = typename Curve::ScalarField;
 
   public:
     // commitment to a univariate polynomial

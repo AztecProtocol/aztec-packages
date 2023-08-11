@@ -30,7 +30,7 @@ class GoblinUltra {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
     using PCSParams = pcs::kzg::Params;
-    using PCS = pcs::kzg::KZG<PCSParams>;
+    using PCS = pcs::kzg::KZG<PCSParams::Curve>;
     using Curve = PCSParams::Curve;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;

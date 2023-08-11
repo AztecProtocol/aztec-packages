@@ -33,7 +33,7 @@ class Standard {
   public:
     using CircuitBuilder = StandardCircuitBuilder;
     using PCSParams = pcs::kzg::Params;
-    using PCS = pcs::kzg::KZG<PCSParams>;
+    using PCS = pcs::kzg::KZG<PCSParams::Curve>;
     using Curve = PCSParams::Curve;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;

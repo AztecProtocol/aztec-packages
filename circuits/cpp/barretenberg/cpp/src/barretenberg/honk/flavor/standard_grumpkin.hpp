@@ -25,7 +25,7 @@ class StandardGrumpkin {
   public:
     using CircuitBuilder = StandardGrumpkinCircuitBuilder;
     using PCSParams = pcs::ipa::Params;
-    using PCS = pcs::ipa::IPA<PCSParams>;
+    using PCS = pcs::ipa::IPA<PCSParams::Curve>;
     using Curve = PCSParams::Curve;
     using GroupElement = Curve::Element;
     using Commitment = Curve::AffineElement;

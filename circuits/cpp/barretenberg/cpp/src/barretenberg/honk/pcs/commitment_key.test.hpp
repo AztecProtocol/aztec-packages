@@ -70,13 +70,13 @@ template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
 {
     return std::make_shared<VK>();
 }
-template <typename Params> class CommitmentTest : public ::testing::Test {
-    using CK = CommitmentKey<typename Params::Curve>;
-    using VK = VerificationKey<typename Params::Curve>;
+template <typename Curve> class CommitmentTest : public ::testing::Test {
+    using CK = CommitmentKey<Curve>;
+    using VK = VerificationKey<Curve>;
 
-    using Fr = typename Params::Fr;
-    using Commitment = typename Params::Commitment;
-    using Polynomial = typename Params::Polynomial;
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    using Polynomial = barretenberg::Polynomial<Fr>;
 
   public:
     CommitmentTest()
@@ -99,19 +99,19 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
 
     Fr random_element() { return Fr::random_element(engine); }
 
-    OpeningPair<Params> random_eval(const Polynomial& polynomial)
+    OpeningPair<Curve> random_eval(const Polynomial& polynomial)
     {
         Fr x{ random_element() };
         Fr y{ polynomial.evaluate(x) };
         return { x, y };
     }
 
-    std::pair<OpeningClaim<Params>, Polynomial> random_claim(const size_t n)
+    std::pair<OpeningClaim<Curve>, Polynomial> random_claim(const size_t n)
     {
         auto polynomial = random_polynomial(n);
         auto opening_pair = random_eval(polynomial);
         auto commitment = commit(polynomial);
-        auto opening_claim = OpeningClaim<Params>{ opening_pair, commitment };
+        auto opening_claim = OpeningClaim<Curve>{ opening_pair, commitment };
         return { opening_claim, polynomial };
     };
 
@@ -124,7 +124,7 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
         return u;
     }
 
-    void verify_opening_claim(const OpeningClaim<Params>& claim, const Polynomial& witness)
+    void verify_opening_claim(const OpeningClaim<Curve>& claim, const Polynomial& witness)
     {
         auto& commitment = claim.commitment;
         auto& [x, y] = claim.opening_pair;
@@ -135,7 +135,7 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
         EXPECT_EQ(commitment, commitment_expected) << "OpeningClaim: commitment mismatch";
     }
 
-    void verify_opening_pair(const OpeningPair<Params>& opening_pair, const Polynomial& witness)
+    void verify_opening_pair(const OpeningPair<Curve>& opening_pair, const Polynomial& witness)
     {
         auto& [x, y] = opening_pair;
         Fr y_expected = witness.evaluate(x);
@@ -149,7 +149,7 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
      * - each 'queries' is a subset of 'all_queries' and 'all_queries' is the union of all 'queries'
      * - each 'commitment' of each 'SubClaim' appears only once.
      */
-    void verify_batch_opening_claim(std::span<const OpeningClaim<Params>> multi_claims,
+    void verify_batch_opening_claim(std::span<const OpeningClaim<Curve>> multi_claims,
                                     std::span<const Polynomial> witnesses)
     {
         const size_t num_claims = multi_claims.size();
@@ -164,7 +164,7 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
      * @brief Ensures that a set of opening pairs is correct by checking that evaluations are
      * correct by recomputing them from each witness polynomial.
      */
-    void verify_batch_opening_pair(std::span<const OpeningPair<Params>> opening_pairs,
+    void verify_batch_opening_pair(std::span<const OpeningPair<Curve>> opening_pairs,
                                    std::span<const Polynomial> witnesses)
     {
         const size_t num_pairs = opening_pairs.size();
@@ -200,13 +200,13 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
     static typename std::shared_ptr<VK> verification_key;
 };
 
-template <typename Params>
-typename std::shared_ptr<CommitmentKey<typename Params::Curve>> CommitmentTest<Params>::commitment_key = nullptr;
-template <typename Params>
-typename std::shared_ptr<VerificationKey<typename Params::Curve>> CommitmentTest<Params>::verification_key = nullptr;
+template <typename Curve>
+typename std::shared_ptr<CommitmentKey<Curve>> CommitmentTest<Curve>::commitment_key = nullptr;
+template <typename Curve>
+typename std::shared_ptr<VerificationKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
 
-using CommitmentSchemeParams = ::testing::Types<kzg::Params>;
-using IpaCommitmentSchemeParams = ::testing::Types<ipa::Params>;
+using CommitmentSchemeParams = ::testing::Types<kzg::Params::Curve>;
+using IpaCommitmentSchemeParams = ::testing::Types<ipa::Params::Curve>;
 // IMPROVEMENT: reinstate typed-tests for multiple field types, i.e.:
 // using CommitmentSchemeParams =
 //     ::testing::Types<fake::Params<barretenberg::g1>, fake::Params<grumpkin::g1>, kzg::Params>;

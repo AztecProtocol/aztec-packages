@@ -24,6 +24,7 @@ template <StandardFlavor Flavor> class StandardProver_ {
     using PCSParams = typename Flavor::PCSParams;
     using PCSCommitmentKey = typename Flavor::CommitmentKey;
     using PCS = typename Flavor::PCS;
+    using Curve = typename Flavor::Curve;
 
   public:
     explicit StandardProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -68,15 +69,15 @@ template <StandardFlavor Flavor> class StandardProver_ {
 
     Polynomial quotient_W;
 
-    work_queue<PCSParams> queue;
+    work_queue<Curve> queue;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    pcs::gemini::ProverOutput<PCSParams> gemini_output;
-    pcs::shplonk::ProverOutput<PCSParams> shplonk_output;
+    pcs::gemini::ProverOutput<Curve> gemini_output;
+    pcs::shplonk::ProverOutput<Curve> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
 
-    using Gemini = pcs::gemini::GeminiProver_<PCSParams>;
-    using Shplonk = pcs::shplonk::ShplonkProver_<PCSParams>;
+    using Gemini = pcs::gemini::GeminiProver_<Curve>;
+    using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;
 
   private:
     plonk::proof proof;

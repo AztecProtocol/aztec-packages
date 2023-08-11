@@ -12,12 +12,12 @@
 using namespace barretenberg;
 namespace proof_system::honk::pcs::ipa {
 
-class IPATest : public CommitmentTest<Params> {
+class IPATest : public CommitmentTest<Params::Curve> {
   public:
-    using Fr = typename Params::Fr;
-    using GroupElement = typename Params::GroupElement;
-    using CK = CommitmentKey<typename Params::Curve>;
-    using VK = VerificationKey<typename Params::Curve>;
+    using Fr = typename Params::Curve::ScalarField;
+    using GroupElement = typename Params::Curve::Element;
+    using CK = CommitmentKey<Params::Curve>;
+    using VK = VerificationKey<Params::Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 
@@ -59,14 +59,14 @@ TEST_F(IPATest, Commit)
 
 TEST_F(IPATest, Open)
 {
-    using IPA = IPA<Params>;
+    using IPA = IPA<Params::Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
     auto poly = this->random_polynomial(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
-    const OpeningPair<Params> opening_pair = { x, eval };
-    const OpeningClaim<Params> opening_claim{ opening_pair, commitment };
+    const OpeningPair<Params::Curve> opening_pair = { x, eval };
+    const OpeningClaim<Params::Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
     ProverTranscript<Fr> prover_transcript;
@@ -83,11 +83,11 @@ TEST_F(IPATest, Open)
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
-    using IPA = IPA<Params>;
-    using ShplonkProver = shplonk::ShplonkProver_<Params>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<Params>;
-    using GeminiProver = gemini::GeminiProver_<Params>;
-    using GeminiVerifier = gemini::GeminiVerifier_<Params>;
+    using IPA = IPA<Params::Curve>;
+    using ShplonkProver = shplonk::ShplonkProver_<Params::Curve>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<Params::Curve>;
+    using GeminiProver = gemini::GeminiProver_<Params::Curve>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Params::Curve>;
 
     const size_t n = 8;
     const size_t log_n = 3;
