@@ -155,8 +155,8 @@ contract NonNativeToken {
         msg_key: Field,
         secret: Field,
         canceller: Field,
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, owner_address, msg_key, secret, canceller]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, owner_address, msg_key, secret, canceller]));
 
         let storage = Storage::init();
         let public_balances = storage.public_balances;
@@ -170,7 +170,10 @@ contract NonNativeToken {
         let recipient_balance = public_balances.at(owner_address);
         let new_balance = recipient_balance.read() + amount;
         recipient_balance.write(new_balance);
-        new_balance
+
+        // Push the return value into the context
+        context.return_values.push(new_balance);
+        context.finish()
     }
 
 
@@ -183,8 +186,8 @@ contract NonNativeToken {
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, recipient, callerOnL1]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient, callerOnL1]));
 
         let storage = Storage::init();
         let public_balances = storage.public_balances;
@@ -203,7 +206,11 @@ contract NonNativeToken {
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message
+        // TODO: make in the context
         create_l2_to_l1_message(content);
+
+        // Push the return value into the context
+        context.finish()
     }
 
 
@@ -239,8 +246,8 @@ contract NonNativeToken {
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
 
         let storage = Storage::init();
         let public_balances = storage.public_balances;
@@ -262,6 +269,8 @@ contract NonNativeToken {
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
         pending_shields.insert_from_public(inputs, &mut note);
+
+        context.finish()
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
@@ -327,8 +336,8 @@ contract NonNativeToken {
         inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
 
         let storage = Storage::init();
 
@@ -336,6 +345,8 @@ contract NonNativeToken {
         let current_balance = recipient_balance.read();
         let new_balance = current_balance + amount;
         recipient_balance.write(new_balance);
+
+        context.finish()
     }
 
     unconstrained fn getBalance(

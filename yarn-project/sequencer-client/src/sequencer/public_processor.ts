@@ -126,6 +126,7 @@ export class PublicProcessor {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
+      // TODO: add this within the simulator rather than here???
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);

@@ -193,6 +193,7 @@ export class PublicCircuitPublicInputs {
      */
     public proverAddress: AztecAddress,
   ) {
+    console.log(contractStorageUpdateRequests);
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
