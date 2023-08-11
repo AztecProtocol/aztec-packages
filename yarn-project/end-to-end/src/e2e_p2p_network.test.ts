@@ -162,7 +162,7 @@ describe('e2e_p2p_network', () => {
 
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
-    await aztecRpcServer.addAccount(await keyPair.getPrivateKey(), completeAddress);
+    await aztecRpcServer.addSignerAccount(await keyPair.getPrivateKey(), completeAddress);
 
     const txs = await submitTxsTo(aztecRpcServer, completeAddress.address, numTxs, completeAddress.publicKey);
     return {

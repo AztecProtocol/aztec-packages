@@ -19,7 +19,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
-  private recipients: CompleteAddress[] = [];
+  private accounts: CompleteAddress[] = [];
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
@@ -93,22 +93,21 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  addRecipient(recipient: CompleteAddress): Promise<void> {
-    // Check if recipient is in recipients and throw an error if yes
-    const recipientIndex = this.recipients.findIndex(r => r.address.equals(recipient.address));
-    if (recipientIndex !== -1) {
-      throw new Error(`Recipient ${recipient.address.toString()} already exists in memory database`);
+  addAccount(account: CompleteAddress): Promise<void> {
+    const accountIndex = this.accounts.findIndex(r => r.address.equals(account.address));
+    if (accountIndex !== -1) {
+      throw new Error(`Account ${account.address.toString()} already exists in memory database`);
     }
-    this.recipients.push(recipient);
+    this.accounts.push(account);
     return Promise.resolve();
   }
 
-  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
-    const recipient = this.recipients.find(r => r.address.equals(address));
+  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const recipient = this.accounts.find(r => r.address.equals(address));
     return Promise.resolve(recipient);
   }
 
-  getRecipients(): Promise<CompleteAddress[]> {
-    return Promise.resolve(this.recipients);
+  getAccounts(): Promise<CompleteAddress[]> {
+    return Promise.resolve(this.accounts);
   }
 }

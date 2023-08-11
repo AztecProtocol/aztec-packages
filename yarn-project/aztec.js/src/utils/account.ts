@@ -27,7 +27,7 @@ export async function createAccounts(
     const privKey = i == 0 && privateKey ? privateKey : PrivateKey.random();
     const publicKey = await generatePublicKey(privKey);
     const deploymentInfo = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
-    await aztecRpcClient.addAccount(privKey, deploymentInfo.completeAddress);
+    await aztecRpcClient.addSignerAccount(privKey, deploymentInfo.completeAddress);
     const contractDeployer = new ContractDeployer(accountContractAbi, aztecRpcClient, publicKey);
     const tx = contractDeployer.deploy().send({ contractAddressSalt: salt });
     await tx.isMined({ interval: 0.5 });

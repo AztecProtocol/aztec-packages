@@ -70,7 +70,7 @@ export interface AztecRPC {
    * @param completeAddress - Complete address of the account.
    * @returns Empty promise.
    */
-  addAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
+  addSignerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
 
   /**
    * Retrieves the list of complete addresses added to this rpc server
@@ -181,11 +181,11 @@ export interface AztecRPC {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
-   * Adds recipient's complete address to the database.
-   * @param recipientAddress - The complete address of the recipient.
+   * Adds account to the database.
+   * @param account - A complete address.
    * @returns Empty promise.
    */
-  addRecipient(recipientAddress: CompleteAddress): Promise<void>;
+  addAccount(account: CompleteAddress): Promise<void>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).

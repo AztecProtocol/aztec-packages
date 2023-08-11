@@ -275,7 +275,7 @@ async function main() {
       const publicKey = Point.fromString(options.publicKey);
       const partialAddress = Fr.fromString(options.partialAddress);
 
-      await client.addRecipient(new CompleteAddress(address, publicKey, partialAddress));
+      await client.addAccount(new CompleteAddress(address, publicKey, partialAddress));
       log(`\nRegistered details for Address: ${options.address}\n`);
     });
 

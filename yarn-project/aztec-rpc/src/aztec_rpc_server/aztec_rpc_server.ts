@@ -89,7 +89,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addAccount(privKey: PrivateKey, completeAddress: CompleteAddress) {
+  public async addSignerAccount(privKey: PrivateKey, completeAddress: CompleteAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
     const wasm = await CircuitsWasm.get();
     const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, completeAddress.partialAddress);
@@ -98,25 +98,21 @@ export class AztecRPCServer implements AztecRPC {
         `Address cannot be derived from pubkey and partial address (received ${completeAddress.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
-    await this.db.addRecipient(completeAddress);
+    await this.db.addAccount(completeAddress);
     this.synchroniser.addAccount(pubKey, this.keyStore);
     this.log.info(`Added account ${completeAddress.toString()}`);
   }
 
-  public async addRecipient(recipientAddress: CompleteAddress): Promise<void> {
+  public async addAccount(account: CompleteAddress): Promise<void> {
     const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(
-      wasm,
-      recipientAddress.publicKey,
-      recipientAddress.partialAddress,
-    );
-    if (!expectedAddress.equals(recipientAddress.address)) {
+    const expectedAddress = computeContractAddressFromPartial(wasm, account.publicKey, account.partialAddress);
+    if (!expectedAddress.equals(account.address)) {
       throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${recipientAddress.address.toString()}, derived ${expectedAddress.toString()})`,
+        `Address cannot be derived from pubkey and partial address (received ${account.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
-    await this.db.addRecipient(recipientAddress);
-    this.log.info(`Added recipient: ${recipientAddress.toString()}`);
+    await this.db.addAccount(account);
+    this.log.info(`Added recipient: ${account.toString()}`);
   }
 
   public async addContracts(contracts: DeployedContract[]) {
@@ -130,11 +126,11 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getAccounts(): Promise<CompleteAddress[]> {
-    return await this.db.getRecipients();
+    return await this.db.getAccounts();
   }
 
   public async getAccount(address: AztecAddress): Promise<CompleteAddress> {
-    const result = await this.db.getRecipient(address);
+    const result = await this.db.getAccount(address);
     if (!result) {
       throw new Error(`Unable to get public key for address ${address.toString()}`);
     }
