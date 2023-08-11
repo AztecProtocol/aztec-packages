@@ -59,7 +59,30 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     fr version = 0;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO add all fields here);
+    MSGPACK_FIELDS(call_context,
+                   args_hash,
+                   return_values,
+                   read_requests,
+                   new_commitments,
+                   new_nullifiers,
+                   nullified_commitments,
+                   private_call_stack,
+                   public_call_stack,
+                   new_l2_to_l1_msgs,
+                   encrypted_logs_hash,
+                   unencrypted_logs_hash,
+                   encrypted_log_preimages_length,
+                   unencrypted_log_preimages_length,
+                   historic_private_data_tree_root,
+                   historic_nullifier_tree_root,
+                   historic_contract_tree_root,
+                   historic_l1_to_l2_messages_tree_root,
+                   historic_blocks_tree_root,
+                   historic_global_variables_hash,
+                   historic_public_data_tree_root,
+                   contract_deployment_data,
+                   chain_id,
+                   version);
 
     boolean operator==(PrivateCircuitPublicInputs<NCT> const& other) const
     {
@@ -273,7 +296,30 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     opt_fr version;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO add all fields here);
+    MSGPACK_FIELDS(call_context,
+                   args_hash,
+                   return_values,
+                   read_requests,
+                   new_commitments,
+                   new_nullifiers,
+                   nullified_commitments,
+                   private_call_stack,
+                   public_call_stack,
+                   new_l2_to_l1_msgs,
+                   encrypted_logs_hash,
+                   unencrypted_logs_hash,
+                   encrypted_log_preimages_length,
+                   unencrypted_log_preimages_length,
+                   historic_private_data_tree_root,
+                   historic_nullifier_tree_root,
+                   historic_contract_tree_root,
+                   historic_l1_to_l2_messages_tree_root,
+                   historic_blocks_tree_root,
+                   historic_global_variables_hash,
+                   historic_public_data_tree_root,
+                   contract_deployment_data,
+                   chain_id,
+                   version);
 
     OptionalPrivateCircuitPublicInputs<NCT>() = default;
 
