@@ -31,18 +31,21 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: Fr): Promise<AztecAddress> {
-    return this.rpc.addAccount(privKey, address, partialAddress);
+  addAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
+    return this.rpc.addAccount(privKey, completeAddress);
   }
   addPublicKeyAndPartialAddress(
     address: AztecAddress,
     publicKey: PublicKey,
     partialAddress: PartialAddress,
   ): Promise<void> {
-    return this.rpc.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
+    return this.rpc.addRecipient(address, publicKey, partialAddress);
   }
-  getAccounts(): Promise<AztecAddress[]> {
+  getAccounts(): Promise<CompleteAddress[]> {
     return this.rpc.getAccounts();
+  }
+  getAccount(address: AztecAddress): Promise<CompleteAddress|undefined> {
+    return this.rpc.getAccount(address);
   }
   addContracts(contracts: DeployedContract[]): Promise<void> {
     return this.rpc.addContracts(contracts);
@@ -76,9 +79,6 @@ export abstract class BaseWallet implements Wallet {
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();
-  }
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
-    return this.rpc.getPublicKeyAndPartialAddress(address);
   }
   isGlobalStateSynchronised() {
     return this.rpc.isGlobalStateSynchronised();

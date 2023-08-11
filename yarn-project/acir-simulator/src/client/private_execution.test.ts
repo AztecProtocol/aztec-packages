@@ -1,6 +1,7 @@
 import {
   CallContext,
   CircuitsWasm,
+  CompleteAddress,
   ConstantHistoricBlockData,
   ContractDeploymentData,
   FieldsOf,
@@ -193,24 +194,15 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const {
-        address: ownerAddress,
-        partialAddress: ownerPartialAddress,
-        publicKey: ownerPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
 
-      const {
-        address: recipientAddress,
-        partialAddress: recipientPartialAddress,
-        publicKey: recipientPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      owner = ownerCompleteAddress.address;
+      recipient = recipientCompleteAddress.address;
 
-      owner = ownerAddress;
-      recipient = recipientAddress;
-
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
-        if (address.equals(recipient)) return Promise.resolve([recipientPubKey, recipientPartialAddress]);
+      oracle.getRecipient.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
 
@@ -432,24 +424,15 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const {
-        address: ownerAddress,
-        partialAddress: ownerPartialAddress,
-        publicKey: ownerPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
 
-      const {
-        address: recipientAddress,
-        partialAddress: recipientPartialAddress,
-        publicKey: recipientPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      owner = ownerCompleteAddress.address;
+      recipient = recipientCompleteAddress.address;
 
-      owner = ownerAddress;
-      recipient = recipientAddress;
-
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
-        if (address.equals(recipient)) return Promise.resolve([recipientPubKey, recipientPartialAddress]);
+      oracle.getRecipient.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
 
@@ -648,10 +631,10 @@ describe('Private Execution test suite', () => {
     let recipient: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
-      recipient = address;
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(recipient)) return Promise.resolve([publicKey, partialAddress]);
+      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      recipient = recipientCompleteAddress.address;
+      oracle.getRecipient.mockImplementation((address: AztecAddress) => {
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -787,10 +770,12 @@ describe('Private Execution test suite', () => {
     let owner: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
-      owner = address;
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([publicKey, partialAddress]);
+      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+
+      owner = ownerCompleteAddress.address;
+
+      oracle.getRecipient.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -971,13 +956,11 @@ describe('Private Execution test suite', () => {
       abi.returnTypes = [{ kind: 'field' }, { kind: 'field' }];
 
       // Generate a partial address, pubkey, and resulting address
-      const partialAddress = Fr.random();
-      const pubKey = Point.random();
-      const wasm = await CircuitsWasm.get();
-      const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-      const args = [address];
+      const completeAddress = await CompleteAddress.random();
+      const args = [completeAddress.address];
+      const pubKey = completeAddress.publicKey;
 
-      oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
+      oracle.getRecipient.mockResolvedValue(completeAddress);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });

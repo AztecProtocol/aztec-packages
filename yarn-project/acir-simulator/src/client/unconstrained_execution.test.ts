@@ -1,4 +1,4 @@
-import { CircuitsWasm, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
+import { CircuitsWasm, CompleteAddress, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -36,20 +36,12 @@ describe('Unconstrained Execution test suite', () => {
       return [new Fr(amount), owner, Fr.random()];
     };
 
-    const calculateAddress = (privateKey: PrivateKey) => {
-      const grumpkin = new Grumpkin(bbWasm);
-      const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
-      const partialAddress = Fr.random();
-      const address = computeContractAddressFromPartial(bbWasm, pubKey, partialAddress);
-      return [address, partialAddress, pubKey] as const;
-    };
+    beforeEach(async () => {
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+      owner = ownerCompleteAddress.address;
 
-    beforeEach(() => {
-      const [ownerAddress, ownerPartialAddress, ownerPubKey] = calculateAddress(ownerPk);
-      owner = ownerAddress;
-
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
+      oracle.getRecipient.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
     });

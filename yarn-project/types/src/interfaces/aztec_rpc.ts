@@ -1,6 +1,7 @@
 import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
+  CompleteAddress,
   ContractData,
   ContractDataAndBytecode,
   L2BlockL2Logs,
@@ -66,19 +67,25 @@ export interface AztecRPC {
    * Registers an account backed by an account contract.
    *
    * @param privKey - Private key of the corresponding user master public key.
-   * @param address - Address of the account contract.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns The address of the account contract.
+   * @param completeAddress - Complete address of the account.
+   * @returns Empty promise.
    */
-  addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress): Promise<AztecAddress>;
+  addAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
 
   /**
-   * Retrieves the list of Aztec addresses added to this rpc server
-   * The addresses are returned as a promise that resolves to an array of AztecAddress objects.
+   * Retrieves the list of complete addresses added to this rpc server
+   * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
-   * @returns A promise that resolves to an array of AztecAddress instances.
+   * @returns A promise that resolves to an array of CompleteAddress instances.
    */
-  getAccounts(): Promise<AztecAddress[]>;
+  getAccounts(): Promise<CompleteAddress[]>;
+
+  /**
+   * Retrieves the complete address of the account corresponding to the provided aztec address.
+   * @param address - The aztec address of the account contract.
+   * @returns A promise that resolves to an array of CompleteAddress instances.
+   */
+  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Add an array of deployed contracts to the database.
@@ -174,28 +181,13 @@ export interface AztecRPC {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
+   * Adds recipient's complete address to the database.
+   * @param recipientAddress - The complete address of the recipient.
+   * @returns Empty promise.
    */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
+  addRecipient(
+    recipientAddress: CompleteAddress
   ): Promise<void>;
-
-  /**
-   * Retrieve the public key and partial address associated with an address.
-   * Throws an error if the account is not found in the key store.
-   *
-   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
-   * @remarks The public key and partial address form a preimage of a contract address. See
-   * https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
-   */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).

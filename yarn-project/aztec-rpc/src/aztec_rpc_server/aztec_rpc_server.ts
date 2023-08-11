@@ -7,6 +7,7 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
+  CompleteAddress,
   ConstantHistoricBlockData,
   FunctionData,
   PartialAddress,
@@ -90,35 +91,33 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress) {
+  public async addAccount(privKey: PrivateKey, completeAddress: CompleteAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
     const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-    if (!expectedAddress.equals(address)) {
+    const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, completeAddress.partialAddress);
+    if (!expectedAddress.equals(completeAddress.address)) {
       throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+        `Address cannot be derived from pubkey and partial address (received ${completeAddress.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
-    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialAddress);
+    await this.db.addRecipient(completeAddress);
     this.synchroniser.addAccount(pubKey, this.keyStore);
-    this.log.info(`Added account ${address.toString()}`);
-    return address;
+    this.log.info(`Added account ${completeAddress.toString()}`);
   }
 
-  public async addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
+  public async addRecipient(
+    recipientAddress: CompleteAddress
+
   ): Promise<void> {
     const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-    if (!expectedAddress.equals(address)) {
+    const expectedAddress = computeContractAddressFromPartial(wasm, recipientAddress.publicKey, recipientAddress.partialAddress);
+    if (!expectedAddress.equals(recipientAddress.address)) {
       throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+        `Address cannot be derived from pubkey and partial address (received ${recipientAddress.address.toString()}, derived ${expectedAddress.toString()})`,
       );
     }
-    await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
-    this.log.info(`Added public key for ${address.toString()}`);
+    await this.db.addRecipient(recipientAddress);
+    this.log.info(`Added recipient: ${recipientAddress.toString()}`);
   }
 
   public async addContracts(contracts: DeployedContract[]) {
@@ -131,8 +130,8 @@ export class AztecRPCServer implements AztecRPC {
     }
   }
 
-  public async getAccounts(): Promise<AztecAddress[]> {
-    return await this.db.getAccounts();
+  public async getAccounts(): Promise<CompleteAddress[]> {
+    return await this.db.getRecipients();
   }
 
   public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {

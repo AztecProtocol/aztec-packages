@@ -35,7 +35,7 @@ describe('AztecRpcServer', function () {
     const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
 
     await rpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
-    expect(await db.getPublicKeyAndPartialAddress(address)).toEqual([pubKey, partialAddress]);
+    expect(await db.getRecipient(address)).toEqual([pubKey, partialAddress]);
   });
 
   it('refuses to add an account with incorrect address for given partial address and privkey', async () => {
@@ -51,7 +51,7 @@ describe('AztecRpcServer', function () {
     const partialAddress = Fr.random();
     const address = AztecAddress.random();
 
-    await expect(rpcServer.addPublicKeyAndPartialAddress(address, publicKey, partialAddress)).rejects.toThrowError(
+    await expect(rpcServer.addRecipient(address, publicKey, partialAddress)).rejects.toThrowError(
       /cannot be derived/,
     );
   });

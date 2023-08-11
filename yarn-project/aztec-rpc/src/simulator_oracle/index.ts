@@ -1,5 +1,5 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, CompleteAddress, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
@@ -23,13 +23,13 @@ export class SimulatorOracle implements DBOracle {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
-  async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result)
+  async getRecipient(address: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getRecipient(address);
+    if (!completeAddress)
       throw new Error(
-        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addPublicKeyAndPartialAddress(...)`,
+        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addRecipient(...)`,
       );
-    return result;
+    return completeAddress;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {

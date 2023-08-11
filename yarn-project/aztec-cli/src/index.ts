@@ -124,12 +124,9 @@ async function main() {
         1,
       );
       const accounts = await wallet.getAccounts();
-      const pubKeysAndPartialAddresses = await Promise.all(
-        accounts.map(acc => wallet.getPublicKeyAndPartialAddress(acc)),
-      );
       log(`\nCreated account(s).`);
-      accounts.map((acc, i) =>
-        log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeysAndPartialAddresses[i][0].toString()}\n`),
+      accounts.map((acc) =>
+        log(acc.toString()),
       );
     });
 
@@ -161,7 +158,7 @@ async function main() {
         if (!accounts) {
           throw new Error('No public key provided or found in Aztec RPC.');
         }
-        publicKey = (await client.getPublicKeyAndPartialAddress(accounts[0]))[0];
+        publicKey = accounts[0].publicKey;
       }
 
       log(`Using Public Key: ${publicKey.toString()}`);
@@ -280,7 +277,7 @@ async function main() {
       const publicKey = Point.fromString(options.publicKey);
       const partialAddress = Fr.fromString(options.partialAddress);
 
-      await client.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
+      await client.addRecipient(address, publicKey, partialAddress);
       log(`\nRegistered details for Address: ${options.address}\n`);
     });
 
@@ -295,9 +292,8 @@ async function main() {
         log('No accounts found.');
       } else {
         log(`Accounts found: \n`);
-        for (const address of accounts) {
-          const [pk, partialAddress] = await client.getPublicKeyAndPartialAddress(address);
-          log(`Address: ${address}\nPublic Key: ${pk.toString()}\nPartial Address: ${partialAddress.toString()}\n`);
+        for (const account of accounts) {
+          log(account.toString());
         }
       }
     });
@@ -310,12 +306,12 @@ async function main() {
     .action(async (_address, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(_address);
-      const [pk, partialAddress] = await client.getPublicKeyAndPartialAddress(address);
+      const account = await client.getAccount(address);
 
-      if (!pk) {
+      if (!account) {
         log(`Unknown account ${_address}`);
       } else {
-        log(`Public Key: \n ${pk.toString()}\nPartial Address: ${partialAddress.toString()}\n`);
+        log(account.toString());
       }
     });
 

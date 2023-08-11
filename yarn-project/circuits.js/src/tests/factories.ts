@@ -16,6 +16,7 @@ import {
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
+  CompleteAddress,
   ConstantBaseRollupData,
   ConstantHistoricBlockData,
   ContractDeploymentData,
@@ -952,14 +953,14 @@ export function fr(n: number): Fr {
 /**
  * Computes a valid address, partial address, and public key out of a private key.
  * @param privateKey - A private encryption key (optional, will use a random one if not set).
- * @returns A valid address, partial address, and public key.
+ * @returns A promise resolving to complete address
  */
-export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: PrivateKey) {
+export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: PrivateKey): Promise<CompleteAddress> {
   privateKey = privateKey ?? PrivateKey.random();
   const wasm = await CircuitsWasm.get();
   const grumpkin = new Grumpkin(wasm);
   const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
   const partialAddress = Fr.random();
   const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-  return { address, partialAddress, publicKey, privateKey };
+  return new CompleteAddress(address, publicKey, partialAddress);
 }

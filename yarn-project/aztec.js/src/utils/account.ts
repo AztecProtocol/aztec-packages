@@ -27,7 +27,7 @@ export async function createAccounts(
     const privKey = i == 0 && privateKey ? privateKey : PrivateKey.random();
     const publicKey = await generatePublicKey(privKey);
     const deploymentInfo = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
-    await aztecRpcClient.addAccount(privKey, deploymentInfo.address, deploymentInfo.partialAddress);
+    await aztecRpcClient.addAccount(privKey, deploymentInfo.completeAddress);
     const contractDeployer = new ContractDeployer(accountContractAbi, aztecRpcClient, publicKey);
     const tx = contractDeployer.deploy().send({ contractAddressSalt: salt });
     await tx.isMined({ interval: 0.5 });
@@ -36,15 +36,15 @@ export async function createAccounts(
       throw new Error(`Deployment tx not mined (status is ${receipt.status})`);
     }
     const address = receipt.contractAddress!;
-    if (!address.equals(deploymentInfo.address)) {
+    if (!address.equals(deploymentInfo.completeAddress.address)) {
       throw new Error(
-        `Deployment address does not match for account contract (expected ${deploymentInfo.address.toString()} got ${address.toString()})`,
+        `Deployment address does not match for account contract (expected ${deploymentInfo.completeAddress.address.toString()} got ${address.toString()})`,
       );
     }
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
     accountImpls.registerAccount(
       address,
-      new SingleKeyAccountEntrypoint(address, deploymentInfo.partialAddress, privKey, await Schnorr.new()),
+      new SingleKeyAccountEntrypoint(address, deploymentInfo.completeAddress.partialAddress, privKey, await Schnorr.new()),
     );
   }
   return new EntrypointWallet(aztecRpcClient, accountImpls);
@@ -64,12 +64,12 @@ export async function getAccountWallet(
 ) {
   const accountCollection = new EntrypointCollection();
   const publicKey = await generatePublicKey(privateKey);
-  const deploymentInfo = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
-  const address = deploymentInfo.address;
+  const {completeAddress} = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
+  const address = completeAddress.address;
 
   accountCollection.registerAccount(
     address,
-    new SingleKeyAccountEntrypoint(address, deploymentInfo.partialAddress, privateKey, await Schnorr.new()),
+    new SingleKeyAccountEntrypoint(address, completeAddress.partialAddress, privateKey, await Schnorr.new()),
   );
   return new EntrypointWallet(aztecRpcClient, accountCollection);
 }
