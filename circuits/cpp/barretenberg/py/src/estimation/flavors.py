@@ -1,11 +1,11 @@
 FIELD_ELEMENT_SIZE = 32
 COMMITMENT_SIZE = 2 * FIELD_ELEMENT_SIZE
 
-
 class Flavor:
     def __init__(self, NUM_WITNESSES, NUM_POLYNOMIALS):
         self.NUM_WITNESSES = NUM_WITNESSES
         self.NUM_POLYNOMIALS = NUM_POLYNOMIALS
+        self.over_BN254 = None
         self.base_proof_size = 0
         # circuit size
         self.base_proof_size += 4
@@ -24,6 +24,7 @@ class GoblinUltra(Flavor):
         self.NUM_SHIFTED_POLYNOMIALS = 11
         # 4 wires, 2 grand product commitments, 1 sorted accumulator
         self.NUM_WITNESSES = 4
+        self.over_BN254 = True
         super(GoblinUltra, self).__init__(self.NUM_WITNESSES, self.NUM_POLYNOMIALS)
 
 
@@ -33,6 +34,7 @@ class ECCVM(Flavor):
         self.NUM_POLYNOMIALS = 105
         self.NUM_SHIFTED_POLYNOMIALS = 26
         self.NUM_WITNESSES = 76
+        self.over_BN254 = False
         super(ECCVM, self).__init__(self.NUM_WITNESSES, self.NUM_POLYNOMIALS)
 
 
@@ -42,5 +44,6 @@ class Translator(Flavor):
         self.NUM_POLYNOMIALS = 80
         self.NUM_SHIFTED_POLYNOMIALS = 80
         self.NUM_WITNESSES = 85
+        self.over_BN254 = True
         super(Translator, self).__init__(
             self.NUM_WITNESSES, self.NUM_POLYNOMIALS)

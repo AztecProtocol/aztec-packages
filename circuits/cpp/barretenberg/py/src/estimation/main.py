@@ -67,5 +67,4 @@ if __name__ == "__main__":
         data_log.add_entries(client_stack.goblin.final_circuit,
                              client_stack.goblin.eccvm, 
                              client_stack.goblin.translator)
-
     data_log.print()

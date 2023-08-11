@@ -1,13 +1,9 @@
 # not in use yet
 
-class Pedersen:
+class Oracle:
     # estimate derived by looking at UltraPlonk 
     # recursive verification of UltraPlonk proofs.
     def num_gates_to_hash(self, num_bytes):
         return 7 * num_bytes
     def time_to_hash(self, num_bytes):
-        return 1 + int(0.053 * num_bytes) # ms
-    
-if __name__ == "__main__":
-    hasher = Pedersen()
-    print(hasher.num_gates_to_hash(98))
+        return 1 + int(0.075 * num_bytes) # ms

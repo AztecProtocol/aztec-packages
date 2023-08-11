@@ -27,22 +27,22 @@ void construct_proof_ultra(State& state, void (*test_circuit_function)(UltraBuil
 }
 
 // Define benchmarks
-BENCHMARK_CAPTURE(construct_proof_ultra, sha256, &bench_utils::generate_sha256_test_circuit<UltraBuilder>)
+BENCHMARK_CAPTURE(construct_proof_ultra, sha256_size64k, &bench_utils::generate_sha256_test_circuit<UltraBuilder>)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kSecond);
-BENCHMARK_CAPTURE(construct_proof_ultra, keccak, &bench_utils::generate_keccak_test_circuit<UltraBuilder>)
+BENCHMARK_CAPTURE(construct_proof_ultra, keccak_size256k, &bench_utils::generate_keccak_test_circuit<UltraBuilder>)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kSecond);
 BENCHMARK_CAPTURE(construct_proof_ultra,
-                  ecdsa_verification,
+                  ecdsa_verification_size512k,
                   &bench_utils::generate_ecdsa_verification_test_circuit<UltraBuilder>)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
     ->Unit(::benchmark::kSecond);
 BENCHMARK_CAPTURE(construct_proof_ultra,
-                  merkle_membership,
+                  merkle_membership_size32k,
                   &bench_utils::generate_merkle_membership_test_circuit<UltraBuilder>)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)
