@@ -1,4 +1,4 @@
-// Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
+// Demonstrates how to perform 4 x 4 = 16 transfers in one transaction. Uses the private airdrop contract in the backend.
 contract MultiTransfer {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
@@ -24,6 +24,11 @@ contract MultiTransfer {
         Context::new(inputs, 0).finish()
     }
 
+    // Transfers 12 amounts to 12 recipients.
+    // multiTransfer() => 4 calls to batchTransfer() on the private airdrop contract.
+    // Each batchTransfer() call allows sending new notes to 3 recipients, so 3 x 4 = 12 recipients in total.
+    // Note that all the notes stay on the airdrop contract, the multi transfer contract must interact with 
+    // methods in the private airdrop contract to initiate multiple transfers in one transaction. 
     fn multiTransfer(
         inputs: PrivateContextInputs,
         asset: Field, // Asset to distribute
