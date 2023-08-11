@@ -199,13 +199,7 @@
       "aztec.js",
       "l1-artifacts",
       "noir-contracts",
-      "aztec-sandbox",
-      "aztec-node",
-      "aztec-rpc",
-      "circuits.js",
-      "ethereum",
-      "foundation",
-      "types"
+      "aztec-sandbox"
     ]
   },
   "canary": {
