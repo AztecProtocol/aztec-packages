@@ -50,7 +50,7 @@ fn spend_notes(
     let encryption_pub_key = get_public_key(owner);
     emit_encrypted_log(
         context,
-        context.inputs.call_context.storage_contract_address,
+        (*context).this_address(),
         balance.storage_slot,
         owner,
         encryption_pub_key,
@@ -74,7 +74,7 @@ fn send_note(
     let encryption_pub_key = get_public_key(recipient);
     emit_encrypted_log(
         context,
-        context.inputs.call_context.storage_contract_address,
+        (*context).this_address(),
         balance.storage_slot,
         recipient,
         encryption_pub_key,

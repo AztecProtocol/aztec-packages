@@ -56,7 +56,7 @@ contract SchnorrSingleKeyAccount {
 
         // Verify public key against address
         let reproduced_address = dep::std::hash::pedersen_with_separator([x, y, partial_address], GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
-        assert(reproduced_address == inputs.call_context.storage_contract_address);
+        assert(reproduced_address == context.this_address());
 
         // Execute calls
         payload.execute_calls(&mut context);

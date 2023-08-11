@@ -50,7 +50,7 @@ contract PublicToken {
         let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
 
         let storage = Storage::init();
-        let sender = inputs.call_context.msg_sender;
+        let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
         let recipient_balance = storage.balances.at(recipient);

@@ -620,8 +620,8 @@ impl PublicContext {
     //     assert(item.public_inputs.call_context.is_delegate_call == false);
     //     assert(item.public_inputs.call_context.is_static_call == false);
     //     assert(item.public_inputs.call_context.is_contract_deployment == false);
-    //     assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
-    //     assert(item.public_inputs.call_context.storage_contract_address == contract_address);
+    //     assert(item.public_context.msg_sender() == self.inputs.call_context.storage_contract_address);
+    //     assert(item.public_context.this_address() == contract_address);
 
 
     //     item.public_inputs.return_values
@@ -704,8 +704,8 @@ impl PublicContext {
     //     assert(item.public_inputs.call_context.is_delegate_call == false);
     //     assert(item.public_inputs.call_context.is_static_call == false);
     //     assert(item.public_inputs.call_context.is_contract_deployment == false);
-    //     assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
-    //     assert(item.public_inputs.call_context.storage_contract_address == contract_address);
+    //     assert(item.public_context.msg_sender() == self.inputs.call_context.storage_contract_address);
+    //     assert(item.public_context.this_address() == contract_address);
 
     //     self.public_call_stack.push(item.hash());
 

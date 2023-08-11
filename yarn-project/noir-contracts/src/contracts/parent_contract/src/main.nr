@@ -123,7 +123,7 @@ contract Parent {
         ]));
 
         let pubEntryPointSelector = 3221316504;
-        let thisAddress = inputs.call_context.storage_contract_address;
+        let thisAddress = context.this_address();
         let _return_values = context.call_public_function(thisAddress, pubEntryPointSelector, [targetContract, targetSelector, targetValue]);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -144,7 +144,7 @@ contract Parent {
         ]));
 
         let pubEntryPointSelector = 3221316504;
-        let thisAddress = inputs.call_context.storage_contract_address;
+        let thisAddress = context.this_address();
         
         let _return_values1 = context.call_public_function(thisAddress, pubEntryPointSelector, [targetContract, targetSelector, targetValue]);
 

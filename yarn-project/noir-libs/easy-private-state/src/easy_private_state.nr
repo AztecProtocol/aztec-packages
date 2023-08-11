@@ -53,7 +53,7 @@ impl EasyPrivateUint {
         let owner_key = get_public_key(owner);
         emit_encrypted_log(
             context,
-            context.inputs.call_context.storage_contract_address,
+            (*context).this_address(),
             self.set.storage_slot,
             owner,
             owner_key,
@@ -107,7 +107,7 @@ impl EasyPrivateUint {
 
         emit_encrypted_log(
             context,
-            context.inputs.call_context.storage_contract_address,
+            (*context).this_address(),
             self.set.storage_slot,
             owner,
             owner_key,

@@ -73,8 +73,8 @@ contract EcdsaAccount {
         for byte in signing_pub_key_y { args.push(byte as Field); }
         let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
         
-        let this = inputs.call_context.storage_contract_address;
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, inputs.call_context.storage_contract_address);
+        let this = context.this_address();
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.public_key.initialise(&mut context, &mut pub_key_note);
         
         emit_encrypted_log(

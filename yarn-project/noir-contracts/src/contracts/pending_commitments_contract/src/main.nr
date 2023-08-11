@@ -198,12 +198,13 @@ contract PendingCommitments {
         args[0] = amount;
         args[1] = owner;
 
+        let this = context.this_address();
         // nested call to create/insert note
-        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem1 = context.call_private_function(this, insert_fn_selector, args);
         // nested call to read that note / pending commitment
-        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(this, get_then_nullify_fn_selector, args);
          // nested call to confirm that balance is zero
-         let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+         let _callStackItem3 = context.call_private_function(this, get_note_zero_fn_selector, [owner]);
 
         context.finish()
     }

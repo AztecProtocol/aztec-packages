@@ -69,7 +69,7 @@ contract SchnorrAccount {
         
         let mut context = PrivateContext::new(inputs, abi::hash_args([signing_pub_key_x, signing_pub_key_y]));
         
-        let this = inputs.call_context.storage_contract_address;
+        let this = context.this_address();
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.signing_public_key.initialise(&mut context, &mut pub_key_note);
         

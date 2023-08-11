@@ -192,7 +192,7 @@ contract NonNativeToken {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
 
-        let sender = inputs.call_context.msg_sender;
+        let sender = context.msg_sender();
         let sender_balance = public_balances.at(sender);
 
         let current_sender_balance: Field = sender_balance.read();
@@ -254,8 +254,7 @@ contract NonNativeToken {
         let pending_shields = storage.pending_shields;
 
         // Decrease user's balance.
-        // TODO: USE THE PUBLIC CONTEXT IN THIS RATEHR THAN THE INPUTS
-        let sender = inputs.call_context.msg_sender;
+        let sender = context.msg_sender();
         let sender_balance = public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
 
@@ -268,7 +267,7 @@ contract NonNativeToken {
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
-        pending_shields.insert_from_public(inputs, &mut note);
+        pending_shields.insert_from_public(context, &mut note);
 
         context.finish()
     }
@@ -322,7 +321,7 @@ contract NonNativeToken {
         spend_notes(&mut context, sender_balance, amount, owner);
 
         // enqueue a public function to perform the public state update.
-        let thisAddress = inputs.call_context.storage_contract_address;
+        let thisAddress = context.this_address();
 
         // addUnshieldedBalance selector (in decimal)
         // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal

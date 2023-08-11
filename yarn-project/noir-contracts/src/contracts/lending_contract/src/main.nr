@@ -175,11 +175,10 @@ contract Lending {
         inputs: PublicContextInputs,
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
-        // TODO(MADDIAA): GET ALL OF THE STUFF FROM CONTEXT IN THIS FILE!!!!! -> ADD TO THE PUBLIC CONTEXT
         let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
-        let return_values = call_public_function(context.this_address(), 1065861440, [inputs.call_context.msg_sender, amount]);
+        let return_values = call_public_function(context.this_address(), 1065861440, [context.msg_sender(), amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()

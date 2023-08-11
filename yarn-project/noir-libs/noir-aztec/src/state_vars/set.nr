@@ -1,5 +1,8 @@
 use crate::abi::PublicContextInputs;
-use crate::context::PrivateContext;
+use crate::context::{
+    PrivateContext,
+    PublicContext,
+};
 use crate::note::lifecycle::{create_note, create_note_hash_from_public, destroy_note};
 use crate::note::{
     note_getter::{get_notes, ensure_note_exists, ensure_note_hash_exists},
@@ -24,8 +27,8 @@ impl<Note, N> Set<Note, N> {
         create_note(context, self.storage_slot, note, self.note_interface);
     }
 
-    fn insert_from_public(self, inputs: PublicContextInputs, note: &mut Note) {
-        create_note_hash_from_public(inputs, self.storage_slot, note, self.note_interface);
+    fn insert_from_public(self, context: PublicContext, note: &mut Note) {
+        create_note_hash_from_public(context, self.storage_slot, note, self.note_interface);
     }
 
     fn assert_contains(self, context: &mut PrivateContext, note: &mut Note) {

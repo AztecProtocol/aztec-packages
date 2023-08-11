@@ -31,7 +31,7 @@ contract Escrow {
         owner: pub Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([owner]));
-        let this = inputs.call_context.storage_contract_address;
+        let this = context.this_address();
         
         let storage = Storage::init();
         let mut note = AddressNote::new(owner, this);
@@ -56,8 +56,8 @@ contract Escrow {
         recipient: pub Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([token, amount, recipient]));
-        let this = inputs.call_context.storage_contract_address;
-        let sender = inputs.call_context.msg_sender;
+        let this = context.this_address();
+        let sender = context.msg_sender();
         let storage = Storage::init();
         
         // TODO: Do we need to manually nullify and recreate this note for access control? Or does Set handle it for us? Or since we have no methods for updating it, we're good?
