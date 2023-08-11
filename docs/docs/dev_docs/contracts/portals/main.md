@@ -6,7 +6,7 @@ title: Portals
 
 A portal is the point of contact between L1 and a specific contract on Aztec. For applications such as token bridges, this is the point where the tokens are are held on L1 while used in L2. 
 
-As outlined in the [foundational concepts](../../../concepts/foundation/communication/cross_chain_calls.md), an Aztec L2 contract is linked to *ONE* L1 contract at time of deployment (specified by the developer). This L1 contract is the only that can send messages to that specific L2 contract, and the only party that can receive messages sent from the L2 contract to L1. Note, that a portal don't actually need to be a contract, it could be any address on L1. We say that an Aztec contract is attached to a portal.
+As outlined in the [foundational concepts](../../../concepts/foundation/communication/cross_chain_calls.md), an Aztec L2 contract is linked to *ONE* L1 address at time of deployment (specified by the developer). This L1 address is the only address that can send messages to that specific L2 contract, and the only address that can receive messages sent from the L2 contract to L1. Note, that a portal don't actually need to be a contract, it could be any address on L1. We say that an Aztec contract is attached to a portal.
 
 ## Passing data to the rollup
 
@@ -21,7 +21,7 @@ When sending messages, we need to specify quite a bit of information beyond just
 | Recipient      | `L2Actor` | The message recipient. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
 | Deadline       | `uint256` | The deadline for the message to be consumed. If the message has not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
 | Content        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
-| Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2 to keep the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so keep track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
+| Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
 | Fee            | `uint64`  | The fee to the sequencer for including the message. This is the amount of ETH that the sequencer will receive for including the message. Note that it is not a full `uint256` but only `uint64`|
 
 :::warning
@@ -41,7 +41,7 @@ With all that information at hand, we can call the `sendL2Message` function on t
 
 As time passes, a sequencer will see your tx, the juicy fee provided and include it in a rollup block. Upon inclusion, it is removed from L1, and made available to be consumed on L2.
 
-To consume the message, we can use the `consume_l1_to_l2_message` function on the `context`. 
+To consume the message, we can use the `consume_l1_to_l2_message` function within the `context` struct. 
 The `msg_key` is the hash of the message produced from the `sendL2Message` call, the `content` is the content of the message, and the `secret` is the pre-image hashed to compute the `secretHash`.
 
 ```rust title="context.nr"

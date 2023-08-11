@@ -30,10 +30,10 @@ function sendL2Message(
 
 #### Edge cases
 
-- Will revert with `Inbox__ActorTooLarge(bytes32 actor)` if the recipient is too large to be included in a field (~254 bits).
+- Will revert with `Inbox__ActorTooLarge(bytes32 actor)` if the recipient is larger than the field size (~254 bits).
 - Will revert with `Inbox__DeadlineBeforeNow()` if the deadline is before the current block.
-- Will revert with `Inbox__ContentTooLarge(bytes32 content)` if the content is too large to be included in a field (~254 bits).
-- Will revert with `Inbox__SecretHashTooLarge(bytes32 secretHash)` if the secret hash is too large to be included in a field (~254 bits).
+- Will revert with `Inbox__ContentTooLarge(bytes32 content)` if the content is larger than the field size (~254 bits).
+- Will revert with `Inbox__SecretHashTooLarge(bytes32 secretHash)` if the secret hash is larger than the field size (~254 bits).
 - Will revert with `Inbox__FeeTooHigh()` if the fee is larger than `type(uint64).max`.
 - Will revert `Inbox__IncompatibleEntryArguments(bytes32 entryKey, uint64 storedFee, uint64 feePassed, uint32 storedVersion, uint32 versionPassed, uint32 storedDeadline, uint32 deadlinePassed)` if insertion is not possible due to invalid entry arguments.
 
