@@ -47,6 +47,19 @@ export class ConstantHistoricBlockData {
     return new ConstantHistoricBlockData(...ConstantHistoricBlockData.getFields(fields));
   }
 
+  static random()  {
+    return new ConstantHistoricBlockData(
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+      Fr.random(),
+    );
+  }
+
   static getFields(fields: FieldsOf<ConstantHistoricBlockData>) {
     return [
       fields.privateDataTreeRoot,

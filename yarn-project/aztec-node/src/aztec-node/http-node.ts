@@ -349,23 +349,6 @@ export class HttpNode implements AztecNode {
   public async getHistoricBlockData(): Promise<ConstantHistoricBlockData> {
     const url = new URL(`${this.baseUrl}/historic-block-data`);
     const response = await (await fetch(url.toString())).json();
-
-    const extractRoot = (treeId: MerkleTreeId) => {
-      // Buffer.from(...) returns an empty buffer when a hex string is prefixed with "0x"
-      const rootHexString = response.roots[treeId].replace(/^0x/, '');
-      return Fr.fromBuffer(Buffer.from(rootHexString, 'hex'));
-    };
-
-    return new ConstantHistoricBlockData(
-      extractRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-      extractRoot(MerkleTreeId.NULLIFIER_TREE),
-      extractRoot(MerkleTreeId.CONTRACT_TREE),
-      extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      extractRoot(MerkleTreeId.BLOCKS_TREE),
-      Fr.ZERO,
-      extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      // TODO global hash
-      Fr.ZERO,
-    );
+    return response.blockData;
   }
 }
