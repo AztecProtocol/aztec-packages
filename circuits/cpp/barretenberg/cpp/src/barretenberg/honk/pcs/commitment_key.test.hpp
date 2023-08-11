@@ -9,10 +9,10 @@
 #include <string_view>
 
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/srs/factories/file_crs_factory.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/verification_key.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 #include "../../transcript/transcript_wrappers.hpp"
 
@@ -20,27 +20,22 @@
 
 namespace proof_system::honk::pcs {
 
-using KZGCommitmentKey = CommitmentKey<curve::BN254>;
-using IPACommitmentKey = CommitmentKey<curve::Grumpkin>;
-using KZGVerificationKey = VerificationKey<curve::BN254>;
-using IPAVerificationKey = VerificationKey<curve::Grumpkin>;
-
 template <class CK> inline std::shared_ptr<CK> CreateCommitmentKey();
 
-template <> inline std::shared_ptr<KZGCommitmentKey> CreateCommitmentKey<KZGCommitmentKey>()
+template <> inline std::shared_ptr<CommitmentKey<curve::BN254>> CreateCommitmentKey<CommitmentKey<curve::BN254>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<KZGCommitmentKey>(n, crs_factory);
+    return std::make_shared<CommitmentKey<curve::BN254>>(n, crs_factory);
 }
 // For IPA
-template <> inline std::shared_ptr<IPACommitmentKey> CreateCommitmentKey<IPACommitmentKey>()
+template <> inline std::shared_ptr<CommitmentKey<curve::Grumpkin>> CreateCommitmentKey<CommitmentKey<curve::Grumpkin>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<IPACommitmentKey>(n, crs_factory);
+    return std::make_shared<CommitmentKey<curve::Grumpkin>>(n, crs_factory);
 }
 
 template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
@@ -51,20 +46,21 @@ template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
 
 template <class VK> inline std::shared_ptr<VK> CreateVerificationKey();
 
-template <> inline std::shared_ptr<KZGVerificationKey> CreateVerificationKey<KZGVerificationKey>()
+template <> inline std::shared_ptr<VerificationKey<curve::BN254>> CreateVerificationKey<VerificationKey<curve::BN254>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<KZGVerificationKey>(n, crs_factory);
+    return std::make_shared<VerificationKey<curve::BN254>>(n, crs_factory);
 }
 // For IPA
-template <> inline std::shared_ptr<IPAVerificationKey> CreateVerificationKey<IPAVerificationKey>()
+template <>
+inline std::shared_ptr<VerificationKey<curve::Grumpkin>> CreateVerificationKey<VerificationKey<curve::Grumpkin>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<IPAVerificationKey>(n, crs_factory);
+    return std::make_shared<VerificationKey<curve::Grumpkin>>(n, crs_factory);
 }
 template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
 // requires std::default_initializable<VK>

@@ -1,10 +1,8 @@
 #pragma once
 
 /**
- * @brief Provides interfaces for different 'CommitmentKey' classes.
+ * @brief Provides interfaces for different PCS 'VerificationKey' classes.
  *
- * TODO(#218)(Mara): This class should handle any modification to the SRS (e.g compute pippenger point table) to
- * simplify the codebase.
  */
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -26,6 +24,11 @@ namespace proof_system::honk::pcs {
 
 template <class Curve> class VerificationKey;
 
+/**
+ * @brief Specialization for bn254
+ * 
+ * @tparam curve::BN254
+ */
 template <> class VerificationKey<curve::BN254> {
     using Curve = curve::BN254;
     using GroupElement = typename Curve::Element;
@@ -38,7 +41,7 @@ template <> class VerificationKey<curve::BN254> {
      * @brief Construct a new Kate Verification Key object from existing SRS
      *
      * @param num_points
-     * @paramsrs verifier G2 point
+     * @param srs verifier G2 point
      */
     VerificationKey([[maybe_unused]] size_t num_points,
                        std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
@@ -65,6 +68,11 @@ template <> class VerificationKey<curve::BN254> {
     std::shared_ptr<barretenberg::srs::factories::VerifierCrs<Curve>> srs;
 };
 
+/**
+ * @brief Specialization for Grumpkin
+ * 
+ * @tparam curve::Grumpkin
+ */
 template <> class VerificationKey<curve::Grumpkin> {
     using Curve = curve::Grumpkin;
     using GroupElement = typename Curve::Element;

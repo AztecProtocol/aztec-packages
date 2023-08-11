@@ -23,7 +23,7 @@ namespace proof_system::honk::pcs::shplonk {
 /**
  * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
  *
- * @tparam Curve CommitmentScheme parameters
+ * @tparam Curve EC parameters
  */
 template <typename Curve> using OutputWitness = barretenberg::Polynomial<typename Curve::ScalarField>;
 
@@ -31,7 +31,7 @@ template <typename Curve> using OutputWitness = barretenberg::Polynomial<typenam
  * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
  * that can be passed on to a univariate opening protocol.
  *
- * @tparam Curve CommitmentScheme parameters
+ * @tparam Curve EC parameters
  */
 template <typename Curve> struct ProverOutput {
     OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
@@ -41,7 +41,7 @@ template <typename Curve> struct ProverOutput {
 /**
  * @brief Shplonk Prover
  *
- * @tparam Curve for the given commitment scheme
+ * @tparam Curve EC parameters
  */
 template <typename Curve> class ShplonkProver_ {
     using Fr = typename Curve::ScalarField;

@@ -9,14 +9,16 @@
 #include "ipa.hpp"
 #include <gtest/gtest.h>
 using namespace barretenberg;
-namespace proof_system::honk::pcs::ipa {
+namespace proof_system::honk::pcs::ipa::test {
 
-class IPATest : public CommitmentTest<curve::Grumpkin> {
+using Curve = curve::Grumpkin;
+
+class IPATest : public CommitmentTest<Curve> {
   public:
-    using Fr = typename curve::Grumpkin::ScalarField;
-    using GroupElement = typename curve::Grumpkin::Element;
-    using CK = CommitmentKey<curve::Grumpkin>;
-    using VK = VerificationKey<curve::Grumpkin>;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using CK = CommitmentKey<Curve>;
+    using VK = VerificationKey<Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 
@@ -58,14 +60,14 @@ TEST_F(IPATest, Commit)
 
 TEST_F(IPATest, Open)
 {
-    using IPA = IPA<curve::Grumpkin>;
+    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
     auto poly = this->random_polynomial(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
-    const OpeningPair<curve::Grumpkin> opening_pair = { x, eval };
-    const OpeningClaim<curve::Grumpkin> opening_claim{ opening_pair, commitment };
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
     ProverTranscript<Fr> prover_transcript;
@@ -82,11 +84,11 @@ TEST_F(IPATest, Open)
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
-    using IPA = IPA<curve::Grumpkin>;
-    using ShplonkProver = shplonk::ShplonkProver_<curve::Grumpkin>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<curve::Grumpkin>;
-    using GeminiProver = gemini::GeminiProver_<curve::Grumpkin>;
-    using GeminiVerifier = gemini::GeminiVerifier_<curve::Grumpkin>;
+    using IPA = IPA<Curve>;
+    using ShplonkProver = shplonk::ShplonkProver_<Curve>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<Curve>;
+    using GeminiProver = gemini::GeminiProver_<Curve>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Curve>;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -172,4 +174,4 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
 
     EXPECT_EQ(verified, true);
 }
-} // namespace proof_system::honk::pcs::ipa
+} // namespace proof_system::honk::pcs::ipa::test
