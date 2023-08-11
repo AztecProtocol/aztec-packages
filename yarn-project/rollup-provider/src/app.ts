@@ -93,20 +93,28 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
+  router.get('/get-rollup-address', async (ctx: Koa.Context) => {
+    ctx.set('content-type', 'application/json');
+    ctx.body = {
+      rollupAddress: (await node.getRollupAddress()).toString(),
+    };
+    ctx.status = 200;
+  });
+
+  router.get('/contract-data-and-bytecode', async (ctx: Koa.Context) => {
+    const address = ctx.query.address;
+    ctx.set('content-type', 'application/json');
+    ctx.body = {
+      contractData: await node.getContractDataAndBytecode(AztecAddress.fromString(address as string)),
+    };
+    ctx.status = 200;
+  });
+
   router.get('/contract-data', async (ctx: Koa.Context) => {
     const address = ctx.query.address;
     ctx.set('content-type', 'application/json');
     ctx.body = {
       contractData: await node.getContractData(AztecAddress.fromString(address as string)),
-    };
-    ctx.status = 200;
-  });
-
-  router.get('/contract-info', async (ctx: Koa.Context) => {
-    const address = ctx.query.address;
-    ctx.set('content-type', 'application/json');
-    ctx.body = {
-      contractInfo: await node.getContractData(AztecAddress.fromString(address as string)),
     };
     ctx.status = 200;
   });

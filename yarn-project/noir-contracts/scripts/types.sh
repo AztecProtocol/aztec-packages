@@ -79,7 +79,7 @@ wait
 
 # Write the index ts stuff
 # Remove the output file
-rm $artifacts_dir/index.ts || true
+rm -f $artifacts_dir/index.ts || true
 
 # Generate artifacts package index.ts
 echo "// Auto generated module\n" > "$artifacts_dir/index.ts";

@@ -1,10 +1,11 @@
+import { EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
   ContractCommitmentProvider,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   DataCommitmentProvider,
   L1ToL2MessageProvider,
   L2Block,
@@ -60,20 +61,26 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
   getChainId(): Promise<number>;
 
   /**
+   * Method to fetch the rollup contract address at the base-layer.
+   * @returns The rollup address.
+   */
+  getRollupAddress(): Promise<EthAddress>;
+
+  /**
    * Lookup the L2 contract data for this contract.
    * Contains the ethereum portal address and bytecode.
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Gets up to `limit` amount of logs starting from `from`.
