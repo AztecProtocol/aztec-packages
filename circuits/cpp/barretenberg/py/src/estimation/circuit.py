@@ -18,14 +18,18 @@ class CircuitNoPCS:
         self.log_n = log_n
         self.num_public_inputs = num_pub_inputs
 
-        self.max_memory = flavor.NUM_POLYNOMIALS * (1<<log_n) * 32 # bytes
+        # Each polynomial consists of n 32-byte field elements. After the first 
+        # round of sumcheck, we also have a partial evaluation oach polynomials, 
+        # which consists of n/2 32-byte field elements
+        self.max_memory = int(flavor.NUM_POLYNOMIALS *
+                              (1 << log_n) * 32 * 1.5)  # bytes
 
         self.verifier_msms = [MSM(flavor.NUM_POLYNOMIALS),
-                             MSM(flavor.NUM_SHIFTED_POLYNOMIALS),
-                             MSM(2),
-                             MSM(2),
-                             MSM(log_n),
-                             MSM(1 + log_n)]
+                              MSM(flavor.NUM_SHIFTED_POLYNOMIALS),
+                              MSM(2),
+                              MSM(2),
+                              MSM(log_n),
+                              MSM(1 + log_n)]
 
         self.proof_size = flavor.base_proof_size
         # Public inputs
@@ -69,11 +73,3 @@ class CircuitIPA(CircuitNoPCS):
         self.proof_size += 2 * COMMITMENT_SIZE * self.log_n
         # IPAL a_0 commitment
         self.proof_size += FIELD_ELEMENT_SIZE
-
-
-if __name__ == "__main__":
-    # Check against UltraHonkComposerTests.PublicInputs where size is 3816
-    circuit = CircuitKZG(
-        flavor=Ultra(), log_n=12, num_public_inputs=0)
-    print(f"Proof size: {circuit.proof_size}")
-    print(f"Non-native verifier size: {circuit.num_gates_eccvm()}")

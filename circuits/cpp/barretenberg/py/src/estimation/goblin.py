@@ -1,5 +1,5 @@
 from circuit import CircuitKZG, CircuitIPA
-from flavors import Ultra, ECCVM, Translator
+from flavors import GoblinUltra, ECCVM, Translator
 from utils import *
 import numpy as np
 import pandas as pd
@@ -14,10 +14,12 @@ class Goblin:
             num_translator_gates += msm.num_gates_translator()
 
         self.final_circuit = final_circuit
-        self.eccvm = CircuitIPA(ECCVM(), log_n=get_circuit_size(
-            num_eccvm_gates), num_public_inputs=0)
-        self.translator = CircuitKZG(Translator(), log_n=get_circuit_size(
-            num_translator_gates), num_public_inputs=0)
+        self.eccvm = CircuitIPA(ECCVM(), 
+                                log_n=get_log_circuit_size(num_eccvm_gates), 
+                                num_public_inputs=0)
+        self.translator = CircuitKZG(Translator(), 
+                                     log_n=get_log_circuit_size(num_translator_gates), 
+                                    num_public_inputs=0)
 
     def summary(self):
         print_circuit_data("Last Circuit: ",
@@ -49,7 +51,7 @@ class Goblin:
         assert (len(recursion_list) == num_log_points)
         assert (len(translator_list) == num_log_points)
         arr = np.array([recursion_list, eccvm_list, translator_list])
-        # reshape so so there are three rows, one for each of: final recursion circuit; eccvm; translator
+        # reshape so there are three rows, one for each of: final stack circuit; eccvm; translator
         arr = arr.reshape(3, NUM_FEATURES * num_log_points)
         # split every 4 columns (4 being the number of features)
         arr = np.array(np.hsplit(arr, num_log_points))
@@ -70,20 +72,3 @@ class Goblin:
         df.columns = [1<<(1+i) for i in range(num_log_points)] # TODO: these should be supplied at log time
         df.columns.names = ["num circuits in stack"]
         print(df)
-
-
-if __name__ == "__main__":
-    circuits_to_verify = [CircuitKZG(Ultra(), log_n=13, num_public_inputs=0)
-                          for _ in range(1, 15)]
-    opqueue = []
-    for circuit in circuits_to_verify[:-1]:
-        opqueue += circuit.verifier_msms
-    goblin = Goblin(circuits_to_verify[-1], opqueue)
-    goblin.summary()
-    recursion_list, eccvm_list, translator_list = [], [], []
-    goblin.log(recursion_list, eccvm_list, translator_list)
-    goblin.log(recursion_list, eccvm_list, translator_list)
-    print(recursion_list)
-    print(eccvm_list)
-    print(translator_list)
-    goblin.process_logs(recursion_list, eccvm_list, translator_list)

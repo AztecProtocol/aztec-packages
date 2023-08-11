@@ -1,19 +1,23 @@
-from flavors import Ultra
+from flavors import GoblinUltra
 from circuit import CircuitKZG
 from goblin import Goblin
 from protogalaxy import FoldingVerifier, Decider
+
+# App circuits an kernel circuits are in a "stack" and all
+# are assumed to have a fixed size
+LOG_N_IN_STACK = 13
 
 
 class ClientStraightGoblin:
     # create circuits to fold
     def __init__(self, num_circuits):
         self.num_circuits = num_circuits
-        circuits = [CircuitKZG(Ultra(), log_n=13, num_public_inputs=0)
+        circuits = [CircuitKZG(GoblinUltra(), log_n=LOG_N_IN_STACK, num_public_inputs=0)
                     for _ in range(num_circuits)]
         opqueue = []
         for circuit in circuits[1:]:
             opqueue += circuit.verifier_msms
-    
+
         self.goblin = Goblin(circuits[-1], opqueue)
 
     def summary(self):
@@ -30,7 +34,7 @@ class ClientProtogalaxiedGoblin:
     # create circuits to fold
     def __init__(self, num_circuits):
         self.num_circuits = num_circuits
-        circuits = [CircuitKZG(Ultra(), log_n=13, num_public_inputs=0)
+        circuits = [CircuitKZG(GoblinUltra(), log_n=LOG_N_IN_STACK, num_public_inputs=0)
                     for _ in range(num_circuits)]
         self.folding_verifier = FoldingVerifier(circuits)
         self.decider = Decider(self.folding_verifier)

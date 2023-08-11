@@ -17,14 +17,14 @@ class Flavor:
         self.base_proof_size += FIELD_ELEMENT_SIZE * self.NUM_POLYNOMIALS
 
 
-class Ultra(Flavor):
+class GoblinUltra(Flavor):
     def __init__(self):
         self.MAX_RELATION_LENGTH = 6
-        self.NUM_POLYNOMIALS = 43
+        self.NUM_POLYNOMIALS = 48
         self.NUM_SHIFTED_POLYNOMIALS = 11
         # 4 wires, 2 grand product commitments, 1 sorted accumulator
-        self.NUM_WITNESSES = 4 + 2 + 1
-        super(Ultra, self).__init__(self.NUM_WITNESSES, self.NUM_POLYNOMIALS)
+        self.NUM_WITNESSES = 4
+        super(GoblinUltra, self).__init__(self.NUM_WITNESSES, self.NUM_POLYNOMIALS)
 
 
 class ECCVM(Flavor):
@@ -44,7 +44,3 @@ class Translator(Flavor):
         self.NUM_WITNESSES = 85
         super(Translator, self).__init__(
             self.NUM_WITNESSES, self.NUM_POLYNOMIALS)
-
-
-if __name__ == "__main__":
-    pass
