@@ -5,7 +5,7 @@ import {
   createAztecRPCServer,
   getConfigEnvVars as getRpcConfig,
 } from '@aztec/aztec-rpc';
-import { ContractDeployer, SentTx } from '@aztec/aztec.js';
+import { ContractDeployer, SentTx, isContractDeployed } from '@aztec/aztec.js';
 import { AztecAddress, CircuitsWasm, Fr, PublicKey, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
@@ -14,7 +14,7 @@ import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
 import { BootstrapNode, P2PConfig, createLibP2PPeerId, exportLibP2PPeerIdToString } from '@aztec/p2p';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 const NUM_NODES = 4;
 const NUM_TXS_PER_BLOCK = 4;
@@ -71,8 +71,8 @@ describe('e2e_p2p_network', () => {
         expect(isMined).toBe(true);
         expect(receiptAfterMined.status).toBe(TxStatus.MINED);
         const contractAddress = receiptAfterMined.contractAddress!;
-        expect(await context.rpcServer.isContractDeployed(contractAddress)).toBe(true);
-        expect(await context.rpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+        expect(await isContractDeployed(context.rpcServer, contractAddress)).toBeTruthy();
+        expect(await isContractDeployed(context.rpcServer, AztecAddress.random())).toBeFalsy();
       }
     }
 

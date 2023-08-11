@@ -1,12 +1,12 @@
-import { CircuitsWasm, FunctionData, PrivateHistoricTreeRoots, PrivateKey } from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ZkTokenContractAbi } from '@aztec/noir-contracts/artifacts';
-import { ExecutionRequest } from '@aztec/types';
+import { PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { FunctionCall } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -27,7 +27,7 @@ describe('Unconstrained Execution test suite', () => {
     acirSimulator = new AcirSimulator(oracle);
   });
 
-  describe('zk token contract', () => {
+  describe('private token contract', () => {
     const ownerPk = PrivateKey.fromString('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33');
 
     let owner: AztecAddress;
@@ -56,11 +56,11 @@ describe('Unconstrained Execution test suite', () => {
 
     it('should run the getBalance function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
+      const abi = PrivateTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      const historicRoots = PrivateHistoricTreeRoots.empty();
+      const constantHistoricBlockData = ConstantHistoricBlockData.empty();
 
       oracle.getNotes.mockResolvedValue(
         preimages.map((preimage, index) => ({
@@ -74,8 +74,7 @@ describe('Unconstrained Execution test suite', () => {
         })),
       );
 
-      const execRequest: ExecutionRequest = {
-        from: AztecAddress.random(),
+      const execRequest: FunctionCall = {
         to: contractAddress,
         functionData: new FunctionData(Buffer.alloc(4), false, true, true),
         args: encodeArguments(abi, [owner]),
@@ -83,10 +82,11 @@ describe('Unconstrained Execution test suite', () => {
 
       const result = await acirSimulator.runUnconstrained(
         execRequest,
+        AztecAddress.random(),
         abi,
         AztecAddress.random(),
         EthAddress.ZERO,
-        historicRoots,
+        constantHistoricBlockData,
       );
 
       expect(result).toEqual([9n]);

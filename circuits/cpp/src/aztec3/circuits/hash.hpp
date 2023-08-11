@@ -48,15 +48,15 @@ template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<N
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT> typename NCT::fr compute_partial_contract_address(typename NCT::fr contract_address_salt,
-                                                                          typename NCT::fr function_tree_root,
-                                                                          typename NCT::fr constructor_hash)
+template <typename NCT> typename NCT::fr compute_partial_address(typename NCT::fr contract_address_salt,
+                                                                 typename NCT::fr function_tree_root,
+                                                                 typename NCT::fr constructor_hash)
 {
     using fr = typename NCT::fr;
     std::vector<fr> const inputs = {
         fr(0), fr(0), contract_address_salt, function_tree_root, constructor_hash,
     };
-    return NCT::hash(inputs, aztec3::GeneratorIndex::PARTIAL_CONTRACT_ADDRESS);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::PARTIAL_ADDRESS);
 }
 
 template <typename NCT>
@@ -81,7 +81,7 @@ template <typename NCT> typename NCT::address compute_contract_address(Point<NCT
     using fr = typename NCT::fr;
 
     const fr partial_address =
-        compute_partial_contract_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
+        compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
 
     return compute_contract_address_from_partial(point, partial_address);
 }
@@ -135,10 +135,12 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
         nullifier,
     };
 
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1475): use hash here (everywhere?)
     return NCT::compress(inputs, aztec3::GeneratorIndex::OUTER_NULLIFIER);
 }
 
-template <typename NCT> typename NCT::fr compute_block_hash(typename abis::GlobalVariables<NCT> globals,
+
+template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr globals_hash,
                                                             typename NCT::fr private_data_tree_root,
                                                             typename NCT::fr nullifier_tree_root,
                                                             typename NCT::fr contract_tree_root,
@@ -148,11 +150,33 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename abis::Globa
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
+        globals_hash,       private_data_tree_root,  nullifier_tree_root,
+        contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
+    };
+
+    return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+}
+
+template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typename abis::GlobalVariables<NCT> globals,
+                                                                         typename NCT::fr private_data_tree_root,
+                                                                         typename NCT::fr nullifier_tree_root,
+                                                                         typename NCT::fr contract_tree_root,
+                                                                         typename NCT::fr l1_to_l2_data_tree_root,
+                                                                         typename NCT::fr public_data_tree_root)
+{
+    using fr = typename NCT::fr;
+
+    std::vector<fr> const inputs = {
         globals.hash(),     private_data_tree_root,  nullifier_tree_root,
         contract_tree_root, l1_to_l2_data_tree_root, public_data_tree_root,
     };
 
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
+}
+
+template <typename NCT> typename NCT::fr compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
+{
+    return globals.hash();
 }
 
 /**

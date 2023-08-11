@@ -33,6 +33,17 @@ template <typename NCT> struct GlobalVariables {
                timestamp == other.timestamp;
     };
 
+    /**
+     * @brief Returns an object containing all global variables set to zero.
+     *
+     * @return GlobalVariables<NCT>
+     */
+    static GlobalVariables<NCT> empty()
+    {
+        GlobalVariables<NCT> globals = { 0, 0, 0, 0 };
+        return globals;
+    }
+
     template <typename Builder> GlobalVariables<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
@@ -51,6 +62,7 @@ template <typename NCT> struct GlobalVariables {
         return globals;
     };
 
+
     fr hash() const
     {
         std::vector<fr> inputs;
@@ -61,6 +73,16 @@ template <typename NCT> struct GlobalVariables {
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
     }
-};
+
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+
+        chain_id.set_public();
+        version.set_public();
+        block_number.set_public();
+        timestamp.set_public();
+    }
+};  // namespace aztec3::circuits::abis
 
 }  // namespace aztec3::circuits::abis

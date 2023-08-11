@@ -1,4 +1,5 @@
-import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantHistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -33,16 +34,17 @@ export class ClientTxExecutionContext {
     private txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
-    /** The old roots. */
-    public historicRoots: PrivateHistoricTreeRoots,
+    /** Data required to reconstruct the block hash, it contains historic roots. */
+    public constantHistoricBlockData: ConstantHistoricBlockData,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending notes created (and not nullified) up to current point in execution.
      *  If a nullifier for a note in this list is emitted, the note will be REMOVED. */
     private pendingNotes: PendingNoteData[] = [],
     /** The list of nullifiers created in this transaction. The commitment/note which is nullified
-     *  might be pending or not (i.e., was generated in a previous transaction) */
-    private pendingNullifiers: Set<Fr> = new Set<Fr>(),
+     *  might be pending or not (i.e., was generated in a previous transaction)
+     *  Note that their value (bigint representation) is used because Frs cannot be looked up in Sets. */
+    private pendingNullifiers: Set<bigint> = new Set<bigint>(),
 
     private log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {}
@@ -56,7 +58,7 @@ export class ClientTxExecutionContext {
       this.db,
       this.txNullifier,
       this.txContext,
-      this.historicRoots,
+      this.constantHistoricBlockData,
       this.packedArgsCache,
       this.pendingNotes,
       this.pendingNullifiers,
@@ -130,8 +132,7 @@ export class ClientTxExecutionContext {
 
     const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
 
-    // Remove notes which were already nullified during this transaction.
-    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has(n.siloedNullifier as Fr));
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has((n.siloedNullifier as Fr).value));
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
@@ -198,7 +199,7 @@ export class ClientTxExecutionContext {
    */
   public async getL1ToL2Message(msgKey: Fr): Promise<ACVMField[]> {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
-    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.historicRoots.l1ToL2MessagesTreeRoot);
+    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.constantHistoricBlockData.l1ToL2MessagesTreeRoot);
   }
 
   /**
@@ -208,10 +209,14 @@ export class ClientTxExecutionContext {
    * @returns The commitment data.
    */
   public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): only works
+    // for noteHashes/commitments created by public functions! Once public kernel or
+    // base rollup circuit injects nonces, this can be used with commitments created by
+    // private functions as well.
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
+    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.constantHistoricBlockData.privateDataTreeRoot);
   }
 
   /**
@@ -232,12 +237,15 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Adding a nullifier into the current set of all pending nullifiers created
+   * Adding a siloed nullifier into the current set of all pending nullifiers created
    * within the current transaction/execution.
    * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
+   * @param contractAddress - The contract address
    */
-  public pushNewNullifier(innerNullifier: Fr) {
-    this.pendingNullifiers.add(innerNullifier);
+  public async pushNewNullifier(innerNullifier: Fr, contractAddress: AztecAddress) {
+    const wasm = await CircuitsWasm.get();
+    const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier);
+    this.pendingNullifiers.add(siloedNullifier.value);
   }
 
   /**

@@ -13,8 +13,7 @@ services:
       - '8545:8545'
 
   sandbox:
-    image: $ECR_URL/aztec-sandbox:cache-$COMMIT_HASH
-    #image: aztecprotocol/aztec-sandbox
+    image: aztecprotocol/aztec-sandbox:latest
     environment:
       DEBUG: 'aztec:*,wasm'
       ETHEREUM_HOST: http://fork:8545

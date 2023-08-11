@@ -25,12 +25,15 @@
 set -euo pipefail
 
 REPOSITORY=$1
+FORCE_BUILD=${2:-"false"}
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 PROJECT_DIR=$(query_manifest projectDir $REPOSITORY)
+BUILD_DIR=$(query_manifest buildDir $REPOSITORY)
 
 echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
+echo "Build directory: $BUILD_DIR"
 
 init_submodules $REPOSITORY
 
@@ -49,10 +52,10 @@ ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 LAST_SUCCESSFUL_COMMIT=$(last_successful_commit $REPOSITORY)
 echo "Last successful commit: $LAST_SUCCESSFUL_COMMIT"
 
-cd $(query_manifest buildDir $REPOSITORY)
+cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
-if check_rebuild "$LAST_SUCCESSFUL_COMMIT" $REPOSITORY; then
+if [[ $FORCE_BUILD == 'false' ]] && check_rebuild "$LAST_SUCCESSFUL_COMMIT" $REPOSITORY; then
   echo "No rebuild necessary. Retagging..."
   STAGES=$(cat $DOCKERFILE | sed -n -e 's/^FROM .* AS \(.*\)/\1/p')
   for STAGE in $STAGES; do
@@ -120,7 +123,9 @@ for STAGE in $STAGES; do
 
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$COMMIT_HASH-$STAGE
-  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg ARG_COMMIT_HASH=$COMMIT_HASH .
+  # Build our dockerfile, add timing information
+  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg ARG_COMMIT_HASH=$COMMIT_HASH . \
+    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
@@ -144,7 +149,7 @@ IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$COMMIT_HASH
 echo "Building image: $IMAGE_COMMIT_URI"
 # Build our dockerfile, add timing information
 docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG --build-arg ARG_COMMIT_HASH=$COMMIT_HASH . \
-  | while read line ; do echo "$(date "+%H:%M")| $line"; done
+  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
 docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted

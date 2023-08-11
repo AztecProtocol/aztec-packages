@@ -1,8 +1,0 @@
-[package]
-name = "zk_token_contract"
-authors = [""]
-compiler_version = "0.1"
-
-[dependencies]
-aztec = { path = "../../../../noir-libs/noir-aztec" }
-value_note = { path = "../../../../noir-libs/value-note"}

@@ -70,8 +70,8 @@ export class PrivateFunctionExecution {
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
-        const [pubKey, partialContractAddress] = await this.context.db.getPublicKey(address);
-        return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
+        const [pubKey, partialAddress] = await this.context.db.getPublicKey(address);
+        return [pubKey.x, pubKey.y, partialAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
@@ -92,13 +92,13 @@ export class PrivateFunctionExecution {
         });
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: ([slot], [nullifier], acvmPreimage, [innerNoteHash]) => {
+      notifyNullifiedNote: async ([slot], [nullifier], acvmPreimage, [innerNoteHash]) => {
         newNullifiers.push({
           preimage: acvmPreimage.map(f => fromACVMField(f)),
           storageSlot: fromACVMField(slot),
           nullifier: fromACVMField(nullifier),
         });
-        this.context.pushNewNullifier(fromACVMField(nullifier));
+        await this.context.pushNewNullifier(fromACVMField(nullifier), this.contractAddress);
         this.context.nullifyPendingNotes(fromACVMField(innerNoteHash), this.contractAddress, fromACVMField(slot));
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
@@ -175,6 +175,11 @@ export class PrivateFunctionExecution {
 
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      getPortalContractAddress: async ([aztecAddress]) => {
+        const contractAddress = AztecAddress.fromString(aztecAddress);
+        const portalContactAddress = await this.context.db.getPortalContractAddress(contractAddress);
+        return Promise.resolve(toACVMField(portalContactAddress));
+      },
     });
 
     const publicInputs = extractPublicInputs(partialWitness, acir);
@@ -219,6 +224,8 @@ export class PrivateFunctionExecution {
   private writeInputs() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
+    const blockData = this.context.constantHistoricBlockData;
+
     const fields = [
       this.callContext.msgSender,
       this.callContext.storageContractAddress,
@@ -227,11 +234,13 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
-      this.context.historicRoots.privateDataTreeRoot,
-      this.context.historicRoots.nullifierTreeRoot,
-      this.context.historicRoots.contractTreeRoot,
-      this.context.historicRoots.l1ToL2MessagesTreeRoot,
-      this.context.historicRoots.blocksTreeRoot,
+      blockData.privateDataTreeRoot,
+      blockData.nullifierTreeRoot,
+      blockData.contractTreeRoot,
+      blockData.l1ToL2MessagesTreeRoot,
+      blockData.blocksTreeRoot,
+      blockData.prevGlobalVariablesHash,
+      blockData.publicDataTreeRoot,
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,

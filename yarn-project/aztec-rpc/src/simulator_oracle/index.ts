@@ -1,17 +1,8 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import {
-  AztecAddress,
-  CircuitsWasm,
-  EthAddress,
-  Fr,
-  PartialContractAddress,
-  PrivateHistoricTreeRoots,
-  PrivateKey,
-  PublicKey,
-} from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -32,7 +23,7 @@ export class SimulatorOracle implements DBOracle {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
-  async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
+  async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
     const result = await this.db.getPublicKeyAndPartialAddress(address);
     if (!result)
       throw new Error(
@@ -99,19 +90,6 @@ export class SimulatorOracle implements DBOracle {
       commitment: siloedCommitment,
       siblingPath: siblingPath.toFieldArray(),
       index,
-    });
-  }
-
-  getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getTreeRoots();
-
-    return PrivateHistoricTreeRoots.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
-      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
-      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: roots[MerkleTreeId.BLOCKS_TREE],
     });
   }
 }
