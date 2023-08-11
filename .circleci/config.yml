@@ -1055,6 +1055,8 @@ deploy_defaults: &deploy_defaults
   filters:
     tags:
       only: *tag_regex
+    branches:
+      ignore: /.*/
   context:
     - build
     - slack
