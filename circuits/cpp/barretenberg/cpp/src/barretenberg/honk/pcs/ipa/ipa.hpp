@@ -20,8 +20,8 @@ template <typename Params> class IPA {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;
-    using CK = typename Params::CommitmentKey;
-    using VK = typename Params::VerificationKey;
+    using CK = CommitmentKey<typename Params::Curve>;
+    using VK = VerificationKey<typename Params::Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
   public:

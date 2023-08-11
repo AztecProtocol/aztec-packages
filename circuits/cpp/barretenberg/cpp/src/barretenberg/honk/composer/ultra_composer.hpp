@@ -19,8 +19,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename PCSParams::CommitmentKey;
-    using PCSVerificationKey = typename PCSParams::VerificationKey;
+    using PCSCommitmentKey = typename Flavor::CommitmentKey;
+    using PCSVerificationKey = typename Flavor::PCSVerificationKey;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -79,7 +79,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<typename PCSParams::CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<PCSCommitmentKey>(circuit_size, crs_factory_);
     };
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;

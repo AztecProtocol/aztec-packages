@@ -34,9 +34,6 @@ struct Params {
     using GroupElement = typename Curve::Element;
 
     using Polynomial = barretenberg::Polynomial<Fr>;
-
-    using CommitmentKey = CommitmentKey<Curve>;
-    using VerificationKey = VerificationKey<Curve>;
 };
 
 } // namespace kzg
@@ -110,9 +107,6 @@ struct Params {
     using GroupElement = typename Curve::Element;
 
     using Polynomial = barretenberg::Polynomial<Fr>;
-
-    using CommitmentKey = CommitmentKey<Curve>;
-    using VerificationKey = VerificationKey<Curve>;
 };
 
 } // namespace ipa

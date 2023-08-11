@@ -41,6 +41,8 @@ class Standard {
     using FF = Curve::ScalarField;
     using Polynomial = barretenberg::Polynomial<FF>;
     using PolynomialHandle = std::span<FF>;
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using PCSVerificationKey = pcs::VerificationKey<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often

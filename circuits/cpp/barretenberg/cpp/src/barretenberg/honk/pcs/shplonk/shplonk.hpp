@@ -148,7 +148,7 @@ template <typename Params> class ShplonkVerifier_ {
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
     using Commitment = typename Params::Commitment;
-    using VK = typename Params::VerificationKey;
+    using VK = VerificationKey<typename Params::Curve>;
 
   public:
     /**

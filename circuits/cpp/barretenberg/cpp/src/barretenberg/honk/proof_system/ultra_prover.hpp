@@ -19,7 +19,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
     using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::PCSParams::CommitmentKey;
+    using PCSCommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;

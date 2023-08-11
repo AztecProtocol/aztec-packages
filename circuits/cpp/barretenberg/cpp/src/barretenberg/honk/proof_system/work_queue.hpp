@@ -15,7 +15,7 @@ enum WorkType { SCALAR_MULTIPLICATION };
 // at the same time as the similar patterns in Gemini etc.
 template <typename Params> class work_queue {
 
-    using CommitmentKey = typename Params::CommitmentKey;
+    using CommitmentKey = pcs::CommitmentKey<typename Params::Curve>;
     using FF = typename Params::Fr;
     using Commitment = typename Params::Commitment;
 

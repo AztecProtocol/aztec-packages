@@ -18,7 +18,7 @@ template <StandardFlavor Flavor> class StandardComposer_ {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCSCommitmentKey = typename PCSParams::CommitmentKey;
+    using PCSCommitmentKey = typename Flavor::CommitmentKey;
 
     static constexpr std::string_view NAME_STRING = "StandardHonk";
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
@@ -76,7 +76,7 @@ template <StandardFlavor Flavor> class StandardComposer_ {
 
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<typename PCSParams::CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<PCSCommitmentKey>(circuit_size, crs_factory_);
     };
 };
 

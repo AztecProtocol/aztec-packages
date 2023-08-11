@@ -10,7 +10,7 @@ template <typename Flavor> class UltraVerifier_ {
     using FF = typename Flavor::FF;
     using Commitment = typename Flavor::Commitment;
     using VerificationKey = typename Flavor::VerificationKey;
-    using PCSVerificationKey = typename Flavor::PCSParams::VerificationKey;
+    using PCSVerificationKey = typename Flavor::PCSVerificationKey;
 
   public:
     explicit UltraVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);

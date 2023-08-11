@@ -11,8 +11,8 @@
 namespace proof_system::honk::pcs::kzg {
 
 template <typename Params> class KZG {
-    using CK = typename Params::CommitmentKey;
-    using VK = typename Params::VerificationKey;
+    using CK = CommitmentKey<typename Params::Curve>;
+    using VK = VerificationKey<typename Params::Curve>;
     using Fr = typename Params::Fr;
     using Commitment = typename Params::Commitment;
     using GroupElement = typename Params::GroupElement;

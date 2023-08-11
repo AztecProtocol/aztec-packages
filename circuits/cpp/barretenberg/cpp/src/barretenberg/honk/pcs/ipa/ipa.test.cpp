@@ -16,8 +16,8 @@ class IPATest : public CommitmentTest<Params> {
   public:
     using Fr = typename Params::Fr;
     using GroupElement = typename Params::GroupElement;
-    using CK = typename Params::CommitmentKey;
-    using VK = typename Params::VerificationKey;
+    using CK = CommitmentKey<typename Params::Curve>;
+    using VK = VerificationKey<typename Params::Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/honk/pcs/commitment_key_new.hpp"
 
 namespace proof_system::honk::pcs {
 /**
@@ -26,7 +27,7 @@ template <typename Params> class OpeningPair {
  * @tparam Params for the given commitment scheme
  */
 template <typename Params> class OpeningClaim {
-    using CK = typename Params::CommitmentKey;
+    using CK = CommitmentKey<typename Params::Curve>;
     using Commitment = typename Params::Commitment;
     using Fr = typename Params::Fr;
 

@@ -19,22 +19,27 @@
 
 namespace proof_system::honk::pcs {
 
+using KZGCommitmentKey = CommitmentKey<kzg::Params::Curve>;
+using IPACommitmentKey = CommitmentKey<ipa::Params::Curve>;
+using KZGVerificationKey = VerificationKey<kzg::Params::Curve>;
+using IPAVerificationKey = VerificationKey<ipa::Params::Curve>;
+
 template <class CK> inline std::shared_ptr<CK> CreateCommitmentKey();
 
-template <> inline std::shared_ptr<kzg::Params::CommitmentKey> CreateCommitmentKey<kzg::Params::CommitmentKey>()
+template <> inline std::shared_ptr<KZGCommitmentKey> CreateCommitmentKey<KZGCommitmentKey>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<kzg::Params::Curve>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<kzg::Params::Curve>("../srs_db/ignition", 4096));
-    return std::make_shared<kzg::Params::CommitmentKey>(n, crs_factory);
+    return std::make_shared<KZGCommitmentKey>(n, crs_factory);
 }
 // For IPA
-template <> inline std::shared_ptr<ipa::Params::CommitmentKey> CreateCommitmentKey<ipa::Params::CommitmentKey>()
+template <> inline std::shared_ptr<IPACommitmentKey> CreateCommitmentKey<IPACommitmentKey>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<ipa::Params::Curve>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<ipa::Params::Curve>("../srs_db/grumpkin", 4096));
-    return std::make_shared<ipa::Params::CommitmentKey>(n, crs_factory);
+    return std::make_shared<IPACommitmentKey>(n, crs_factory);
 }
 
 template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
@@ -45,20 +50,20 @@ template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
 
 template <class VK> inline std::shared_ptr<VK> CreateVerificationKey();
 
-template <> inline std::shared_ptr<kzg::Params::VerificationKey> CreateVerificationKey<kzg::Params::VerificationKey>()
+template <> inline std::shared_ptr<KZGVerificationKey> CreateVerificationKey<KZGVerificationKey>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<kzg::Params::Curve>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<kzg::Params::Curve>("../srs_db/ignition", 4096));
-    return std::make_shared<kzg::Params::VerificationKey>(n, crs_factory);
+    return std::make_shared<KZGVerificationKey>(n, crs_factory);
 }
 // For IPA
-template <> inline std::shared_ptr<ipa::Params::VerificationKey> CreateVerificationKey<ipa::Params::VerificationKey>()
+template <> inline std::shared_ptr<IPAVerificationKey> CreateVerificationKey<IPAVerificationKey>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<ipa::Params::Curve>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<ipa::Params::Curve>("../srs_db/grumpkin", 4096));
-    return std::make_shared<ipa::Params::VerificationKey>(n, crs_factory);
+    return std::make_shared<IPAVerificationKey>(n, crs_factory);
 }
 template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
 // requires std::default_initializable<VK>
@@ -66,8 +71,8 @@ template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
     return std::make_shared<VK>();
 }
 template <typename Params> class CommitmentTest : public ::testing::Test {
-    using CK = typename Params::CommitmentKey;
-    using VK = typename Params::VerificationKey;
+    using CK = CommitmentKey<typename Params::Curve>;
+    using VK = VerificationKey<typename Params::Curve>;
 
     using Fr = typename Params::Fr;
     using Commitment = typename Params::Commitment;
@@ -191,14 +196,14 @@ template <typename Params> class CommitmentTest : public ::testing::Test {
     // Can be omitted if not needed.
     static void TearDownTestSuite() {}
 
-    static typename std::shared_ptr<typename Params::CommitmentKey> commitment_key;
-    static typename std::shared_ptr<typename Params::VerificationKey> verification_key;
+    static typename std::shared_ptr<CK> commitment_key;
+    static typename std::shared_ptr<VK> verification_key;
 };
 
 template <typename Params>
-typename std::shared_ptr<typename Params::CommitmentKey> CommitmentTest<Params>::commitment_key = nullptr;
+typename std::shared_ptr<CommitmentKey<typename Params::Curve>> CommitmentTest<Params>::commitment_key = nullptr;
 template <typename Params>
-typename std::shared_ptr<typename Params::VerificationKey> CommitmentTest<Params>::verification_key = nullptr;
+typename std::shared_ptr<VerificationKey<typename Params::Curve>> CommitmentTest<Params>::verification_key = nullptr;
 
 using CommitmentSchemeParams = ::testing::Types<kzg::Params>;
 using IpaCommitmentSchemeParams = ::testing::Types<ipa::Params>;
