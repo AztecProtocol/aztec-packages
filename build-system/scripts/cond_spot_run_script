@@ -25,8 +25,6 @@ LAST_SUCCESSFUL_COMMIT=$(last_successful_commit $REPOSITORY $SUCCESS_TAG)
 
 echo "Last successful commit for $SUCCESS_TAG: $LAST_SUCCESSFUL_COMMIT"
 
-echo "Checking rebuild for ${REPOSITORY}"
-
 if ! check_rebuild "$LAST_SUCCESSFUL_COMMIT" $REPOSITORY; then
   spot_run_script $@
   tag_remote_image $REPOSITORY cache-$COMMIT_HASH cache-$COMMIT_HASH-$SUCCESS_TAG

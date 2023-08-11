@@ -1052,13 +1052,9 @@ defaults: &defaults
         event: fail
         branch_pattern: "master"
 deploy_defaults: &deploy_defaults
-  # filters:
-  #   branches:
-  #     only:
-  #       - master
-  #       - stage
-  #   tags:
-  #     only: *tag_regex
+  filters:
+    tags:
+      only: *tag_regex
   context:
     - build
     - slack
