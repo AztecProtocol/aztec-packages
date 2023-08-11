@@ -1,4 +1,4 @@
-import { ABIParameter, ABIType, ContractAbi, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { generateNoirContractInterface, generateTSContractInterface } from '@aztec/noir-compiler';
 
