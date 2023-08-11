@@ -80,9 +80,9 @@ library DataStructures {
    * @param blockNumber - The block number of the snapshot
    */
   struct RegistrySnapshot {
+    uint256 blockNumber;
     address rollup;
     address inbox;
     address outbox;
-    uint256 blockNumber;
   }
 }

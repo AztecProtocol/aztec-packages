@@ -112,8 +112,12 @@ contract Registry is IRegistry {
     (, bool exists) = _getVersionFor(_rollup);
     if (exists) revert Errors.Registry__RollupAlreadyRegistered(_rollup);
 
-    DataStructures.RegistrySnapshot memory newSnapshot =
-      DataStructures.RegistrySnapshot(_rollup, _inbox, _outbox, block.number);
+    DataStructures.RegistrySnapshot memory newSnapshot = DataStructures.RegistrySnapshot({
+      rollup: _rollup,
+      inbox: _inbox,
+      outbox: _outbox,
+      blockNumber: block.number
+    });
     currentSnapshot = newSnapshot;
     uint256 version = numberOfVersions++;
     snapshots[version] = newSnapshot;

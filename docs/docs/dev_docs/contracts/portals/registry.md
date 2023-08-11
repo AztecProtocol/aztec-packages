@@ -90,10 +90,10 @@ function getSnapshot(uint256 _version)
 | Name           | Description |
 | -------------- | ----------- |
 | `_version`     | The version number to fetch data for |
+| ReturnValue.blockNumber | The block number of the snapshot creation |
 | ReturnValue.rollup      | The address of the `rollup` for the `_version` |
 | ReturnValue.inbox       | The address of the `inbox` for the `_version` |
 | ReturnValue.outbox      | The address of the `outbox` for the `_version` |
-| ReturnValue.blockNumber | The block number of the snapshot creation |
 
 
 ## `getCurrentSnapshot()`
@@ -109,8 +109,8 @@ function getCurrentSnapshot()
 
 | Name           | Description |
 | -------------- | ----------- |
+| ReturnValue.blockNumber | The block number of the snapshot creation |
 | ReturnValue.rollup      | The address of the `rollup` for the current `_version` |
 | ReturnValue.inbox       | The address of the `inbox` for the current `_version` |
 | ReturnValue.outbox      | The address of the `outbox` for the current `_version` |
-| ReturnValue.blockNumber | The block number of the snapshot creation |
 
