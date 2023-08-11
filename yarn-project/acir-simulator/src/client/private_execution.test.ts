@@ -60,7 +60,6 @@ describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
-  // TODO: may have to update the db calls to return what we want for this!!!
   let blockData = ConstantHistoricBlockData.empty();
   let logger: DebugLogger;
 
@@ -146,6 +145,7 @@ describe('Private Execution test suite', () => {
   beforeEach(() => {
     oracle = mock<DBOracle>();
     oracle.getSecretKey.mockResolvedValue(ownerPk);
+    oracle.getConstantHistoricBlockData.mockResolvedValue(blockData);
 
     acirSimulator = new AcirSimulator(oracle);
   });

@@ -60,9 +60,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      // TODO: remove or may need to mock the return value on this in the oracle
-      // const constantHistoricBlockData = ConstantHistoricBlockData.empty();
-
+      oracle.getConstantHistoricBlockData.mockResolvedValue(ConstantHistoricBlockData.empty());
       oracle.getNotes.mockResolvedValue(
         preimages.map((preimage, index) => ({
           contractAddress,
