@@ -44,7 +44,15 @@ template <typename NCT> struct PrivateCallData {
     fr acir_hash = 0;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO add all fields);
+    MSGPACK_FIELDS(call_stack_item,
+                   private_call_stack_preimages,
+                   proof,
+                   vk,
+                   function_leaf_membership_witness,
+                   contract_leaf_membership_witness,
+                   read_request_membership_witnesses,
+                   portal_contract_address,
+                   acir_hash);
 
     boolean operator==(PrivateCallData<NCT> const& other) const
     {

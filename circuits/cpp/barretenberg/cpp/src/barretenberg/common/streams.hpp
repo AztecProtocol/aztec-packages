@@ -84,26 +84,6 @@ template <typename T, typename U> inline std::ostream& operator<<(std::ostream& 
     os << "]";
     return os;
 }
-
-template <typename T, typename U> inline std::ostream& operator<<(std::ostream& os, std::map<T, U> const& map)
-{
-    os << "[\n";
-    for (const auto& elem : map) {
-        os << " " << elem.first << ": " << elem.second << "\n";
-    }
-    os << "]";
-    return os;
-}
-
-template <typename T, typename U> inline std::ostream& operator<<(std::ostream& os, std::map<T, U> const& map)
-{
-    os << "[\n";
-    for (const auto& elem : map) {
-        os << " " << elem.first << ": " << elem.second << "\n";
-    }
-    os << "]";
-    return os;
-}
 } // namespace std
 
 namespace serialize {
@@ -127,7 +107,7 @@ inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsg
 {
     msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
         // apply 'operator<<' to each object field
-        (_stream_operator_write(buf, obj_fields), ...);
+        (_stream_operator_write(os, obj_fields), ...);
     });
     return os;
 }

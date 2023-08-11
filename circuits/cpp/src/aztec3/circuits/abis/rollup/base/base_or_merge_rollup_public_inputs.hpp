@@ -39,7 +39,19 @@ template <typename NCT> struct BaseOrMergeRollupPublicInputs {
     std::array<fr, NUM_FIELDS_PER_SHA256> calldata_hash;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(TODO add all fields);
+    MSGPACK_FIELDS(rollup_type,
+                   rollup_subtree_height,
+                   end_aggregation_object,
+                   constants,
+                   start_private_data_tree_snapshot,
+                   end_private_data_tree_snapshot,
+                   start_nullifier_tree_snapshot,
+                   end_nullifier_tree_snapshot,
+                   start_contract_tree_snapshot,
+                   end_contract_tree_snapshot,
+                   start_public_data_tree_root,
+                   end_public_data_tree_root,
+                   calldata_hash);
     bool operator==(BaseOrMergeRollupPublicInputs<NCT> const&) const = default;
 };
 
