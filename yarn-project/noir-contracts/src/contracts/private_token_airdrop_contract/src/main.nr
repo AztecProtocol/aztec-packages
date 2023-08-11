@@ -149,7 +149,9 @@ contract PrivateTokenAirdrop {
         context.finish()
     }
 
-    // Transfers `amounts` of tokens from `sender` to 3 `recipients`. Aztec only requires 4 notes per tx - 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
+    // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
+    // Aztec only allows `MAX_NEW_COMMITMENTS_PER_CALL = 4` notes per tx =>
+    // 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
     fn batchTransfer(
         //*********************************/
         // Should eventually be hidden:

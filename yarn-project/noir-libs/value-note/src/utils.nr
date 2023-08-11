@@ -59,6 +59,13 @@ fn spend_notes(
     );
 }
 
+/*
+  Spends one note from a set of 4 notes.
+  Details: Reads 4 notes from the user's `balance`: [n_{o}, n_{o+1}, n_{o+2}, n_{o+3}]
+  where "o" is the note_offset. Then, spends the note: [n_{o + i}] 
+  where "i" is the spend_note_index. This gives more control to the user on which
+  note is to be spent. 
+*/
 fn spend_one_note(
     context: &mut Context,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
@@ -135,8 +142,6 @@ fn spend_one_note(
     balance.insert(context, &mut change_note);
 
     // Emit the newly created encrypted note preimages via oracle calls.
-
-    // Emit the newly created encrypted note preimages via oracle calls.
     let mut encrypted_data = [0; VALUE_NOTE_LEN];
     if change_value != 0 {
         encrypted_data = change_note.serialise();
@@ -176,13 +181,17 @@ fn send_note(
     );
 }
 
+/*
+  Sends three amounts to three recipients.
+  Why three? Because one private call currently allows `MAX_NEW_COMMITMENTS_PER_CALL = 4` output commitments.
+  So we split the output notes as: 3 to recipients + 1 to the owner (the change note).
+*/
 fn send_notes(
     context: &mut Context,
     recipient_balances: [Set<ValueNote, VALUE_NOTE_LEN>; 3],
     amounts: [Field; 3], 
     recipients: [Field; 3],
 ) {
-
     // Creates (4 - 1 = 3) new notes for the recipients.
     let mut recipient0_note = ValueNote::new(amounts[0], recipients[0]);
     let mut recipient1_note = ValueNote::new(amounts[1], recipients[1]);
