@@ -8,6 +8,15 @@ from utils import DataLog
 # are assumed to have a fixed size
 LOG_N_IN_STACK = 13
 
+# A Goblin instance conists of three circuit instances, one for each proof output
+# by the client. A circuit instance contains the data of _estimates of_:
+#   - the size of the circuit 
+#   - the maximum amount of memory used during construction of the circuit 
+#   - the time to construct a recursive verifier circuit's MSMs using UltraCircuitConstructor
+#   - the size of the proof output by the circuit
+#
+# This data is logged using the logging class and then printed as a table
+
 
 class ClientStraightGoblin:
     # create circuits to fold
