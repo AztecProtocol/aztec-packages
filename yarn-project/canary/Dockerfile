@@ -6,6 +6,7 @@ ARG COMMIT_TAG=""
 #Build canary
 WORKDIR /usr/src/yarn-project/canary
 COPY . .
+RUN ls -l
 RUN ./scripts/update_packages.sh $COMMIT_TAG
 RUN yarn && yarn build
 
