@@ -10,11 +10,13 @@ REPOSITORY=$2
 # If given nothing, then exit with failure to rebuild
 [ -n "$BASE_COMMIT" ] || exit 1
 
+echo "Looking for image ${REPOSITORY}"
 # If a tainted tag exists, remove it exit with failure to rebuild.
 if image_exists $REPOSITORY tainted; then
   echo "$REPOSITORY has been tainted. Will rebuild."
   exit 1
 fi
+echo "Computing rebuild patterns"
 
 # Compute .rebuild_patterns from the build manifest.
 query_manifest rebuildPatterns $REPOSITORY > .rebuild_patterns
