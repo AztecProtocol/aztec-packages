@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PrivateKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   CompleteAddress,
@@ -185,9 +185,7 @@ export interface AztecRPC {
    * @param recipientAddress - The complete address of the recipient.
    * @returns Empty promise.
    */
-  addRecipient(
-    recipientAddress: CompleteAddress
-  ): Promise<void>;
+  addRecipient(recipientAddress: CompleteAddress): Promise<void>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).

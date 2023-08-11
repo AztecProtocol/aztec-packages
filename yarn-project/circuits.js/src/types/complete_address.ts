@@ -1,9 +1,10 @@
-import { AztecAddress } from "@aztec/foundation/aztec-address";
-import { PublicKey } from "./public_key.js";
-import { PartialAddress } from "./partial_address.js";
-import { CircuitsWasm, Fr, Point, PrivateKey } from "../index.js";
-import { Grumpkin } from "../barretenberg/index.js";
-import { computeContractAddressFromPartial } from "../abis/abis.js";
+import { AztecAddress } from '@aztec/foundation/aztec-address';
+
+import { computeContractAddressFromPartial } from '../abis/abis.js';
+import { Grumpkin } from '../barretenberg/index.js';
+import { CircuitsWasm, Fr, Point, PrivateKey } from '../index.js';
+import { PartialAddress } from './partial_address.js';
+import { PublicKey } from './public_key.js';
 
 /**
  * A complete address is a combination of an Aztec address, a public key and a partial address.

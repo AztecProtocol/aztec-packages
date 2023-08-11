@@ -1,4 +1,4 @@
-import { CompleteAddress, PartialAddress } from '@aztec/circuits.js';
+import { CompleteAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractDatabase, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
@@ -109,9 +109,7 @@ export interface Database extends ContractDatabase {
    * @param recipientAddress - The complete address of the recipient.
    * @returns Empty promise.
    */
-  addRecipient(
-    recipientAddress: CompleteAddress
-  ): Promise<void>;
+  addRecipient(recipientAddress: CompleteAddress): Promise<void>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.

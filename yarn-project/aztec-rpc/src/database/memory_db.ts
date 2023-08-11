@@ -93,9 +93,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  addRecipient(
-    recipient: CompleteAddress
-  ): Promise<void> {
+  addRecipient(recipient: CompleteAddress): Promise<void> {
     // Check if recipient is in recipients and throw an error if yes
     const recipientIndex = this.recipients.findIndex(r => r.address.equals(recipient.address));
     if (recipientIndex !== -1) {

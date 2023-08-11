@@ -44,7 +44,12 @@ export async function createAccounts(
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
     accountImpls.registerAccount(
       address,
-      new SingleKeyAccountEntrypoint(address, deploymentInfo.completeAddress.partialAddress, privKey, await Schnorr.new()),
+      new SingleKeyAccountEntrypoint(
+        address,
+        deploymentInfo.completeAddress.partialAddress,
+        privKey,
+        await Schnorr.new(),
+      ),
     );
   }
   return new EntrypointWallet(aztecRpcClient, accountImpls);
@@ -64,7 +69,7 @@ export async function getAccountWallet(
 ) {
   const accountCollection = new EntrypointCollection();
   const publicKey = await generatePublicKey(privateKey);
-  const {completeAddress} = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
+  const { completeAddress } = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
   const address = completeAddress.address;
 
   accountCollection.registerAccount(

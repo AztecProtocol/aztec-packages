@@ -18,7 +18,7 @@ export class SchnorrAccountContract implements AccountContract {
     return [signingPublicKey.x, signingPublicKey.y];
   }
 
-  public async getEntrypoint({address }: CompleteAddress, { chainId, version }: NodeInfo) {
+  public async getEntrypoint({ address }: CompleteAddress, { chainId, version }: NodeInfo) {
     return new StoredKeyAccountEntrypoint(address, this.signingPrivateKey, await Schnorr.new(), chainId, version);
   }
 

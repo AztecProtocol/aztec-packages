@@ -1,5 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr, Point, PrivateKey } from '@aztec/circuits.js';
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
+import { AztecAddress, CompleteAddress, Fr, Point, PrivateKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair, TestKeyStore } from '@aztec/key-store';
 import { AztecNode } from '@aztec/types';
@@ -11,7 +10,6 @@ import { RpcServerConfig } from '../index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
 describe('AztecRpcServer', function () {
-  let wasm: CircuitsWasm;
   let keyStore: TestKeyStore;
   let db: MemoryDB;
   let node: MockProxy<AztecNode>;
@@ -25,47 +23,37 @@ describe('AztecRpcServer', function () {
       l2BlockPollingIntervalMS: 100,
     };
     rpcServer = new AztecRPCServer(keyStore, node, db, config);
-    wasm = await CircuitsWasm.get();
   });
 
   it('registers a public key in the db when adding a new account', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-    const pubKey = keyPair.getPublicKey();
-    const partialAddress = Fr.random();
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+    const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
-    expect(await db.getRecipient(address)).toEqual([pubKey, partialAddress]);
+    await rpcServer.addAccount(await keyPair.getPrivateKey(), completeAddress);
+    expect(await db.getRecipient(completeAddress.address)).toEqual(completeAddress);
   });
 
   it('refuses to add an account with incorrect address for given partial address and privkey', async () => {
     const privateKey = PrivateKey.random();
-    const partialAddress = Fr.random();
-    const address = AztecAddress.random();
+    const completeAddress = new CompleteAddress(AztecAddress.random(), Point.random(), Fr.random());
 
-    await expect(rpcServer.addAccount(privateKey, address, partialAddress)).rejects.toThrowError(/cannot be derived/);
+    await expect(rpcServer.addAccount(privateKey, completeAddress)).rejects.toThrowError(/cannot be derived/);
   });
 
   it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
-    const publicKey = Point.random();
-    const partialAddress = Fr.random();
-    const address = AztecAddress.random();
+    const completeAddress = new CompleteAddress(AztecAddress.random(), Point.random(), Fr.random());
 
-    await expect(rpcServer.addRecipient(address, publicKey, partialAddress)).rejects.toThrowError(
-      /cannot be derived/,
-    );
+    await expect(rpcServer.addRecipient(completeAddress)).rejects.toThrowError(/cannot be derived/);
   });
 
   it('cannot add the same account twice', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-    const pubKey = keyPair.getPublicKey();
-    const partialAddress = Fr.random();
-    const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
+    const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress);
-    await expect(async () =>
-      rpcServer.addAccount(await keyPair.getPrivateKey(), address, partialAddress),
-    ).rejects.toThrow(`Account ${address} already exists`);
+    await rpcServer.addAccount(await keyPair.getPrivateKey(), completeAddress);
+    await expect(async () => rpcServer.addAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
+      `Account ${completeAddress.address} already exists`,
+    );
   });
 
   it('throws when getting public storage for non-existent contract', async () => {

@@ -10,9 +10,7 @@ import {
   CompleteAddress,
   ConstantHistoricBlockData,
   FunctionData,
-  PartialAddress,
   PrivateKey,
-  PublicKey,
 } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -105,12 +103,13 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info(`Added account ${completeAddress.toString()}`);
   }
 
-  public async addRecipient(
-    recipientAddress: CompleteAddress
-
-  ): Promise<void> {
+  public async addRecipient(recipientAddress: CompleteAddress): Promise<void> {
     const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, recipientAddress.publicKey, recipientAddress.partialAddress);
+    const expectedAddress = computeContractAddressFromPartial(
+      wasm,
+      recipientAddress.publicKey,
+      recipientAddress.partialAddress,
+    );
     if (!expectedAddress.equals(recipientAddress.address)) {
       throw new Error(
         `Address cannot be derived from pubkey and partial address (received ${recipientAddress.address.toString()}, derived ${expectedAddress.toString()})`,
@@ -134,8 +133,8 @@ export class AztecRPCServer implements AztecRPC {
     return await this.db.getRecipients();
   }
 
-  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
+  public async getAccount(address: AztecAddress): Promise<CompleteAddress> {
+    const result = await this.db.getRecipient(address);
     if (!result) {
       throw new Error(`Unable to get public key for address ${address.toString()}`);
     }

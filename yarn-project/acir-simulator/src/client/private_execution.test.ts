@@ -16,7 +16,6 @@ import {
 import {
   computeCallStackItemHash,
   computeCommitmentNonce,
-  computeContractAddressFromPartial,
   computeSecretMessageHash,
   computeUniqueCommitment,
   siloCommitment,
@@ -28,7 +27,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {

@@ -1,6 +1,4 @@
-import { CircuitsWasm, CompleteAddress, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
-import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { CompleteAddress, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,13 +12,8 @@ import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
 
 describe('Unconstrained Execution test suite', () => {
-  let bbWasm: CircuitsWasm;
   let oracle: ReturnType<typeof mock<DBOracle>>;
   let acirSimulator: AcirSimulator;
-
-  beforeAll(async () => {
-    bbWasm = await CircuitsWasm.get();
-  });
 
   beforeEach(() => {
     oracle = mock<DBOracle>();

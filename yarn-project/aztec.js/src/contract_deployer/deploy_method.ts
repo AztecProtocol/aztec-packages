@@ -97,7 +97,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     this.txRequest = txRequest;
     this.partialAddress = completeAddress.partialAddress;
-    this.completeContractAddress =completeAddress. address;
+    this.completeContractAddress = completeAddress.address;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
     await this.rpc.addContracts([{ abi: this.abi, address: completeAddress.address, portalContract }]);

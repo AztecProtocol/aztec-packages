@@ -15,7 +15,7 @@ import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
-import { ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
+import { CompleteAddress, ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
 import { mnemonicToAccount } from 'viem/accounts';
@@ -125,9 +125,7 @@ async function main() {
       );
       const accounts = await wallet.getAccounts();
       log(`\nCreated account(s).`);
-      accounts.map((acc) =>
-        log(acc.toString()),
-      );
+      accounts.map(acc => log(acc.toString()));
     });
 
   program
@@ -265,8 +263,8 @@ async function main() {
     });
 
   program
-    .command('register-public-key')
-    .description("Register an account's public key to the RPC server")
+    .command('register-recipient')
+    .description('Register an account as a recipient in the Aztec RPC.')
     .option('-a, --address <aztecAddress>', "The account's Aztec address.")
     .option('-p, --public-key <publicKey>', 'The account public key.')
     .option('-pa, --partial-address <partialAddress', 'The partially computed address of the account contract.')
@@ -277,7 +275,7 @@ async function main() {
       const publicKey = Point.fromString(options.publicKey);
       const partialAddress = Fr.fromString(options.partialAddress);
 
-      await client.addRecipient(address, publicKey, partialAddress);
+      await client.addRecipient(new CompleteAddress(address, publicKey, partialAddress));
       log(`\nRegistered details for Address: ${options.address}\n`);
     });
 

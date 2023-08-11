@@ -1,5 +1,5 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, CompleteAddress, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, CompleteAddress, EthAddress, Fr, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
