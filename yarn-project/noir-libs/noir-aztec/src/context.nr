@@ -455,6 +455,14 @@ impl PublicContext {
         self.inputs.public_global_variables.version
     }
 
+    fn block_number(self) -> Field {
+        self.inputs.public_global_variables.block_number
+    }
+
+    fn timestamp(self) -> Field {
+        self.inputs.public_global_variables.timestamp
+    }
+
     fn finish(self) -> abi::PublicCircuitPublicInputs {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
         let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];

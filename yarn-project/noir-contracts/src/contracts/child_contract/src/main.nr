@@ -25,7 +25,7 @@ contract Child {
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([input]));
 
-        context.return_values.push(input + inputs.private_global_variables.chain_id + inputs.private_global_variables.version);
+        context.return_values.push(input + context.chain_id() + context.version());
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -36,7 +36,7 @@ contract Child {
         let mut context = PublicContext::new(inputs, abi::hash_args([base_value]));
         
         // TODO: make these available on context
-        let returnValue = base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp;
+        let returnValue = base_value + context.chain_id() + context.version() + context.block_number() + context.timestamp();
 
         context.return_values.push(returnValue);
         // TODO(MADDIAA): MAYBE we put the return values inside the finish object? That could have nice UX
