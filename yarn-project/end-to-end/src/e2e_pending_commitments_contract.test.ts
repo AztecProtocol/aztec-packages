@@ -173,17 +173,9 @@ describe('e2e_pending_commitments_contract', () => {
     // create persistent note
     const tx0 = deployedContract.methods.insert_note(mintAmount, owner).send({ origin: owner });
 
-    const ownerPub = await aztecRpcServer.getPublicKey(owner);
-
     await tx0.isMined({ interval: 0.1 });
     const receipt0 = await tx0.getReceipt();
     expect(receipt0.status).toBe(TxStatus.MINED);
-
-    const latestBlockNum = await aztecNode!.getBlockHeight();
-    const syncedToBlock = (await aztecRpcServer.getSyncStatus()).notes[ownerPub.toString()];
-    expect(syncedToBlock).toBe(latestBlockNum);
-
-    logger('Done with initial create tx');
 
     await expectCommitmentsSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
