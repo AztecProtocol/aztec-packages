@@ -51,10 +51,10 @@ template <typename FF> class ECCVMLookupRelationBase {
                                            const size_t index = 0)
 
     {
-        auto msm_q_add = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add, index);
-        auto msm_q_skew = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_skew, index);
-        auto q_wnaf = get_view<FF, AccumulatorTypes>(extended_edges.q_wnaf, index);
-        return (msm_q_add == 1) || (msm_q_skew == 1) || (q_wnaf == 1);
+        auto msm_add = get_view<FF, AccumulatorTypes>(extended_edges.msm_add, index);
+        auto msm_skew = get_view<FF, AccumulatorTypes>(extended_edges.msm_skew, index);
+        auto precompute_select = get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index);
+        return (msm_add == 1) || (msm_skew == 1) || (precompute_select == 1);
     }
 
     /**
@@ -73,16 +73,16 @@ template <typename FF> class ECCVMLookupRelationBase {
 
     {
         if constexpr (read_index == 0) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add1, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add1, index));
         }
         if constexpr (read_index == 1) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add2, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add2, index));
         }
         if constexpr (read_index == 2) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add3, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add3, index));
         }
         if constexpr (read_index == 3) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add4, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index));
         }
         return Accumulator<AccumulatorTypes>(1);
     }
@@ -94,10 +94,10 @@ template <typename FF> class ECCVMLookupRelationBase {
 
     {
         if constexpr (write_index == 0) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.q_wnaf, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
         if constexpr (write_index == 1) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.q_wnaf, index));
+            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
         return Accumulator<AccumulatorTypes>(1);
     }
@@ -126,10 +126,10 @@ template <typename FF> class ECCVMLookupRelationBase {
         // 15 -> 15[P]
         // negative points map pc, round, x, -y
         // positive points map pc, 15 - (round * 2), x, y
-        const auto& table_pc = get_view<FF, AccumulatorTypes>(extended_edges.table_pc, index);
-        const auto& tx = get_view<FF, AccumulatorTypes>(extended_edges.table_tx, index);
-        const auto& ty = get_view<FF, AccumulatorTypes>(extended_edges.table_ty, index);
-        const auto& table_round = get_view<FF, AccumulatorTypes>(extended_edges.table_round, index);
+        const auto& precompute_pc = get_view<FF, AccumulatorTypes>(extended_edges.precompute_pc, index);
+        const auto& tx = get_view<FF, AccumulatorTypes>(extended_edges.precompute_tx, index);
+        const auto& ty = get_view<FF, AccumulatorTypes>(extended_edges.precompute_ty, index);
+        const auto& precompute_round = get_view<FF, AccumulatorTypes>(extended_edges.precompute_round, index);
         const auto& gamma = relation_params.gamma;
         const auto& eta = relation_params.eta;
         const auto& eta_sqr = relation_params.eta_sqr;
@@ -159,9 +159,9 @@ template <typename FF> class ECCVMLookupRelationBase {
         // | 6 |  3[P].x |  3[P].y
         // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
 
-        const auto negative_term = table_pc + gamma + table_round * eta + tx * eta_sqr - ty * eta_cube;
-        const auto positive_slice_value = -(table_round) + 15;
-        const auto positive_term = table_pc + gamma + positive_slice_value * eta + tx * eta_sqr + ty * eta_cube;
+        const auto negative_term = precompute_pc + gamma + precompute_round * eta + tx * eta_sqr - ty * eta_cube;
+        const auto positive_slice_value = -(precompute_round) + 15;
+        const auto positive_term = precompute_pc + gamma + positive_slice_value * eta + tx * eta_sqr + ty * eta_cube;
 
         // todo optimise this?
         if constexpr (write_index == 0) {

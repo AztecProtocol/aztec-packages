@@ -8,7 +8,7 @@ namespace proof_system::honk::sumcheck {
 /**
  * @brief ECCVMWnafRelationBase evaluates relations that convert scalar multipliers into 4-bit WNAF slices
  * @details Each WNAF slice is a 4-bit slice representing one of 16 integers { -15, -13, ..., 15 }
- * Each WNAF slice is represented via two 2-bit columns (table_s1, ..., table_s8)
+ * Each WNAF slice is represented via two 2-bit columns (precompute_s1hi, ..., precompute_s4lo)
  * One 128-bit scalar multiplier is processed across 8 rows, indexed by a round variable.
  * The following table describes the structure for one scalar.
  *
@@ -43,22 +43,22 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
                                                            const FF& scaling_factor) const
 {
     using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
-    auto scalar_sum = View(extended_edges.table_scalar_sum);
-    auto scalar_sum_new = View(extended_edges.table_scalar_sum_shift);
-    auto q_transition = View(extended_edges.table_point_transition);
-    auto round = View(extended_edges.table_round);
-    auto round_shift = View(extended_edges.table_round_shift);
-    auto pc = View(extended_edges.table_pc);
-    auto pc_shift = View(extended_edges.table_pc_shift);
-    auto q_wnaf = View(extended_edges.q_wnaf);
-    auto q_wnaf_shift = View(extended_edges.q_wnaf_shift);
+    auto scalar_sum = View(extended_edges.precompute_scalar_sum);
+    auto scalar_sum_new = View(extended_edges.precompute_scalar_sum_shift);
+    auto q_transition = View(extended_edges.precompute_point_transition);
+    auto round = View(extended_edges.precompute_round);
+    auto round_shift = View(extended_edges.precompute_round_shift);
+    auto pc = View(extended_edges.precompute_pc);
+    auto pc_shift = View(extended_edges.precompute_pc_shift);
+    auto precompute_select = View(extended_edges.precompute_select);
+    auto precompute_select_shift = View(extended_edges.precompute_select_shift);
 
-    const auto& table_skew = View(extended_edges.table_skew);
+    const auto& precompute_skew = View(extended_edges.precompute_skew);
 
     const std::array<View, 8> slices{
-        View(extended_edges.table_s1), View(extended_edges.table_s2), View(extended_edges.table_s3),
-        View(extended_edges.table_s4), View(extended_edges.table_s5), View(extended_edges.table_s6),
-        View(extended_edges.table_s7), View(extended_edges.table_s8),
+        View(extended_edges.precompute_s1hi), View(extended_edges.precompute_s1lo), View(extended_edges.precompute_s2hi),
+        View(extended_edges.precompute_s2lo), View(extended_edges.precompute_s3hi), View(extended_edges.precompute_s3lo),
+        View(extended_edges.precompute_s4hi), View(extended_edges.precompute_s4lo),
     };
 
     const auto range_constraint_slice_to_2_bits = [&scaling_factor](const View& s, auto& acc) {
@@ -97,9 +97,9 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      *        We already know slice1 is in the range [0, ..., 15]
      *        To check the range [8, ..., 15] we validate the most significant 2 bits (s1) are >=2
      */
-    const auto s1_shift = View(extended_edges.table_s1_shift);
+    const auto s1_shift = View(extended_edges.precompute_s1hi_shift);
     const auto s1_shift_msb_set = (s1_shift - 2) * (s1_shift - 3);
-    std::get<20>(accumulator) += scaled_transition * q_wnaf_shift * s1_shift_msb_set;
+    std::get<20>(accumulator) += scaled_transition * precompute_select_shift * s1_shift_msb_set;
 
     /**
      * @brief Convert each pair of 2-bit scalar slices into a 4-bit windowed-non-adjacent-form slice.
@@ -140,7 +140,7 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     row_slice += w3;
     auto sum_delta = scalar_sum * FF(1ULL << 16) + row_slice;
     const auto check_sum = scalar_sum_new - sum_delta;
-    std::get<8>(accumulator) += q_wnaf * check_sum * scaled_transition_is_zero;
+    std::get<8>(accumulator) += precompute_select * check_sum * scaled_transition_is_zero;
 
     /**
      * @brief Round transition logic.
@@ -155,7 +155,7 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      * 1. When `q_transition = 1`, we use a set membership check to map the tuple of (pc, scalar_sum) into a set.
      * We compare this set with an equivalent set generated from the transcript columns. The sets must match.
      * 2. Only case where, at row `i`, a Prover can set `round` to value > 7 is if `q_transition = 0` for all j > i.
-     *  `table_pc` decrements by 1 when `q_transition` = 1
+     *  `precompute_pc` decrements by 1 when `q_transition` = 1
      * We can infer from 1, 2, that if `round > 7`, the resulting wnafs will map into a set at a value of `pc` that is
      * greater than all valid msm pc values (assuming the set equivalence check on the scalar sums is satisfied).
      * The resulting msm output of such a computation cannot be mapped into the set of msm outputs in
@@ -167,8 +167,8 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     // => q_transition * (round - 7 - round_shift + round + 1) + (round_shift - round - 1)
     // => q_transition * (2 * round - round_shift - 6) + (round_shift - round - 1)
     const auto round_check = round_shift - round - 1;
-    std::get<9>(accumulator) += q_wnaf * scaled_transition * ((round - round_check - 7) + round_check);
-    std::get<10>(accumulator) += q_wnaf * scaled_transition * round_shift;
+    std::get<9>(accumulator) += precompute_select * scaled_transition * ((round - round_check - 7) + round_check);
+    std::get<10>(accumulator) += precompute_select * scaled_transition * round_shift;
 
     /**
      * @brief Scalar transition checks.
@@ -177,11 +177,11 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      * 3: if q_transition = 1, pc at next row = pc at current row - 1 (decrements by 1)
      * (we combine 2 and 3 into a single relation)
      */
-    std::get<11>(accumulator) += q_wnaf * scalar_sum_new * scaled_transition;
+    std::get<11>(accumulator) += precompute_select * scalar_sum_new * scaled_transition;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
     // => q_transition * (2 * (pc - pc_shift) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
-    std::get<12>(accumulator) += q_wnaf * scaled_transition * ((-pc_delta - pc_delta - 1) + pc_delta);
+    std::get<12>(accumulator) += precompute_select * scaled_transition * ((-pc_delta - pc_delta - 1) + pc_delta);
 
     /**
      * @brief Validate skew is 0 or 7
@@ -192,24 +192,24 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
      * 1: when validating sum of wnaf slices matches input scalar (we add skew to scalar_sum in ecc_set_relation)
      * 2: in ecc_msm_relation. Final MSM round uses skew to conditionally subtract a point from the accumulator
      */
-    std::get<13>(accumulator) += q_wnaf * (table_skew * (table_skew - 7)) * scaling_factor;
+    std::get<13>(accumulator) += precompute_select * (precompute_skew * (precompute_skew - 7)) * scaling_factor;
 
-    const auto q_wnaf_zero = (-q_wnaf + 1) * scaling_factor;
-    std::get<14>(accumulator) += q_wnaf_zero * (w0 + 15);
-    std::get<15>(accumulator) += q_wnaf_zero * (w1 + 15);
-    std::get<16>(accumulator) += q_wnaf_zero * (w2 + 15);
-    std::get<17>(accumulator) += q_wnaf_zero * (w3 + 15);
+    const auto precompute_select_zero = (-precompute_select + 1) * scaling_factor;
+    std::get<14>(accumulator) += precompute_select_zero * (w0 + 15);
+    std::get<15>(accumulator) += precompute_select_zero * (w1 + 15);
+    std::get<16>(accumulator) += precompute_select_zero * (w2 + 15);
+    std::get<17>(accumulator) += precompute_select_zero * (w3 + 15);
 
-    std::get<18>(accumulator) += q_wnaf_zero * round;
-    std::get<19>(accumulator) += q_wnaf_zero * pc;
+    std::get<18>(accumulator) += precompute_select_zero * round;
+    std::get<19>(accumulator) += precompute_select_zero * pc;
 
     // TODO(@zac-williamson)
-    // if q_wnaf = 0, validate pc, round, slice values are all zero
+    // if precompute_select = 0, validate pc, round, slice values are all zero
     // If we do this we can reduce the degree of the set equivalence relations
     // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,
-    //  we conditionally include tuples depending on if q_wnaf = 1 (for WNAF columns) or if q_add1/2/3/4 = 1 (for MSM
+    //  we conditionally include tuples depending on if precompute_select = 1 (for WNAF columns) or if q_add1/2/3/4 = 1 (for MSM
     //  columns).
-    // If we KNOW that the wnaf tuple values are 0 when q_wnaf = 0, we can remove the conditional checks in the set
+    // If we KNOW that the wnaf tuple values are 0 when precompute_select = 0, we can remove the conditional checks in the set
     // equivalence relation
 }
 

@@ -22,7 +22,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
         uint32_t msm_size = 0;
         uint32_t msm_count = 0;
         uint32_t msm_round = 0;
-        bool q_msm_transition = false;
+        bool msm_transition = false;
         bool q_add = false;
         bool q_double = false;
         bool q_skew = false;
@@ -121,7 +121,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                     const size_t points_per_row =
                         (k + 1) * ADDITIONS_PER_ROW > msm_size ? msm_size % ADDITIONS_PER_ROW : ADDITIONS_PER_ROW;
                     const size_t idx = k * ADDITIONS_PER_ROW;
-                    row.q_msm_transition = (j == 0) && (k == 0);
+                    row.msm_transition = (j == 0) && (k == 0);
 
                     AffineElement acc(accumulator);
                     Element acc_expected = accumulator;
@@ -159,7 +159,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                 }
                 if (j < num_rounds - 1) {
                     MSMState row;
-                    row.q_msm_transition = false;
+                    row.msm_transition = false;
                     row.msm_round = static_cast<uint32_t>(j + 1);
                     row.msm_size = static_cast<uint32_t>(msm_size);
                     row.msm_count = static_cast<uint32_t>(0);
@@ -193,7 +193,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                         const size_t points_per_row =
                             (k + 1) * ADDITIONS_PER_ROW > msm_size ? msm_size % ADDITIONS_PER_ROW : ADDITIONS_PER_ROW;
                         const size_t idx = k * ADDITIONS_PER_ROW;
-                        row.q_msm_transition = false;
+                        row.msm_transition = false;
 
                         AffineElement acc(accumulator);
                         Element acc_expected = accumulator;
@@ -243,7 +243,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
 
         MSMState final_row;
         final_row.pc = pc;
-        final_row.q_msm_transition = true;
+        final_row.msm_transition = true;
         final_row.accumulator_x = accumulator.is_point_at_infinity() ? 0 : accumulator.x;
         final_row.accumulator_y = accumulator.is_point_at_infinity() ? 0 : accumulator.y;
         final_row.msm_size = 0;

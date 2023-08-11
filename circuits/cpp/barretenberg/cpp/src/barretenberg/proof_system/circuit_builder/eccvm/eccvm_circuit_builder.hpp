@@ -272,11 +272,11 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         }
         for (size_t i = 0; i < transcript_state.size(); ++i) {
             rows.transcript_accumulator_empty[i] = transcript_state[i].accumulator_empty;
-            rows.q_transcript_add[i] = transcript_state[i].q_add;
-            rows.q_transcript_mul[i] = transcript_state[i].q_mul;
-            rows.q_transcript_eq[i] = transcript_state[i].q_eq;
-            rows.transcript_q_reset_accumulator[i] = transcript_state[i].q_reset_accumulator;
-            rows.q_transcript_msm_transition[i] = transcript_state[i].q_msm_transition;
+            rows.transcript_add[i] = transcript_state[i].q_add;
+            rows.transcript_mul[i] = transcript_state[i].q_mul;
+            rows.transcript_eq[i] = transcript_state[i].q_eq;
+            rows.transcript_reset_accumulator[i] = transcript_state[i].q_reset_accumulator;
+            rows.transcript_msm_transition[i] = transcript_state[i].msm_transition;
             rows.transcript_pc[i] = transcript_state[i].pc;
             rows.transcript_msm_count[i] = transcript_state[i].msm_count;
             rows.transcript_x[i] = transcript_state[i].base_x;
@@ -303,46 +303,46 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         }
         for (size_t i = 0; i < precompute_table_state.size(); ++i) {
             // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st
-            // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e. q_wnaf = 1)
-            rows.q_wnaf[i] = (i != 0) ? 1 : 0;
-            rows.table_pc[i] = precompute_table_state[i].pc;
-            rows.table_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
-            rows.table_round[i] = precompute_table_state[i].round;
-            rows.table_scalar_sum[i] = precompute_table_state[i].scalar_sum;
+            // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e. precompute_select = 1)
+            rows.precompute_select[i] = (i != 0) ? 1 : 0;
+            rows.precompute_pc[i] = precompute_table_state[i].pc;
+            rows.precompute_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
+            rows.precompute_round[i] = precompute_table_state[i].round;
+            rows.precompute_scalar_sum[i] = precompute_table_state[i].scalar_sum;
 
-            rows.table_s1[i] = precompute_table_state[i].s1;
-            rows.table_s2[i] = precompute_table_state[i].s2;
-            rows.table_s3[i] = precompute_table_state[i].s3;
-            rows.table_s4[i] = precompute_table_state[i].s4;
-            rows.table_s5[i] = precompute_table_state[i].s5;
-            rows.table_s6[i] = precompute_table_state[i].s6;
-            rows.table_s7[i] = precompute_table_state[i].s7;
-            rows.table_s8[i] = precompute_table_state[i].s8;
+            rows.precompute_s1hi[i] = precompute_table_state[i].s1;
+            rows.precompute_s1lo[i] = precompute_table_state[i].s2;
+            rows.precompute_s2hi[i] = precompute_table_state[i].s3;
+            rows.precompute_s2lo[i] = precompute_table_state[i].s4;
+            rows.precompute_s3hi[i] = precompute_table_state[i].s5;
+            rows.precompute_s3lo[i] = precompute_table_state[i].s6;
+            rows.precompute_s4hi[i] = precompute_table_state[i].s7;
+            rows.precompute_s4lo[i] = precompute_table_state[i].s8;
             // If skew is active (i.e. we need to subtract a base point from the msm result),
-            // write `7` into rows.table_skew. `7`, in binary representation, equals `-1` when converted into WNAF form
-            rows.table_skew[i] = precompute_table_state[i].skew ? 7 : 0;
+            // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted into WNAF form
+            rows.precompute_skew[i] = precompute_table_state[i].skew ? 7 : 0;
 
-            rows.table_dx[i] = precompute_table_state[i].precompute_double.x;
-            rows.table_dy[i] = precompute_table_state[i].precompute_double.y;
-            rows.table_tx[i] = precompute_table_state[i].precompute_accumulator.x;
-            rows.table_ty[i] = precompute_table_state[i].precompute_accumulator.y;
+            rows.precompute_dx[i] = precompute_table_state[i].precompute_double.x;
+            rows.precompute_dy[i] = precompute_table_state[i].precompute_double.y;
+            rows.precompute_tx[i] = precompute_table_state[i].precompute_accumulator.x;
+            rows.precompute_ty[i] = precompute_table_state[i].precompute_accumulator.y;
         }
 
         for (size_t i = 0; i < msm_state.size(); ++i) {
-            rows.q_msm_transition[i] = static_cast<int>(msm_state[i].q_msm_transition);
-            rows.msm_q_add[i] = static_cast<int>(msm_state[i].q_add);
-            rows.msm_q_double[i] = static_cast<int>(msm_state[i].q_double);
-            rows.msm_q_skew[i] = static_cast<int>(msm_state[i].q_skew);
+            rows.msm_transition[i] = static_cast<int>(msm_state[i].msm_transition);
+            rows.msm_add[i] = static_cast<int>(msm_state[i].q_add);
+            rows.msm_double[i] = static_cast<int>(msm_state[i].q_double);
+            rows.msm_skew[i] = static_cast<int>(msm_state[i].q_skew);
             rows.msm_accumulator_x[i] = msm_state[i].accumulator_x;
             rows.msm_accumulator_y[i] = msm_state[i].accumulator_y;
             rows.msm_pc[i] = msm_state[i].pc;
             rows.msm_size_of_msm[i] = msm_state[i].msm_size;
             rows.msm_count[i] = msm_state[i].msm_count;
             rows.msm_round[i] = msm_state[i].msm_round;
-            rows.msm_q_add1[i] = static_cast<int>(msm_state[i].add_state[0].add);
-            rows.msm_q_add2[i] = static_cast<int>(msm_state[i].add_state[1].add);
-            rows.msm_q_add3[i] = static_cast<int>(msm_state[i].add_state[2].add);
-            rows.msm_q_add4[i] = static_cast<int>(msm_state[i].add_state[3].add);
+            rows.msm_add1[i] = static_cast<int>(msm_state[i].add_state[0].add);
+            rows.msm_add2[i] = static_cast<int>(msm_state[i].add_state[1].add);
+            rows.msm_add3[i] = static_cast<int>(msm_state[i].add_state[2].add);
+            rows.msm_add4[i] = static_cast<int>(msm_state[i].add_state[3].add);
             rows.msm_x1[i] = msm_state[i].add_state[0].point.x;
             rows.msm_y1[i] = msm_state[i].add_state[0].point.y;
             rows.msm_x2[i] = msm_state[i].add_state[1].point.x;
@@ -365,32 +365,32 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             rows.msm_slice4[i] = msm_state[i].add_state[3].slice;
         }
 
-        rows.q_transcript_mul_shift = typename Flavor::Polynomial(rows.q_transcript_mul.shifted());
+        rows.transcript_mul_shift = typename Flavor::Polynomial(rows.transcript_mul.shifted());
         rows.transcript_msm_count_shift = typename Flavor::Polynomial(rows.transcript_msm_count.shifted());
         rows.transcript_accumulator_x_shift = typename Flavor::Polynomial(rows.transcript_accumulator_x.shifted());
         rows.transcript_accumulator_y_shift = typename Flavor::Polynomial(rows.transcript_accumulator_y.shifted());
-        rows.table_scalar_sum_shift = typename Flavor::Polynomial(rows.table_scalar_sum.shifted());
-        rows.table_s1_shift = typename Flavor::Polynomial(rows.table_s1.shifted());
-        rows.table_dx_shift = typename Flavor::Polynomial(rows.table_dx.shifted());
-        rows.table_dy_shift = typename Flavor::Polynomial(rows.table_dy.shifted());
-        rows.table_tx_shift = typename Flavor::Polynomial(rows.table_tx.shifted());
-        rows.table_ty_shift = typename Flavor::Polynomial(rows.table_ty.shifted());
-        rows.q_msm_transition_shift = typename Flavor::Polynomial(rows.q_msm_transition.shifted());
-        rows.msm_q_add_shift = typename Flavor::Polynomial(rows.msm_q_add.shifted());
-        rows.msm_q_double_shift = typename Flavor::Polynomial(rows.msm_q_double.shifted());
-        rows.msm_q_skew_shift = typename Flavor::Polynomial(rows.msm_q_skew.shifted());
+        rows.precompute_scalar_sum_shift = typename Flavor::Polynomial(rows.precompute_scalar_sum.shifted());
+        rows.precompute_s1hi_shift = typename Flavor::Polynomial(rows.precompute_s1hi.shifted());
+        rows.precompute_dx_shift = typename Flavor::Polynomial(rows.precompute_dx.shifted());
+        rows.precompute_dy_shift = typename Flavor::Polynomial(rows.precompute_dy.shifted());
+        rows.precompute_tx_shift = typename Flavor::Polynomial(rows.precompute_tx.shifted());
+        rows.precompute_ty_shift = typename Flavor::Polynomial(rows.precompute_ty.shifted());
+        rows.msm_transition_shift = typename Flavor::Polynomial(rows.msm_transition.shifted());
+        rows.msm_add_shift = typename Flavor::Polynomial(rows.msm_add.shifted());
+        rows.msm_double_shift = typename Flavor::Polynomial(rows.msm_double.shifted());
+        rows.msm_skew_shift = typename Flavor::Polynomial(rows.msm_skew.shifted());
         rows.msm_accumulator_x_shift = typename Flavor::Polynomial(rows.msm_accumulator_x.shifted());
         rows.msm_accumulator_y_shift = typename Flavor::Polynomial(rows.msm_accumulator_y.shifted());
         rows.msm_count_shift = typename Flavor::Polynomial(rows.msm_count.shifted());
         rows.msm_round_shift = typename Flavor::Polynomial(rows.msm_round.shifted());
-        rows.msm_q_add1_shift = typename Flavor::Polynomial(rows.msm_q_add1.shifted());
+        rows.msm_add1_shift = typename Flavor::Polynomial(rows.msm_add1.shifted());
         rows.msm_pc_shift = typename Flavor::Polynomial(rows.msm_pc.shifted());
-        rows.table_pc_shift = typename Flavor::Polynomial(rows.table_pc.shifted());
+        rows.precompute_pc_shift = typename Flavor::Polynomial(rows.precompute_pc.shifted());
         rows.transcript_pc_shift = typename Flavor::Polynomial(rows.transcript_pc.shifted());
-        rows.table_round_shift = typename Flavor::Polynomial(rows.table_round.shifted());
+        rows.precompute_round_shift = typename Flavor::Polynomial(rows.precompute_round.shifted());
         rows.transcript_accumulator_empty_shift =
             typename Flavor::Polynomial(rows.transcript_accumulator_empty.shifted());
-        rows.q_wnaf_shift = typename Flavor::Polynomial(rows.q_wnaf.shifted());
+        rows.precompute_select_shift = typename Flavor::Polynomial(rows.precompute_select.shifted());
         return rows;
     }
 

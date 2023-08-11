@@ -45,11 +45,11 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
     auto z1_zero = View(extended_edges.transcript_z1zero);
     auto z2_zero = View(extended_edges.transcript_z2zero);
     auto op = View(extended_edges.transcript_op);
-    auto q_add = View(extended_edges.q_transcript_add);
-    auto q_mul = View(extended_edges.q_transcript_mul);
-    auto q_mul_shift = View(extended_edges.q_transcript_mul_shift);
-    auto q_eq = View(extended_edges.q_transcript_eq);
-    auto q_msm_transition = View(extended_edges.q_transcript_msm_transition);
+    auto q_add = View(extended_edges.transcript_add);
+    auto q_mul = View(extended_edges.transcript_mul);
+    auto q_mul_shift = View(extended_edges.transcript_mul_shift);
+    auto q_eq = View(extended_edges.transcript_eq);
+    auto msm_transition = View(extended_edges.transcript_msm_transition);
     auto msm_count = View(extended_edges.transcript_msm_count);
     auto msm_count_shift = View(extended_edges.transcript_msm_count_shift);
     auto pc = View(extended_edges.transcript_pc);
@@ -66,7 +66,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
     auto lagrange_first = View(extended_edges.lagrange_first);
     auto lagrange_last = View(extended_edges.lagrange_last);
     auto is_accumulator_empty_shift = View(extended_edges.transcript_accumulator_empty_shift);
-    auto q_reset_accumulator = View(extended_edges.transcript_q_reset_accumulator);
+    auto q_reset_accumulator = View(extended_edges.transcript_reset_accumulator);
     auto lagrange_second = View(extended_edges.lagrange_second);
     auto transcript_collision_check = View(extended_edges.transcript_collision_check);
 
@@ -111,13 +111,13 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
         is_not_first_row * (pc_delta - q_mul * ((-z1_zero + 1) + (-z2_zero + 1))) * scaling_factor;
 
     /**
-     * @brief Validate `q_msm_transition` is well-formed.
+     * @brief Validate `msm_transition` is well-formed.
      *
-     * If the current row is the last mul instruction in a multiscalar multiplication, q_msm_transition = 1.
-     * i.e. if q_mul == 1 and q_mul_shift == 0, q_msm_transition = 1, else is 0
+     * If the current row is the last mul instruction in a multiscalar multiplication, msm_transition = 1.
+     * i.e. if q_mul == 1 and q_mul_shift == 0, msm_transition = 1, else is 0
      */
     auto msm_transition = q_mul * (-q_mul_shift + 1);
-    std::get<4>(accumulator) += (q_msm_transition - msm_transition) * scaling_factor;
+    std::get<4>(accumulator) += (msm_transition - msm_transition) * scaling_factor;
 
     /**
      * @brief Validate `msm_count` resets when we end a multiscalar multiplication.
@@ -125,7 +125,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * (if no msm active, msm_count == 0)
      * If current row ends an MSM, `msm_count_shift = 0` (msm_count value at next row)
      */
-    std::get<5>(accumulator) += (q_msm_transition * msm_count_shift) * scaling_factor;
+    std::get<5>(accumulator) += (msm_transition * msm_count_shift) * scaling_factor;
 
     /**
      * @brief Validate `msm_count` updates correctly for mul operations.
@@ -133,12 +133,12 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * row).
      */
     auto msm_count_delta = msm_count_shift - msm_count; // degree 4
-    std::get<6>(accumulator) += is_not_first_row * (-q_msm_transition + 1) *
+    std::get<6>(accumulator) += is_not_first_row * (-msm_transition + 1) *
                                 (msm_count_delta - q_mul * ((-z1_zero + 1) + (-z2_zero + 1))) * scaling_factor;
 
     /**
      * @brief Add multiscalar multiplication result into transcript accumulator.
-     * If `q_msm_transition == 1`, we expect msm output to be present on (transcript_msm_x, transcript_msm_y).
+     * If `msm_transition == 1`, we expect msm output to be present on (transcript_msm_x, transcript_msm_y).
      * (this is enforced via a lookup protocol).
      * If `is_accumulator_empty == 0`, we ADD msm output into transcript_accumulator.
      * If `is_accumulator_empty = =1`, we ASSIGN msm output to transcript_accumulator.
@@ -146,7 +146,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * ecc_msm_relation). We assume this does not affect statistical completeness for honest provers. We should validate
      * this!
      */
-    auto add_msm_into_accumulator = q_msm_transition * (-is_accumulator_empty + 1);
+    auto add_msm_into_accumulator = msm_transition * (-is_accumulator_empty + 1);
     auto x3 = transcript_accumulator_x_shift;
     auto y3 = transcript_accumulator_y_shift;
     auto x1 = transcript_accumulator_x;
@@ -163,7 +163,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      *
      * @note The accumulator point for all operations at row `i` is the accumulator point at row `i + 1`!
      */
-    auto assign_msm_into_accumulator = q_msm_transition * is_accumulator_empty;
+    auto assign_msm_into_accumulator = msm_transition * is_accumulator_empty;
     std::get<9>(accumulator) += assign_msm_into_accumulator * (x3 - x2) * scaling_factor; // degree 3
     std::get<10>(accumulator) += assign_msm_into_accumulator * (y3 - y2) * scaling_factor;
 
@@ -190,17 +190,17 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * @brief Opcode exclusion tests. We have the following assertions:
      * 1. If q_mul = 1, (q_add, eq, reset) are zero
      * 2. If q_reset = 1, is_accumulator_empty at next row = 1
-     * 3. If q_add = 1 OR q_msm_transition = 1, is_accumulator_empty at next row = 0
-     * 4. If q_add = 0 AND q_msm_transition = 0 AND q_reset_accumulator = 0, is_accumulator at next row = current row
+     * 3. If q_add = 1 OR msm_transition = 1, is_accumulator_empty at next row = 0
+     * 4. If q_add = 0 AND msm_transition = 0 AND q_reset_accumulator = 0, is_accumulator at next row = current row
      * value
-     * @note point 3: both q_add = 1, q_msm_transition = 1 cannot occur because of point 1 (q_msm_transition only 1 when
+     * @note point 3: both q_add = 1, msm_transition = 1 cannot occur because of point 1 (msm_transition only 1 when
      * q_mul 1) we can use a slightly more efficient relation than a pure binary OR
      */
     std::get<15>(accumulator) += q_mul * (q_add + q_eq + q_reset_accumulator) * scaling_factor;
     std::get<16>(accumulator) += q_add * (q_mul + q_eq + q_reset_accumulator) * scaling_factor;
     std::get<17>(accumulator) += q_reset_accumulator * (-is_accumulator_empty_shift + 1) * scaling_factor;
-    std::get<18>(accumulator) += (q_add + q_msm_transition) * is_accumulator_empty_shift * scaling_factor;
-    auto accumulator_state_not_modified = -(q_add + q_msm_transition + q_reset_accumulator) + 1;
+    std::get<18>(accumulator) += (q_add + msm_transition) * is_accumulator_empty_shift * scaling_factor;
+    auto accumulator_state_not_modified = -(q_add + msm_transition + q_reset_accumulator) + 1;
     std::get<19>(accumulator) += accumulator_state_not_modified * is_not_first_or_last_row *
                                  (is_accumulator_empty_shift - is_accumulator_empty) * scaling_factor;
 
@@ -219,7 +219,7 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
     std::get<24>(accumulator) += q_add * (q_add - 1) * scaling_factor;
     std::get<25>(accumulator) += q_mul * (q_mul - 1) * scaling_factor;
     std::get<26>(accumulator) += q_reset_accumulator * (q_reset_accumulator - 1) * scaling_factor;
-    std::get<27>(accumulator) += q_msm_transition * (q_msm_transition - 1) * scaling_factor;
+    std::get<27>(accumulator) += msm_transition * (msm_transition - 1) * scaling_factor;
     std::get<28>(accumulator) += is_accumulator_empty * (is_accumulator_empty - 1) * scaling_factor;
     std::get<29>(accumulator) += z1_zero * (z1_zero - 1) * scaling_factor;
     std::get<30>(accumulator) += z2_zero * (z2_zero - 1) * scaling_factor;

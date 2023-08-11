@@ -63,11 +63,11 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     const auto& lambda3 = View(extended_edges.msm_lambda3);
     const auto& lambda4 = View(extended_edges.msm_lambda4);
     const auto& lagrange_first = View(extended_edges.lagrange_first);
-    const auto& add1 = View(extended_edges.msm_q_add1);
-    const auto& add1_shift = View(extended_edges.msm_q_add1_shift);
-    const auto& add2 = View(extended_edges.msm_q_add2);
-    const auto& add3 = View(extended_edges.msm_q_add3);
-    const auto& add4 = View(extended_edges.msm_q_add4);
+    const auto& add1 = View(extended_edges.msm_add1);
+    const auto& add1_shift = View(extended_edges.msm_add1_shift);
+    const auto& add2 = View(extended_edges.msm_add2);
+    const auto& add3 = View(extended_edges.msm_add3);
+    const auto& add4 = View(extended_edges.msm_add4);
     const auto& acc_x = View(extended_edges.msm_accumulator_x);
     const auto& acc_y = View(extended_edges.msm_accumulator_y);
     const auto& acc_x_shift = View(extended_edges.msm_accumulator_x_shift);
@@ -76,16 +76,16 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     const auto& slice2 = View(extended_edges.msm_slice2);
     const auto& slice3 = View(extended_edges.msm_slice3);
     const auto& slice4 = View(extended_edges.msm_slice4);
-    const auto& q_msm_transition = View(extended_edges.q_msm_transition);
-    const auto& q_msm_transition_shift = View(extended_edges.q_msm_transition_shift);
+    const auto& msm_transition = View(extended_edges.msm_transition);
+    const auto& msm_transition_shift = View(extended_edges.msm_transition_shift);
     const auto& round = View(extended_edges.msm_round);
     const auto& round_shift = View(extended_edges.msm_round_shift);
-    const auto& q_add = View(extended_edges.msm_q_add);
-    const auto& q_add_shift = View(extended_edges.msm_q_add_shift);
-    const auto& q_skew = View(extended_edges.msm_q_skew);
-    const auto& q_skew_shift = View(extended_edges.msm_q_skew_shift);
-    const auto& q_double = View(extended_edges.msm_q_double);
-    const auto& q_double_shift = View(extended_edges.msm_q_double_shift);
+    const auto& q_add = View(extended_edges.msm_add);
+    const auto& q_add_shift = View(extended_edges.msm_add_shift);
+    const auto& q_skew = View(extended_edges.msm_skew);
+    const auto& q_skew_shift = View(extended_edges.msm_skew_shift);
+    const auto& q_double = View(extended_edges.msm_double);
+    const auto& q_double_shift = View(extended_edges.msm_double_shift);
     const auto& msm_size = View(extended_edges.msm_size_of_msm);
     // const auto& msm_size_shift = View(extended_edges.msm_size_of_msm_shift);
     const auto& pc = View(extended_edges.msm_pc);
@@ -196,9 +196,9 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     Accumulator x2_collision_relation(0);
     Accumulator x3_collision_relation(0);
     Accumulator x4_collision_relation(0);
-    // If q_msm_transition = 1, we have started a new MSM. We need to treat the current value of [Acc] as the point at
+    // If msm_transition = 1, we have started a new MSM. We need to treat the current value of [Acc] as the point at
     // infinity!
-    auto add_into_accumulator = -q_msm_transition + 1;
+    auto add_into_accumulator = -msm_transition + 1;
     auto [x_t1, y_t1] = add(acc_x, acc_y, x1, y1, lambda1, add_into_accumulator, add_relation, x1_collision_relation);
     auto [x_t2, y_t2] = add(x2, y2, x_t1, y_t1, lambda2, add2, add_relation, x2_collision_relation);
     auto [x_t3, y_t3] = add(x3, y3, x_t2, y_t2, lambda3, add3, add_relation, x3_collision_relation);
@@ -322,12 +322,12 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     // We use `add1/add2/add3/add4` to flag whether we are performing a wnaf read op
     // We can set these to be Prover-defined as the set membership check implicitly ensures that the correct reads
     // have occurred.
-    // if q_msm_transition = 0, round_shift - round = 0 or 1
+    // if msm_transition = 0, round_shift - round = 0 or 1
     const auto round_delta = round_shift - round;
 
     // ROUND TRANSITION LOGIC (when round does not change)
-    // If q_msm_transition = 0 (next row) then round_delta = 0 or 1
-    const auto round_transition = round_delta * (-q_msm_transition_shift + 1);
+    // If msm_transition = 0 (next row) then round_delta = 0 or 1
+    const auto round_transition = round_delta * (-msm_transition_shift + 1);
     std::get<18>(accumulator) += round_transition * (round_delta - 1) * scaling_factor;
 
     // ROUND TRANSITION LOGIC (when round DOES change)
@@ -348,21 +348,21 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
     std::get<23>(accumulator) += q_double * (-q_add_shift + 1) * scaling_factor;
 
     // updating count
-    // if q_msm_transition = 0 and round_transition = 0, count_shift = count + add1 + add2 + add3 + add4
+    // if msm_transition = 0 and round_transition = 0, count_shift = count + add1 + add2 + add3 + add4
     // todo: we need this?
-    std::get<24>(accumulator) += (-q_msm_transition_shift + 1) * (-round_delta + 1) *
+    std::get<24>(accumulator) += (-msm_transition_shift + 1) * (-round_delta + 1) *
                                  (count_shift - count - add1 - add2 - add3 - add4) * scaling_factor;
 
     std::get<25>(accumulator) +=
-        is_not_first_row * (-q_msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
+        is_not_first_row * (-msm_transition_shift + 1) * round_delta * count_shift * scaling_factor;
 
-    // if q_msm_transition = 1, count_shift = 0
-    std::get<26>(accumulator) += is_not_first_row * q_msm_transition_shift * count_shift * scaling_factor;
+    // if msm_transition = 1, count_shift = 0
+    std::get<26>(accumulator) += is_not_first_row * msm_transition_shift * count_shift * scaling_factor;
 
-    // if q_msm_transition = 1, pc = pc_shift + msm_size
+    // if msm_transition = 1, pc = pc_shift + msm_size
     // `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
     std::get<27>(accumulator) +=
-        is_not_first_row * q_msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
+        is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
 
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:

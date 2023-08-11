@@ -52,8 +52,8 @@ void ECCVMLookupRelationBase<FF>::add_edge_contribution_impl(typename Accumulato
 
     Accumulator inverse_accumulator = Accumulator(lookup_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
 
-    const auto row_has_write = View(extended_edges.q_wnaf);
-    const auto row_has_read = View(extended_edges.msm_q_add) + View(extended_edges.msm_q_skew);
+    const auto row_has_write = View(extended_edges.precompute_select);
+    const auto row_has_read = View(extended_edges.msm_add) + View(extended_edges.msm_skew);
     const auto inverse_exists = row_has_write + row_has_read - (row_has_write * row_has_read);
 
     std::get<0>(accumulator) +=

@@ -14,84 +14,84 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
 {
     using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;
 
-    const auto& table_round = get_view<FF, AccumulatorTypes>(extended_edges.table_round, index);
-    const auto table_round2 = table_round + table_round;
-    const auto table_round4 = table_round2 + table_round2;
+    const auto& precompute_round = get_view<FF, AccumulatorTypes>(extended_edges.precompute_round, index);
+    const auto precompute_round2 = precompute_round + precompute_round;
+    const auto precompute_round4 = precompute_round2 + precompute_round2;
 
     const auto& gamma = relation_params.gamma;
     const auto& eta = relation_params.eta;
     const auto& eta_sqr = relation_params.eta_sqr;
     const auto& eta_cube = relation_params.eta_cube;
-    const auto& table_pc = get_view<FF, AccumulatorTypes>(extended_edges.table_pc, index);
-    const auto& q_wnaf = get_view<FF, AccumulatorTypes>(extended_edges.q_wnaf, index);
+    const auto& precompute_pc = get_view<FF, AccumulatorTypes>(extended_edges.precompute_pc, index);
+    const auto& precompute_select = get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index);
 
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
      *        as part of ECCVMWnafRelation.
-     *        If q_wnaf = 1, tuple entry = (wnaf-slice + point-counter * eta + msm-round * eta_sqr).
+     *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * eta + msm-round * eta_sqr).
      *                       There are 4 tuple entires per row.
      */
     Accumulator numerator(1); // degree-0
     {
-        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.table_s1, index);
-        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.table_s2, index);
+        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s1hi, index);
+        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s1lo, index);
 
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input0 = wnaf_slice + gamma + table_pc * eta + table_round4 * eta_sqr;
+        const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * eta + precompute_round4 * eta_sqr;
         numerator *= wnaf_slice_input0; // degree-1
     }
     {
-        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.table_s3, index);
-        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.table_s4, index);
+        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s2hi, index);
+        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s2lo, index);
 
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input1 = wnaf_slice + gamma + table_pc * eta + (table_round4 + 1) * eta_sqr;
+        const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 1) * eta_sqr;
         numerator *= wnaf_slice_input1; // degree-2
     }
     {
-        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.table_s5, index);
-        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.table_s6, index);
+        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s3hi, index);
+        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s3lo, index);
 
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input2 = wnaf_slice + gamma + table_pc * eta + (table_round4 + 2) * eta_sqr;
+        const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 2) * eta_sqr;
         numerator *= wnaf_slice_input2; // degree-3
     }
     {
-        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.table_s7, index);
-        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.table_s8, index);
+        const auto& s0 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s4hi, index);
+        const auto& s1 = get_view<FF, AccumulatorTypes>(extended_edges.precompute_s4lo, index);
 
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
         // TODO(@zac-williamson) can optimize this once we have a stable base to work off of.
-        const auto wnaf_slice_input3 = wnaf_slice + gamma + table_pc * eta + (table_round4 + 3) * eta_sqr;
+        const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 3) * eta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
     {
         // skew product if relevant
-        const auto& skew = get_view<FF, AccumulatorTypes>(extended_edges.table_skew, index);
-        const auto& table_point_transition =
-            get_view<FF, AccumulatorTypes>(extended_edges.table_point_transition, index);
+        const auto& skew = get_view<FF, AccumulatorTypes>(extended_edges.precompute_skew, index);
+        const auto& precompute_point_transition =
+            get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
         const auto skew_input =
-            table_point_transition * (skew + gamma + table_pc * eta + (table_round4 + 4) * eta_sqr) +
-            (-table_point_transition + 1);
+            precompute_point_transition * (skew + gamma + precompute_pc * eta + (precompute_round4 + 4) * eta_sqr) +
+            (-precompute_point_transition + 1);
         numerator *= skew_input; // degree-5
     }
     {
         const auto& eccvm_set_permutation_delta = relation_params.eccvm_set_permutation_delta;
-        numerator *= q_wnaf * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
+        numerator *= precompute_select * (-eccvm_set_permutation_delta + 1) + eccvm_set_permutation_delta; // degree-7
     }
 
     /**
@@ -102,26 +102,26 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
      * columns.
      */
     {
-        const auto& table_x = get_view<FF, AccumulatorTypes>(extended_edges.table_tx, index);
-        const auto& table_y = get_view<FF, AccumulatorTypes>(extended_edges.table_ty, index);
+        const auto& table_x = get_view<FF, AccumulatorTypes>(extended_edges.precompute_tx, index);
+        const auto& table_y = get_view<FF, AccumulatorTypes>(extended_edges.precompute_ty, index);
 
-        const auto& table_skew = get_view<FF, AccumulatorTypes>(extended_edges.table_skew, index);
+        const auto& precompute_skew = get_view<FF, AccumulatorTypes>(extended_edges.precompute_skew, index);
         static constexpr FF negative_inverse_seven = FF(-7).invert();
-        auto adjusted_skew = table_skew * negative_inverse_seven;
+        auto adjusted_skew = precompute_skew * negative_inverse_seven;
 
-        const auto& wnaf_scalar_sum = get_view<FF, AccumulatorTypes>(extended_edges.table_scalar_sum, index);
+        const auto& wnaf_scalar_sum = get_view<FF, AccumulatorTypes>(extended_edges.precompute_scalar_sum, index);
         const auto w0 =
-            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.table_s1, index),
-                                              get_view<FF, AccumulatorTypes>(extended_edges.table_s2, index));
+            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_s1hi, index),
+                                              get_view<FF, AccumulatorTypes>(extended_edges.precompute_s1lo, index));
         const auto w1 =
-            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.table_s3, index),
-                                              get_view<FF, AccumulatorTypes>(extended_edges.table_s4, index));
+            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_s2hi, index),
+                                              get_view<FF, AccumulatorTypes>(extended_edges.precompute_s2lo, index));
         const auto w2 =
-            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.table_s5, index),
-                                              get_view<FF, AccumulatorTypes>(extended_edges.table_s6, index));
+            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_s3hi, index),
+                                              get_view<FF, AccumulatorTypes>(extended_edges.precompute_s3lo, index));
         const auto w3 =
-            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.table_s7, index),
-                                              get_view<FF, AccumulatorTypes>(extended_edges.table_s8, index));
+            convert_to_wnaf<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_s4hi, index),
+                                              get_view<FF, AccumulatorTypes>(extended_edges.precompute_s4lo, index));
 
         auto row_slice = w0;
         row_slice += row_slice;
@@ -158,11 +158,11 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         scalar_sum_full += scalar_sum_full;
         scalar_sum_full += row_slice + adjusted_skew;
 
-        auto table_point_transition = get_view<FF, AccumulatorTypes>(extended_edges.table_point_transition, index);
+        auto precompute_point_transition = get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
 
-        auto point_table_init_read = (table_pc + table_x * eta + table_y * eta_sqr + scalar_sum_full * eta_cube);
+        auto point_table_init_read = (precompute_pc + table_x * eta + table_y * eta_sqr + scalar_sum_full * eta_cube);
         point_table_init_read =
-            table_point_transition * (point_table_init_read + gamma) + (-table_point_transition + 1);
+            precompute_point_transition * (point_table_init_read + gamma) + (-precompute_point_transition + 1);
 
         numerator *= point_table_init_read; // degree-9
     }
@@ -172,7 +172,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
      *        We need to validate that the same values (P.x, P.y) are present in the Transcript columns and describe a
      *        multi-scalar multiplication of size `msm-size`, starting at `point-counter`.
      *
-     *        If q_msm_transition_shift = 1, this indicates the current row is the last row of a multiscalar
+     *        If msm_transition_shift = 1, this indicates the current row is the last row of a multiscalar
      * multiplication evaluation. The output of the MSM will be present on `(msm_accumulator_x_shift,
      * msm_accumulator_y_shift)`. The values of `msm_accumulator_x_shift, msm_accumulator_y_shift, msm_pc,
      * msm_size_of_msm` must match up with equivalent values `transcript_msm_output_x, transcript_msm_output_y,
@@ -180,16 +180,16 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
      */
     {
         const auto& lagrange_first = get_view<FF, AccumulatorTypes>(extended_edges.lagrange_first, index);
-        const auto& partial_q_msm_transition_shift =
-            get_view<FF, AccumulatorTypes>(extended_edges.q_msm_transition_shift, index);
-        const auto q_msm_transition_shift = (-lagrange_first + 1) * partial_q_msm_transition_shift;
+        const auto& partial_msm_transition_shift =
+            get_view<FF, AccumulatorTypes>(extended_edges.msm_transition_shift, index);
+        const auto msm_transition_shift = (-lagrange_first + 1) * partial_msm_transition_shift;
         const auto& msm_pc_shift = get_view<FF, AccumulatorTypes>(extended_edges.msm_pc_shift, index);
 
         const auto& msm_x_shift = get_view<FF, AccumulatorTypes>(extended_edges.msm_accumulator_x_shift, index);
         const auto& msm_y_shift = get_view<FF, AccumulatorTypes>(extended_edges.msm_accumulator_y_shift, index);
         const auto& msm_size = get_view<FF, AccumulatorTypes>(extended_edges.msm_size_of_msm, index);
 
-        // q_msm_transition = 1 when a row BEGINS a new msm
+        // msm_transition = 1 when a row BEGINS a new msm
         //
         // row msm tx  acc.x acc.y pc  msm_size
         // i   0       no    no    no  yes
@@ -204,7 +204,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto msm_result_write = msm_pc_shift + msm_x_shift * eta + msm_y_shift * eta_sqr + msm_size * eta_cube;
 
         // msm_result_write = degree 2
-        msm_result_write = q_msm_transition_shift * (msm_result_write + gamma) + (-q_msm_transition_shift + 1);
+        msm_result_write = msm_transition_shift * (msm_result_write + gamma) + (-msm_transition_shift + 1);
         numerator *= msm_result_write; // degree-11
     }
     return numerator;
@@ -236,7 +236,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
      */
     Accumulator denominator(1); // degree-0
     {
-        const auto& add1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add1, index);
+        const auto& add1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_add1, index);
         const auto& msm_slice1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice1, index);
 
         auto wnaf_slice_output1 =
@@ -244,7 +244,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         denominator *= wnaf_slice_output1; // degree-2
     }
     {
-        const auto& add2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add2, index);
+        const auto& add2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_add2, index);
         const auto& msm_slice2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice2, index);
 
         auto wnaf_slice_output2 =
@@ -252,7 +252,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         denominator *= wnaf_slice_output2; // degree-4
     }
     {
-        const auto& add3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add3, index);
+        const auto& add3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_add3, index);
         const auto& msm_slice3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice3, index);
 
         auto wnaf_slice_output3 =
@@ -260,7 +260,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         denominator *= wnaf_slice_output3; // degree-6
     }
     {
-        const auto& add4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_q_add4, index);
+        const auto& add4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index);
         const auto& msm_slice4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice4, index);
         auto wnaf_slice_output4 =
             add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * eta + msm_round * eta_sqr) + (-add4 + 1);
@@ -282,7 +282,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto z2 = get_view<FF, AccumulatorTypes>(extended_edges.transcript_z2, index);
         auto z1_zero = get_view<FF, AccumulatorTypes>(extended_edges.transcript_z1zero, index);
         auto z2_zero = get_view<FF, AccumulatorTypes>(extended_edges.transcript_z2zero, index);
-        auto q_transcript_mul = get_view<FF, AccumulatorTypes>(extended_edges.q_transcript_mul, index);
+        auto transcript_mul = get_view<FF, AccumulatorTypes>(extended_edges.transcript_mul, index);
 
         auto lookup_first = (-z1_zero + 1);
         auto lookup_second = (-z2_zero + 1);
@@ -303,13 +303,13 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         // point_table_init_write = degree 2
 
         auto point_table_init_write =
-            q_transcript_mul * transcript_input1 * transcript_input2 + (-q_transcript_mul + 1);
+            transcript_mul * transcript_input1 * transcript_input2 + (-transcript_mul + 1);
         denominator *= point_table_init_write; // degree-13
 
-        // auto point_table_init_write_1 = q_transcript_mul * transcript_input1 + (-q_transcript_mul + 1);
+        // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);
         // denominator *= point_table_init_write_1; // degree-11
 
-        // auto point_table_init_write_2 = q_transcript_mul * transcript_input2 + (-q_transcript_mul + 1);
+        // auto point_table_init_write_2 = transcript_mul * transcript_input2 + (-transcript_mul + 1);
         // denominator *= point_table_init_write_2; // degree-14
     }
     /**
@@ -323,20 +323,20 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto transcript_pc_shift = get_view<FF, AccumulatorTypes>(extended_edges.transcript_pc_shift, index);
         auto transcript_msm_x = get_view<FF, AccumulatorTypes>(extended_edges.transcript_msm_x, index);
         auto transcript_msm_y = get_view<FF, AccumulatorTypes>(extended_edges.transcript_msm_y, index);
-        auto q_transcript_msm_transition =
-            get_view<FF, AccumulatorTypes>(extended_edges.q_transcript_msm_transition, index);
+        auto transcript_msm_transition =
+            get_view<FF, AccumulatorTypes>(extended_edges.transcript_msm_transition, index);
         auto transcript_msm_count = get_view<FF, AccumulatorTypes>(extended_edges.transcript_msm_count, index);
         auto z1_zero = get_view<FF, AccumulatorTypes>(extended_edges.transcript_z1zero, index);
         auto z2_zero = get_view<FF, AccumulatorTypes>(extended_edges.transcript_z2zero, index);
-        auto q_transcript_mul = get_view<FF, AccumulatorTypes>(extended_edges.q_transcript_mul, index);
+        auto transcript_mul = get_view<FF, AccumulatorTypes>(extended_edges.transcript_mul, index);
 
-        auto full_msm_count = transcript_msm_count + q_transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1));
+        auto full_msm_count = transcript_msm_count + transcript_mul * ((-z1_zero + 1) + (-z2_zero + 1));
         //      auto count_test = transcript_msm_count
         // msm_result_read = degree 2
         auto msm_result_read =
             transcript_pc_shift + transcript_msm_x * eta + transcript_msm_y * eta_sqr + full_msm_count * eta_cube;
 
-        msm_result_read = q_transcript_msm_transition * (msm_result_read + gamma) + (-q_transcript_msm_transition + 1);
+        msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
         denominator *= msm_result_read; // degree-17
     }
     return denominator;

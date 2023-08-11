@@ -17,7 +17,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
         bool q_mul = false;
         bool q_eq = false;
         bool q_reset_accumulator = false;
-        bool q_msm_transition = false;
+        bool msm_transition = false;
         uint32_t pc = 0;
         uint32_t msm_count = 0;
         FF base_x = 0;
@@ -134,7 +134,7 @@ template <typename Flavor> class ECCVMTranscriptBuilder {
             row.q_mul = entry.mul;
             row.q_eq = entry.eq;
             row.q_reset_accumulator = entry.reset;
-            row.q_msm_transition = msm_transition;
+            row.msm_transition = msm_transition;
             row.pc = state.pc;
             row.msm_count = state.count;
             row.base_x = (entry.add || entry.mul || entry.eq) ? entry.base_point.x : 0;

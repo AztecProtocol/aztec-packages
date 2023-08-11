@@ -59,16 +59,16 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     }
 
     // Get commitments to VM wires
-    commitments.q_transcript_add =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_add);
-    commitments.q_transcript_mul =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_mul);
-    commitments.q_transcript_eq =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_eq);
+    commitments.transcript_add =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_add);
+    commitments.transcript_mul =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_mul);
+    commitments.transcript_eq =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_eq);
     commitments.transcript_collision_check =
         transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_collision_check);
-    commitments.q_transcript_msm_transition =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_transcript_msm_transition);
+    commitments.transcript_msm_transition =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_msm_transition);
     commitments.transcript_pc = transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_pc);
     commitments.transcript_msm_count =
         transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_msm_count);
@@ -89,30 +89,30 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_msm_x);
     commitments.transcript_msm_y =
         transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_msm_y);
-    commitments.table_pc = transcript.template receive_from_prover<Commitment>(commitment_labels.table_pc);
-    commitments.table_point_transition =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.table_point_transition);
-    commitments.table_round = transcript.template receive_from_prover<Commitment>(commitment_labels.table_round);
-    commitments.table_scalar_sum =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.table_scalar_sum);
-    commitments.table_s1 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s1);
-    commitments.table_s2 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s2);
-    commitments.table_s3 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s3);
-    commitments.table_s4 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s4);
-    commitments.table_s5 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s5);
-    commitments.table_s6 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s6);
-    commitments.table_s7 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s7);
-    commitments.table_s8 = transcript.template receive_from_prover<Commitment>(commitment_labels.table_s8);
-    commitments.table_skew = transcript.template receive_from_prover<Commitment>(commitment_labels.table_skew);
-    commitments.table_dx = transcript.template receive_from_prover<Commitment>(commitment_labels.table_dx);
-    commitments.table_dy = transcript.template receive_from_prover<Commitment>(commitment_labels.table_dy);
-    commitments.table_tx = transcript.template receive_from_prover<Commitment>(commitment_labels.table_tx);
-    commitments.table_ty = transcript.template receive_from_prover<Commitment>(commitment_labels.table_ty);
-    commitments.q_msm_transition =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.q_msm_transition);
-    commitments.msm_q_add = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_add);
-    commitments.msm_q_double = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_double);
-    commitments.msm_q_skew = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_skew);
+    commitments.precompute_pc = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_pc);
+    commitments.precompute_point_transition =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_point_transition);
+    commitments.precompute_round = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_round);
+    commitments.precompute_scalar_sum =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_scalar_sum);
+    commitments.precompute_s1hi = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s1hi);
+    commitments.precompute_s1lo = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s1lo);
+    commitments.precompute_s2hi = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s2hi);
+    commitments.precompute_s2lo = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s2lo);
+    commitments.precompute_s3hi = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s3hi);
+    commitments.precompute_s3lo = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s3lo);
+    commitments.precompute_s4hi = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s4hi);
+    commitments.precompute_s4lo = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_s4lo);
+    commitments.precompute_skew = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_skew);
+    commitments.precompute_dx = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_dx);
+    commitments.precompute_dy = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_dy);
+    commitments.precompute_tx = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_tx);
+    commitments.precompute_ty = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_ty);
+    commitments.msm_transition =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.msm_transition);
+    commitments.msm_add = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_add);
+    commitments.msm_double = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_double);
+    commitments.msm_skew = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_skew);
     commitments.msm_accumulator_x =
         transcript.template receive_from_prover<Commitment>(commitment_labels.msm_accumulator_x);
     commitments.msm_accumulator_y =
@@ -122,10 +122,10 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         transcript.template receive_from_prover<Commitment>(commitment_labels.msm_size_of_msm);
     commitments.msm_count = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_count);
     commitments.msm_round = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_round);
-    commitments.msm_q_add1 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_add1);
-    commitments.msm_q_add2 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_add2);
-    commitments.msm_q_add3 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_add3);
-    commitments.msm_q_add4 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_q_add4);
+    commitments.msm_add1 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_add1);
+    commitments.msm_add2 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_add2);
+    commitments.msm_add3 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_add3);
+    commitments.msm_add4 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_add4);
     commitments.msm_x1 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_x1);
     commitments.msm_y1 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_y1);
     commitments.msm_x2 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_x2);
@@ -152,9 +152,9 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     commitments.msm_slice4 = transcript.template receive_from_prover<Commitment>(commitment_labels.msm_slice4);
     commitments.transcript_accumulator_empty =
         transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_accumulator_empty);
-    commitments.transcript_q_reset_accumulator =
-        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_q_reset_accumulator);
-    commitments.q_wnaf = transcript.template receive_from_prover<Commitment>(commitment_labels.q_wnaf);
+    commitments.transcript_reset_accumulator =
+        transcript.template receive_from_prover<Commitment>(commitment_labels.transcript_reset_accumulator);
+    commitments.precompute_select = transcript.template receive_from_prover<Commitment>(commitment_labels.precompute_select);
     commitments.lookup_read_counts_0 =
         transcript.template receive_from_prover<Commitment>(commitment_labels.lookup_read_counts_0);
     commitments.lookup_read_counts_1 =
