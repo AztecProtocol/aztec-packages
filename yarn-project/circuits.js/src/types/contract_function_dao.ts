@@ -1,4 +1,5 @@
 import { FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionSelector } from '../index.js';
 
 /**
  * A contract function Data Access Object (DAO).
@@ -9,5 +10,5 @@ export interface ContractFunctionDao extends FunctionAbi {
   /**
    * Unique identifier for a contract function.
    */
-  selector: Buffer;
+  selector: FunctionSelector;
 }
