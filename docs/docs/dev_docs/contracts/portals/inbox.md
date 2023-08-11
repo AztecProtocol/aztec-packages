@@ -12,7 +12,8 @@ Sends a message from L1 to L2.
 
 ```solidity
 function sendL2Message(
-  DataStructures.L2Actor memory _recipient,
+  bytes32 _recipientAddress,
+  uint256 _recipientVersion,
   uint32 _deadline,
   bytes32 _content,
   bytes32 _secretHash
@@ -21,7 +22,8 @@ function sendL2Message(
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| Recipient      | `L2Actor` | The recipient of  the message. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| _recipientAddress | `bytes32` | The address of the recipient. This is the address of the Aztec contract on L2. This **MUST** match the Aztec contract that is attached to the contract making the call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| _recipientVersion | `uint256` | The version of the recipient. This is the version of the rollup that the recipient lives on. |
 | Deadline       | `uint256` | The message consumption deadline. If the message have not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
 | Content        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
 | Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
@@ -42,15 +44,29 @@ Cancels a message that have not yet been consumed.
 
 ```solidity
 function cancelL2Message(
-  DataStructures.L1ToL2Msg memory _message, 
+  address _senderAddress,
+  uint256 _senderChainId,
+  bytes32 _recipientAddress,
+  uint256 _recipientVersion,
+  bytes32 _content,
+  bytes32 _secretHash,
+  uint32 _deadline,
+  uint64 _fee,
   address _feeCollector
 ) external returns (bytes32 entryKey);
 ```
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_message`     | `L1ToL2Msg` | The message to cancel |
-| `_feeCollector`| `address`   | The address to refund the fee to |
+| `_senderAddress`     | `address` | The address of the sender on L1. |
+| `_senderChainId`     | `uint256` | The chain id of the L1 blockchain. |
+| `_recipientAddress`     | `bytes32` | The aztec address of the recipient. |
+| `_recipientVersion`     | `uint256` | The aztec version of the recipient. |
+| `_content`        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
+| `_secretHash`    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
+| `_deadline`       | `uint256` | The message consumption deadline. If the message have not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
+| `_fee`  | `uint64` | The fee to the sequencer for including the message. This is the amount of ETH that the sequencer will receive for including the message. Note that only values that can fit in `uint64` will be accepted. |
+| `_feeCollector` | `address`   | The address to refund the fee to. |
 | ReturnValue    | `bytes32`   | The hash of the message | 
 
 #### Edge cases
@@ -128,11 +144,26 @@ Computes the hash of a message.
 
 ```solidity
 function computeEntryKey(
-  DataStructures.L1ToL2Msg memory _message
-) external pure returns (bytes32 entryKey);
+  address _senderAddress,
+  uint256 _senderChainId,
+  bytes32 _recipientAddress,
+  uint256 _recipientVersion,
+  bytes32 _content,
+  bytes32 _secretHash,
+  uint32 _deadline,
+  uint64 _fee
+) external pure returns (bytes32);
 ```
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_message`     | `L1ToL2Msg` | The message to compute hash for |
+| `_senderAddress`     | `address` | The address of the sender on L1. |
+| `_senderChainId`     | `uint256` | The chain id of the L1 blockchain. |
+| `_recipientAddress`     | `bytes32` | The aztec address of the recipient. |
+| `_recipientVersion`     | `uint256` | The aztec version of the recipient. |
+| `_content`        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
+| `_secretHash`    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
+| `_deadline`       | `uint256` | The message consumption deadline. If the message have not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
+| `_fee`  | `uint64` | The fee to the sequencer for including the message. This is the amount of ETH that the sequencer will receive for including the message. Note that only values that can fit in `uint64` will be accepted. |
+| `_feeCollector` | `address`   | The address to refund the fee to. |
 | ReturnValue    | `bytes32`   | The hash of the message | 

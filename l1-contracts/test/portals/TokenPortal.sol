@@ -39,9 +39,7 @@ contract TokenPortal {
     address _canceller
   ) external payable returns (bytes32) {
     // Preamble
-    // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2TokenAddress, 1);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash = Hash.sha256ToField(
@@ -52,7 +50,8 @@ contract TokenPortal {
     underlying.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    return inbox.sendL2Message{value: msg.value}(actor, _deadline, contentHash, _secretHash);
+    return
+      inbox.sendL2Message{value: msg.value}(l2TokenAddress, 1, _deadline, contentHash, _secretHash);
   }
 
   /**
@@ -74,19 +73,19 @@ contract TokenPortal {
   ) external returns (bytes32) {
     // @todo: (issue #624) handle different versions
     IInbox inbox = registry.getInbox();
-    DataStructures.L1Actor memory l1Actor = DataStructures.L1Actor(address(this), block.chainid);
-    DataStructures.L2Actor memory l2Actor = DataStructures.L2Actor(l2TokenAddress, 1);
-    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
-      sender: l1Actor,
-      recipient: l2Actor,
-      content: Hash.sha256ToField(
+    bytes32 entryKey = inbox.cancelL2Message(
+      address(this),
+      block.chainid,
+      l2TokenAddress,
+      1,
+      Hash.sha256ToField(
         abi.encodeWithSignature("mint(uint256,bytes32,address)", _amount, _to, msg.sender)
-        ),
-      secretHash: _secretHash,
-      deadline: _deadline,
-      fee: _fee
-    });
-    bytes32 entryKey = inbox.cancelL2Message(message, address(this));
+      ),
+      _secretHash,
+      _deadline,
+      _fee,
+      address(this)
+    );
     // release the funds to msg.sender (since the content hash (& message key) is derived by hashing the caller,
     // we confirm that msg.sender is same as `_canceller` supplied when creating the message)
     underlying.transfer(msg.sender, _amount);
@@ -107,8 +106,8 @@ contract TokenPortal {
     returns (bytes32)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, 1),
-      recipient: DataStructures.L1Actor(address(this), block.chainid),
+      sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
+      recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
           "withdraw(uint256,address,address)",

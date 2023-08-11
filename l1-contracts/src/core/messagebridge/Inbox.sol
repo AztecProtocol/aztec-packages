@@ -35,7 +35,8 @@ contract Inbox is IInbox {
    * @notice Inserts an entry into the Inbox
    * @dev Will emit `MessageAdded` with data for easy access by the sequencer
    * @dev msg.value - The fee provided to sequencer for including the entry
-   * @param _recipient - The recipient of the entry
+   * @param _recipientAddress - The address of the recipient of the entry
+   * @param _recipientVersion - The version of the recipient of the entry
    * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
    * it is uint32 to for slot packing of the Entry struct. Should work until Feb 2106.
    * @param _content - The content of the entry (application specific)
@@ -43,13 +44,14 @@ contract Inbox is IInbox {
    * @return The key of the entry in the set
    */
   function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
   ) external payable override(IInbox) returns (bytes32) {
-    if (uint256(_recipient.actor) > Constants.MAX_FIELD_VALUE) {
-      revert Errors.Inbox__ActorTooLarge(_recipient.actor);
+    if (uint256(_recipientAddress) > Constants.MAX_FIELD_VALUE) {
+      revert Errors.Inbox__ActorTooLarge(_recipientAddress);
     }
     if (_deadline <= block.timestamp) revert Errors.Inbox__DeadlineBeforeNow();
     if (uint256(_content) > Constants.MAX_FIELD_VALUE) {
@@ -63,17 +65,17 @@ contract Inbox is IInbox {
     if (msg.value > type(uint64).max) revert Errors.Inbox__FeeTooHigh();
     uint64 fee = uint64(msg.value);
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
-      sender: DataStructures.L1Actor(msg.sender, block.chainid),
-      recipient: _recipient,
+      sender: DataStructures.L1Actor({actor: msg.sender, chainId: block.chainid}),
+      recipient: DataStructures.L2Actor({actor: _recipientAddress, version: _recipientVersion}),
       content: _content,
       secretHash: _secretHash,
       deadline: _deadline,
       fee: fee
     });
 
-    bytes32 key = computeEntryKey(message);
+    bytes32 key = _computeEntryKey(message);
     // Unsafe cast to uint32, but as we increment by 1 for versions to lookup the snapshots, we should be fine.
-    entries.insert(key, fee, uint32(_recipient.version), _deadline, _errIncompatibleEntryArguments);
+    entries.insert(key, fee, uint32(_recipientVersion), _deadline, _errIncompatibleEntryArguments);
 
     emit MessageAdded(
       key,
@@ -95,20 +97,43 @@ contract Inbox is IInbox {
    * @dev Will revert if the deadline have not been crossed - message only cancellable past the deadline
    *  so it cannot be yanked away while the sequencer is building a block including it
    * @dev Must be called by portal that inserted the entry
-   * @param _message - The content of the entry (application specific)
+   * @param _senderAddress - The address of the sender of the entry
+   * @param _senderChainId - The chainId of the sender of the entry
+   * @param _recipientAddress - The address of the recipient of the entry
+   * @param _recipientVersion - The version of the recipient of the entry
+   * @param _content - The content of the entry (application specific)
+   * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
+   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
+   * @param _fee - The fee provided to sequencer for including the entry
    * @param _feeCollector - The address to receive the "fee"
    * @return entryKey - The key of the entry removed
    */
-  function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
-    external
-    override(IInbox)
-    returns (bytes32 entryKey)
-  {
-    if (msg.sender != _message.sender.actor) revert Errors.Inbox__Unauthorized();
-    if (block.timestamp <= _message.deadline) revert Errors.Inbox__NotPastDeadline();
-    entryKey = computeEntryKey(_message);
+  function cancelL2Message(
+    address _senderAddress,
+    uint256 _senderChainId,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
+    bytes32 _content,
+    bytes32 _secretHash,
+    uint32 _deadline,
+    uint64 _fee,
+    address _feeCollector
+  ) external override(IInbox) returns (bytes32 entryKey) {
+    // Note that this check is also implicit in `consume`, but this give a better error message.
+    if (msg.sender != _senderAddress) revert Errors.Inbox__Unauthorized();
+    if (block.timestamp <= _deadline) revert Errors.Inbox__NotPastDeadline();
+    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor({actor: _senderAddress, chainId: _senderChainId}),
+      recipient: DataStructures.L2Actor({actor: _recipientAddress, version: _recipientVersion}),
+      content: _content,
+      secretHash: _secretHash,
+      deadline: _deadline,
+      fee: _fee
+    });
+
+    entryKey = _computeEntryKey(message);
     entries.consume(entryKey, _errNothingToConsume);
-    feesAccrued[_feeCollector] += _message.fee;
+    feesAccrued[_feeCollector] += message.fee;
     emit L1ToL2MessageCancelled(entryKey);
   }
 
@@ -177,13 +202,46 @@ contract Inbox is IInbox {
 
   /**
    * @notice Given a message, computes an entry key for the Inbox
+   * @param _senderAddress - The address of the sender
+   * @param _senderChainId - The chain ID of the sender
+   * @param _recipientAddress - The address of the recipient
+   * @param _recipientVersion - The version of the recipient
+   * @param _content - The content of the message
+   * @param _secretHash - The secret hash of the message
+   * @param _deadline - The deadline of the message
+   * @param _fee - The fee of the message
+   * @return The hash of the message (used as the key of the entry in the set)
+   */
+  function computeEntryKey(
+    address _senderAddress,
+    uint256 _senderChainId,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
+    bytes32 _content,
+    bytes32 _secretHash,
+    uint32 _deadline,
+    uint64 _fee
+  ) public pure override(IInbox) returns (bytes32) {
+    return _computeEntryKey(
+      DataStructures.L1ToL2Msg({
+        sender: DataStructures.L1Actor({actor: _senderAddress, chainId: _senderChainId}),
+        recipient: DataStructures.L2Actor({actor: _recipientAddress, version: _recipientVersion}),
+        content: _content,
+        secretHash: _secretHash,
+        deadline: _deadline,
+        fee: _fee
+      })
+    );
+  }
+
+  /**
+   * @notice Given a message, computes an entry key for the Inbox
    * @param _message - The L1 to L2 message
    * @return The hash of the message (used as the key of the entry in the set)
    */
-  function computeEntryKey(DataStructures.L1ToL2Msg memory _message)
-    public
+  function _computeEntryKey(DataStructures.L1ToL2Msg memory _message)
+    internal
     pure
-    override(IInbox)
     returns (bytes32)
   {
     return _message.sha256ToField();

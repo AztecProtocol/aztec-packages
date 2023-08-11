@@ -77,8 +77,8 @@ contract TokenPortalTest is Test {
     returns (DataStructures.L1ToL2Msg memory)
   {
     return DataStructures.L1ToL2Msg({
-      sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
-      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
+      sender: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
+      recipient: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("mint(uint256,bytes32,address)", amount, to, _canceller)
         ),
@@ -95,7 +95,16 @@ contract TokenPortalTest is Test {
 
     // Check for the expected message
     DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedL1ToL2Message(address(this));
-    bytes32 expectedEntryKey = inbox.computeEntryKey(expectedMessage);
+    bytes32 expectedEntryKey = inbox.computeEntryKey(
+      expectedMessage.sender.actor,
+      expectedMessage.sender.chainId,
+      expectedMessage.recipient.actor,
+      expectedMessage.recipient.version,
+      expectedMessage.content,
+      expectedMessage.secretHash,
+      expectedMessage.deadline,
+      expectedMessage.fee
+    );
 
     // Check the even was emitted
     vm.expectEmit(true, true, true, true);
@@ -132,8 +141,17 @@ contract TokenPortalTest is Test {
 
     // ensure no one else can cancel the message:
     vm.startPrank(address(0xdead));
-    bytes32 expectedWrongEntryKey =
-      inbox.computeEntryKey(_createExpectedL1ToL2Message(address(0xdead)));
+    DataStructures.L1ToL2Msg memory expectedMessage = _createExpectedL1ToL2Message(address(0xdead));
+    bytes32 expectedWrongEntryKey = inbox.computeEntryKey(
+      expectedMessage.sender.actor,
+      expectedMessage.sender.chainId,
+      expectedMessage.recipient.actor,
+      expectedMessage.recipient.version,
+      expectedMessage.content,
+      expectedMessage.secretHash,
+      expectedMessage.deadline,
+      expectedMessage.fee
+    );
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, expectedWrongEntryKey)
     );

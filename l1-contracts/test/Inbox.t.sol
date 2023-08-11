@@ -64,7 +64,16 @@ contract InboxTest is Test {
     _message.content = bytes32(uint256(_message.content) % Constants.P);
     // ensure secret hash fits in a field
     _message.secretHash = bytes32(uint256(_message.secretHash) % Constants.P);
-    bytes32 expectedEntryKey = inbox.computeEntryKey(_message);
+    bytes32 expectedEntryKey = inbox.computeEntryKey(
+      _message.sender.actor,
+      _message.sender.chainId,
+      _message.recipient.actor,
+      _message.recipient.version,
+      _message.content,
+      _message.secretHash,
+      _message.deadline,
+      _message.fee
+    );
     vm.expectEmit(true, true, true, true);
     // event we expect
     emit MessageAdded(
@@ -80,7 +89,11 @@ contract InboxTest is Test {
     );
     // event we will get
     bytes32 entryKey = inbox.sendL2Message{value: _message.fee}(
-      _message.recipient, _message.deadline, _message.content, _message.secretHash
+      _message.recipient.actor,
+      _message.recipient.version,
+      _message.deadline,
+      _message.content,
+      _message.secretHash
     );
     assertEq(entryKey, expectedEntryKey);
     DataStructures.Entry memory entry = inbox.get(entryKey);
@@ -92,13 +105,25 @@ contract InboxTest is Test {
   function testSendMultipleSameL2Messages() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     bytes32 entryKey2 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     bytes32 entryKey3 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
 
     assertEq(entryKey1, entryKey2);
@@ -115,7 +140,11 @@ contract InboxTest is Test {
       abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
     );
     inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
   }
 
@@ -124,7 +153,11 @@ contract InboxTest is Test {
     message.content = bytes32(Constants.MAX_FIELD_VALUE + 1);
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__ContentTooLarge.selector, message.content));
     inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
   }
 
@@ -135,44 +168,99 @@ contract InboxTest is Test {
       abi.encodeWithSelector(Errors.Inbox__SecretHashTooLarge.selector, message.secretHash)
     );
     inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
   }
 
   function testRevertIfCancellingMessageFromDifferentAddress() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     vm.prank(address(0x1));
     vm.expectRevert(Errors.Inbox__Unauthorized.selector);
-    inbox.cancelL2Message(message, address(0x1));
+    inbox.cancelL2Message(
+      message.sender.actor,
+      message.sender.chainId,
+      message.recipient.actor,
+      message.recipient.version,
+      message.content,
+      message.secretHash,
+      message.deadline,
+      message.fee,
+      address(0x1)
+    );
   }
 
   function testRevertIfCancellingMessageWhenDeadlineHasntPassed() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     message.deadline = uint32(block.timestamp + 1000);
     inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     skip(500); // deadline = 1000. block.timestamp = 500. Not cancellable:
     vm.expectRevert(Errors.Inbox__NotPastDeadline.selector);
-    inbox.cancelL2Message(message, address(0x1));
+    inbox.cancelL2Message(
+      message.sender.actor,
+      message.sender.chainId,
+      message.recipient.actor,
+      message.recipient.version,
+      message.content,
+      message.secretHash,
+      message.deadline,
+      message.fee,
+      address(0x1)
+    );
   }
 
   function testRevertIfCancellingNonExistentMessage() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
-    bytes32 entryKey = inbox.computeEntryKey(message);
+    bytes32 entryKey = inbox.computeEntryKey(
+      message.sender.actor,
+      message.sender.chainId,
+      message.recipient.actor,
+      message.recipient.version,
+      message.content,
+      message.secretHash,
+      message.deadline,
+      message.fee
+    );
     skip(500); // make message cancellable.
     vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__NothingToConsume.selector, entryKey));
-    inbox.cancelL2Message(message, address(0x1));
+    inbox.cancelL2Message(
+      message.sender.actor,
+      message.sender.chainId,
+      message.recipient.actor,
+      message.recipient.version,
+      message.content,
+      message.secretHash,
+      message.deadline,
+      message.fee,
+      address(0x1)
+    );
   }
 
   function testCancelMessage() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     address feeCollector = address(0x1);
     bytes32 expectedEntryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     skip(500); // make message cancellable.
 
@@ -180,7 +268,17 @@ contract InboxTest is Test {
     // event we expect
     emit L1ToL2MessageCancelled(expectedEntryKey);
     // event we will get
-    inbox.cancelL2Message(message, feeCollector);
+    inbox.cancelL2Message(
+      message.sender.actor,
+      message.sender.chainId,
+      message.recipient.actor,
+      message.recipient.version,
+      message.content,
+      message.secretHash,
+      message.deadline,
+      message.fee,
+      feeCollector
+    );
     // fees accrued as expected:
     assertEq(inbox.feesAccrued(feeCollector), message.fee);
 
@@ -206,13 +304,25 @@ contract InboxTest is Test {
   function testRevertIfOneKeyIsPastDeadlineWhenBatchConsuming() public {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     bytes32 entryKey1 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 200), message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      uint32(block.timestamp + 200),
+      message.content,
+      message.secretHash
     );
     bytes32 entryKey2 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 100), message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      uint32(block.timestamp + 100),
+      message.content,
+      message.secretHash
     );
     bytes32 entryKey3 = inbox.sendL2Message{value: message.fee}(
-      message.recipient, uint32(block.timestamp + 300), message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      uint32(block.timestamp + 300),
+      message.content,
+      message.secretHash
     );
     bytes32[] memory entryKeys = new bytes32[](3);
     entryKeys[0] = entryKey1;
@@ -239,7 +349,11 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     address feeCollector = address(0x1);
     bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = entryKey;
@@ -259,7 +373,11 @@ contract InboxTest is Test {
     DataStructures.L1ToL2Msg memory message = _fakeMessage();
     address feeCollector = address(0x1);
     bytes32 entryKey = inbox.sendL2Message{value: message.fee}(
-      message.recipient, message.deadline, message.content, message.secretHash
+      message.recipient.actor,
+      message.recipient.version,
+      message.deadline,
+      message.content,
+      message.secretHash
     );
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = entryKey;
@@ -294,7 +412,11 @@ contract InboxTest is Test {
       message.recipient.version = version;
       expectedTotalFee += message.fee;
       entryKeys[i] = inbox.sendL2Message{value: message.fee}(
-        message.recipient, message.deadline, message.content, message.secretHash
+        message.recipient.actor,
+        message.recipient.version,
+        message.deadline,
+        message.content,
+        message.secretHash
       );
     }
 

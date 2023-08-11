@@ -78,8 +78,8 @@ contract UniswapPortalTest is Test {
     returns (bytes32 entryKey)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, 1),
-      recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
+      sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
+      recipient: DataStructures.L1Actor({actor: address(daiTokenPortal), chainId: block.chainid}),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(uint256,address,address)", amount, _recipient, _caller)
         )
@@ -99,8 +99,8 @@ contract UniswapPortalTest is Test {
     returns (bytes32 entryKey)
   {
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2UniswapAddress, 1),
-      recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
+      sender: DataStructures.L2Actor({actor: l2UniswapAddress, version: 1}),
+      recipient: DataStructures.L1Actor({actor: address(uniswapPortal), chainId: block.chainid}),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
           "swap(address,uint256,uint24,address,uint256,bytes32,bytes32,uint32,address,address)",

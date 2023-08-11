@@ -18,7 +18,8 @@ When sending messages, we need to specify quite a bit of information beyond just
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| Recipient      | `L2Actor` | The message recipient. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| Recipient address | `bytes32` | The address of the recipient. This is the address of the Aztec contract on L2. This **MUST** match the Aztec contract that is attached to the contract making the call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| Recipient version | `uint256` | The version of the recipient. This is the version of the rollup that the recipient lives on. |
 | Deadline       | `uint256` | The deadline for the message to be consumed. If the message has not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
 | Content        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
 | Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
@@ -32,7 +33,8 @@ With all that information at hand, we can call the `sendL2Message` function on t
 
 ```solidity title="IInbox.sol"
   function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
@@ -228,10 +230,16 @@ As this requires logic on the portal itself, it is not something that the protoc
 The portal can call the `cancelL2Message` at the `Inbox` when `block.timestamp > deadline` for the message.
 
 ```solidity title="IInbox.sol"
-function cancelL2Message(
-    DataStructures.L1ToL2Msg memory _message, 
-    address _feeCollector
-) external returns (bytes32 entryKey);
+function computeEntryKey(
+  address _senderAddress,
+  uint256 _senderChainId,
+  bytes32 _recipientAddress,
+  uint256 _recipientVersion,
+  bytes32 _content,
+  bytes32 _secretHash,
+  uint32 _deadline,
+  uint64 _fee
+) external pure returns (bytes32);
 ```
 
 Building on our token example from earlier, this can be called like:
@@ -245,19 +253,19 @@ function cancelL1ToAztecMessage(
     uint64 _fee
   ) external returns (bytes32) {
     IInbox inbox = registry.getInbox();
-    DataStructures.L1Actor memory l1Actor = DataStructures.L1Actor(address(this), block.chainid);
-    DataStructures.L2Actor memory l2Actor = DataStructures.L2Actor(l2TokenAddress, 1);
-    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
-      sender: l1Actor,
-      recipient: l2Actor,
-      content: Hash.sha256ToField(
+    bytes32 entryKey = inbox.cancelL2Message(
+      address(this),
+      block.chainid,
+      l2TokenAddress,
+      1, // version of rollup (for ungovernable bridge)
+      Hash.sha256ToField(
         abi.encodeWithSignature("mint(uint256,bytes32,address)", _amount, _to, msg.sender)
-        ),
-      secretHash: _secretHash,
-      deadline: _deadline,
-      fee: _fee
-    });
-    bytes32 entryKey = inbox.cancelL2Message(message, address(this));
+      ),
+      _secretHash,
+      _deadline,
+      _fee,
+      address(this)
+    );
     // Ensures that `msg.sender == canceller` by using `msg.sender` in the hash computation.
     underlying.transfer(msg.sender, _amount);
     return entryKey;

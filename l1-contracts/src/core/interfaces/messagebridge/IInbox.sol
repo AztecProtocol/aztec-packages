@@ -28,14 +28,16 @@ interface IInbox {
    * @notice Inserts an entry into the Inbox
    * @dev Will emit `MessageAdded` with data for easy access by the sequencer
    * @dev msg.value - The fee provided to sequencer for including the entry
-   * @param _recipient - The recipient of the entry
+   * @param _recipientAddress - The address of the recipient of the entry
+   * @param _recipientVersion - The version of the recipient of the entry
    * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
    * @param _content - The content of the entry (application specific)
    * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
    * @return The key of the entry in the set
    */
   function sendL2Message(
-    DataStructures.L2Actor memory _recipient,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
     uint32 _deadline,
     bytes32 _content,
     bytes32 _secretHash
@@ -46,13 +48,28 @@ interface IInbox {
    * @dev Will revert if the deadline have not been crossed - message only cancellable past the deadline
    *  so it cannot be yanked away while the sequencer is building a block including it
    * @dev Must be called by portal that inserted the entry
-   * @param _message - The content of the entry (application specific)
+   * @param _senderAddress - The address of the sender of the entry
+   * @param _senderChainId - The chainId of the sender of the entry
+   * @param _recipientAddress - The address of the recipient of the entry
+   * @param _recipientVersion - The version of the recipient of the entry
+   * @param _content - The content of the entry (application specific)
+   * @param _secretHash - The secret hash of the entry (make it possible to hide when a specific entry is consumed on L2)
+   * @param _deadline - The deadline to consume a message. Only after it, can a message be cancelled.
+   * @param _fee - The fee provided to sequencer for including the entry
    * @param _feeCollector - The address to receive the "fee"
    * @return entryKey - The key of the entry removed
    */
-  function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
-    external
-    returns (bytes32 entryKey);
+  function cancelL2Message(
+    address _senderAddress,
+    uint256 _senderChainId,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
+    bytes32 _content,
+    bytes32 _secretHash,
+    uint32 _deadline,
+    uint64 _fee,
+    address _feeCollector
+  ) external returns (bytes32 entryKey);
 
   /**
    * @notice Batch consumes entries from the Inbox
@@ -83,8 +100,14 @@ interface IInbox {
   function contains(bytes32 _entryKey) external view returns (bool);
 
   /// @notice Given a message, computes an entry key for the Inbox
-  function computeEntryKey(DataStructures.L1ToL2Msg memory _message)
-    external
-    pure
-    returns (bytes32);
+  function computeEntryKey(
+    address _senderAddress,
+    uint256 _senderChainId,
+    bytes32 _recipientAddress,
+    uint256 _recipientVersion,
+    bytes32 _content,
+    bytes32 _secretHash,
+    uint32 _deadline,
+    uint64 _fee
+  ) external pure returns (bytes32);
 }

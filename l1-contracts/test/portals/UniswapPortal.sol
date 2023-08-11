@@ -92,8 +92,8 @@ contract UniswapPortal {
     // Consume the message from the outbox
     registry.getOutbox().consume(
       DataStructures.L2ToL1Msg({
-        sender: DataStructures.L2Actor(l2UniswapAddress, 1),
-        recipient: DataStructures.L1Actor(address(this), block.chainid),
+        sender: DataStructures.L2Actor({actor: l2UniswapAddress, version: 1}),
+        recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
         content: vars.contentHash
       })
     );

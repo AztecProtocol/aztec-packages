@@ -264,9 +264,7 @@ contract DecoderTest is Test {
       uint32 deadline = type(uint32).max;
 
       vm.prank(sender);
-      bytes32 temp = inbox.sendL2Message(
-        DataStructures.L2Actor({actor: recipient, version: 1}), deadline, content, bytes32(0)
-      );
+      bytes32 temp = inbox.sendL2Message(recipient, 1, deadline, content, bytes32(0));
       messages[i] = temp;
     }
     return messages;
