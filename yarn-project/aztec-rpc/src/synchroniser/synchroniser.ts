@@ -1,10 +1,11 @@
-import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, PublicKey } from '@aztec/circuits.js';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
 
 import { Database, TxDao } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 
 /**
  * The Synchroniser class manages the synchronization of note processors and interacts with the Aztec node
@@ -66,13 +67,19 @@ export class Synchroniser {
   }
 
   protected async initialSync() {
-    const [blockNumber, treeRoots] = await Promise.all([
+    // TODO: CLEAN UP THIS EXTRA VAR, its too much info
+    const [blockNumber, treeRoots, historicBlockData] = await Promise.all([
       this.node.getBlockHeight(),
       Promise.resolve(this.node.getTreeRoots()),
+      Promise.resolve(this.node.getHistoricBlockData()),
     ]);
     this.initialSyncBlockHeight = blockNumber;
     this.synchedToBlock = this.initialSyncBlockHeight;
     await this.db.setTreeRoots(treeRoots);
+    
+
+    // TODO: TIDY, maybe use the helper method from the main client already made
+    await this.db.setGlobalVariablesHash(historicBlockData.globalVariablesHash)
   }
 
   protected async work(limit = 1, retryInterval = 1000): Promise<void> {
@@ -118,7 +125,7 @@ export class Synchroniser {
 
       // Update latest tree roots from the most recent block
       const latestBlock = blockContexts[blockContexts.length - 1];
-      await this.setTreeRootsFromBlock(latestBlock);
+      await this.setBlockDataFromBlock(latestBlock);
 
       this.log(
         `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
@@ -190,7 +197,7 @@ export class Synchroniser {
     }
   }
 
-  private async setTreeRootsFromBlock(latestBlock: L2BlockContext) {
+  private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
     if (block.number < this.initialSyncBlockHeight) return;
 
@@ -203,6 +210,11 @@ export class Synchroniser {
       [MerkleTreeId.BLOCKS_TREE]: block.endHistoricBlocksTreeSnapshot.root,
     };
     await this.db.setTreeRoots(roots);
+    
+    // TODO: cleanup
+    const wasm = await CircuitsWasm.get();
+    const globHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
+    await this.db.setGlobalVariablesHash(globHash);
   }
 
   /**

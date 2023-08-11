@@ -59,6 +59,8 @@ describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
+
+  // TODO: may have to update the db calls to return what we want for this!!!
   let blockData = ConstantHistoricBlockData.empty();
   let logger: DebugLogger;
 
@@ -110,7 +112,6 @@ describe('Private Execution test suite', () => {
       abi,
       functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       portalContractAddress,
-      blockData,
     );
   };
 

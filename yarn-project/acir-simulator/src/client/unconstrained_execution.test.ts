@@ -60,7 +60,8 @@ describe('Unconstrained Execution test suite', () => {
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      const constantHistoricBlockData = ConstantHistoricBlockData.empty();
+      // TODO: remove or may need to mock the return value on this in the oracle
+      // const constantHistoricBlockData = ConstantHistoricBlockData.empty();
 
       oracle.getNotes.mockResolvedValue(
         preimages.map((preimage, index) => ({
@@ -86,7 +87,6 @@ describe('Unconstrained Execution test suite', () => {
         abi,
         AztecAddress.random(),
         EthAddress.ZERO,
-        constantHistoricBlockData,
       );
 
       expect(result).toEqual([9n]);

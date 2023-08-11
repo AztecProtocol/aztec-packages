@@ -122,6 +122,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     await this.merkleTreeDb.handleL2Block(l2Block);
     this.currentL2BlockNum = l2Block.number;
     this.latestGlobalVariablesHash = await computeGlobalVariablesHash(l2Block.globalVariables);
+    this.log(`Synced global variables with hash ${this.latestGlobalVariablesHash.toString()}`);
     if (
       this.currentState === WorldStateRunningState.SYNCHING &&
       this.currentL2BlockNum >= this.latestBlockNumberAtStart

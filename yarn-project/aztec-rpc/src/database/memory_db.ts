@@ -19,6 +19,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
+  private globalVariablesHash: Fr | undefined;
   private publicKeysAndPartialAddresses: Map<bigint, [PublicKey, PartialAddress]> = new Map();
 
   constructor(logSuffix?: string) {
@@ -94,6 +95,17 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
 
   public setTreeRoots(roots: Record<MerkleTreeId, Fr>) {
     this.treeRoots = roots;
+    return Promise.resolve();
+  }
+
+  public getGlobalVariablesHash(): Fr {
+    const hash = this.globalVariablesHash;
+    if (!hash) throw new Error(`Global variables hash not set in memory database`);
+    return hash;
+  }
+
+  public setGlobalVariablesHash(hash: Fr) {
+    this.globalVariablesHash = hash;
     return Promise.resolve();
   }
 

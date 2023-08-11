@@ -1,8 +1,8 @@
 import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, ConstantHistoricBlockData, EthAddress, Fr, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { FunctionAbi } from '@aztec/foundation/abi';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -92,4 +92,21 @@ export class SimulatorOracle implements DBOracle {
       index,
     });
   }
+
+  getConstantHistoricBlockData(): ConstantHistoricBlockData {
+    const roots = this.db.getTreeRoots();
+    const prevBlockDataHash = this.db.getGlobalVariablesHash();
+
+    return new ConstantHistoricBlockData(
+       roots[MerkleTreeId.PRIVATE_DATA_TREE],
+       roots[MerkleTreeId.NULLIFIER_TREE],
+       roots[MerkleTreeId.CONTRACT_TREE],
+       roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+       roots[MerkleTreeId.BLOCKS_TREE],
+       Fr.ZERO, 
+       roots[MerkleTreeId.PUBLIC_DATA_TREE],
+       prevBlockDataHash 
+    );
+  }
+
 }

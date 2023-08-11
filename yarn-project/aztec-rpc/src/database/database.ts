@@ -112,6 +112,10 @@ export interface Database extends ContractDatabase {
    */
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
+  getGlobalVariablesHash(): Fr;
+
+  setGlobalVariablesHash(hash: Fr): Promise<void>;
+
   /**
    * Adds public key and partial address to a database.
    * @param address - Address of the account to add public key and partial address for.

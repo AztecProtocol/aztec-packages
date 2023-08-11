@@ -42,7 +42,6 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    constantHistoricBlockData: ConstantHistoricBlockData,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -53,6 +52,8 @@ export class AcirSimulator {
     }
 
     const curve = await Grumpkin.new();
+
+    const constantHistoricBlockData = this.db.getConstantHistoricBlockData();
 
     const callContext = new CallContext(
       AztecAddress.ZERO,
@@ -100,12 +101,13 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    constantHistoricBlockData: ConstantHistoricBlockData,
     aztecNode?: AztecNode,
   ) {
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
+
+    const constantHistoricBlockData = this.db.getConstantHistoricBlockData();
     const callContext = new CallContext(
       origin,
       contractAddress,
@@ -165,7 +167,6 @@ export class AcirSimulator {
         abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
-        ConstantHistoricBlockData.empty(),
       );
 
       return {
