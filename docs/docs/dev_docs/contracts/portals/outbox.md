@@ -2,7 +2,7 @@
 title: Outbox
 ---
 
-The `Outbox` is a contract deployed on L1 that handle message passing from the rollup and back to L1.
+The `Outbox` is a contract deployed on L1 that handles message passing from the rollup and to L1.
 
 **Links**: [Interface](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol), [Implementation](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/messagebridge/Outbox.sol).
 
@@ -46,7 +46,7 @@ function consume(
 - Will revert with `Outbox__InvalidVersion(uint256 entry, uint256 message)` if the version of the entry and message sender don't match (wrong rollup).
 
 ## `get()`
-Retries the `entry` for a given message. The entry contains fee, occurrences, deadline and version information. 
+Retrieves the `entry` for a given message. The entry contains fee, occurrences, deadline and version information. 
 
 ```solidity
 function get(bytes32 _entryKey) 
