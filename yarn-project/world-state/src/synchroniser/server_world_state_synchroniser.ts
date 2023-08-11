@@ -1,10 +1,11 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
-import { MerkleTreeDb, MerkleTreeOperations } from '../index.js';
+import { MerkleTreeDb, MerkleTreeOperations, computeGlobalVariablesHash } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { getConfigEnvVars } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
+import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
@@ -14,12 +15,16 @@ import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from
 export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private currentL2BlockNum = 0;
   private latestBlockNumberAtStart = 0;
+
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
+
+  // TODO: what to call this
+  public latestGlobalVariablesHash: Fr = Fr.ZERO;
 
   constructor(
     private merkleTreeDb: MerkleTreeDb,
@@ -52,6 +57,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
     // get the current latest block number
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockHeight();
+    this.latestGlobalVariablesHash = await computeGlobalVariablesHash();
 
     const blockToDownloadFrom = this.currentL2BlockNum + 1;
 
@@ -115,6 +121,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private async handleL2Block(l2Block: L2Block) {
     await this.merkleTreeDb.handleL2Block(l2Block);
     this.currentL2BlockNum = l2Block.number;
+    this.latestGlobalVariablesHash = await computeGlobalVariablesHash(l2Block.globalVariables);
     if (
       this.currentState === WorldStateRunningState.SYNCHING &&
       this.currentL2BlockNum >= this.latestBlockNumberAtStart

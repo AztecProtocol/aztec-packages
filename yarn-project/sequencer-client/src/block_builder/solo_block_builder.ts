@@ -28,7 +28,7 @@ import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import { ContractData, L2Block, L2BlockL2Logs, MerkleTreeId, PublicDataWrite, TxL2Logs } from '@aztec/types';
 import { MerkleTreeOperations } from '@aztec/world-state';
@@ -320,6 +320,14 @@ export class SoloBlockBuilder implements BlockBuilder {
         ].map(tree => this.getTreeSnapshot(tree)),
       )
     ).map(r => r.root);
+
+    console.log(`DEBUG: Updating historic blocks tree with global variables`, globals);
+    
+    console.log("tree: priv", privateDataTreeRoot);
+    console.log("tree: nul",   nullifierTreeRoot);
+    console.log("tree: cont",   contractTreeRoot);
+    console.log("tree: l1",   l1ToL2MessageTreeRoot);
+    console.log("tree: pub",   publicDataTreeRoot);
 
     const wasm = await CircuitsWasm.get();
     const blockHash = computeBlockHashWithGlobals(

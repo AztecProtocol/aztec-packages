@@ -46,22 +46,30 @@ export class KernelOracle implements ProvingDataOracle {
     return roots[MerkleTreeId.PRIVATE_DATA_TREE];
   }
 
-  async getConstantHistoricBlockData(): Promise<ConstantHistoricBlockData> {
-    const wasm = await CircuitsWasm.get();
-    const latestBlock = await this.node.getBlock(-1);
-    const latestGlobals = latestBlock?.globalVariables ?? GlobalVariables.empty();
-    const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
-    const treeRoots = await this.node.getTreeRoots();
+  async getconstantHistoricBlockData(): Promise<ConstantHistoricBlockData> {
+    // NOT SURE HOW TO HANDLE THIS - 
+    // DO NOT GET THESE FROM DIFFERENT SOURCES - 
+    // GET THIS ALL FROM THE LOCAL NODE
+    // NOW THE NODE NEEDS TO INDEX
+
+    // - the local node needs to index the public data tree
+    // - the local node needs to index the block globals
+    // - there cannot be a mis match of data here / a race
+    
+
+    // This should get the roots all from the local db or all from the node, unsure how there is a data race here
+    const treeRoots = await this.node.getHistoricBlockData();
+    const { roots, globalVariablesHash} = treeRoots;
 
     return new ConstantHistoricBlockData(
-      treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-      treeRoots[MerkleTreeId.NULLIFIER_TREE],
-      treeRoots[MerkleTreeId.CONTRACT_TREE],
-      treeRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      treeRoots[MerkleTreeId.BLOCKS_TREE],
-      Fr.ZERO,
-      treeRoots[MerkleTreeId.PUBLIC_DATA_TREE],
-      prevBlockGlobalVariablesHash,
+          roots[MerkleTreeId.PRIVATE_DATA_TREE],
+          roots[MerkleTreeId.NULLIFIER_TREE],
+          roots[MerkleTreeId.CONTRACT_TREE],
+          roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+          roots[MerkleTreeId.BLOCKS_TREE],
+          Fr.ZERO,
+          roots[MerkleTreeId.PUBLIC_DATA_TREE],
+          globalVariablesHash,
     );
   }
 }

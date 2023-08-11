@@ -340,4 +340,32 @@ export class HttpNode implements AztecNode {
       [MerkleTreeId.BLOCKS_TREE]: extractRoot(MerkleTreeId.BLOCKS_TREE),
     };
   }
+
+  /**
+   * Returns the currently committed historic block data.
+   * @returns The current committed block data.
+   */
+  public async getHistoricBlockData(): Promise<{ roots: Record<MerkleTreeId, Fr>, globalVariablesHash: Fr}> {
+    const url = new URL(`${this.baseUrl}/historic-block-data`);
+    const response = await (await fetch(url.toString())).json();
+
+    const extractRoot = (treeId: MerkleTreeId) => {
+      // Buffer.from(...) returns an empty buffer when a hex string is prefixed with "0x"
+      const rootHexString = response.roots[treeId].replace(/^0x/, '');
+      return Fr.fromBuffer(Buffer.from(rootHexString, 'hex'));
+    };
+
+    return {
+      roots: {
+        [MerkleTreeId.CONTRACT_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE),
+        [MerkleTreeId.PRIVATE_DATA_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+        [MerkleTreeId.NULLIFIER_TREE]: extractRoot(MerkleTreeId.NULLIFIER_TREE),
+        [MerkleTreeId.PUBLIC_DATA_TREE]: extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+        [MerkleTreeId.BLOCKS_TREE]: extractRoot(MerkleTreeId.BLOCKS_TREE),
+      },
+      // TODO
+      globalVariablesHash: Fr.ZERO
+  };
+  }
 }

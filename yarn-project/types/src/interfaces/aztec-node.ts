@@ -124,4 +124,10 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
    * @returns The current committed roots for the data trees.
    */
   getTreeRoots(): Promise<Record<MerkleTreeId, Fr>>;
+
+  /**
+   * Returns the currently committed historic block data.
+   * @returns The current committed block data.
+   */
+ getHistoricBlockData(): Promise<{ roots: Record<MerkleTreeId, Fr>, globalVariablesHash: Fr}>;
 }

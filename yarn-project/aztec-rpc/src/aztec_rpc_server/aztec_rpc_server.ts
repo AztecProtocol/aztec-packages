@@ -336,6 +336,16 @@ export class AztecRPCServer implements AztecRPC {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
+    console.log('constantHistoricBlockData ', 
+    " pdr ", constantHistoricBlockData.privateDataTreeRoot.toString(true),
+    " null ", constantHistoricBlockData.nullifierTreeRoot.toString(true),
+    " const ", constantHistoricBlockData.contractTreeRoot.toString(true),
+    " l1 " ,constantHistoricBlockData.l1ToL2MessagesTreeRoot.toString(true),
+    " pub ", constantHistoricBlockData.publicDataTreeRoot.toString(true),
+    " block ", constantHistoricBlockData.blocksTreeRoot.toString(true),
+    " prevglob ", constantHistoricBlockData.prevGlobalVariablesHash.toString(true)
+    );
+
     const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
