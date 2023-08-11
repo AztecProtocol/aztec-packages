@@ -14,7 +14,8 @@ contract Test {
         create_l2_to_l1_message::create_l2_to_l1_message,
         create_nullifier::create_nullifier,
         get_public_key::get_public_key,
-        context::get_portal_address
+        context::get_portal_address,
+        rand::rand,
     };
 
     fn constructor(
@@ -123,6 +124,13 @@ contract Test {
         // Public oracle call to emit new commitment.
         create_nullifier(note.get_commitment());
         0
+    }
+
+    // Purely exists for testing
+    unconstrained fn getRandom(
+        kindaSeed: Field
+    ) -> Field {
+        kindaSeed * rand()
     }
 
     struct DummyNote {

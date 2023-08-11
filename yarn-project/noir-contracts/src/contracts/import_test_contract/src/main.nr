@@ -56,8 +56,8 @@ contract ImportTest {
 
     // Calls the getThisAddress on the Test contract at the target address
     // Used for testing calling a function with no arguments
-    // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts 'calls a method no arguments'
-    fn noargs(
+    // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
+    fn callNoArgs(
         inputs: PrivateContextInputs,
         target: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -70,8 +70,8 @@ contract ImportTest {
 
     // Calls the createNullifierPublic on the Test contract at the target address
     // Used for testing calling an open function
-    // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts 'calls a method no arguments'
-    fn openfn(
+    // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
+    fn callOpenFn(
         inputs: PrivateContextInputs,
         target: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
