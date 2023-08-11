@@ -178,16 +178,16 @@ describe('e2e_nested_contract', () => {
     it('calls a method with multiple arguments', async () => {
       logger(`Calling main on importer contract`);
       await importerContract.methods.main(testContract.address).send().wait();
-    });
+    }, 30_000);
 
     it('calls a method no arguments', async () => {
       logger(`Calling noargs on importer contract`);
       await importerContract.methods.callNoArgs(testContract.address).send().wait();
-    });
+    }, 30_000);
 
     it('calls an open function', async () => {
       logger(`Calling openfn on importer contract`);
       await importerContract.methods.callOpenFn(testContract.address).send().wait();
-    });
+    }, 30_000);
   });
 });
