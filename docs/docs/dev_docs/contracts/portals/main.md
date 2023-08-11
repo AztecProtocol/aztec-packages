@@ -86,7 +86,7 @@ fn mint(
 
 After the transaction has been mined the message is consumed (and cannot be consumed again), the tokens have been minted and the user can use them on L2.
 
-## Passing data data to L1
+## Passing data to L1
 
 To pass data to L1, we use the `Outbox`. The `Outbox` is the mailbox for L2 to L1 messages. This is the location on L1 where all the messages from L2 will live, and where they can be consumed from.
 
