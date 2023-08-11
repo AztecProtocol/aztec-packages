@@ -12,4 +12,4 @@ RUN yarn workspaces focus --production > /dev/null
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/canary /usr/src/yarn-project/canary
 WORKDIR /usr/src/yarn-project/canary
-ENTRYPOINT ["yarn"]
+ENTRYPOINT ["yarn", "test"]
