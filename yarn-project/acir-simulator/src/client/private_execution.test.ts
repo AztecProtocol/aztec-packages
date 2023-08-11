@@ -21,7 +21,7 @@ import {
   siloCommitment,
 } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { makeAddressWithPreimagesFromPrivateKey, makeContractDeploymentData } from '@aztec/circuits.js/factories';
+import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -193,8 +193,8 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
-      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
 
       owner = ownerCompleteAddress.address;
       recipient = recipientCompleteAddress.address;
@@ -423,8 +423,8 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
-      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
 
       owner = ownerCompleteAddress.address;
       recipient = recipientCompleteAddress.address;
@@ -630,7 +630,7 @@ describe('Private Execution test suite', () => {
     let recipient: AztecAddress;
 
     beforeEach(async () => {
-      const recipientCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
       recipient = recipientCompleteAddress.address;
       oracle.getAccount.mockImplementation((address: AztecAddress) => {
         if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
@@ -769,7 +769,7 @@ describe('Private Execution test suite', () => {
     let owner: AztecAddress;
 
     beforeEach(async () => {
-      const ownerCompleteAddress = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
 
       owner = ownerCompleteAddress.address;
 

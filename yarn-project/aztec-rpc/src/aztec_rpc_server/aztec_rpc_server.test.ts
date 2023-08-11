@@ -33,19 +33,6 @@ describe('AztecRpcServer', function () {
     expect(await db.getAccount(completeAddress.address)).toEqual(completeAddress);
   });
 
-  it('refuses to add an account with incorrect address for given partial address and privkey', async () => {
-    const privateKey = PrivateKey.random();
-    const completeAddress = new CompleteAddress(AztecAddress.random(), Point.random(), Fr.random());
-
-    await expect(rpcServer.addSignerAccount(privateKey, completeAddress)).rejects.toThrowError(/cannot be derived/);
-  });
-
-  it('refuses to add an account with incorrect address for given partial address and pubkey', async () => {
-    const completeAddress = new CompleteAddress(AztecAddress.random(), Point.random(), Fr.random());
-
-    await expect(rpcServer.addAccount(completeAddress)).rejects.toThrowError(/cannot be derived/);
-  });
-
   it('cannot add the same account twice', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());

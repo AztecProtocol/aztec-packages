@@ -4,15 +4,7 @@ import {
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
-import {
-  AztecAddress,
-  CircuitsWasm,
-  CompleteAddress,
-  ConstantHistoricBlockData,
-  FunctionData,
-  PrivateKey,
-} from '@aztec/circuits.js';
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
+import { AztecAddress, CompleteAddress, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -89,30 +81,14 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addSignerAccount(privKey: PrivateKey, completeAddress: CompleteAddress) {
-    const pubKey = this.keyStore.addAccount(privKey);
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, completeAddress.partialAddress);
-    if (!expectedAddress.equals(completeAddress.address)) {
-      throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${completeAddress.address.toString()}, derived ${expectedAddress.toString()})`,
-      );
-    }
-    await this.db.addAccount(completeAddress);
-    this.synchroniser.addAccount(pubKey, this.keyStore);
-    this.log.info(`Added account ${completeAddress.toString()}`);
+  public async addSignerAccount(privKey: PrivateKey, account: CompleteAddress) {
+    this.keyStore.addAccount(privKey);
+    await this.addAccount(account);
   }
 
   public async addAccount(account: CompleteAddress): Promise<void> {
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, account.publicKey, account.partialAddress);
-    if (!expectedAddress.equals(account.address)) {
-      throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${account.address.toString()}, derived ${expectedAddress.toString()})`,
-      );
-    }
     await this.db.addAccount(account);
-    this.log.info(`Added recipient: ${account.toString()}`);
+    this.log.info(`Added account: ${account.toString()}`);
   }
 
   public async addContracts(contracts: DeployedContract[]) {

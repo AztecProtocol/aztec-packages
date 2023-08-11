@@ -55,7 +55,7 @@ export async function getContractDeploymentInfo(
     constructorHash,
   );
 
-  const completeAddress = new CompleteAddress(contractAddress, publicKey, partialAddress);
+  const completeAddress = await CompleteAddress.create(contractAddress, publicKey, partialAddress);
 
   return {
     completeAddress,

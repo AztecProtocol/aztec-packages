@@ -15,16 +15,28 @@ import { PublicKey } from './public_key.js';
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
-  constructor(
+  private constructor(
     /** Contract address (typically of an account contract) */
     public address: AztecAddress,
     /** Public key corresponding to the address (used during note encryption). */
     public publicKey: PublicKey,
     /** Partial key corresponding to the public key to the address. */
     public partialAddress: PartialAddress,
-  ) {
-    // TODO: add the address derivation check
-    // https://github.com/AztecProtocol/aztec-packages/blob/676c939191373808796b361a4f1bec2960b8730d/yarn-project/aztec-rpc/src/aztec_rpc_server/aztec_rpc_server.ts#L97
+  ) {}
+
+  static async create(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialAddress,
+  ): Promise<CompleteAddress> {
+    const wasm = await CircuitsWasm.get();
+    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
+    if (!expectedAddress.equals(address)) {
+      throw new Error(
+        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
+      );
+    }
+    return new CompleteAddress(address, publicKey, partialAddress);
   }
 
   static async random(): Promise<CompleteAddress> {
