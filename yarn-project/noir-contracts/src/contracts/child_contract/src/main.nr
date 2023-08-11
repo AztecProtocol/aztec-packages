@@ -32,13 +32,20 @@ contract Child {
     }
 
     // Returns base_value + 42.
-    open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub Field {
-        base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp
+    open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([base_value]));
+        
+        // TODO: make these available on context
+        let returnValue = base_value + inputs.public_global_variables.chain_id + inputs.public_global_variables.version + inputs.public_global_variables.block_number + inputs.public_global_variables.timestamp;
+
+        context.return_values.push(returnValue);
+        // TODO(MADDIAA): MAYBE we put the return values inside the finish object? That could have nice UX
+        context.finish()
     }
 
     // Increments `current_value` by `new_value` and returns `new_value` + 1.
-    open fn pubStoreValue(inputs: PublicContextInputs, new_value: Field) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([new_value]));
+    open fn pubStoreValue(inputs: PublicContextInputs, new_value: Field) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([new_value]));
 
         let storage = Storage::init();
         let old_value = storage.current_value.read();
@@ -47,7 +54,9 @@ contract Child {
         // Compiler fails with "we do not allow private ABI inputs to be returned as public outputs" if we try to
         // return new_value as-is, but then it also complains if we add `pub` to `new_value` in the args, so we
         // just assign it to another variable and tweak it so it's not the same value, and the compiler is happy.
-        let ret_value = new_value + 1;
-        ret_value
+        let return_value = new_value + 1;
+
+        context.return_values.push(return_value);
+        context.finish()
     }
 }

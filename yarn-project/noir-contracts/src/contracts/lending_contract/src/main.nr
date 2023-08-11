@@ -31,8 +31,8 @@ contract Lending {
 
     open fn init(
         inputs: PublicContextInputs
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([]));
 
         let storage = Storage::init();
 
@@ -48,15 +48,16 @@ contract Lending {
             last_updated_ts: inputs.public_global_variables.timestamp as u120,
         });
 
-        1
+        context.return_values.push(1);
+        context.finish()
     }
 
     // Create a position.
 
     open fn update_tot(
         inputs: PublicContextInputs
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([]));
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
@@ -77,7 +78,8 @@ contract Lending {
 
         asset.write(tot);
 
-        1
+        context.return_values.push(1);
+        context.finish()
     }
 
     // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
@@ -117,19 +119,22 @@ contract Lending {
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
-        call_public_function(inputs.call_context.storage_contract_address, 3009041984, [owner, amount])[0]
+        let return_values = call_public_function(inputs.call_context.storage_contract_address, 3009041984, [owner, amount]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
     open internal fn _deposit(
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
 
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
@@ -139,7 +144,9 @@ contract Lending {
         let collateral = coll_loc.read();
 
         coll_loc.write(collateral + amount);
-        1
+
+        context.return_values.push(1);
+        context.finish()
     }
 
     fn withdraw_private(
@@ -167,12 +174,15 @@ contract Lending {
     open fn withdraw_public(
         inputs: PublicContextInputs,
         amount: Field
-    ) -> pub Field {
+    ) -> pub abi::PublicCircuitPublicInputs {
         // TODO(MADDIAA): GET ALL OF THE STUFF FROM CONTEXT IN THIS FILE!!!!! -> ADD TO THE PUBLIC CONTEXT
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
-        call_public_function(inputs.call_context.storage_contract_address, 1065861440, [inputs.call_context.msg_sender, amount])[0]
+        let return_values = call_public_function(inputs.call_context.storage_contract_address, 1065861440, [inputs.call_context.msg_sender, amount]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
      open internal fn _withdraw(
@@ -180,9 +190,9 @@ contract Lending {
         owner: Field,
         // recipient: Field,
         amount: Field
-    ) -> pub Field {
+    ) -> pub abi::PublicCircuitPublicInputs {
         // Access control.
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
 
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
@@ -200,7 +210,8 @@ contract Lending {
         coll_loc.write(collateral - amount);
 
         // Transfer tokens to recipient (could be with shielding or without, for now, can't to either).
-        1
+        context.return_values.push(1);
+        context.finish()
     }
 
     fn borrow_private(
@@ -228,17 +239,20 @@ contract Lending {
     open fn borrow_public(
         inputs: PublicContextInputs,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount]));
-        call_public_function(inputs.call_context.storage_contract_address, 1462609836, [inputs.call_context.msg_sender, amount])[0]
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
+        let return_values = call_public_function(inputs.call_context.storage_contract_address, 1462609836, [inputs.call_context.msg_sender, amount]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
     open internal fn _borrow(
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // Access control.
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
@@ -256,7 +270,9 @@ contract Lending {
 
         // @todo @LHerskind Transferring funds to the recipient.
 
-        1
+        // TODO*MD: should internal functions like this return a the context or should they just return vals - will this be inlined?
+        context.return_values.push(1);
+        context.finish()
     }
 
     // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
@@ -295,18 +311,21 @@ contract Lending {
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens from msg.sender to this contract.
-        call_public_function(inputs.call_context.storage_contract_address, 3985016136, [owner, amount])[0]
+        let return_values = call_public_function(inputs.call_context.storage_contract_address, 3985016136, [owner, amount]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
     open internal fn _repay(
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         let _void = call_public_function_no_args(inputs.call_context.storage_contract_address, 1259373467)[0];
 
         let storage = Storage::init();
@@ -322,7 +341,9 @@ contract Lending {
         assert (static_debt as u120 >= amount as u120);
 
         debt_loc.write(static_debt - amount);
-        1
+        
+        context.return_values.push(1);
+        context.finish()
     }
 
     unconstrained fn getTot(

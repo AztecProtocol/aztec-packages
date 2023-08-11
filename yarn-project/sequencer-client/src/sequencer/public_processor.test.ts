@@ -203,8 +203,7 @@ describe('public_processor', () => {
       expect(publicExecutor.execute).toHaveBeenCalledTimes(1);
     });
   });
-  });
-
+});
 
 function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicExecutionResult {
   return {

@@ -38,18 +38,34 @@ contract Parent {
     }
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
-    open fn pubEntryPoint(inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
+    open fn pubEntryPoint(
+        inputs: PublicContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        initValue: Field
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
 
-        call_public_function(targetContract, targetSelector, [initValue])[0]
+        let return_values = call_public_function(targetContract, targetSelector, [initValue]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    open fn pubEntryPointTwice(inputs: PublicContextInputs, targetContract: Field, targetSelector: Field, initValue: Field) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
+    open fn pubEntryPointTwice(
+        inputs: PublicContextInputs,
+        targetContract: Field,
+        targetSelector: Field,
+        initValue: Field
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
 
         let returnValue = call_public_function(targetContract, targetSelector, [initValue])[0];
-        call_public_function(targetContract, targetSelector, [returnValue])[0]
+        let return_values = call_public_function(targetContract, targetSelector, [returnValue]);
+
+        context.return_values.push(return_values[0]);
+        context.finish()
     }
 
     // Private function to enqueue a call to the targetContract address using the selector and argument provided

@@ -72,13 +72,15 @@ contract Test {
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_l2_to_l1_message(note.get_commitment());
+
+        context.finish()
     }
 
     // Purely exists for testing
@@ -86,15 +88,18 @@ contract Test {
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> pub Field {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
     
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_nullifier(note.get_commitment());
-        0
+        
+        // TODO(MD): may not need this return value?
+        context.return_values.push(0);
+        context.finish()
     }
 
     struct DummyNote {

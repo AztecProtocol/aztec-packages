@@ -111,7 +111,7 @@ export class AztecAddress {
    * @param field - The Field element to convert.
    * @returns An Address Object from a Field element with the same value.
    */
-  static fromField(field: Fr) : AztecAddress {
+  static fromField(field: Fr): AztecAddress {
     return new AztecAddress(toBufferBE(field.value, AztecAddress.SIZE_IN_BYTES));
   }
 

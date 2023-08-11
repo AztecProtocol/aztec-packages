@@ -16,7 +16,6 @@ import {
   acvm,
   convertACVMFieldToBuffer,
   extractPublicCircuitPublicInputs,
-  extractReturnWitness,
   frToAztecAddress,
   frToSelector,
   fromACVMField,
@@ -30,7 +29,6 @@ import { PackedArgsCache } from '../packed_args_cache.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
-import { decodeReturnValues } from '@aztec/foundation/abi';
 
 // Copied from crate::abi at noir-contracts/src/contracts/noir-aztec/src/abi.nr
 const NOIR_MAX_RETURN_VALUES = 4;
@@ -163,9 +161,7 @@ export class PublicExecutor {
     });
 
     // TODO: get the rest of everything from here, this should also be used to get the new Commitments, Nullifiers etc.
-    console.log("partial witness after execution: ", partialWitness);
     const publicInputs = extractPublicCircuitPublicInputs(partialWitness, acir);
-    console.log("decoded public inputs: ", publicInputs);
     const { returnValues } = publicInputs;
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();

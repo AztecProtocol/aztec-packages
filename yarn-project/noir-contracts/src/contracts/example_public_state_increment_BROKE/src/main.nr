@@ -33,23 +33,27 @@ contract ExamplePublicStateIncrement {
     // a = 100;
     open internal fn initialise_a(
         inputs: PublicContextInputs,
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([]));
 
         let storage = Storage::init();
         storage.a.write(100);
+
+        context.finish()
     }
 
     // a += b;
     open fn increment_a(
         inputs: PublicContextInputs,
         b: Field,
-    ) {
-        let mut _context = PublicContext::new(inputs, abi::hash_args([b]));
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([b]));
 
         let storage = Storage::init();
         let mut a = storage.a.read();
         a += b;
         storage.a.write(a);
+
+        context.finish()
     }
 }

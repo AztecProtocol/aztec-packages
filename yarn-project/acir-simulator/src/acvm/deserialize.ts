@@ -17,14 +17,14 @@ import {
   RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import { getReturnWitness } from 'acvm_js';
 
 import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
-import { Tuple } from '@aztec/foundation/serialize';
-import { padArrayEnd } from '@aztec/foundation/collection';
 
 // Utilities to read TS classes from ACVM Field arrays
 // In the order that the ACVM provides them
@@ -110,7 +110,6 @@ export class PublicInputsReader {
     }
     return array as Tuple<Fr, N>;
   }
-
 }
 
 /**
@@ -119,7 +118,10 @@ export class PublicInputsReader {
  * @param acir - The ACIR bytecode.
  * @returns The public inputs.
  */
-export function extractPrivateCircuitPublicInputs(partialWitness: ACVMWitness, acir: Buffer): PrivateCircuitPublicInputs {
+export function extractPrivateCircuitPublicInputs(
+  partialWitness: ACVMWitness,
+  acir: Buffer,
+): PrivateCircuitPublicInputs {
   const witnessReader = new PublicInputsReader(partialWitness, acir);
 
   const callContext = new CallContext(
@@ -193,7 +195,6 @@ export function extractPrivateCircuitPublicInputs(partialWitness: ACVMWitness, a
   );
 }
 
-
 /**
  * Extracts the public circuit public inputs from the ACVM generated partial witness.
  * @param partialWitness - The partial witness.
@@ -213,9 +214,11 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   );
 
   const argsHash = witnessReader.readField();
-  const returnValues = padArrayEnd(witnessReader.readFieldArray(RETURN_VALUES_LENGTH),Fr.ZERO, RETURN_VALUES_LENGTH); ;
+  const returnValues = padArrayEnd(witnessReader.readFieldArray(RETURN_VALUES_LENGTH), Fr.ZERO, RETURN_VALUES_LENGTH);
 
-  const contractStorageUpdateRequests = new Array(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).fill(ContractStorageUpdateRequest.empty());
+  const contractStorageUpdateRequests = new Array(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).fill(
+    ContractStorageUpdateRequest.empty(),
+  );
   for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
     const request = new ContractStorageUpdateRequest(
       witnessReader.readField(),
@@ -226,10 +229,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   }
   const contractStorageReads = new Array(MAX_PUBLIC_DATA_READS_PER_CALL).fill(ContractStorageRead.empty());
   for (let i = 0; i < MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL; i++) {
-    const request = new ContractStorageRead(
-      witnessReader.readField(),
-      witnessReader.readField(),
-    );
+    const request = new ContractStorageRead(witnessReader.readField(), witnessReader.readField());
     contractStorageReads[i] = request;
   }
   // const contractStorageRead = witnessReader.readFieldArray(MAX_PUBLIC_DATA_READS_PER_CALL);
@@ -260,7 +260,10 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     argsHash,
     returnValues,
     // TODO: how remove
-    contractStorageUpdateRequests as Tuple<ContractStorageUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
+    contractStorageUpdateRequests as Tuple<
+      ContractStorageUpdateRequest,
+      typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL
+    >,
     contractStorageReads as Tuple<ContractStorageRead, typeof MAX_PUBLIC_DATA_READS_PER_CALL>,
     publicCallStack,
     newCommitments,
@@ -269,6 +272,6 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     unencryptedLogsHash,
     unencryptedLogPreimagesLength,
     historicPublicDataTreeRoot,
-    proverAddress
+    proverAddress,
   );
 }
