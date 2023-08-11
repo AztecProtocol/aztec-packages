@@ -17,7 +17,7 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantBaseRollupData,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -108,8 +108,8 @@ export function makeTxContext(seed: number): TxContext {
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlockData {
-  return new ConstantHistoricBlockData(
+export function makeConstantHistoricBlockData(seed: number): HistoricBlockData {
+  return new HistoricBlockData(
     fr(seed),
     fr(seed + 1),
     fr(seed + 2),

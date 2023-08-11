@@ -1,4 +1,4 @@
-import { CircuitsWasm, ConstantHistoricBlockData, Fr, GlobalVariables } from '@aztec/circuits.js';
+import { CircuitsWasm, HistoricBlockData, Fr, GlobalVariables } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { MerkleTreeOperations } from '@aztec/world-state';
 
@@ -13,7 +13,7 @@ export async function getConstantHistoricBlockData(
   const prevGlobalsHash = computeGlobalsHash(wasm, prevBlockGlobalVariables);
   const roots = db.getTreeRoots();
 
-  return new ConstantHistoricBlockData(
+  return new HistoricBlockData(
     Fr.fromBuffer(roots.privateDataTreeRoot),
     Fr.fromBuffer(roots.nullifierTreeRoot),
     Fr.fromBuffer(roots.contractDataTreeRoot),

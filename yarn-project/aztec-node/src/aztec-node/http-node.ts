@@ -1,7 +1,7 @@
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -346,7 +346,7 @@ export class HttpNode implements AztecNode {
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
-  public async getHistoricBlockData(): Promise<ConstantHistoricBlockData> {
+  public async getHistoricBlockData(): Promise<HistoricBlockData> {
     const url = new URL(`${this.baseUrl}/historic-block-data`);
     const response = await (await fetch(url.toString())).json();
     return response.blockData;

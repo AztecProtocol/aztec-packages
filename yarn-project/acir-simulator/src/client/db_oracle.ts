@@ -1,4 +1,4 @@
-import { ConstantHistoricBlockData, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { HistoricBlockData, PartialAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -126,5 +126,5 @@ export interface DBOracle extends CommitmentsDB {
    *
    * @returns A Promise that resolves to a ConstantHistoricBlockData object.
    */
-  getConstantHistoricBlockData(): Promise<ConstantHistoricBlockData>;
+  getConstantHistoricBlockData(): Promise<HistoricBlockData>;
 }

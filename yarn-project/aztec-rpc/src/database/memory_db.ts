@@ -1,4 +1,4 @@
-import { ConstantHistoricBlockData, PartialAddress } from '@aztec/circuits.js';
+import { HistoricBlockData, PartialAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -98,10 +98,10 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  public getHistoricBlockData(): ConstantHistoricBlockData {
+  public getHistoricBlockData(): HistoricBlockData {
     const roots = this.getTreeRoots();
     if (!this.globalVariablesHash) throw new Error(`Global variables hash not set in memory database`);
-    return new ConstantHistoricBlockData(
+    return new HistoricBlockData(
       roots[MerkleTreeId.PRIVATE_DATA_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
       roots[MerkleTreeId.CONTRACT_TREE],
@@ -113,7 +113,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     );
   }
 
-  public async setHistoricBlockData(historicBlockData: ConstantHistoricBlockData): Promise<void> {
+  public async setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void> {
     this.globalVariablesHash = historicBlockData.globalVariablesHash;
     await this.setTreeRoots({
       [MerkleTreeId.PRIVATE_DATA_TREE]: historicBlockData.privateDataTreeRoot,

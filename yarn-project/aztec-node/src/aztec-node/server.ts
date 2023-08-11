@@ -2,7 +2,7 @@ import { Archiver } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -334,13 +334,13 @@ export class AztecNodeService implements AztecNode {
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
-  public async getHistoricBlockData(): Promise<ConstantHistoricBlockData> {
+  public async getHistoricBlockData(): Promise<HistoricBlockData> {
     const getTreeRoot = async (id: MerkleTreeId) =>
       Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
 
     const globalsHash = this.worldStateSynchroniser.latestGlobalVariablesHash;
 
-    return new ConstantHistoricBlockData(
+    return new HistoricBlockData(
       await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
       await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
       await getTreeRoot(MerkleTreeId.CONTRACT_TREE),

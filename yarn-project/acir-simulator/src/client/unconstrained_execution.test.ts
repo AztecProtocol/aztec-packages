@@ -1,4 +1,4 @@
-import { CircuitsWasm, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
+import { CircuitsWasm, HistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
 import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -60,7 +60,7 @@ describe('Unconstrained Execution test suite', () => {
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
 
-      oracle.getConstantHistoricBlockData.mockResolvedValue(ConstantHistoricBlockData.empty());
+      oracle.getConstantHistoricBlockData.mockResolvedValue(HistoricBlockData.empty());
       oracle.getNotes.mockResolvedValue(
         preimages.map((preimage, index) => ({
           contractAddress,

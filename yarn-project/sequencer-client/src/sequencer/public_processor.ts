@@ -2,7 +2,7 @@ import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecuti
 import {
   AztecAddress,
   CircuitsWasm,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -86,7 +86,7 @@ export class PublicProcessor {
     protected publicProver: PublicProver,
     protected contractDataSource: ContractDataSource,
     protected globalVariables: GlobalVariables,
-    protected blockData: ConstantHistoricBlockData,
+    protected blockData: HistoricBlockData,
 
     private log = createDebugLogger('aztec:sequencer:public-processor'),
   ) {}

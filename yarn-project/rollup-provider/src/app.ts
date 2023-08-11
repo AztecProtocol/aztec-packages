@@ -1,4 +1,4 @@
-import { ConstantHistoricBlockData, Fr } from '@aztec/circuits.js';
+import { HistoricBlockData, Fr } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, MerkleTreeId, Tx, TxHash } from '@aztec/types';
@@ -132,7 +132,7 @@ export function appFactory(node: AztecNode, prefix: string) {
   });
 
   router.get('/historic-block-data', async (ctx: Koa.Context) => {
-    const blockData: ConstantHistoricBlockData = await node.getHistoricBlockData();
+    const blockData: HistoricBlockData = await node.getHistoricBlockData();
     const output: { [key: string]: string } = {};
     for (const [key, value] of Object.entries(blockData)) {
       output[key] = value.toString();

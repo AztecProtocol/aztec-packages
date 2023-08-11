@@ -2,7 +2,7 @@ import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@
 import {
   AztecAddress,
   CircuitsWasm,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   EthAddress,
   Fr,
   PartialAddress,
@@ -108,7 +108,7 @@ export class SimulatorOracle implements DBOracle {
    *
    * @returns A Promise that resolves to a ConstantHistoricBlockData object.
    */
-  getConstantHistoricBlockData(): Promise<ConstantHistoricBlockData> {
+  getConstantHistoricBlockData(): Promise<HistoricBlockData> {
     return Promise.resolve(this.db.getHistoricBlockData());
   }
 }

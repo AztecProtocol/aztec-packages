@@ -1,4 +1,4 @@
-import { ConstantHistoricBlockData, EthAddress } from '@aztec/circuits.js';
+import { HistoricBlockData, EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -129,5 +129,5 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
-  getHistoricBlockData(): Promise<ConstantHistoricBlockData>;
+  getHistoricBlockData(): Promise<HistoricBlockData>;
 }

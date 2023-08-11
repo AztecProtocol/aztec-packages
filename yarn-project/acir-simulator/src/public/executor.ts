@@ -1,7 +1,7 @@
 import {
   AztecAddress,
   CallContext,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   EthAddress,
   Fr,
   FunctionData,
@@ -41,7 +41,7 @@ export class PublicExecutor {
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
     private readonly commitmentsDb: CommitmentsDB,
-    private readonly blockData: ConstantHistoricBlockData,
+    private readonly blockData: HistoricBlockData,
 
     private log = createDebugLogger('aztec:simulator:public-executor'),
   ) {}
@@ -228,7 +228,7 @@ export class PublicExecutor {
 function getInitialWitness(
   args: Fr[],
   callContext: CallContext,
-  constantHistoricBlockData: ConstantHistoricBlockData,
+  constantHistoricBlockData: HistoricBlockData,
   globalVariables: GlobalVariables,
   witnessStartIndex = 1,
 ) {

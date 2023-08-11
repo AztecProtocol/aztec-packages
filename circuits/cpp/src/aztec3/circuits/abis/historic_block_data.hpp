@@ -15,7 +15,7 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
 
-template <typename NCT> struct ConstantHistoricBlockData {
+template <typename NCT> struct HistoricBlockData {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
@@ -41,7 +41,7 @@ template <typename NCT> struct ConstantHistoricBlockData {
                    public_data_tree_root,
                    global_variables_hash);
 
-    boolean operator==(ConstantHistoricBlockData<NCT> const& other) const
+    boolean operator==(HistoricBlockData<NCT> const& other) const
     {
         return private_data_tree_root == other.private_data_tree_root &&
                nullifier_tree_root == other.nullifier_tree_root && contract_tree_root == other.contract_tree_root &&
@@ -52,14 +52,14 @@ template <typename NCT> struct ConstantHistoricBlockData {
                global_variables_hash == other.global_variables_hash;
     };
 
-    template <typename Builder> ConstantHistoricBlockData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
+    template <typename Builder> HistoricBlockData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
         static_assert((std::is_same<NativeTypes, NCT>::value));
 
         // Capture the circuit builder:
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
-        ConstantHistoricBlockData<CircuitTypes<Builder>> data = {
+        HistoricBlockData<CircuitTypes<Builder>> data = {
             to_ct(private_data_tree_root),      to_ct(nullifier_tree_root),   to_ct(contract_tree_root),
             to_ct(l1_to_l2_messages_tree_root), to_ct(blocks_tree_root),      to_ct(private_kernel_vk_tree_root),
             to_ct(public_data_tree_root),       to_ct(global_variables_hash),
@@ -68,12 +68,12 @@ template <typename NCT> struct ConstantHistoricBlockData {
         return data;
     };
 
-    template <typename Builder> ConstantHistoricBlockData<NativeTypes> to_native_type() const
+    template <typename Builder> HistoricBlockData<NativeTypes> to_native_type() const
     {
         static_assert(std::is_same<CircuitTypes<Builder>, NCT>::value);
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
-        ConstantHistoricBlockData<NativeTypes> data = {
+        HistoricBlockData<NativeTypes> data = {
             to_nt(private_data_tree_root),      to_nt(nullifier_tree_root),   to_nt(contract_tree_root),
             to_nt(l1_to_l2_messages_tree_root), to_nt(blocks_tree_root),      to_nt(private_kernel_vk_tree_root),
             to_nt(public_data_tree_root),       to_nt(global_variables_hash),
@@ -108,8 +108,7 @@ template <typename NCT> struct ConstantHistoricBlockData {
     }
 };
 
-template <typename NCT>
-std::ostream& operator<<(std::ostream& os, ConstantHistoricBlockData<NCT> const& historic_tree_roots)
+template <typename NCT> std::ostream& operator<<(std::ostream& os, HistoricBlockData<NCT> const& historic_tree_roots)
 {
     return os << "private_data_tree_root: " << historic_tree_roots.private_data_tree_root << "\n"
               << "nullifier_tree_root: " << historic_tree_roots.nullifier_tree_root << "\n"

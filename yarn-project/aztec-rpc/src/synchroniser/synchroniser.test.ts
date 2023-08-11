@@ -1,4 +1,4 @@
-import { AztecAddress, ConstantHistoricBlockData, Fr, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, HistoricBlockData, Fr, PrivateKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';
@@ -14,10 +14,10 @@ describe('Synchroniser', () => {
   let database: Database;
   let synchroniser: TestSynchroniser;
   let roots: Record<MerkleTreeId, Fr>;
-  let blockData: ConstantHistoricBlockData;
+  let blockData: HistoricBlockData;
 
   beforeEach(() => {
-    blockData = ConstantHistoricBlockData.random();
+    blockData = HistoricBlockData.random();
     roots = {
       [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
       [MerkleTreeId.PRIVATE_DATA_TREE]: blockData.privateDataTreeRoot,

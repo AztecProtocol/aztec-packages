@@ -1,4 +1,4 @@
-import { CircuitsWasm, ConstantHistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, HistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
 import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
@@ -35,7 +35,7 @@ export class ClientTxExecutionContext {
     /** The tx context. */
     public txContext: TxContext,
     /** Data required to reconstruct the block hash, it contains historic roots. */
-    public constantHistoricBlockData: ConstantHistoricBlockData,
+    public constantHistoricBlockData: HistoricBlockData,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
     /** Pending notes created (and not nullified) up to current point in execution.

@@ -1,7 +1,7 @@
 import {
   CallContext,
   CircuitsWasm,
-  ConstantHistoricBlockData,
+  HistoricBlockData,
   ContractDeploymentData,
   FieldsOf,
   FunctionData,
@@ -60,7 +60,7 @@ describe('Private Execution test suite', () => {
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
 
-  let blockData = ConstantHistoricBlockData.empty();
+  let blockData = HistoricBlockData.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -130,7 +130,7 @@ describe('Private Execution test suite', () => {
     const prevRoots = blockData.toBuffer();
     const rootIndex = name === 'privateData' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    blockData = ConstantHistoricBlockData.fromBuffer(newRoots);
+    blockData = HistoricBlockData.fromBuffer(newRoots);
 
     return trees[name];
   };

@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, ConstantHistoricBlockData, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, HistoricBlockData, Fr, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
@@ -197,7 +197,7 @@ export class Synchroniser {
 
     const wasm = await CircuitsWasm.get();
     const globalsHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
-    const blockData = new ConstantHistoricBlockData(
+    const blockData = new HistoricBlockData(
       block.endPrivateDataTreeSnapshot.root,
       block.endNullifierTreeSnapshot.root,
       block.endContractTreeSnapshot.root,

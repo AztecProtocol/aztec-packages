@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, ConstantHistoricBlockData, EthAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, HistoricBlockData, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Pedersen } from '@aztec/merkle-tree';
 import {
@@ -469,7 +469,7 @@ describe('HttpNode', () => {
 
   describe('getHistoricBlockData', () => {
     it('should fetch and return the current committed roots for the data trees', async () => {
-      const blockData = ConstantHistoricBlockData.random();
+      const blockData = HistoricBlockData.random();
 
       const response = { blockData };
 
