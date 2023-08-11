@@ -67,5 +67,18 @@ contract ImportTest {
         context.return_values.push(return_values[0]);
         context.finish()
     }
+
+    // Calls the createNullifierPublic on the Test contract at the target address
+    // Used for testing calling an open function
+    // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts 'calls a method no arguments'
+    fn openfn(
+        inputs: PrivateContextInputs,
+        target: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([target]));
+        let test_contract_instance = TestContractInterface::at(target);
+        test_contract_instance.createNullifierPublic(&mut context, 1, 2);
+        context.finish()
+    }
 }
 
