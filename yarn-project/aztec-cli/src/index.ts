@@ -263,8 +263,8 @@ async function main() {
     });
 
   program
-    .command('register-recipient')
-    .description('Register an account as a recipient in the Aztec RPC.')
+    .command('register-account')
+    .description('Register an account in the Aztec RPC.')
     .option('-a, --address <aztecAddress>', "The account's Aztec address.")
     .option('-p, --public-key <publicKey>', 'The account public key.')
     .option('-pa, --partial-address <partialAddress', 'The partially computed address of the account contract.')
@@ -297,9 +297,9 @@ async function main() {
     });
 
   program
-    .command('get-account-public-key')
-    .description("Gets an account's public key, given its Aztec address.")
-    .argument('<address>', 'The Aztec address to get the public key for')
+    .command('get-account')
+    .description('Gets full account info, given its Aztec address.')
+    .argument('<address>', 'The Aztec address to get full account info for')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_address, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
