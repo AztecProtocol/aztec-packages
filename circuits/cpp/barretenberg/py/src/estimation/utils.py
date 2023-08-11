@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from ultra_verification import time_to_prove_ultra, time_to_construct_msm_witnesses_over_BN254
 
-def print_circuit_data(msg, circuit, native_msm):
+def print_circuit_data(msg, circuit):
     print(msg)
     print(f"  log_n:                     {circuit.log_n}")
     msm_time = time_to_construct_msm_witnesses_over_BN254(circuit)
