@@ -148,6 +148,7 @@ void match_nullifiers_to_commitments_and_squash(
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
             // O(n^2) inner loop will be optimized via matching hints
             for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
+                // If there are multiple matches, this picks the last one
                 match_pos = (nullified_commitments[n_idx] == new_commitments[c_idx]) ? c_idx : match_pos;
             }
 
@@ -228,7 +229,9 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_ordering(DummyCircui
                                                public_inputs.end.nullified_commitments,
                                                public_inputs.end.new_commitments);
 
-    apply_commitment_nonces(previous_kernel.public_inputs.end.new_nullifiers[0], public_inputs.end.new_commitments);
+    // tx hash
+    const auto& first_nullifier = previous_kernel.public_inputs.end.new_nullifiers[0];
+    apply_commitment_nonces(first_nullifier, public_inputs.end.new_commitments);
 
     return public_inputs;
 };
