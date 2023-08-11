@@ -108,19 +108,19 @@ A snapshot of the registry values.
 
 ```solidity title="DataStructures.sol"
   struct RegistrySnapshot {
-    uint256 blockNumber;
     address rollup;
     address inbox;
     address outbox;
+    uint256 blockNumber;
   }
 ```
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| `blockNumber`       | `uint256` | The blocknumber at which the snapshot was created. |
 | `rollup`       | `address` | The address of the rollup contract for the snapshot. |
 | `inbox`       | `address` | The address of the inbox contract for the snapshot. |
 | `outbox`       | `address` | The address of the outbox contract for the snapshot. |
+| `blockNumber`       | `uint256` | The blocknumber at which the snapshot was created. |
 
 
 
