@@ -8,11 +8,11 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { Wallet } from '../aztec_rpc_client/wallet.js';
 import { Contract } from './contract.js';
 
-describe('Contract Class', async () => {
+describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
 
   const contractAddress = AztecAddress.random();
-  const account = await CompleteAddress.random();
+  let account: CompleteAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
@@ -91,7 +91,8 @@ describe('Contract Class', async () => {
     portalContract: EthAddress.random(),
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    account = await CompleteAddress.random();
     wallet = mock<Wallet>();
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractData.mockResolvedValue(ContractData.random());
