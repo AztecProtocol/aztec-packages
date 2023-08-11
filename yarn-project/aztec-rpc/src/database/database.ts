@@ -135,7 +135,7 @@ export interface Database extends ContractDatabase {
    * The function returns a Promise that resolves to the Historic Block Data.
    * This data is required to reproduce block attestations.
    * Throws an error if the historic block data is not available within the database.
-   * 
+   *
    * note: this data is a combination of the tree roots and the global variables hash.
    */
   getHistoricBlockData(): ConstantHistoricBlockData;

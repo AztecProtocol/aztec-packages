@@ -47,7 +47,7 @@ export class ConstantHistoricBlockData {
     return new ConstantHistoricBlockData(...ConstantHistoricBlockData.getFields(fields));
   }
 
-  static random()  {
+  static random() {
     return new ConstantHistoricBlockData(
       Fr.random(),
       Fr.random(),

@@ -112,7 +112,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   // TODO / Reviewers note: shall i remove the tree roots and globals hash entirely and just have this? Its all the sim needs.
   getHistoricBlockData(): ConstantHistoricBlockData {
     const roots = this.getTreeRoots();
-    const globalVariablesHash = this.getGlobalVariablesHash()
+    const globalVariablesHash = this.getGlobalVariablesHash();
     return new ConstantHistoricBlockData(
       roots[MerkleTreeId.PRIVATE_DATA_TREE],
       roots[MerkleTreeId.NULLIFIER_TREE],
@@ -123,7 +123,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalVariablesHash,
     );
-  };
+  }
 
   async setHistoricBlockData(historicBlockData: ConstantHistoricBlockData): Promise<void> {
     await this.setGlobalVariablesHash(historicBlockData.globalVariablesHash);
