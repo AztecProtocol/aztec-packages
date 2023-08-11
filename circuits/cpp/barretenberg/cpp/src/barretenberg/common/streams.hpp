@@ -4,8 +4,36 @@
 #include <optional>
 #include <ostream>
 #include <vector>
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_apply.hpp"
+
+namespace serialize {
+/**
+ * @brief Helper method for better error reporting. Clang does not give the best errors for "auto..."
+ * arguments.
+ */
+inline void _stream_operator_write(std::ostream& os, const auto& field)
+{
+    using namespace serialize;
+    os << field;
+}
+} // namespace serialize
 
 namespace std {
+/**
+ * @brief Automatically derived stream operator for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+ * Note this is duplicated as it must be seen in both std and global namespaces.
+ * @param os The stream to write to.
+ * @param obj The object to write.
+ */
+inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsgPack auto& obj)
+{
+    msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
+        // apply 'operator<<' to each object field
+        (serialize::_stream_operator_write(os, obj_fields), ...);
+    });
+    return os;
+}
 
 inline std::ostream& operator<<(std::ostream& os, std::vector<uint8_t> const& arr)
 {
@@ -85,31 +113,17 @@ template <typename T, typename U> inline std::ostream& operator<<(std::ostream& 
     return os;
 }
 } // namespace std
-
-namespace serialize {
-
-/**
- * @brief Helper method for better error reporting. Clang does not give the best errors for "auto..."
- * arguments.
- */
-inline void _stream_operator_write(std::ostream& os, const auto& field)
-{
-    using namespace serialize;
-    os << field;
-}
-
-/**
- * @brief Automatically derived stream operator for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
- * @param os The stream to write to.
- * @param obj The object to write.
- */
-inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsgPack auto& obj)
-{
-    msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
-        // apply 'operator<<' to each object field
-        (_stream_operator_write(os, obj_fields), ...);
-    });
-    return os;
-}
-
-} // namespace serialize
+//
+///**
+// * @brief Automatically derived stream operator for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
+// * @param os The stream to write to.
+// * @param obj The object to write.
+// */
+//inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsgPack auto& obj)
+//{
+//    msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
+//        // apply 'operator<<' to each object field
+//        (serialize::_stream_operator_write(os, obj_fields), ...);
+//    });
+//    return os;
+//}
