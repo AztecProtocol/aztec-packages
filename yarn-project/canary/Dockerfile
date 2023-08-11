@@ -4,7 +4,7 @@ RUN apk update && apk add --no-cache jq bash
 ARG COMMIT_TAG=""
 
 #Build canary
-WORKDIR /usr/src/canary
+WORKDIR /usr/src/yarn-project/canary
 COPY . .
 RUN ./scripts/update_packages.sh $COMMIT_TAG
 RUN yarn && yarn build
