@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/circuits.js';
+
 import { MerkleTreeOperations } from '../index.js';
 
 /**
@@ -58,5 +59,8 @@ export interface WorldStateSynchroniser {
    */
   getCommitted(): MerkleTreeOperations;
 
+  /**
+   * The latest Global Variables hash for the HEAD of the chain.
+   */
   latestGlobalVariablesHash: Fr;
 }

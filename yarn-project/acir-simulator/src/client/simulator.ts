@@ -1,4 +1,4 @@
-import { CallContext, CircuitsWasm, ConstantHistoricBlockData, FunctionData, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
@@ -53,8 +53,7 @@ export class AcirSimulator {
 
     const curve = await Grumpkin.new();
 
-    const constantHistoricBlockData = this.db.getConstantHistoricBlockData();
-
+    const constantHistoricBlockData = await this.db.getConstantHistoricBlockData();
     const callContext = new CallContext(
       AztecAddress.ZERO,
       contractAddress,
@@ -107,7 +106,7 @@ export class AcirSimulator {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
 
-    const constantHistoricBlockData = this.db.getConstantHistoricBlockData();
+    const constantHistoricBlockData = await this.db.getConstantHistoricBlockData();
     const callContext = new CallContext(
       origin,
       contractAddress,

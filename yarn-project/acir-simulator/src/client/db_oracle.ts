@@ -120,6 +120,11 @@ export interface DBOracle extends CommitmentsDB {
    */
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
 
-
-  getConstantHistoricBlockData(): ConstantHistoricBlockData;
+  /**
+   * Retrieve the databases view of the Historic Block Data object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   *
+   * @returns A Promise that resolves to a ConstantHistoricBlockData object.
+   */
+  getConstantHistoricBlockData(): Promise<ConstantHistoricBlockData>;
 }

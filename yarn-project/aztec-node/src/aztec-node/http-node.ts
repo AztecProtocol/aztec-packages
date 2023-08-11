@@ -1,6 +1,7 @@
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  ConstantHistoricBlockData,
   EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -345,7 +346,7 @@ export class HttpNode implements AztecNode {
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
-  public async getHistoricBlockData(): Promise<{ roots: Record<MerkleTreeId, Fr>, globalVariablesHash: Fr}> {
+  public async getHistoricBlockData(): Promise<ConstantHistoricBlockData> {
     const url = new URL(`${this.baseUrl}/historic-block-data`);
     const response = await (await fetch(url.toString())).json();
 
@@ -355,17 +356,16 @@ export class HttpNode implements AztecNode {
       return Fr.fromBuffer(Buffer.from(rootHexString, 'hex'));
     };
 
-    return {
-      roots: {
-        [MerkleTreeId.CONTRACT_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE),
-        [MerkleTreeId.PRIVATE_DATA_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-        [MerkleTreeId.NULLIFIER_TREE]: extractRoot(MerkleTreeId.NULLIFIER_TREE),
-        [MerkleTreeId.PUBLIC_DATA_TREE]: extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-        [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-        [MerkleTreeId.BLOCKS_TREE]: extractRoot(MerkleTreeId.BLOCKS_TREE),
-      },
-      // TODO
-      globalVariablesHash: Fr.ZERO
-  };
+    return new ConstantHistoricBlockData(
+      extractRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      extractRoot(MerkleTreeId.NULLIFIER_TREE),
+      extractRoot(MerkleTreeId.CONTRACT_TREE),
+      extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      extractRoot(MerkleTreeId.BLOCKS_TREE),
+      Fr.ZERO,
+      extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      // TODO global hash
+      Fr.ZERO,
+    );
   }
 }

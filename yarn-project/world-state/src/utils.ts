@@ -27,7 +27,9 @@ export function computePublicDataTreeLeafIndex(contract: AztecAddress, slot: Fr,
  * Computes the hash of the global variables.
  * @returns The hash of the global variables.
  */
-export async function computeGlobalVariablesHash(globalVariables: GlobalVariables = GlobalVariables.empty()): Promise<Fr> {
+export async function computeGlobalVariablesHash(
+  globalVariables: GlobalVariables = GlobalVariables.empty(),
+): Promise<Fr> {
   const wasm = await CircuitsWasm.get();
   return computeGlobalsHash(wasm, globalVariables);
 }

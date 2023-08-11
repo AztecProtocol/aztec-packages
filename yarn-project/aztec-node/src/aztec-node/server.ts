@@ -2,6 +2,7 @@ import { Archiver } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
+  ConstantHistoricBlockData,
   EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
@@ -329,27 +330,25 @@ export class AztecNodeService implements AztecNode {
     };
   }
 
-  /**
+  /** TODOL ADD TO THE APP.ts
    * Returns the currently committed historic block data.
    * @returns The current committed block data.
    */
-  public async getHistoricBlockData(): Promise<{ roots: Record<MerkleTreeId, Fr>, globalVariablesHash: Fr}> {
-
+  public async getHistoricBlockData(): Promise<ConstantHistoricBlockData> {
     const getTreeRoot = async (id: MerkleTreeId) =>
       Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
-    
-      const globalsHash = this.worldStateSynchroniser.latestGlobalVariablesHash;
 
-    return {
-      roots: {
-      [MerkleTreeId.CONTRACT_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-      [MerkleTreeId.NULLIFIER_TREE]: await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.BLOCKS_TREE]: await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
-      },
-      globalVariablesHash: globalsHash
-    };
+    const globalsHash = this.worldStateSynchroniser.latestGlobalVariablesHash;
+
+    return new ConstantHistoricBlockData(
+      await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+      await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+      await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+      Fr.ZERO,
+      await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      globalsHash,
+    );
   }
 }

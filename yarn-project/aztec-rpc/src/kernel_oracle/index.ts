@@ -1,9 +1,4 @@
-import {
-  AztecAddress,
-  Fr,
-  MembershipWitness,
-  PRIVATE_DATA_TREE_HEIGHT,
-} from '@aztec/circuits.js';
+import { AztecAddress, Fr, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { Tuple } from '@aztec/foundation/serialize';
 import { AztecNode, MerkleTreeId } from '@aztec/types';
 
@@ -41,5 +36,4 @@ export class KernelOracle implements ProvingDataOracle {
     const roots = await this.node.getTreeRoots();
     return roots[MerkleTreeId.PRIVATE_DATA_TREE];
   }
-
 }
