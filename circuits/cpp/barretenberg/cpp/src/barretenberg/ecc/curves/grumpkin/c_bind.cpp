@@ -2,9 +2,6 @@
 #include "grumpkin.hpp"
 #include "barretenberg/common/wasm_export.hpp"
 
-
-extern "C" {
-
 WASM_EXPORT void ecc_grumpkin__mul(uint8_t const* point_buf, uint8_t const* scalar_buf, uint8_t* result)
 {
     using serialize::write;
@@ -49,5 +46,4 @@ WASM_EXPORT void ecc_grumpkin__reduce512_buffer_mod_circuit_modulus(uint8_t* inp
 
     uint512_t target_output = bigint_input % barretenberg_modulus;
     write(result, target_output.lo);
-}
 }
