@@ -1,4 +1,4 @@
-import { AztecAddress, CompleteAddress, Fr, Point, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair, TestKeyStore } from '@aztec/key-store';
 import { AztecNode } from '@aztec/types';
