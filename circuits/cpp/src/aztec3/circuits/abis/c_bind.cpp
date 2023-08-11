@@ -91,7 +91,7 @@ template <typename T> static const char* as_string_output(uint8_t const* input_b
 {
     using serialize::read;
     T obj;
-    read(input_buf, obj);
+    serialize::read(input_buf, obj);
     std::ostringstream stream;
     stream << obj;
     std::string const str = stream.str();
@@ -105,7 +105,7 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
 {
     using serialize::read;
     T obj;
-    read(input_buf, obj);
+    serialize::read(input_buf, obj);
     std::vector<uint8_t> stream;
     write(stream, obj);
     *size = static_cast<uint32_t>(stream.size());
@@ -120,14 +120,14 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
  * read it into a `TxRequest` object, hash it to a `fr`,
  * and serialize it to a `uint8_t*` output buffer
  *
- * @param tx_request_buf buffer of bytes containing all data needed to construct a TX request via `read()`
+ * @param tx_request_buf buffer of bytes containing all data needed to construct a TX request via `serialize::read()`
  * @param output buffer that will contain the output which will be the hashed `TxRequest`
  */
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output)
 {
     TxRequest<NT> tx_request;
-    read(tx_request_buf, tx_request);
-    // TODO(dbanks12) consider using write() and read() instead of
+    serialize::read(tx_request_buf, tx_request);
+    // TODO(dbanks12) consider using write() and serialize::read() instead of
     // serialize to/from everywhere here and in test
     NT::fr::serialize_to_buffer(tx_request.hash(), output);
 }
@@ -174,7 +174,7 @@ WASM_EXPORT void abis__compute_function_selector(char const* func_sig_cstr, uint
 WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 {
     NT::VKData vk_data;
-    read(vk_data_buf, vk_data);
+    serialize::read(vk_data_buf, vk_data);
 
     NT::fr::serialize_to_buffer(vk_data.compress_native(aztec3::GeneratorIndex::VK), output);
 }
@@ -194,7 +194,7 @@ WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 WASM_EXPORT void abis__compute_function_leaf(uint8_t const* function_leaf_preimage_buf, uint8_t* output)
 {
     FunctionLeafPreimage<NT> leaf_preimage;
-    read(function_leaf_preimage_buf, leaf_preimage);
+    serialize::read(function_leaf_preimage_buf, leaf_preimage);
     leaf_preimage.hash();
     NT::fr::serialize_to_buffer(leaf_preimage.hash(), output);
 }
@@ -244,7 +244,7 @@ WASM_EXPORT void abis__compute_function_tree(uint8_t const* function_leaves_in, 
 {
     std::vector<NT::fr> leaves;
     // fill in nonzero leaves to start
-    read(function_leaves_in, leaves);
+    serialize::read(function_leaves_in, leaves);
     // fill in zero leaves to complete tree
     NT::fr zero_leaf = FunctionLeafPreimage<NT>().hash();  // hash of empty/0 preimage
     rightfill_with_zeroleaves<aztec3::FUNCTION_TREE_HEIGHT>(leaves, zero_leaf);
@@ -277,9 +277,9 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
     NT::fr args_hash;
     NT::fr constructor_vk_hash;
 
-    serialize::read(function_data_buf, function_data);
-    read(args_hash_buf, args_hash);
-    read(constructor_vk_hash_buf, constructor_vk_hash);
+    serialize::serialize::read(function_data_buf, function_data);
+    serialize::read(args_hash_buf, args_hash);
+    serialize::read(constructor_vk_hash_buf, constructor_vk_hash);
 
     NT::fr const constructor_hash = compute_constructor_hash(function_data, args_hash, constructor_vk_hash);
 
@@ -310,10 +310,10 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* point_data_buf,
     NT::fr function_tree_root;
     NT::fr constructor_hash;
 
-    serialize::read(point_data_buf, deployer_public_key);
-    read(contract_address_salt_buf, contract_address_salt);
-    read(function_tree_root_buf, function_tree_root);
-    read(constructor_hash_buf, constructor_hash);
+    serialize::serialize::read(point_data_buf, deployer_public_key);
+    serialize::read(contract_address_salt_buf, contract_address_salt);
+    serialize::read(function_tree_root_buf, function_tree_root);
+    serialize::read(constructor_hash_buf, constructor_hash);
 
     NT::fr const contract_address =
         compute_contract_address(deployer_public_key, contract_address_salt, function_tree_root, constructor_hash);
@@ -339,8 +339,8 @@ WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* poin
     Point<NT> deployer_public_key;
     NT::fr partial_address;
 
-    serialize::read(point_data_buf, deployer_public_key);
-    read(partial_address_data_buf, partial_address);
+    serialize::serialize::read(point_data_buf, deployer_public_key);
+    serialize::read(partial_address_data_buf, partial_address);
 
     NT::fr const contract_address =
         aztec3::circuits::compute_contract_address_from_partial(deployer_public_key, partial_address);
@@ -371,9 +371,9 @@ WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_s
     NT::fr function_tree_root;
     NT::fr constructor_hash;
 
-    read(contract_address_salt_buf, contract_address_salt);
-    read(function_tree_root_buf, function_tree_root);
-    read(constructor_hash_buf, constructor_hash);
+    serialize::read(contract_address_salt_buf, contract_address_salt);
+    serialize::read(function_tree_root_buf, function_tree_root);
+    serialize::read(constructor_hash_buf, constructor_hash);
     NT::fr const partial_address =
         compute_partial_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
 
@@ -389,7 +389,7 @@ WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_s
 WASM_EXPORT void abis__compute_var_args_hash(uint8_t const* args_buf, uint8_t* output)
 {
     std::vector<NT::fr> args;
-    read(args_buf, args);
+    serialize::read(args_buf, args);
     NT::fr const args_hash = aztec3::circuits::compute_var_args_hash<NT>(args);
     NT::fr::serialize_to_buffer(args_hash, output);
 }
@@ -409,7 +409,7 @@ WASM_EXPORT void abis__compute_var_args_hash(uint8_t const* args_buf, uint8_t* o
 WASM_EXPORT void abis__compute_contract_leaf(uint8_t const* contract_leaf_preimage_buf, uint8_t* output)
 {
     NewContractData<NT> leaf_preimage;
-    serialize::read(contract_leaf_preimage_buf, leaf_preimage);
+    serialize::serialize::read(contract_leaf_preimage_buf, leaf_preimage);
     // as per the circuit implementation, if contract address == zero then return a zero leaf
     auto to_write = leaf_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
@@ -466,7 +466,7 @@ CBIND(abis__compute_globals_hash, aztec3::circuits::compute_globals_hash<NT>);
 WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* tx_request_buf, uint8_t* output)
 {
     TxRequest<NT> tx_request_preimage;
-    read(tx_request_buf, tx_request_preimage);
+    serialize::read(tx_request_buf, tx_request_preimage);
     auto to_write = tx_request_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
 }
@@ -474,7 +474,7 @@ WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* tx_request_buf, u
 WASM_EXPORT void abis__compute_private_call_stack_item_hash(uint8_t const* call_stack_item_buf, uint8_t* output)
 {
     CallStackItem<NT, PrivateTypes> call_stack_item;
-    serialize::read(call_stack_item_buf, call_stack_item);
+    serialize::serialize::read(call_stack_item_buf, call_stack_item);
     NT::fr::serialize_to_buffer(call_stack_item.hash(), output);
 }
 
@@ -494,7 +494,7 @@ WASM_EXPORT void abis__compute_public_call_stack_item_hash(uint8_t const* call_s
 WASM_EXPORT void abis__compute_message_secret_hash(uint8_t const* secret, uint8_t* output)
 {
     NT::fr message_secret;
-    read(secret, message_secret);
+    serialize::read(secret, message_secret);
     auto secret_hash = NT::hash({ message_secret }, aztec3::GeneratorIndex::L1_TO_L2_MESSAGE_SECRET);
     NT::fr::serialize_to_buffer(secret_hash, output);
 }
