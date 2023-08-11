@@ -105,21 +105,21 @@ contract TokenPortal {
     external
     returns (bytes32)
   {
-    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
-      recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
-      content: Hash.sha256ToField(
+    // @todo: (issue #624) handle different versions
+    bytes32 entryKey = registry.getOutbox().consume(
+      l2TokenAddress,
+      1,
+      address(this),
+      block.chainid,
+      Hash.sha256ToField(
         abi.encodeWithSignature(
           "withdraw(uint256,address,address)",
           _amount,
           _recipient,
           _withCaller ? msg.sender : address(0)
         )
-        )
-    });
-
-    // @todo: (issue #624) handle different versions
-    bytes32 entryKey = registry.getOutbox().consume(message);
+      )
+    );
 
     underlying.transfer(_recipient, _amount);
 

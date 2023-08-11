@@ -49,21 +49,33 @@ contract Outbox is IOutbox {
    * @notice Consumes an entry from the Outbox
    * @dev Only meaningfully callable by portals, otherwise should never hit an entry
    * @dev Emits the `MessageConsumed` event when consuming messages
-   * @param _message - The L2 to L1 message
+   * @param _senderAddress - The address of the sender
+   * @param _senderVersion - The version of the sender
+   * @param _recipientAddress - The address of the recipient
+   * @param _recipientChainId - The version of the recipient
+   * @param _content - The content of the entry (application specific)
    * @return entryKey - The key of the entry removed
    */
-  function consume(DataStructures.L2ToL1Msg memory _message)
-    external
-    override(IOutbox)
-    returns (bytes32 entryKey)
-  {
-    if (msg.sender != _message.recipient.actor) revert Errors.Outbox__Unauthorized();
-    if (block.chainid != _message.recipient.chainId) revert Errors.Outbox__InvalidChainId();
+  function consume(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) external override(IOutbox) returns (bytes32 entryKey) {
+    if (msg.sender != _recipientAddress) revert Errors.Outbox__Unauthorized();
+    if (block.chainid != _recipientChainId) revert Errors.Outbox__InvalidChainId();
 
-    entryKey = computeEntryKey(_message);
+    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
+      sender: DataStructures.L2Actor({actor: _senderAddress, version: _senderVersion}),
+      recipient: DataStructures.L1Actor({actor: _recipientAddress, chainId: _recipientChainId}),
+      content: _content
+    });
+
+    entryKey = _computeEntryKey(message);
     DataStructures.Entry memory entry = entries.get(entryKey, _errNothingToConsume);
-    if (entry.version != _message.sender.version) {
-      revert Errors.Outbox__InvalidVersion(entry.version, _message.sender.version);
+    if (entry.version != _senderVersion) {
+      revert Errors.Outbox__InvalidVersion(entry.version, _senderVersion);
     }
 
     entries.consume(entryKey, _errNothingToConsume);
@@ -95,13 +107,37 @@ contract Outbox is IOutbox {
 
   /**
    * @notice Computes an entry key for the Outbox
+   * @param _senderAddress - The address of the sender
+   * @param _senderVersion - The version of the sender
+   * @param _recipientAddress - The address of the recipient
+   * @param _recipientChainId - The version of the recipient
+   * @param _content - The content of the entry (application specific)
+   * @return The key of the entry in the set
+   */
+  function computeEntryKey(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) public pure override(IOutbox) returns (bytes32) {
+    return _computeEntryKey(
+      DataStructures.L2ToL1Msg({
+        sender: DataStructures.L2Actor({actor: _senderAddress, version: _senderVersion}),
+        recipient: DataStructures.L1Actor({actor: _recipientAddress, chainId: _recipientChainId}),
+        content: _content
+      })
+    );
+  }
+
+  /**
+   * @notice Computes an entry key for the Outbox
    * @param _message - The L2 to L1 message
    * @return The key of the entry in the set
    */
-  function computeEntryKey(DataStructures.L2ToL1Msg memory _message)
-    public
+  function _computeEntryKey(DataStructures.L2ToL1Msg memory _message)
+    internal
     pure
-    override(IOutbox)
     returns (bytes32)
   {
     return _message.sha256ToField();

@@ -18,10 +18,20 @@ interface IOutbox {
 
   /**
    * @notice Computes an entry key for the Outbox
-   * @param _message - The L2 to L1 message
+   * @param _senderAddress - The address of the sender
+   * @param _senderVersion - The version of the sender
+   * @param _recipientAddress - The address of the recipient
+   * @param _recipientChainId - The version of the recipient
+   * @param _content - The content of the entry (application specific)
    * @return The key of the entry in the set
    */
-  function computeEntryKey(DataStructures.L2ToL1Msg memory _message) external returns (bytes32);
+  function computeEntryKey(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) external returns (bytes32);
 
   /**
    * @notice Inserts an array of entries into the Outbox
@@ -34,10 +44,20 @@ interface IOutbox {
    * @notice Consumes an entry from the Outbox
    * @dev Only meaningfully callable by portals, otherwise should never hit an entry
    * @dev Emits the `MessageConsumed` event when consuming messages
-   * @param _message - The L2 to L1 message
+   * @param _senderAddress - The address of the sender
+   * @param _senderVersion - The version of the sender
+   * @param _recipientAddress - The address of the recipient
+   * @param _recipientChainId - The version of the recipient
+   * @param _content - The content of the entry (application specific)
    * @return entryKey - The key of the entry removed
    */
-  function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey);
+  function consume(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) external returns (bytes32 entryKey);
 
   /**
    * @notice Fetch an entry

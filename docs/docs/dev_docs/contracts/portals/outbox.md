@@ -28,14 +28,22 @@ function sendL1Messages(bytes32[] memory _entryKey) external;
 Allows a recipient to consume a message from the `Outbox`.
 
 ```solidity
-function consume(
-  DataStructures.L2ToL1Msg memory _message
-) external returns (bytes32 entryKey);
+  function consume(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) external returns (bytes32 entryKey);
 ```
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_message`     | `L2ToL1Msg` | The message to consume |
+| `_senderAddress`     | `bytes32` | The Aztec address of the sender. |
+| `_senderVersion`     | `uint256` | The Aztec version of the sender. |
+| `_recipientAddress`  | `address` | The ethereum address of the recipient. |
+| `_recipientChainId`  | `uint256` | The chainId of the recipient. |
+| `_content`           | `field` | The content of the message. |
 | ReturnValue    | `bytes32`   | The hash of the message | 
 
 #### Edge cases
@@ -79,12 +87,20 @@ function contains(
 Computes the hash of a message.
 
 ```solidity
-function computeEntryKey(
-  DataStructures.L2ToL1Msg memory _message
-) external pure returns (bytes32 entryKey);
+  function computeEntryKey(
+    bytes32 _senderAddress,
+    uint256 _senderVersion,
+    address _recipientAddress,
+    uint256 _recipientChainId,
+    bytes32 _content
+  ) external returns (bytes32);
 ```
 
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_message`     | `L2ToL1Msg` | The message to compute hash for |
+| `_senderAddress`     | `bytes32` | The Aztec address of the sender. |
+| `_senderVersion`     | `uint256` | The Aztec version of the sender. |
+| `_recipientAddress`  | `address` | The ethereum address of the recipient. |
+| `_recipientChainId`  | `uint256` | The chainId of the recipient. |
+| `_content`           | `field` | The content of the message. |
 | ReturnValue    | `bytes32`   | The hash of the message | 

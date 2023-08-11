@@ -182,15 +182,15 @@ contract TokenPortalTest is Test {
     returns (bytes32)
   {
     bytes32 entryKey = outbox.computeEntryKey(
-      DataStructures.L2ToL1Msg({
-        sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
-        recipient: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
-        content: Hash.sha256ToField(
-          abi.encodeWithSignature(
-            "withdraw(uint256,address,address)", withdrawAmount, recipient, _designatedCaller
-          )
-          )
-      })
+      l2TokenAddress,
+      1,
+      address(tokenPortal),
+      block.chainid,
+      Hash.sha256ToField(
+        abi.encodeWithSignature(
+          "withdraw(uint256,address,address)", withdrawAmount, recipient, _designatedCaller
+        )
+      )
     );
     return entryKey;
   }

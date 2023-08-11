@@ -84,7 +84,8 @@ function batchConsume(bytes32[] memory _entryKeys, address _feeCollector) extern
 ```
 | Name           | Type        | Description |
 | -------------- | -------     | ----------- |
-| `_entryKeys`   | `bytes32[]` | The entry keys (message hashs) to consume |
+| `_entryKeys`   | `bytes32[]` | The entry keys (message hashes) to consume |
+| `_feeCollector`   | `address` | The address to receive fees for message inclusion |
 | ReturnValue    | `Entry`     | The entry for the given key | 
 
 #### Edge cases

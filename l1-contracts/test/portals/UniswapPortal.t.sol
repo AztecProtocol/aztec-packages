@@ -84,7 +84,13 @@ contract UniswapPortalTest is Test {
         abi.encodeWithSignature("withdraw(uint256,address,address)", amount, _recipient, _caller)
         )
     });
-    entryKey = outbox.computeEntryKey(message);
+    entryKey = outbox.computeEntryKey(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   /**
@@ -117,7 +123,13 @@ contract UniswapPortalTest is Test {
         )
         )
     });
-    entryKey = outbox.computeEntryKey(message);
+    entryKey = outbox.computeEntryKey(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   function _addMessagesToOutbox(bytes32 daiWithdrawMessageKey, bytes32 swapMessageKey) internal {

@@ -25,10 +25,6 @@ When sending messages, we need to specify quite a bit of information beyond just
 | Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
 | Fee            | `uint64`  | The fee to the sequencer for including the message. This is the amount of ETH that the sequencer will receive for including the message. Note that it is not a full `uint256` but only `uint64`|
 
-:::warning
-Should we discard the use of the L2Actor struct and use the individual fields instead? Might make integrations a tiny bit more pleasent to work with.
-:::
-
 With all that information at hand, we can call the `sendL2Message` function on the Inbox. The function will return a `field` (inside  `bytes32`) that is the hash of the message. This hash can be used as an identifier to spot when your message has been included in a rollup block. 
 
 ```solidity title="IInbox.sol"
@@ -133,15 +129,13 @@ fn withdraw(
 When the transaction is included in a rollup block the message will be inserted into the `Outbox`, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
 ```solidity title="IOutbox.sol"
-struct L2ToL1Msg {
-    DataStructures.L2Actor sender;
-    DataStructures.L1Actor recipient;
-    bytes32 content;
-}
-
-function consume(DataStructures.L2ToL1Msg memory _message) 
-    external 
-    returns (bytes32 entryKey);
+function consume(
+  bytes32 _senderAddress,
+  uint256 _senderVersion,
+  address _recipientAddress,
+  uint256 _recipientChainId,
+  bytes32 _content
+) external returns (bytes32 entryKey);
 ```
 
 As noted earlier, the portal contract should check that the sender is as expected. In the example below, we support only one sender contract (stored in `l2TokenAddress`) so we can just pass it as the sender, that way we will only be able to consume messages from that contract. If multiple senders are supported, you could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
@@ -151,22 +145,20 @@ function withdraw(uint256 _amount, address _recipient, bool _withCaller)
     external
     returns (bytes32)
   {
-    // Create the message structure
-    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, version),
-      recipient: DataStructures.L1Actor(address(this), block.chainid),
-      content: Hash.sha256ToField(
+    bytes32 entryKey = registry.getOutbox().consume(
+      l2TokenAddress,
+      1, // version of the rollup (ungovernable)
+      address(this),
+      block.chainid,
+      Hash.sha256ToField(
         abi.encodeWithSignature(
           "withdraw(uint256,address,address)",
           _amount,
           _recipient,
           _withCaller ? msg.sender : address(0)
         )
-        )
-    });
-
-    // Consume the message
-    bytes32 entryKey = registry.getOutbox().consume(message);
+      )
+    );
 
     // Transfer the tokens to the user
     underlying.transfer(_recipient, _amount);
@@ -180,6 +172,10 @@ function withdraw(uint256 _amount, address _recipient, bool _withCaller)
 - Deploy L1 
 - Deploy l2
 - Initialize l1 with l2 address.
+
+:::danger
+To be completed with sandbox example.
+:::
 
 ## Standards
 
@@ -230,7 +226,7 @@ As this requires logic on the portal itself, it is not something that the protoc
 The portal can call the `cancelL2Message` at the `Inbox` when `block.timestamp > deadline` for the message.
 
 ```solidity title="IInbox.sol"
-function computeEntryKey(
+function cancelL2Message(
   address _senderAddress,
   uint256 _senderChainId,
   bytes32 _recipientAddress,
@@ -238,8 +234,9 @@ function computeEntryKey(
   bytes32 _content,
   bytes32 _secretHash,
   uint32 _deadline,
-  uint64 _fee
-) external pure returns (bytes32);
+  uint64 _fee,
+  address _feeCollector
+) external returns (bytes32 entryKey);
 ```
 
 Building on our token example from earlier, this can be called like:
@@ -264,7 +261,7 @@ function cancelL1ToAztecMessage(
       _secretHash,
       _deadline,
       _fee,
-      address(this)
+      address(this) // this portal is taking the fee when cancelling :O 
     );
     // Ensures that `msg.sender == canceller` by using `msg.sender` in the hash computation.
     underlying.transfer(msg.sender, _amount);
@@ -292,7 +289,7 @@ bytes memory message = abi.encodeWithSignature(
 );
 ```
 
-This way, the message can be consumed by the portal contract, but only if the caller is the designated caller. By being a bit clever when specifying the designated caller, we can ensure that the calls are done in the correct order. For the Uniswap example, say that we have token portals implemented as we have done throughout this page, and n Uniswap portal implementing the designated caller:
+This way, the message can be consumed by the portal contract, but only if the caller is the designated caller. By being a bit clever when specifying the designated caller, we can ensure that the calls are done in the correct order. For the Uniswap example, say that we have token portals implemented as we have done throughout this page, and an Uniswap portal implementing the designated caller:
 
 ```solidity title="UniswapPortal.sol"
   function swap(

@@ -70,21 +70,45 @@ contract OutboxTest is Test {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.actor = address(0x1);
     vm.expectRevert(Errors.Outbox__Unauthorized.selector);
-    outbox.consume(message);
+    outbox.consume(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   function testRevertIfConsumingForWrongChain() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
     message.recipient.chainId = 2;
     vm.expectRevert(Errors.Outbox__InvalidChainId.selector);
-    outbox.consume(message);
+    outbox.consume(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   function testRevertIfConsumingMessageThatDoesntExist() public {
     DataStructures.L2ToL1Msg memory message = _fakeMessage();
-    bytes32 entryKey = outbox.computeEntryKey(message);
+    bytes32 entryKey = outbox.computeEntryKey(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
     vm.expectRevert(abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, entryKey));
-    outbox.consume(message);
+    outbox.consume(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   function testRevertIfInsertingFromWrongRollup() public {
@@ -95,7 +119,13 @@ contract OutboxTest is Test {
     // correctly set message.recipient to this address
     message.recipient = DataStructures.L1Actor({actor: address(this), chainId: block.chainid});
 
-    bytes32 expectedEntryKey = outbox.computeEntryKey(message);
+    bytes32 expectedEntryKey = outbox.computeEntryKey(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
 
@@ -106,7 +136,13 @@ contract OutboxTest is Test {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__InvalidVersion.selector, wrongVersion, version)
     );
-    outbox.consume(message);
+    outbox.consume(
+      message.sender.actor,
+      message.sender.version,
+      message.recipient.actor,
+      message.recipient.chainId,
+      message.content
+    );
   }
 
   function testFuzzConsume(DataStructures.L2ToL1Msg memory _message) public {
@@ -116,7 +152,13 @@ contract OutboxTest is Test {
     // correctly set the message.sender.version
     _message.sender.version = version;
 
-    bytes32 expectedEntryKey = outbox.computeEntryKey(_message);
+    bytes32 expectedEntryKey = outbox.computeEntryKey(
+      _message.sender.actor,
+      _message.sender.version,
+      _message.recipient.actor,
+      _message.recipient.chainId,
+      _message.content
+    );
     bytes32[] memory entryKeys = new bytes32[](1);
     entryKeys[0] = expectedEntryKey;
     outbox.sendL1Messages(entryKeys);
@@ -124,12 +166,24 @@ contract OutboxTest is Test {
     vm.prank(_message.recipient.actor);
     vm.expectEmit(true, true, false, false);
     emit MessageConsumed(expectedEntryKey, _message.recipient.actor);
-    outbox.consume(_message);
+    outbox.consume(
+      _message.sender.actor,
+      _message.sender.version,
+      _message.recipient.actor,
+      _message.recipient.chainId,
+      _message.content
+    );
 
     // ensure no such message to consume:
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Outbox__NothingToConsume.selector, expectedEntryKey)
     );
-    outbox.consume(_message);
+    outbox.consume(
+      _message.sender.actor,
+      _message.sender.version,
+      _message.recipient.actor,
+      _message.recipient.chainId,
+      _message.content
+    );
   }
 }
