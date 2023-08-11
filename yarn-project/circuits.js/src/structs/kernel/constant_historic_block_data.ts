@@ -40,7 +40,7 @@ export class ConstantHistoricBlockData {
     /**
      * Previous globals hash, this value is used to recalculate the block hash.
      */
-    public readonly prevGlobalVariablesHash: Fr,
+    public readonly globalVariablesHash: Fr,
   ) {}
 
   static from(fields: FieldsOf<ConstantHistoricBlockData>) {
@@ -56,7 +56,7 @@ export class ConstantHistoricBlockData {
       fields.blocksTreeRoot,
       fields.privateKernelVkTreeRoot,
       fields.publicDataTreeRoot,
-      fields.prevGlobalVariablesHash,
+      fields.globalVariablesHash,
     ] as const;
   }
 
@@ -91,7 +91,7 @@ export class ConstantHistoricBlockData {
       this.blocksTreeRoot.isZero() &&
       this.privateKernelVkTreeRoot.isZero() &&
       this.publicDataTreeRoot.isZero() &&
-      this.prevGlobalVariablesHash.isZero()
+      this.globalVariablesHash.isZero()
     );
   }
 

@@ -37,7 +37,7 @@ void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
                 .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
                 .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,
                 .public_data_tree_root = private_call_public_inputs.historic_public_data_tree_root,
-                .prev_global_variables_hash = private_call_public_inputs.historic_global_variables_hash,
+                .global_variables_hash = private_call_public_inputs.historic_global_variables_hash,
             },
         .tx_context = private_inputs.tx_request.tx_context,
     };

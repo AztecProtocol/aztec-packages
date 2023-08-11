@@ -636,7 +636,7 @@ interface MsgpackConstantHistoricBlockData {
   blocks_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
   public_data_tree_root: Buffer;
-  prev_global_variables_hash: Buffer;
+  global_variables_hash: Buffer;
 }
 
 export function toConstantHistoricBlockData(o: MsgpackConstantHistoricBlockData): ConstantHistoricBlockData {
@@ -661,8 +661,8 @@ export function toConstantHistoricBlockData(o: MsgpackConstantHistoricBlockData)
   if (o.public_data_tree_root === undefined) {
     throw new Error('Expected public_data_tree_root in ConstantHistoricBlockData deserialization');
   }
-  if (o.prev_global_variables_hash === undefined) {
-    throw new Error('Expected prev_global_variables_hash in ConstantHistoricBlockData deserialization');
+  if (o.global_variables_hash === undefined) {
+    throw new Error('Expected global_variables_hash in ConstantHistoricBlockData deserialization');
   }
   return new ConstantHistoricBlockData(
     Fr.fromBuffer(o.private_data_tree_root),
@@ -672,7 +672,7 @@ export function toConstantHistoricBlockData(o: MsgpackConstantHistoricBlockData)
     Fr.fromBuffer(o.blocks_tree_root),
     Fr.fromBuffer(o.private_kernel_vk_tree_root),
     Fr.fromBuffer(o.public_data_tree_root),
-    Fr.fromBuffer(o.prev_global_variables_hash),
+    Fr.fromBuffer(o.global_variables_hash),
   );
 }
 
@@ -698,8 +698,8 @@ export function fromConstantHistoricBlockData(o: ConstantHistoricBlockData): Msg
   if (o.publicDataTreeRoot === undefined) {
     throw new Error('Expected publicDataTreeRoot in ConstantHistoricBlockData serialization');
   }
-  if (o.prevGlobalVariablesHash === undefined) {
-    throw new Error('Expected prevGlobalVariablesHash in ConstantHistoricBlockData serialization');
+  if (o.globalVariablesHash === undefined) {
+    throw new Error('Expected globalVariablesHash in ConstantHistoricBlockData serialization');
   }
   return {
     private_data_tree_root: toBuffer(o.privateDataTreeRoot),
@@ -709,7 +709,7 @@ export function fromConstantHistoricBlockData(o: ConstantHistoricBlockData): Msg
     blocks_tree_root: toBuffer(o.blocksTreeRoot),
     private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
     public_data_tree_root: toBuffer(o.publicDataTreeRoot),
-    prev_global_variables_hash: toBuffer(o.prevGlobalVariablesHash),
+    global_variables_hash: toBuffer(o.globalVariablesHash),
   };
 }
 
