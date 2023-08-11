@@ -1,10 +1,10 @@
 import {
   CallContext,
   CircuitsWasm,
-  HistoricBlockData,
   ContractDeploymentData,
   FieldsOf,
   FunctionData,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,

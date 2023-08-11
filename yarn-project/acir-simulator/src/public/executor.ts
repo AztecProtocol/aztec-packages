@@ -1,11 +1,11 @@
 import {
   AztecAddress,
   CallContext,
-  HistoricBlockData,
   EthAddress,
   Fr,
   FunctionData,
   GlobalVariables,
+  HistoricBlockData,
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';

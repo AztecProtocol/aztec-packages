@@ -1,7 +1,7 @@
 import {
-  HistoricBlockData,
   Fr,
   GlobalVariables,
+  HistoricBlockData,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   makeEmptyProof,
 } from '@aztec/circuits.js';

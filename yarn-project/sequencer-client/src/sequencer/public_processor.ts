@@ -2,11 +2,11 @@ import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecuti
 import {
   AztecAddress,
   CircuitsWasm,
-  HistoricBlockData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
   GlobalVariables,
+  HistoricBlockData,
   KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,

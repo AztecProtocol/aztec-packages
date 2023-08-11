@@ -1,4 +1,4 @@
-import { HistoricBlockData, Fr } from '@aztec/circuits.js';
+import { Fr, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, MerkleTreeId, Tx, TxHash } from '@aztec/types';

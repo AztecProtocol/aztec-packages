@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, HistoricBlockData, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';

@@ -2,9 +2,9 @@ import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@
 import {
   AztecAddress,
   CircuitsWasm,
-  HistoricBlockData,
   EthAddress,
   Fr,
+  HistoricBlockData,
   PartialAddress,
   PrivateKey,
   PublicKey,

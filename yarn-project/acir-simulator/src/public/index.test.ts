@@ -1,9 +1,9 @@
 import {
   CallContext,
   CircuitsWasm,
-  HistoricBlockData,
   FunctionData,
   GlobalVariables,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';

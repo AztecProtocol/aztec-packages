@@ -1,4 +1,4 @@
-import { AztecAddress, HistoricBlockData, Fr, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, Fr, HistoricBlockData, PrivateKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';

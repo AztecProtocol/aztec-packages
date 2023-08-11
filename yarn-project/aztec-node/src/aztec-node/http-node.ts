@@ -1,9 +1,9 @@
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
-  HistoricBlockData,
   EthAddress,
   Fr,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
