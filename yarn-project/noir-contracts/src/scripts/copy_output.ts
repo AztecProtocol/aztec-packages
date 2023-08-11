@@ -49,8 +49,6 @@ function writeToProject(abi: any) {
  * @returns The Aztec function entry.
  */
 function getFunction(type: FunctionType, params: ABIParameter[], returns: ABIType, fn: any): FunctionAbi {
-  // if (!params) throw new Error(`ABI comment not found for function ${fn.name}`);
-
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   if (type !== FunctionType.UNCONSTRAINED) params = params.slice(1);
 
