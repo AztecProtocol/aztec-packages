@@ -195,30 +195,19 @@ describe('L1Publisher integration', () => {
     const emptySecretHash = Fr.ZERO.toString(true);
 
     await inbox.write.sendL2Message(
-      [
-        { actor: recipient.recipient.toString(), version: BigInt(recipient.version) },
-        deadline,
-        contentString,
-        emptySecretHash,
-      ],
+      [recipient.recipient.toString(), BigInt(recipient.version), deadline, contentString, emptySecretHash],
       {} as any,
     );
 
     const entry = await inbox.read.computeEntryKey([
-      {
-        sender: {
-          actor: deployerAccount.address,
-          chainId: BigInt(publicClient.chain.id),
-        },
-        recipient: {
-          actor: recipientAddress.toString(),
-          version: 1n,
-        },
-        content: contentString,
-        secretHash: emptySecretHash,
-        deadline,
-        fee: 0n,
-      },
+      deployerAccount.address,
+      BigInt(publicClient.chain.id),
+      recipientAddress.toString(),
+      1n,
+      contentString,
+      emptySecretHash,
+      deadline,
+      0n,
     ]);
     return Fr.fromString(entry);
   };
