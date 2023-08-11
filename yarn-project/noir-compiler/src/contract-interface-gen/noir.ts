@@ -35,11 +35,11 @@ function generateCallStatement(selector: string, functionType: FunctionType) {
 }
 
 /**
- * Formats a fragment of a struct name.
- * @param str - A fragment.
+ * Formats a string as pascal case.
+ * @param str - A string.
  * @returns A capitalised camelcase string.
  */
-function formatStructNameFragment(str: string) {
+function toPascalCase(str: string) {
   return upperFirst(camelCase(str));
 }
 
@@ -49,7 +49,7 @@ function formatStructNameFragment(str: string) {
  * @returns The concatenation of the capitalised fragments.
  */
 function getStructName(...fragments: string[]) {
-  return fragments.map(formatStructNameFragment).join('') + 'Struct';
+  return fragments.map(toPascalCase).join('') + 'Struct';
 }
 
 /**

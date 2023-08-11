@@ -48,20 +48,19 @@ function writeToProject(abi: any) {
  * @param fn - The nargo function entry.
  * @returns The Aztec function entry.
  */
-function getFunction(type: FunctionType, params: ABIParameter[], returns: ABIType, fn: any): FunctionAbi {
+function getFunction(fn: any): FunctionAbi {
+  const type = fn.function_type.toLowerCase();
+  const returns = fn.abi.return_type;
+  const isInternal = fn.is_internal;
+  let params = fn.abi.parameters;
+
   // If the function is not unconstrained, the first item is inputs or CallContext which we should omit
   if (type !== FunctionType.UNCONSTRAINED) params = params.slice(1);
-
-  // If the function is not secret, drop any padding from the end
-  // TODO: I can't find a reference to 'padding' anywhere?
-  if (type !== FunctionType.SECRET && params.length > 0 && params[params.length - 1].name.endsWith('padding')) {
-    params = params.slice(0, params.length - 1);
-  }
 
   return {
     name: fn.name,
     functionType: type,
-    isInternal: fn.is_internal,
+    isInternal,
     parameters: params,
     // If the function is secret, the return is the public inputs, which should be omitted
     returnTypes: type === FunctionType.SECRET ? [] : [returns],
@@ -77,7 +76,7 @@ function getFunction(type: FunctionType, params: ABIParameter[], returns: ABITyp
  * @param buildJson - The nargo output.
  * @returns The Aztec function entries.
  */
-function getFunctions(sourceCode: string, buildJson: any): FunctionAbi[] {
+function getFunctions(_sourceCode: string, buildJson: any): FunctionAbi[] {
   /**
    * Sort functions alphabetically, by name.
    * Remove the proving key field of the function.
@@ -87,7 +86,7 @@ function getFunctions(sourceCode: string, buildJson: any): FunctionAbi[] {
     .sort((fnA: any, fnB: any) => fnA.name.localeCompare(fnB.name))
     .map((fn: any) => {
       delete fn.proving_key;
-      return getFunction(fn.function_type.toLowerCase() as FunctionType, fn.abi.parameters, fn.abi.return_type, fn);
+      return getFunction(fn);
     });
 }
 
