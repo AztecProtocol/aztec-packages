@@ -624,14 +624,14 @@ jobs:
 
   canary:
     machine:
-      image: ubuntu-2004:202010-01
+      image: aztecprotocol/alpine-build-image
     resource_class: large
     steps:
       - *checkout
       - *setup_env
       - run:
           name: "Build"
-          command: build canary-build
+          command: cond_spot_run_build canary-build 32
 
   end-to-end:
     machine:
