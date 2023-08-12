@@ -9,13 +9,42 @@
 
 namespace serialize {
 /**
- * @brief Helper method for better error reporting. Clang does not give the best errors for "auto..."
- * arguments.
+ * @brief Helper method for streaming msgpack values, specialized for shared_ptr
  */
-inline void _stream_operator_write(std::ostream& os, const auto& field)
+template<typename T>
+void _msgpack_stream_write(std::ostream& os, const std::shared_ptr<T>& field)
+{
+    using namespace serialize;
+    os << *field;
+}
+/**
+ * @brief Helper method for streaming msgpack values, normal case
+ */
+inline void _msgpack_stream_write(std::ostream& os, const auto& field)
 {
     using namespace serialize;
     os << field;
+}
+/**
+ * @brief Recursive helper method for streaming msgpack key value pairs, base case
+ */
+inline void _msgpack_stream_write_key_value_pairs(std::ostream& os)
+{
+    // base case
+    (void)os;  // unused
+}
+/**
+ * @brief Recursive helper method for streaming msgpack key value pairs, arg case
+ */
+inline void _msgpack_stream_write_key_value_pairs(std::ostream& os,
+                                                  const std::string& key,
+                                                  const auto& value,
+                                                  const auto&... rest)
+{
+    os << key << ": ";
+    _msgpack_stream_write(os, value);
+    os << '\n';
+    _msgpack_stream_write_key_value_pairs(os, rest...);  // NOLINT
 }
 } // namespace serialize
 
@@ -26,11 +55,13 @@ namespace std {
  * @param os The stream to write to.
  * @param obj The object to write.
  */
-inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsgPack auto& obj)
+template <msgpack_concepts::HasMsgPack T>
+std::ostream& operator<<(std::ostream& os, const T& obj)
 {
-    msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
+    // We must use const_cast as our method is meant to be polymorphic over const, but there's no such concept in C++
+    const_cast<T&>(obj).msgpack([&](auto&... key_value_pairs) {
         // apply 'operator<<' to each object field
-        (serialize::_stream_operator_write(os, obj_fields), ...);
+        serialize::_msgpack_stream_write_key_value_pairs(os, key_value_pairs...);
     });
     return os;
 }
@@ -113,17 +144,4 @@ template <typename T, typename U> inline std::ostream& operator<<(std::ostream& 
     return os;
 }
 } // namespace std
-//
-///**
-// * @brief Automatically derived stream operator for any object that defines .msgpack() (implicitly defined by MSGPACK_FIELDS).
-// * @param os The stream to write to.
-// * @param obj The object to write.
-// */
-//inline std::ostream& operator<<(std::ostream& os, const msgpack_concepts::HasMsgPack auto& obj)
-//{
-//    msgpack::msgpack_apply(obj, [&](auto&... obj_fields) {
-//        // apply 'operator<<' to each object field
-//        (serialize::_stream_operator_write(os, obj_fields), ...);
-//    });
-//    return os;
-//}
+

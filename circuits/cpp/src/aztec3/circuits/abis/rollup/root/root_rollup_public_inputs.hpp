@@ -20,7 +20,7 @@ template <typename NCT> struct RootRollupPublicInputs {
     // All below are shared between the base and merge rollups
     AggregationObject end_aggregation_object;
 
-    GlobalVariables<NCT> globalVariables;
+    GlobalVariables<NCT> global_variables;
 
     AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
     AppendOnlyTreeSnapshot<NCT> end_private_data_tree_snapshot;
@@ -54,7 +54,7 @@ template <typename NCT> struct RootRollupPublicInputs {
 
     // For serialization, update with new fields
     MSGPACK_FIELDS(end_aggregation_object,
-                   globalVariables,
+                   global_variables,
                    start_private_data_tree_snapshot,
                    end_private_data_tree_snapshot,
                    start_nullifier_tree_snapshot,
@@ -82,7 +82,7 @@ template <typename NCT> struct RootRollupPublicInputs {
     {
         std::vector<uint8_t> buf;
 
-        write(&buf, globalVariables);
+        write(&buf, global_variables);
         write(buf, start_private_data_tree_snapshot);
         write(buf, start_nullifier_tree_snapshot);
         write(buf, start_contract_tree_snapshot);
