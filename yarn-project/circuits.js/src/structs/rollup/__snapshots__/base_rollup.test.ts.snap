@@ -1,7 +1,10 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`structs/base_rollup serializes and prints BaseRollupInputs 1`] = `
-"kernel_data: [ public_inputs: end: aggregation_object: P0: { 0x100, 0x101 }
+"kernel_data: [ public_inputs:
+end:
+aggregation_object:
+P0: { 0x100, 0x101 }
 P1: { 0x200, 0x201 }
 public_inputs: [
  0x102
@@ -184,7 +187,9 @@ value: 0xf07
 value: 0xf08
  ]
 
-constants: block_data: private_data_tree_root: 0x200
+constants:
+block_data:
+private_data_tree_root: 0x200
 nullifier_tree_root: 0x201
 contract_tree_root: 0x202
 l1_to_l2_messages_tree_root: 0x203
@@ -193,10 +198,12 @@ private_kernel_vk_tree_root: 0x205
 public_data_tree_root: 0x206
 prev_global_variables_hash: 0x207
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x204
+contract_deployment_data: deployer_public_key:
+x: 0x204
 y: 0x205
 
 constructor_vk_hash: 0x205
@@ -222,7 +229,10 @@ key.recursive_proof_public_input_indices: [ 190 191 192 193 194 ]
 
 vk_index: 42
 vk_path: [ 0x1000 0x1001 0x1002 ]
- public_inputs: end: aggregation_object: P0: { 0x200, 0x201 }
+ public_inputs:
+end:
+aggregation_object:
+P0: { 0x200, 0x201 }
 P1: { 0x300, 0x301 }
 public_inputs: [
  0x202
@@ -405,7 +415,9 @@ value: 0x1007
 value: 0x1008
  ]
 
-constants: block_data: private_data_tree_root: 0x300
+constants:
+block_data:
+private_data_tree_root: 0x300
 nullifier_tree_root: 0x301
 contract_tree_root: 0x302
 l1_to_l2_messages_tree_root: 0x303
@@ -414,10 +426,12 @@ private_kernel_vk_tree_root: 0x305
 public_data_tree_root: 0x306
 prev_global_variables_hash: 0x307
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x304
+contract_deployment_data: deployer_public_key:
+x: 0x304
 y: 0x305
 
 constructor_vk_hash: 0x305
@@ -629,7 +643,8 @@ sibling_path: [ 0x7000 0x7001 0x7002 0x7003 0x7004 0x7005 0x7006 0x7007 0x7008 0
  leaf_index: 0x8000
 sibling_path: [ 0x8000 0x8001 0x8002 0x8003 0x8004 0x8005 0x8006 0x8007 0x8008 0x8009 0x800a 0x800b 0x800c 0x800d 0x800e 0x800f ]
  ]
-constants: start_historic_blocks_tree_roots_snapshot: root: 0x400
+constants: start_historic_blocks_tree_roots_snapshot:
+root: 0x400
 next_available_leaf_index: 1024
 
 private_kernel_vk_tree_root: 0x501
@@ -659,7 +674,8 @@ public_inputs: [
 proof_witness_indices: [ 262 263 264 265 266 267 ]
 has_data: 0
 
-constants: start_historic_blocks_tree_roots_snapshot: root: 0x500
+constants: start_historic_blocks_tree_roots_snapshot:
+root: 0x500
 next_available_leaf_index: 1280
 
 private_kernel_vk_tree_root: 0x601

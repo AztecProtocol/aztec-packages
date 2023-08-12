@@ -1,7 +1,8 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`structs/kernel serializes and prints CombinedAccumulatedData 1`] = `
-"aggregation_object: P0: { 0x1, 0x2 }
+"aggregation_object:
+P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
  0x3
@@ -189,7 +190,10 @@ value: 0xe09
 exports[`structs/kernel serializes and prints EcdsaSignature 1`] = `"{ 0101010101010101010101010101010101010101010101010101010101010101, 0101010101010101010101010101010101010101010101010101010101010101 }"`;
 
 exports[`structs/kernel serializes and prints previous_kernel_data 1`] = `
-"public_inputs: end: aggregation_object: P0: { 0x1, 0x2 }
+"public_inputs:
+end:
+aggregation_object:
+P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
  0x3
@@ -372,7 +376,9 @@ value: 0xe08
 value: 0xe09
  ]
 
-constants: block_data: private_data_tree_root: 0x101
+constants:
+block_data:
+private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -381,10 +387,12 @@ private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
 prev_global_variables_hash: 0x108
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x105
+contract_deployment_data: deployer_public_key:
+x: 0x105
 y: 0x106
 
 constructor_vk_hash: 0x106
@@ -414,17 +422,20 @@ vk_path: [ 0x1000 0x1001 0x1002 ]
 `;
 
 exports[`structs/kernel serializes and prints private_kernel_inputs_init 1`] = `
-"tx_request: origin: 0x1
+"tx_request:
+origin: 0x1
 function_data: function_selector: 257
 is_internal: 0
 is_private: 1
 is_constructor: 1
 
 args_hash: 0x201
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x401
+contract_deployment_data: deployer_public_key:
+x: 0x401
 y: 0x402
 
 constructor_vk_hash: 0x402
@@ -436,13 +447,16 @@ chain_id: 0x0
 version: 0x0
 
 
-private_call: call_stack_item: contract_address: 0x1001
+private_call:
+call_stack_item:
+contract_address: 0x1001
 function_data: function_selector: 4098
 is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1012
+public_inputs: call_context:
+msg_sender: 0x1012
 storage_contract_address: 0x1013
 portal_contract_address: 0x1014
 is_delegate_call: 1
@@ -469,7 +483,8 @@ historic_l1_to_l2_messages_tree_root: 0x2011
 historic_blocks_tree_root: 0x2111
 historic_global_variables_hash: 0x2211
 historic_public_data_tree_root: 0x2311
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -488,7 +503,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1022
+public_inputs: call_context:
+msg_sender: 0x1022
 storage_contract_address: 0x1023
 portal_contract_address: 0x1024
 is_delegate_call: 1
@@ -515,7 +531,8 @@ historic_l1_to_l2_messages_tree_root: 0x2021
 historic_blocks_tree_root: 0x2121
 historic_global_variables_hash: 0x2221
 historic_public_data_tree_root: 0x2321
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -533,7 +550,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1023
+public_inputs: call_context:
+msg_sender: 0x1023
 storage_contract_address: 0x1024
 portal_contract_address: 0x1025
 is_delegate_call: 1
@@ -560,7 +578,8 @@ historic_l1_to_l2_messages_tree_root: 0x2022
 historic_blocks_tree_root: 0x2122
 historic_global_variables_hash: 0x2222
 historic_public_data_tree_root: 0x2322
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -578,7 +597,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1024
+public_inputs: call_context:
+msg_sender: 0x1024
 storage_contract_address: 0x1025
 portal_contract_address: 0x1026
 is_delegate_call: 1
@@ -605,7 +625,8 @@ historic_l1_to_l2_messages_tree_root: 0x2023
 historic_blocks_tree_root: 0x2123
 historic_global_variables_hash: 0x2223
 historic_public_data_tree_root: 0x2323
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -623,7 +644,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1025
+public_inputs: call_context:
+msg_sender: 0x1025
 storage_contract_address: 0x1026
 portal_contract_address: 0x1027
 is_delegate_call: 1
@@ -650,7 +672,8 @@ historic_l1_to_l2_messages_tree_root: 0x2024
 historic_blocks_tree_root: 0x2124
 historic_global_variables_hash: 0x2224
 historic_public_data_tree_root: 0x2324
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -703,7 +726,11 @@ acir_hash: 0x1061
 `;
 
 exports[`structs/kernel serializes and prints private_kernel_inputs_inner 1`] = `
-"previous_kernel: public_inputs: end: aggregation_object: P0: { 0x1, 0x2 }
+"previous_kernel:
+public_inputs:
+end:
+aggregation_object:
+P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
  0x3
@@ -886,7 +913,9 @@ value: 0xe08
 value: 0xe09
  ]
 
-constants: block_data: private_data_tree_root: 0x101
+constants:
+block_data:
+private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -895,10 +924,12 @@ private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
 prev_global_variables_hash: 0x108
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x105
+contract_deployment_data: deployer_public_key:
+x: 0x105
 y: 0x106
 
 constructor_vk_hash: 0x106
@@ -925,13 +956,16 @@ key.recursive_proof_public_input_indices: [ 400 401 402 403 404 ]
 vk_index: 66
 vk_path: [ 0x1000 0x1001 0x1002 ]
 
-private_call: call_stack_item: contract_address: 0x1001
+private_call:
+call_stack_item:
+contract_address: 0x1001
 function_data: function_selector: 4098
 is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1012
+public_inputs: call_context:
+msg_sender: 0x1012
 storage_contract_address: 0x1013
 portal_contract_address: 0x1014
 is_delegate_call: 1
@@ -958,7 +992,8 @@ historic_l1_to_l2_messages_tree_root: 0x2011
 historic_blocks_tree_root: 0x2111
 historic_global_variables_hash: 0x2211
 historic_public_data_tree_root: 0x2311
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -977,7 +1012,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1022
+public_inputs: call_context:
+msg_sender: 0x1022
 storage_contract_address: 0x1023
 portal_contract_address: 0x1024
 is_delegate_call: 1
@@ -1004,7 +1040,8 @@ historic_l1_to_l2_messages_tree_root: 0x2021
 historic_blocks_tree_root: 0x2121
 historic_global_variables_hash: 0x2221
 historic_public_data_tree_root: 0x2321
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -1022,7 +1059,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1023
+public_inputs: call_context:
+msg_sender: 0x1023
 storage_contract_address: 0x1024
 portal_contract_address: 0x1025
 is_delegate_call: 1
@@ -1049,7 +1087,8 @@ historic_l1_to_l2_messages_tree_root: 0x2022
 historic_blocks_tree_root: 0x2122
 historic_global_variables_hash: 0x2222
 historic_public_data_tree_root: 0x2322
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -1067,7 +1106,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1024
+public_inputs: call_context:
+msg_sender: 0x1024
 storage_contract_address: 0x1025
 portal_contract_address: 0x1026
 is_delegate_call: 1
@@ -1094,7 +1134,8 @@ historic_l1_to_l2_messages_tree_root: 0x2023
 historic_blocks_tree_root: 0x2123
 historic_global_variables_hash: 0x2223
 historic_public_data_tree_root: 0x2323
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -1112,7 +1153,8 @@ is_internal: 0
 is_private: 1
 is_constructor: 1
 
-public_inputs: call_context: msg_sender: 0x1025
+public_inputs: call_context:
+msg_sender: 0x1025
 storage_contract_address: 0x1026
 portal_contract_address: 0x1027
 is_delegate_call: 1
@@ -1139,7 +1181,8 @@ historic_l1_to_l2_messages_tree_root: 0x2024
 historic_blocks_tree_root: 0x2124
 historic_global_variables_hash: 0x2224
 historic_public_data_tree_root: 0x2324
-contract_deployment_data: deployer_public_key: x: 0x1
+contract_deployment_data: deployer_public_key:
+x: 0x1
 y: 0x2
 
 constructor_vk_hash: 0x2
@@ -1192,7 +1235,9 @@ acir_hash: 0x1061
 `;
 
 exports[`structs/kernel serializes and prints private_kernel_public_inputs 1`] = `
-"end: aggregation_object: P0: { 0x1, 0x2 }
+"end:
+aggregation_object:
+P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
  0x3
@@ -1375,7 +1420,9 @@ value: 0xe08
 value: 0xe09
  ]
 
-constants: block_data: private_data_tree_root: 0x101
+constants:
+block_data:
+private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -1384,10 +1431,12 @@ private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
 prev_global_variables_hash: 0x108
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x105
+contract_deployment_data: deployer_public_key:
+x: 0x105
 y: 0x106
 
 constructor_vk_hash: 0x106
@@ -1404,7 +1453,11 @@ is_private: 1
 `;
 
 exports[`structs/kernel serializes and prints public_kernel_inputs 1`] = `
-"previous_kernel: public_inputs: end: aggregation_object: P0: { 0x1, 0x2 }
+"previous_kernel:
+public_inputs:
+end:
+aggregation_object:
+P0: { 0x1, 0x2 }
 P1: { 0x101, 0x102 }
 public_inputs: [
  0x3
@@ -1587,7 +1640,9 @@ value: 0xe08
 value: 0xe09
  ]
 
-constants: block_data: private_data_tree_root: 0x101
+constants:
+block_data:
+private_data_tree_root: 0x101
 nullifier_tree_root: 0x102
 contract_tree_root: 0x103
 l1_to_l2_messages_tree_root: 0x104
@@ -1596,10 +1651,12 @@ private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
 prev_global_variables_hash: 0x108
 
-tx_context: is_fee_payment_tx: 0
+tx_context:
+is_fee_payment_tx: 0
 is_rebate_payment_tx: 0
 is_contract_deployment_tx: 1
-contract_deployment_data: deployer_public_key: x: 0x105
+contract_deployment_data: deployer_public_key:
+x: 0x105
 y: 0x106
 
 constructor_vk_hash: 0x106
@@ -1626,13 +1683,16 @@ key.recursive_proof_public_input_indices: [ 400 401 402 403 404 ]
 vk_index: 66
 vk_path: [ 0x1000 0x1001 0x1002 ]
 
-public_call: call_stack_item: contract_address: 0x1001
+public_call:
+call_stack_item:
+contract_address: 0x1001
 function_data: function_selector: 4098
 is_internal: 0
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1011
+public_inputs: call_context:
+msg_sender: 0x1011
 storage_contract_address: 0x1001
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
@@ -1700,7 +1760,8 @@ is_internal: 0
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1001
+public_inputs: call_context:
+msg_sender: 0x1001
 storage_contract_address: 0x1301
 portal_contract_address: 0x1313131313131313131313131313131313131313
 is_delegate_call: 0
@@ -1767,7 +1828,8 @@ is_internal: 0
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1001
+public_inputs: call_context:
+msg_sender: 0x1001
 storage_contract_address: 0x1302
 portal_contract_address: 0x1414141414141414141414141414141414141414
 is_delegate_call: 0
@@ -1834,7 +1896,8 @@ is_internal: 0
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1001
+public_inputs: call_context:
+msg_sender: 0x1001
 storage_contract_address: 0x1303
 portal_contract_address: 0x1515151515151515151515151515151515151515
 is_delegate_call: 0
@@ -1901,7 +1964,8 @@ is_internal: 0
 is_private: 0
 is_constructor: 0
 
-public_inputs: call_context: msg_sender: 0x1001
+public_inputs: call_context:
+msg_sender: 0x1001
 storage_contract_address: 0x1304
 portal_contract_address: 0x1616161616161616161616161616161616161616
 is_delegate_call: 0
