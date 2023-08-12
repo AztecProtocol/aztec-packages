@@ -1,10 +1,12 @@
 #pragma once
 
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 
 namespace aztec3::circuits::abis {
 
+using aztec3::utils::is_array_empty;
 using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 using std::is_same;
@@ -17,6 +19,8 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
     std::array<fr, N> sibling_path{};
 
     MSGPACK_FIELDS(leaf_index, sibling_path);
+    // for schema serialization
+    void msgpack_schema(auto& packer) const { packer.pack_with_name("MembershipWitness" + std::to_string(N), *this); }
     boolean operator==(MembershipWitness<NCT, N> const& other) const
     {
         return leaf_index == other.leaf_index && sibling_path == other.sibling_path;
@@ -36,22 +40,32 @@ template <typename NCT, unsigned int N> struct MembershipWitness {
 
         return witness;
     }
-};
 
-template <typename NCT, unsigned int N> void read(uint8_t const*& it, MembershipWitness<NCT, N>& obj)
-{
-    using serialize::read;
+    template <typename Builder> MembershipWitness<NativeTypes, N> to_native_type() const
+    {
+        static_assert((std::is_same<CircuitTypes<Builder>, NCT>::value));
 
-    read(it, obj.leaf_index);
-    read(it, obj.sibling_path);
-};
+        auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
-template <typename NCT, unsigned int N> void write(std::vector<uint8_t>& buf, MembershipWitness<NCT, N> const& obj)
-{
-    using serialize::write;
+        MembershipWitness<NativeTypes, N> witness = {
+            to_nt(leaf_index),
+            map(sibling_path, to_nt),
+        };
 
-    write(buf, obj.leaf_index);
-    write(buf, obj.sibling_path);
+        return witness;
+    }
+
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+
+        leaf_index.set_public();
+        for (fr const& e : sibling_path) {
+            e.set_public();
+        }
+    }
+
+    boolean is_empty() const { return aztec3::utils::is_empty(leaf_index) && is_array_empty(sibling_path); }
 };
 
 template <typename NCT, unsigned int N> std::ostream& operator<<(std::ostream& os, MembershipWitness<NCT, N> const& obj)

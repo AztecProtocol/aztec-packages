@@ -1,20 +1,29 @@
 import {
   AppendOnlyTreeSnapshot,
   CircuitsWasm,
+  Fr,
   GlobalVariables,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/circuits.js';
-import { INITIAL_LEAF, Pedersen, SiblingPath } from '@aztec/merkle-tree';
-import { ContractData, L2Block, L2BlockL2Logs, L2BlockSource, MerkleTreeId, PublicDataWrite } from '@aztec/types';
-import { jest } from '@jest/globals';
-import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { createLogger } from '@aztec/foundation/log';
+import { INITIAL_LEAF, Pedersen } from '@aztec/merkle-tree';
+import {
+  ContractData,
+  L2Block,
+  L2BlockL2Logs,
+  L2BlockSource,
+  MerkleTreeId,
+  PublicDataWrite,
+  SiblingPath,
+} from '@aztec/types';
+
+import { jest } from '@jest/globals';
 import times from 'lodash.times';
 
 import { MerkleTreeDb } from '../index.js';
@@ -66,19 +75,15 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     startPrivateDataTreeSnapshot: getMockTreeSnapshot(),
     startNullifierTreeSnapshot: getMockTreeSnapshot(),
     startContractTreeSnapshot: getMockTreeSnapshot(),
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: getMockTreeSnapshot(),
-    startTreeOfHistoricContractTreeRootsSnapshot: getMockTreeSnapshot(),
     startPublicDataTreeRoot: Fr.random(),
     startL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: getMockTreeSnapshot(),
+    startHistoricBlocksTreeSnapshot: getMockTreeSnapshot(),
     endPrivateDataTreeSnapshot: getMockTreeSnapshot(),
     endNullifierTreeSnapshot: getMockTreeSnapshot(),
     endContractTreeSnapshot: getMockTreeSnapshot(),
-    endTreeOfHistoricPrivateDataTreeRootsSnapshot: getMockTreeSnapshot(),
-    endTreeOfHistoricContractTreeRootsSnapshot: getMockTreeSnapshot(),
     endPublicDataTreeRoot: Fr.random(),
     endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
-    endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: getMockTreeSnapshot(),
+    endHistoricBlocksTreeSnapshot: getMockTreeSnapshot(),
     newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
     newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
     newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
@@ -94,7 +99,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
 const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
   new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTreeDb, rollupSource as L2BlockSource);
 
-const log = createLogger('aztec:server_world_state_synchroniser_test');
+const log = createDebugLogger('aztec:server_world_state_synchroniser_test');
 
 describe('server_world_state_synchroniser', () => {
   const rollupSource: Mockify<Pick<L2BlockSource, 'getBlockHeight' | 'getL2Blocks'>> = {
@@ -117,7 +122,7 @@ describe('server_world_state_synchroniser', () => {
         SiblingPath.ZERO(32, INITIAL_LEAF, pedersen);
       }; //Promise.resolve();
     }),
-    updateHistoricRootsTrees: jest.fn().mockImplementation(() => Promise.resolve()),
+    updateHistoricBlocksTree: jest.fn().mockImplementation(() => Promise.resolve()),
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
     handleL2Block: jest.fn().mockImplementation(() => Promise.resolve()),

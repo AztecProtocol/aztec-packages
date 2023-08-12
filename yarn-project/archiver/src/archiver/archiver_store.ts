@@ -1,19 +1,20 @@
+import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
+import { AztecAddress } from '@aztec/foundation/aztec-address';
 import {
-  ContractPublicData,
-  L2Block,
-  INITIAL_L2_BLOCK_NUM,
   ContractData,
+  ContractDataAndBytecode,
+  INITIAL_L2_BLOCK_NUM,
   L1ToL2Message,
+  L2Block,
   L2BlockL2Logs,
   LogType,
 } from '@aztec/types';
-import { Fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
+
 import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 /**
  * Interface describing a data store to be used by the archiver to store all its relevant data
- * (blocks, encrypted logs, aztec contract public data).
+ * (blocks, encrypted logs, aztec contract data and bytecode).
  */
 export interface ArchiverDataStore {
   /**
@@ -24,12 +25,12 @@ export interface ArchiverDataStore {
   addL2Blocks(blocks: L2Block[]): Promise<boolean>;
 
   /**
-   * Gets the `take` amount of L2 blocks starting from `from`.
+   * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
-   * @param take - The number of blocks to return.
+   * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  getL2Blocks(from: number, take: number): Promise<L2Block[]>;
+  getL2Blocks(from: number, limit: number): Promise<L2Block[]>;
 
   /**
    * Append new logs to the store's list.
@@ -62,11 +63,11 @@ export interface ArchiverDataStore {
   confirmL1ToL2Messages(messageKeys: Fr[]): Promise<boolean>;
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages, sorted by fee
-   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
+   * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 message keys.
    */
-  getPendingL1ToL2MessageKeys(take: number): Promise<Fr[]>;
+  getPendingL1ToL2MessageKeys(limit: number): Promise<Fr[]>;
 
   /**
    * Gets the confirmed L1 to L2 message corresponding to the given message key.
@@ -76,35 +77,35 @@ export interface ArchiverDataStore {
   getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message>;
 
   /**
-   * Gets the `take` amount of logs starting from `from`.
+   * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param take - The number of logs to return.
+   * @param limit - The number of logs to return.
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]>;
+  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Store new Contract Public Data from an L2 block to the store's list.
+   * Store new Contract data and bytecode from an L2 block to the store's list.
    * @param data - List of contracts' data to be added.
    * @param blockNum - Number of the L2 block the contract data was deployed in.
    * @returns True if the operation is successful.
    */
-  addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean>;
+  addContractDataAndBytecode(data: ContractDataAndBytecode[], blockNum: number): Promise<boolean>;
 
   /**
    * Lookup the L2 contract data for a contract address.
    * @param contractAddress - The contract data address.
    * @returns The contract's public data.
    */
-  getL2ContractPublicData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
 
   /**
-   * Lookup all contract data in an L2 block.
+   * Lookup all contract data and bytecode in an L2 block.
    * @param blockNum - The block number to get all contract data from.
-   * @returns All contract public data in the block (if found).
+   * @returns All contract data and bytecode in the block (if found).
    */
-  getL2ContractPublicDataInBlock(blockNum: number): Promise<ContractPublicData[]>;
+  getContractDataAndBytecodeInBlock(blockNum: number): Promise<ContractDataAndBytecode[]>;
 
   /**
    * Get basic info for an L2 contract.
@@ -112,7 +113,7 @@ export interface ArchiverDataStore {
    * @param contractAddress - The contract data address.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Get basic info for an all L2 contracts deployed in a block.
@@ -120,7 +121,7 @@ export interface ArchiverDataStore {
    * @param l2BlockNum - Number of the L2 block where contracts were deployed.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  getL2ContractInfoInBlock(l2BlockNum: number): Promise<ContractData[] | undefined>;
+  getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined>;
 
   /**
    * Gets the number of the latest L2 block processed.
@@ -157,9 +158,14 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   private unencryptedLogs: L2BlockL2Logs[] = [];
 
   /**
-   * A sparse array containing all the contract data that have been fetched so far.
+   * A sparse array containing all the contract data and bytecode that have been fetched so far.
    */
-  private contractPublicData: (ContractPublicData[] | undefined)[] = [];
+  private contractDataAndBytecodeByBlock: (ContractDataAndBytecode[] | undefined)[] = [];
+
+  /**
+   * A mapping of contract address to contract data and bytecode.
+   */
+  private contractDataAndBytecode: Map<string, ContractDataAndBytecode> = new Map();
 
   /**
    * Contains all the confirmed L1 to L2 messages (i.e. messages that were consumed in an L2 block)
@@ -234,45 +240,53 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Store new Contract Public Data from an L2 block to the store's list.
+   * Store new Contract data and bytecode from an L2 block to the store's list.
    * @param data - List of contracts' data to be added.
    * @param blockNum - Number of the L2 block the contract data was deployed in.
    * @returns True if the operation is successful (always in this implementation).
    */
-  public addL2ContractPublicData(data: ContractPublicData[], blockNum: number): Promise<boolean> {
-    if (this.contractPublicData[blockNum]?.length) {
-      this.contractPublicData[blockNum]?.push(...data);
+  public addContractDataAndBytecode(data: ContractDataAndBytecode[], blockNum: number): Promise<boolean> {
+    // Add to the contracts mapping
+    for (const contractData of data) {
+      const key = contractData.contractData.contractAddress.toString();
+      this.contractDataAndBytecode.set(key, contractData);
+    }
+
+    // Add the index per block
+    if (this.contractDataAndBytecodeByBlock[blockNum]?.length) {
+      this.contractDataAndBytecodeByBlock[blockNum]?.push(...data);
     } else {
-      this.contractPublicData[blockNum] = [...data];
+      this.contractDataAndBytecodeByBlock[blockNum] = [...data];
     }
     return Promise.resolve(true);
   }
 
   /**
-   * Gets the `take` amount of L2 blocks starting from `from`.
+   * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
-   * @param take - The number of blocks to return.
+   * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks.
    */
-  public getL2Blocks(from: number, take: number): Promise<L2Block[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
+  public getL2Blocks(from: number, limit: number): Promise<L2Block[]> {
+    // Return an empty array if we are outside of range
+    if (limit < 1) {
+      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
     }
-    if (from > this.l2Blocks.length) {
+    if (from < INITIAL_L2_BLOCK_NUM || from > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    const endIndex = from + take;
+    const endIndex = startIndex + limit;
     return Promise.resolve(this.l2Blocks.slice(startIndex, endIndex));
   }
 
   /**
-   * Gets the `take` amount of pending L1 to L2 messages, sorted by fee
-   * @param take - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
+   * Gets up to `limit` amount of pending L1 to L2 messages, sorted by fee
+   * @param limit - The number of messages to return (by default NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).
    * @returns The requested L1 to L2 message keys.
    */
-  public getPendingL1ToL2MessageKeys(take: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
-    return Promise.resolve(this.pendingL1ToL2Messages.getMessageKeys(take));
+  public getPendingL1ToL2MessageKeys(limit: number = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP): Promise<Fr[]> {
+    return Promise.resolve(this.pendingL1ToL2Messages.getMessageKeys(limit));
   }
 
   /**
@@ -283,28 +297,28 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   public getConfirmedL1ToL2Message(messageKey: Fr): Promise<L1ToL2Message> {
     const message = this.confirmedL1ToL2Messages.getMessage(messageKey);
     if (!message) {
-      throw new Error(`Message with key ${messageKey.toString()} not found`);
+      throw new Error(`L1 to L2 Message with key ${messageKey.toString()} not found in the confirmed messages store`);
     }
     return Promise.resolve(message);
   }
 
   /**
-   * Gets the `take` amount of logs starting from `from`.
+   * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param take - The number of logs to return.
+   * @param limit - The number of logs to return.
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
-    if (from < INITIAL_L2_BLOCK_NUM) {
-      throw new Error(`Invalid block range ${from}`);
+  getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+    if (from < INITIAL_L2_BLOCK_NUM || limit < 1) {
+      throw new Error(`Invalid block range from: ${from}, limit: ${limit}`);
     }
     const logs = logType === LogType.ENCRYPTED ? this.encryptedLogs : this.unencryptedLogs;
     if (from > logs.length) {
       return Promise.resolve([]);
     }
     const startIndex = from - INITIAL_L2_BLOCK_NUM;
-    const endIndex = from + take;
+    const endIndex = startIndex + limit;
     return Promise.resolve(logs.slice(startIndex, endIndex));
   }
 
@@ -313,29 +327,21 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param contractAddress - The contract data address.
    * @returns The contract's public data.
    */
-  public getL2ContractPublicData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    let result;
-    for (let i = INITIAL_L2_BLOCK_NUM; i < this.contractPublicData.length; i++) {
-      const contracts = this.contractPublicData[i];
-      const contract = contracts?.find(c => c.contractData.contractAddress.equals(contractAddress));
-      if (contract) {
-        result = contract;
-        break;
-      }
-    }
+  public getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    const result = this.contractDataAndBytecode.get(contractAddress.toString());
     return Promise.resolve(result);
   }
 
   /**
    * Lookup all contract data in an L2 block.
    * @param blockNum - The block number to get all contract data from.
-   * @returns All contract public data in the block (if found).
+   * @returns All contract data and bytecode in the block (if found).
    */
-  public getL2ContractPublicDataInBlock(blockNum: number): Promise<ContractPublicData[]> {
+  public getContractDataAndBytecodeInBlock(blockNum: number): Promise<ContractDataAndBytecode[]> {
     if (blockNum > this.l2Blocks.length) {
       return Promise.resolve([]);
     }
-    return Promise.resolve(this.contractPublicData[blockNum] || []);
+    return Promise.resolve(this.contractDataAndBytecodeByBlock[blockNum] || []);
   }
 
   /**
@@ -344,7 +350,10 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param contractAddress - The contract data address.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  public getL2ContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+  public getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    if (contractAddress.isZero()) {
+      return Promise.resolve(undefined);
+    }
     for (const block of this.l2Blocks) {
       for (const contractData of block.newContractData) {
         if (contractData.contractAddress.equals(contractAddress)) {
@@ -361,7 +370,7 @@ export class MemoryArchiverStore implements ArchiverDataStore {
    * @param l2BlockNum - Number of the L2 block where contracts were deployed.
    * @returns ContractData with the portal address (if we didn't throw an error).
    */
-  public getL2ContractInfoInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
+  public getContractDataInBlock(l2BlockNum: number): Promise<ContractData[] | undefined> {
     if (l2BlockNum > this.l2Blocks.length) {
       return Promise.resolve([]);
     }

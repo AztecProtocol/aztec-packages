@@ -1,6 +1,6 @@
-import { randomBytes } from 'crypto';
-import { BufferReader } from '../serialize/buffer_reader.js';
 import { toBigIntBE, toBufferBE, toHex } from '../bigint-buffer/index.js';
+import { randomBytes } from '../crypto/index.js';
+import { BufferReader } from '../serialize/buffer_reader.js';
 
 /**
  * Fr represents a field of integers modulo the prime number MODULUS.
@@ -16,13 +16,14 @@ export class Fr {
   /**
    * The numeric value of the field element as a bigint.
    */
-  public readonly value;
+  public readonly value: bigint;
 
-  constructor(value: bigint | number) {
-    this.value = BigInt(value);
-    // if (value > Fr.MAX_VALUE) {
-    //   throw new Error(`Fr out of range ${value}.`);
-    // }
+  constructor(value: bigint | number | Fr) {
+    const isFr = (value: bigint | number | Fr): value is Fr => !!(value as Fr).toBigInt;
+    this.value = isFr(value) ? value.toBigInt() : BigInt(value);
+    if (this.value > Fr.MAX_VALUE) {
+      throw new Error(`Fr out of range ${value}.`);
+    }
   }
 
   /**
@@ -95,6 +96,15 @@ export class Fr {
   }
 
   /**
+   * Retrieves the underlying bigint.
+   * This method mostly exists to match user expectations, as value is already public.
+   * @returns The underlying bigint.
+   */
+  public toBigInt(): bigint {
+    return this.value;
+  }
+
+  /**
    * Returns a shortened string representation of the Fr value, formatted with '0x' prefix and ellipsis in the middle.
    * The resulting string has first 10 characters (including '0x') and last 4 characters of the full hexadecimal value.
    *
@@ -161,7 +171,7 @@ export class Fq {
     public readonly value: bigint,
   ) {
     if (value > Fq.MAX_VALUE) {
-      throw new Error(`Fr out of range ${value}.`);
+      throw new Error(`Fq out of range ${value}.`);
     }
   }
 

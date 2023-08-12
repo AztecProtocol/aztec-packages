@@ -1,6 +1,9 @@
-import { PrivateHistoricTreeRoots, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantHistoricBlockData, ReadRequestMembershipWitness, TxContext } from '@aztec/circuits.js';
+import { siloNullifier } from '@aztec/circuits.js/abis';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
+
 import {
   ACVMField,
   fromACVMField,
@@ -9,19 +12,8 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
-import { DBOracle } from './db_oracle.js';
-
-/**
- * Information about a note created during execution.
- */
-export type PendingNoteData = {
-  /** The preimage of the created note */
-  preimage: ACVMField[];
-  /** The contract address of the commitment. */
-  contractAddress: AztecAddress;
-  /** The storage slot of the commitment. */
-  storageSlot: Fr;
-};
+import { DBOracle, PendingNoteData } from './db_oracle.js';
+import { pickNotes } from './pick_notes.js';
 
 /**
  * The execution context for a client tx simulation.
@@ -32,17 +24,29 @@ export class ClientTxExecutionContext {
   // output by an app circuit via public inputs.
   private readRequestPartialWitnesses: ReadRequestMembershipWitness[] = [];
 
+  /** Logger instance */
+  private logger = createDebugLogger('aztec:simulator:execution_context');
+
   constructor(
     /**  The database oracle. */
     public db: DBOracle,
+    /** The tx nullifier, which is also the first nullifier. This will be used to compute the nonces for pending notes. */
+    private txNullifier: Fr,
     /** The tx context. */
     public txContext: TxContext,
-    /** The old roots. */
-    public historicRoots: PrivateHistoricTreeRoots,
+    /** Data required to reconstruct the block hash, it contains historic roots. */
+    public constantHistoricBlockData: ConstantHistoricBlockData,
     /** The cache of packed arguments */
     public packedArgsCache: PackedArgsCache,
-    /** Pending commitments created (and not nullified) up to current point in execution **/
-    public pendingNotes: PendingNoteData[] = [],
+    /** Pending notes created (and not nullified) up to current point in execution.
+     *  If a nullifier for a note in this list is emitted, the note will be REMOVED. */
+    private pendingNotes: PendingNoteData[] = [],
+    /** The list of nullifiers created in this transaction. The commitment/note which is nullified
+     *  might be pending or not (i.e., was generated in a previous transaction)
+     *  Note that their value (bigint representation) is used because Frs cannot be looked up in Sets. */
+    private pendingNullifiers: Set<bigint> = new Set<bigint>(),
+
+    private log = createDebugLogger('aztec:simulator:client_execution_context'),
   ) {}
 
   /**
@@ -52,10 +56,12 @@ export class ClientTxExecutionContext {
   public extend() {
     return new ClientTxExecutionContext(
       this.db,
+      this.txNullifier,
       this.txContext,
-      this.historicRoots,
+      this.constantHistoricBlockData,
       this.packedArgsCache,
       this.pendingNotes,
+      this.pendingNullifiers,
     );
   }
 
@@ -68,14 +74,25 @@ export class ClientTxExecutionContext {
   }
 
   /**
+   * For getting secret key.
+   * @param contractAddress - The contract address.
+   * @param ownerX - The x coordinate of the owner's public key.
+   * @param ownerY - The y coordinate of the owner's public key.
+   * @returns The secret key of the owner.
+   */
+  public async getSecretKey(contractAddress: AztecAddress, ownerX: ACVMField, ownerY: ACVMField) {
+    return toACVMField(
+      (await this.db.getSecretKey(contractAddress, new Point(fromACVMField(ownerX), fromACVMField(ownerY)))).value,
+    );
+  }
+
+  /**
    * Gets some notes for a contract address and storage slot.
    * Returns a flattened array containing real-note-count and note preimages.
    *
    * @remarks
    *
    * Check for pending notes with matching address/slot.
-   * If limit isn't reached after pending notes are checked/retrieved,
-   * fetchNotes from DB with modified limit.
    * Real notes coming from DB will have a leafIndex which
    * represents their index in the private data tree.
    *
@@ -87,13 +104,14 @@ export class ClientTxExecutionContext {
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param sortBy - The sort by fields.
-   * @param sortOrder - The sort order fields.
-   * @param limit - The limit.
-   * @param offset - The offset.
+   * @param sortBy - An array of indices of the fields to sort.
+   * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
+   * @param limit - The number of notes to retrieve per query.
+   * @param offset - The starting index for pagination.
    * @param returnSize - The return size.
    * @returns Flattened array of ACVMFields (format expected by Noir/ACVM) containing:
    * count - number of real (non-padding) notes retrieved,
+   * contractAddress - the contract address,
    * preimages - the real note preimages retrieved, and
    * paddedZeros - zeros to ensure an array with length returnSize expected by Noir circuit
    */
@@ -102,40 +120,76 @@ export class ClientTxExecutionContext {
     storageSlot: ACVMField,
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
-    limit: ACVMField,
-    offset: ACVMField,
-    returnSize: ACVMField,
-  ) {
-    const { pendingCount, pendingPreimages } = this.getPendingNotes(
-      contractAddress,
-      storageSlot,
-      sortBy,
-      sortOrder,
+    limit: number,
+    offset: number,
+    returnSize: number,
+  ): Promise<ACVMField[]> {
+    const storageSlotField = fromACVMField(storageSlot);
+
+    const pendingNotes = this.pendingNotes.filter(
+      n => n.contractAddress.equals(contractAddress) && n.storageSlot.equals(storageSlotField),
+    );
+
+    const dbNotes = await this.db.getNotes(contractAddress, storageSlotField);
+
+    const dbNotesFiltered = dbNotes.filter(n => !this.pendingNullifiers.has((n.siloedNullifier as Fr).value));
+
+    // Nullified pending notes are already removed from the list.
+    const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
+      sortBy: sortBy.map(field => +field),
+      sortOrder: sortOrder.map(field => +field),
       limit,
       offset,
+    });
+
+    this.logger(
+      `Returning ${notes.length} notes for ${contractAddress} at ${storageSlotField}: ${notes
+        .map(n => `${n.nonce.toString()}:[${n.preimage.map(i => i.toString()).join(',')}]`)
+        .join(', ')}`,
     );
 
-    const dbLimit = +limit - pendingCount;
-    const { count: dbCount, notes: dbNotes } = await this.db.getNotes(
-      contractAddress,
-      fromACVMField(storageSlot),
-      sortBy.map(field => +field),
-      sortOrder.map(field => +field),
-      dbLimit,
-      +offset,
-    );
-    // Noir (ACVM) expects a flattened (basically serialized) array of ACVMFields
-    const dbPreimages = dbNotes.flatMap(({ preimage }) => preimage).map(f => toACVMField(f));
+    // TODO: notice, that if we don't have a note in our DB, we don't know how big the preimage needs to be, and so we don't actually know how many dummy notes to return, or big to make those dummy notes, or where to position `is_some` booleans to inform the noir program that _all_ the notes should be dummies.
+    // By a happy coincidence, a `0` field is interpreted as `is_none`, and since in this case (of an empty db) we'll return all zeros (paddedZeros), the noir program will treat the returned data as all dummies, but this is luck. Perhaps a preimage size should be conveyed by the get_notes noir oracle?
+    const preimageLength = notes?.[0]?.preimage.length ?? 0;
+    if (
+      !notes.every(({ preimage }) => {
+        return preimageLength === preimage.length;
+      })
+    )
+      throw new Error('Preimages for a particular note type should all be the same length');
 
     // Combine pending and db preimages into a single flattened array.
-    const preimages = [...pendingPreimages, ...dbPreimages];
+    const isSome = new Fr(1); // Boolean. Indicates whether the Noir Option<Note>::is_some();
 
-    // Add a partial witness for each note from the db containing only the note index.
-    // By default they will be flagged as non-transient.
-    this.readRequestPartialWitnesses.push(...dbNotes.map(note => ReadRequestMembershipWitness.empty(note.index)));
+    const realNotePreimages = notes.flatMap(({ nonce, preimage }) => [nonce, isSome, ...preimage]);
 
-    const paddedZeros = Array(+returnSize - 1 - preimages.length).fill(toACVMField(Fr.ZERO));
-    return [toACVMField(pendingCount + dbCount), ...preimages, ...paddedZeros];
+    // Add a partial witness for each note.
+    // It contains the note index for db notes. And flagged as transient for pending notes.
+    notes.forEach(({ index }) => {
+      this.readRequestPartialWitnesses.push(
+        index !== undefined ? ReadRequestMembershipWitness.empty(index) : ReadRequestMembershipWitness.emptyTransient(),
+      );
+    });
+
+    const returnHeaderLength = 2; // is for the header values: `notes.length` and `contractAddress`.
+    const extraPreimageLength = 2; // is for the nonce and isSome fields.
+    const extendedPreimageLength = preimageLength + extraPreimageLength;
+    const numRealNotes = notes.length;
+    const numReturnNotes = Math.floor((returnSize - returnHeaderLength) / extendedPreimageLength);
+    const numDummyNotes = numReturnNotes - numRealNotes;
+
+    const dummyNotePreimage = Array(extendedPreimageLength).fill(Fr.ZERO);
+    const dummyNotePreimages = Array(numDummyNotes)
+      .fill(dummyNotePreimage)
+      .flatMap(note => note);
+
+    const paddedZeros = Array(
+      Math.max(0, returnSize - returnHeaderLength - realNotePreimages.length - dummyNotePreimages.length),
+    ).fill(Fr.ZERO);
+
+    return [notes.length, contractAddress, ...realNotePreimages, ...dummyNotePreimages, ...paddedZeros].map(v =>
+      toACVMField(v),
+    );
   }
 
   /**
@@ -145,7 +199,7 @@ export class ClientTxExecutionContext {
    */
   public async getL1ToL2Message(msgKey: Fr): Promise<ACVMField[]> {
     const messageInputs = await this.db.getL1ToL2Message(msgKey);
-    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.historicRoots.l1ToL2MessagesTreeRoot);
+    return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.constantHistoricBlockData.l1ToL2MessagesTreeRoot);
   }
 
   /**
@@ -155,59 +209,71 @@ export class ClientTxExecutionContext {
    * @returns The commitment data.
    */
   public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): only works
+    // for noteHashes/commitments created by public functions! Once public kernel or
+    // base rollup circuit injects nonces, this can be used with commitments created by
+    // private functions as well.
     const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
     this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicRoots.privateDataTreeRoot);
+    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.constantHistoricBlockData.privateDataTreeRoot);
   }
 
   /**
-   * Gets some pending notes for a contract address and storage slot.
-   * Returns number of notes retrieved and a flattened array of fields representing pending notes.
-   *
-   * Details:
-   * Check for pending notes with matching address/slot.
-   * Pending notes will have no leaf index and will be flagged
-   * as transient since they don't exist (yet) in the private data tree.
-   *
-   * This function will partially populate this.readRequestPartialWitnesses solely
-   * to flag these reads as "transient" since they correspond to pending commitments.
-   * The KernelProver will use this to fill in hints to the kernel regarding which
-   * commitments each transient read request corresponds to.
-   *
+   * Process new note created during execution.
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
-   * @param _sortBy - The sort by fields.
-   * @param _sortOrder - The sort order fields.
-   * @param limit - The limit.
-   * @param _offset - The offset.
-   * @returns pendingCount - number of pending notes retrieved, and
-   * pendingPreimages - flattened array of ACVMFields (format expected by Noir/ACVM)
-   * containing the retrieved note preimages
+   * @param preimage - new note preimage.
+   * @param innerNoteHash - inner note hash
    */
-  private getPendingNotes(
-    contractAddress: AztecAddress,
-    storageSlot: ACVMField,
-    _sortBy: ACVMField[],
-    _sortOrder: ACVMField[],
-    limit: ACVMField,
-    _offset: ACVMField,
-  ) {
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/920): don't 'get' notes nullified in pendingNullifiers
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1030): enforce sorting and offset for pending notes
-    let pendingCount = 0;
-    // Noir (ACVM) expects a flattened (basically serialized) array of ACVMFields
-    const pendingPreimages: ACVMField[] = []; // flattened fields representing preimages
-    for (const note of this.pendingNotes) {
-      if (pendingCount == +limit) {
-        break;
-      }
-      if (note.contractAddress.equals(contractAddress) && note.storageSlot.equals(fromACVMField(storageSlot))) {
-        pendingCount++;
-        pendingPreimages.push(...note.preimage); // flattened
-        this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.emptyTransient());
-      }
-    }
-    return { pendingCount, pendingPreimages };
+  public pushNewNote(contractAddress: AztecAddress, storageSlot: Fr, preimage: Fr[], innerNoteHash: Fr) {
+    this.pendingNotes.push({
+      contractAddress,
+      storageSlot: storageSlot,
+      nonce: Fr.ZERO, // nonce is cannot be known during private execution
+      preimage,
+      innerNoteHash,
+    });
+  }
+
+  /**
+   * Adding a siloed nullifier into the current set of all pending nullifiers created
+   * within the current transaction/execution.
+   * @param innerNullifier - The pending nullifier to add in the list (not yet siloed by contract address).
+   * @param contractAddress - The contract address
+   */
+  public async pushNewNullifier(innerNullifier: Fr, contractAddress: AztecAddress) {
+    const wasm = await CircuitsWasm.get();
+    const siloedNullifier = siloNullifier(wasm, contractAddress, innerNullifier);
+    this.pendingNullifiers.add(siloedNullifier.value);
+  }
+
+  /**
+   * Update the list of pending notes by chopping a note which is nullified.
+   * The identifier used to determine matching is the inner note hash value.
+   * However, we adopt a defensive approach and ensure that the contract address
+   * and storage slot do match.
+   * Note that this method might be called with an innerNoteHash referring to
+   * a note created in a previous transaction which will result in this array
+   * of pending notes left unchanged.
+   * @param innerNoteHash - The inner note hash value to which note will be chopped.
+   * @param contractAddress - The contract address
+   * @param storageSlot - The storage slot as a Field Fr element
+   */
+  public nullifyPendingNotes(innerNoteHash: Fr, contractAddress: AztecAddress, storageSlot: Fr) {
+    // IMPORTANT: We do need an in-place array mutation of this.pendingNotes as this array is shared
+    // by reference among the nested calls. That is the main reason for 'splice' usage below.
+    this.pendingNotes.splice(
+      0,
+      this.pendingNotes.length,
+      ...this.pendingNotes.filter(
+        n =>
+          !(
+            n.innerNoteHash.equals(innerNoteHash) &&
+            n.contractAddress.equals(contractAddress) &&
+            n.storageSlot.equals(storageSlot)
+          ),
+      ),
+    );
   }
 }

@@ -1,15 +1,17 @@
-import http from 'http';
-import { foundry } from 'viem/chains';
-import { http as httpViemTransport, createPublicClient, HDAccount } from 'viem';
-
-import { mnemonicToAccount } from 'viem/accounts';
-import { getHttpRpcServer } from '@aztec/aztec-rpc';
+import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { PrivateKey } from '@aztec/circuits.js';
+import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
-import { AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
-import { deployL1Contracts } from '@aztec/ethereum';
+
+import http from 'http';
+import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { createApiRouter } from './routes.js';
+import { github, splash } from './splash.js';
 
 const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
 
@@ -37,7 +39,7 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
       return chainId;
     },
     'isEthRpcReady',
-    30,
+    600,
     1,
   );
 
@@ -55,16 +57,30 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
  */
 async function main() {
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
+  const rpcConfig = getRpcConfigEnvVars();
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
   const deployedL1Contracts = await waitThenDeploy(aztecNodeConfig.rpcUrl, hdAccount);
-  aztecNodeConfig.publisherPrivateKey = Buffer.from(privKey!);
+  aztecNodeConfig.publisherPrivateKey = new PrivateKey(Buffer.from(privKey!));
   aztecNodeConfig.rollupContract = deployedL1Contracts.rollupAddress;
   aztecNodeConfig.contractDeploymentEmitterContract = deployedL1Contracts.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
 
-  const rpcServer = await getHttpRpcServer(aztecNodeConfig);
+  const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
+
+  const shutdown = async () => {
+    logger('Shutting down...');
+    await aztecRpcServer.stop();
+    await aztecNode.stop();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+
+  const rpcServer = getHttpRpcServer(aztecRpcServer);
 
   const app = rpcServer.getApp();
   const apiRouter = createApiRouter(deployedL1Contracts);
@@ -76,8 +92,9 @@ async function main() {
 }
 
 main()
-  .then(() => logger(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
+  .then(() => logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
+  .then(() => logger.info(`${splash}\n${github}\n\n`))
   .catch(err => {
-    logger(err);
+    logger.fatal(err);
     process.exit(1);
   });

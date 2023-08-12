@@ -4,12 +4,12 @@ import {
   CONTRACT_TREE_HEIGHT,
   Fr,
   KernelCircuitPublicInputs,
-  MembershipWitness,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
+  MembershipWitness,
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
-  READ_REQUESTS_LENGTH,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -17,6 +17,7 @@ import {
   makeEmptyProof,
 } from '@aztec/circuits.js';
 import { assertLength } from '@aztec/foundation/serialize';
+
 import { KernelProofCreator, ProofCreator, ProofOutput } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
 
@@ -110,14 +111,14 @@ export class KernelProver {
         if (!rrWitness.isTransient) {
           // Non-transient reads must contain full membership witness with sibling path from commitment to root.
           // Get regular membership witness to fill in sibling path in the read request witness.
-          const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex);
+          const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex.toBigInt());
           rrWitness.siblingPath = membershipWitness.siblingPath;
         }
       }
 
       // fill in witnesses for remaining/empty read requests
       readRequestMembershipWitnesses.push(
-        ...Array(READ_REQUESTS_LENGTH - readRequestMembershipWitnesses.length)
+        ...Array(MAX_READ_REQUESTS_PER_CALL - readRequestMembershipWitnesses.length)
           .fill(0)
           .map(() => ReadRequestMembershipWitness.empty(BigInt(0))),
       );
@@ -161,10 +162,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    // TODO(jeanmon): Temporary milestone where we only feed new commitments of the output
-    // of ordering circuit into the final output. Longer-term goal is to output the ordering circuit output.
-    const orderedOutput = await this.proofCreator.createProofOrdering(previousKernelData);
-    output.publicInputs.end.newCommitments = orderedOutput.publicInputs.end.newCommitments;
+    output = await this.proofCreator.createProofOrdering(previousKernelData);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = output.publicInputs.end.newCommitments;

@@ -1,6 +1,14 @@
+// See https://typescript-eslint.io/play/#ts=5.1.6&showAST=es&fileType=.ts
 const contexts = [
-  'TSMethodDefinition[accessibility=public]',
-  'MethodDefinition[accessibility=public]',
+  // All methods in an interface
+  'TSInterfaceDeclaration TSMethodSignature',
+  // All public methods in a class that does not implement an interface
+  'ClassDeclaration[implements.length=0] MethodDefinition[accessibility=public]',
+  // TODO: All methods public by default in a class that does not implement an interface
+  // 'ClassDeclaration[implements.length=0] MethodDefinition[accessibility=undefined][key.type=Identifier]',
+  // TODO: All export const from the top level of a file
+  // 'ExportNamedDeclaration[declaration.type=VariableDeclaration]',
+  // Legacy contexts (needs review)
   'TSParameterProperty[accessibility=public]',
   'TSPropertySignature',
   'PropertySignature',
@@ -29,7 +37,19 @@ const contexts = [
 const JSDOC_RULES_LEVEL = 'error';
 
 module.exports = {
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended', 'prettier'],
+  extends: [
+    'eslint:recommended',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:import/recommended',
+    'plugin:import/typescript',
+    'prettier',
+  ],
+  settings: {
+    'import/resolver': {
+      typescript: true,
+      node: true,
+    },
+  },
   root: true,
   parser: '@typescript-eslint/parser',
   plugins: ['@typescript-eslint', 'eslint-plugin-tsdoc', 'jsdoc'],
@@ -78,6 +98,18 @@ module.exports = {
         ],
       },
     ],
+    'import/no-unresolved': [
+      'error',
+      {
+        ignore: [
+          // See https://github.com/import-js/eslint-plugin-import/issues/2703
+          '@libp2p/bootstrap',
+          // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
+          '@aztec/l1-artifacts',
+        ],
+      },
+    ],
+    'import/no-extraneous-dependencies': 'error',
     'tsdoc/syntax': JSDOC_RULES_LEVEL,
     'jsdoc/require-jsdoc': [
       JSDOC_RULES_LEVEL,
@@ -96,8 +128,7 @@ module.exports = {
     'jsdoc/require-property': [JSDOC_RULES_LEVEL, { contexts }],
     'jsdoc/require-property-description': [JSDOC_RULES_LEVEL, { contexts }],
     'jsdoc/require-property-name': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-returns': [JSDOC_RULES_LEVEL, { contexts }],
-    'jsdoc/require-returns-description': [JSDOC_RULES_LEVEL, { contexts }],
+    'jsdoc/require-returns': 'off',
   },
   ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs'],
 };

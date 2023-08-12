@@ -1,6 +1,8 @@
-import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
-import { randomBytes } from 'crypto';
 import { sha256 } from '@aztec/foundation/crypto';
+import { Point } from '@aztec/foundation/fields';
+import { BufferReader, serializeBufferToVector } from '@aztec/foundation/serialize';
+
+import { randomBytes } from 'crypto';
 
 /**
  * Data container of logs emitted in 1 function invocation (corresponds to 1 kernel iteration).
@@ -68,8 +70,38 @@ export class FunctionL2Logs {
   public static random(numLogs: number): FunctionL2Logs {
     const logs: Buffer[] = [];
     for (let i = 0; i < numLogs; i++) {
-      logs.push(randomBytes(144));
+      const randomEphPubKey = Point.random();
+      const randomLogContent = randomBytes(144 - Point.SIZE_IN_BYTES);
+      logs.push(Buffer.concat([randomLogContent, randomEphPubKey.toBuffer()]));
     }
+    return new FunctionL2Logs(logs);
+  }
+
+  /**
+   * Creates an empty L2Logs object with no logs.
+   * @returns A new FunctionL2Logs object with no logs.
+   */
+  public static empty(): FunctionL2Logs {
+    return new FunctionL2Logs([]);
+  }
+
+  /**
+   * Convert a FunctionL2Logs class object to a plain JSON object.
+   * @returns A plain object with FunctionL2Logs properties.
+   */
+  public toJSON() {
+    return {
+      logs: this.logs.map(log => log.toString('hex')),
+    };
+  }
+
+  /**
+   * Convert a plain JSON object to a FunctionL2Logs class object.
+   * @param obj - A plain FunctionL2Logs JSON object.
+   * @returns A FunctionL2Logs class object.
+   */
+  public static fromJSON(obj: any) {
+    const logs = obj.logs.map((log: string) => Buffer.from(log, 'hex'));
     return new FunctionL2Logs(logs);
   }
 }

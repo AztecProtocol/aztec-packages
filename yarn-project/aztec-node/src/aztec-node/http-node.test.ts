@@ -1,18 +1,21 @@
-import { AztecAddress, CircuitsWasm, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { Pedersen, SiblingPath } from '@aztec/merkle-tree';
+import { Pedersen } from '@aztec/merkle-tree';
 import {
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
-  mockTx,
+  SiblingPath,
   TxHash,
+  mockTx,
 } from '@aztec/types';
+
 import { jest } from '@jest/globals';
+
 import { HttpNode } from './http-node.js';
 
 const TEST_URL = 'http://aztec-node-url.com/';
@@ -66,7 +69,7 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getBlocks(0, 3);
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&take=3`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&limit=3`);
       expect(result).toEqual([block1, block2]);
     });
 
@@ -76,8 +79,33 @@ describe('HttpNode', () => {
 
       const result = await httpNode.getBlocks(0, 2);
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&take=2`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-blocks?from=0&limit=2`);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('getBlock', () => {
+    it('should fetch and parse a block', async () => {
+      const block1 = L2Block.random(1);
+      const response = {
+        block: block1.encode(),
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getBlock(1);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block?number=1`);
+      expect(result).toEqual(block1);
+    });
+
+    it('should return undefined if the block is not available', async () => {
+      const response = { block: undefined };
+      setFetchMock(response);
+
+      const result = await httpNode.getBlock(2);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block?number=2`);
+      expect(result).toEqual(undefined);
     });
   });
 
@@ -117,20 +145,101 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('getContractData', () => {
+  describe('getRollupAddress', () => {
+    it('should fetch and return the rollup address', async () => {
+      const addr = EthAddress.random();
+      const response = { rollupAddress: addr.toString() };
+      setFetchMock(response);
+
+      const result = await httpNode.getRollupAddress();
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-rollup-address`);
+      expect(result).toEqual(addr);
+    });
+  });
+
+  describe('getContractDataAndBytecode', () => {
     it('should fetch and return contract public data', async () => {
-      const contractData = ContractPublicData.random();
+      const contractDataAndBytecode = ContractDataAndBytecode.random();
       const response = {
-        contractData: contractData.toBuffer(),
+        contractData: contractDataAndBytecode.toBuffer(),
       };
 
       setFetchMock(response);
 
-      const result = await httpNode.getContractData(contractData.contractData.contractAddress);
+      const result = await httpNode.getContractDataAndBytecode(contractDataAndBytecode.contractData.contractAddress);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${TEST_URL}contract-data?address=${contractData.contractData.contractAddress.toString()}`,
+        `${TEST_URL}contract-data-and-bytecode?address=${contractDataAndBytecode.contractData.contractAddress.toString()}`,
       );
+      expect(result).toEqual(contractDataAndBytecode);
+    });
+
+    it('should return undefined if contract data is not available', async () => {
+      const response = {
+        contractData: undefined,
+      };
+      setFetchMock(response);
+
+      const randomAddress = AztecAddress.random();
+
+      const result = await httpNode.getContractDataAndBytecode(randomAddress);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-data-and-bytecode?address=${randomAddress.toString()}`);
+      expect(result).toEqual(undefined);
+    });
+  });
+
+  describe('getLogs', () => {
+    it.each(['encrypted', 'unencrypted'])('should fetch and return %s logs', async logType => {
+      const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
+
+      const from = 0;
+      const limit = 3;
+      const log1 = L2BlockL2Logs.random(2, 3, 4);
+      const log2 = L2BlockL2Logs.random(1, 5, 2);
+      const response = {
+        logs: [log1.toBuffer(), log2.toBuffer()],
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getLogs(from, limit, processedLogType);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&limit=${limit}&logType=${processedLogType}`);
+      expect(result).toEqual([log1, log2]);
+    });
+
+    it.each(['encrypted', 'unencrypted'])(
+      'should return an empty array if %s logs are not available',
+      async logType => {
+        const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
+
+        const from = 0;
+        const limit = 2;
+        const response = {};
+        setFetchMock(response);
+
+        const result = await httpNode.getLogs(from, limit, processedLogType);
+
+        expect(fetch).toHaveBeenCalledWith(
+          `${TEST_URL}get-logs?from=${from}&limit=${limit}&logType=${processedLogType}`,
+        );
+        expect(result).toEqual([]);
+      },
+    );
+  });
+
+  describe('getContractData', () => {
+    it('should fetch and return contract data', async () => {
+      const contractData = ContractData.random();
+      const response = {
+        contractData: contractData.toBuffer(),
+      };
+      setFetchMock(response);
+
+      const result = await httpNode.getContractData(contractData.contractAddress);
+
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-data?address=${contractData.contractAddress.toString()}`);
       expect(result).toEqual(contractData);
     });
 
@@ -145,72 +254,6 @@ describe('HttpNode', () => {
       const result = await httpNode.getContractData(randomAddress);
 
       expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-data?address=${randomAddress.toString()}`);
-      expect(result).toEqual(undefined);
-    });
-  });
-
-  describe('getLogs', () => {
-    it.each(['encrypted', 'unencrypted'])('should fetch and return %s logs', async logType => {
-      const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
-
-      const from = 0;
-      const take = 3;
-      const log1 = L2BlockL2Logs.random(2, 3, 4);
-      const log2 = L2BlockL2Logs.random(1, 5, 2);
-      const response = {
-        logs: [log1.toBuffer(), log2.toBuffer()],
-      };
-      setFetchMock(response);
-
-      const result = await httpNode.getLogs(from, take, processedLogType);
-
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${processedLogType}`);
-      expect(result).toEqual([log1, log2]);
-    });
-
-    it.each(['encrypted', 'unencrypted'])(
-      'should return an empty array if %s logs are not available',
-      async logType => {
-        const processedLogType = logType === 'encrypted' ? LogType.ENCRYPTED : LogType.UNENCRYPTED;
-
-        const from = 0;
-        const take = 2;
-        const response = {};
-        setFetchMock(response);
-
-        const result = await httpNode.getLogs(from, take, processedLogType);
-
-        expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-logs?from=${from}&take=${take}&logType=${processedLogType}`);
-        expect(result).toEqual([]);
-      },
-    );
-  });
-
-  describe('getContractInfo', () => {
-    it('should fetch and return contract data', async () => {
-      const contractInfo = ContractData.random();
-      const response = {
-        contractInfo: contractInfo.toBuffer(),
-      };
-      setFetchMock(response);
-
-      const result = await httpNode.getContractInfo(contractInfo.contractAddress);
-
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-info?address=${contractInfo.contractAddress.toString()}`);
-      expect(result).toEqual(contractInfo);
-    });
-
-    it('should return undefined if contract data is not available', async () => {
-      const response = {
-        contractInfo: undefined,
-      };
-      setFetchMock(response);
-
-      const randomAddress = AztecAddress.random();
-
-      const result = await httpNode.getContractInfo(randomAddress);
-
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-info?address=${randomAddress.toString()}`);
       expect(result).toBeUndefined();
     });
   });
@@ -369,7 +412,7 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('getStorageAt', () => {
+  describe('getPublicStorageAt', () => {
     it('should fetch and return the storage value at the given contract slot', async () => {
       const contractAddress = AztecAddress.random();
       const slot = BigInt(789);
@@ -377,9 +420,9 @@ describe('HttpNode', () => {
       const response = { value: storageValue.toString('hex') };
       setFetchMock(response);
 
-      const result = await httpNode.getStorageAt(contractAddress, slot);
+      const result = await httpNode.getPublicStorageAt(contractAddress, slot);
 
-      const url = `${TEST_URL}storage-at?address=${contractAddress}&slot=${slot.toString()}`;
+      const url = `${TEST_URL}public-storage-at?address=${contractAddress}&slot=${slot.toString()}`;
       expect(fetch).toHaveBeenCalledWith(url);
       expect(result).toEqual(storageValue);
     });
@@ -390,9 +433,9 @@ describe('HttpNode', () => {
       const response = {};
       setFetchMock(response);
 
-      const result = await httpNode.getStorageAt(contractAddress, slot);
+      const result = await httpNode.getPublicStorageAt(contractAddress, slot);
 
-      const url = `${TEST_URL}storage-at?address=${contractAddress}&slot=${slot.toString()}`;
+      const url = `${TEST_URL}public-storage-at?address=${contractAddress}&slot=${slot.toString()}`;
       expect(fetch).toHaveBeenCalledWith(url);
       expect(result).toBeUndefined();
     });
@@ -406,9 +449,7 @@ describe('HttpNode', () => {
         [MerkleTreeId.NULLIFIER_TREE]: Fr.random(),
         [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.random(),
         [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.random(),
-        [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: Fr.random(),
-        [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: Fr.random(),
-        [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: Fr.random(),
+        [MerkleTreeId.BLOCKS_TREE]: Fr.random(),
       };
 
       const rootsInResponse: Record<MerkleTreeId, string> = Object.fromEntries(

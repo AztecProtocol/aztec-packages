@@ -1,10 +1,9 @@
-import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource } from '@aztec/types';
-import { Tx, TxHash } from '@aztec/types';
-
-import { TxPool } from '../tx_pool/index.js';
-import { getP2PConfigEnvVars } from '../config.js';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { L2Block, L2BlockContext, L2BlockDownloader, L2BlockSource, Tx, TxHash } from '@aztec/types';
+
+import { getP2PConfigEnvVars } from '../config.js';
 import { P2PService } from '../service/service.js';
+import { TxPool } from '../tx_pool/index.js';
 
 /**
  * Enum defining the possible states of the p2p client.
@@ -36,12 +35,14 @@ export interface P2PSyncState {
 export interface P2P {
   /**
    * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
+   * @param tx - The transaction.
    **/
   sendTx(tx: Tx): Promise<void>;
 
   /**
    * Deletes 'txs' from the pool, given hashes.
    * NOT used if we use sendTx as reconcileTxPool will handle this.
+   * @param txHashes - Hashes to check.
    **/
   deleteTxs(txHashes: TxHash[]): Promise<void>;
 
@@ -53,6 +54,7 @@ export interface P2P {
 
   /**
    * Returns a transaction in the transaction pool by its hash.
+   * @param txHash  - Hash of tx to return.
    * @returns A single tx or undefined.
    */
   getTxByhash(txHash: TxHash): Promise<Tx | undefined>;
@@ -75,7 +77,7 @@ export interface P2P {
    */
   isReady(): Promise<boolean>;
 
-  /*
+  /**
    * Returns the current status of the p2p client.
    */
   getStatus(): Promise<P2PSyncState>;
@@ -123,7 +125,7 @@ export class P2PClient implements P2P {
     private p2pService: P2PService,
     private log = createDebugLogger('aztec:p2p'),
   ) {
-    const { checkInterval, l2QueueSize } = getP2PConfigEnvVars();
+    const { p2pBlockCheckIntervalMS: checkInterval, l2QueueSize } = getP2PConfigEnvVars();
     this.blockDownloader = new L2BlockDownloader(l2BlockSource, l2QueueSize, checkInterval);
   }
 

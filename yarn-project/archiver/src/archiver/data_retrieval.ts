@@ -1,17 +1,19 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { ContractDataAndBytecode, L1ToL2Message, L2Block } from '@aztec/types';
+
 import { PublicClient } from 'viem';
+
 import {
   getContractDeploymentLogs,
+  getL1ToL2MessageCancelledLogs,
   getL2BlockProcessedLogs,
   getPendingL1ToL2MessageLogs,
-  getL1ToL2MessageCancelledLogs,
   processBlockLogs,
+  processCancelledL1ToL2MessagesLogs,
   processContractDeploymentLogs,
   processPendingL1ToL2MessageAddedLogs,
-  processCancelledL1ToL2MessagesLogs,
 } from './eth_log_handlers.js';
-import { EthAddress } from '@aztec/foundation/eth-address';
-import { ContractPublicData, L1ToL2Message, L2Block } from '@aztec/types';
-import { Fr } from '@aztec/foundation/fields';
 
 /**
  * Data retrieved from logs
@@ -71,7 +73,7 @@ export async function retrieveBlocks(
  * @param currentBlockNumber - Latest available block number in the ETH node.
  * @param searchStartBlock - The block number to use for starting the search.
  * @param blockHashMapping - A mapping from block number to relevant block hash.
- * @returns An array of ContractPublicData and their equivalent L2 Block number along with the next eth block to search from..
+ * @returns An array of ContractDataAndBytecode and their equivalent L2 Block number along with the next eth block to search from..
  */
 export async function retrieveNewContractData(
   publicClient: PublicClient,
@@ -80,8 +82,8 @@ export async function retrieveNewContractData(
   currentBlockNumber: bigint,
   searchStartBlock: bigint,
   blockHashMapping: { [key: number]: Buffer | undefined },
-): Promise<DataRetrieval<[ContractPublicData[], number]>> {
-  let retrievedNewContracts: [ContractPublicData[], number][] = [];
+): Promise<DataRetrieval<[ContractDataAndBytecode[], number]>> {
+  let retrievedNewContracts: [ContractDataAndBytecode[], number][] = [];
   do {
     if (searchStartBlock > currentBlockNumber) {
       break;

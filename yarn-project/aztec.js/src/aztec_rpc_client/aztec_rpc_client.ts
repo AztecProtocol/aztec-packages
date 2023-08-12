@@ -1,28 +1,34 @@
-import { AztecAddress, EthAddress, Fr, Point } from '@aztec/circuits.js';
-import { createJsonRpcClient } from '@aztec/foundation/json-rpc';
+import { AztecAddress, EthAddress, Fr, Point, PrivateKey } from '@aztec/circuits.js';
+import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/client';
 import {
   AztecRPC,
   ContractData,
+  ContractDataAndBytecode,
   ContractDeploymentTx,
-  ContractPublicData,
+  L2BlockL2Logs,
+  Tx,
   TxExecutionRequest,
   TxHash,
-  Tx,
+  TxReceipt,
 } from '@aztec/types';
 
-export const createAztecRpcClient = (url: string): AztecRPC =>
+export { mustSucceedFetch } from '@aztec/foundation/json-rpc/client';
+
+export const createAztecRpcClient = (url: string, fetch = defaultFetch): AztecRPC =>
   createJsonRpcClient<AztecRPC>(
     url,
     {
       AztecAddress,
       TxExecutionRequest,
       ContractData,
-      ContractPublicData,
+      ContractDataAndBytecode,
       TxHash,
       EthAddress,
       Point,
+      PrivateKey,
       Fr,
     },
-    { Tx, ContractDeploymentTx },
+    { Tx, ContractDeploymentTx, TxReceipt, L2BlockL2Logs },
     false,
+    fetch,
   );

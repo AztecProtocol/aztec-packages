@@ -85,9 +85,11 @@ template <typename T, size_t SIZE> T array_pop(std::array<T, SIZE>& arr)
  * @tparam The builder type
  * @tparam The size of the array
  * @param The array into which we want to store the value
+ * @param The value to store
+ * @param The error message to display if the array is full
  */
 template <typename T, typename Builder, size_t SIZE>
-void array_push(Builder& builder, std::array<T, SIZE>& arr, T const& value)
+void array_push(Builder& builder, std::array<T, SIZE>& arr, T const& value, std::string const& error_message)
 {
     for (size_t i = 0; i < arr.size(); ++i) {
         if (is_empty(arr[i])) {
@@ -95,7 +97,9 @@ void array_push(Builder& builder, std::array<T, SIZE>& arr, T const& value)
             return;
         }
     }
-    builder.do_assert(false, "array_push cannot push to a full array", CircuitErrorCode::ARRAY_OVERFLOW);
+    builder.do_assert(false,
+                      format(error_message, " - array_push: capacity exceeded. Limit: ", arr.size()),
+                      CircuitErrorCode::ARRAY_OVERFLOW);
 };
 
 /**
@@ -110,15 +114,26 @@ template <typename T, size_t SIZE> void array_rearrange(std::array<T, SIZE>& arr
 {
     size_t target_pos = 0;
     for (size_t i = 0; i < SIZE; i++) {
-        if (arr[i] != NT::fr(0)) {
-            arr[target_pos] = arr[i];
-            target_pos++;
+        if constexpr (std::is_same<T, NT::fr>::value) {
+            if (arr[i] != NT::fr(0)) {
+                arr[target_pos] = arr[i];
+                target_pos++;
+            }
+        } else {
+            if (!arr[i].is_empty()) {
+                arr[target_pos] = arr[i];
+                target_pos++;
+            }
         }
     }
 
     // Cleaning needed to avoid duplicate values, e.g., [1,0,3,0] --> [1,3,3,0] otherwise.
     for (size_t i = target_pos; i < SIZE; i++) {
-        arr[i] = NT::fr(0);
+        if constexpr (std::is_same<T, NT::fr>::value) {
+            arr[i] = NT::fr(0);
+        } else {
+            arr[i] = T{};
+        }
     }
 }
 
@@ -147,23 +162,32 @@ template <typename T, size_t SIZE> NT::boolean is_array_empty(std::array<T, SIZE
  * @tparam The type of the value stored in the arrays
  * @param The `source` array
  * @param The `target` array
+ * @param The error message to display if the `source` array is too large
  */
 template <size_t size_1, size_t size_2, typename T, typename Builder>
-void push_array_to_array(Builder& builder, std::array<T, size_1> const& source, std::array<T, size_2>& target)
+void push_array_to_array(Builder& builder,
+                         std::array<T, size_1> const& source,
+                         std::array<T, size_2>& target,
+                         std::string const& error_message)
 {
     // Check if the `source` array is too large vs the remaining capacity of the `target` array
     size_t const source_size = array_length(source);
     size_t const target_size = array_length(target);
 
     builder.do_assert(source_size <= size_2 - target_size,
-                      "push_array_to_array cannot overflow the target",
+                      format(error_message,
+                             " - push_array_to_array exceeded capacity. Limit: ",
+                             size_2 - target_size,
+                             " but required size: ",
+                             source_size),
                       CircuitErrorCode::ARRAY_OVERFLOW);
 
     // Ensure that there are no non-zero values in the `target` array after the first zero-valued index
     for (size_t i = target_size; i < size_2; i++) {
-        builder.do_assert(is_empty(target[i]),
-                          "push_array_to_array inserting new array into a non empty space",
-                          CircuitErrorCode::ARRAY_OVERFLOW);
+        builder.do_assert(
+            is_empty(target[i]),
+            format(error_message, " - push_array_to_array inserting into a non empty space at index, ", i),
+            CircuitErrorCode::ARRAY_OVERFLOW);
     }
     // Copy the non-zero elements of the `source` array to the `target` array at the first zero-valued index
     auto zero_index = target_size;
@@ -188,15 +212,18 @@ void push_array_to_array(Builder& builder, std::array<T, size_1> const& source, 
  * @param The `target` array
  * @return Whether the source arrays are indeed in the target
  */
-template <size_t size_1, size_t size_2, size_t size_3, typename T>
-bool source_arrays_are_in_target(std::array<T, size_1> const& source1,
+template <size_t size_1, size_t size_2, size_t size_3, typename T, typename Builder>
+bool source_arrays_are_in_target(Builder& builder,
+                                 std::array<T, size_1> const& source1,
                                  std::array<T, size_2> const& source2,
                                  std::array<T, size_3> const& target)
 {
     // Check if the `source` arrays are too large vs the size of the `target` array
     size_t const source1_size = array_length(source1);
     size_t const source2_size = array_length(source2);
-    ASSERT(source1_size + source2_size <= size_3);
+    builder.do_assert(source1_size + source2_size <= size_3,
+                      "source_arrays_are_in_target: source arrays are too large vs the size of the target",
+                      CircuitErrorCode::ARRAY_OVERFLOW);
 
     // first ensure that all non-empty items in the first source are in the target
     size_t target_index = 0;

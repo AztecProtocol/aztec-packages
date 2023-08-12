@@ -1,13 +1,13 @@
-import { default as levelup } from 'levelup';
-import { Hasher, INITIAL_LEAF, MerkleTree, Pedersen, SiblingPath } from '../../index.js';
-import { treeTestSuite } from '../../test/test_suite.js';
-
-import { createMemDown } from '../../test/utils/create_mem_down.js';
-import { newTree } from '../../new_tree.js';
-import { loadTree } from '../../load_tree.js';
+import { CircuitsWasm } from '@aztec/circuits.js';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { IWasmModule } from '@aztec/foundation/wasm';
-import { CircuitsWasm } from '@aztec/circuits.js';
+import { Hasher, SiblingPath } from '@aztec/types';
+
+import { default as levelup } from 'levelup';
+
+import { INITIAL_LEAF, MerkleTree, Pedersen, loadTree, newTree } from '../../index.js';
+import { treeTestSuite } from '../../test/test_suite.js';
+import { createMemDown } from '../../test/utils/create_mem_down.js';
 import { StandardIndexedTreeWithAppend } from './standard_indexed_tree_with_append.js';
 
 const createDb = async (levelUp: levelup.LevelUp, hasher: Hasher, name: string, depth: number, prefilledSize = 1) => {

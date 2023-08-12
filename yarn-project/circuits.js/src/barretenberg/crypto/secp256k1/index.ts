@@ -1,11 +1,11 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
+
 import { CircuitsWasm } from '../../../index.js';
-import { Curve } from '../curve/index.js';
 
 /**
  * Secp256k1 elliptic curve operations.
  */
-export class Secp256k1 implements Curve {
+export class Secp256k1 {
   /**
    * Creates a new Secp256k1 instance.
    * @returns New Secp256k1 instance.

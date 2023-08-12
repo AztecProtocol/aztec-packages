@@ -2,12 +2,13 @@ import { createMemDown, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   AztecAddress,
   GlobalVariables,
+  KernelCircuitPublicInputs,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  KernelCircuitPublicInputs,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  PrivateKey,
   PublicDataUpdateRequest,
   makeTuple,
   range,
@@ -17,13 +18,14 @@ import { deployL1Contracts } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { to2Fields } from '@aztec/foundation/serialize';
 import { DecoderHelperAbi, InboxAbi, OutboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   EmptyRollupProver,
   L1Publisher,
   SoloBlockBuilder,
   WasmRollupCircuitSimulator,
-  getCombinedHistoricTreeRoots,
+  getConstantHistoricBlockData,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
@@ -31,7 +33,7 @@ import {
 } from '@aztec/sequencer-client';
 import { L2Actor, L2Block, mockTx } from '@aztec/types';
 import { MerkleTreeOperations, MerkleTrees } from '@aztec/world-state';
-import { to2Fields } from '@aztec/foundation/serialize';
+
 import { beforeEach, describe, expect, it } from '@jest/globals';
 import { default as levelup } from 'levelup';
 import {
@@ -48,7 +50,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { localAnvil } from './fixtures.js';
+import { localAnvil } from './fixtures/fixtures.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -84,6 +86,9 @@ describe('L1Publisher integration', () => {
 
   let builder: SoloBlockBuilder;
   let builderDb: MerkleTreeOperations;
+
+  // The global variables of the last rollup
+  let prevGlobals: GlobalVariables;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -142,13 +147,15 @@ describe('L1Publisher integration', () => {
       rollupContract: EthAddress.fromString(rollupAddress),
       inboxContract: EthAddress.fromString(inboxAddress),
       contractDeploymentEmitterContract: EthAddress.fromString(contractDeploymentEmitterAddress),
-      publisherPrivateKey: hexStringToBuffer(sequencerPK),
-      retryIntervalMs: 100,
+      publisherPrivateKey: PrivateKey.fromString(sequencerPK),
+      l1BlockPublishRetryIntervalMS: 100,
     });
+
+    prevGlobals = GlobalVariables.empty();
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    const historicTreeRoots = await getConstantHistoricBlockData(builderDb, prevGlobals);
     const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
       historicTreeRoots,
       new Fr(config.chainId),
@@ -162,7 +169,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(config.chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    kernelOutput.constants.blockData = await getConstantHistoricBlockData(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -274,6 +281,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      prevGlobals = globalVariables;
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -286,14 +294,14 @@ describe('L1Publisher integration', () => {
         expect(await outbox.read.contains([block.newL2ToL1Msgs[j].toString(true)])).toBeFalsy();
       }
 
-      /*// Useful for sol tests block generation
-      const encoded = block.encode();
+      // Useful for sol tests block generation
+      /* const encoded = block.encode();
       console.log(`Size (${encoded.length}): ${encoded.toString('hex')}`);
       console.log(`calldata hash: 0x${block.getCalldataHash().toString('hex')}`);
       console.log(`l1 to l2 message hash: 0x${block.getL1ToL2MessagesHash().toString('hex')}`);
       console.log(`start state hash: 0x${block.getStartStateHash().toString('hex')}`);
       console.log(`end state hash: 0x${block.getEndStateHash().toString('hex')}`);
-      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`);*/
+      console.log(`public inputs hash: 0x${block.getPublicInputsHash().toBuffer().toString('hex')}`); */
 
       await publisher.processL2Block(block);
 
@@ -365,6 +373,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      prevGlobals = globalVariables;
 
       await publisher.processL2Block(block);
 

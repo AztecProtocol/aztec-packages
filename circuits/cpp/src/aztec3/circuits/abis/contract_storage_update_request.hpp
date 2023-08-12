@@ -63,7 +63,7 @@ template <typename NCT> struct ContractStorageUpdateRequest {
             new_value,
         };
 
-        return NCT::compress(inputs, GeneratorIndex::PUBLIC_DATA_UPDATE_REQUEST);
+        return NCT::hash(inputs, GeneratorIndex::PUBLIC_DATA_UPDATE_REQUEST);
     }
 
     void set_public()
@@ -76,24 +76,6 @@ template <typename NCT> struct ContractStorageUpdateRequest {
     }
 
     boolean is_empty() const { return storage_slot == 0; }
-};
-
-template <typename NCT> void read(uint8_t const*& it, ContractStorageUpdateRequest<NCT>& update_request)
-{
-    using serialize::read;
-
-    read(it, update_request.storage_slot);
-    read(it, update_request.old_value);
-    read(it, update_request.new_value);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, ContractStorageUpdateRequest<NCT> const& update_request)
-{
-    using serialize::write;
-
-    write(buf, update_request.storage_slot);
-    write(buf, update_request.old_value);
-    write(buf, update_request.new_value);
 };
 
 template <typename NCT>

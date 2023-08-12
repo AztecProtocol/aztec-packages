@@ -1,24 +1,16 @@
 #!/bin/bash
+
+# Example:
+
+# ./compile.sh private_token ecdsa_account
+# or
+# yarn noir:build private_token ecdsa_account
+
+# Enable strict mode:
+# Exit on error (set -e), treat unset variables as an error (set -u),
+# and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
 set -euo pipefail;
 
-ROOT=$(pwd)
-for CONTRACT_NAME in "$@"; do
-  CONTRACT_FOLDER="${CONTRACT_NAME}_contract"
-  echo "Compiling $CONTRACT_NAME..."
-  cd src/contracts/$CONTRACT_FOLDER
-  rm -f target/*
-  if [[ -z "${VERBOSE:-}" ]]; then
-    nargo compile main --experimental-ssa --contracts 2> /dev/null > /dev/null  || (echo "Error compiling contract. Re-running as verbose to show compiler output:"; nargo compile main --experimental-ssa --contracts);
-  else
-    nargo compile main --experimental-ssa --contracts
-  fi
-
-  cd $ROOT
-  echo "Copying output for $CONTRACT_NAME"
-  NODE_OPTIONS=--no-warnings yarn ts-node --esm src/scripts/copy_output.ts $CONTRACT_NAME
-  
-  echo "Formatting"
-  yarn run -T prettier -w ./src/examples/$CONTRACT_FOLDER.json
-  echo -e "Done\n"
-  
-done
+# Run build scripts
+./scripts/compile.sh "$@"
+./scripts/types.sh "$@"

@@ -1,4 +1,3 @@
-import { AztecNode } from '@aztec/aztec-node';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
@@ -7,9 +6,9 @@ import {
   Fr,
   FunctionData,
   MembershipWitness,
+  NewContractConstructor,
   NewContractData,
   computeFunctionTree,
-  NewContractConstructor,
   computeFunctionTreeData,
   generateFunctionLeaves,
   hashVKStr,
@@ -25,7 +24,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, generateFunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { ContractDao, PublicKey } from '@aztec/types';
+import { AztecNode, ContractCommitmentProvider, ContractDao, PublicKey } from '@aztec/types';
 
 /**
  * The ContractTree class represents a Merkle tree of functions for a particular contract.
@@ -44,7 +43,7 @@ export class ContractTree {
      * The contract data object containing the ABI and contract address.
      */
     public readonly contract: ContractDao,
-    private node: AztecNode,
+    private contractCommitmentProvider: ContractCommitmentProvider,
     private wasm: CircuitsWasm,
     /**
      * Data associated with the contract constructor for a new contract.
@@ -90,8 +89,7 @@ export class ContractTree {
     }));
     const leaves = generateFunctionLeaves(functions, wasm);
     const root = computeFunctionTreeRoot(wasm, leaves);
-    const constructorSelector = generateFunctionSelector(constructorAbi.name, constructorAbi.parameters);
-    const functionData = new FunctionData(constructorSelector, true, true);
+    const functionData = FunctionData.fromAbi(constructorAbi);
     const vkHash = hashVKStr(constructorAbi.verificationKey, wasm);
     const argsHash = await computeVarArgsHash(wasm, args);
     const constructorHash = hashConstructor(wasm, functionData, argsHash, vkHash);
@@ -120,7 +118,13 @@ export class ContractTree {
   public getFunctionAbi(functionSelector: Buffer) {
     const abi = this.contract.functions.find(f => f.selector.equals(functionSelector));
     if (!abi) {
-      throw new Error(`Unknown function: ${functionSelector}.`);
+      throw new Error(
+        `Unknown function. Selector ${functionSelector.toString(
+          'hex',
+        )} not found in the ABI of contract ${this.contract.address.toString()}. Expected one of: ${this.contract.functions
+          .map(f => f.selector.toString('hex'))
+          .join(', ')}`,
+      );
     }
     return abi;
   }
@@ -152,15 +156,15 @@ export class ContractTree {
       const { address, portalContract } = this.contract;
       const root = await this.getFunctionTreeRoot();
       const newContractData = new NewContractData(address, portalContract, root);
-      const committment = computeContractLeaf(this.wasm, newContractData);
-      const index = await this.node.findContractIndex(committment.toBuffer());
+      const commitment = computeContractLeaf(this.wasm, newContractData);
+      const index = await this.contractCommitmentProvider.findContractIndex(commitment.toBuffer());
       if (index === undefined) {
         throw new Error(
-          `Failed to find contract at ${address} with portal ${portalContract} resulting in commitment ${committment}.`,
+          `Failed to find contract at ${address} with portal ${portalContract} resulting in commitment ${commitment}.`,
         );
       }
 
-      const siblingPath = await this.node.getContractPath(index);
+      const siblingPath = await this.contractCommitmentProvider.getContractPath(index);
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,

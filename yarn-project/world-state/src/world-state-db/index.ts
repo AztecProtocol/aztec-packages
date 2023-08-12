@@ -1,7 +1,7 @@
-import { LeafData, SiblingPath, LowLeafWitnessData } from '@aztec/merkle-tree';
-import { L2Block, MerkleTreeId } from '@aztec/types';
+import { GlobalVariables, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { LeafData, LowLeafWitnessData } from '@aztec/merkle-tree';
+import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
 export * from './merkle_trees.js';
 export { LeafData } from '@aztec/merkle-tree';
@@ -66,7 +66,7 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
 /**
  * The current roots of the commitment trees
  */
-export type CurrentCommitmentTreeRoots = {
+export type CurrentTreeRoots = {
   /** Private data tree root. */
   privateDataTreeRoot: Buffer;
   /** Contract data tree root. */
@@ -75,6 +75,10 @@ export type CurrentCommitmentTreeRoots = {
   l1Tol2MessagesTreeRoot: Buffer;
   /** Nullifier data tree root. */
   nullifierTreeRoot: Buffer;
+  /** Blocks tree root. */
+  blocksTreeRoot: Buffer;
+  /** Public data tree root */
+  publicDataTreeRoot: Buffer;
 };
 
 /**
@@ -111,7 +115,7 @@ export interface MerkleTreeOperations {
   /**
    * Gets the current roots of the commitment trees.
    */
-  getCommitmentTreeRoots(): CurrentCommitmentTreeRoots;
+  getTreeRoots(): CurrentTreeRoots;
 
   /**
    * Gets sibling path for a leaf.
@@ -169,10 +173,11 @@ export interface MerkleTreeOperations {
   getLeafValue(treeId: MerkleTreeId, index: bigint): Promise<Buffer | undefined>;
 
   /**
-   * Inserts into the roots trees (CONTRACT_TREE_ROOTS_TREE, PRIVATE_DATA_TREE_ROOTS_TREE, L1_TO_L2_MESSAGES_TREE_ROOTS_TREE)
-   * the current roots of the corresponding trees (CONTRACT_TREE, PRIVATE_DATA_TREE, L1_TO_L2_MESSAGES_TREE).
+   * Inserts the new block hash into the new block hashes tree.
+   * This includes all of the current roots of all of the data trees and the current blocks global vars.
+   * @param globalVariables - The global variables to insert into the block hash.
    */
-  updateHistoricRootsTrees(): Promise<void>;
+  updateHistoricBlocksTree(globalVariables: GlobalVariables): Promise<void>;
 
   /**
    * Batch insert multiple leaves into the tree.

@@ -4,17 +4,19 @@ import {
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
-  NUM_FIELDS_PER_SHA256,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
+  MAX_READ_REQUESTS_PER_CALL,
+  NUM_FIELDS_PER_SHA256,
   PrivateCircuitPublicInputs,
-  READ_REQUESTS_LENGTH,
   RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
+
 import { getReturnWitness } from 'acvm_js';
+
 import { ACVMField, ACVMWitness, fromACVMField } from './acvm.js';
 
 // Utilities to read TS classes from ACVM Field arrays
@@ -123,9 +125,10 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
 
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
-  const readRequests = witnessReader.readFieldArray(READ_REQUESTS_LENGTH);
+  const readRequests = witnessReader.readFieldArray(MAX_READ_REQUESTS_PER_CALL);
   const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
+  const nullifiedCommitments = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
@@ -139,11 +142,12 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
   const nullifierTreeRoot = witnessReader.readField();
   const contractTreeRoot = witnessReader.readField();
   const l1Tol2TreeRoot = witnessReader.readField();
+  const blocksTreeRoot = witnessReader.readField();
+  const prevGlobalVariablesHash = witnessReader.readField();
+  const publicDataTreeRoot = witnessReader.readField();
 
   const contractDeploymentData = new ContractDeploymentData(
-    // TODO: Uncomment when we fix the "too many unknowns" Noir issue
-    // [witnessReader.readField(), witnessReader.readField()],
-    Point.ZERO,
+    new Point(witnessReader.readField(), witnessReader.readField()),
     witnessReader.readField(),
     witnessReader.readField(),
     witnessReader.readField(),
@@ -160,6 +164,7 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     readRequests,
     newCommitments,
     newNullifiers,
+    nullifiedCommitments,
     privateCallStack,
     publicCallStack,
     newL2ToL1Msgs,
@@ -171,6 +176,9 @@ export function extractPublicInputs(partialWitness: ACVMWitness, acir: Buffer): 
     nullifierTreeRoot,
     contractTreeRoot,
     l1Tol2TreeRoot,
+    blocksTreeRoot,
+    prevGlobalVariablesHash,
+    publicDataTreeRoot,
     contractDeploymentData,
     chainId,
     version,

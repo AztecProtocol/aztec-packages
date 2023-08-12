@@ -1,13 +1,14 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { PrivateCallStackItem } from '../call_stack_item.js';
+
 import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
-  READ_REQUESTS_LENGTH,
-} from '../constants.js';
+  MAX_READ_REQUESTS_PER_CALL,
+} from '../../cbind/constants.gen.js';
+import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
+import { PrivateCallStackItem } from '../call_stack_item.js';
 import { Fr } from '../index.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { Proof } from '../proof.js';
@@ -61,7 +62,7 @@ export class PrivateCallData {
     public acirHash: Fr,
   ) {
     assertMemberLength(this, 'privateCallStackPreimages', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'readRequestMembershipWitnesses', READ_REQUESTS_LENGTH);
+    assertMemberLength(this, 'readRequestMembershipWitnesses', MAX_READ_REQUESTS_PER_CALL);
   }
 
   /**

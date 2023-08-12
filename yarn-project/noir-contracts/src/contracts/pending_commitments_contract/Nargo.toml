@@ -1,7 +1,9 @@
 [package]
+name = "pending_commitments_contract"
 authors = [""]
 compiler_version = "0.1"
+type = "bin"
 
 [dependencies]
-aztec = { path = "../../libs/noir-aztec" }
-token_utils = { path = "../../libs/token-utils" }
+aztec = { path = "../../../../noir-libs/noir-aztec" }
+value_note = { path = "../../../../noir-libs/value-note"}

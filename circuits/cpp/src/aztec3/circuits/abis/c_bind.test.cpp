@@ -49,13 +49,12 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
 
 namespace aztec3::circuits::abis {
 
-TEST(abi_tests, compute_partial_contract_address)
+TEST(abi_tests, compute_partial_address)
 {
     auto const contract_address_salt = NT::fr(3);
     auto const function_tree_root = NT::fr(4);
     auto const constructor_hash = NT::fr(5);
-    NT::fr const expected =
-        compute_partial_contract_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
+    NT::fr const expected = compute_partial_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     std::vector<uint8_t> salt_buf;
@@ -64,7 +63,7 @@ TEST(abi_tests, compute_partial_contract_address)
     write(salt_buf, contract_address_salt);
     write(function_tree_root_buf, function_tree_root);
     write(constructor_hash_buf, constructor_hash);
-    abis__compute_partial_contract_address(
+    abis__compute_partial_address(
         salt_buf.data(), function_tree_root_buf.data(), constructor_hash_buf.data(), output.data());
 
     // Convert buffer to `fr` for comparison to in-test calculated hash
@@ -74,7 +73,7 @@ TEST(abi_tests, compute_partial_contract_address)
 
 TEST(abi_tests, compute_contract_address)
 {
-    Point<NT> const point = { .x = { NT::fr(1), NT::fr(2) }, .y = { NT::fr(3), NT::fr(4) } };
+    Point<NT> const point = { .x = 1, .y = 3 };
     auto const contract_address_salt = NT::fr(5);
     auto const function_tree_root = NT::fr(6);
     auto const constructor_hash = NT::fr(7);
@@ -89,7 +88,7 @@ TEST(abi_tests, compute_contract_address)
     write(contract_address_salt_buf, contract_address_salt);
     write(function_tree_root_buf, function_tree_root);
     write(constructor_hash_buf, constructor_hash);
-    write(point_buf, point);
+    serialize::write(point_buf, point);
     abis__compute_contract_address(point_buf.data(),
                                    contract_address_salt_buf.data(),
                                    function_tree_root_buf.data(),
@@ -287,7 +286,7 @@ TEST(abi_tests, hash_constructor)
 
     // Write the function data and args to a buffer
     std::vector<uint8_t> func_data_buf;
-    write(func_data_buf, func_data);
+    serialize::write(func_data_buf, func_data);
 
     std::vector<uint8_t> args_hash_buf;
     write(args_hash_buf, args_hash);
@@ -346,7 +345,7 @@ TEST(abi_tests, compute_contract_leaf)
 
     // Write the leaf preimage to a buffer
     std::vector<uint8_t> preimage_buf;
-    write(preimage_buf, preimage);
+    serialize::write(preimage_buf, preimage);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     abis__compute_contract_leaf(preimage_buf.data(), output.data());

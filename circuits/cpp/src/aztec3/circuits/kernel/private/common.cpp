@@ -24,6 +24,7 @@ using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 
+using aztec3::utils::array_length;
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
 using aztec3::utils::push_array_to_array;
@@ -60,36 +61,43 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * - https://discourse.aztec.network/t/spending-notes-which-havent-yet-been-inserted/180
  *
  * @param builder
- * @param read_requests the commitments being read by this private call
- * @param read_request_membership_witnesses used to compute the private data root
- * for a given request which is essentially a membership check.
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
+ * @param read_requests the commitments being read by this private call - 'pending note reads' here are
+ * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
+ * @param read_request_membership_witnesses used to compute the private data root
+ * for a given request which is essentially a membership check
  */
 void common_validate_read_requests(DummyBuilder& builder,
-                                   NT::fr const& storage_contract_address,
-                                   std::array<fr, READ_REQUESTS_LENGTH> const& read_requests,
+                                   NT::fr const& historic_private_data_tree_root,
+                                   std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
-                                              READ_REQUESTS_LENGTH> const& read_request_membership_witnesses,
-                                   NT::fr const& historic_private_data_tree_root)
+                                              MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
+    // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
+    // we might get into trouble when accumulating them in public_inputs.end
+    builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
+                      format("[private kernel circuit] mismatch array length between read_requests and witnesses - "
+                             "read_requests length: ",
+                             array_length(read_requests),
+                             " witnesses length: ",
+                             array_length(read_request_membership_witnesses)),
+                      CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
+
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
-    for (size_t rr_idx = 0; rr_idx < aztec3::READ_REQUESTS_LENGTH; rr_idx++) {
+    for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
-        // the read request comes un-siloed from the app circuit so we must silo it here
-        // so that it matches the private data tree leaf that we are membership checking
-        const auto leaf = silo_commitment<NT>(storage_contract_address, read_request);
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
         // A transient read is when we try to "read" a pending commitment
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
-        // but we use the leaf index as a placeholder to detect a transient read.
+        // but we use the leaf index as a placeholder to detect a 'pending note read'.
         if (read_request != 0 && !witness.is_transient) {
             const auto& root_for_read_request =
-                root_from_sibling_path<NT>(leaf, witness.leaf_index, witness.sibling_path);
+                root_from_sibling_path<NT>(read_request, witness.leaf_index, witness.sibling_path);
             builder.do_assert(
                 root_for_read_request == historic_private_data_tree_root,
                 format("private data tree root mismatch at read_request[",
@@ -99,30 +107,55 @@ void common_validate_read_requests(DummyBuilder& builder,
                        historic_private_data_tree_root,
                        "\n\tbut got root*:    ",
                        root_for_read_request,
-                       "\n\tread_request:     ",
+                       "\n\tread_request**:   ",
                        read_request,
-                       "\n\tsiloed-rr (leaf): ",
-                       leaf,
-                       "\n\t* got root by siloing read_request (compressing with storage_contract_address to get leaf) "
-                       "and merkle-hashing to a root using membership witness"),
+                       "\n\tleaf_index: ",
+                       witness.leaf_index,
+                       "\n\tis_transient: ",
+                       witness.is_transient,
+                       "\n\thint_to_commitment: ",
+                       witness.hint_to_commitment,
+                       "\n\t* got root by treating the read_request as a leaf in the private data tree "
+                       "and merkle-hashing to a root using the membership witness"
+                       "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
+                       "(it has been hashed with contract address and then a nonce)"),
                 CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
+            // that a non-transient read_request was derived from the proper/current contract address?
         }
-        if (witness.is_transient) {
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/906):
-            // kernel must ensure that transient reads are either matched to a
-            // commitment or forwarded to the next iteration to handle it.
-            builder.do_assert(
-                false,
-                format("kernel could not match read_request[",
-                       rr_idx,
-                       "] with a commitment and does not yet support forwarding read requests.",
-                       "\n\tread_request:      ",
-                       read_request,
-                       "\n\tsiloed-rr* (leaf): ",
-                       leaf,
-                       "\n\t* got leaf by siloing read_request (compressing with storage_contract_address)"),
-                CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
-        }
+    }
+}
+
+
+/**
+ * @brief Ensure that all read requests from previous kernel are transient.
+ *
+ * @param builder
+ * @param read_requests from previous kernel's public inputs
+ * @param read_request_membership_witnesses from previous kernel's public inputs
+ */
+void common_validate_previous_kernel_read_requests(
+    DummyBuilder& builder,
+    std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
+    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX> const&
+        read_request_membership_witnesses)
+{
+    for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
+        const auto& read_request = read_requests[rr_idx];
+        const auto& witness = read_request_membership_witnesses[rr_idx];
+        builder.do_assert(read_request == 0 || witness.is_transient,  // rr == 0 means empty
+                          format("Previous kernel's read request[",
+                                 rr_idx,
+                                 "] is not transient, but kernel should only forward transient reads.",
+                                 "\n\tread_request: ",
+                                 read_request,
+                                 "\n\tleaf_index: ",
+                                 witness.leaf_index,
+                                 "\n\tis_transient: ",
+                                 witness.is_transient,
+                                 "\n\thint_to_commitment: ",
+                                 witness.hint_to_commitment),
+                          CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
     }
 }
 
@@ -132,8 +165,12 @@ void common_update_end_values(DummyBuilder& builder,
 {
     const auto private_call_public_inputs = private_call.call_stack_item.public_inputs;
 
+    const auto& read_requests = private_call_public_inputs.read_requests;
+    const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
+
     const auto& new_commitments = private_call_public_inputs.new_commitments;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
+    const auto& nullified_commitments = private_call_public_inputs.nullified_commitments;
 
     const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
 
@@ -141,41 +178,100 @@ void common_update_end_values(DummyBuilder& builder,
         // No state changes are allowed for static calls:
         builder.do_assert(is_array_empty(new_commitments) == true,
                           "new_commitments must be empty for static calls",
-                          CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_NOT_EMPTY_FOR_STATIC_CALL);
+                          CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
         builder.do_assert(is_array_empty(new_nullifiers) == true,
                           "new_nullifiers must be empty for static calls",
-                          CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_NOT_EMPTY_FOR_STATIC_CALL);
+                          CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
     }
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
-    // TODO(dbanks12): (spending pending commitments) don't want to silo and output new commitments
-    // that have been matched to a new nullifier
+    // Transient read requests and witnessess are accumulated in public_inputs.end
+    // We silo the read requests (domain separation per contract address)
+    {
+        for (size_t i = 0; i < read_requests.size(); ++i) {
+            const auto& read_request = read_requests[i];
+            const auto& witness = read_request_membership_witnesses[i];
+            if (witness.is_transient) {  // only forward transient to public inputs
+                const auto siloed_read_request =
+                    read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
+                array_push(builder,
+                           public_inputs.end.read_requests,
+                           siloed_read_request,
+                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                                  "too many transient read requests in one tx"));
+                array_push(builder,
+                           public_inputs.end.read_request_membership_witnesses,
+                           witness,
+                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                                  "too many transient read request membership witnesses in one tx"));
+            }
+        }
+    }
 
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
-    {  // commitments & nullifiers
+    {
+        // nullifiers
+        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
+        for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
+            siloed_new_nullifiers[i] =
+                new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
+        }
+        push_array_to_array(
+            builder,
+            siloed_new_nullifiers,
+            public_inputs.end.new_nullifiers,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullifiers in one tx"));
+
+        // commitments
         std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
         for (size_t i = 0; i < new_commitments.size(); ++i) {
             siloed_new_commitments[i] =
                 new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
         }
+        push_array_to_array(
+            builder,
+            siloed_new_commitments,
+            public_inputs.end.new_commitments,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
 
-        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
-        for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-            siloed_new_nullifiers[i] =
-                new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
+        // nullified commitments (for matching transient nullifiers to transient commitments)
+        // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
+        // is used here for nullified_commitments of persistable nullifiers. EMPTY will still
+        // take up a slot in the nullified_commitments array so that the array lines up properly
+        // with new_nullifiers. This is necessary since the constant-size circuit-array functions
+        // we use assume that the first 0-valued array entry designates the end of the array.
+        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_commitments{};
+        for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
+            siloed_nullified_commitments[i] =
+                nullified_commitments[i] == fr(0)
+                    ? fr(0)  // don't silo when empty
+                    : nullified_commitments[i] == fr(EMPTY_NULLIFIED_COMMITMENT)
+                          ? fr(EMPTY_NULLIFIED_COMMITMENT)  // don't silo when empty
+                          : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
         }
 
-        push_array_to_array(builder, siloed_new_commitments, public_inputs.end.new_commitments);
-        push_array_to_array(builder, siloed_new_nullifiers, public_inputs.end.new_nullifiers);
+        push_array_to_array(
+            builder,
+            siloed_nullified_commitments,
+            public_inputs.end.nullified_commitments,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullified commitments in one tx"));
     }
 
     {  // call stacks
         const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
-        push_array_to_array(builder, this_private_call_stack, public_inputs.end.private_call_stack);
+        push_array_to_array(
+            builder,
+            this_private_call_stack,
+            public_inputs.end.private_call_stack,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many private call stacks in one tx"));
 
         const auto& this_public_call_stack = private_call_public_inputs.public_call_stack;
-        push_array_to_array(builder, this_public_call_stack, public_inputs.end.public_call_stack);
+        push_array_to_array(
+            builder,
+            this_public_call_stack,
+            public_inputs.end.public_call_stack,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many public call stacks in one tx"));
     }
 
     {  // new l2 to l1 messages
@@ -191,7 +287,11 @@ void common_update_end_values(DummyBuilder& builder,
                                                                            new_l2_to_l1_msgs[i]);
             }
         }
-        push_array_to_array(builder, new_l2_to_l1_msgs_to_insert, public_inputs.end.new_l2_to_l1_msgs);
+        push_array_to_array(
+            builder,
+            new_l2_to_l1_msgs_to_insert,
+            public_inputs.end.new_l2_to_l1_msgs,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new l2 to l1 messages in one tx"));
     }
 
     {  // logs hashes
@@ -250,7 +350,11 @@ void common_contract_logic(DummyBuilder& builder,
                                                             portal_contract_address,
                                                             contract_dep_data.function_tree_root };
 
-        array_push(builder, public_inputs.end.new_contracts, native_new_contract_data);
+        array_push(builder,
+                   public_inputs.end.new_contracts,
+                   native_new_contract_data,
+                   format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many contracts created in one tx"));
+
         builder.do_assert(contract_dep_data.constructor_vk_hash == private_call_vk_hash,
                           "constructor_vk_hash doesn't match private_call_vk_hash",
                           CircuitErrorCode::PRIVATE_KERNEL__INVALID_CONSTRUCTOR_VK_HASH);
@@ -265,7 +369,11 @@ void common_contract_logic(DummyBuilder& builder,
         auto const new_contract_address_nullifier = NT::fr::serialize_from_buffer(NT::blake3s(blake_input).data());
 
         // push the contract address nullifier to nullifier vector
-        array_push(builder, public_inputs.end.new_nullifiers, new_contract_address_nullifier);
+        array_push(builder,
+                   public_inputs.end.new_nullifiers,
+                   new_contract_address_nullifier,
+                   format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                          "too many nullifiers in one tx to add the new contract address"));
     } else {
         // non-contract deployments must specify contract address being interacted with
         builder.do_assert(storage_contract_address != 0,
@@ -274,16 +382,24 @@ void common_contract_logic(DummyBuilder& builder,
 
         /* We need to compute the root of the contract tree, starting from the function's VK:
          * - Compute the vk_hash (done above)
-         * - Compute the function_leaf: hash(function_selector, is_private, vk_hash, acir_hash)
+         * - Compute the function_leaf: hash(function_selector, is_internal, is_private, vk_hash, acir_hash)
          * - Hash the function_leaf with the function_leaf's sibling_path to get the function_tree_root
          * - Compute the contract_leaf: hash(contract_address, portal_contract_address, function_tree_root)
          * - Hash the contract_leaf with the contract_leaf's sibling_path to get the contract_tree_root
          */
 
-        // The logic below ensures that the contract exists in the contracts tree
+        // Ensures that if the function is internal, only the contract itself can call it
+        if (private_call.call_stack_item.function_data.is_internal) {
+            builder.do_assert(
+                storage_contract_address == private_call.call_stack_item.public_inputs.call_context.msg_sender,
+                "call is internal, but msg_sender is not self",
+                CircuitErrorCode::PRIVATE_KERNEL__IS_INTERNAL_BUT_NOT_SELF_CALL);
+        }
 
+        // The logic below ensures that the contract exists in the contracts tree
         auto const& computed_function_tree_root =
             function_tree_root_from_siblings<NT>(private_call.call_stack_item.function_data.function_selector,
+                                                 private_call.call_stack_item.function_data.is_internal,
                                                  true,  // is_private
                                                  private_call_vk_hash,
                                                  private_call.acir_hash,
@@ -312,13 +428,14 @@ void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
 {
     public_inputs.constants = previous_kernel.public_inputs.constants;
 
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other functions
-    // within this circuit:
+    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
+    // functions within this circuit:
     auto& end = public_inputs.end;
     const auto& start = previous_kernel.public_inputs.end;
 
     end.new_commitments = start.new_commitments;
     end.new_nullifiers = start.new_nullifiers;
+    end.nullified_commitments = start.nullified_commitments;
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;

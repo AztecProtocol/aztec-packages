@@ -6,7 +6,7 @@ import {
   PublicExecutor,
   PublicStateDB,
 } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, ConstantHistoricBlockData, EthAddress, Fr } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
@@ -21,11 +21,13 @@ export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
+  blockData: ConstantHistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
     new ContractsDataSourcePublicDB(contractDataSource),
     new WorldStateDB(merkleTree, l1toL2MessageSource),
+    blockData,
   );
 }
 
@@ -37,8 +39,11 @@ class ContractsDataSourcePublicDB implements PublicContractsDB {
   async getBytecode(address: AztecAddress, functionSelector: Buffer): Promise<Buffer | undefined> {
     return (await this.db.getPublicFunction(address, functionSelector))?.bytecode;
   }
+  async getIsInternal(address: AztecAddress, functionSelector: Buffer): Promise<boolean | undefined> {
+    return (await this.db.getPublicFunction(address, functionSelector))?.isInternal;
+  }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    return (await this.db.getL2ContractInfo(address))?.portalContractAddress;
+    return (await this.db.getContractData(address))?.portalContractAddress;
   }
 }
 
@@ -82,12 +87,6 @@ class WorldStatePublicDB implements PublicStateDB {
 export class WorldStateDB implements CommitmentsDB {
   constructor(private db: MerkleTreeOperations, private l1ToL2MessageSource: L1ToL2MessageSource) {}
 
-  /**
-   * Gets a confirmed L1 to L2 message for the given message key.
-   * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
-   * @param messageKey - The message Key.
-   * @returns - The l1 to l2 message object
-   */
   public async getL1ToL2Message(messageKey: Fr): Promise<MessageLoadOracleInputs> {
     // todo: #697 - make this one lookup.
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
@@ -96,42 +95,24 @@ export class WorldStateDB implements CommitmentsDB {
 
     return {
       message: message.toFieldArray(),
-      index,
       siblingPath: siblingPath.toFieldArray(),
+      index,
     };
   }
 
-  /**
-   * Gets a message index and sibling path to some commitment in the private data tree.
-   * @param address - The contract address owning storage.
-   * @param commitment - The preimage of the siloed data.
-   * @returns - The Commitment data oracle object
-   */
-  public async getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, commitment);
+  public async getCommitmentOracle(address: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, innerCommitment);
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): shoild be
+    // unique commitment that exists in tree (should be siloed and then made unique via
+    // nonce).  Once public kernel or base rollup circuit injects nonces, this can be updated
+    // to use uniqueSiloedCommitment.
     const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedCommitment.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
     return {
       commitment: siloedCommitment,
-      index,
       siblingPath: siblingPath.toFieldArray(),
+      index,
     };
-  }
-
-  /**
-   * Gets the current tree roots from the merkle db.
-   * @returns current tree roots.
-   */
-  public getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getCommitmentTreeRoots();
-
-    return PrivateHistoricTreeRoots.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
-      contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
-      nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
-      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
-    });
   }
 }

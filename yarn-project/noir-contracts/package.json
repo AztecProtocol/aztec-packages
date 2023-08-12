@@ -4,12 +4,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./examples": "./dest/examples/index.js"
-  },
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Noir contracts",
-    "tsconfig": "./tsconfig.json"
+    "./artifacts": "./dest/artifacts/index.js",
+    "./types": "./dest/types/index.js"
   },
   "scripts": {
     "prepare": "node ../yarn-project-base/scripts/update_build_manifest.mjs package.json",
@@ -20,8 +16,10 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
+    "noir:clean": "rm -rf ./src/artifacts ./src/types && find ../aztec.js/src/abis/ -mindepth 1 -delete",
     "noir:build": "./src/scripts/compile.sh",
-    "noir:build:all": "./src/scripts/compile.sh $(ls -d src/contracts/*_contract | sed -r 's/src\\/contracts\\/(.+)_contract/\\1/')"
+    "noir:build:all": "yarn noir:clean && ./src/scripts/compile.sh $(./scripts/get_all_contracts.sh)",
+    "noir:types:all": "./scripts/types.sh $(./scripts/get_all_contracts.sh)"
   },
   "inherits": [
     "../package.common.json"
@@ -35,14 +33,18 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@aztec/aztec.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "lodash.omit": "^4.5.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/noir-compiler": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
     "@types/lodash.camelcase": "^4.3.7",
+    "@types/lodash.omit": "^4.5.7",
     "@types/lodash.snakecase": "^4.1.7",
     "@types/lodash.upperfirst": "^4.3.7",
     "@types/node": "^18.7.23",

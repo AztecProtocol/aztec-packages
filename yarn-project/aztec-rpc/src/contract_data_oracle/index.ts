@@ -1,6 +1,5 @@
-import { AztecNode } from '@aztec/aztec-node';
 import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
-import { ContractDatabase } from '@aztec/types';
+import { ContractCommitmentProvider, ContractDatabase } from '@aztec/types';
 
 import { ContractTree } from '../contract_tree/index.js';
 
@@ -14,7 +13,7 @@ import { ContractTree } from '../contract_tree/index.js';
 export class ContractDataOracle {
   private trees: ContractTree[] = [];
 
-  constructor(private db: ContractDatabase, private node: AztecNode) {}
+  constructor(private db: ContractDatabase, private contractCommitmentProvider: ContractCommitmentProvider) {}
 
   /**
    * Retrieve the portal contract address associated with the given contract address.
@@ -120,7 +119,7 @@ export class ContractDataOracle {
       }
 
       const wasm = await CircuitsWasm.get();
-      tree = new ContractTree(contract, this.node, wasm);
+      tree = new ContractTree(contract, this.contractCommitmentProvider, wasm);
       this.trees.push(tree);
     }
     return tree;

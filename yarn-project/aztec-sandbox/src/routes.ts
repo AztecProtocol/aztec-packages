@@ -1,6 +1,7 @@
+import { DeployL1Contracts } from '@aztec/ethereum';
+
 import Koa from 'koa';
 import Router from 'koa-router';
-import { DeployL1Contracts } from '@aztec/ethereum';
 
 /**
  * Creates a router for helper API endpoints of the Aztec RPC Server.
@@ -19,6 +20,8 @@ export function createApiRouter(l1Contracts: DeployL1Contracts) {
       rollup: l1Contracts.rollupAddress.toString(),
       contractDeploymentEmitter: l1Contracts.contractDeploymentEmitterAddress.toString(),
       inbox: l1Contracts.inboxAddress.toString(),
+      outbox: l1Contracts.outboxAddress.toString(),
+      decoderHelper: l1Contracts.decoderHelperAddress?.toString(),
       registry: l1Contracts.registryAddress.toString(),
     };
     ctx.status = 200;

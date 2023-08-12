@@ -8,7 +8,16 @@
   "references": [
     {
       "path": "../aztec-node"
+    },
+    {
+      "path": "../circuits.js"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../types"
     }
   ],
-  "include": ["src", "../aztec-node/src/aztec-node/http-node.ts"]
+  "include": ["src"]
 }

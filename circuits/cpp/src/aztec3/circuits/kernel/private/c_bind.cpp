@@ -6,7 +6,6 @@
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/constants.hpp"
-#include "aztec3/utils/array.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -15,7 +14,7 @@
 namespace {
 using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -23,7 +22,7 @@ using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_initial;
 using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_inner;
-using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering_rr_dummy;
+using aztec3::circuits::kernel::private_kernel::native_private_kernel_circuit_ordering;
 using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 }  // namespace
@@ -68,7 +67,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* tx_request_buf,
                                               size_t* private_kernel_public_inputs_size_out,
                                               uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_init");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_init");
 
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
@@ -85,7 +84,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* tx_request_buf,
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
+    serialize::write(public_inputs_vec, public_inputs);
     // copy public inputs to output buffer
     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
@@ -99,12 +98,12 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
                                                size_t* private_kernel_public_inputs_size_out,
                                                uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_inner");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_inner");
     PrivateCallData<NT> private_call_data;
     read(private_call_buf, private_call_data);
 
     PreviousKernelData<NT> previous_kernel;
-    read(previous_kernel_buf, previous_kernel);
+    serialize::read(previous_kernel_buf, previous_kernel);
 
     PrivateKernelInputsInner<NT> const private_inputs = PrivateKernelInputsInner<NT>{
         .previous_kernel = previous_kernel,
@@ -115,7 +114,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
+    serialize::write(public_inputs_vec, public_inputs);
     // copy public inputs to output buffer
     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
@@ -125,5 +124,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
 }
 
 CBIND(private_kernel__sim_ordering, [](PreviousKernelData<NT> previous_kernel) {
-    return native_private_kernel_circuit_ordering_rr_dummy(previous_kernel);
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_ordering");
+    auto const& public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
+    return builder.result_or_error(public_inputs);
 });

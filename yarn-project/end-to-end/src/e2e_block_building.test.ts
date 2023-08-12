@@ -1,16 +1,17 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { ContractDeployer, Fr } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { TxStatus } from '@aztec/types';
+import { ContractDeployer, Fr, isContractDeployed } from '@aztec/aztec.js';
+import { DebugLogger } from '@aztec/foundation/log';
+import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { AztecRPC, TxStatus } from '@aztec/types';
+
 import times from 'lodash.times';
 
-import { setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_block_building', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let logger: DebugLogger;
 
   const abi = TestContractAbi;
@@ -21,7 +22,9 @@ describe('e2e_block_building', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   it('should assemble a block with multiple txs', async () => {
@@ -48,7 +51,7 @@ describe('e2e_block_building', () => {
     expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
     // Assert all contracts got deployed
-    const areDeployed = await Promise.all(receipts.map(r => aztecRpcServer.isContractDeployed(r.contractAddress!)));
+    const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(aztecRpcServer, r.contractAddress!)));
     expect(areDeployed).toEqual(times(TX_COUNT, () => true));
   }, 60_000);
 });

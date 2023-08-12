@@ -7,11 +7,14 @@
     "./abis": "./dest/abis/index.js",
     "./barretenberg": "./dest/barretenberg/index.js",
     "./factories": "./dest/tests/factories.js",
-    "./utils": "./dest/utils/index.js"
+    "./utils": "./dest/utils/index.js",
+    "./types": "./dest/types/index.js"
   },
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Circuits.js",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Circuits.js",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -22,7 +25,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
-    "remake-bindings": "DEBUG=wasm ts-node-esm src/cbind/circuits.in.ts && prettier -w src/cbind/circuits.gen.ts ",
+    "remake-bindings": "DEBUG=wasm ts-node-esm src/cbind/circuits.in.ts && prettier -w src/cbind/circuits.gen.ts",
+    "remake-constants": "ts-node-esm src/cbind/constants.in.ts && prettier -w src/cbind/constants.gen.ts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests"
   },
   "inherits": [
@@ -59,8 +63,6 @@
     "@types/lodash.chunk": "^4.2.7",
     "@types/lodash.mapvalues": "^4.6.7",
     "@types/node": "^18.7.23",
-    "@typescript-eslint/eslint-plugin": "^5.54.1",
-    "@typescript-eslint/parser": "^5.54.1",
     "jest": "^29.5.0",
     "prettier": "^2.8.4",
     "ts-dedent": "^2.2.0",

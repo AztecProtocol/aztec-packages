@@ -1,5 +1,8 @@
-// Since we support account abstraction user accounts are represented by a contract. This contract is one such example
-// where the user is authenticated with an ECDSA signature.
+mod storage;
+mod ecdsa_public_key_note;
+
+// Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
+// The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
     use dep::std;
     use dep::aztec::entrypoint;
@@ -7,106 +10,91 @@ contract EcdsaAccount {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use dep::aztec::context::Context;
+    use dep::aztec::log::emit_encrypted_log;
+    use dep::aztec::oracle::get_public_key::get_public_key;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
+    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
-    // A function which has to be implemented by every account abstraction contract.
-    fn entrypoint(
+    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
+    use dep::aztec::note::{
+        note_header::{NoteHeader},
+        utils as note_utils,
+    };
+
+    use crate::storage::Storage;
+    use crate::ecdsa_public_key_note::EcdsaPublicKeyNote;
+    use crate::ecdsa_public_key_note::EcdsaPublicKeyNoteInterface;
+    use crate::ecdsa_public_key_note::ECDSA_PUBLIC_KEY_NOTE_LEN;
+
+    // All calls made by this account will be routed through this entrypoint
+    fn entrypoint(  
         inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
-        owner: pub [u8;64], // x and y coordinates concatenated
-        signature: pub [Field;3],
-        partialContractAddress: pub Field,
+        signature: pub [u8;64],
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // 75 = ENTRYPOINT_PAYLOAD_SIZE + 64 + 3 + 1
-        let mut args: BoundedVec<Field, 75> = BoundedVec::new(0);
-        args = args.push_array(payload.serialize());
-        for byte in owner {
-            args = args.push(byte as Field);
-        }
-        args = args.push_array(signature);
-        args = args.push(partialContractAddress);
         
+        // Initialise context
+        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
+        let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
+        args.push_array(payload.serialize());
+        for byte in signature { args.push(byte as Field); }
         let mut context = Context::new(inputs, abi::hash_args(args.storage));
 
-        // Decompress signature from 3 fields to 64 bytes
-        let mut decompressed_signature: [u8;64] = [0;64];
+        // Load public key from storage
+        let storage = Storage::init();
+        let public_key = storage.public_key.get_note(&mut context);
 
-        let signature_part_0 = signature[0].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i] = signature_part_0[i + 1];
-        }
-        let signature_part_1 = signature[1].to_be_bytes(32);
-        for i in 0..31 {
-            decompressed_signature[i + 31] = signature_part_1[i + 1];
-        }
-        let signature_part_2 = signature[2].to_be_bytes(32);
-        for i in 0..2 {
-            decompressed_signature[i + 62] = signature_part_2[i + 1];
-        }
-
-        let mut x: [u8; 32] = [0;32];
-        let mut y: [u8; 32] = [0;32];
-        for i in 0..32 {
-          x[i] = owner[i];
-          y[i] = owner[i + 32];
-        }
-
-        // Verify payload signature using ethereum's signing scheme
-        let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        let challenge: [u8; 32] = std::hash::sha256(payload_bytes);
-
-        let verification = std::ecdsa_secp256k1::verify_signature(x, y, decompressed_signature, challenge);
+        // Verify payload signature using Ethereum's signing scheme
+        // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
+        let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
+        let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
+        let message_bytes = message_field.to_be_bytes(32);
+        let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
+        let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
 
-        // TODO: When we can use pedersen with non-zero generators, get this working
-        //let reproduced_address = dep::std::hash::pedersen([owner, partialContractAddress])[0];
-        //constrain reproduced_address == inputs.call_context.storage_contract_address;
+        payload.execute_calls(&mut context);
 
-        // Call private functions
-        for i in 0..entrypoint::ACCOUNT_MAX_PRIVATE_CALLS {
-            let target_address = payload.flattened_targets[i];
-            if target_address != 0 {
-                let function_selector = payload.flattened_selectors[i];
-                let args_hash = payload.flattened_args_hashes[i];
-                let (_callStackItem, updated_context) = PrivateCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-                context = updated_context;
-            }
-        }
-
-        // Call public functions
-        for i in entrypoint::ACCOUNT_MAX_PRIVATE_CALLS..entrypoint::ACCOUNT_MAX_CALLS {
-            let target_address = payload.flattened_targets[i];
-            if target_address != 0 {
-                let function_selector = payload.flattened_selectors[i];
-                let args_hash = payload.flattened_args_hashes[i];
-                let (_callStackItem, updated_context) = PublicCallStackItem::call_with_packed_args(target_address, function_selector, args_hash, context);
-                context = updated_context;
-            }
-        }
-
-        // // Create args_hash manually since we exceed the MAX_ARGS in PrivateFunctionContext.
-        // // Alternatively, we could make PrivateFunctionContext generic on the args size.
-        // // ENTRYPOINT_PAYLOAD_SIZE + size_of(signature) = 21 + 64 = 85
-        // let mut args: BoundedVec<Field, 85> = BoundedVec::new(0);
-        // args = args.push_array(payload.flattened_args);
-        // args = args.push_array(payload.flattened_selectors);
-        // args = args.push(payload.nonce);
-        // for byte in signature {
-        //     args = args.push(byte as Field);
-        // }
-        // TODO(#499): Use hash index
-        // let args_hash = dep::std::hash::pedersen(args.storage)[0];
         context.finish()
     }
 
+    // Creates a new account out of an ECDSA public key to use for signature verification
     fn constructor(
-        inputs: PrivateContextInputs,
+        inputs: pub PrivateContextInputs,
+        signing_pub_key_x: pub [u8;32],
+        signing_pub_key_y: pub [u8;32],
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+        let storage = Storage::init();
+        
+        let mut args: BoundedVec<Field, 64> = BoundedVec::new(0);
+        for byte in signing_pub_key_x { args.push(byte as Field); }
+        for byte in signing_pub_key_y { args.push(byte as Field); }
+        let mut context = Context::new(inputs, abi::hash_args(args.storage));
+        
+        let this = inputs.call_context.storage_contract_address;
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, inputs.call_context.storage_contract_address);
+        storage.public_key.initialise(&mut context, &mut pub_key_note);
+        
+        emit_encrypted_log(
+            &mut context,
+            this,
+            storage.public_key.storage_slot,
+            this,
+            get_public_key(this),
+            pub_key_note.serialise(),
+        );
+
+        context.finish()
+    }
+
+    // Computes note hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ECDSA_PUBLIC_KEY_NOTE_LEN]) -> [Field; 4] {
+        assert(storage_slot == 1);
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        note_utils::compute_note_hash_and_nullifier(EcdsaPublicKeyNoteInterface, note_header, preimage)
     }
 }

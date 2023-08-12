@@ -1,4 +1,5 @@
 import camelCase from 'lodash.camelcase';
+
 import { USES_MSGPACK_BUFFER_METHODS } from './type_data.js';
 
 /**
@@ -175,7 +176,7 @@ function classConverterExpr(typeInfo: TypeInfo, value: string): string {
     if (typeInfo.msgpackTypeName === 'number') {
       return `${value}`; // Should be a branded number alias
     }
-    return `${value}.toBuffer()`;
+    return `toBuffer(${value})`;
   } else if (typeInfo.arraySubtype) {
     const { typeName } = typeInfo.arraySubtype;
     const convFn = `(v: ${typeName}) => ${classConverterExpr(typeInfo.arraySubtype, 'v')}`;
@@ -305,7 +306,11 @@ export class CbindCompiler {
       }
       const typeName = capitalize(camelCase(type));
       if (!this.typeInfos[typeName]) {
-        throw new Error('Unexpected type: ' + typeName + JSON.stringify(Object.keys(this.typeInfos)));
+        throw new Error(
+          'Unexpected type: ' +
+            typeName +
+            '. This is likely due to returning a struct without a MSGPACK_FIELDS macro, and without a msgpack_schema method.',
+        );
       }
       return this.typeInfos[typeName];
     } else if (typeof type === 'object') {
@@ -506,9 +511,13 @@ import { IWasmModule } from '@aztec/foundation/wasm';
         outputs.push('\n');
       }
     }
-    outputs[0] += `import {${imports.join(', ')}} from './types.js';`;
-    outputs[0] += `import {Tuple, mapTuple} from '@aztec/foundation/serialize';`;
-    outputs[0] += `import mapValues from 'lodash.mapvalues';`;
+
+    outputs[0] += `
+import {toBuffer, ${imports.join(', ')}} from './types.js';
+import {Tuple, mapTuple} from '@aztec/foundation/serialize';
+import mapValues from 'lodash.mapvalues';
+       `;
+
     for (const funcDecl of Object.values(this.funcDecls)) {
       outputs.push(funcDecl);
     }

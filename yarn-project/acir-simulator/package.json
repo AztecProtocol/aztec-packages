@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Acir Simulator",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Acir Simulator",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -32,15 +34,15 @@
   "dependencies": {
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/merkle-tree": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
-    "acvm_js": "github:sirasistant/acvm-simulator-wasm#1e84f2b4ecf0d0a7aee37f3d8d568add711b9e93",
+    "acvm_js": "github:noir-lang/acvm-simulator-wasm#b9d9ca9dfc5140839f23998d9466307215607c42",
     "levelup": "^5.1.1",
     "memdown": "^6.1.1",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
+    "@aztec/merkle-tree": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",

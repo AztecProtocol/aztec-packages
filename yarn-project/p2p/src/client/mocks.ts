@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/circuits.js';
 import { L2Block, L2BlockSource } from '@aztec/types';
 
 /**
@@ -14,6 +15,14 @@ export class MockBlockSource implements L2BlockSource {
   }
 
   /**
+   * Method to fetch the rollup contract address at the base-layer.
+   * @returns The rollup address.
+   */
+  getRollupAddress(): Promise<EthAddress> {
+    return Promise.resolve(EthAddress.random());
+  }
+
+  /**
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns In this mock instance, returns the number of L2 blocks that we've mocked.
    */
@@ -22,13 +31,22 @@ export class MockBlockSource implements L2BlockSource {
   }
 
   /**
-   * Gets the `take` amount of L2 blocks starting from `from`.
+   * Gets an l2 block.
+   * @param number - The block number to return (inclusive).
+   * @returns The requested L2 block.
+   */
+  public getL2Block(number: number) {
+    return Promise.resolve(this.l2Blocks[number]);
+  }
+
+  /**
+   * Gets up to `limit` amount of L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
-   * @param take - The number of blocks to return.
+   * @param limit - The maximum number of blocks to return.
    * @returns The requested mocked L2 blocks.
    */
-  public getL2Blocks(from: number, take: number) {
-    return Promise.resolve(this.l2Blocks.slice(from, from + take));
+  public getL2Blocks(from: number, limit: number) {
+    return Promise.resolve(this.l2Blocks.slice(from, from + limit));
   }
 
   /**

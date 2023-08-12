@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "P2P Bootstrap",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "P2P Bootstrap",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -24,6 +26,7 @@
     "../package.common.json"
   ],
   "dependencies": {
+    "@aztec/foundation": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "dotenv": "^16.0.3",
     "tslib": "^2.4.0"

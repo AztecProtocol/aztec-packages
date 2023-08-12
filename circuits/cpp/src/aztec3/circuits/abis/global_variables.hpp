@@ -24,11 +24,24 @@ template <typename NCT> struct GlobalVariables {
     fr block_number = 0;
     fr timestamp = 0;
 
+    MSGPACK_FIELDS(chain_id, version, block_number, timestamp);
+
     boolean operator==(GlobalVariables<NCT> const& other) const
     {
         return chain_id == other.chain_id && version == other.version && block_number == other.block_number &&
                timestamp == other.timestamp;
     };
+
+    /**
+     * @brief Returns an object containing all global variables set to zero.
+     *
+     * @return GlobalVariables<NCT>
+     */
+    static GlobalVariables<NCT> empty()
+    {
+        GlobalVariables<NCT> globals = { 0, 0, 0, 0 };
+        return globals;
+    }
 
     template <typename Builder> GlobalVariables<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
     {
@@ -48,6 +61,7 @@ template <typename NCT> struct GlobalVariables {
         return globals;
     };
 
+
     fr hash() const
     {
         std::vector<fr> inputs;
@@ -58,7 +72,17 @@ template <typename NCT> struct GlobalVariables {
 
         return NCT::compress(inputs, GeneratorIndex::GLOBAL_VARIABLES);
     }
-};
+
+    void set_public()
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+
+        chain_id.set_public();
+        version.set_public();
+        block_number.set_public();
+        timestamp.set_public();
+    }
+};  // namespace aztec3::circuits::abis
 
 template <typename NCT> void read(uint8_t const*& it, GlobalVariables<NCT>& globals)
 {

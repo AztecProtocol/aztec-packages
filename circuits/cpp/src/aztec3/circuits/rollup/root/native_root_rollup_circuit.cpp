@@ -2,6 +2,7 @@
 
 #include "aztec3/circuits/abis/rollup/root/root_rollup_inputs.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/rollup/components/components.hpp"
 #include "aztec3/constants.hpp"
 
@@ -13,6 +14,10 @@
 #include <vector>
 
 namespace aztec3::circuits::rollup::native_root_rollup {
+
+// Used when calling library functions like `check_membership` which have their own generic error code.
+// So we pad this in front of the error message to identify where the error originally came from.
+const std::string ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING = "root_rollup_circuit: ";
 
 // TODO: can we aggregate proofs if we do not have a working circuit impl
 // TODO: change the public inputs array - we wont be using this?
@@ -85,50 +90,42 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
     components::assert_equal_constants(builder, left, right);
     components::assert_prev_rollups_follow_on_from_each_other(builder, left, right);
 
-    // Update the historic private data tree
-    auto end_tree_of_historic_private_data_tree_roots_snapshot = components::insert_subtree_to_snapshot_tree(
-        builder,
-        left.constants.start_tree_of_historic_private_data_tree_roots_snapshot,
-        rootRollupInputs.new_historic_private_data_tree_root_sibling_path,
-        fr::zero(),
-        right.end_private_data_tree_snapshot.root,
-        0,
-        "historic private data tree roots insertion");
-
-    // Update the historic private data tree
-    auto end_tree_of_historic_contract_tree_roots_snapshot =
-        components::insert_subtree_to_snapshot_tree(builder,
-                                                    left.constants.start_tree_of_historic_contract_tree_roots_snapshot,
-                                                    rootRollupInputs.new_historic_contract_tree_root_sibling_path,
-                                                    fr::zero(),
-                                                    right.end_contract_tree_snapshot.root,
-                                                    0,
-                                                    "historic contract tree roots insertion");
-
     // Check correct l1 to l2 tree given
     // Compute subtree inserting l1 to l2 messages
     auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
 
-    // // Insert subtree into the l1 to l2 data tree
+    // Insert subtree into the l1 to l2 data tree
     const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
-    auto new_l1_to_l2_messages_tree_snapshot =
-        components::insert_subtree_to_snapshot_tree(builder,
-                                                    rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
-                                                    rootRollupInputs.new_l1_to_l2_message_tree_root_sibling_path,
-                                                    empty_l1_to_l2_subtree_root,
-                                                    l1_to_l2_subtree_root,
-                                                    L1_TO_L2_MSG_SUBTREE_HEIGHT,
-                                                    "l1 to l2 message tree insertion");
-
-    // Update the historic l1 to l2 data tree
-    auto end_l1_to_l2_data_roots_tree_snapshot = components::insert_subtree_to_snapshot_tree(
+    auto new_l1_to_l2_messages_tree_snapshot = components::insert_subtree_to_snapshot_tree(
         builder,
-        rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
-        rootRollupInputs.new_historic_l1_to_l2_message_roots_tree_sibling_path,
+        rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
+        rootRollupInputs.new_l1_to_l2_message_tree_root_sibling_path,
+        empty_l1_to_l2_subtree_root,
+        l1_to_l2_subtree_root,
+        L1_TO_L2_MSG_SUBTREE_HEIGHT,
+        format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+               "l1 to l2 message tree not empty at location where subtree would be inserted"));
+
+    // Build the block hash for this iteration from the tree roots and global variables
+    // Then insert the block into the historic blocks tree
+    auto block_hash = compute_block_hash_with_globals(left.constants.global_variables,
+                                                      right.end_private_data_tree_snapshot.root,
+                                                      right.end_nullifier_tree_snapshot.root,
+                                                      right.end_contract_tree_snapshot.root,
+                                                      new_l1_to_l2_messages_tree_snapshot.root,
+                                                      right.end_public_data_tree_root);
+
+    // Update the historic blocks tree
+    auto end_historic_blocks_tree_snapshot = components::insert_subtree_to_snapshot_tree(
+        builder,
+        rootRollupInputs.start_historic_blocks_tree_snapshot,
+        rootRollupInputs.new_historic_blocks_tree_sibling_path,
         fr::zero(),
-        new_l1_to_l2_messages_tree_snapshot.root,
+        block_hash,
         0,
-        "historic l1 to l2 message tree roots insertion");
+        format(ROOT_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+               "historic blocks tree roots not empty at location where subtree would be inserted"));
+
 
     RootRollupPublicInputs public_inputs = {
         .end_aggregation_object = aggregation_object,
@@ -141,17 +138,10 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         .end_contract_tree_snapshot = right.end_contract_tree_snapshot,
         .start_public_data_tree_root = left.start_public_data_tree_root,
         .end_public_data_tree_root = right.end_public_data_tree_root,
-        .start_tree_of_historic_private_data_tree_roots_snapshot =
-            left.constants.start_tree_of_historic_private_data_tree_roots_snapshot,
-        .end_tree_of_historic_private_data_tree_roots_snapshot = end_tree_of_historic_private_data_tree_roots_snapshot,
-        .start_tree_of_historic_contract_tree_roots_snapshot =
-            left.constants.start_tree_of_historic_contract_tree_roots_snapshot,
-        .end_tree_of_historic_contract_tree_roots_snapshot = end_tree_of_historic_contract_tree_roots_snapshot,
         .start_l1_to_l2_messages_tree_snapshot = rootRollupInputs.start_l1_to_l2_message_tree_snapshot,
         .end_l1_to_l2_messages_tree_snapshot = new_l1_to_l2_messages_tree_snapshot,
-        .start_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot =
-            rootRollupInputs.start_historic_tree_l1_to_l2_message_tree_roots_snapshot,
-        .end_tree_of_historic_l1_to_l2_messages_tree_roots_snapshot = end_l1_to_l2_data_roots_tree_snapshot,
+        .start_historic_blocks_tree_snapshot = rootRollupInputs.start_historic_blocks_tree_snapshot,
+        .end_historic_blocks_tree_snapshot = end_historic_blocks_tree_snapshot,
         .calldata_hash = components::compute_calldata_hash(rootRollupInputs.previous_rollup_data),
         .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.l1_to_l2_messages)
     };

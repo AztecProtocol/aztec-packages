@@ -69,9 +69,6 @@ describe('rollup/rollup_wasm_wrapper', () => {
     expect(output.endPrivateDataTreeSnapshot).toEqual(
       input.previousRollupData[1].publicInputs.endPrivateDataTreeSnapshot,
     );
-    expect(output.constants.startTreeOfHistoricContractTreeRootsSnapshot).toEqual(
-      input.previousRollupData[0].publicInputs.constants.startTreeOfHistoricContractTreeRootsSnapshot,
-    );
   });
 
   it('calling merge_rollup__sim with different constants should fail', () => {
@@ -81,7 +78,10 @@ describe('rollup/rollup_wasm_wrapper', () => {
     } catch (e) {
       expect(e).toBeInstanceOf(CircuitError);
       const err = e as CircuitError;
-      expect(err.message).toEqual('input proofs have different constants');
+      expect(err.message).toEqual(
+        `input proofs have different constants
+Refer to https://docs.aztec.network/aztec/protocol/errors for more information.`,
+      );
       expect(err.code).toEqual(7003);
     }
   });

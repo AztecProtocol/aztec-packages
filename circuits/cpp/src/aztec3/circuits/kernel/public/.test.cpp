@@ -6,13 +6,12 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/constant_historic_block_data.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
@@ -28,18 +27,17 @@
 #include <array>
 
 namespace {
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
+using aztec3::circuits::abis::ConstantHistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
 using aztec3::circuits::abis::PreviousKernelData;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::PublicCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicTypes;
@@ -360,30 +358,25 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     };
 
     // TODO(914) Should this be unused?
-    [[maybe_unused]] CombinedHistoricTreeRoots<NT> const historic_tree_roots = { .private_historic_tree_roots = {
-                                                                                     .private_data_tree_root = 1000,
-                                                                                     .contract_tree_root = 2000,
-                                                                                     .l1_to_l2_messages_tree_root =
-                                                                                         3000,
-                                                                                     .private_kernel_vk_tree_root =
-                                                                                         4000,
-                                                                                 } };
-
-    CombinedConstantData<NT> const end_constants = {
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{ .private_historic_tree_roots =
-                                               PrivateHistoricTreeRoots<NT>{ .private_data_tree_root = ++seed,
-                                                                             .nullifier_tree_root = ++seed,
-                                                                             .contract_tree_root = ++seed,
-                                                                             .private_kernel_vk_tree_root = ++seed } },
-        .tx_context =
-            TxContext<NT>{
-                .is_fee_payment_tx = false,
-                .is_rebate_payment_tx = false,
-                .is_contract_deployment_tx = false,
-                .contract_deployment_data = {},
-            }
+    [[maybe_unused]] ConstantHistoricBlockData<NT> const historic_tree_roots = {
+        .private_data_tree_root = 1000,
+        .contract_tree_root = 2000,
+        .l1_to_l2_messages_tree_root = 3000,
+        .private_kernel_vk_tree_root = 4000,
     };
+
+    CombinedConstantData<NT> const end_constants = { .block_data =
+                                                         ConstantHistoricBlockData<NT>{
+                                                             .private_data_tree_root = ++seed,
+                                                             .nullifier_tree_root = ++seed,
+                                                             .contract_tree_root = ++seed,
+                                                             .private_kernel_vk_tree_root = ++seed },
+                                                     .tx_context = TxContext<NT>{
+                                                         .is_fee_payment_tx = false,
+                                                         .is_rebate_payment_tx = false,
+                                                         .is_contract_deployment_tx = false,
+                                                         .contract_deployment_data = {},
+                                                     } };
 
     std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
     public_call_stack[0] = public_call_data.call_stack_item.hash();
@@ -461,14 +454,17 @@ void validate_public_kernel_outputs_correctly_propagated(const KernelInput& inpu
     }
 }
 
-void validate_private_data_propagation(const PublicKernelInputs<NT>& inputs,
+void validate_private_data_propagation(DummyBuilder& builder,
+                                       const PublicKernelInputs<NT>& inputs,
                                        const KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.private_call_stack,
+    ASSERT_TRUE(source_arrays_are_in_target(builder,
+                                            inputs.previous_kernel.public_inputs.end.private_call_stack,
                                             std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>{},
                                             public_inputs.end.private_call_stack));
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_contracts,
+    ASSERT_TRUE(source_arrays_are_in_target(builder,
+                                            inputs.previous_kernel.public_inputs.end.new_contracts,
                                             std::array<NewContractData<NT>, MAX_NEW_CONTRACTS_PER_TX>(),
                                             public_inputs.end.new_contracts));
 
@@ -604,6 +600,22 @@ TEST(public_kernel_tests, no_bytecode_hash_should_fail)
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__BYTECODE_HASH_INVALID);
 }
 
+
+TEST(public_kernel_tests, invalid_is_internal)
+{
+    DummyBuilder dummyBuilder = DummyBuilder("public_kernel_tests__no_bytecode_hash_should_fail");
+    PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
+
+    // Make the call internal but msg_sender != storage_contract_address.
+    inputs.public_call.call_stack_item.function_data.is_internal = true;
+    inputs.public_call.call_stack_item.public_inputs.call_context.msg_sender = 1;
+    inputs.public_call.call_stack_item.public_inputs.call_context.storage_contract_address = 2;
+
+    auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
+    ASSERT_TRUE(dummyBuilder.failed());
+    ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__IS_INTERNAL_BUT_NOT_SELF_CALL);
+}
+
 TEST(public_kernel_tests, contract_address_must_be_valid)
 {
     DummyBuilder dummyBuilder = DummyBuilder("public_kernel_tests__contract_address_must_be_valid");
@@ -663,6 +675,9 @@ TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_c
             NT::fr(inputs.public_call.public_call_stack_preimages[i].contract_address) + 1;
         inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.storage_contract_address =
             new_contract_address;
+        // update the call stack item hash after the change in the preimage
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+            inputs.public_call.public_call_stack_preimages[i].hash();
         auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
         ASSERT_TRUE(dummyBuilder.failed());
         ASSERT_EQ(dummyBuilder.get_first_failure().code,
@@ -680,6 +695,9 @@ TEST(public_kernel_tests, incorrect_msg_sender_fails_for_regular_calls)
         const auto new_msg_sender = inputs.public_call.public_call_stack_preimages[i].contract_address;
         // change the storage contract address so it does not equal the contract address
         inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.msg_sender = new_msg_sender;
+        // update the call stack item hash after the change in the preimage
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+            inputs.public_call.public_call_stack_preimages[i].hash();
         auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
         ASSERT_TRUE(dummyBuilder.failed());
         ASSERT_EQ(dummyBuilder.get_first_failure().code,
@@ -698,14 +716,12 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
     const auto contract_portal_address = NT::fr(inputs.public_call.portal_contract_address);
 
     // redefine the child calls/stacks to use some delegate calls
-    std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
     NT::boolean is_delegate_call = false;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
-        child_call_stacks[i] =
+        inputs.public_call.public_call_stack_preimages[i] =
             // NOLINTNEXTLINE(readability-suspicious-call-argument)
             generate_call_stack_item(child_contract_address,
                                      is_delegate_call ? origin_msg_sender : contract_address,
@@ -713,16 +729,21 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
                                      is_delegate_call ? contract_portal_address : child_portal_contract_address,
                                      is_delegate_call,
                                      seed);
-        call_stack_hashes[i] = child_call_stacks[i].hash();
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+            inputs.public_call.public_call_stack_preimages[i].hash();
 
         // change the next call type
         is_delegate_call = !is_delegate_call;
         child_contract_address++;
         child_portal_contract_address++;
     }
-    inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
-    inputs.public_call.public_call_stack_preimages = child_call_stacks;
+
+    // we update the hash of the current call stack item in the previous kernel,
+    // since we modified the hash of the nested calls, which changes the hash of the parent item
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
+
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
+    ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
     ASSERT_FALSE(dummyBuilder.failed());
 }
 
@@ -878,7 +899,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
 
     // test that the prior set of private kernel public inputs were copied to the outputs
-    validate_private_data_propagation(inputs, public_inputs);
+    validate_private_data_propagation(dummyBuilder, inputs, public_inputs);
 
     validate_public_kernel_outputs_correctly_propagated(inputs, public_inputs);
     ASSERT_FALSE(dummyBuilder.failed());
@@ -1040,7 +1061,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
 
     // test that the prior set of private kernel public inputs were copied to the outputs
-    validate_private_data_propagation(inputs, public_inputs);
+    validate_private_data_propagation(dummyBuilder, inputs, public_inputs);
 
     // this call should have been popped from the public call stack and the stack of call pre images pushed on
     for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
@@ -1090,7 +1111,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_EQ(public_inputs.end.unencrypted_log_preimages_length,
               unencrypted_log_preimages_length + public_inputs_unencrypted_log_preimages_length);
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.public_data_update_requests,
+    ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
+                                            inputs.previous_kernel.public_inputs.end.public_data_update_requests,
                                             expected_new_writes,
                                             public_inputs.end.public_data_update_requests));
 
@@ -1098,7 +1120,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
         public_data_reads_from_contract_storage_reads(
             inputs.public_call.call_stack_item.public_inputs.contract_storage_reads, contract_address);
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.public_data_reads,
+    ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
+                                            inputs.previous_kernel.public_inputs.end.public_data_reads,
                                             expected_new_reads,
                                             public_inputs.end.public_data_reads));
 
@@ -1106,14 +1129,16 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
         new_commitments_as_siloed_commitments(inputs.public_call.call_stack_item.public_inputs.new_commitments,
                                               contract_address);
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_commitments,
+    ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
+                                            inputs.previous_kernel.public_inputs.end.new_commitments,
                                             expected_new_commitments,
                                             public_inputs.end.new_commitments));
 
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
         inputs.public_call.call_stack_item.public_inputs.new_nullifiers, contract_address);
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_nullifiers,
+    ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
+                                            inputs.previous_kernel.public_inputs.end.new_nullifiers,
                                             expected_new_nullifiers,
                                             public_inputs.end.new_nullifiers));
 
@@ -1128,7 +1153,8 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                      chain_id,
                                      version);
 
-    ASSERT_TRUE(source_arrays_are_in_target(inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
+    ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
+                                            inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
                                             expected_new_messages,
                                             public_inputs.end.new_l2_to_l1_msgs));
 

@@ -4,12 +4,17 @@
 #include "public_data_read.hpp"
 #include "public_data_update_request.hpp"
 
+#include "aztec3/circuits/abis/membership_witness.hpp"
+#include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
+
+#include <array>
+#include <cstddef>
 
 namespace aztec3::circuits::abis {
 
@@ -25,8 +30,15 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     AggregationObject aggregation_object{};
 
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
+        read_request_membership_witnesses{};
+
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
+    // For pending nullifiers, we have:
+    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
@@ -49,8 +61,11 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
+                   read_requests,
+                   read_request_membership_witnesses,
                    new_commitments,
                    new_nullifiers,
+                   nullified_commitments,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -64,8 +79,10 @@ template <typename NCT> struct CombinedAccumulatedData {
                    public_data_reads);
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
     {
-        return aggregation_object == other.aggregation_object && new_commitments == other.new_commitments &&
-               new_nullifiers == other.new_nullifiers && private_call_stack == other.private_call_stack &&
+        return aggregation_object == other.aggregation_object && read_requests == other.read_requests &&
+               read_request_membership_witnesses == other.read_request_membership_witnesses &&
+               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
+               nullified_commitments == other.nullified_commitments && private_call_stack == other.private_call_stack &&
                public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
                encrypted_logs_hash == other.encrypted_logs_hash &&
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
@@ -94,8 +111,12 @@ template <typename NCT> struct CombinedAccumulatedData {
                 aggregation_object.has_data,
             },
 
+            to_ct(read_requests),
+            map(read_request_membership_witnesses, to_circuit_type),
+
             to_ct(new_commitments),
             to_ct(new_nullifiers),
+            to_ct(nullified_commitments),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -131,8 +152,12 @@ template <typename NCT> struct CombinedAccumulatedData {
                 aggregation_object.has_data,
             },
 
+            to_nt(read_requests),
+            map(read_request_membership_witnesses, to_native_type),
+
             to_nt(new_commitments),
             to_nt(new_nullifiers),
+            to_nt(nullified_commitments),
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
@@ -158,8 +183,12 @@ template <typename NCT> struct CombinedAccumulatedData {
 
         aggregation_object.add_proof_outputs_as_public_inputs();
 
+        set_array_public(read_requests);
+        set_array_public(read_request_membership_witnesses);
+
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
+        set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
@@ -179,6 +208,15 @@ template <typename NCT> struct CombinedAccumulatedData {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (T& e : arr) {
             fr(e).set_public();
+        }
+    }
+
+    template <size_t SIZE>
+    void set_array_public(std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.set_public();
         }
     }
 
@@ -215,54 +253,20 @@ template <typename NCT> struct CombinedAccumulatedData {
     }
 };
 
-template <typename NCT> void read(uint8_t const*& it, CombinedAccumulatedData<NCT>& accum_data)
-{
-    using serialize::read;
-
-    read(it, accum_data.aggregation_object);
-    read(it, accum_data.new_commitments);
-    read(it, accum_data.new_nullifiers);
-    read(it, accum_data.private_call_stack);
-    read(it, accum_data.public_call_stack);
-    read(it, accum_data.new_l2_to_l1_msgs);
-    read(it, accum_data.encrypted_logs_hash);
-    read(it, accum_data.unencrypted_logs_hash);
-    read(it, accum_data.encrypted_log_preimages_length);
-    read(it, accum_data.unencrypted_log_preimages_length);
-    read(it, accum_data.new_contracts);
-    read(it, accum_data.optionally_revealed_data);
-    read(it, accum_data.public_data_update_requests);
-    read(it, accum_data.public_data_reads);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, CombinedAccumulatedData<NCT> const& accum_data)
-{
-    using serialize::write;
-
-    write(buf, accum_data.aggregation_object);
-    write(buf, accum_data.new_commitments);
-    write(buf, accum_data.new_nullifiers);
-    write(buf, accum_data.private_call_stack);
-    write(buf, accum_data.public_call_stack);
-    write(buf, accum_data.new_l2_to_l1_msgs);
-    write(buf, accum_data.encrypted_logs_hash);
-    write(buf, accum_data.unencrypted_logs_hash);
-    write(buf, accum_data.encrypted_log_preimages_length);
-    write(buf, accum_data.unencrypted_log_preimages_length);
-    write(buf, accum_data.new_contracts);
-    write(buf, accum_data.optionally_revealed_data);
-    write(buf, accum_data.public_data_update_requests);
-    write(buf, accum_data.public_data_reads);
-};
-
 template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccumulatedData<NCT> const& accum_data)
 {
     return os << "aggregation_object:\n"
               << accum_data.aggregation_object << "\n"
+              << "read_requests:\n"
+              << accum_data.read_requests << "\n"
+              << "read_request_membership_witnesses:\n"
+              << accum_data.read_request_membership_witnesses << "\n"
               << "new_commitments:\n"
               << accum_data.new_commitments << "\n"
               << "new_nullifiers:\n"
               << accum_data.new_nullifiers << "\n"
+              << "nullified_commitments:\n"
+              << accum_data.nullified_commitments << "\n"
               << "private_call_stack:\n"
               << accum_data.private_call_stack << "\n"
               << "public_call_stack:\n"

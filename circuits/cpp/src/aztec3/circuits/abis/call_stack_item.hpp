@@ -76,32 +76,10 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
         };
 
         // NOLINTNEXTLINE(misc-const-correctness)
-        fr call_stack_item_hash = NCT::compress(inputs, GeneratorIndex::CALL_STACK_ITEM);
+        fr call_stack_item_hash = NCT::hash(inputs, GeneratorIndex::CALL_STACK_ITEM);
 
         return call_stack_item_hash;
     }
-};
-
-template <typename NCT, template <class> typename PrivatePublic>
-void read(uint8_t const*& it, CallStackItem<NCT, PrivatePublic>& call_stack_item)
-{
-    using serialize::read;
-
-    read(it, call_stack_item.contract_address);
-    read(it, call_stack_item.function_data);
-    read(it, call_stack_item.public_inputs);
-    read(it, call_stack_item.is_execution_request);
-};
-
-template <typename NCT, template <class> typename PrivatePublic>
-void write(std::vector<uint8_t>& buf, CallStackItem<NCT, PrivatePublic> const& call_stack_item)
-{
-    using serialize::write;
-
-    write(buf, call_stack_item.contract_address);
-    write(buf, call_stack_item.function_data);
-    write(buf, call_stack_item.public_inputs);
-    write(buf, call_stack_item.is_execution_request);
 };
 
 template <typename NCT, template <class> typename PrivatePublic>

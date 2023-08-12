@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "type": "module",
   "exports": "./dest/index.js",
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Wallet",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Wallet",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -32,22 +34,23 @@
   },
   "dependencies": {
     "@aztec/acir-simulator": "workspace:^",
-    "@aztec/aztec-node": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/key-store": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
+    "lodash.omit": "^4.5.0",
     "lodash.partition": "^4.6.0",
     "lodash.times": "^4.3.2",
     "sha3": "^2.1.4",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "viem": "^1.2.5"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
-    "@types/lodash.partition": "^4.6.7",
+    "@types/lodash.omit": "^4.5.7",
+    "@types/lodash.partition": "^4.6.0",
     "@types/lodash.times": "^4.3.7",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",

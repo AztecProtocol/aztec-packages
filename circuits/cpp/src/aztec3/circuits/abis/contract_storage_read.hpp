@@ -59,7 +59,7 @@ template <typename NCT> struct ContractStorageRead {
             current_value,
         };
 
-        return NCT::compress(inputs, GeneratorIndex::PUBLIC_DATA_READ);
+        return NCT::hash(inputs, GeneratorIndex::PUBLIC_DATA_READ);
     }
 
     void set_public()
@@ -71,22 +71,6 @@ template <typename NCT> struct ContractStorageRead {
     }
 
     boolean is_empty() const { return storage_slot == 0; }
-};
-
-template <typename NCT> void read(uint8_t const*& it, ContractStorageRead<NCT>& contract_storage_read)
-{
-    using serialize::read;
-
-    read(it, contract_storage_read.storage_slot);
-    read(it, contract_storage_read.current_value);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, ContractStorageRead<NCT> const& contract_storage_read)
-{
-    using serialize::write;
-
-    write(buf, contract_storage_read.storage_slot);
-    write(buf, contract_storage_read.current_value);
 };
 
 template <typename NCT>

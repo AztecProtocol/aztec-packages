@@ -94,40 +94,12 @@ template <typename NCT> struct ContractDeploymentData {
     fr hash() const
     {
         std::vector<fr> const inputs = {
-            deployer_public_key.x.fields[0],
-            deployer_public_key.x.fields[1],
-            deployer_public_key.y.fields[0],
-            deployer_public_key.y.fields[1],
-            constructor_vk_hash,
-            function_tree_root,
-            contract_address_salt,
-            portal_contract_address.to_field(),
+            deployer_public_key.x, deployer_public_key.y, constructor_vk_hash,
+            function_tree_root,    contract_address_salt, portal_contract_address.to_field(),
         };
 
-        return NCT::compress(inputs, GeneratorIndex::CONTRACT_DEPLOYMENT_DATA);
+        return NCT::hash(inputs, GeneratorIndex::CONTRACT_DEPLOYMENT_DATA);
     }
-};
-
-template <typename NCT> void read(uint8_t const*& it, ContractDeploymentData<NCT>& data)
-{
-    using serialize::read;
-
-    read(it, data.deployer_public_key);
-    read(it, data.constructor_vk_hash);
-    read(it, data.function_tree_root);
-    read(it, data.contract_address_salt);
-    read(it, data.portal_contract_address);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, ContractDeploymentData<NCT> const& data)
-{
-    using serialize::write;
-
-    write(buf, data.deployer_public_key);
-    write(buf, data.constructor_vk_hash);
-    write(buf, data.function_tree_root);
-    write(buf, data.contract_address_salt);
-    write(buf, data.portal_contract_address);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, ContractDeploymentData<NCT> const& data)

@@ -1,16 +1,17 @@
-import { CircuitsWasm, FunctionData, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { CircuitsWasm, ConstantHistoricBlockData, FunctionData, PrivateKey } from '@aztec/circuits.js';
+import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-
+import { encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ZkTokenContractAbi } from '@aztec/noir-contracts/examples';
-import { ExecutionRequest } from '@aztec/types';
+import { PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { FunctionCall } from '@aztec/types';
+
 import { mock } from 'jest-mock-extended';
-import { NoirPoint, toPublicKey } from '../utils.js';
+
 import { DBOracle } from './db_oracle.js';
 import { AcirSimulator } from './simulator.js';
-import { encodeArguments } from '@aztec/foundation/abi';
 
 describe('Unconstrained Execution test suite', () => {
   let bbWasm: CircuitsWasm;
@@ -26,57 +27,66 @@ describe('Unconstrained Execution test suite', () => {
     acirSimulator = new AcirSimulator(oracle);
   });
 
-  describe('zk token contract', () => {
-    let currentNonce = 0n;
-    let ownerPk: Buffer;
-    let owner: NoirPoint;
+  describe('private token contract', () => {
+    const ownerPk = PrivateKey.fromString('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33');
 
-    const buildNote = (amount: bigint, owner: NoirPoint) => {
-      return [new Fr(amount), new Fr(owner.x), new Fr(owner.y), Fr.random(), new Fr(currentNonce++), new Fr(1n)];
+    let owner: AztecAddress;
+
+    const buildNote = (amount: bigint, owner: AztecAddress) => {
+      return [new Fr(amount), owner, Fr.random()];
     };
 
-    beforeAll(() => {
-      ownerPk = Buffer.from('5e30a2f886b4b6a11aea03bf4910fbd5b24e61aa27ea4d05c393b3ab592a8d33', 'hex');
-
+    const calculateAddress = (privateKey: PrivateKey) => {
       const grumpkin = new Grumpkin(bbWasm);
-      owner = toPublicKey(ownerPk, grumpkin);
+      const pubKey = grumpkin.mul(Grumpkin.generator, privateKey);
+      const partialAddress = Fr.random();
+      const address = computeContractAddressFromPartial(bbWasm, pubKey, partialAddress);
+      return [address, partialAddress, pubKey] as const;
+    };
+
+    beforeEach(() => {
+      const [ownerAddress, ownerPartialAddress, ownerPubKey] = calculateAddress(ownerPk);
+      owner = ownerAddress;
+
+      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
+        throw new Error(`Unknown address ${address}`);
+      });
     });
 
     it('should run the getBalance function', async () => {
       const contractAddress = AztecAddress.random();
-      const abi = ZkTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
+      const abi = PrivateTokenContractAbi.functions.find(f => f.name === 'getBalance')!;
 
       const preimages = [...Array(5).fill(buildNote(1n, owner)), ...Array(2).fill(buildNote(2n, owner))];
-      // TODO for this we need that noir siloes the commitment the same way as the kernel does, to do merkle membership
 
-      const historicRoots = PrivateHistoricTreeRoots.empty();
+      const constantHistoricBlockData = ConstantHistoricBlockData.empty();
 
-      oracle.getNotes.mockImplementation(
-        (_contract, _storageSlot, _sortBy, _sortOrder, limit: number, offset: number) => {
-          const notes = preimages.slice(offset, offset + limit);
-          return Promise.resolve({
-            count: preimages.length,
-            notes: notes.map((preimage, index) => ({
-              preimage,
-              index: BigInt(index),
-            })),
-          });
-        },
+      oracle.getNotes.mockResolvedValue(
+        preimages.map((preimage, index) => ({
+          contractAddress,
+          storageSlot: Fr.random(),
+          nonce: Fr.random(),
+          isSome: new Fr(1),
+          preimage,
+          siloedNullifier: Fr.random(),
+          index: BigInt(index),
+        })),
       );
 
-      const execRequest: ExecutionRequest = {
-        from: AztecAddress.random(),
+      const execRequest: FunctionCall = {
         to: contractAddress,
-        functionData: new FunctionData(Buffer.alloc(4), true, true),
+        functionData: new FunctionData(Buffer.alloc(4), false, true, true),
         args: encodeArguments(abi, [owner]),
       };
 
       const result = await acirSimulator.runUnconstrained(
         execRequest,
+        AztecAddress.random(),
         abi,
         AztecAddress.random(),
         EthAddress.ZERO,
-        historicRoots,
+        constantHistoricBlockData,
       );
 
       expect(result).toEqual([9n]);

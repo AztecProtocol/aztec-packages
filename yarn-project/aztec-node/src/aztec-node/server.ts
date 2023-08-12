@@ -2,18 +2,20 @@ import { Archiver } from '@aztec/archiver';
 import {
   CONTRACT_TREE_HEIGHT,
   CircuitsWasm,
+  EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { SiblingPath } from '@aztec/merkle-tree';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient, getCombinedHistoricTreeRoots } from '@aztec/sequencer-client';
+import { SequencerClient } from '@aztec/sequencer-client';
 import {
+  AztecNode,
   ContractData,
+  ContractDataAndBytecode,
   ContractDataSource,
-  ContractPublicData,
   L1ToL2MessageAndIndex,
   L1ToL2MessageSource,
   L2Block,
@@ -22,6 +24,7 @@ import {
   L2LogsSource,
   LogType,
   MerkleTreeId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/types';
@@ -31,9 +34,10 @@ import {
   WorldStateSynchroniser,
   computePublicDataTreeLeafIndex,
 } from '@aztec/world-state';
+
 import { default as levelup } from 'levelup';
 import { MemDown, default as memdown } from 'memdown';
-import { AztecNode } from './aztec-node.js';
+
 import { AztecNodeConfig } from './config.js';
 
 export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
@@ -54,6 +58,7 @@ export class AztecNodeService implements AztecNode {
     protected sequencer: SequencerClient,
     protected chainId: number,
     protected version: number,
+    private log = createDebugLogger('aztec:node'),
   ) {}
 
   /**
@@ -112,13 +117,22 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
-   * @param from - The start of the range of blocks to return.
-   * @param take - The number of blocks desired.
+   * Get the a given block.
+   * @param number - The block number being requested.
    * @returns The blocks requested.
    */
-  public async getBlocks(from: number, take: number): Promise<L2Block[]> {
-    return (await this.blockSource.getL2Blocks(from, take)) ?? [];
+  public async getBlock(number: number): Promise<L2Block | undefined> {
+    return await this.blockSource.getL2Block(number);
+  }
+
+  /**
+   * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
+   * @param from - The start of the range of blocks to return.
+   * @param limit - The maximum number of blocks to obtain.
+   * @returns The blocks requested.
+   */
+  public async getBlocks(from: number, limit: number): Promise<L2Block[]> {
+    return (await this.blockSource.getL2Blocks(from, limit)) ?? [];
   }
 
   /**
@@ -146,35 +160,43 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
+   * Method to fetch the rollup contract address at the base-layer.
+   * @returns The rollup address.
+   */
+  public getRollupAddress(): Promise<EthAddress> {
+    return this.blockSource.getRollupAddress();
+  }
+
+  /**
    * Lookup the L2 contract data for this contract.
    * Contains the ethereum portal address and bytecode.
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    return await this.contractDataSource.getL2ContractPublicData(contractAddress);
+  public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    return await this.contractDataSource.getContractDataAndBytecode(contractAddress);
   }
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  public async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.contractDataSource.getL2ContractInfo(contractAddress);
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    return await this.contractDataSource.getContractData(contractAddress);
   }
 
   /**
-   * Gets the `take` amount of logs starting from `from`.
+   * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param take - The number of logs to return.
+   * @param limit - The maximum number of logs to return.
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const logSource = logType === LogType.ENCRYPTED ? this.encryptedLogsSource : this.unencryptedLogsSource;
-    return logSource.getLogs(from, take, logType);
+    return logSource.getLogs(from, limit, logType);
   }
 
   /**
@@ -182,11 +204,7 @@ export class AztecNodeService implements AztecNode {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    // TODO: Patch tx to inject historic tree roots until the private kernel circuit supplies this value
-    if (tx.data.constants.historicTreeRoots.privateHistoricTreeRoots.isEmpty()) {
-      tx.data.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(this.merkleTreeDB.asLatest());
-    }
-
+    this.log.info(`Received tx ${await tx.getTxHash()}`);
     await this.p2pClient!.sendTx(tx);
   }
 
@@ -199,6 +217,7 @@ export class AztecNodeService implements AztecNode {
     await this.worldStateSynchroniser.stop();
     await this.merkleTreeDB.stop();
     await this.blockSource.stop();
+    this.log.info(`Stopped`);
   }
 
   /**
@@ -287,7 +306,7 @@ export class AztecNodeService implements AztecNode {
    * @returns Storage value at the given contract slot (or undefined if not found).
    * Note: Aztec's version of `eth_getStorageAt`.
    */
-  public async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
+  public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
     const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
     return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
   }
@@ -306,9 +325,7 @@ export class AztecNodeService implements AztecNode {
       [MerkleTreeId.NULLIFIER_TREE]: await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
       [MerkleTreeId.PUBLIC_DATA_TREE]: await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE),
+      [MerkleTreeId.BLOCKS_TREE]: await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
     };
   }
 }

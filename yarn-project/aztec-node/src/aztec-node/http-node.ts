@@ -1,22 +1,23 @@
-import { AztecNode } from '@aztec/aztec-node';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  EthAddress,
   Fr,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
-import { Logger, createLogger } from '@aztec/foundation/log';
-import { SiblingPath } from '@aztec/merkle-tree';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
+  AztecNode,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   L1ToL2Message,
   L1ToL2MessageAndIndex,
   L2Block,
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
+  SiblingPath,
   Tx,
   TxHash,
 } from '@aztec/types';
@@ -26,9 +27,9 @@ import {
  */
 export class HttpNode implements AztecNode {
   private baseUrl: string;
-  private log: Logger;
+  private log: DebugLogger;
 
-  constructor(baseUrl: string, log = createLogger('aztec:http-node')) {
+  constructor(baseUrl: string, log = createDebugLogger('aztec:http-node')) {
     this.baseUrl = baseUrl.toString().replace(/\/$/, '');
     this.log = log;
   }
@@ -44,16 +45,29 @@ export class HttpNode implements AztecNode {
   }
 
   /**
+   * Method to request a block at the provided block number.
+   * @param number - The block number to request.
+   * @returns The block requested. Or undefined if it does not exist.
+   */
+  async getBlock(number: number): Promise<L2Block | undefined> {
+    const url = new URL(`${this.baseUrl}/get-block`);
+    url.searchParams.append('number', number.toString());
+    const response = await (await fetch(url.toString())).json();
+    const { block } = response;
+    return Promise.resolve(block ? L2Block.decode(Buffer.from(block, 'hex')) : block);
+  }
+
+  /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
-   * @param take - The number of blocks desired.
+   * @param limit - Maximum number of blocks to obtain.
    * @returns The blocks requested.
    */
-  async getBlocks(from: number, take: number): Promise<L2Block[]> {
+  async getBlocks(from: number, limit: number): Promise<L2Block[]> {
     const url = new URL(`${this.baseUrl}/get-blocks`);
     url.searchParams.append('from', from.toString());
-    if (take !== undefined) {
-      url.searchParams.append('take', take.toString());
+    if (limit !== undefined) {
+      url.searchParams.append('limit', limit.toString());
     }
     const response = await (await fetch(url.toString())).json();
     const blocks = response.blocks as string[];
@@ -85,6 +99,13 @@ export class HttpNode implements AztecNode {
     return respJson.version;
   }
 
+  public async getRollupAddress(): Promise<EthAddress> {
+    const url = new URL(`${this.baseUrl}/get-rollup-address`);
+    const response = await fetch(url.toString());
+    const respJson = await response.json();
+    return EthAddress.fromString(respJson.rollupAddress);
+  }
+
   /**
    * Method to fetch the chain id of the base-layer for the rollup.
    * @returns The chain id.
@@ -97,34 +118,34 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the L2 contract data for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address and bytecode.
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    const url = new URL(`${this.baseUrl}/contract-data`);
+  async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    const url = new URL(`${this.baseUrl}/contract-data-and-bytecode`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
     if (!response || !response.contractData) {
       return undefined;
     }
     const contract = response.contractData as string;
-    return Promise.resolve(ContractPublicData.fromBuffer(Buffer.from(contract, 'hex')));
+    return Promise.resolve(ContractDataAndBytecode.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**
-   * Gets the `take` amount of logs starting from `from`.
+   * Gets up to `limit` amount of logs starting from `from`.
    * @param from - Number of the L2 block to which corresponds the first logs to be returned.
-   * @param take - The number of logs to return.
+   * @param limit - The maximum number of logs to return.
    * @param logType - Specifies whether to return encrypted or unencrypted logs.
    * @returns The requested logs.
    */
-  public async getLogs(from: number, take: number, logType: LogType): Promise<L2BlockL2Logs[]> {
+  public async getLogs(from: number, limit: number, logType: LogType): Promise<L2BlockL2Logs[]> {
     const url = new URL(`${this.baseUrl}/get-logs`);
 
     url.searchParams.append('from', from.toString());
-    url.searchParams.append('take', take.toString());
+    url.searchParams.append('limit', limit.toString());
     url.searchParams.append('logType', logType.toString());
 
     const response = await (await fetch(url.toString())).json();
@@ -137,19 +158,19 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address.
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    const url = new URL(`${this.baseUrl}/contract-info`);
+  async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    const url = new URL(`${this.baseUrl}/contract-data`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
-    if (!response || !response.contractInfo) {
+    if (!response || !response.contractData) {
       return undefined;
     }
-    const contract = response.contractInfo as string;
+    const contract = response.contractData as string;
     return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
@@ -183,7 +204,7 @@ export class HttpNode implements AztecNode {
     url.searchParams.append('hash', txHash.toString());
     const response = await fetch(url.toString());
     if (response.status === 404) {
-      this.log(`Tx ${txHash.toString()} not found`);
+      this.log.info(`Tx ${txHash.toString()} not found`);
       return undefined;
     }
     const txBuffer = Buffer.from(await (await fetch(url.toString())).arrayBuffer());
@@ -284,8 +305,8 @@ export class HttpNode implements AztecNode {
    * @returns Storage value at the given contract slot (or undefined if not found).
    * Note: Aztec's version of `eth_getStorageAt`.
    */
-  async getStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
-    const url = new URL(`${this.baseUrl}/storage-at`);
+  async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
+    const url = new URL(`${this.baseUrl}/public-storage-at`);
     url.searchParams.append('address', contract.toString());
     url.searchParams.append('slot', slot.toString());
     const response = await (await fetch(url.toString())).json();
@@ -316,9 +337,7 @@ export class HttpNode implements AztecNode {
       [MerkleTreeId.NULLIFIER_TREE]: extractRoot(MerkleTreeId.NULLIFIER_TREE),
       [MerkleTreeId.PUBLIC_DATA_TREE]: extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE),
+      [MerkleTreeId.BLOCKS_TREE]: extractRoot(MerkleTreeId.BLOCKS_TREE),
     };
   }
 }

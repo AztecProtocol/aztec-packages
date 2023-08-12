@@ -1,12 +1,14 @@
+import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+
+import noirResolver from '@noir-lang/noir-source-resolver';
 import { compile } from '@noir-lang/noir_wasm';
-import nodePath from 'path';
 import fsSync from 'fs';
 import fs from 'fs/promises';
-import noirResolver from '@noir-lang/noir-source-resolver';
+import nodePath from 'path';
 import toml from 'toml';
-import { NoirCompiledContract } from './noir_artifact.js';
-import { ContractAbi, FunctionType } from '@aztec/foundation/abi';
+
 import { mockVerificationKey } from './mockedKeys.js';
+import { NoirCompiledContract } from './noir_artifact.js';
 
 /**
  * A dependency entry of Nargo.toml.
@@ -49,6 +51,7 @@ export class ContractCompiler {
       functions: contract.functions.map(noirFn => ({
         name: noirFn.name,
         functionType: noirFn.function_type.toLowerCase() as FunctionType,
+        isInternal: noirFn.is_internal,
         parameters: noirFn.abi.parameters,
         returnTypes: [noirFn.abi.return_type],
         bytecode: Buffer.from(noirFn.bytecode).toString('hex'),

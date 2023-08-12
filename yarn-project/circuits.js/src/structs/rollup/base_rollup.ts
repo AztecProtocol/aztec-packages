@@ -1,26 +1,25 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { assertItemsLength, assertMemberLength, FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
+
 import {
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
+  HISTORIC_BLOCKS_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  L1_TO_L2_MSG_ROOTS_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-} from '../constants.js';
+} from '../../cbind/constants.gen.js';
+import { FieldsOf, assertItemsLength, assertMemberLength } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
+import { GlobalVariables } from '../global_variables.js';
 import { PreviousKernelData } from '../kernel/previous_kernel_data.js';
 import { MembershipWitness } from '../membership_witness.js';
 import { UInt32 } from '../shared.js';
 import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import { GlobalVariables } from '../global_variables.js';
 
 /**
  * Class containing the data of a preimage of a single leaf in the nullifier tree.
@@ -57,17 +56,9 @@ export class NullifierLeafPreimage {
 export class ConstantBaseRollupData {
   constructor(
     /**
-     * Snapshot of the private data tree roots tree at the start of the rollup.
+     * Snapshot of the historic blocks roots tree at the start of the rollup.
      */
-    public startTreeOfHistoricPrivateDataTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the contract tree roots tree at the start of the rollup.
-     */
-    public startTreeOfHistoricContractTreeRootsSnapshot: AppendOnlyTreeSnapshot,
-    /**
-     * Snapshot of the L1-to-L2 message tree roots tree at the start of the rollup.
-     */
-    public startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startHistoricBlocksTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * Root of the private kernel verification key tree.
@@ -99,8 +90,6 @@ export class ConstantBaseRollupData {
     const reader = BufferReader.asReader(buffer);
     return new ConstantBaseRollupData(
       reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
-      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),
@@ -111,9 +100,7 @@ export class ConstantBaseRollupData {
 
   static getFields(fields: FieldsOf<ConstantBaseRollupData>) {
     return [
-      fields.startTreeOfHistoricPrivateDataTreeRootsSnapshot,
-      fields.startTreeOfHistoricContractTreeRootsSnapshot,
-      fields.startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot,
+      fields.startHistoricBlocksTreeRootsSnapshot,
       fields.privateKernelVkTreeRoot,
       fields.publicKernelVkTreeRoot,
       fields.baseRollupVkHash,
@@ -167,6 +154,10 @@ export class BaseRollupInputs {
      * Root of the public data tree at the start of the base rollup circuit.
      */
     public startPublicDataTreeRoot: Fr,
+    /**
+     * Snapshot of the historic blocks tree at the start of the base rollup circuit.
+     */
+    public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
 
     /**
      * The nullifiers which need to be updated to perform the batch insertion of the new nullifiers.
@@ -201,28 +192,12 @@ export class BaseRollupInputs {
      * Each item in the array is the sibling path that corresponds to a read request.
      */
     public newPublicDataReadsSiblingPaths: Fr[][],
-
     /**
-     * Membership witnesses of private data tree roots referred by each of the 2 kernels.
-     * Can be used to prove that the root is actually in the roots tree.
+     * Membership witnesses of historic blocks referred by each of the 2 kernels.
      */
-    public historicPrivateDataTreeRootMembershipWitnesses: [
-      MembershipWitness<typeof PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>,
-      MembershipWitness<typeof PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>,
-    ],
-    /**
-     * Membership witnesses of contract tree roots referred by each of the 2 kernels.
-     */
-    public historicContractsTreeRootMembershipWitnesses: [
-      MembershipWitness<typeof CONTRACT_TREE_ROOTS_TREE_HEIGHT>,
-      MembershipWitness<typeof CONTRACT_TREE_ROOTS_TREE_HEIGHT>,
-    ],
-    /**
-     * Membership witnesses of L1-to-L2 message tree roots referred by each of the 2 kernels.
-     */
-    public historicL1ToL2MsgTreeRootMembershipWitnesses: [
-      MembershipWitness<typeof L1_TO_L2_MSG_ROOTS_TREE_HEIGHT>,
-      MembershipWitness<typeof L1_TO_L2_MSG_ROOTS_TREE_HEIGHT>,
+    public historicBlocksTreeRootMembershipWitnesses: [
+      MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
+      MembershipWitness<typeof HISTORIC_BLOCKS_TREE_HEIGHT>,
     ],
 
     /**
@@ -264,6 +239,7 @@ export class BaseRollupInputs {
       fields.startNullifierTreeSnapshot,
       fields.startContractTreeSnapshot,
       fields.startPublicDataTreeRoot,
+      fields.startHistoricBlocksTreeSnapshot,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
       fields.newCommitmentsSubtreeSiblingPath,
@@ -271,9 +247,7 @@ export class BaseRollupInputs {
       fields.newContractsSubtreeSiblingPath,
       fields.newPublicDataUpdateRequestsSiblingPaths,
       fields.newPublicDataReadsSiblingPaths,
-      fields.historicPrivateDataTreeRootMembershipWitnesses,
-      fields.historicContractsTreeRootMembershipWitnesses,
-      fields.historicL1ToL2MsgTreeRootMembershipWitnesses,
+      fields.historicBlocksTreeRootMembershipWitnesses,
       fields.constants,
     ] as const;
   }

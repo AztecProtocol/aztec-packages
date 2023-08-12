@@ -1,32 +1,13 @@
-import { TxHash } from '@aztec/types';
+import { PartialAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { Fr, Point } from '@aztec/foundation/fields';
-import { MerkleTreeId, PublicKey } from '@aztec/types';
-import { PartialContractAddress } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
+import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
-import { Database, GetOptions } from './database.js';
+import { Database } from './database.js';
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
 import { TxDao } from './tx_dao.js';
-
-const sortNotes = (notes: NoteSpendingInfoDao[], sortBy: number[], sortOrder: number[]) => {
-  const sortNotesLevel = (a: Fr[], b: Fr[], level = 0): number => {
-    const index = sortBy[level];
-    if (sortBy[level] === undefined) return 0;
-
-    const order = sortOrder[level] || 1; // Default: Descending.
-    if (order === 0) return 0;
-
-    const dir = order === 1 ? [-1, 1] : [1, -1];
-    return a[index].value === b[index].value
-      ? sortNotesLevel(a, b, level + 1)
-      : a[index].value > b[index].value
-      ? dir[0]
-      : dir[1];
-  };
-
-  return notes.sort((a, b) => sortNotesLevel(a.notePreimage.items, b.notePreimage.items));
-};
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -38,38 +19,20 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
-  private publicKeys: Map<bigint, [PublicKey, PartialContractAddress]> = new Map();
+  private publicKeysAndPartialAddresses: Map<bigint, [PublicKey, PartialAddress]> = new Map();
 
-  /**
-   * Retrieve a transaction from the MemoryDB using its transaction hash.
-   * The function searches for the transaction with the given hash in the txTable and returns it as a Promise.
-   * Returns 'undefined' if the transaction is not found in the database.
-   *
-   * @param txHash - The TxHash of the transaction to be retrieved.
-   * @returns A Promise that resolves to the found TxDao instance, or undefined if not found.
-   */
+  constructor(logSuffix?: string) {
+    super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
+  }
+
   public getTx(txHash: TxHash) {
     return Promise.resolve(this.txTable.find(tx => tx.txHash.equals(txHash)));
   }
 
-  /**
-   * Retrieve all transactions associated with a given AztecAddress.
-   *
-   * @param origin - The sender's address.
-   * @returns A Promise resolving to an array of TxDao objects associated with the sender.
-   */
   public getTxsByAddress(origin: AztecAddress) {
     return Promise.resolve(this.txTable.filter(tx => tx.origin.equals(origin)));
   }
 
-  /**
-   * Adds a TxDao instance to the transaction table.
-   * If a transaction with the same hash already exists in the table, it replaces the existing one.
-   * Otherwise, it pushes the new transaction to the table.
-   *
-   * @param tx - The TxDao instance representing the transaction to be added.
-   * @returns A Promise that resolves when the transaction is successfully added/updated in the table.
-   */
   public addTx(tx: TxDao) {
     const index = this.txTable.findIndex(t => t.txHash.equals(tx.txHash));
     if (index === -1) {
@@ -80,84 +43,35 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  /**
-   * Add an array of transaction data objects.
-   * If a transaction with the same hash already exists in the database, it will be updated
-   * with the new transaction data. Otherwise, the new transaction will be added to the database.
-   *
-   * @param txs - An array of TxDao instances representing the transactions to be added to the database.
-   * @returns A Promise that resolves when all the transactions have been added or updated.
-   */
   public async addTxs(txs: TxDao[]) {
     await Promise.all(txs.map(tx => this.addTx(tx)));
   }
 
-  /**
-   * Add a NoteSpendingInfoDao instance to the noteSpendingInfoTable.
-   * This function is used to store auxiliary data related to a transaction,
-   * such as contract address and storage slot, in the database.
-   *
-   * @param noteSpendingInfoDao - The NoteSpendingInfoDao instance containing the auxiliary data of a transaction.
-   * @returns A promise that resolves when the auxiliary data is added to the database.
-   */
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
     this.noteSpendingInfoTable.push(noteSpendingInfoDao);
     return Promise.resolve();
   }
 
-  /**
-   * Adds an array of NoteSpendingInfoDaos to the noteSpendingInfoTable.
-   * This function is used to insert multiple transaction auxiliary data objects into the database at once,
-   * which can improve performance when dealing with large numbers of transactions.
-   *
-   * @param noteSpendingInfoDaos - An array of NoteSpendingInfoDao instances representing the auxiliary data of transactions.
-   * @returns A Promise that resolves when all NoteSpendingInfoDaos have been successfully added to the noteSpendingInfoTable.
-   */
   public addNoteSpendingInfoBatch(noteSpendingInfoDaos: NoteSpendingInfoDao[]) {
     this.noteSpendingInfoTable.push(...noteSpendingInfoDaos);
     return Promise.resolve();
   }
 
-  /**
-   * Get auxiliary transaction data based on contract address and storage slot.
-   * It searches for matching NoteSpendingInfoDao objects in the MemoryDB's noteSpendingInfoTable
-   * where both the contractAddress and storageSlot properties match the given inputs.
-   *
-   * @param contract - The contract address.
-   * @param storageSlot - A Fr object representing the storage slot to search for in the auxiliary data.
-   * @param options - Options for selecting notes.
-   * @returns An array of NoteSpendingInfoDao objects that fulfill the contract address and storage slot criteria.
-   */
-  public getNoteSpendingInfo(
-    contract: AztecAddress,
-    storageSlot: Fr,
-    { sortBy = [], sortOrder = [], limit = 0, offset = 0 }: GetOptions = {},
-  ) {
-    let res = this.noteSpendingInfoTable.filter(
+  public getNoteSpendingInfo(contract: AztecAddress, storageSlot: Fr) {
+    const res = this.noteSpendingInfoTable.filter(
       noteSpendingInfo =>
         noteSpendingInfo.contractAddress.equals(contract) &&
         noteSpendingInfo.storageSlot.toBuffer().equals(storageSlot.toBuffer()),
     );
-    res = sortNotes(res, sortBy, sortOrder);
-
-    return Promise.resolve(res.slice(offset, limit ? offset + limit : res.length));
+    return Promise.resolve(res);
   }
 
-  /**
-   * Remove nullified transaction auxiliary data records associated with the given account and nullifiers.
-   * The function filters the records based on matching account and nullifier values, and updates the
-   * noteSpendingInfoTable with the remaining records. It returns an array of removed NoteSpendingInfoDao instances.
-   *
-   * @param nullifiers - An array of Fr instances representing nullifiers to be matched.
-   * @param account - A Point instance representing the account for which the records are being removed.
-   * @returns A Promise resolved with an array of removed NoteSpendingInfoDao instances.
-   */
-  public removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: Point) {
+  public removeNullifiedNoteSpendingInfo(nullifiers: Fr[], account: PublicKey) {
     const nullifierSet = new Set(nullifiers.map(nullifier => nullifier.toString()));
     const [remaining, removed] = this.noteSpendingInfoTable.reduce(
       (acc: [NoteSpendingInfoDao[], NoteSpendingInfoDao[]], noteSpendingInfo) => {
-        const nullifier = noteSpendingInfo.nullifier.toString();
-        if (noteSpendingInfo.account.equals(account) && nullifierSet.has(nullifier)) {
+        const nullifier = noteSpendingInfo.siloedNullifier.toString();
+        if (noteSpendingInfo.publicKey.equals(account) && nullifierSet.has(nullifier)) {
           acc[1].push(noteSpendingInfo);
         } else {
           acc[0].push(noteSpendingInfo);
@@ -172,40 +86,35 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve(removed);
   }
 
-  /**
-   * Retrieve the stored Merkle tree roots from the database.
-   * The function returns a Promise that resolves to an object containing the MerkleTreeId as keys
-   * and their corresponding Fr values as roots. Throws an error if the tree roots are not set in the
-   * memory database.
-   *
-   * @returns An object containing the Merkle tree roots for each merkle tree id.
-   */
   public getTreeRoots(): Record<MerkleTreeId, Fr> {
     const roots = this.treeRoots;
     if (!roots) throw new Error(`Tree roots not set in memory database`);
     return roots;
   }
 
-  /**
-   * Set the tree roots for the Merkle trees in the database.
-   * This function updates the 'treeRoots' property of the instance
-   * with the provided 'roots' object containing MerkleTreeId and Fr pairs.
-   * Note that this will overwrite any existing tree roots in the database.
-   *
-   * @param roots - A Record object mapping MerkleTreeIds to their corresponding Fr root values.
-   * @returns A Promise that resolves when the tree roots have been successfully updated in the database.
-   */
   public setTreeRoots(roots: Record<MerkleTreeId, Fr>) {
     this.treeRoots = roots;
     return Promise.resolve();
   }
 
-  addPublicKey(address: AztecAddress, publicKey: Point, partialAddress: PartialContractAddress): Promise<void> {
-    this.publicKeys.set(address.toBigInt(), [publicKey, partialAddress]);
+  addPublicKeyAndPartialAddress(
+    address: AztecAddress,
+    publicKey: PublicKey,
+    partialAddress: PartialAddress,
+  ): Promise<void> {
+    if (this.publicKeysAndPartialAddresses.has(address.toBigInt())) {
+      throw new Error(`Account ${address} already exists`);
+    }
+    this.publicKeysAndPartialAddresses.set(address.toBigInt(), [publicKey, partialAddress]);
     return Promise.resolve();
   }
 
-  getPublicKey(address: AztecAddress): Promise<[Point, Fr] | undefined> {
-    return Promise.resolve(this.publicKeys.get(address.toBigInt()));
+  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, Fr] | undefined> {
+    return Promise.resolve(this.publicKeysAndPartialAddresses.get(address.toBigInt()));
+  }
+
+  getAccounts(): Promise<AztecAddress[]> {
+    const addresses = Array.from(this.publicKeysAndPartialAddresses.keys());
+    return Promise.resolve(addresses.map(AztecAddress.fromBigInt));
   }
 }

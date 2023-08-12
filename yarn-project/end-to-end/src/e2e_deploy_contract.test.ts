@@ -1,15 +1,16 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, ContractDeployer, Fr } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { TestContractAbi } from '@aztec/noir-contracts/examples';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { TxStatus } from '@aztec/types';
+import { AztecAddress, ContractDeployer, Fr, isContractDeployed } from '@aztec/aztec.js';
+import { getContractDeploymentInfo } from '@aztec/circuits.js';
+import { DebugLogger } from '@aztec/foundation/log';
+import { TestContractAbi } from '@aztec/noir-contracts/artifacts';
+import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { setup } from './utils.js';
+import { setup } from './fixtures/utils.js';
 
 describe('e2e_deploy_contract', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let accounts: AztecAddress[];
   let logger: DebugLogger;
 
@@ -19,7 +20,9 @@ describe('e2e_deploy_contract', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
   });
 
   /**
@@ -27,26 +30,30 @@ describe('e2e_deploy_contract', () => {
    * https://hackmd.io/ouVCnacHQRq2o1oRc5ksNA#Interfaces-and-Responsibilities
    */
   it('should deploy a contract', async () => {
-    const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer);
-    const tx = deployer.deploy().send();
+    const publicKey = (await aztecRpcServer.getPublicKeyAndPartialAddress(accounts[0]))[0];
+    const salt = Fr.random();
+    const deploymentData = await getContractDeploymentInfo(TestContractAbi, [], salt, publicKey);
+    const deployer = new ContractDeployer(TestContractAbi, aztecRpcServer, publicKey);
+    const tx = deployer.deploy().send({ contractAddressSalt: salt });
     logger(`Tx sent with hash ${await tx.getTxHash()}`);
     const receipt = await tx.getReceipt();
     expect(receipt).toEqual(
       expect.objectContaining({
-        origin: accounts[0],
+        origin: deploymentData.address,
         status: TxStatus.PENDING,
         error: '',
+        contractAddress: deploymentData.address,
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
-    const isMined = await tx.isMined(0, 0.1);
+    const isMined = await tx.isMined({ interval: 0.1 });
     const receiptAfterMined = await tx.getReceipt();
 
     expect(isMined).toBe(true);
     expect(receiptAfterMined.status).toBe(TxStatus.MINED);
     const contractAddress = receipt.contractAddress!;
-    expect(await aztecRpcServer.isContractDeployed(contractAddress)).toBe(true);
-    expect(await aztecRpcServer.isContractDeployed(AztecAddress.random())).toBe(false);
+    expect(await isContractDeployed(aztecRpcServer, contractAddress)).toBe(true);
+    expect(await isContractDeployed(aztecRpcServer, AztecAddress.random())).toBe(false);
   }, 30_000);
 
   /**
@@ -58,7 +65,7 @@ describe('e2e_deploy_contract', () => {
     for (let index = 0; index < 2; index++) {
       logger(`Deploying contract ${index + 1}...`);
       const tx = deployer.deploy().send({ contractAddressSalt: Fr.random() });
-      const isMined = await tx.isMined(0, 0.1);
+      const isMined = await tx.isMined({ interval: 0.1 });
       expect(isMined).toBe(true);
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -75,7 +82,7 @@ describe('e2e_deploy_contract', () => {
 
     {
       const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined(0, 0.1);
+      const isMined = await tx.isMined({ interval: 0.1 });
 
       expect(isMined).toBe(true);
       const receipt = await tx.getReceipt();
@@ -86,7 +93,7 @@ describe('e2e_deploy_contract', () => {
 
     {
       const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined(0, 0.1);
+      const isMined = await tx.isMined({ interval: 0.1 });
       expect(isMined).toBe(false);
       const receipt = await tx.getReceipt();
 

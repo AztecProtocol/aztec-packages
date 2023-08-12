@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
-import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
+
+import { L1ToL2MessageStore, PendingL1ToL2MessageStore } from './l1_to_l2_message_store.js';
 
 describe('l1_to_l2_message_store', () => {
   let store: L1ToL2MessageStore;
@@ -62,12 +63,12 @@ describe('pending_l1_to_l2_message_store', () => {
     expect(store.getMessageKeys(10)).toEqual([]);
   });
 
-  it('getMessageKeys returns an empty array if take is 0', () => {
+  it('getMessageKeys returns an empty array if limit is 0', () => {
     store.addMessage(entryKey, msg);
     expect(store.getMessageKeys(0)).toEqual([]);
   });
 
-  it('get messages for a non-empty store when take > number of messages in store', () => {
+  it('get messages for a non-empty store when limit > number of messages in store', () => {
     const entryKeys = [1, 2, 3, 4, 5].map(x => new Fr(x));
     entryKeys.forEach(entryKey => {
       store.addMessage(entryKey, L1ToL2Message.random());

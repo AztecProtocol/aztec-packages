@@ -1,5 +1,3 @@
-import { ACVMField, toACVMField } from './acvm.js';
-
 import {
   CallContext,
   ContractDeploymentData,
@@ -8,8 +6,10 @@ import {
   PrivateCircuitPublicInputs,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../client/db_oracle.js';
 import { Fr } from '@aztec/foundation/fields';
+
+import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../client/db_oracle.js';
+import { ACVMField, toACVMField } from './acvm.js';
 
 // Utilities to write TS classes to ACVM Field arrays
 // In the order that the ACVM expects them
@@ -22,6 +22,7 @@ import { Fr } from '@aztec/foundation/fields';
 export function toACVMFunctionData(functionData: FunctionData): ACVMField[] {
   return [
     toACVMField(functionData.functionSelector),
+    toACVMField(functionData.isInternal),
     toACVMField(functionData.isPrivate),
     toACVMField(functionData.isConstructor),
   ];
@@ -50,6 +51,8 @@ export function toACVMCallContext(callContext: CallContext): ACVMField[] {
  */
 export function toACVMContractDeploymentData(contractDeploymentData: ContractDeploymentData): ACVMField[] {
   return [
+    toACVMField(contractDeploymentData.deployerPublicKey.x),
+    toACVMField(contractDeploymentData.deployerPublicKey.y),
     toACVMField(contractDeploymentData.constructorVkHash),
     toACVMField(contractDeploymentData.functionTreeRoot),
     toACVMField(contractDeploymentData.contractAddressSalt),
@@ -71,6 +74,7 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     ...publicInputs.readRequests.map(toACVMField),
     ...publicInputs.newCommitments.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
+    ...publicInputs.nullifiedCommitments.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
@@ -83,6 +87,9 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
     toACVMField(publicInputs.historicPrivateNullifierTreeRoot),
     toACVMField(publicInputs.historicContractTreeRoot),
     toACVMField(publicInputs.historicL1ToL2MessagesTreeRoot),
+    toACVMField(publicInputs.historicBlocksTreeRoot),
+    toACVMField(publicInputs.historicGlobalVariablesHash),
+    toACVMField(publicInputs.historicPublicDataTreeRoot),
 
     ...toACVMContractDeploymentData(publicInputs.contractDeploymentData),
     toACVMField(publicInputs.chainId),

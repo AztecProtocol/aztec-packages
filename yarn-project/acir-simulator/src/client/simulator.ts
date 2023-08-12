@@ -1,24 +1,20 @@
-import { pedersenCompressWithHashIndex, pedersenPlookupCommitInputs, Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { CallContext, CircuitsWasm, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
-import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
+import { CallContext, CircuitsWasm, ConstantHistoricBlockData, FunctionData, TxContext } from '@aztec/circuits.js';
+import { computeTxHash } from '@aztec/circuits.js/abis';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
+import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ExecutionRequest, TxExecutionRequest } from '@aztec/types';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
+
+import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
+import { ExecutionResult } from './execution_result.js';
+import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
-import { ExecutionResult } from './execution_result.js';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { PackedArgsCache } from '../packed_args_cache.js';
-
-export const NOTE_PEDERSEN_CONSTANT = new Fr(2n);
-export const MAPPING_SLOT_PEDERSEN_CONSTANT = new Fr(4n);
-export const NULLIFIER_PEDERSEN_CONSTANT = new Fr(5n);
-export const MESSAGE_SECRET_PEDERSEN_CONSTANT = new Fr(29n);
-
-const OUTER_NULLIFIER_GENERATOR_INDEX = 7;
 
 /**
  * The ACIR simulator.
@@ -36,7 +32,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicRoots - The historic roots.
+   * @param constantHistoricBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
    * @param curve - The curve instance for elliptic curve operations.
    * @param packedArguments - The entrypoint packed arguments
    * @returns The result of the execution.
@@ -46,7 +42,7 @@ export class AcirSimulator {
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    historicRoots: PrivateHistoricTreeRoots,
+    constantHistoricBlockData: ConstantHistoricBlockData,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -67,11 +63,14 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
+    const wasm = await CircuitsWasm.get();
+    const txNullifier = computeTxHash(wasm, request.toTxRequest());
     const execution = new PrivateFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
+        txNullifier,
         request.txContext,
-        historicRoots,
+        constantHistoricBlockData,
         await PackedArgsCache.create(request.packedArguments),
       ),
       entryPointABI,
@@ -88,24 +87,27 @@ export class AcirSimulator {
   /**
    * Runs an unconstrained function.
    * @param request - The transaction request.
+   * @param origin - The sender of the request.
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicRoots - The historic roots.
-   * @returns The return values of the function.
+   * @param constantHistoricBlockData - Block data containing historic roots.
+   * @param aztecNode - The AztecNode instance.
    */
   public async runUnconstrained(
-    request: ExecutionRequest,
+    request: FunctionCall,
+    origin: AztecAddress,
     entryPointABI: FunctionAbi,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    historicRoots: PrivateHistoricTreeRoots,
+    constantHistoricBlockData: ConstantHistoricBlockData,
+    aztecNode?: AztecNode,
   ) {
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
     const callContext = new CallContext(
-      request.from!,
+      origin,
       contractAddress,
       portalContractAddress,
       false,
@@ -114,7 +116,13 @@ export class AcirSimulator {
     );
 
     const execution = new UnconstrainedFunctionExecution(
-      new ClientTxExecutionContext(this.db, TxContext.empty(), historicRoots, await PackedArgsCache.create([])),
+      new ClientTxExecutionContext(
+        this.db,
+        Fr.ZERO,
+        TxContext.empty(),
+        constantHistoricBlockData,
+        await PackedArgsCache.create([]),
+      ),
       entryPointABI,
       contractAddress,
       request.functionData,
@@ -122,62 +130,134 @@ export class AcirSimulator {
       callContext,
     );
 
-    return execution.run();
+    return execution.run(aztecNode);
   }
 
-  // TODO Should be run as unconstrained function
   /**
-   * Computes the hash of a note.
+   * Computes the inner nullifier of a note.
+   * @param contractAddress - The address of the contract.
+   * @param nonce - The nonce of the note hash.
    * @param storageSlot - The storage slot.
    * @param notePreimage - The note preimage.
-   * @param bbWasm - The WASM instance.
-   * @returns The note hash.
-   */
-  public computeNoteHash(storageSlot: Fr, notePreimage: Fr[], bbWasm: CircuitsWasm) {
-    // TODO: Remove index for inner note hash.
-    const innerNoteHash = pedersenPlookupCommitInputs(bbWasm, [
-      NOTE_PEDERSEN_CONSTANT.toBuffer(),
-      ...notePreimage.map(x => x.toBuffer()),
-    ]);
-    return pedersenPlookupCommitInputs(bbWasm, [storageSlot.toBuffer(), innerNoteHash]);
-  }
-
-  // TODO Should be run as unconstrained function
-  /**
-   * Computes the nullifier of a note.
-   * @param storageSlot - The storage slot.
-   * @param notePreimage - The note preimage.
-   * @param privateKey - The private key of the owner.
-   * @param bbWasm - The WASM instance.
    * @returns The nullifier.
    */
-  public computeNullifier(storageSlot: Fr, notePreimage: Fr[], privateKey: Buffer, bbWasm: CircuitsWasm) {
-    const noteHash = this.computeNoteHash(storageSlot, notePreimage, bbWasm);
-    return pedersenPlookupCommitInputs(bbWasm, [noteHash, privateKey]);
+  public async computeNoteHashAndNullifier(
+    contractAddress: AztecAddress,
+    nonce: Fr,
+    storageSlot: Fr,
+    notePreimage: Fr[],
+  ) {
+    try {
+      const abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
+
+      const preimageLen = (abi.parameters[3].type as ArrayType).length;
+      const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
+
+      const execRequest: FunctionCall = {
+        to: AztecAddress.ZERO,
+        functionData: FunctionData.empty(),
+        args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
+      };
+
+      const [[innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier]] = await this.runUnconstrained(
+        execRequest,
+        AztecAddress.ZERO,
+        abi,
+        AztecAddress.ZERO,
+        EthAddress.ZERO,
+        ConstantHistoricBlockData.empty(),
+      );
+
+      return {
+        innerNoteHash: new Fr(innerNoteHash),
+        siloedNoteHash: new Fr(siloedNoteHash),
+        uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
+        innerNullifier: new Fr(innerNullifier),
+      };
+    } catch (e) {
+      throw new Error(
+        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
+      );
+    }
   }
 
-  // TODO Should be run as unconstrained function
   /**
-   * Computes a nullifier siloed to a contract.
+   * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
    * @param contractAddress - The address of the contract.
    * @param storageSlot - The storage slot.
    * @param notePreimage - The note preimage.
-   * @param privateKey - The private key of the owner.
-   * @param bbWasm - The WASM instance.
-   * @returns The siloed nullifier.
+   * @param abi - The ABI of the function `compute_note_hash`.
+   * @returns The note hash.
    */
-  public computeSiloedNullifier(
+  public async computeInnerNoteHash(contractAddress: AztecAddress, storageSlot: Fr, notePreimage: Fr[]) {
+    const { innerNoteHash } = await this.computeNoteHashAndNullifier(
+      contractAddress,
+      Fr.ZERO,
+      storageSlot,
+      notePreimage,
+    );
+    return innerNoteHash;
+  }
+
+  /**
+   * Computes the unique note hash of a note.
+   * @param contractAddress - The address of the contract.
+   * @param nonce - The nonce of the note hash.
+   * @param storageSlot - The storage slot.
+   * @param notePreimage - The note preimage.
+   * @param abi - The ABI of the function `compute_note_hash`.
+   * @returns The note hash.
+   */
+  public async computeUniqueSiloedNoteHash(
     contractAddress: AztecAddress,
+    nonce: Fr,
     storageSlot: Fr,
     notePreimage: Fr[],
-    privateKey: Buffer,
-    bbWasm: CircuitsWasm,
   ) {
-    const nullifier = this.computeNullifier(storageSlot, notePreimage, privateKey, bbWasm);
-    return pedersenCompressWithHashIndex(
-      bbWasm,
-      [contractAddress.toBuffer(), nullifier],
-      OUTER_NULLIFIER_GENERATOR_INDEX,
+    const { uniqueSiloedNoteHash } = await this.computeNoteHashAndNullifier(
+      contractAddress,
+      nonce,
+      storageSlot,
+      notePreimage,
     );
+    return uniqueSiloedNoteHash;
+  }
+
+  /**
+   * Computes the siloed note hash of a note.
+   * @param contractAddress - The address of the contract.
+   * @param nonce - The nonce of the note hash.
+   * @param storageSlot - The storage slot.
+   * @param notePreimage - The note preimage.
+   * @param abi - The ABI of the function `compute_note_hash`.
+   * @returns The note hash.
+   */
+  public async computeSiloedNoteHash(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
+    const { siloedNoteHash } = await this.computeNoteHashAndNullifier(
+      contractAddress,
+      nonce,
+      storageSlot,
+      notePreimage,
+    );
+    return siloedNoteHash;
+  }
+
+  /**
+   * Computes the inner note hash of a note, which contains storage slot and the custom note hash.
+   * @param contractAddress - The address of the contract.
+   * @param nonce - The nonce of the unique note hash.
+   * @param storageSlot - The storage slot.
+   * @param notePreimage - The note preimage.
+   * @param abi - The ABI of the function `compute_note_hash`.
+   * @returns The note hash.
+   */
+  public async computeInnerNullifier(contractAddress: AztecAddress, nonce: Fr, storageSlot: Fr, notePreimage: Fr[]) {
+    const { innerNullifier } = await this.computeNoteHashAndNullifier(
+      contractAddress,
+      nonce,
+      storageSlot,
+      notePreimage,
+    );
+    return innerNullifier;
   }
 }

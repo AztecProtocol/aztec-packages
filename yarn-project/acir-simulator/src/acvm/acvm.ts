@@ -2,6 +2,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+
 import { ForeignCallInput, ForeignCallOutput, WitnessMap, executeCircuit } from 'acvm_js';
 
 /**
@@ -22,6 +23,7 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
 type ORACLE_NAMES =
   | 'packArguments'
   | 'getSecretKey'
+  | 'getNote'
   | 'getNotes'
   | 'getRandomField'
   | 'notifyCreatedNote'
@@ -36,10 +38,12 @@ type ORACLE_NAMES =
   | 'createNullifier'
   | 'getCommitment'
   | 'getL1ToL2Message'
+  | 'getPortalContractAddress'
   | 'emitEncryptedLog'
   | 'emitUnencryptedLog'
   | 'getPublicKey'
-  | 'debugLog';
+  | 'debugLog'
+  | 'debugLogWithPrefix';
 
 /**
  * A type that does not require all keys to be present.
@@ -75,13 +79,13 @@ export async function acvm(
       logger(`Oracle callback ${name}`);
       const oracleFunction = callback[name as ORACLE_NAMES];
       if (!oracleFunction) {
-        throw new Error(`Callback ${name} not found`);
+        throw new Error(`Oracle callback ${name} not found`);
       }
 
       const result = await oracleFunction.call(callback, ...args);
       return [result];
     } catch (err: any) {
-      logger(`Error in ACVM callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
+      logger(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
       throw err;
     }
   });

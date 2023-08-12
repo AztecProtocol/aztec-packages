@@ -4,9 +4,11 @@
   "main": "dest/index.js",
   "type": "module",
   "exports": "./dest/index.js",
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Rollup Provider",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Rollup Provider",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -33,6 +35,9 @@
   },
   "dependencies": {
     "@aztec/aztec-node": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/types": "workspace:^",
     "dotenv": "^16.0.3",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",

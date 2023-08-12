@@ -1,10 +1,8 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
-import { EcdsaSignature } from './signature.js';
-import { CircuitsWasm } from '../../../index.js';
+
+import { CircuitsWasm, PrivateKey } from '../../../index.js';
 import { Signer } from '../index.js';
-import { secp256k1 } from '@noble/curves/secp256k1';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { numToUInt32BE } from '@aztec/foundation/serialize';
+import { EcdsaSignature } from './signature.js';
 
 export * from './signature.js';
 
@@ -27,8 +25,8 @@ export class Ecdsa implements Signer {
    * @param privateKey - Secp256k1 private key.
    * @returns A secp256k1 public key.
    */
-  public computePublicKey(privateKey: Uint8Array) {
-    this.wasm.writeMemory(0, privateKey);
+  public computePublicKey(privateKey: PrivateKey): Buffer {
+    this.wasm.writeMemory(0, privateKey.value);
     this.wasm.call('ecdsa__compute_public_key', 0, 32);
     return Buffer.from(this.wasm.getMemorySlice(32, 96));
   }
@@ -39,24 +37,16 @@ export class Ecdsa implements Signer {
    * @param privateKey - The secp256k1 private key of the signer.
    * @returns An ECDSA signature of the form (r, s, v).
    */
-  public constructSignature(msg: Uint8Array, privateKey: Uint8Array) {
+  public constructSignature(msg: Uint8Array, privateKey: PrivateKey) {
     const mem = this.wasm.call('bbmalloc', msg.length);
-    this.wasm.writeMemory(0, privateKey);
+    this.wasm.writeMemory(0, privateKey.value);
     this.wasm.writeMemory(mem, msg);
     this.wasm.call('ecdsa__construct_signature', mem, msg.length, 0, 32, 64, 96);
 
-    // TODO(#913): Understand why this doesn't work
-    // const sig = new EcdsaSignature(
-    //   Buffer.from(this.wasm.getMemorySlice(32, 64)),
-    //   Buffer.from(this.wasm.getMemorySlice(64, 96)),
-    //   Buffer.from(this.wasm.getMemorySlice(96, 97)),
-    // );
-
-    const signature = secp256k1.sign(msg, privateKey);
     return new EcdsaSignature(
-      toBufferBE(signature.r, 32),
-      toBufferBE(signature.s, 32),
-      numToUInt32BE(signature.recovery!).subarray(3, 4),
+      Buffer.from(this.wasm.getMemorySlice(32, 64)),
+      Buffer.from(this.wasm.getMemorySlice(64, 96)),
+      Buffer.from(this.wasm.getMemorySlice(96, 97)),
     );
   }
 
@@ -66,7 +56,7 @@ export class Ecdsa implements Signer {
    * @param sig - The ECDSA signature.
    * @returns The secp256k1 public key of the signer.
    */
-  public recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature) {
+  public recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Buffer {
     const mem = this.wasm.call('bbmalloc', msg.length);
     this.wasm.writeMemory(0, sig.r);
     this.wasm.writeMemory(32, sig.s);
@@ -84,7 +74,7 @@ export class Ecdsa implements Signer {
    * @param sig - The ECDSA signature.
    * @returns True or false.
    */
-  public verifySignature(msg: Uint8Array, pubKey: Uint8Array, sig: EcdsaSignature) {
+  public verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
     const mem = this.wasm.call('bbmalloc', msg.length);
     this.wasm.writeMemory(0, pubKey);
     this.wasm.writeMemory(64, sig.r);

@@ -1,4 +1,7 @@
-import { numToUInt32BE, deserializeUInt32, BufferReader } from '@aztec/foundation/serialize';
+import { FunctionAbi, FunctionType, generateFunctionSelector } from '@aztec/foundation/abi';
+import { BufferReader, deserializeUInt32, numToUInt32BE } from '@aztec/foundation/serialize';
+
+import { ContractFunctionDao } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 const FUNCTION_SELECTOR_LENGTH = 4;
@@ -15,13 +18,17 @@ export class FunctionData {
   constructor(
     functionSelector: Buffer | number,
     /**
+     * Indicates whether the function is only callable by self or not.
+     */
+    public isInternal: boolean,
+    /**
      * Indicates whether the function is private or public.
      */
-    public isPrivate = true,
+    public isPrivate: boolean,
     /**
      * Indicates whether the function is a constructor.
      */
-    public isConstructor = false,
+    public isConstructor: boolean,
   ) {
     if (functionSelector instanceof Buffer) {
       if (functionSelector.byteLength !== FUNCTION_SELECTOR_LENGTH) {
@@ -35,6 +42,16 @@ export class FunctionData {
       this.functionSelectorBuffer = numToUInt32BE(functionSelector);
     }
   }
+
+  static fromAbi(abi: FunctionAbi | ContractFunctionDao): FunctionData {
+    return new FunctionData(
+      generateFunctionSelector(abi.name, abi.parameters),
+      abi.isInternal,
+      abi.functionType === FunctionType.SECRET,
+      abi.name === 'constructor',
+    );
+  }
+
   // For serialization, must match function_selector name in C++ and return as number
   // TODO(AD) somehow remove this cruft, probably by using a buffer selector in C++
   get functionSelector(): number {
@@ -46,7 +63,7 @@ export class FunctionData {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.functionSelectorBuffer, this.isPrivate, this.isConstructor);
+    return serializeToBuffer(this.functionSelectorBuffer, this.isInternal, this.isPrivate, this.isConstructor);
   }
 
   /**
@@ -64,6 +81,10 @@ export class FunctionData {
    */
   public static empty(args?: {
     /**
+     * Indicates whether the function is only callable by self or not.
+     */
+    isInternal?: boolean;
+    /**
      * Indicates whether the function is private or public.
      */
     isPrivate?: boolean;
@@ -72,7 +93,12 @@ export class FunctionData {
      */
     isConstructor?: boolean;
   }): FunctionData {
-    return new FunctionData(Buffer.alloc(FUNCTION_SELECTOR_LENGTH, 0), args?.isPrivate, args?.isConstructor);
+    return new FunctionData(
+      Buffer.alloc(FUNCTION_SELECTOR_LENGTH, 0),
+      args?.isInternal ?? false,
+      args?.isPrivate ?? false,
+      args?.isConstructor ?? false,
+    );
   }
 
   /**
@@ -82,6 +108,11 @@ export class FunctionData {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionData {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionData(reader.readBytes(FUNCTION_SELECTOR_LENGTH), reader.readBoolean(), reader.readBoolean());
+    return new FunctionData(
+      reader.readBytes(FUNCTION_SELECTOR_LENGTH),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readBoolean(),
+    );
   }
 }

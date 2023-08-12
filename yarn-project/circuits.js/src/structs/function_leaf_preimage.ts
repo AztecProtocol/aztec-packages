@@ -1,6 +1,7 @@
-import { BufferReader } from '@aztec/foundation/serialize';
-import { serializeToBuffer } from '../utils/serialize.js';
 import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+
+import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
  * A class representing the "preimage" of a function tree leaf.
@@ -14,6 +15,10 @@ export class FunctionLeafPreimage {
      * Function selector `FUNCTION_SELECTOR_LENGTH` bytes long.
      */
     public functionSelector: Buffer,
+    /**
+     * Indicates whether the function is only callable by self or not.
+     */
+    public isInternal: boolean,
     /**
      * Indicates whether the function is private or public.
      */
@@ -49,7 +54,7 @@ export class FunctionLeafPreimage {
    */
   toBuffer(): Buffer {
     this.assertFunctionSelectorLength(this.functionSelector);
-    return serializeToBuffer(this.functionSelector, this.isPrivate, this.vkHash, this.acirHash);
+    return serializeToBuffer(this.functionSelector, this.isInternal, this.isPrivate, this.vkHash, this.acirHash);
   }
 
   /**
@@ -59,6 +64,12 @@ export class FunctionLeafPreimage {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionLeafPreimage {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionLeafPreimage(reader.readBytes(4), reader.readBoolean(), reader.readFr(), reader.readFr());
+    return new FunctionLeafPreimage(
+      reader.readBytes(4),
+      reader.readBoolean(),
+      reader.readBoolean(),
+      reader.readFr(),
+      reader.readFr(),
+    );
   }
 }

@@ -1,7 +1,9 @@
-import { SequencerConfig } from './sequencer/config.js';
-import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
+import { PrivateKey } from '@aztec/circuits.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
+
 import { GlobalReaderConfig } from './global_variable_builder/index.js';
+import { PublisherConfig, TxSenderConfig } from './publisher/config.js';
+import { SequencerConfig } from './sequencer/config.js';
 
 /**
  * Configuration settings for the SequencerClient.
@@ -19,8 +21,8 @@ export function getConfigEnvVars(): SequencerClientConfig {
     VERSION,
     API_KEY,
     SEQ_REQUIRED_CONFS,
-    SEQ_RETRY_INTERVAL,
-    SEQ_TX_POLLING_INTERVAL,
+    SEQ_PUBLISH_RETRY_INTERVAL_MS,
+    SEQ_TX_POLLING_INTERVAL_MS,
     SEQ_MAX_TX_PER_BLOCK,
     SEQ_MIN_TX_PER_BLOCK,
     ROLLUP_CONTRACT_ADDRESS,
@@ -34,14 +36,16 @@ export function getConfigEnvVars(): SequencerClientConfig {
     version: VERSION ? +VERSION : 1, // 1 is our default version
     apiKey: API_KEY,
     requiredConfirmations: SEQ_REQUIRED_CONFS ? +SEQ_REQUIRED_CONFS : 1,
-    retryIntervalMs: SEQ_RETRY_INTERVAL ? +SEQ_RETRY_INTERVAL : 1_000,
-    transactionPollingInterval: SEQ_TX_POLLING_INTERVAL ? +SEQ_TX_POLLING_INTERVAL : 1_000,
+    l1BlockPublishRetryIntervalMS: SEQ_PUBLISH_RETRY_INTERVAL_MS ? +SEQ_PUBLISH_RETRY_INTERVAL_MS : 1_000,
+    transactionPollingIntervalMS: SEQ_TX_POLLING_INTERVAL_MS ? +SEQ_TX_POLLING_INTERVAL_MS : 1_000,
     rollupContract: ROLLUP_CONTRACT_ADDRESS ? EthAddress.fromString(ROLLUP_CONTRACT_ADDRESS) : EthAddress.ZERO,
     inboxContract: INBOX_CONTRACT_ADDRESS ? EthAddress.fromString(INBOX_CONTRACT_ADDRESS) : EthAddress.ZERO,
     contractDeploymentEmitterContract: CONTRACT_DEPLOYMENT_EMITTER_ADDRESS
       ? EthAddress.fromString(CONTRACT_DEPLOYMENT_EMITTER_ADDRESS)
       : EthAddress.ZERO,
-    publisherPrivateKey: Buffer.from(SEQ_PUBLISHER_PRIVATE_KEY || '', 'hex'),
+    publisherPrivateKey: SEQ_PUBLISHER_PRIVATE_KEY
+      ? PrivateKey.fromString(SEQ_PUBLISHER_PRIVATE_KEY)
+      : new PrivateKey(Buffer.alloc(32)),
     maxTxsPerBlock: SEQ_MAX_TX_PER_BLOCK ? +SEQ_MAX_TX_PER_BLOCK : 32,
     minTxsPerBlock: SEQ_MIN_TX_PER_BLOCK ? +SEQ_MIN_TX_PER_BLOCK : 1,
   };

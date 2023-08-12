@@ -1,32 +1,30 @@
 mod storage;
 
-// Test contract to confirm that notes can be created and then later
+// Test contract to confirm that notes can be inserted and then later
 // read (eventually even nullified) in the same TX. This contract
 // also contains some "bad" test cases to ensure that notes cannot
 // be read/nullified before their creation etc.
 contract PendingCommitments {
     // Libs
-    use dep::token_utils::{
+    use dep::value_note::{
         balance_utils,
-        value_note::{
-            value_note::ValueNote,
-            filter::get_2_notes,
-        }
+        filter::get_2_notes,
+        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
 
     use crate::storage::Storage;
 
+    use dep::aztec::constants_gen::ARGS_LENGTH;
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::context::Context;
-    use dep::aztec::note::note_getter::NoteGetterOptions;
-    use dep::aztec::note::note_getter_options::Sort;
-    use dep::aztec::types::point::Point;
-    use dep::aztec::state_vars::map::Map;
-    use dep::aztec::state_vars::set::Set;
+    use dep::aztec::note::{
+        note_getter::NoteGetterOptions,
+        note_header::NoteHeader,
+        utils as note_utils,
+    };
     use dep::aztec::log::emit_encrypted_log;
-    use dep::aztec::log::emit_unencrypted_log;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::oracle::get_public_key::get_public_key;
 
     // TODO(dbanks12): consolidate code into internal helper functions
     // (once Noir's support for this is more robust)
@@ -37,172 +35,286 @@ contract PendingCommitments {
         inputs: PrivateContextInputs
         //*********************************/
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        //let context = Context::new(inputs, abi::hash_args([]));
         let context = Context::new(inputs, 0);
         context.finish()
     }
 
     // Confirm can access pending commitments by creating / inserting a note and then
     // getting / reading that note all in the same contract function
-    fn test_insert_then_read_flat(
+    // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
+    fn test_insert_then_get_then_nullify_flat(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
-        let note = ValueNote::new(amount, owner);
+        let owner_balance = storage.balances.at(owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // get note inserted above
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        let note0 = maybe_notes[0].unwrap();
+        assert(note.value == note0.value);
+        assert(maybe_notes[1].is_none());
 
-        assert(note.value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        context.return_values.push(note0.value);
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        owner_balance.remove(&mut context, note0);
 
         context.finish()
     }
 
-    // Confirm cannot access commitments created later in same function
-    fn test_bad_read_then_insert_flat(
+    // Confirm cannot access commitments inserted later in same function
+    fn test_bad_get_then_insert_flat(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        // get note (note inserted at bottom of function shouldn't exist yet)
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
 
-        // get note (note created at bottom of function shouldn't exist yet)
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
-        assert(!got_notes[0].is_real);
-        assert(got_notes[0].value == 0);
-        assert(!got_notes[1].is_real);
-
-        context.return_values = context.return_values.push(got_notes[0].value);
+        context.return_values.push(0);
 
         // Insert note and emit encrypted note preimage via oracle call
-        let note = ValueNote::new(amount, owner);
-        context = owner_balance.insert(context, note);
+        let mut note = ValueNote::new(amount, owner);
+        owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
         context.finish()
     }
 
     // Nested/inner function to create and insert a note
-    fn create_note(
+    fn insert_note(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
-        let note = ValueNote::new(amount, owner);
+        let owner_balance = storage.balances.at(owner);
+        let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        context = owner_balance.insert(context, note);
+        owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
         context.finish()
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
-    fn get_and_check_note(
+    fn get_then_nullify_note(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         expected_value: Field,
-        owner: Point,
+        owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner.x, owner.y]));
+        let mut context = Context::new(inputs, abi::hash_args([expected_value, owner]));
 
-        let owner_balance = storage.balances.at(owner.x);
+        let owner_balance = storage.balances.at(owner);
 
-        // Hack: we add the return value from `notifyCreatedNote` oracle call
-        // to the sort option to `getNotes` oracle call to force a dependency
-        // and therefore ordering between these two oracles
-        // TODO(https://github.com/noir-lang/noir/pull/1729): remove when stepwise execution of acir is complete
-        // replace with `let options = NoteGetterOptions::with_filter(get_2_notes, 0);`
-        let nada = Sort::nada();
-        let sorting: [Sort; 6] = [Sort::new(0, context.oracle_connector as u8), nada, nada, nada, nada, nada];
-        let options = NoteGetterOptions::new(get_2_notes, 0, sorting , 0);
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let note = owner_balance.get_notes(&mut context, options)[0].unwrap();
 
-        let (context_tmp, got_notes) = owner_balance.get_notes(context, options);
-        context = context_tmp;
+        assert(expected_value == note.value);
 
-        assert(expected_value == got_notes[0].value);
-        assert(!got_notes[1].is_real);
+        context.return_values.push(expected_value);
 
-        context.return_values = context.return_values.push(got_notes[0].value);
+        owner_balance.remove(&mut context, note);
+
+        context.finish()
+    }
+
+    // Nested/inner function to get a note and confirms that none is returned
+    fn get_note_zero_balance(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        owner: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let mut context = Context::new(inputs, abi::hash_args([owner]));
+
+        let owner_balance = storage.balances.at(owner);
+
+        let options = NoteGetterOptions::with_filter(get_2_notes, 0);
+        let maybe_notes = owner_balance.get_notes(&mut context, options);
+
+        assert(maybe_notes[0].is_none());
+        assert(maybe_notes[1].is_none());
 
         context.finish()
     }
 
     // Test pending commitments with note insertion done in a nested call
     // and "read" / get of that pending note/commitment in another nested call
-    fn test_insert_then_read_both_in_nested_calls(
+    // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
+    fn test_insert_then_get_then_nullify_all_in_nested_calls(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        owner: Point,
-        createFnSelector: Field,
-        getAndCheckFnSelector: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+        get_note_zero_fn_selector: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner.x, owner.y, createFnSelector, getAndCheckFnSelector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector, get_note_zero_fn_selector]));
 
         // args for nested calls
-        let mut args = [0; abi::MAX_ARGS];
+        let mut args = [0; ARGS_LENGTH];
         args[0] = amount;
-        args[1] = owner.x;
-        args[2] = owner.y;
+        args[1] = owner;
 
         // nested call to create/insert note
-        let (_callStackItem1, mut context_tmp0) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, createFnSelector, args, context);
-        context = context_tmp0;
-        // nested call to read that note / pending commitment
-        let (_callStackItem2, mut context_tmp1) = PrivateCallStackItem::call(inputs.call_context.storage_contract_address, getAndCheckFnSelector, args, context);
-        context = context_tmp1;
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+         // nested call to confirm that balance is zero
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+
+        context.finish()
+    }
+
+    // same test as above, but insert 2, get 2, nullify 2
+    fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        // nested call to confirm that balance is zero
+        // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
+        //let _callStackItem5 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+
+        context.finish()
+    }
+
+    // same test as above, but insert 2, get 1, nullify 1
+    fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+
+        context.finish()
+    }
+
+    // insert 1 note, then get 2 notes (one pending, one persistent) and nullify both.
+    // one nullifier will be squashed with the pending note, one will become persistent.
+    // ONLY WORKS IF THERE IS A PERSISTENT NOTE TO GET
+    fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+        get_note_zero_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        //let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+        let mut context = Context::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector, get_note_zero_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+
+        let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
 
         context.finish()
     }
@@ -214,14 +326,22 @@ contract PendingCommitments {
     // nested call (later kernel iteration) should not be able to read the commitment despite
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
-    //fn test_bad_read_in_nested_call_then_insert(
+    //fn test_bad_get_in_nested_call_then_insert(
     //    //*********************************/
     //    // Should eventually be hidden:
     //    inputs: PrivateContextInputs,
     //    //*********************************/
     //    amount: Field,
-    //    owner: Point,
-    //    getAndCheckFnSelector: Field,
+    //    owner: Field,
+    //    get_then_nullify_fn_selector: Field,
     //) -> distinct pub abi::PrivateCircuitPublicInputs {
     //}
+
+    // Computes note hash and nullifier.
+    // Note 1: Needs to be defined by every contract producing logs.
+    // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
+        let note_header = NoteHeader { contract_address, nonce, storage_slot };
+        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+    }
 }

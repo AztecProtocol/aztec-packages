@@ -1,6 +1,8 @@
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import { FieldsOf, PublicKey } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { EthAddress, Fr, AztecAddress, Point, Coordinate } from './index.js';
+import { AztecAddress, EthAddress, Fr, Point } from './index.js';
 
 /**
  * Contract deployment data in a TxContext
@@ -14,8 +16,8 @@ export class ContractDeploymentData {
 
   constructor(
     /** Public key of the contract deployer (used when deploying account contracts). */
-    public deployerPublicKey: Point,
-    /** Hash of the constuctor verification key. */
+    public deployerPublicKey: PublicKey,
+    /** Hash of the constructor verification key. */
     public constructorVkHash: Fr,
     /** Function tree root. */
     public functionTreeRoot: Fr,
@@ -32,7 +34,7 @@ export class ContractDeploymentData {
 
   toBuffer() {
     return serializeToBuffer(
-      this.deployerPublicKey.toFieldsBuffer(),
+      this.deployerPublicKey,
       this.constructorVkHash,
       this.functionTreeRoot,
       this.contractAddressSalt,
@@ -55,7 +57,7 @@ export class ContractDeploymentData {
   static fromBuffer(buffer: Buffer | BufferReader): ContractDeploymentData {
     const reader = BufferReader.asReader(buffer);
     return new ContractDeploymentData(
-      new Point(new Coordinate([reader.readFr(), reader.readFr()]), new Coordinate([reader.readFr(), reader.readFr()])),
+      reader.readObject(Point),
       reader.readFr(),
       reader.readFr(),
       reader.readFr(),
@@ -134,7 +136,32 @@ export class TxContext {
     );
   }
 
-  static empty(chainId: Fr = Fr.ZERO, version: Fr = Fr.ZERO) {
-    return new TxContext(false, false, false, ContractDeploymentData.empty(), chainId, version);
+  static empty(chainId: Fr | number = 0, version: Fr | number = 0) {
+    return new TxContext(false, false, false, ContractDeploymentData.empty(), new Fr(chainId), new Fr(version));
+  }
+
+  /**
+   * Create a new instance from a fields dictionary.
+   * @param fields - The dictionary.
+   * @returns A new instance.
+   */
+  static from(fields: FieldsOf<TxContext>): TxContext {
+    return new TxContext(...TxContext.getFields(fields));
+  }
+
+  /**
+   * Serialize into a field array. Low-level utility.
+   * @param fields - Object with fields.
+   * @returns The array.
+   */
+  static getFields(fields: FieldsOf<TxContext>) {
+    return [
+      fields.isFeePaymentTx,
+      fields.isRebatePaymentTx,
+      fields.isContractDeploymentTx,
+      fields.contractDeploymentData,
+      fields.chainId,
+      fields.version,
+    ] as const;
   }
 }

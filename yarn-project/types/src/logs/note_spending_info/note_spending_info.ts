@@ -1,11 +1,11 @@
-import { Fr, Point } from '@aztec/foundation/fields';
-import { AztecAddress } from '@aztec/circuits.js';
-import { BufferReader } from '@aztec/foundation/serialize';
-import { NotePreimage } from './note_preimage.js';
+import { AztecAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
+import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
+
 import { decryptBuffer, encryptBuffer } from './encrypt_buffer.js';
-import { Curve } from '@aztec/circuits.js/barretenberg';
-import { randomBytes } from '@aztec/foundation/crypto';
+import { NotePreimage } from './note_preimage.js';
 
 /**
  * A class which wraps the data required to compute a nullifier/to spend a note. Along with that this class contains
@@ -22,6 +22,10 @@ export class NoteSpendingInfo {
      */
     public contractAddress: AztecAddress,
     /**
+     * Address of the owner of the note.
+     */
+    public ownerAddress: AztecAddress,
+    /**
      * Storage slot of the contract this tx is interacting with.
      */
     public storageSlot: Fr,
@@ -34,7 +38,12 @@ export class NoteSpendingInfo {
    */
   static fromBuffer(buffer: Buffer | BufferReader): NoteSpendingInfo {
     const reader = BufferReader.asReader(buffer);
-    return new NoteSpendingInfo(reader.readObject(NotePreimage), reader.readObject(AztecAddress), reader.readFr());
+    return new NoteSpendingInfo(
+      reader.readObject(NotePreimage),
+      reader.readObject(AztecAddress),
+      reader.readObject(AztecAddress),
+      reader.readFr(),
+    );
   }
 
   /**
@@ -42,7 +51,7 @@ export class NoteSpendingInfo {
    * @returns Buffer representation of the NoteSpendingInfo object.
    */
   toBuffer() {
-    return serializeToBuffer([this.notePreimage, this.contractAddress, this.storageSlot]);
+    return serializeToBuffer([this.notePreimage, this.contractAddress, this.ownerAddress, this.storageSlot]);
   }
 
   /**
@@ -51,8 +60,8 @@ export class NoteSpendingInfo {
    * @param curve - The curve instance to use.
    * @returns The encrypted NoteSpendingInfo object.
    */
-  public toEncryptedBuffer(ownerPubKey: Point, curve: Curve): Buffer {
-    const ephPrivKey = randomBytes(32);
+  public toEncryptedBuffer(ownerPubKey: PublicKey, curve: Grumpkin): Buffer {
+    const ephPrivKey = PrivateKey.random();
     return encryptBuffer(this.toBuffer(), ownerPubKey, ephPrivKey, curve);
   }
 
@@ -63,7 +72,7 @@ export class NoteSpendingInfo {
    * @param curve - The curve instance to use.
    * @returns Instance of NoteSpendingInfo if the decryption was successful, undefined otherwise.
    */
-  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: Buffer, curve: Curve): NoteSpendingInfo | undefined {
+  static fromEncryptedBuffer(data: Buffer, ownerPrivKey: PrivateKey, curve: Grumpkin): NoteSpendingInfo | undefined {
     const buf = decryptBuffer(data, ownerPrivKey, curve);
     if (!buf) {
       return;
@@ -76,6 +85,6 @@ export class NoteSpendingInfo {
    * @returns A random NoteSpendingInfo object.
    */
   static random() {
-    return new NoteSpendingInfo(NotePreimage.random(), AztecAddress.random(), Fr.random());
+    return new NoteSpendingInfo(NotePreimage.random(), AztecAddress.random(), AztecAddress.random(), Fr.random());
   }
 }

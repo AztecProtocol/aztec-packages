@@ -14,35 +14,31 @@ namespace aztec3::circuits::abis {
 template <typename NCT> struct BaseRollupInputs {
     using fr = typename NCT::fr;
 
-    std::array<PreviousKernelData<NCT>, 2> kernel_data;
+    std::array<PreviousKernelData<NCT>, 2> kernel_data{};
 
-    AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot;
-    AppendOnlyTreeSnapshot<NCT> start_nullifier_tree_snapshot;
-    AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot;
-    fr start_public_data_tree_root;
+    AppendOnlyTreeSnapshot<NCT> start_private_data_tree_snapshot{};
+    AppendOnlyTreeSnapshot<NCT> start_nullifier_tree_snapshot{};
+    AppendOnlyTreeSnapshot<NCT> start_contract_tree_snapshot{};
+    fr start_public_data_tree_root{};
+    AppendOnlyTreeSnapshot<NCT> start_historic_blocks_tree_snapshot{};
 
-    std::array<NullifierLeafPreimage<NCT>, 2 * MAX_NEW_NULLIFIERS_PER_TX> low_nullifier_leaf_preimages;
+    std::array<NullifierLeafPreimage<NCT>, 2 * MAX_NEW_NULLIFIERS_PER_TX> low_nullifier_leaf_preimages{};
     std::array<MembershipWitness<NCT, NULLIFIER_TREE_HEIGHT>, 2 * MAX_NEW_NULLIFIERS_PER_TX>
-        low_nullifier_membership_witness;
+        low_nullifier_membership_witness{};
 
     // For inserting the new subtrees into their respective trees:
     // Note: the insertion leaf index can be derived from the above snapshots' `next_available_leaf_index` values.
-    std::array<fr, PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH> new_commitments_subtree_sibling_path;
-    std::array<fr, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH> new_nullifiers_subtree_sibling_path;
-    std::array<fr, CONTRACT_SUBTREE_SIBLING_PATH_LENGTH> new_contracts_subtree_sibling_path;
+    std::array<fr, PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH> new_commitments_subtree_sibling_path{};
+    std::array<fr, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH> new_nullifiers_subtree_sibling_path{};
+    std::array<fr, CONTRACT_SUBTREE_SIBLING_PATH_LENGTH> new_contracts_subtree_sibling_path{};
     std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>
-        new_public_data_update_requests_sibling_paths;
+        new_public_data_update_requests_sibling_paths{};
     std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_READS_PER_TX>
-        new_public_data_reads_sibling_paths;
+        new_public_data_reads_sibling_paths{};
 
-    std::array<MembershipWitness<NCT, PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT>, 2>
-        historic_private_data_tree_root_membership_witnesses;
-    std::array<MembershipWitness<NCT, CONTRACT_TREE_ROOTS_TREE_HEIGHT>, 2>
-        historic_contract_tree_root_membership_witnesses;
-    std::array<MembershipWitness<NCT, L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT>, 2>
-        historic_l1_to_l2_msg_tree_root_membership_witnesses;
+    std::array<MembershipWitness<NCT, HISTORIC_BLOCKS_TREE_HEIGHT>, 2> historic_blocks_tree_root_membership_witnesses{};
 
-    ConstantRollupData<NCT> constants;
+    ConstantRollupData<NCT> constants{};
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(kernel_data,
@@ -50,6 +46,7 @@ template <typename NCT> struct BaseRollupInputs {
                    start_nullifier_tree_snapshot,
                    start_contract_tree_snapshot,
                    start_public_data_tree_root,
+                   start_historic_blocks_tree_snapshot,
                    low_nullifier_leaf_preimages,
                    low_nullifier_membership_witness,
                    new_commitments_subtree_sibling_path,
@@ -57,55 +54,9 @@ template <typename NCT> struct BaseRollupInputs {
                    new_contracts_subtree_sibling_path,
                    new_public_data_update_requests_sibling_paths,
                    new_public_data_reads_sibling_paths,
-                   historic_private_data_tree_root_membership_witnesses,
-                   historic_contract_tree_root_membership_witnesses,
-                   historic_l1_to_l2_msg_tree_root_membership_witnesses,
+                   historic_blocks_tree_root_membership_witnesses,
                    constants);
     bool operator==(BaseRollupInputs<NCT> const&) const = default;
-};
-
-template <typename NCT> void read(uint8_t const*& it, BaseRollupInputs<NCT>& obj)
-{
-    using serialize::read;
-
-    read(it, obj.kernel_data);
-    read(it, obj.start_private_data_tree_snapshot);
-    read(it, obj.start_nullifier_tree_snapshot);
-    read(it, obj.start_contract_tree_snapshot);
-    read(it, obj.start_public_data_tree_root);
-    read(it, obj.low_nullifier_leaf_preimages);
-    read(it, obj.low_nullifier_membership_witness);
-    read(it, obj.new_commitments_subtree_sibling_path);
-    read(it, obj.new_nullifiers_subtree_sibling_path);
-    read(it, obj.new_contracts_subtree_sibling_path);
-    read(it, obj.new_public_data_update_requests_sibling_paths);
-    read(it, obj.new_public_data_reads_sibling_paths);
-    read(it, obj.historic_private_data_tree_root_membership_witnesses);
-    read(it, obj.historic_contract_tree_root_membership_witnesses);
-    read(it, obj.historic_l1_to_l2_msg_tree_root_membership_witnesses);
-    read(it, obj.constants);
-};
-
-template <typename NCT> void write(std::vector<uint8_t>& buf, BaseRollupInputs<NCT> const& obj)
-{
-    using serialize::write;
-
-    write(buf, obj.kernel_data);
-    write(buf, obj.start_private_data_tree_snapshot);
-    write(buf, obj.start_nullifier_tree_snapshot);
-    write(buf, obj.start_contract_tree_snapshot);
-    write(buf, obj.start_public_data_tree_root);
-    write(buf, obj.low_nullifier_leaf_preimages);
-    write(buf, obj.low_nullifier_membership_witness);
-    write(buf, obj.new_commitments_subtree_sibling_path);
-    write(buf, obj.new_nullifiers_subtree_sibling_path);
-    write(buf, obj.new_contracts_subtree_sibling_path);
-    write(buf, obj.new_public_data_update_requests_sibling_paths);
-    write(buf, obj.new_public_data_reads_sibling_paths);
-    write(buf, obj.historic_private_data_tree_root_membership_witnesses);
-    write(buf, obj.historic_contract_tree_root_membership_witnesses);
-    write(buf, obj.historic_l1_to_l2_msg_tree_root_membership_witnesses);
-    write(buf, obj.constants);
 };
 
 template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInputs<NCT> const& obj)
@@ -120,6 +71,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInp
               << obj.start_contract_tree_snapshot << "\n"
               << "start_public_data_tree_root:\n"
               << obj.start_public_data_tree_root << "\n"
+              << "start_historic_blocks_tree_snapshot:\n"
+              << obj.start_historic_blocks_tree_snapshot << "\n"
               << "low_nullifier_leaf_preimages:\n"
               << obj.low_nullifier_leaf_preimages << "\n"
               << "low_nullifier_membership_witness:\n"
@@ -134,12 +87,8 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseRollupInp
               << obj.new_public_data_update_requests_sibling_paths << "\n"
               << "new_state_reads_sibling_paths:\n"
               << obj.new_public_data_reads_sibling_paths << "\n"
-              << "historic_private_data_tree_root_membership_witnesses:\n"
-              << obj.historic_private_data_tree_root_membership_witnesses << "\n"
-              << "historic_contract_tree_root_membership_witnesses:\n"
-              << obj.historic_contract_tree_root_membership_witnesses << "\n"
-              << "historic_l1_to_l2_msg_tree_root_membership_witnesses:\n"
-              << obj.historic_l1_to_l2_msg_tree_root_membership_witnesses << "\n"
+              << "historic_blocks_tree_root_membership_witnesses:\n"
+              << obj.historic_blocks_tree_root_membership_witnesses << "\n"
               << "constants:\n"
               << obj.constants << "\n";
 }

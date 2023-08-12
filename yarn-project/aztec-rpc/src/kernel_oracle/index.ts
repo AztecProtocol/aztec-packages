@@ -1,9 +1,18 @@
-import { AztecNode } from '@aztec/aztec-node';
-import { AztecAddress, Fr, MembershipWitness, PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CircuitsWasm,
+  ConstantHistoricBlockData,
+  Fr,
+  GlobalVariables,
+  MembershipWitness,
+  PRIVATE_DATA_TREE_HEIGHT,
+} from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
+import { Tuple } from '@aztec/foundation/serialize';
+import { AztecNode, MerkleTreeId } from '@aztec/types';
+
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { ProvingDataOracle } from './../kernel_prover/proving_data_oracle.js';
-import { MerkleTreeId } from '@aztec/types';
-import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * A data oracle that provides information needed for simulating a transaction.
@@ -11,52 +20,18 @@ import { Tuple } from '@aztec/foundation/serialize';
 export class KernelOracle implements ProvingDataOracle {
   constructor(private contractDataOracle: ContractDataOracle, private node: AztecNode) {}
 
-  /**
-   * Retrieves the contract membership witness for a given contract address.
-   * A contract membership witness is a cryptographic proof that the contract exists in the Aztec network.
-   * This function will search for an existing contract tree associated with the contract address and obtain its
-   * membership witness. If no such contract tree exists, it will throw an error.
-   *
-   * @param contractAddress - The contract address.
-   * @returns A promise that resolves to a MembershipWitness instance representing the contract membership witness.
-   * @throws Error if the contract address is unknown or not found.
-   */
   public async getContractMembershipWitness(contractAddress: AztecAddress) {
     return await this.contractDataOracle.getContractMembershipWitness(contractAddress);
   }
 
-  /**
-   * Retrieve the function membership witness for the given contract address and function selector.
-   * The function membership witness represents a proof that the function belongs to the specified contract.
-   * Throws an error if the contract address or function selector is unknown.
-   *
-   * @param contractAddress - The contract address.
-   * @param functionSelector - The buffer containing the function selector.
-   * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
-   */
   public async getFunctionMembershipWitness(contractAddress: AztecAddress, functionSelector: Buffer) {
     return await this.contractDataOracle.getFunctionMembershipWitness(contractAddress, functionSelector);
   }
 
-  /**
-   * Retrieve the membership witness corresponding to a verification key.
-   * This function currently returns a random membership witness of the specified height,
-   * which is a placeholder implementation until a concrete membership witness calculation
-   * is implemented.
-   *
-   * @param vk - The VerificationKey for which the membership witness is needed.
-   * @returns A Promise that resolves to the MembershipWitness instance.
-   */
   public async getVkMembershipWitness() {
     return await this.contractDataOracle.getVkMembershipWitness();
   }
 
-  /**
-   * Get the note membership witness for a note in the private data tree at the given leaf index.
-   *
-   * @param leafIndex - The leaf index of the note in the private data tree.
-   * @returns the MembershipWitness for the note.
-   */
   async getNoteMembershipWitness(leafIndex: bigint): Promise<MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>> {
     const path = await this.node.getDataTreePath(leafIndex);
     return new MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>(
@@ -66,13 +41,27 @@ export class KernelOracle implements ProvingDataOracle {
     );
   }
 
-  /**
-   * Get the root of the private data tree.
-   *
-   * @returns the root of the private data tree.
-   */
   async getPrivateDataRoot(): Promise<Fr> {
     const roots = await this.node.getTreeRoots();
     return roots[MerkleTreeId.PRIVATE_DATA_TREE];
+  }
+
+  async getConstantHistoricBlockData(): Promise<ConstantHistoricBlockData> {
+    const wasm = await CircuitsWasm.get();
+    const latestBlock = await this.node.getBlock(-1);
+    const latestGlobals = latestBlock?.globalVariables ?? GlobalVariables.empty();
+    const prevBlockGlobalVariablesHash = computeGlobalsHash(wasm, latestGlobals);
+    const treeRoots = await this.node.getTreeRoots();
+
+    return new ConstantHistoricBlockData(
+      treeRoots[MerkleTreeId.PRIVATE_DATA_TREE],
+      treeRoots[MerkleTreeId.NULLIFIER_TREE],
+      treeRoots[MerkleTreeId.CONTRACT_TREE],
+      treeRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      treeRoots[MerkleTreeId.BLOCKS_TREE],
+      Fr.ZERO,
+      treeRoots[MerkleTreeId.PUBLIC_DATA_TREE],
+      prevBlockGlobalVariablesHash,
+    );
   }
 }

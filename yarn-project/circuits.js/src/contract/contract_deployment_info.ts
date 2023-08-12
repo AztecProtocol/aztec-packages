@@ -1,14 +1,14 @@
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import {
   computeContractAddress,
   computeFunctionTreeRoot,
-  computePartialContractAddress,
+  computePartialAddress,
   computeVarArgsHash,
   hashConstructor,
 } from '@aztec/circuits.js/abis';
+import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 
-import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 import { CircuitsWasm, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
+import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 
 /**
  * Generates the deployment info for a contract
@@ -41,13 +41,12 @@ export async function getContractDeploymentInfo(
   }));
   const leaves = generateFunctionLeaves(functions, wasm);
   const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
-  const constructorSelector = generateFunctionSelector(constructorAbi.name, constructorAbi.parameters);
-  const functionData = new FunctionData(constructorSelector, true, true);
+  const functionData = FunctionData.fromAbi(constructorAbi);
   const flatArgs = encodeArguments(constructorAbi, args);
   const argsHash = await computeVarArgsHash(wasm, flatArgs);
   const constructorHash = hashConstructor(wasm, functionData, argsHash, constructorVkHash.toBuffer());
 
-  const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
+  const partialAddress = computePartialAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
   const contractAddress = computeContractAddress(
     wasm,
     publicKey,

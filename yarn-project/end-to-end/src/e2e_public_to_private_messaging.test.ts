@@ -1,15 +1,15 @@
 import { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress } from '@aztec/aztec.js';
-import { DebugLogger } from '@aztec/foundation/log';
-import { EthAddress } from '@aztec/circuits.js';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
+import { AztecAddress, AztecRPC } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/circuits.js';
+import { DebugLogger } from '@aztec/foundation/log';
 
-import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { delay, setup } from './utils.js';
+import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
+import { delay, setup } from './fixtures/utils.js';
 
 describe('e2e_public_to_private_messaging', () => {
-  let aztecNode: AztecNodeService;
-  let aztecRpcServer: AztecRPCServer;
+  let aztecNode: AztecNodeService | undefined;
+  let aztecRpcServer: AztecRPC;
   let logger: DebugLogger;
 
   let ethAccount: EthAddress;
@@ -29,6 +29,7 @@ describe('e2e_public_to_private_messaging', () => {
       accounts,
       wallet,
       logger: logger_,
+      cheatCodes,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
       initialBalance,
@@ -38,6 +39,7 @@ describe('e2e_public_to_private_messaging', () => {
       accounts,
       wallet,
       logger_,
+      cheatCodes,
     );
 
     ethAccount = crossChainTestHarness.ethAccount;
@@ -52,7 +54,9 @@ describe('e2e_public_to_private_messaging', () => {
 
   afterEach(async () => {
     await aztecNode?.stop();
-    await aztecRpcServer?.stop();
+    if (aztecRpcServer instanceof AztecRPCServer) {
+      await aztecRpcServer?.stop();
+    }
     await crossChainTestHarness?.stop();
   });
 
@@ -61,7 +65,6 @@ describe('e2e_public_to_private_messaging', () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
     const shieldAmount = 50n;
-    const publicBalanceSlot = 2n;
 
     const [secret, secretHash] = await crossChainTestHarness.generateClaimSecret();
 
@@ -79,19 +82,19 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
 
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
 
     // Create the commitment to be spent in the private domain
     await crossChainTestHarness.shieldFundsOnL2(shieldAmount, secretHash);
 
     // Create the transaction spending the commitment
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(shieldAmount, secret);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount, publicBalanceSlot);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount);
     await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance + shieldAmount - transferAmount);
 
     // Unshield the tokens again, sending them to the same account, however this can be any account.
     await crossChainTestHarness.unshieldTokensOnL2(shieldAmount);
-    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount, publicBalanceSlot);
+    await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
     await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance - transferAmount);
-  }, 120_000);
+  }, 200_000);
 });

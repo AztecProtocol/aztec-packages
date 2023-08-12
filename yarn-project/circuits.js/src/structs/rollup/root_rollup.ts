@@ -1,18 +1,17 @@
-import { assertMemberLength, FieldsOf } from '../../utils/jsUtils.js';
-import { serializeToBuffer } from '../../utils/serialize.js';
-import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
-import {
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MSG_ROOTS_TREE_HEIGHT,
-  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-} from '../constants.js';
-import { PreviousRollupData } from './previous_rollup_data.js';
-import { AggregationObject } from '../aggregation_object.js';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import {
+  HISTORIC_BLOCKS_TREE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+} from '../../cbind/constants.gen.js';
+import { FieldsOf, assertMemberLength } from '../../utils/jsUtils.js';
+import { serializeToBuffer } from '../../utils/serialize.js';
+import { AggregationObject } from '../aggregation_object.js';
 import { GlobalVariables } from '../global_variables.js';
+import { AppendOnlyTreeSnapshot } from './append_only_tree_snapshot.js';
+import { PreviousRollupData } from './previous_rollup_data.js';
 
 /**
  * Represents inputs of the root rollup circuit.
@@ -26,14 +25,6 @@ export class RootRollupInputs {
      */
     public previousRollupData: [PreviousRollupData, PreviousRollupData],
     /**
-     * Sibling path of the new historic private data tree root.
-     */
-    public newHistoricPrivateDataTreeRootSiblingPath: Fr[],
-    /**
-     * Sibling path of the new historic contract data tree root.
-     */
-    public newHistoricContractDataTreeRootSiblingPath: Fr[],
-    /**
      * New L1 to L2 messages.
      */
     public newL1ToL2Messages: Fr[],
@@ -42,22 +33,20 @@ export class RootRollupInputs {
      */
     public newL1ToL2MessageTreeRootSiblingPath: Fr[],
     /**
-     * Sibling path of the new historic L1 to L2 message tree root.
-     */
-    public newHistoricL1ToL2MessageTreeRootSiblingPath: Fr[],
-    /**
      * Snapshot of the L1 to L2 message tree at the start of the rollup.
      */
     public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * Snapshot of the historic L1 to L2 message tree roots at the start of the rollup.
+     * Snapshot of the historic block roots tree at the start of the rollup.
      */
-    public startHistoricTreeL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
+    public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * Sibling path of the new historic block roots tree root.
+     */
+    public newHistoricBlocksTreeSiblingPath: Fr[],
   ) {
-    assertMemberLength(this, 'newHistoricPrivateDataTreeRootSiblingPath', PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT);
-    assertMemberLength(this, 'newHistoricContractDataTreeRootSiblingPath', CONTRACT_TREE_ROOTS_TREE_HEIGHT);
     assertMemberLength(this, 'newL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH);
-    assertMemberLength(this, 'newHistoricL1ToL2MessageTreeRootSiblingPath', L1_TO_L2_MSG_ROOTS_TREE_HEIGHT);
+    assertMemberLength(this, 'newHistoricBlocksTreeSiblingPath', HISTORIC_BLOCKS_TREE_HEIGHT);
     assertMemberLength(this, 'newL1ToL2Messages', NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
   }
 
@@ -72,13 +61,11 @@ export class RootRollupInputs {
   static getFields(fields: FieldsOf<RootRollupInputs>) {
     return [
       fields.previousRollupData,
-      fields.newHistoricPrivateDataTreeRootSiblingPath,
-      fields.newHistoricContractDataTreeRootSiblingPath,
       fields.newL1ToL2Messages,
       fields.newL1ToL2MessageTreeRootSiblingPath,
-      fields.newHistoricL1ToL2MessageTreeRootSiblingPath,
       fields.startL1ToL2MessageTreeSnapshot,
-      fields.startHistoricTreeL1ToL2MessageTreeRootsSnapshot,
+      fields.startHistoricBlocksTreeSnapshot,
+      fields.newHistoricBlocksTreeSiblingPath,
     ] as const;
   }
 }
@@ -99,8 +86,6 @@ export class RootRollupPublicInputs {
      * Global variables of the L2 block.
      */
     public globalVariables: GlobalVariables,
-    // constants: ConstantRollupData // TODO maybe don't include this
-
     /**
      * Snapshot of the private data tree at the start of the rollup.
      */
@@ -175,6 +160,15 @@ export class RootRollupPublicInputs {
     public endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot: AppendOnlyTreeSnapshot,
 
     /**
+     * Snapshot of the historic blocks tree roots tree at the start of the rollup.
+     */
+    public startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+    /**
+     * Snapshot of the historic blocks tree roots tree at the end of the rollup.
+     */
+    public endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
+
+    /**
      * Hash of the calldata.
      */
     public calldataHash: [Fr, Fr],
@@ -204,6 +198,8 @@ export class RootRollupPublicInputs {
       fields.endL1ToL2MessageTreeSnapshot,
       fields.startTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
       fields.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot,
+      fields.startHistoricBlocksTreeSnapshot,
+      fields.endHistoricBlocksTreeSnapshot,
       fields.calldataHash,
       fields.l1ToL2MessagesHash,
     ] as const;
@@ -252,6 +248,8 @@ export class RootRollupPublicInputs {
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readFr(),
       reader.readFr(),
+      reader.readObject(AppendOnlyTreeSnapshot),
+      reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),
       reader.readObject(AppendOnlyTreeSnapshot),

@@ -1,6 +1,7 @@
-import { EthAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { EthAddress } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
+
 import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../index.js';
 
 /**
@@ -20,6 +21,7 @@ export interface PublicStateDB {
    * @param contract - Owner of the storage.
    * @param slot - Slot to read in the contract storage.
    * @param newValue - The new value to store.
+   * @returns Nothing.
    */
   storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void>;
 }
@@ -37,6 +39,14 @@ export interface PublicContractsDB {
   getBytecode(address: AztecAddress, functionSelector: Buffer): Promise<Buffer | undefined>;
 
   /**
+   * Returns whether a function is internal or not.
+   * @param address - The contract address that owns this function.
+   * @param functionSelector - The selector for the function.
+   * @returns The `isInternal` flag found, undefined if not found.
+   */
+  getIsInternal(address: AztecAddress, functionSelector: Buffer): Promise<boolean | undefined>;
+
+  /**
    * Returns the portal contract address for an L2 address.
    * @param address - The L2 contract address.
    * @returns The portal contract address or undefined if not found.
@@ -46,7 +56,19 @@ export interface PublicContractsDB {
 
 /** Database interface for providing access to commitment tree and l1 to l2 messages tree (append only data trees). */
 export interface CommitmentsDB {
+  /**
+   * Gets a confirmed L1 to L2 message for the given message key.
+   * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
+   * @param msgKey - The message Key.
+   * @returns - The l1 to l2 message object
+   */
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
+
+  /**
+   * Gets a message index and sibling path to some commitment in the private data tree.
+   * @param address - The contract address owning storage.
+   * @param commitment - The preimage of the siloed data.
+   * @returns - The Commitment data oracle object
+   */
   getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs>;
-  getTreeRoots(): PrivateHistoricTreeRoots;
 }

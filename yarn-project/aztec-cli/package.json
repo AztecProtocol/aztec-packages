@@ -4,11 +4,13 @@
   "type": "module",
   "main": "./dest/index.js",
   "bin": {
-    "azti": "./dest/index.js"
+    "aztec-cli": "./dest/index.js"
   },
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "Aztec CLI",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "name": "Aztec CLI",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
@@ -37,6 +39,8 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/types": "workspace:^",
     "commander": "^9.0.0",
     "tslib": "^2.4.0",
     "viem": "^1.2.5"
