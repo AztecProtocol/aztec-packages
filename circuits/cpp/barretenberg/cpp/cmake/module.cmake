@@ -48,6 +48,7 @@ function(barretenberg_module MODULE_NAME)
             STATIC
             $<TARGET_OBJECTS:${MODULE_NAME}_objects>
         )
+        set_target_properties(${MODULE_NAME} PROPERTIES UNITY_BUILD ON)
 
         target_link_libraries(
             ${MODULE_NAME}

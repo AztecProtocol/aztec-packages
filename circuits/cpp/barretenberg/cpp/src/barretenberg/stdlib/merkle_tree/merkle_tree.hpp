@@ -6,6 +6,11 @@ namespace proof_system::plonk {
 namespace stdlib {
 namespace merkle_tree {
 
+template <typename T> inline bool bit_set(T const& index, size_t i)
+{
+    return bool((index >> i) & 0x1);
+}
+
 using namespace barretenberg;
 
 class MemoryStore;

@@ -1,6 +1,6 @@
 add_executable(
     decrypt_bench
-    main.cpp
+    main.main.cpp
 )
 
 target_link_libraries(

@@ -48,173 +48,119 @@ else()
     message(STATUS "Using optimized assembly for field arithmetic.")
 endif()
 
-add_subdirectory(barretenberg/env)
-add_subdirectory(barretenberg/common)
-add_subdirectory(barretenberg/numeric)
-add_subdirectory(barretenberg/srs)
-add_subdirectory(barretenberg/ecc)
-add_subdirectory(barretenberg/crypto)
-add_subdirectory(barretenberg/polynomials)
-add_subdirectory(barretenberg/proof_system)
-add_subdirectory(barretenberg/transcript)
-add_subdirectory(barretenberg/honk)
-add_subdirectory(barretenberg/plonk)
-add_subdirectory(barretenberg/stdlib)
-add_subdirectory(barretenberg/join_split_example)
-add_subdirectory(barretenberg/dsl)
-add_subdirectory(barretenberg/examples)
-add_subdirectory(barretenberg/serialize)
-add_subdirectory(barretenberg/solidity_helpers)
-add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/grumpkin_srs_gen)
-add_subdirectory(barretenberg/bb)
-
 if(BENCHMARKS)
     add_subdirectory(barretenberg/benchmark)
 endif()
 
-include(GNUInstallDirs)
+# Find all source files in the 'barretenberg' folder and its subdirectories
+file(GLOB_RECURSE SOURCES "barretenberg/*.cpp" "barretenberg/*.c")
+list(FILTER SOURCES EXCLUDE REGEX "(main|test|fuzzer|bench)\\.cpp$")
 
-# For this library we include everything but the env and wasi modules, as it is the responsibility of the
-# consumer of this library to define how and in what environment its artefact will run.
-# libbarretenberg + libwasi = a wasi "reactor" that implements it's own env (e.g. logstr), e.g. barretenberg.wasm.
-# libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
-message(STATUS "Compiling all-in-one barretenberg archive")
-add_library(
-    barretenberg
-    STATIC
-    $<TARGET_OBJECTS:dsl_objects>
-    $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:crypto_aes128_objects>
-    $<TARGET_OBJECTS:crypto_blake2s_objects>
-    $<TARGET_OBJECTS:crypto_blake3s_objects>
-    $<TARGET_OBJECTS:crypto_ecdsa_objects>
-    $<TARGET_OBJECTS:crypto_generators_objects>
-    $<TARGET_OBJECTS:crypto_keccak_objects>
-    $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-    $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-    $<TARGET_OBJECTS:crypto_schnorr_objects>
-    $<TARGET_OBJECTS:crypto_sha256_objects>
-    $<TARGET_OBJECTS:ecc_objects>
-    $<TARGET_OBJECTS:examples_objects>
-    $<TARGET_OBJECTS:honk_objects>
-    $<TARGET_OBJECTS:numeric_objects>
-    $<TARGET_OBJECTS:plonk_objects>
-    $<TARGET_OBJECTS:polynomials_objects>
-    $<TARGET_OBJECTS:proof_system_objects>
-    $<TARGET_OBJECTS:srs_objects>
-    $<TARGET_OBJECTS:stdlib_aes128_objects>
-    $<TARGET_OBJECTS:stdlib_blake2s_objects>
-    $<TARGET_OBJECTS:stdlib_blake3s_objects>
-    $<TARGET_OBJECTS:stdlib_keccak_objects>
-    $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-    $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
-    $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_schnorr_objects>
-    $<TARGET_OBJECTS:stdlib_sha256_objects>
-    $<TARGET_OBJECTS:transcript_objects>
-)
+# Create a library target
+add_library(barretenberg ${SOURCES})
 
-# Small library to provide necessary primitives for rust crate.
-add_library(
-    acvm_backend
-    $<TARGET_OBJECTS:env_objects>
-    $<TARGET_OBJECTS:common_objects>
-    $<TARGET_OBJECTS:numeric_objects>
-    $<TARGET_OBJECTS:ecc_objects>
-    $<TARGET_OBJECTS:crypto_blake2s_objects>
-    $<TARGET_OBJECTS:crypto_keccak_objects>
-    $<TARGET_OBJECTS:crypto_generators_objects>
-    $<TARGET_OBJECTS:crypto_schnorr_objects>
-    $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-    $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-)
+# Set UNITY_BUILD property for the target
+set_target_properties(barretenberg PROPERTIES UNITY_BUILD ON)
 
-if(WASM)
-    # With binaryen installed, it seems its wasm backend optimiser gets invoked automatically.
-    # Due to either a bug in the optimiser, or non-standards compliant c++ in crypto/aes, tests start failing with
-    # -O3 level optimisations. We force down to -O2 for current workaround.
-    # TODO: Time has passed, check if this is still needed.
-    # UPDATE: Uninstall binaryen and any need downstream.
-    set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+# # Small library to provide necessary primitives for rust crate.
+# add_library(
+#     acvm_backend
+#     $<TARGET_OBJECTS:env_objects>
+#     $<TARGET_OBJECTS:common_objects>
+#     $<TARGET_OBJECTS:numeric_objects>
+#     $<TARGET_OBJECTS:ecc_objects>
+#     $<TARGET_OBJECTS:crypto_blake2s_objects>
+#     $<TARGET_OBJECTS:crypto_keccak_objects>
+#     $<TARGET_OBJECTS:crypto_generators_objects>
+#     $<TARGET_OBJECTS:crypto_schnorr_objects>
+#     $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+#     $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
+# )
 
-    # When building this wasm "executable", we include the wasi module but exclude the env module.
-    # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
-    # to implement the functions in env.
-    add_executable(
-        barretenberg.wasm
-        $<TARGET_OBJECTS:wasi_objects>
-        $<TARGET_OBJECTS:dsl_objects>
-        $<TARGET_OBJECTS:common_objects>
-        $<TARGET_OBJECTS:crypto_aes128_objects>
-        $<TARGET_OBJECTS:crypto_blake2s_objects>
-        $<TARGET_OBJECTS:crypto_blake3s_objects>
-        $<TARGET_OBJECTS:crypto_ecdsa_objects>
-        $<TARGET_OBJECTS:crypto_generators_objects>
-        $<TARGET_OBJECTS:crypto_keccak_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
-        $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
-        $<TARGET_OBJECTS:crypto_schnorr_objects>
-        $<TARGET_OBJECTS:crypto_sha256_objects>
-        $<TARGET_OBJECTS:ecc_objects>
-        $<TARGET_OBJECTS:examples_objects>
-        $<TARGET_OBJECTS:honk_objects>
-        $<TARGET_OBJECTS:numeric_objects>
-        $<TARGET_OBJECTS:plonk_objects>
-        $<TARGET_OBJECTS:polynomials_objects>
-        $<TARGET_OBJECTS:proof_system_objects>
-        $<TARGET_OBJECTS:srs_objects>
-        $<TARGET_OBJECTS:stdlib_aes128_objects>
-        $<TARGET_OBJECTS:stdlib_blake2s_objects>
-        $<TARGET_OBJECTS:stdlib_blake3s_objects>
-        $<TARGET_OBJECTS:stdlib_keccak_objects>
-        $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
-        $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
-        $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
-        $<TARGET_OBJECTS:stdlib_primitives_objects>
-        $<TARGET_OBJECTS:stdlib_schnorr_objects>
-        $<TARGET_OBJECTS:stdlib_sha256_objects>
-        $<TARGET_OBJECTS:transcript_objects>
-    )
+# if(WASM)
+#     # With binaryen installed, it seems its wasm backend optimiser gets invoked automatically.
+#     # Due to either a bug in the optimiser, or non-standards compliant c++ in crypto/aes, tests start failing with
+#     # -O3 level optimisations. We force down to -O2 for current workaround.
+#     # TODO: Time has passed, check if this is still needed.
+#     # UPDATE: Uninstall binaryen and any need downstream.
+#     set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
-    target_link_options(
-        barretenberg.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
-    )
+#     # When building this wasm "executable", we include the wasi module but exclude the env module.
+#     # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
+#     # to implement the functions in env.
+#     add_executable(
+#         barretenberg.wasm
+#         $<TARGET_OBJECTS:wasi_objects>
+#         $<TARGET_OBJECTS:dsl_objects>
+#         $<TARGET_OBJECTS:common_objects>
+#         $<TARGET_OBJECTS:crypto_aes128_objects>
+#         $<TARGET_OBJECTS:crypto_blake2s_objects>
+#         $<TARGET_OBJECTS:crypto_blake3s_objects>
+#         $<TARGET_OBJECTS:crypto_ecdsa_objects>
+#         $<TARGET_OBJECTS:crypto_generators_objects>
+#         $<TARGET_OBJECTS:crypto_keccak_objects>
+#         $<TARGET_OBJECTS:crypto_pedersen_commitment_objects>
+#         $<TARGET_OBJECTS:crypto_pedersen_hash_objects>
+#         $<TARGET_OBJECTS:crypto_schnorr_objects>
+#         $<TARGET_OBJECTS:crypto_sha256_objects>
+#         $<TARGET_OBJECTS:ecc_objects>
+#         $<TARGET_OBJECTS:examples_objects>
+#         $<TARGET_OBJECTS:honk_objects>
+#         $<TARGET_OBJECTS:numeric_objects>
+#         $<TARGET_OBJECTS:plonk_objects>
+#         $<TARGET_OBJECTS:polynomials_objects>
+#         $<TARGET_OBJECTS:proof_system_objects>
+#         $<TARGET_OBJECTS:srs_objects>
+#         $<TARGET_OBJECTS:stdlib_aes128_objects>
+#         $<TARGET_OBJECTS:stdlib_blake2s_objects>
+#         $<TARGET_OBJECTS:stdlib_blake3s_objects>
+#         $<TARGET_OBJECTS:stdlib_keccak_objects>
+#         $<TARGET_OBJECTS:stdlib_merkle_tree_objects>
+#         $<TARGET_OBJECTS:stdlib_pedersen_commitment_objects>
+#         $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
+#         $<TARGET_OBJECTS:stdlib_primitives_objects>
+#         $<TARGET_OBJECTS:stdlib_schnorr_objects>
+#         $<TARGET_OBJECTS:stdlib_sha256_objects>
+#         $<TARGET_OBJECTS:transcript_objects>
+#     )
 
-    if(INSTALL_BARRETENBERG)
-        install(TARGETS barretenberg.wasm DESTINATION ${CMAKE_INSTALL_BINDIR})
-    endif()
-else()
-    if(INSTALL_BARRETENBERG)
-        # The `install` function takes targets to install in different destinations on the system.
-        install(
-            # TODO(dbanks12): should only need to install API headers
-            TARGETS barretenberg barretenberg_headers
-            # We also give it an optional export name in case something wants to target the install.
-            EXPORT barretenbergTargets
-            # The ARCHIVE output signifies static libraries that should be installed
-            # and we use the GNUInstallDirs location to install into the standard system library location
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            # The FILE_SET output is used instead of PUBLIC_HEADER & PRIVATE_HEADER outputs because
-            # our headers don't have a clear delineation between public & private, but we still use
-            # the GNUInstallDirs location to install into the standard system header location
-            FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        )
+#     target_link_options(
+#         barretenberg.wasm
+#         PRIVATE
+#         -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
+#     )
 
-        set(pkg_config "${PROJECT_BINARY_DIR}/barretenberg.pc")
+#     if(INSTALL_BARRETENBERG)
+#         install(TARGETS barretenberg.wasm DESTINATION ${CMAKE_INSTALL_BINDIR})
+#     endif()
+# else()
+#     if(INSTALL_BARRETENBERG)
+#         # The `install` function takes targets to install in different destinations on the system.
+#         install(
+#             # TODO(dbanks12): should only need to install API headers
+#             TARGETS barretenberg barretenberg_headers
+#             # We also give it an optional export name in case something wants to target the install.
+#             EXPORT barretenbergTargets
+#             # The ARCHIVE output signifies static libraries that should be installed
+#             # and we use the GNUInstallDirs location to install into the standard system library location
+#             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#             # The FILE_SET output is used instead of PUBLIC_HEADER & PRIVATE_HEADER outputs because
+#             # our headers don't have a clear delineation between public & private, but we still use
+#             # the GNUInstallDirs location to install into the standard system header location
+#             FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+#         )
 
-        configure_file(
-            "${PROJECT_SOURCE_DIR}/cmake/barretenberg.pc.in"
-            "${pkg_config}"
-            @ONLY
-        )
+#         set(pkg_config "${PROJECT_BINARY_DIR}/barretenberg.pc")
 
-        install(
-            FILES "${pkg_config}"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-        )
-    endif()
-endif()
+#         configure_file(
+#             "${PROJECT_SOURCE_DIR}/cmake/barretenberg.pc.in"
+#             "${pkg_config}"
+#             @ONLY
+#         )
+
+#         install(
+#             FILES "${pkg_config}"
+#             DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+#         )
+#     endif()
+# endif()
