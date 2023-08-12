@@ -20,17 +20,11 @@ contract PendingCommitments {
     use dep::aztec::context::PrivateContext;
     use dep::aztec::note::{
         note_getter::NoteGetterOptions,
-        note_getter_options::Sort,
         note_header::NoteHeader,
         utils as note_utils,
     };
-    use dep::aztec::types::point::Point;
-    use dep::aztec::state_vars::map::Map;
-    use dep::aztec::state_vars::set::Set;
     use dep::aztec::log::emit_encrypted_log;
-    use dep::aztec::log::emit_unencrypted_log;
-    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
+    use dep::aztec::oracle::get_public_key::get_public_key;
 
     // TODO(dbanks12): consolidate code into internal helper functions
     // (once Noir's support for this is more robust)
@@ -47,6 +41,7 @@ contract PendingCommitments {
 
     // Confirm can access pending commitments by creating / inserting a note and then
     // getting / reading that note all in the same contract function
+    // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     fn test_insert_then_get_then_nullify_flat(
         //*********************************/
         // Should eventually be hidden:
@@ -63,6 +58,14 @@ contract PendingCommitments {
 
         // Insert note and emit encrypted note preimage via oracle call
         owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
         let options = NoteGetterOptions::with_filter(get_2_notes, 0);
         // get note inserted above
@@ -105,6 +108,14 @@ contract PendingCommitments {
         // Insert note and emit encrypted note preimage via oracle call
         let mut note = ValueNote::new(amount, owner);
         owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
         context.finish()
     }
@@ -126,6 +137,14 @@ contract PendingCommitments {
 
         // Insert note and emit encrypted note preimage via oracle call
         owner_balance.insert(&mut context, &mut note);
+        emit_encrypted_log(
+            &mut context,
+            context.inputs.call_context.storage_contract_address,
+            owner_balance.storage_slot,
+            owner,
+            get_public_key(owner),
+            note.serialise(),
+        );
 
         context.finish()
     }
@@ -180,6 +199,7 @@ contract PendingCommitments {
 
     // Test pending commitments with note insertion done in a nested call
     // and "read" / get of that pending note/commitment in another nested call
+    // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         //*********************************/
         // Should eventually be hidden:

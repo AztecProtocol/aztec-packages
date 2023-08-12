@@ -30,10 +30,8 @@ contract PublicToken {
         let storage = Storage::init();
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
-        
-        // TODO(Maddiaa): place emiting the log onto the context
+        // TODO: Remove return value.
         let _hash = emit_unencrypted_log("Coins minted");
-
         recipient_balance.write(new_amount);
         
         context.return_values.push(new_amount);
