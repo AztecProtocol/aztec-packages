@@ -19,15 +19,6 @@ void _msgpack_stream_write(std::ostream& os, const std::shared_ptr<T>& field)
     os << *field;
 }
 /**
- * @brief Helper method for streaming msgpack values, msgpack case. We assume we need a new line 
- * TODO(AD): Ideally some tab indenting?
- */
-inline void _msgpack_stream_write(std::ostream& os, const msgpack_concepts::HasMsgPack auto& field)
-{
-    using namespace serialize;
-    os << "\n" << field;
-}
-/**
  * @brief Helper method for streaming msgpack values, normal case
  */
 inline void _msgpack_stream_write(std::ostream& os, const auto& field)
@@ -44,7 +35,7 @@ inline void _msgpack_stream_write_key_value_pairs(std::ostream& os)
     (void)os;  // unused
 }
 /**
- * @brief Recursive helper method for streaming msgpack key value pairs, arg case
+ * @brief Recursive helper method for streaming msgpack key value pairs, default arg case
  */
 inline void _msgpack_stream_write_key_value_pairs(std::ostream& os,
                                                   const std::string& key,
@@ -52,6 +43,21 @@ inline void _msgpack_stream_write_key_value_pairs(std::ostream& os,
                                                   const auto&... rest)
 {
     os << key << ": ";
+    _msgpack_stream_write(os, value);
+    os << '\n';
+    _msgpack_stream_write_key_value_pairs(os, rest...);  // NOLINT
+}
+/**
+ * @brief Recursive helper method for streaming msgpack key value pairs, msgpack arg case
+ * We add a new line as this was the previous output captured in snapshot tests.
+ * TODO(AD): Ideally some tab indenting?
+ */
+inline void _msgpack_stream_write_key_value_pairs(std::ostream& os,
+                                                  const std::string& key,
+                                                  const msgpack_concepts::HasMsgPack auto& value,
+                                                  const auto&... rest)
+{
+    os << key << ":\n";
     _msgpack_stream_write(os, value);
     os << '\n';
     _msgpack_stream_write_key_value_pairs(os, rest...);  // NOLINT
