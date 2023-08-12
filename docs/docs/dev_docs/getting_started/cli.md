@@ -106,7 +106,7 @@ Address: 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe
 Public Key: 0x1d80bd83a36d600af5153f4a0339cd6199992e1bb145edba2f1a05ad245cbf6d2761a77f036752b00e8842d5d48524bd2593ade1a6b76d3896148924e2795b43
 ```
 
-For all commands that require a user's private key, the utility will look for the exported environment variable in absence of a `-k` option.
+For all commands that require a user's private key, the utility will look for the exported environment variable in absence of an optional argument.
 
 Now lets double check that the accounts have definitely been registered with the sandbox with the `get-accounts` command:
 
