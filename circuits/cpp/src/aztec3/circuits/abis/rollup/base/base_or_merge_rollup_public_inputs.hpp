@@ -55,44 +55,4 @@ template <typename NCT> struct BaseOrMergeRollupPublicInputs {
     bool operator==(BaseOrMergeRollupPublicInputs<NCT> const&) const = default;
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, BaseOrMergeRollupPublicInputs<NCT> const& obj)
-{
-    return os << "rollup_type:\n"
-              << obj.rollup_type << "\n"
-              << "rollup_subtree_height:\n"
-              << obj.rollup_subtree_height << "\n"
-              << "end_aggregation_object:\n"
-              << obj.end_aggregation_object
-              << "\n"
-                 "constants:\n"
-              << obj.constants
-              << "\n"
-                 "start_private_data_tree_snapshot:\n"
-              << obj.start_private_data_tree_snapshot
-              << "\n"
-                 "end_private_data_tree_snapshot:\n"
-              << obj.start_private_data_tree_snapshot
-              << "\n"
-                 "start_nullifier_tree_snapshot:\n"
-              << obj.start_nullifier_tree_snapshot
-              << "\n"
-                 "end_nullifier_tree_snapshot:\n"
-              << obj.end_nullifier_tree_snapshot
-              << "\n"
-                 "start_contract_tree_snapshot:\n"
-              << obj.start_contract_tree_snapshot
-              << "\n"
-                 "end_contract_tree_snapshot:\n"
-              << obj.end_contract_tree_snapshot
-              << "\n"
-                 "start_public_data_tree_root:\n"
-              << obj.start_public_data_tree_root
-              << "\n"
-                 "end_public_data_tree_root:\n"
-              << obj.end_public_data_tree_root
-              << "\n"
-                 "calldata_hash: "
-              << obj.calldata_hash << "\n";
-}
-
 }  // namespace aztec3::circuits::abis

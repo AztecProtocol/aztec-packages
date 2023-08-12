@@ -99,24 +99,4 @@ template <typename NCT> struct PrivateCallData {
     };
 };  // namespace aztec3::circuits::abis::private_kernel
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateCallData<NCT> const& obj)
-{
-    return os << "call_stack_item:\n"
-              << obj.call_stack_item << "\n"
-              << "private_call_stack_preimages:\n"
-              << obj.private_call_stack_preimages << "\n"
-              << "proof:\n"
-              << obj.proof << "\n"
-              << "vk:\n"
-              << *(obj.vk) << "\n"
-              << "function_leaf_membership_witness:\n"
-              << obj.function_leaf_membership_witness << "\n"
-              << "contract_leaf_membership_witness:\n"
-              << obj.contract_leaf_membership_witness << "\n"
-              << "read_request_membership_witnesses:\n"
-              << obj.read_request_membership_witnesses << "\n"
-              << "portal_contract_address: " << obj.portal_contract_address << "\n"
-              << "acir_hash: " << obj.acir_hash << "\n";
-}
-
 }  // namespace aztec3::circuits::abis::private_kernel

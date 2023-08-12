@@ -40,12 +40,4 @@ template <typename NCT> struct PrivateKernelInputsInit {
     };
 };
 
-template <typename NCT> std::ostream& operator<<(std::ostream& os, PrivateKernelInputsInit<NCT> const& private_inputs)
-{
-    return os << "tx_request:\n"
-              << private_inputs.tx_request << "\n"
-              << "private_call:\n"
-              << private_inputs.private_call << "\n";
-}
-
 }  // namespace aztec3::circuits::abis::private_kernel
