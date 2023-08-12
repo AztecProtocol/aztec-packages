@@ -203,7 +203,7 @@ export class CrossChainTestHarness {
   }
 
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
-    const balance = (await this.l2Contract.methods.publicBalanceOf(owner.toField()).view({ from: owner }))[0];
+    const balance = await this.l2Contract.methods.publicBalanceOf(owner.toField()).view({ from: owner });
     expect(balance).toBe(expectedBalance);
   }
 
