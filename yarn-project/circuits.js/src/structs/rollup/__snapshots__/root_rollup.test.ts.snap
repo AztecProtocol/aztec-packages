@@ -1,12 +1,9 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`structs/root_rollup serializes a RootRollupInput and prints it 1`] = `
-"previous_rollup_data: [ base_or_merge_rollup_public_inputs: rollup_type:
-0
-rollup_subtree_height:
-0x0
-end_aggregation_object:
-P0: { 0x100, 0x101 }
+"previous_rollup_data: [ base_or_merge_rollup_public_inputs: rollup_type: 0
+rollup_subtree_height: 0x0
+end_aggregation_object: P0: { 0x100, 0x101 }
 P1: { 0x200, 0x201 }
 public_inputs: [
  0x102
@@ -17,9 +14,7 @@ public_inputs: [
 proof_witness_indices: [ 106 107 108 109 10a 10b ]
 has_data: 0
 
-constants:
-start_historic_blocks_tree_roots_snapshot:
-root: 0x500
+constants: start_historic_blocks_tree_roots_snapshot: root: 0x500
 next_available_leaf_index: 500
 
 private_kernel_vk_tree_root: 0x601
@@ -32,34 +27,26 @@ block_number: 0x607
 timestamp: 0x608
 
 
-start_private_data_tree_snapshot:
-root: 0x300
+start_private_data_tree_snapshot: root: 0x300
 next_available_leaf_index: 300
 
-end_private_data_tree_snapshot:
-root: 0x300
-next_available_leaf_index: 300
+end_private_data_tree_snapshot: root: 0x400
+next_available_leaf_index: 400
 
-start_nullifier_tree_snapshot:
-root: 0x500
+start_nullifier_tree_snapshot: root: 0x500
 next_available_leaf_index: 500
 
-end_nullifier_tree_snapshot:
-root: 0x600
+end_nullifier_tree_snapshot: root: 0x600
 next_available_leaf_index: 600
 
-start_contract_tree_snapshot:
-root: 0x700
+start_contract_tree_snapshot: root: 0x700
 next_available_leaf_index: 700
 
-end_contract_tree_snapshot:
-root: 0x800
+end_contract_tree_snapshot: root: 0x800
 next_available_leaf_index: 800
 
-start_public_data_tree_root:
-0x900
-end_public_data_tree_root:
-0x1000
+start_public_data_tree_root: 0x900
+end_public_data_tree_root: 0x1000
 calldata_hash: [ 0x901 0x902 ]
 
 proof: [ 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ]
@@ -76,12 +63,9 @@ vk_index: 110
 vk_sibling_path: leaf_index: 0x120
 sibling_path: [ 0x120 0x121 0x122 0x123 0x124 0x125 0x126 0x127 ]
 
- base_or_merge_rollup_public_inputs: rollup_type:
-0
-rollup_subtree_height:
-0x0
-end_aggregation_object:
-P0: { 0x1100, 0x1101 }
+ base_or_merge_rollup_public_inputs: rollup_type: 0
+rollup_subtree_height: 0x0
+end_aggregation_object: P0: { 0x1100, 0x1101 }
 P1: { 0x1200, 0x1201 }
 public_inputs: [
  0x1102
@@ -92,9 +76,7 @@ public_inputs: [
 proof_witness_indices: [ 1106 1107 1108 1109 110a 110b ]
 has_data: 0
 
-constants:
-start_historic_blocks_tree_roots_snapshot:
-root: 0x1500
+constants: start_historic_blocks_tree_roots_snapshot: root: 0x1500
 next_available_leaf_index: 1500
 
 private_kernel_vk_tree_root: 0x1601
@@ -107,34 +89,26 @@ block_number: 0x1607
 timestamp: 0x1608
 
 
-start_private_data_tree_snapshot:
-root: 0x1300
+start_private_data_tree_snapshot: root: 0x1300
 next_available_leaf_index: 1300
 
-end_private_data_tree_snapshot:
-root: 0x1300
-next_available_leaf_index: 1300
+end_private_data_tree_snapshot: root: 0x1400
+next_available_leaf_index: 1400
 
-start_nullifier_tree_snapshot:
-root: 0x1500
+start_nullifier_tree_snapshot: root: 0x1500
 next_available_leaf_index: 1500
 
-end_nullifier_tree_snapshot:
-root: 0x1600
+end_nullifier_tree_snapshot: root: 0x1600
 next_available_leaf_index: 1600
 
-start_contract_tree_snapshot:
-root: 0x1700
+start_contract_tree_snapshot: root: 0x1700
 next_available_leaf_index: 1700
 
-end_contract_tree_snapshot:
-root: 0x1800
+end_contract_tree_snapshot: root: 0x1800
 next_available_leaf_index: 1800
 
-start_public_data_tree_root:
-0x1900
-end_public_data_tree_root:
-0x2000
+start_public_data_tree_root: 0x1900
+end_public_data_tree_root: 0x2000
 calldata_hash: [ 0x1901 0x1902 ]
 
 proof: [ 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 ]

@@ -19,6 +19,15 @@ void _msgpack_stream_write(std::ostream& os, const std::shared_ptr<T>& field)
     os << *field;
 }
 /**
+ * @brief Helper method for streaming msgpack values, msgpack case. We assume we need a new line 
+ * TODO(AD): Ideally some tab indenting?
+ */
+inline void _msgpack_stream_write(std::ostream& os, const msgpack_concepts::HasMsgPack auto& field)
+{
+    using namespace serialize;
+    os << "\n" << field;
+}
+/**
  * @brief Helper method for streaming msgpack values, normal case
  */
 inline void _msgpack_stream_write(std::ostream& os, const auto& field)
