@@ -1,5 +1,6 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { AztecRPC, getSchnorrAccount } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -18,6 +19,21 @@ const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test 
 const logger = createDebugLogger('aztec:sandbox');
 
 export const localAnvil = foundry;
+
+const initialAccountKeys = [
+  '0d1a80df0436c86889ee9cf52752c59842aae522e1b95b2ae7d6b0714b78b672',
+  'd16cada1a22b41f95ae95b676ba6ba4fb0eba37e9caaf5ef7b7b0b90501e5679',
+];
+
+const deployInitialAccounts = async (aztecRpc: AztecRPC) => {
+  const deployments = initialAccountKeys.map(s => {
+    const key = new PrivateKey(Buffer.from(s, 'hex'));
+    const account = getSchnorrAccount(aztecRpc, key, PrivateKey.random());
+    return account;
+  });
+  await Promise.all(deployments.map(x => x.waitDeploy()));
+  return deployments;
+};
 
 /**
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
@@ -70,6 +86,9 @@ async function main() {
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
+  logger('Deploying initial accounts...');
+  const accounts = await deployInitialAccounts(aztecRpcServer);
+
   const shutdown = async () => {
     logger('Shutting down...');
     await aztecRpcServer.stop();
@@ -89,12 +108,25 @@ async function main() {
 
   const httpServer = http.createServer(app.callback());
   httpServer.listen(SERVER_PORT);
+  logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`);
+  logger.info(`${splash}\n${github}\n\n`);
+
+  logger.info(`Initial Accounts:`);
+  logger.info('');
+
+  const registeredAccounts = await aztecRpcServer.getAccounts();
+  for (const account of accounts) {
+    const completedAddress = await account.getCompleteAddress();
+    if (registeredAccounts.find(a => a.equals(completedAddress.address))) {
+      logger.info(` Address: ${completedAddress.address.toString()}`);
+      logger.info(` Partial Address: ${completedAddress.partialAddress.toString()}`);
+      logger.info(` Public Key: ${completedAddress.publicKey.toString()}`);
+      logger.info('');
+    }
+  }
 }
 
-main()
-  .then(() => logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`))
-  .then(() => logger.info(`${splash}\n${github}\n\n`))
-  .catch(err => {
-    logger.fatal(err);
-    process.exit(1);
-  });
+main().catch(err => {
+  logger.fatal(err);
+  process.exit(1);
+});
