@@ -20,23 +20,15 @@ const logger = createDebugLogger('aztec:sandbox');
 
 export const localAnvil = foundry;
 
-// Use the Anvil pre-funded private keys
 const initialAccountKeys = [
-  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
-  // '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
-  // '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
-  // '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
-  // '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e',
-  // '0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356',
-  // '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
-  // '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6',
+  'b2803ec899f76f6b2ac011480d24028f1a29587f8a3a92f7ee9d48d8c085c284',
+  '6bb46e9a80da2ff7bfff71c2c50eaaa4b15f7ed5ad1ade4261b574ef80b0cdb0',
+  '0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c',
 ];
 
 const deployInitialAccounts = async (aztecRpc: AztecRPC) => {
   const accounts = initialAccountKeys.map(s => {
-    const privateKey = new PrivateKey(Buffer.from(s.slice(2), 'hex'));
+    const privateKey = new PrivateKey(Buffer.from(s, 'hex'));
     const account = getSchnorrAccount(aztecRpc, privateKey, PrivateKey.random());
     return {
       account,
