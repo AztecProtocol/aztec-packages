@@ -23,11 +23,6 @@ contract PendingCommitments {
         note_header::NoteHeader,
         utils as note_utils,
     };
-    use dep::aztec::types::point::Point;
-    use dep::aztec::state_vars::map::Map;
-    use dep::aztec::state_vars::set::Set;
-    use dep::aztec::constants_gen::MAX_NOTE_FIELDS_LENGTH;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
 
