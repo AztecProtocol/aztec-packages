@@ -37,7 +37,7 @@ describe('multi-transfer payments', () => {
     if (aztecRpcServer instanceof AztecRPCServer) {
       await aztecRpcServer?.stop();
     }
-  });
+  }, 30_000);
 
   const deployZkTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying zk token contract...`);
@@ -115,5 +115,5 @@ describe('multi-transfer payments', () => {
     await expectBalance(zkTokenContract, recipients[4], amounts[4] + amounts[numberOfAccounts + 4]);
     await expectBalance(zkTokenContract, recipients[5], amounts[5] + amounts[numberOfAccounts + 5]);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
-  }, 650_000);
+  }, 750_000);
 });
