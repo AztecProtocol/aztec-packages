@@ -184,7 +184,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     }
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
-  });
+  }, 60_000);
   it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     logger('Running L1/L2 messaging test on HTTP interface.');
 
