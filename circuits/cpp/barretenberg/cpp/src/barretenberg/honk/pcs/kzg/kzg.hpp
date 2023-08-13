@@ -13,7 +13,7 @@ namespace proof_system::honk::pcs::kzg {
 
 template <typename Curve> class KZG {
     using CK = CommitmentKey<Curve>;
-    using VK = VerificationKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;

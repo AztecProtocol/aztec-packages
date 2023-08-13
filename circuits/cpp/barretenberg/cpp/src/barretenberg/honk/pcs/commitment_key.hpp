@@ -24,10 +24,12 @@
 namespace proof_system::honk::pcs {
 
 /**
- * @brief CommitmentKey object over a pairing group 𝔾₁, using a structured reference string (SRS).
- * The SRS is given as a list of 𝔾₁ points { [xʲ]₁ }ⱼ where 'x' is unknown. The SRS stored in the commitment key is
- * after applying the pippenger_point_table thus being double the size of what is loaded from path.
+ * @brief CommitmentKey object over a pairing group 𝔾₁.
  *
+ * @details Commitments are computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ where Gᵢ is the i-th element of the SRS. For BN254,
+ * the SRS is given as a list of 𝔾₁ points { [xʲ]₁ }ⱼ where 'x' is unknown. For Grumpkin, they are random points. The
+ * SRS stored in the commitment key is after applying the pippenger_point_table thus being double the size of what is
+ * loaded from path.
  */
 template <class Curve> class CommitmentKey {
 
@@ -49,8 +51,7 @@ template <class Curve> class CommitmentKey {
         , srs(crs_factory->get_prover_crs(num_points))
     {}
 
-    // Note: This constructor is used only by Plonk; For Honk the CommitmentKey is solely responsible for extracting
-    // the srs.
+    // Note: This constructor is used only by Plonk; For Honk the srs is extracted by the CommitmentKey
     CommitmentKey(const size_t num_points, std::shared_ptr<barretenberg::srs::factories::ProverCrs<Curve>> prover_crs)
         : pippenger_runtime_state(num_points)
         , srs(prover_crs)
@@ -59,8 +60,8 @@ template <class Curve> class CommitmentKey {
     /**
      * @brief Uses the ProverSRS to create a commitment to p(X)
      *
-     * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ ()
-     * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅[xⁱ]₁ where x is the secret trapdoor
+     * @param polynomial a univariate polynomial p(X) = ∑ᵢ aᵢ⋅Xⁱ
+     * @return Commitment computed as C = [p(x)] = ∑ᵢ aᵢ⋅Gᵢ
      */
     Commitment commit(std::span<const Fr> polynomial)
     {

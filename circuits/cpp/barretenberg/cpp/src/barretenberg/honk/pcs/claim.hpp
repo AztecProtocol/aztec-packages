@@ -58,37 +58,4 @@ template <typename Curve> class OpeningClaim {
 
     bool operator==(const OpeningClaim& other) const = default;
 };
-
-/**
- * @brief stores a claim of the form (C, v) for u=(u₀,…,uₘ₋₁)
- * where C is a univariate commitment to a polynomial
- *
- * f(X) = a₀ + a₁⋅X + … + aₙ₋₁⋅Xⁿ⁻¹
- *
- * and v is a multi-linear evaluation of f(X₀,…,Xₘ₋₁)
- * which has the same coefficients as f.
- * v = ∑ᵢ aᵢ⋅Lᵢ(u)
- *
- * If the evaluations is shift, we assume that a₀ = 0 and
- * take g(X) = f↺(X), so that
- * g(X) = a₁ + … + aₙ₋₁⋅Xⁿ⁻² = f(X)/X
- * The evaluation will be
- * v↺ = a₁⋅L₀(u) + … + aₙ₋₁⋅Lₙ₋₂(u)
- * The commitment C is [f].
- *
- * @tparam CommitmentKey
- */
-template <typename Curve> class MLEOpeningClaim {
-    using Commitment = typename Curve::AffineElement;
-    using Fr = typename Curve::ScalarField;
-
-  public:
-    // commitment to a univariate polynomial
-    // whose coefficients are the multi-linear evaluations
-    // of C = [f]
-    Commitment commitment;
-    // v  = f(u) = ∑ᵢ aᵢ⋅Lᵢ(u)
-    // v↺ = g(u) = a₁⋅L₀(u) + … + aₙ₋₁⋅Lₙ₋₂(u)
-    Fr evaluation;
-};
 } // namespace proof_system::honk::pcs

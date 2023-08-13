@@ -18,7 +18,7 @@ class IPATest : public CommitmentTest<Curve> {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using CK = CommitmentKey<Curve>;
-    using VK = VerificationKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 

@@ -18,7 +18,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::CommitmentKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
@@ -26,7 +26,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Curve = typename Flavor::Curve;
 
   public:
-    explicit UltraProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit UltraProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<CommitmentKey> commitment_key);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
@@ -69,7 +69,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
-    std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
+    std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
     using Gemini = pcs::gemini::GeminiProver_<Curve>;
     using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;

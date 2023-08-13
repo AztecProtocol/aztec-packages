@@ -19,7 +19,7 @@ template <typename Curve> class IPA {
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using CK = CommitmentKey<Curve>;
-    using VK = VerificationKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
   public:

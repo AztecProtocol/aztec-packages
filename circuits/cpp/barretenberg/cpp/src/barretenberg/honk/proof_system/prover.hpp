@@ -21,12 +21,12 @@ template <StandardFlavor Flavor> class StandardProver_ {
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using PCSCommitmentKey = typename Flavor::CommitmentKey;
+    using CommitmentKey = typename Flavor::CommitmentKey;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
 
   public:
-    explicit StandardProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
+    explicit StandardProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<CommitmentKey> commitment_key);
 
     void execute_preamble_round();
     void execute_wire_commitments_round();
@@ -73,7 +73,7 @@ template <StandardFlavor Flavor> class StandardProver_ {
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
-    std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
+    std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
     using Gemini = pcs::gemini::GeminiProver_<Curve>;
     using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;

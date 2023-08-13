@@ -104,7 +104,7 @@ StandardVerifier_<Flavor> StandardComposer_<Flavor>::create_verifier(const Circu
     StandardVerifier_<Flavor> output_state(verification_key);
 
     auto pcs_verification_key =
-        std::make_unique<typename Flavor::PCSVerificationKey>(verification_key->circuit_size, crs_factory_);
+        std::make_unique<typename Flavor::VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
 
     output_state.pcs_verification_key = std::move(pcs_verification_key);
 

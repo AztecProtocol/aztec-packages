@@ -22,20 +22,20 @@
 
 namespace proof_system::honk::pcs {
 
-template <class Curve> class VerificationKey;
+template <class Curve> class VerifierCommitmentKey;
 
 /**
  * @brief Specialization for bn254
  * 
  * @tparam curve::BN254
  */
-template <> class VerificationKey<curve::BN254> {
+template <> class VerifierCommitmentKey<curve::BN254> {
     using Curve = curve::BN254;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
   public:
-    VerificationKey() = delete;
+    VerifierCommitmentKey() = delete;
 
     /**
      * @brief Construct a new Kate Verification Key object from existing SRS
@@ -43,7 +43,7 @@ template <> class VerificationKey<curve::BN254> {
      * @param num_points
      * @param srs verifier G2 point
      */
-    VerificationKey([[maybe_unused]] size_t num_points,
+    VerifierCommitmentKey([[maybe_unused]] size_t num_points,
                        std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
         : srs(crs_factory->get_verifier_crs())
     {}
@@ -73,13 +73,13 @@ template <> class VerificationKey<curve::BN254> {
  * 
  * @tparam curve::Grumpkin
  */
-template <> class VerificationKey<curve::Grumpkin> {
+template <> class VerifierCommitmentKey<curve::Grumpkin> {
     using Curve = curve::Grumpkin;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
 
   public:
-    VerificationKey() = delete;
+    VerifierCommitmentKey() = delete;
 
     /**
      * @brief Construct a new IPA Verification Key object from existing SRS
@@ -88,7 +88,7 @@ template <> class VerificationKey<curve::Grumpkin> {
      * @param num_points specifies the length of the SRS
      * @param path is the location to the SRS file
      */
-    VerificationKey(size_t num_points, std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
+    VerifierCommitmentKey(size_t num_points, std::shared_ptr<barretenberg::srs::factories::CrsFactory<Curve>> crs_factory)
         : pippenger_runtime_state(num_points)
         , srs(crs_factory->get_verifier_crs(num_points))
 

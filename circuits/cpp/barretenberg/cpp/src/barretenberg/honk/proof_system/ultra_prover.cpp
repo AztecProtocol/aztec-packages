@@ -32,7 +32,7 @@ namespace proof_system::honk {
  * */
 template <UltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(std::shared_ptr<typename Flavor::ProvingKey> input_key,
-                                   std::shared_ptr<PCSCommitmentKey> commitment_key)
+                                   std::shared_ptr<CommitmentKey> commitment_key)
     : key(input_key)
     , queue(commitment_key, transcript)
     , pcs_commitment_key(commitment_key)

@@ -44,32 +44,32 @@ template <typename CK> inline std::shared_ptr<CK> CreateCommitmentKey()
     return std::make_shared<CK>();
 }
 
-template <class VK> inline std::shared_ptr<VK> CreateVerificationKey();
+template <class VK> inline std::shared_ptr<VK> CreateVerifierCommitmentKey();
 
-template <> inline std::shared_ptr<VerificationKey<curve::BN254>> CreateVerificationKey<VerificationKey<curve::BN254>>()
+template <> inline std::shared_ptr<VerifierCommitmentKey<curve::BN254>> CreateVerifierCommitmentKey<VerifierCommitmentKey<curve::BN254>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::BN254>("../srs_db/ignition", 4096));
-    return std::make_shared<VerificationKey<curve::BN254>>(n, crs_factory);
+    return std::make_shared<VerifierCommitmentKey<curve::BN254>>(n, crs_factory);
 }
 // For IPA
 template <>
-inline std::shared_ptr<VerificationKey<curve::Grumpkin>> CreateVerificationKey<VerificationKey<curve::Grumpkin>>()
+inline std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> CreateVerifierCommitmentKey<VerifierCommitmentKey<curve::Grumpkin>>()
 {
     constexpr size_t n = 4096;
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> crs_factory(
         new barretenberg::srs::factories::FileCrsFactory<curve::Grumpkin>("../srs_db/grumpkin", 4096));
-    return std::make_shared<VerificationKey<curve::Grumpkin>>(n, crs_factory);
+    return std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(n, crs_factory);
 }
-template <typename VK> inline std::shared_ptr<VK> CreateVerificationKey()
+template <typename VK> inline std::shared_ptr<VK> CreateVerifierCommitmentKey()
 // requires std::default_initializable<VK>
 {
     return std::make_shared<VK>();
 }
 template <typename Curve> class CommitmentTest : public ::testing::Test {
     using CK = CommitmentKey<Curve>;
-    using VK = VerificationKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
 
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
@@ -184,7 +184,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
             commitment_key = CreateCommitmentKey<CK>();
         }
         if (verification_key == nullptr) {
-            verification_key = CreateVerificationKey<VK>();
+            verification_key = CreateVerifierCommitmentKey<VK>();
         }
     }
 
@@ -200,7 +200,7 @@ template <typename Curve> class CommitmentTest : public ::testing::Test {
 template <typename Curve>
 typename std::shared_ptr<CommitmentKey<Curve>> CommitmentTest<Curve>::commitment_key = nullptr;
 template <typename Curve>
-typename std::shared_ptr<VerificationKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
+typename std::shared_ptr<VerifierCommitmentKey<Curve>> CommitmentTest<Curve>::verification_key = nullptr;
 
 using CommitmentSchemeParams = ::testing::Types<curve::BN254>;
 using IpaCommitmentSchemeParams = ::testing::Types<curve::Grumpkin>;
