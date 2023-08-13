@@ -20,19 +20,49 @@ const logger = createDebugLogger('aztec:sandbox');
 
 export const localAnvil = foundry;
 
+// Use the Anvil pre-funded private keys
 const initialAccountKeys = [
-  '0d1a80df0436c86889ee9cf52752c59842aae522e1b95b2ae7d6b0714b78b672',
-  'd16cada1a22b41f95ae95b676ba6ba4fb0eba37e9caaf5ef7b7b0b90501e5679',
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+  '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
+  '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
+  // '0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6',
+  // '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a',
+  // '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba',
+  // '0x92db14e403b83dfe3df233f83dfa3a0d7096f21ca9b0d6d6b8d88b2b4ec1564e',
+  // '0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356',
+  // '0xdbda1821b80551c9d65939329250298aa3472ba22feea921c0cf5d620ea67b97',
+  // '0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6',
 ];
 
 const deployInitialAccounts = async (aztecRpc: AztecRPC) => {
-  const deployments = initialAccountKeys.map(s => {
-    const key = new PrivateKey(Buffer.from(s, 'hex'));
-    const account = getSchnorrAccount(aztecRpc, key, PrivateKey.random());
-    return account;
+  const accounts = initialAccountKeys.map(s => {
+    const privateKey = new PrivateKey(Buffer.from(s.slice(2), 'hex'));
+    const account = getSchnorrAccount(aztecRpc, privateKey, PrivateKey.random());
+    return {
+      account,
+      privateKey,
+    };
   });
-  await Promise.all(deployments.map(x => x.waitDeploy()));
-  return deployments;
+  // Attempt to get as much parallelism as possible
+  const deployMethods = await Promise.all(
+    accounts.map(async x => {
+      const deployMethod = await x.account.getDeployMethod();
+      await deployMethod.create({ contractAddressSalt: x.account.salt });
+      await deployMethod.simulate({});
+      return deployMethod;
+    }),
+  );
+  // Send tx together to try and get them in the same rollup
+  const sentTxs = deployMethods.map(dm => {
+    return dm.send();
+  });
+  await Promise.all(
+    sentTxs.map(async (tx, i) => {
+      const wallet = await accounts[i].account.getWallet();
+      return tx.wait({ wallet });
+    }),
+  );
+  return accounts;
 };
 
 /**
@@ -109,21 +139,19 @@ async function main() {
   const httpServer = http.createServer(app.callback());
   httpServer.listen(SERVER_PORT);
   logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`);
-  logger.info(`${splash}\n${github}\n\n`);
-
-  logger.info(`Initial Accounts:`);
-  logger.info('');
+  const accountStrings = [`Initial Accounts:\n\n`];
 
   const registeredAccounts = await aztecRpcServer.getAccounts();
   for (const account of accounts) {
-    const completedAddress = await account.getCompleteAddress();
+    const completedAddress = await account.account.getCompleteAddress();
     if (registeredAccounts.find(a => a.equals(completedAddress.address))) {
-      logger.info(` Address: ${completedAddress.address.toString()}`);
-      logger.info(` Partial Address: ${completedAddress.partialAddress.toString()}`);
-      logger.info(` Public Key: ${completedAddress.publicKey.toString()}`);
-      logger.info('');
+      accountStrings.push(` Address: ${completedAddress.address.toString()}\n`);
+      accountStrings.push(` Partial Address: ${completedAddress.partialAddress.toString()}\n`);
+      accountStrings.push(` Private Key: ${account.privateKey.toString()}\n`);
+      accountStrings.push(` Public Key: ${completedAddress.publicKey.toString()}\n\n`);
     }
   }
+  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings));
 }
 
 main().catch(err => {
