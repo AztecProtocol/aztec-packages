@@ -1,5 +1,6 @@
 import { Fr, PrivateKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
+import { sleep } from '@aztec/foundation/sleep';
 
 import SchnorrAccountContractAbi from '../abis/schnorr_account_contract.json' assert { type: 'json' };
 import { AztecRPC, getAccountWallets, getSchnorrAccount } from '../index.js';
@@ -65,3 +66,18 @@ export async function deployInitialSandboxAccounts(aztecRpc: AztecRPC) {
   );
   return accounts;
 }
+
+/**
+ * Function to wait until the sandbox becomes ready for use.
+ * @param rpcServer - The rpc client connected to the sandbox.
+ */
+export const waitForSandbox = async (rpcServer: AztecRPC) => {
+  while (true) {
+    try {
+      await rpcServer.getNodeInfo();
+      break;
+    } catch (err) {
+      await sleep(1000);
+    }
+  }
+};

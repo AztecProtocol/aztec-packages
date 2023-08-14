@@ -11,9 +11,9 @@ import {
   getL1ContractAddresses,
   getSandboxAccountsWallet,
   mustSucceedFetch,
+  waitForSandbox,
 } from '@aztec/aztec.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract, UniswapContract } from '@aztec/noir-contracts/types';
 
 import {
@@ -30,7 +30,7 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import { Chain, foundry } from 'viem/chains';
 
-import { delay, deployAndInitializeNonNativeL2TokenContracts, deployL1Contract, waitForRPCServer } from './utils.js';
+import { deployAndInitializeNonNativeL2TokenContracts, deployL1Contract } from './utils.js';
 
 const logger = createDebugLogger('aztec:canary');
 
@@ -167,7 +167,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, HDAccount>;
   beforeAll(async () => {
-    await waitForRPCServer(aztecRpcClient);
+    await waitForSandbox(aztecRpcClient);
 
     walletClient = createWalletClient({
       account: hdAccount,
