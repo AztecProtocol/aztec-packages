@@ -21,4 +21,10 @@ describe('CompleteAddress', () => {
     const address2 = await CompleteAddress.random();
     expect(address1.equals(address2)).toBe(false);
   });
+
+  it('serializes / deserializes correctly', async () => {
+    const expectedAddress = await CompleteAddress.random();
+    const address = CompleteAddress.fromBuffer(expectedAddress.toBuffer());
+    expect(address.equals(expectedAddress)).toBe(true);
+  });
 });

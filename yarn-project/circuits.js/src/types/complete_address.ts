@@ -1,4 +1,5 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 import { computeContractAddressFromPartial } from '../abis/abis.js';
 import { Grumpkin } from '../barretenberg/index.js';
@@ -77,5 +78,31 @@ export class CompleteAddress {
       this.publicKey.equals(other.publicKey) &&
       this.partialAddress.equals(other.partialAddress)
     );
+  }
+
+  /**
+   * Converts the CompleteAddress instance into a Buffer.
+   * This method should be used when encoding the address for storage, transmission or serialization purposes.
+   *
+   * @returns A Buffer representation of the CompleteAddress instance.
+   */
+  toBuffer() {
+    return Buffer.concat([this.address.toBuffer(), this.publicKey.toBuffer(), this.partialAddress.toBuffer()]);
+  }
+
+  /**
+   * Creates an CompleteAddress instance from a given buffer or BufferReader.
+   * If the input is a Buffer, it wraps it in a BufferReader before processing.
+   * Throws an error if the input length is not equal to the expected size.
+   *
+   * @param buffer - The input buffer or BufferReader containing the address data.
+   * @returns - A new CompleteAddress instance with the extracted address data.
+   */
+  static fromBuffer(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    const address = reader.readObject(AztecAddress);
+    const publicKey = reader.readObject(Point);
+    const partialAddress = reader.readObject(Fr);
+    return new this(address, publicKey, partialAddress);
   }
 }
