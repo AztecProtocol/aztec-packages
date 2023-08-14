@@ -78,7 +78,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       pageLogger.error(err.toString());
     });
     await page.goto(`http://localhost:${PORT}/index.html`);
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await browser.close();
