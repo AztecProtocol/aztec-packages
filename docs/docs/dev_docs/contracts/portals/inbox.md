@@ -21,7 +21,7 @@ function sendL2Message(
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| Recipient      | `L2Actor` | The recipient of  the message. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
+| Recipient      | `L2Actor` | The recipient of the message. This **MUST** match the rollup version and an Aztec contract that is **attached** to the contract making this call. If the recipient is not attached to the caller, the message cannot be consumed by it. |
 | Deadline       | `uint256` | The message consumption deadline. If the message have not been removed from the `Inbox` and included in a rollup block by this point, it can be *cancelled* by the portal (the portal must implement logic to cancel). |
 | Content        | `field` (~254 bits) | The content of the message. This is the data that will be passed to the recipient. The content is limited to be a single field for rollup purposes. If the content is small enough it can just be passed along, otherwise it should be hashed and the hash passed along (you can use our [`Hash`](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Hash.sol) utilities with `sha256ToField` functions)  |
 | Secret Hash    | `field` (~254 bits)  | A hash of a secret that is used when consuming the message on L2. Keep this preimage a secret to make the consumption private. To consume the message the caller must know the pre-image (the value that was hashed) - so make sure your app keeps track of the pre-images! Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
@@ -38,7 +38,7 @@ function sendL2Message(
 - Will revert `Inbox__IncompatibleEntryArguments(bytes32 entryKey, uint64 storedFee, uint64 feePassed, uint32 storedVersion, uint32 versionPassed, uint32 storedDeadline, uint32 deadlinePassed)` if insertion is not possible due to invalid entry arguments.
 
 ## `cancelL2Message()`
-Cancels a message that have not yet been consumed.
+Cancels a message that has not yet been consumed.
 
 ```solidity
 function cancelL2Message(
@@ -80,7 +80,7 @@ function batchConsume(bytes32[] memory _entryKeys, address _feeCollector) extern
 
 ## `withdrawFees()`
 
-Will claim the fees that have accrued for the `msg.sender` from consuming messages. 
+Will claim the fees that has accrued to the `msg.sender` from consuming messages. 
 
 Let the sequencer withdraw fees from the inbox.
 

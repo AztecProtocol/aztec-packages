@@ -84,7 +84,7 @@ fn mint(
 }
 ```
 
-After the transaction has been mined the message is consumed (and cannot be consumed again), the tokens have been minted and the user can use them on L2.
+After the transaction has been mined, the message is consumed, and the tokens have been minted on Aztec and are ready for use by the user. A consumed message cannot be consumed again. 
 
 ## Passing data to L1
 
@@ -92,9 +92,9 @@ To pass data to L1, we use the `Outbox`. The `Outbox` is the mailbox for L2 to L
 
 Similarly to messages going to L2 from L1, a message can only be consumed by the recipient, however note that it is up to the portal contract to ensure that the sender is as expected! 
 
-Recall, we mentioned the Aztec contract specifies what portal it is attached to at deployment. This value is stored in the rollup's contract tree, hence these links are not directly readable on L1. Also, it is possible to attach multiple aztec contracts to the same portal, the portal must ensure that the sender is as expected.
+Recall that we mentioned the Aztec contract specifies what portal it is attached to at deployment. This value is stored in the rollup's contract tree, hence these links are not directly readable on L1. Also, it is possible to attach multiple aztec contracts to the same portal.
 
-One way to do this, is to compute the addresses before deployment and store them as constants in the contract, however a more flexible solution is to have an `initialize` function in the portal contract which can be used to set the address of the Aztec contract. In this model, the portal contract can check that the sender matches the value it has in storage.
+The portal must ensure that the sender is as expected. One way to do this, is to compute the addresses before deployment and store them as constants in the contract, however a more flexible solution is to have an `initialize` function in the portal contract which can be used to set the address of the Aztec contract. In this model, the portal contract can check that the sender matches the value it has in storage.
 
 To send a message to L1 from your Aztec contract, you must use the `message_portal` function on the `context`. When messaging to L1, only the `content` is required (as field). 
 
@@ -219,7 +219,7 @@ Error handling for cross chain messages is handled by the application contract a
 
 ### Cancellations
 
-A special type of error is an underpriced transaction, in this context it means that a message is inserted on L1, but the attached fee is too low to be included in a rollup block.
+A special type of error is an underpriced transaction - it means that a message is inserted on L1, but the attached fee is too low to be included in a rollup block.
 
 For the case of token bridges, this could lead to funds being locked in the bridge forever, as funds are locked but the message never arrives on L2 to mint the tokens. To address this, the `Inbox` supports cancelling messages after a deadline. However, this must be called by the portal itself, as it will need to "undo" the state changes is made (for example by sending the tokens back to the user).
 

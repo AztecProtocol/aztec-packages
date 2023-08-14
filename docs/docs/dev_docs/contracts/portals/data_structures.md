@@ -21,7 +21,7 @@ An entry for the messageboxes multi-sets.
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| `fee`          | `uint64` | The fee provided to sequencer for including in the inbox. 0 if Outbox (as not applicable). |
+| `fee`          | `uint64` | The fee provided to the sequencer for including the message in the inbox. 0 if Outbox (as it is not applicable). |
 | `count`        | `uint32` | The occurrence of the entry in the dataset |
 | `version`      | `uint32` | The version of the entry |
 | `deadline`     | `uint32` | The consumption deadline of the message. |
@@ -40,7 +40,7 @@ An entity on L1, specifying the address and the chainid for the entity. Used whe
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
-| `actor`          | `address` | The ethereum address of the actor |
+| `actor`          | `address` | The L1 address of the actor |
 | `chainId`        | `uint256` | The chainId of the actor. Defines the blockchain that the actor lives on. |
 
 
@@ -58,7 +58,7 @@ An entity on L2, specifying the address and the chainid for the entity. Used whe
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
 | `actor`          | `bytes32` | The aztec address of the actor. |
-| `version`        | `uint256` | The version of the actor. Defines the rollup that the actor lives on. |
+| `version`        | `uint256` | The version of Aztec that the actor lives on. |
 
 ## `L1ToL2Message`
 
@@ -82,7 +82,7 @@ A message that is sent from L1 to L2.
 | `content`        | `field (~254 bits)` | The field element containing the content to be sent to L2. |
 | `secretHash`        | `field (~254 bits)` | The hash of a secret pre-image that must be known to consume the message on L2. |
 | `deadline`        | `uint32` | The message consumption-deadline time in seconds. |
-| `fee`        | `uint64` | The fee that the sequencer will be paid for inclusion of the message. |
+| `fee`        | `uint64` | The fee that the sequencer will be paid for the inclusion of the message. |
 
 ## `L2ToL1Message`
 
@@ -120,7 +120,7 @@ A snapshot of the registry values.
 | `rollup`       | `address` | The address of the rollup contract for the snapshot. |
 | `inbox`       | `address` | The address of the inbox contract for the snapshot. |
 | `outbox`       | `address` | The address of the outbox contract for the snapshot. |
-| `blockNumber`       | `uint256` | The blocknumber at which the snapshot was created. |
+| `blockNumber`       | `uint256` | The block number at which the snapshot was created. |
 
 
 
