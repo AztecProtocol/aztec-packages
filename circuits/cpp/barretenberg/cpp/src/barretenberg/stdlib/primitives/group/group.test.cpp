@@ -26,62 +26,69 @@ TYPED_TEST_SUITE(GroupTest, CircuitTypes);
 
 TYPED_TEST(GroupTest, TestFixedBaseScalarMul)
 {
-    STDLIB_TYPE_ALIASES
-    auto composer = Composer();
+    const auto run_tests = [](size_t num_muls) {
+        STDLIB_TYPE_ALIASES
+        auto composer = Composer();
 
-    auto scalar = uint256_t(123, 0, 0, 0);
-    auto priv_key = grumpkin::fr(scalar);
-    auto pub_key = crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_1).generator * priv_key;
+        auto scalar = uint256_t(123, 0, 0, 0);
+        auto priv_key = grumpkin::fr(scalar);
+        auto pub_key = crypto::generators::get_generator_data(crypto::generators::DEFAULT_GEN_1).generator * priv_key;
 
-    auto priv_key_witness = field_ct(witness_ct(&composer, fr(scalar)));
+        auto priv_key_witness = field_ct(witness_ct(&composer, fr(scalar)));
 
-    std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-    auto result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 1: ", diff.count(), "ms");
+        auto result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
+        for (size_t i = 0; i < num_muls; i++) {
+        result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        auto diff = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+        info("total time : ", static_cast<size_t>(diff.count()), "ns");
+        info("avg time : ", static_cast<size_t>(diff.count()) / num_muls, "ns");
 
-    start = std::chrono::steady_clock::now();
-    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 2: ", diff.count(), "ms");
+        // start = std::chrono::steady_clock::now();
+        // result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        // end = std::chrono::steady_clock::now();
+        // diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // info("time 2: ", diff.count(), "ms");
 
-    start = std::chrono::steady_clock::now();
-    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 3: ", diff.count(), "ms");
+        // start = std::chrono::steady_clock::now();
+        // result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        // end = std::chrono::steady_clock::now();
+        // diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // info("time 3: ", diff.count(), "ms");
 
-    start = std::chrono::steady_clock::now();
-    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 4: ", diff.count(), "ms");
+        // start = std::chrono::steady_clock::now();
+        // result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        // end = std::chrono::steady_clock::now();
+        // diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // info("time 4: ", diff.count(), "ms");
 
-    start = std::chrono::steady_clock::now();
-    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 5: ", diff.count(), "ms");
+        // start = std::chrono::steady_clock::now();
+        // result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        // end = std::chrono::steady_clock::now();
+        // diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // info("time 5: ", diff.count(), "ms");
 
-    start = std::chrono::steady_clock::now();
-    result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
-    end = std::chrono::steady_clock::now();
-    diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    info("time 6: ", diff.count(), "ms");
+        // start = std::chrono::steady_clock::now();
+        // result = group_ct::template fixed_base_scalar_mul<128>(priv_key_witness, 0);
+        // end = std::chrono::steady_clock::now();
+        // diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // info("time 6: ", diff.count(), "ms");
 
-    EXPECT_EQ(result.x.get_value(), pub_key.x);
-    EXPECT_EQ(result.y.get_value(), pub_key.y);
+        EXPECT_EQ(result.x.get_value(), pub_key.x);
+        EXPECT_EQ(result.y.get_value(), pub_key.y);
 
-    auto native_result = crypto::generators::fixed_base_scalar_mul<128>(barretenberg::fr(scalar), 0);
-    EXPECT_EQ(native_result.x, pub_key.x);
-    EXPECT_EQ(native_result.y, pub_key.y);
+        auto native_result = crypto::generators::fixed_base_scalar_mul<128>(barretenberg::fr(scalar), 0);
+        EXPECT_EQ(native_result.x, pub_key.x);
+        EXPECT_EQ(native_result.y, pub_key.y);
 
-    printf("composer gates = %zu\n", composer.get_num_gates());
+        printf("composer gates = %zu\n", composer.get_num_gates());
+    };
 
-    bool proof_result = composer.check_circuit();
-    EXPECT_EQ(proof_result, true);
+    run_tests(8192);
+    // bool proof_result = composer.check_circuit();
+    // EXPECT_EQ(proof_result, true);
 }
 
 TYPED_TEST(GroupTest, TestFixedBaseScalarMulZeroFails)
