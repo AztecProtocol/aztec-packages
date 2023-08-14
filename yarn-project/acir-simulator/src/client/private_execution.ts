@@ -2,6 +2,7 @@ import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
+  HistoricBlockData,
   PrivateCallStackItem,
   PublicCallRequest,
 } from '@aztec/circuits.js';
@@ -226,13 +227,14 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
+      // ...HistoricBlockData.getFields(blockData),
       blockData.privateDataTreeRoot,
       blockData.nullifierTreeRoot,
       blockData.contractTreeRoot,
       blockData.l1ToL2MessagesTreeRoot,
       blockData.blocksTreeRoot,
-      blockData.globalVariablesHash,
       blockData.publicDataTreeRoot,
+      blockData.globalVariablesHash,
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,

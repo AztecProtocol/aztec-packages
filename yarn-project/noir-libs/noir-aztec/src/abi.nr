@@ -132,8 +132,8 @@ struct HistoricBlockData {
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
     blocks_tree_root: Field,
-    prev_global_variables_hash: Field,
     public_data_tree_root: Field,
+    global_variables_hash: Field,
 }
 
 impl HistoricBlockData {
@@ -145,14 +145,14 @@ impl HistoricBlockData {
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
             self.blocks_tree_root,
-            self.prev_global_variables_hash,
-            self.public_data_tree_root
+            self.public_data_tree_root,
+            self.global_variables_hash,
         ]
     }
 }
 
 fn empty_block_data() -> HistoricBlockData {
-    HistoricBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, prev_global_variables_hash: 0, public_data_tree_root: 0 }
+    HistoricBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0,  global_variables_hash: 0 }
 }
 
 struct FunctionData {

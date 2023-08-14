@@ -59,6 +59,14 @@ void validate_this_public_call_hash(DummyBuilder& builder,
     const auto calculated_this_public_call_hash =
         get_call_stack_item_hash(public_kernel_inputs.public_call.call_stack_item);
 
+    info("when valc");
+    if (popped_public_call_hash != calculated_this_public_call_hash) {
+        info("popped_public_call_hash: ", popped_public_call_hash);
+        info("calculated_this_public_call_hash: ", calculated_this_public_call_hash);
+        info("public_call.call_stack_item: ", public_kernel_inputs.public_call.call_stack_item);
+    }
+
+
     builder.do_assert(
         popped_public_call_hash == calculated_this_public_call_hash,
         format("calculated public_call_hash (",

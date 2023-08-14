@@ -158,7 +158,7 @@ export class PublicProcessor {
       const preimages = await this.getPublicCallStackPreimages(result);
       const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
 
-      console.log(toFriendlyJSON(preimages));
+      // console.log(toFriendlyJSON(preimages));
       [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
     }
 
@@ -184,6 +184,7 @@ export class PublicProcessor {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputs(previousKernel, callData);
+      // console.log(toFriendlyJSON(inputs));
       return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
@@ -210,20 +211,22 @@ export class PublicProcessor {
 
     // // Calculate the hash once instead of getting it every time
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    const blockData = HistoricBlockData.empty();
-    // blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    // const blockData = HistoricBlockData.empty();
+    this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
+    // console.log(toFriendlyJSON(callStackPreimages))
     const wasm = await CircuitsWasm.get();
     
     const publicCallStack = mapTuple(callStackPreimages, item =>
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
+    // console.log("publicCallStack", publicCallStack);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
-    return PublicCircuitPublicInputs.from({
+    const pub =  PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
@@ -244,8 +247,10 @@ export class PublicProcessor {
       publicCallStack,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      historicBlockData: blockData,
+      historicBlockData: this.blockData,
     });
+    console.log(toFriendlyJSON(pub));
+    return pub;
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {
@@ -296,7 +301,11 @@ export class PublicProcessor {
     // const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
     // this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
 
+    console.log(result);
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
+    console.log("first call stack item");
+    console.log(toFriendlyJSON(callStackItem));
+
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
     return new PublicCallData(callStackItem, preimages, proof, portalContractAddress, bytecodeHash);
