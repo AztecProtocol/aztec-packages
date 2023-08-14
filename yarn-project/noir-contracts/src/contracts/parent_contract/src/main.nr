@@ -7,7 +7,6 @@ contract Parent {
         PrivateContext,
         PublicContext,
     };
-    use dep::aztec::public_call_stack_item::call_public_function;
 
     fn constructor(
         inputs: PrivateContextInputs,
@@ -46,7 +45,7 @@ contract Parent {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
 
-        let return_values = call_public_function(targetContract, targetSelector, [initValue]);
+        let return_values = context.call_public_function(targetContract, targetSelector, [initValue]);
 
         context.return_values.push(return_values[0]);
         context.finish()
@@ -61,8 +60,8 @@ contract Parent {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([targetContract, targetSelector, initValue]));
 
-        let returnValue = call_public_function(targetContract, targetSelector, [initValue])[0];
-        let return_values = call_public_function(targetContract, targetSelector, [returnValue]);
+        let returnValue = context.call_public_function(targetContract, targetSelector, [initValue])[0];
+        let return_values = context.call_public_function(targetContract, targetSelector, [returnValue]);
 
         context.return_values.push(return_values[0]);
         context.finish()

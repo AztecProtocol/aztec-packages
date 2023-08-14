@@ -522,194 +522,31 @@ impl PublicContext {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
-    // TODO: CHANGE TO BE PUBLIC FUNCTION CALLS
-    // fn call_private_function<ARGS_COUNT>(
-    //     &mut self,
-    //     contract_address: Field, 
-    //     function_selector: Field, 
-    //     args: [Field; ARGS_COUNT]
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     let args_hash = hash_args(args);
-    //     assert(args_hash == arguments::pack_arguments(args));
-    //     self.call_private_function_with_packed_args(contract_address, function_selector, args_hash)
-    // }
+    fn call_public_function<ARGS_COUNT>(
+        _self: Self,
+        contract_address: Field, 
+        function_selector: Field,
+        args: [Field; ARGS_COUNT],
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        let args_hash = abi::hash_args(args);
+        assert(args_hash == arguments::pack_arguments(args));
+        call_public_function_internal(
+            contract_address, 
+            function_selector, 
+            args_hash,
+        )
+    }
 
-    // fn call_private_function_no_args(
-    //     &mut self,
-    //     contract_address: Field, 
-    //     function_selector: Field, 
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     self.call_private_function_with_packed_args(contract_address, function_selector, 0)
-    // }
+    fn call_public_function_no_args(
+        _self: Self,
+        contract_address: Field, 
+        function_selector: Field,
+    ) -> [Field; RETURN_VALUES_LENGTH] {
+        call_public_function_internal(
+            contract_address, 
+            function_selector, 
+            0,
+        )
+    }
 
-    // fn call_private_function_with_packed_args(
-    //     &mut self,
-    //     contract_address: Field,
-    //     function_selector: Field,
-    //     args_hash: Field
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     let fields = call_private_function_internal(
-    //         contract_address, 
-    //         function_selector, 
-    //         args_hash
-    //     );
-    //     let item = PrivateCallStackItem {
-    //         contract_address: fields[0],
-    //         function_data: FunctionData {
-    //             function_selector: fields[1],
-    //             is_internal: fields[2] as bool,
-    //             is_private: fields[3] as bool,
-    //             is_constructor: fields[4] as bool,
-    //         },
-    //         public_inputs: PrivateCircuitPublicInputs {
-    //             call_context: CallContext {
-    //                 msg_sender : fields[5],
-    //                 storage_contract_address : fields[6],
-    //                 portal_contract_address : fields[7],
-                    
-    //                 is_delegate_call : fields[8] as bool,
-    //                 is_static_call : fields[9] as bool,
-    //                 is_contract_deployment: fields[10] as bool,
-    //             },
-    //             // TODO handle the offsets as a variable incremented during extraction?
-    //             args_hash: fields[11],
-    //             return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 12),
-    //             read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 16),
-    //             new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 20),
-    //             new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 24),
-    //             nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 28),
-    //             private_call_stack: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 32),
-    //             public_call_stack: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 36),
-    //             new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 40),
-    //             encrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 42),
-    //             unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 44),
-    //             encrypted_log_preimages_length: fields[46],
-    //             unencrypted_log_preimages_length: fields[47],
-    //             block_data: ConstantHistoricBlockData {
-    //                 // Must match order in `private_circuit_public_inputs.hpp`
-    //                 private_data_tree_root : fields[48],
-    //                 nullifier_tree_root : fields[49],
-    //                 contract_tree_root : fields[50],
-    //                 l1_to_l2_messages_tree_root : fields[51],
-    //                 blocks_tree_root : fields[52],
-    //                 prev_global_variables_hash: fields[53],
-    //                 public_data_tree_root: fields[54],
-    //             },
-    //             contract_deployment_data: ContractDeploymentData {
-    //                 deployer_public_key: Point::new(fields[55], fields[56]),
-    //                 constructor_vk_hash : fields[57],
-    //                 function_tree_root : fields[58],
-    //                 contract_address_salt : fields[59],
-    //                 portal_contract_address : fields[60],
-    //             },
-    //             chain_id: fields[61],
-    //             version: fields[62],
-    //         },
-    //         is_execution_request: fields[63] as bool,
-    //     };
-    //     assert(contract_address == item.contract_address);
-    //     assert(function_selector == item.function_data.function_selector);
-
-    //     assert(args_hash == item.public_inputs.args_hash);
-
-    //     assert(item.is_execution_request == false);
-
-    //     // Assert that the call context of the enqueued call generated by the oracle matches our request.
-    //     // We are issuing a regular call which is not delegate, static, or deployment. We also constrain
-    //     // the msg_sender in the nested call to be equal to our address, and the execution context address
-    //     // for the nested call to be equal to the address we actually called.
-    //     assert(item.public_inputs.call_context.is_delegate_call == false);
-    //     assert(item.public_inputs.call_context.is_static_call == false);
-    //     assert(item.public_inputs.call_context.is_contract_deployment == false);
-    //     assert(item.public_context.msg_sender() == self.inputs.call_context.storage_contract_address);
-    //     assert(item.public_context.this_address() == contract_address);
-
-
-    //     item.public_inputs.return_values
-    // }
-
-    // fn call_public_function<ARGS_COUNT>(
-    //     &mut self,
-    //     contract_address: Field, 
-    //     function_selector: Field, 
-    //     args: [Field; ARGS_COUNT]
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     let args_hash = hash_args(args);
-    //     assert(args_hash == arguments::pack_arguments(args));
-    //     self.call_public_function_with_packed_args(contract_address, function_selector, args_hash)
-    // }
-
-    // fn call_public_function_no_args(
-    //     &mut self,
-    //     contract_address: Field, 
-    //     function_selector: Field,
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     self.call_public_function_with_packed_args(contract_address, function_selector, 0)
-    // }
-
-    // fn call_public_function_with_packed_args(
-    //     &mut self,
-    //     contract_address: Field,
-    //     function_selector: Field,
-    //     args_hash: Field
-    // ) -> [Field; RETURN_VALUES_LENGTH] {
-    //     let fields = enqueue_public_function_call_internal(
-    //         contract_address, 
-    //         function_selector, 
-    //         args_hash
-    //     );
-    //     let item = PublicCallStackItem {
-    //         contract_address: fields[0],
-    //         function_data: FunctionData {
-    //             function_selector: fields[1],
-    //             is_internal: fields[2] as bool,
-    //             is_private: fields[3] as bool,
-    //             is_constructor: fields[4] as bool,
-    //         },
-    //         public_inputs: PublicCircuitPublicInputs {
-    //             call_context: CallContext {
-    //                 msg_sender : fields[5],
-    //                 storage_contract_address : fields[6],
-    //                 portal_contract_address : fields[7],
-                    
-    //                 is_delegate_call : fields[8] as bool,
-    //                 is_static_call : fields[9] as bool,
-    //                 is_contract_deployment: fields[10] as bool,
-    //             },
-    //             args_hash: fields[11],
-    //             return_values: [0; RETURN_VALUES_LENGTH],
-    //             contract_storage_update_requests: [empty_contract_storage_update_request(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-    //             contract_storage_read: [empty_contract_storage_read(); MAX_PUBLIC_DATA_READS_PER_CALL],
-    //             public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    //             new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
-    //             new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
-    //             new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
-    //             unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
-    //             unencrypted_log_preimages_length: 0,
-    //             block_data: empty_block_data(),
-    //             historic_public_data_tree_root: 0,
-    //             prover_address: 0,
-    //         },
-    //         is_execution_request: true,
-    //     };
-
-    //     assert(contract_address == item.contract_address);
-    //     assert(function_selector == item.function_data.function_selector);
-        
-    //     assert(args_hash == item.public_inputs.args_hash);
-
-    //     // Assert that the call context of the enqueued call generated by the oracle matches our request.
-    //     // We are issuing a regular call which is not delegate, static, or deployment. We also constrain
-    //     // the msg_sender in the nested call to be equal to our address, and the execution context address
-    //     // for the nested call to be equal to the address we actually called.
-    //     assert(item.public_inputs.call_context.is_delegate_call == false);
-    //     assert(item.public_inputs.call_context.is_static_call == false);
-    //     assert(item.public_inputs.call_context.is_contract_deployment == false);
-    //     assert(item.public_context.msg_sender() == self.inputs.call_context.storage_contract_address);
-    //     assert(item.public_context.this_address() == contract_address);
-
-    //     self.public_call_stack.push(item.hash());
-
-    //     item.public_inputs.return_values
-    // }
 }

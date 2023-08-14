@@ -15,11 +15,7 @@ contract Lending {
         logs::emit_unencrypted_log,
         create_nullifier::create_nullifier,
     };
-    use dep::aztec::public_call_stack_item::{
-        PublicCallStackItem,
-        call_public_function,
-        call_public_function_no_args,
-    };
+    use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use crate::storage::{Storage, Tot, Account};
 
     struct Pos {
@@ -129,7 +125,7 @@ contract Lending {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
-        let return_values = call_public_function(context.this_address(), 3009041984, [owner, amount]);
+        let return_values = context.call_public_function(context.this_address(), 3009041984, [owner, amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()
@@ -142,7 +138,7 @@ contract Lending {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
 
-        let _void = call_public_function_no_args(context.this_address(), 1259373467)[0];
+        let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
 
@@ -184,7 +180,7 @@ contract Lending {
         let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
-        let return_values = call_public_function(context.this_address(), 1065861440, [context.msg_sender(), amount]);
+        let return_values = context.call_public_function(context.this_address(), 1065861440, [context.msg_sender(), amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()
@@ -199,7 +195,7 @@ contract Lending {
         // Access control.
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
 
-        let _void = call_public_function_no_args(context.this_address(), 1259373467)[0];
+        let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
 
@@ -246,7 +242,7 @@ contract Lending {
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
-        let return_values = call_public_function(context.this_address(), 1462609836, [context.msg_sender(), amount]);
+        let return_values = context.call_public_function(context.this_address(), 1462609836, [context.msg_sender(), amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()
@@ -259,7 +255,7 @@ contract Lending {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // Access control.
-        let _void = call_public_function_no_args(context.this_address(), 1259373467)[0];
+        let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
 
@@ -319,7 +315,7 @@ contract Lending {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
         // @todo @LHerskind Transfer tokens from msg.sender to this contract.
-        let return_values = call_public_function(context.this_address(), 3985016136, [owner, amount]);
+        let return_values = context.call_public_function(context.this_address(), 3985016136, [owner, amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()
@@ -331,7 +327,7 @@ contract Lending {
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-        let _void = call_public_function_no_args(context.this_address(), 1259373467)[0];
+        let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
         // Should constrain access from private.
