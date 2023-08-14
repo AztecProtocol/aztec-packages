@@ -100,16 +100,17 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const privateKey = PrivateKey.fromString(privateKeyString);
         const account = getUnsafeSchnorrAccount(client, privateKey);
         await account.waitDeploy();
-        console.log(`Created Account: ${await account.getCompleteAddress()}`);
-        return account;
+        const completeAddress = await account.getCompleteAddress();
+        const addressString = completeAddress.address.toString();
+        console.log(`Created Account: ${addressString}`);
+        return addressString;
       },
       SANDBOX_URL,
       privKey.toString(),
     );
     const accounts = await testClient.getAccounts();
-    const address = await result.getCompleteAddress();
-    const foundAccount = accounts.find(acc => acc.equals(address.address));
-    expect(foundAccount).toBeDefined();
+    const stringAccounts = accounts.map(acc => acc.toString());
+    expect(stringAccounts.includes(result)).toBeTruthy();
   });
 
   it('Deploys Private Token contract', async () => {
@@ -137,7 +138,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, PrivateTokenContractAbi) => {
+      async (rpcUrl, contractAddress, PrivateTokenContractAbi) => {
         const { Contract, AztecAddress, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const [owner] = await client.getAccounts();
@@ -151,7 +152,6 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         return balance;
       },
       SANDBOX_URL,
-      privKey.toString(),
       contractAddress.toString(),
       PrivateTokenContractAbi,
     );
@@ -161,7 +161,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it('Sends a transfer TX', async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, transferAmount, PrivateTokenContractAbi) => {
+      async (rpcUrl, contractAddress, transferAmount, PrivateTokenContractAbi) => {
         console.log(`Starting transfer tx`);
         const { AztecAddress, Contract, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
@@ -178,7 +178,6 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         return balance;
       },
       SANDBOX_URL,
-      privKey.toString(),
       contractAddress.toString(),
       transferAmount,
       PrivateTokenContractAbi,
