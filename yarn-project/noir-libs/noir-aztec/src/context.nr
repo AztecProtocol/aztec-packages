@@ -489,11 +489,6 @@ impl PublicContext {
         priv_circuit_pub_inputs
     }
 
-    // TODO: we may be able to remove this code as there is probably no overlap
-    fn push_read_request(self, _read_request: Field) {
-        // self.read_requests.push(read_request);
-    }
-
     fn push_new_note_hash(&mut self, note_hash: Field) {
         self.new_commitments.push(note_hash);
     }
@@ -516,10 +511,14 @@ impl PublicContext {
     }
 
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
+        let _void1 = self;
+        let _void2 = log;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 
     fn accumulate_unencrypted_logs<T>(&mut self, log: T) {
+        let _void1 = self;
+        let _void2 = log;
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     }
 

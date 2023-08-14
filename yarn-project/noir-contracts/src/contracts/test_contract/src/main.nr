@@ -96,7 +96,7 @@ contract Test {
             args.push(note.secretHash);            
         }
         let args_hash = abi::hash_args(args.storage);
-        let mut context = Context::new(inputs, args_hash);
+        let mut context = PrivateContext::new(inputs, args_hash);
         context.return_values.push(args_hash);
         context.finish()
     }
