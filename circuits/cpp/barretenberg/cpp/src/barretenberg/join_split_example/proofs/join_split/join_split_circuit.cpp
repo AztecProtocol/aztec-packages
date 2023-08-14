@@ -26,7 +26,7 @@ field_ct process_input_note(field_ct const& account_private_key,
                             field_ct const& merkle_root,
                             hash_path_ct const& hash_path,
                             suint_ct const& index,
-                            circuit::value::value_note const& note,
+                            value::value_note const& note,
                             bool_ct is_propagated,
                             bool_ct is_note_in_use)
 {
@@ -54,12 +54,12 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
     const auto public_input = inputs.public_value * is_deposit;
     const auto public_output = inputs.public_value * is_withdraw;
 
-    const auto input_note_1 = circuit::value::value_note(inputs.input_note1);
-    const auto input_note_2 = circuit::value::value_note(inputs.input_note2);
-    const auto output_note_1 = circuit::value::value_note(inputs.output_note1);
-    const auto output_note_2 = circuit::value::value_note(inputs.output_note2);
+    const auto input_note_1 = value::value_note(inputs.input_note1);
+    const auto input_note_2 = value::value_note(inputs.input_note2);
+    const auto output_note_1 = value::value_note(inputs.output_note1);
+    const auto output_note_2 = value::value_note(inputs.output_note2);
 
-    const auto partial_claim_note = circuit::claim::partial_claim_note(
+    const auto partial_claim_note = claim::partial_claim_note(
         inputs.partial_claim_note, inputs.input_note1.owner, inputs.input_note1.account_required);
 
     const auto output_note_1_commitment =
@@ -216,7 +216,7 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
     // Verify that the signing key account note exists if account_required == true.
     {
         const auto account_alias_hash = inputs.alias_hash;
-        const auto account_note_data = circuit::account::account_note(account_alias_hash.value, account_public_key, signer);
+        const auto account_note_data = account::account_note(account_alias_hash.value, account_public_key, signer);
         const bool_ct signing_key_exists =
             stdlib::merkle_tree::check_membership(inputs.merkle_root,
                                                   inputs.account_note_path,
@@ -279,13 +279,13 @@ void join_split_circuit(Builder& builder, join_split_tx const& tx)
         .num_input_notes = witness_ct(&builder, tx.num_input_notes),
         .input_note1_index = suint_ct(witness_ct(&builder, tx.input_index[0]), DATA_TREE_DEPTH, "input_index0"),
         .input_note2_index = suint_ct(witness_ct(&builder, tx.input_index[1]), DATA_TREE_DEPTH, "input_index1"),
-        .input_note1 = circuit::value::witness_data(builder, tx.input_note[0]),
-        .input_note2 = circuit::value::witness_data(builder, tx.input_note[1]),
-        .output_note1 = circuit::value::witness_data(builder, tx.output_note[0]),
-        .output_note2 = circuit::value::witness_data(builder, tx.output_note[1]),
+        .input_note1 = value::witness_data(builder, tx.input_note[0]),
+        .input_note2 = value::witness_data(builder, tx.input_note[1]),
+        .output_note1 = value::witness_data(builder, tx.output_note[0]),
+        .output_note2 = value::witness_data(builder, tx.output_note[1]),
         // Construction of partial_claim_note_witness_data includes construction of bridge_call_data, which contains
         // many constraints on the bridge_call_data's format and the bit_config's format:
-        .partial_claim_note = circuit::claim::partial_claim_note_witness_data(builder, tx.partial_claim_note),
+        .partial_claim_note = claim::partial_claim_note_witness_data(builder, tx.partial_claim_note),
         .signing_pub_key = stdlib::create_point_witness(builder, tx.signing_pub_key),
         .signature = stdlib::schnorr::convert_signature(&builder, tx.signature),
         .merkle_root = witness_ct(&builder, tx.old_data_root),

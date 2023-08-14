@@ -15,6 +15,11 @@ namespace merkle_tree {
 
 using namespace barretenberg;
 
+template <typename T> inline bool bit_set(T const& index, size_t i)
+{
+    return bool((index >> i) & 0x1);
+}
+
 template <typename Store>
 NullifierTree<Store>::NullifierTree(Store& store, size_t depth, uint8_t tree_id)
     : MerkleTree<Store>(store, depth, tree_id)

@@ -18,6 +18,11 @@ using namespace barretenberg;
 constexpr size_t REGULAR_NODE_SIZE = 64;
 constexpr size_t STUMP_NODE_SIZE = 65;
 
+template <typename T> inline bool bit_set(T const& index, size_t i)
+{
+    return bool((index >> i) & 0x1);
+}
+
 template <typename Store>
 MerkleTree<Store>::MerkleTree(Store& store, size_t depth, uint8_t tree_id)
     : store_(store)
