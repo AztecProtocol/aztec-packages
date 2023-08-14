@@ -38,7 +38,7 @@ describe('e2e_public_token_contract', () => {
   beforeEach(async () => {
     let accounts: CompleteAddress[];
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup());
-    recipient = accounts[1].address;
+    recipient = accounts[0].address;
   }, 100_000);
 
   afterEach(async () => {
