@@ -385,7 +385,7 @@ l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
-prev_global_variables_hash: 0x108
+global_variables_hash: 0x108
 
 tx_context:
 is_fee_payment_tx: 0
@@ -922,7 +922,7 @@ l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
-prev_global_variables_hash: 0x108
+global_variables_hash: 0x108
 
 tx_context:
 is_fee_payment_tx: 0
@@ -1429,7 +1429,7 @@ l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
-prev_global_variables_hash: 0x108
+global_variables_hash: 0x108
 
 tx_context:
 is_fee_payment_tx: 0
@@ -1649,7 +1649,7 @@ l1_to_l2_messages_tree_root: 0x104
 blocks_tree_root: 0x105
 private_kernel_vk_tree_root: 0x106
 public_data_tree_root: 0x107
-prev_global_variables_hash: 0x108
+global_variables_hash: 0x108
 
 tx_context:
 is_fee_payment_tx: 0
