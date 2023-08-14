@@ -98,45 +98,43 @@ For the sake of cross-chain messages, this means inserting and nullifying L1 $\r
 While a message could theoretically be arbitrary long, we want to limit the cost of the insertion on L1 as much as possible. Therefore, we allow the users to send 32 bytes of "content" between L1 and L2. If 32 suffices, no packing required. If the 32 is too "small" for the message directly, the sender should simply pass along a `sha256(content)` instead of the content directly. The content can then either be emitted as an event on L2 or kept by the sender, who should then be the only entity that can "unpack" the message.
 In this manner, there is some way to "unpack" the content on the receiving domain.
 
-The message that is passed along, require the `sender/recipient` pair to be communicated as well (we need to know who should receive the message and be able to check). By having the pending messages be a contract on L1, we can ensure that the `sender = msg.sender` and let only `content` and `recipient` be provided by the caller. Summing up, we can use the structs seen below, and only store the commitment (`sha256(LxLyCrossMsg)`) on chain or in the trees, this way, we need only update a single storage slot per message.
+The message that is passed along, require the `sender/recipient` pair to be communicated as well (we need to know who should receive the message and be able to check). By having the pending messages be a contract on L1, we can ensure that the `sender = msg.sender` and let only `content` and `recipient` be provided by the caller. Summing up, we can use the struct's seen below, and only store the commitment (`sha256(LxToLyMsg)`) on chain or in the trees, this way, we need only update a single storage slot per message.
 
 ```solidity
 struct L1Actor {
-	address: actorAddress,
-	uint256: chainid,
+	address: actor,
+	uint256: chainId,
 }
 
 struct L2Actor {
-	bytes32: actorAddress,
+	bytes32: actor,
 	uint256: version,
 }
 
-struct L1L2CrossMsg {
+struct L1ToL2Msg {
 	L1Actor: sender,
 	L2Actor: recipient,
 	bytes32: content,
 	bytes32: secretHash,
+	uint32 deadline,
+	uint64 fee,
 }
 
-struct L2L1CrossMsg {
+struct L2ToL1Msg {
 	L2Actor: sender,
 	L1Actor: recipient,
 	bytes32: content,
 }
 ```
 :::info
-The 32 bytes might practically need to be a field element. 
-```solidity
-uint256 p = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
-bytes32 content = bytes32(uint256(sha256(message)) % p); 
-```
+The `bytes32` elements for `content` and `secretHash` hold values that must fit in a field element (~ 254 bits). 
 :::
 
 
 :::info
 The nullifier computation should include the index of the message in the message tree to ensure that it is possible to send duplicate messages (e.g., 2 x deposit of 500 dai to the same account).
 
-To make it possible to hide when a specific message is consumed, the `L1L2CrossMsg` can be extended with a `secretHash` field, where the `secretPreimage` is used as part of the nullifier computation. This way, it is not possible for someone just seeing the `L1L2CrossMsg` on L1 to know when it is consumed on L2.
+To make it possible to hide when a specific message is consumed, the `L1ToL2Msg` is extended with a `secretHash` field, where the `secretPreimage` is used as part of the nullifier computation. This way, it is not possible for someone just seeing the `L1ToL2Msg` on L1 to know when it is consumed on L2. Also, we include the `deadline` and `fee` values to have a fee-market for message inclusion and to ensure that messages are not stuck in the pending set forever.
 :::
 
 ## Combined Architecture
