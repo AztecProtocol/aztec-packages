@@ -29,7 +29,7 @@ An entry for the messageboxes multi-sets.
 
 ## `L1Actor`
 
-An entity on L1, specifying the address and the chainid for the entity. Used when specifying sender/recipient with an entity that is on L1.
+An entity on L1, specifying the address and the chainId for the entity. Used when specifying sender/recipient with an entity that is on L1.
 
 ```solidity title="DataStructures.sol"
   struct L1Actor {
@@ -46,7 +46,7 @@ An entity on L1, specifying the address and the chainid for the entity. Used whe
 
 ## `L2Actor`
 
-An entity on L2, specifying the address and the chainid for the entity. Used when specifying sender/recipient with an entity that is on L2.
+An entity on L2, specifying the address and the version for the entity. Used when specifying sender/recipient with an entity that is on L2.
 
 ```solidity title="DataStructures.sol"
   struct L2Actor {
@@ -80,7 +80,7 @@ A message that is sent from L1 to L2.
 | `sender`          | `L1Actor` | The actor on L1 that is sending the message. |
 | `recipient`        | `L2Actor` | The actor on L2 that is to receive the message. |
 | `content`        | `field (~254 bits)` | The field element containing the content to be sent to L2. |
-| `secretHash`        | `field (~254 bits)` | The hash of a secret pre-image that must be known to consume the message on L2. |
+| `secretHash`        | `field (~254 bits)` | The hash of a secret pre-image that must be known to consume the message on L2. Use the [`computeMessageSecretHash`](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/aztec.js/src/utils/secrets.ts) to compute it from a secret. |
 | `deadline`        | `uint32` | The message consumption-deadline time in seconds. |
 | `fee`        | `uint64` | The fee that the sequencer will be paid for the inclusion of the message. |
 
