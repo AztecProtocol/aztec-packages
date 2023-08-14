@@ -149,7 +149,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           PrivateTokenContractAbi,
           wallet,
         );
-        const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
+        const balance = await contract.methods.getBalance(owner).view({ from: owner });
         return balance;
       },
       SANDBOX_URL,
@@ -175,8 +175,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         );
         await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner }).wait();
         console.log(`Transfered ${transferAmount} tokens to new Account`);
-        const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
-        return balance;
+        return await contract.methods.getBalance(receiver).view({ from: receiver });
       },
       SANDBOX_URL,
       contractAddress.toString(),
