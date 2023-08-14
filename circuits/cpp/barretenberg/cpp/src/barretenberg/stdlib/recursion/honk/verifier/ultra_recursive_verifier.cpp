@@ -40,11 +40,11 @@ UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(Ultr
 template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
     using FF = typename Flavor::FF;
-    // using GroupElement = typename Flavor::GroupElement;
+    using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
-    // using PCSParams = typename Flavor::PCSParams;
+    // using Curve = typename Flavor::Curve;
     // using PCS = typename Flavor::PCS;
-    // using Gemini = pcs::gemini::GeminiVerifier_<PCSParams>;
+    // using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
     // using Shplonk = pcs::shplonk::ShplonkVerifier_<PCSParams>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -126,59 +126,72 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
-    // Note(luke): Temporary. Done only to complete manifest through sumcheck. Delete once we proceed to Gemini.
-    [[maybe_unused]] FF rho = transcript.get_challenge("rho");
+    // // Note(luke): Temporary. Done only to complete manifest through sumcheck. Delete once we proceed to Gemini.
+    // [[maybe_unused]] FF rho = transcript.get_challenge("rho");
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {
         return false;
-    } else {
-        return true;
+    }
+    // else {
+    //     return true;
+    // }
+
+    auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
+
+    // Execute Gemini/Shplonk verification:
+
+    // Construct inputs for Gemini verifier:
+    // - Multivariate opening point u = (u_0, ..., u_{d-1})
+    // - batched unshifted and to-be-shifted polynomial commitments
+    // auto batched_commitment_unshifted = GroupElement(GroupElement::NativeGroup::zero());
+    // auto batched_commitment_to_be_shifted = GroupElement(0);
+
+    // Compute powers of batching challenge rho
+    FF rho = transcript.get_challenge("rho");
+    std::vector<FF> rhos = ::proof_system::honk::pcs::gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
+
+    // Compute batched multivariate evaluation
+    FF batched_evaluation = FF(0);
+    size_t evaluation_idx = 0;
+    for (auto& value : purported_evaluations.get_unshifted_then_shifted()) {
+        batched_evaluation += value * rhos[evaluation_idx];
+        ++evaluation_idx;
     }
 
-    // auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
+    // Construct vectors of scalars for batched unshifted and to-be-shifted commitments
+    const size_t NUM_UNSHIFTED = commitments.get_unshifted().size();
+    const size_t NUM_TO_BE_SHIFTED = commitments.get_to_be_shifted().size();
+    std::vector<FF> scalars_unshifted;
+    std::vector<FF> scalars_to_be_shifted;
+    size_t idx = 0;
+    for (size_t i = 0; i < NUM_UNSHIFTED; ++i) {
+        scalars_unshifted.emplace_back(rhos[idx++]);
+    }
+    for (size_t i = 0; i < NUM_TO_BE_SHIFTED; ++i) {
+        scalars_to_be_shifted.emplace_back(rhos[idx++]);
+    }
+    // WORKTODO: The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can we
+    // do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
+    scalars_unshifted[0] = FF::from_witness(builder, 1);
 
-    // // Execute Gemini/Shplonk verification:
+    auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    auto batched_commitment_to_be_shifted =
+        GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+    (void)batched_commitment_unshifted;
+    (void)batched_commitment_to_be_shifted;
 
-    // // Construct inputs for Gemini verifier:
-    // // - Multivariate opening point u = (u_0, ..., u_{d-1})
-    // // - batched unshifted and to-be-shifted polynomial commitments
-    // auto batched_commitment_unshifted = GroupElement::zero();
-    // auto batched_commitment_to_be_shifted = GroupElement::zero();
-
-    // // Compute powers of batching challenge rho
-    // FF rho = transcript.get_challenge("rho");
-    // std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, Flavor::NUM_ALL_ENTITIES);
-
-    // // Compute batched multivariate evaluation
-    // FF batched_evaluation = FF::zero();
-    // size_t evaluation_idx = 0;
-    // for (auto& value : purported_evaluations.get_unshifted_then_shifted()) {
-    //     batched_evaluation += value * rhos[evaluation_idx];
-    //     ++evaluation_idx;
-    // }
-
-    // // Construct batched commitment for NON-shifted polynomials
-    // size_t commitment_idx = 0;
-    // for (auto& commitment : commitments.get_unshifted()) {
-    //         batched_commitment_unshifted += commitment * rhos[commitment_idx];
-    //     ++commitment_idx;
-    // }
-
-    // // Construct batched commitment for to-be-shifted polynomials
-    // for (auto& commitment : commitments.get_to_be_shifted()) {
-    //     batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
-    //     ++commitment_idx;
-    // }
-
-    // // Produce a Gemini claim consisting of:
-    // // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
-    // // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
+    // Produce a Gemini claim consisting of:
+    // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
+    // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
     // auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
     //                                           batched_evaluation,
     //                                           batched_commitment_unshifted,
     //                                           batched_commitment_to_be_shifted,
     //                                           transcript);
+
+    // DEBUG!
+    return true;
 
     // // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     // auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);

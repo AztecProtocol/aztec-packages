@@ -31,12 +31,28 @@ namespace proof_system::honk::flavor {
 class UltraRecursive {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
-    using FF = plonk::stdlib::bn254<CircuitBuilder>::fr_ct;
-    using G1 = plonk::stdlib::bn254<CircuitBuilder>::g1_ct;
+    using Curve = plonk::stdlib::bn254<CircuitBuilder>;
+    using FF = Curve::ScalarField;
+    using G1 = Curve::Group;
     // WORKTODO: is there a notion of element/affine_element here?
     using GroupElement = G1;
     using Commitment = G1;
     using CommitmentHandle = G1;
+
+    // WORKTODO: these.
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
+
+    // using CircuitBuilder = UltraCircuitBuilder;
+    // using PCSParams = pcs::kzg::Params;
+    // using PCS = pcs::kzg::KZG<PCSParams>;
+    // using Curve = PCSParams::Curve;
+    // using GroupElement = Curve::Element;
+    // using Commitment = Curve::AffineElement;
+    // using CommitmentHandle = Curve::AffineElement;
+    // using FF = Curve::ScalarField;
+    // using Polynomial = barretenberg::Polynomial<FF>;
+    // using PolynomialHandle = std::span<FF>;
 
     // WORKTODO: I've deleted Polynomial and ProvingKey etc. but if this causes problems for Sumcheck/Gemini etc that
     // need to be instantiated with prover functionality, it's an option to still define these things with native types
@@ -55,8 +71,7 @@ class UltraRecursive {
     // types, is there no issue with defining polynomials of fr_cts etc.?
     // Note: may be useful at some point to just keep these as native to get PCS working in the recursive verfier (kind
     // of like how the transcript is just doing native hashing).
-    using PCSParams = pcs::kzg::Params;
-    using PCS = pcs::kzg::KZG<PCSParams>;
+    using PCS = pcs::kzg::KZG<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often

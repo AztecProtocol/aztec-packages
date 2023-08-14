@@ -176,6 +176,8 @@ template <typename Flavor> class SumcheckVerifier {
      * target sum.
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
+     * @param relation_parameters 
+     * @param transcript 
      */
     std::optional<SumcheckOutput<Flavor>> verify(const RelationParameters<FF>& relation_parameters, auto& transcript)
     {

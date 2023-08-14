@@ -29,13 +29,13 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
     using inner_curve = bn254<InnerBuilder>;
     // using outer_curve = bn254<OuterBuilder>;
 
-    using inner_scalar_field_ct = inner_curve::fr_ct;
-    using inner_ground_field_ct = inner_curve::fq_ct;
+    using inner_scalar_field_ct = inner_curve::ScalarField;
+    using inner_ground_field_ct = inner_curve::BaseField;
     using public_witness_ct = inner_curve::public_witness_ct;
     using witness_ct = inner_curve::witness_ct;
     using byte_array_ct = inner_curve::byte_array_ct;
 
-    using inner_scalar_field = typename inner_curve::ScalarField;
+    using inner_scalar_field = typename inner_curve::ScalarFieldNative;
 
     static void create_inner_circuit(InnerBuilder& builder, const std::vector<inner_scalar_field>& public_inputs)
     {
