@@ -1,6 +1,6 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
-import { AztecRPC, getSchnorrAccount } from '@aztec/aztec.js';
+import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -19,43 +19,6 @@ const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test 
 const logger = createDebugLogger('aztec:sandbox');
 
 export const localAnvil = foundry;
-
-const initialAccountKeys = [
-  'b2803ec899f76f6b2ac011480d24028f1a29587f8a3a92f7ee9d48d8c085c284',
-  '6bb46e9a80da2ff7bfff71c2c50eaaa4b15f7ed5ad1ade4261b574ef80b0cdb0',
-  '0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c',
-];
-
-const deployInitialAccounts = async (aztecRpc: AztecRPC) => {
-  const accounts = initialAccountKeys.map(s => {
-    const privateKey = new PrivateKey(Buffer.from(s, 'hex'));
-    const account = getSchnorrAccount(aztecRpc, privateKey, PrivateKey.random());
-    return {
-      account,
-      privateKey,
-    };
-  });
-  // Attempt to get as much parallelism as possible
-  const deployMethods = await Promise.all(
-    accounts.map(async x => {
-      const deployMethod = await x.account.getDeployMethod();
-      await deployMethod.create({ contractAddressSalt: x.account.salt });
-      await deployMethod.simulate({});
-      return deployMethod;
-    }),
-  );
-  // Send tx together to try and get them in the same rollup
-  const sentTxs = deployMethods.map(dm => {
-    return dm.send();
-  });
-  await Promise.all(
-    sentTxs.map(async (tx, i) => {
-      const wallet = await accounts[i].account.getWallet();
-      return tx.wait({ wallet });
-    }),
-  );
-  return accounts;
-};
 
 /**
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
@@ -109,7 +72,7 @@ async function main() {
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
   logger('Deploying initial accounts...');
-  const accounts = await deployInitialAccounts(aztecRpcServer);
+  const accounts = await deployInitialSandboxAccounts(aztecRpcServer);
 
   const shutdown = async () => {
     logger('Shutting down...');

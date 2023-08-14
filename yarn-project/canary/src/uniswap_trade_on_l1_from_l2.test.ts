@@ -6,10 +6,10 @@ import {
   TxStatus,
   Wallet,
   computeMessageSecretHash,
-  createAccounts,
   createAztecRpcClient,
   createDebugLogger,
   getL1ContractAddresses,
+  getSandboxAccountsWallet,
   mustSucceedFetch,
 } from '@aztec/aztec.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
@@ -188,7 +188,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     logger('Running L1/L2 messaging test on HTTP interface.');
 
-    wallet = await createAccounts(aztecRpcClient, SchnorrSingleKeyAccountContractAbi, privateKey!, Fr.random(), 2);
+    wallet = await getSandboxAccountsWallet(aztecRpcClient);
     const accounts = await wallet.getAccounts();
     const [owner, receiver] = accounts;
 

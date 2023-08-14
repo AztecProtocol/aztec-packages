@@ -5,10 +5,10 @@ import {
   ContractDeployer,
   Fr,
   Point,
-  createAccounts,
   createAztecRpcClient,
   generatePublicKey,
-  getAccountWallet,
+  getAccountWallets,
+  getSchnorrAccount,
   isContractDeployed,
 } from '@aztec/aztec.js';
 import { StructType } from '@aztec/foundation/abi';
@@ -115,14 +115,10 @@ async function main() {
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async options => {
       const client = createAztecRpcClient(options.rpcUrl);
-      const privateKey = options.privateKey && Buffer.from(stripLeadingHex(options.privateKey), 'hex');
-      const wallet = await createAccounts(
-        client,
-        SchnorrSingleKeyAccountContractAbi,
-        privateKey && new PrivateKey(privateKey),
-        accountCreationSalt,
-        1,
-      );
+      const privateKeyArg = options.privateKey && Buffer.from(stripLeadingHex(options.privateKey), 'hex');
+      const privateKey = (privateKeyArg && new PrivateKey(privateKeyArg)) ?? PrivateKey.random();
+      const schnorrAccount = getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt);
+      const wallet = await schnorrAccount.waitDeploy();
       const accounts = await wallet.getAccounts();
       const pubKeysAndPartialAddresses = await Promise.all(
         accounts.map(acc => wallet.getPublicKeyAndPartialAddress(acc)),
@@ -349,12 +345,15 @@ async function main() {
         );
       }
 
+      const privateKey = new PrivateKey(options.privateKey);
+
       const client = createAztecRpcClient(options.rpcUrl);
-      const wallet = await getAccountWallet(
+      const wallet = await getAccountWallets(
         client,
         SchnorrSingleKeyAccountContractAbi,
-        PrivateKey.fromString(options.privateKey),
-        accountCreationSalt,
+        [privateKey],
+        [privateKey],
+        [accountCreationSalt],
       );
       const contract = await Contract.create(contractAddress, contractAbi, wallet);
       const tx = contract.methods[functionName](...functionArgs).send();
