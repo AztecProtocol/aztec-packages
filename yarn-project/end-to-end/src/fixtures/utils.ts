@@ -157,7 +157,7 @@ export async function setupAztecRPCServer(
 
   const createWalletWithAccounts = async () => {
     if (!SANDBOX_URL) {
-      logger('RPC server created, deploying accounts...');
+      logger('RPC server created, deploying new accounts...');
 
       // Prepare deployments
       for (let i = 0; i < numberOfAccounts; ++i) {
@@ -172,6 +172,7 @@ export async function setupAztecRPCServer(
       await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
       return new EntrypointWallet(aztecRpcServer, await EntrypointCollection.fromAccounts(accounts));
     } else {
+      logger('RPC server created, constructing wallet from initial sandbox accounts...');
       return await getSandboxAccountsWallet(aztecRpcServer);
     }
   };

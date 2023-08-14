@@ -98,17 +98,19 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const { PrivateKey, createAztecRpcClient, mustSucceedFetch, getUnsafeSchnorrAccount } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const privateKey = PrivateKey.fromString(privateKeyString);
-        await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
-        const accounts = await client.getAccounts();
-        console.log(`Created Account: ${accounts[0].toString()}`);
-        return accounts[0].toString();
+        const account = getUnsafeSchnorrAccount(client, privateKey);
+        await account.waitDeploy();
+        console.log(`Created Account: ${await account.getCompleteAddress()}`);
+        return account;
       },
       SANDBOX_URL,
       privKey.toString(),
     );
-    const account = (await testClient.getAccounts())[0];
-    expect(result).toEqual(account.toString());
-  }, 30_000);
+    const accounts = await testClient.getAccounts();
+    const address = await result.getCompleteAddress();
+    const foundAccount = accounts.find(acc => acc.equals(address.address));
+    expect(foundAccount).toBeDefined();
+  });
 
   it('Deploys Private Token contract', async () => {
     const txHash = await page.evaluate(
@@ -131,17 +133,15 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
     expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
     contractAddress = txResult.contractAddress!;
-  }, 40_000);
+  }, 30_000);
 
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
       async (rpcUrl, privateKeyString, contractAddress, PrivateTokenContractAbi) => {
-        const { Contract, AztecAddress, PrivateKey, createAztecRpcClient, getUnsafeSchnorrWallet, mustSucceedFetch } =
-          window.AztecJs;
-        const privateKey = PrivateKey.fromString(privateKeyString);
+        const { Contract, AztecAddress, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
+        const wallet = await AztecJs.getSandboxAccountsWallet(client);
         const contract = await Contract.create(
           AztecAddress.fromString(contractAddress),
           PrivateTokenContractAbi,
@@ -163,23 +163,10 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     const result = await page.evaluate(
       async (rpcUrl, privateKeyString, contractAddress, transferAmount, PrivateTokenContractAbi) => {
         console.log(`Starting transfer tx`);
-        const {
-          AztecAddress,
-          Contract,
-          PrivateKey,
-          createAztecRpcClient,
-          getUnsafeSchnorrAccount,
-          getUnsafeSchnorrWallet,
-          mustSucceedFetch,
-        } = window.AztecJs;
+        const { AztecAddress, Contract, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const privateKey = PrivateKey.fromString(privateKeyString);
-        const { address: receiver } = await getUnsafeSchnorrAccount(client, PrivateKey.random())
-          .register()
-          .then(w => w.getCompleteAddress());
-        console.log(`Created 2nd Account: ${receiver.toString()}`);
-        const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
+        const [owner, receiver] = await client.getAccounts();
+        const wallet = await AztecJs.getSandboxAccountsWallet(client);
         const contract = await Contract.create(
           AztecAddress.fromString(contractAddress),
           PrivateTokenContractAbi,
@@ -197,5 +184,5 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       PrivateTokenContractAbi,
     );
     expect(result).toEqual(transferAmount);
-  }, 120_000);
+  }, 60_000);
 });
