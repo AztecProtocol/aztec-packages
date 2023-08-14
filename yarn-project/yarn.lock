@@ -317,6 +317,7 @@ __metadata:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/noir-compiler": "workspace:^"
     "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@jest/globals": ^29.5.0
