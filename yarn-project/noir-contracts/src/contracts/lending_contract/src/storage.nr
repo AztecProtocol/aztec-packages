@@ -36,58 +36,42 @@ impl Account {
 // and last time it was updated.
 // In practice, it should also point to an oracle and have more fields related to 
 // loan to value ratios and other things, but we did not have enough reads/writes for this.
-struct Tot {
+struct Asset {
     interest_accumulator: u120,
     last_updated_ts: u120,
+    loan_to_value: u120,
+    oracle_address: Field,
 }
 
-global TOT_SERIALISED_LEN: Field = 2;
+global ASSET_SERIALISED_LEN: Field = 4;
 
-fn deserialiseTot(fields: [Field; TOT_SERIALISED_LEN]) -> Tot {
-    Tot {
+fn deserialiseAsset(fields: [Field; ASSET_SERIALISED_LEN]) -> Asset {
+    Asset {
         interest_accumulator: fields[0] as u120,
         last_updated_ts: fields[1] as u120,
+        loan_to_value: fields[2] as u120,
+        oracle_address: fields[3],
     }
 }
 
-fn serialiseTot(tot: Tot) -> [Field; TOT_SERIALISED_LEN] {
-    [tot.interest_accumulator as Field, tot.last_updated_ts as Field]
+fn serialiseAsset(asset: Asset) -> [Field; ASSET_SERIALISED_LEN] {
+    [asset.interest_accumulator as Field, asset.last_updated_ts as Field, asset.loan_to_value as Field, asset.oracle_address]
 }
 
-global TotSerialisationMethods = TypeSerialisationInterface {
-    deserialise: deserialiseTot,
-    serialise: serialiseTot,
+impl Asset {
+    fn serialise (self: Self) -> [Field; ASSET_SERIALISED_LEN] {
+        serialiseAsset(self)
+    }
+}
+
+global AssetSerialisationMethods = TypeSerialisationInterface {
+    deserialise: deserialiseAsset,
+    serialise: serialiseAsset,
 };
-
-
-// // Struct to be used to represent positions when we have more reads.
-// global POS_SERIALISED_LEN: Field = 2;
-
-// struct Pos {
-//     owner: Field,
-//     value: Field,
-// }
-
-// fn deserialisePos(fields: [Field; POS_SERIALISED_LEN]) -> Pos {
-//     Pos {
-//         owner: fields[0],
-//         value: fields[1],
-//     }
-// }
-
-// fn serialisePos(pos: Pos) -> [Field; POS_SERIALISED_LEN] {
-//     [pos.owner, pos.value]
-// }
-
-// global PosSerialisationMethods = TypeSerialisationInterface {
-//     deserialise: deserialisePos,
-//     serialise: serialisePos,
-// };
-
 
 // Storage structure, containing all storage, and specifying what slots they use.
 struct Storage {
-    assets: Map<PublicState<Tot, TOT_SERIALISED_LEN>>,
+    assets: Map<PublicState<Asset, ASSET_SERIALISED_LEN>>,
     collateral: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
     static_debt: Map<PublicState<Field, FIELD_SERIALISED_LEN>>, // abusing keys very heavily
 }
@@ -95,7 +79,7 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            assets: Map::new(1, |slot| PublicState::new(slot, TotSerialisationMethods)),
+            assets: Map::new(1, |slot| PublicState::new(slot, AssetSerialisationMethods)),
             collateral: Map::new(2, |slot| PublicState::new(slot, FieldSerialisationMethods)),
             static_debt: Map::new(3, |slot| PublicState::new(slot, FieldSerialisationMethods)),
         }

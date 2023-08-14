@@ -1,6 +1,7 @@
 mod storage;
 
-// Single asset lending contract. Just for show.
+// Single asset CDP contract.
+// Shoving re-entries up the ass.
 contract Lending {
     use dep::aztec::{
         abi,
@@ -13,7 +14,7 @@ contract Lending {
     };
     use dep::aztec::oracle::{logs::emit_unencrypted_log};
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use crate::storage::{Storage, Tot, Account};
+    use crate::storage::{Storage, Asset, Account};
 
     struct Pos {
         collateral: Field,
@@ -28,10 +29,12 @@ contract Lending {
         PrivateContext::new(inputs, 0).finish()
     }
 
-    open fn init(
-        inputs: PublicContextInputs
+    open fn init_asset(
+        inputs: PublicContextInputs,
+        oracle_address: Field,
+        loan_to_value: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value]));
 
         let storage = Storage::init();
 
@@ -39,19 +42,20 @@ contract Lending {
 
         let tot = asset.read();
 
+        assert (loan_to_value as u120 <= 10000);
         assert (tot.last_updated_ts == 0);
         assert (tot.interest_accumulator == 0);
 
-        asset.write(Tot {
+        asset.write(Asset {
             interest_accumulator: 1000000000,
             last_updated_ts: context.timestamp() as u120,
+            loan_to_value: loan_to_value as u120,
+            oracle_address,
         });
 
         context.return_values.push(1);
         context.finish()
     }
-
-    // Create a position.
 
     open fn update_tot(
         inputs: PublicContextInputs
@@ -59,10 +63,10 @@ contract Lending {
         let mut context = PublicContext::new(inputs, abi::hash_args([]));
         let storage = Storage::init();
 
-        let asset = storage.assets.at(0);
-        let mut tot = asset.read();
+        let asset_loc = storage.assets.at(0);
+        let mut asset = asset_loc.read();
 
-        let dt: u120 = context.timestamp() as u120  - tot.last_updated_ts;
+        let dt: u120 = context.timestamp() as u120  - asset.last_updated_ts;
 
         // Need proper interest computation here.
         // Assume constant rate because too few reads :cry:
@@ -71,13 +75,13 @@ contract Lending {
         let multiplier: u120 = 1000000000 + dt * rate;
         let divisor: u120 = 1000000000;
 
-        tot.interest_accumulator = (tot.interest_accumulator * multiplier) / divisor;
-        tot.last_updated_ts = context.timestamp() as u120;
+        asset.interest_accumulator = (asset.interest_accumulator * multiplier) / divisor;
+        asset.last_updated_ts = context.timestamp() as u120;
 
-        asset.write(tot);
+        asset_loc.write(asset);
 
-        context.return_values.push(1);
-        context.finish()
+        context.return_values.push_array(asset.serialise());
+        context.finish()        
     }
 
     // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
@@ -193,6 +197,8 @@ contract Lending {
 
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
+        // Needs to check stuff similar to `_borrow`.
+
         let storage = Storage::init();
 
         let coll_loc = storage.collateral.at(owner);
@@ -250,18 +256,33 @@ contract Lending {
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-        // Access control.
-        let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
+        // Updating accumulator etc.
+        let return_values = context.call_public_function_no_args(context.this_address(), 1259373467);
+        let interest_accumulator: u120 = return_values[0] as u120;
+        let loan_to_value: u120 = return_values[2] as u120;
+        let oracle_address = return_values[3];
+
+        // keccak256("get_price(field)") -> 0xc83a9cd4 -> 3359284436
+        let return_values_price = context.call_public_function(oracle_address, 3359284436, [0]);
+        let price: u120 = return_values_price[1] as u120;
+        
         let storage = Storage::init();
 
-        let coll_loc = storage.collateral.at(owner);
-        let collateral: Field = coll_loc.read();
-
+        let collateral: Field = storage.collateral.at(owner).read();
         let debt_loc = storage.static_debt.at(owner);
         let static_debt: Field = debt_loc.read();
 
-        assert (static_debt as u120 + amount as u120 < collateral as u120);
+        // Using precision 1e9 for interest accumulator and price
+        let divisor: u120 = 1000000000;
+
+        // We are assuming that this is a 
+        let current_debt: u120 = ((static_debt as u120) * interest_accumulator) / (divisor);
+        let total_debt_after = current_debt + (amount as u120);
+
+        let current_collateral: u120 = ((collateral as u120) * price) / (divisor);
+
+        assert (total_debt_after < (current_collateral * loan_to_value) / 10000);
 
         debt_loc.write(static_debt + amount);
 
@@ -344,7 +365,7 @@ contract Lending {
 
     unconstrained fn getTot(
         assetId: Field,
-    ) -> Tot {
+    ) -> Asset {
         let storage = Storage::init();
         storage.assets.at(assetId).read()
     }

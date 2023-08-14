@@ -4,7 +4,7 @@ import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { LendingContract } from '@aztec/noir-contracts/types';
+import { LendingContract, PriceFeedContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -16,19 +16,32 @@ describe('e2e_lending_contract', () => {
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
-  let contract: LendingContract;
-
   const deployContract = async () => {
-    logger(`Deploying L2 public contract...`);
-    const tx = LendingContract.deploy(aztecRpcServer).send();
+    let lendingContract: LendingContract;
+    let priceFeedContract: PriceFeedContract;
 
-    logger(`Tx sent with hash ${await tx.getTxHash()}`);
-    const receipt = await tx.getReceipt();
-    await tx.isMined({ interval: 0.1 });
-    const txReceipt = await tx.getReceipt();
-    logger(`L2 contract deployed at ${receipt.contractAddress}`);
-    contract = await LendingContract.at(receipt.contractAddress!, wallet);
-    return { contract, tx, txReceipt };
+    {
+      logger(`Deploying price feed contract...`);
+      const tx = PriceFeedContract.deploy(aztecRpcServer).send();
+      logger(`Tx sent with hash ${await tx.getTxHash()}`);
+      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      logger(`Price feed deployed to ${receipt.contractAddress}`);
+      priceFeedContract = await PriceFeedContract.at(receipt.contractAddress!, wallet);
+    }
+
+    {
+      logger(`Deploying L2 public contract...`);
+      const tx = LendingContract.deploy(aztecRpcServer).send();
+      logger(`Tx sent with hash ${await tx.getTxHash()}`);
+      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      logger(`CDP deployed at ${receipt.contractAddress}`);
+      lendingContract = await LendingContract.at(receipt.contractAddress!, wallet);
+    }
+    return { priceFeedContract, lendingContract };
   };
 
   beforeEach(async () => {
@@ -86,20 +99,29 @@ describe('e2e_lending_contract', () => {
     const recipientIdx = 0;
 
     const recipient = accounts[recipientIdx].address;
-    const { contract: deployedContract } = await deployContract();
+    const { lendingContract, priceFeedContract } = await deployContract();
 
     const account = new Account(recipient, new Fr(42));
 
     const storageSnapshots: { [key: string]: { [key: string]: Fr } } = {};
 
-    {
-      // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
-      logger('Initializing contract');
-      const tx = deployedContract.methods.init().send({ origin: recipient });
+    const setPrice = async (newPrice: bigint) => {
+      const tx = priceFeedContract.methods.set_price(0n, newPrice).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['initial'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+    };
+
+    await setPrice(2n * 10n ** 9n);
+
+    {
+      // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
+      logger('Initializing contract');
+      const tx = lendingContract.methods.init_asset(priceFeedContract.address, 8000).send({ origin: recipient });
+      await tx.isMined({ interval: 0.1 });
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['initial']['interest_accumulator']).toEqual(new Fr(1000000000n));
       expect(storageSnapshots['initial']['last_updated_ts'].value).toBeGreaterThan(0n);
@@ -112,11 +134,11 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the private collateral.
       logger('Depositing 🥸 : 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_private(account.secret, 0n, 420n).send({ origin: recipient });
+      const tx = lendingContract.methods.deposit_private(account.secret, 0n, 420n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_deposit'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['private_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       // @todo The accumulator should not increase when there are no debt. But we don't have reads/writes enough right now to handle that.
       expect(storageSnapshots['private_deposit']['interest_accumulator'].value).toBeGreaterThan(
@@ -135,12 +157,12 @@ describe('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the public collateral.
       logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_private(0n, recipient.toField(), 420n).send({ origin: recipient });
+      const tx = lendingContract.methods.deposit_private(0n, recipient.toField(), 420n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_deposit_on_behalf'] = await getStorageSnapshot(
-        deployedContract,
+        lendingContract,
         aztecRpcServer,
         account,
       );
@@ -165,11 +187,11 @@ describe('e2e_lending_contract', () => {
       // - increase the public collateral.
 
       logger('Depositing: 💰 -> 🏦');
-      const tx = deployedContract.methods.deposit_public(account.address, 211n).send({ origin: recipient });
+      const tx = lendingContract.methods.deposit_public(account.address, 211n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_deposit'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['public_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['public_deposit']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['private_deposit_on_behalf']['interest_accumulator'].value,
@@ -193,11 +215,11 @@ describe('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger('Borrow 🥸 : 🏦 -> 🍌');
-      const tx = deployedContract.methods.borrow_private(account.secret, 69n).send({ origin: recipient });
+      const tx = lendingContract.methods.borrow_private(account.secret, 69n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_borrow'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['private_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['private_borrow']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['public_deposit']['interest_accumulator'].value,
@@ -222,11 +244,11 @@ describe('e2e_lending_contract', () => {
       // - increase the public debt.
 
       logger('Borrow: 🏦 -> 🍌');
-      const tx = deployedContract.methods.borrow_public(69n).send({ origin: recipient });
+      const tx = lendingContract.methods.borrow_public(69n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_borrow'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['public_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['public_borrow']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['private_borrow']['interest_accumulator'].value,
@@ -254,11 +276,11 @@ describe('e2e_lending_contract', () => {
       // - decrease the private debt.
 
       logger('Repay 🥸 : 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_private(account.secret, 0n, 20n).send({ origin: recipient });
+      const tx = lendingContract.methods.repay_private(account.secret, 0n, 20n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['private_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['private_repay']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['public_borrow']['interest_accumulator'].value,
@@ -288,11 +310,11 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_private(0n, recipient.toField(), 20n).send({ origin: recipient });
+      const tx = lendingContract.methods.repay_private(0n, recipient.toField(), 20n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['private_repay']['interest_accumulator'].value,
@@ -322,11 +344,11 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay: 🍌 -> 🏦');
-      const tx = deployedContract.methods.repay_public(recipient.toField(), 20n).send({ origin: recipient });
+      const tx = lendingContract.methods.repay_public(recipient.toField(), 20n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_repay'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['public_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['public_repay']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value,
@@ -356,11 +378,11 @@ describe('e2e_lending_contract', () => {
       // - decrease the public collateral.
 
       logger('Withdraw: 🏦 -> 💰');
-      const tx = deployedContract.methods.withdraw_public(42n).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_public(42n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_withdraw'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['public_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['public_withdraw']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['public_repay']['interest_accumulator'].value,
@@ -390,11 +412,11 @@ describe('e2e_lending_contract', () => {
       // - decrease the private collateral.
 
       logger('Withdraw 🥸 : 🏦 -> 💰');
-      const tx = deployedContract.methods.withdraw_private(account.secret, 42n).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_private(account.secret, 42n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_withdraw'] = await getStorageSnapshot(deployedContract, aztecRpcServer, account);
+      storageSnapshots['private_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
       expect(storageSnapshots['private_withdraw']['interest_accumulator'].value).toBeGreaterThan(
         storageSnapshots['public_withdraw']['interest_accumulator'].value,
@@ -422,13 +444,13 @@ describe('e2e_lending_contract', () => {
       // - not change any storage values.
       // - fail
 
-      const tx = deployedContract.methods._deposit(recipient.toField(), 42n).send({ origin: recipient });
+      const tx = lendingContract.methods._deposit(recipient.toField(), 42n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
       logger('Rejected call directly to internal function 🧚 ');
       storageSnapshots['attempted_internal_deposit'] = await getStorageSnapshot(
-        deployedContract,
+        lendingContract,
         aztecRpcServer,
         account,
       );

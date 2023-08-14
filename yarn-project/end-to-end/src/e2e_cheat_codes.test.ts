@@ -160,7 +160,7 @@ describe('e2e_cheat_codes', () => {
 
       // initialize contract -> this updates `lastUpdatedTs` to the current timestamp of the rollup
       // this should be the new timestamp
-      const txInit = contract.methods.init().send({ origin: recipient });
+      const txInit = contract.methods.init_asset(AztecAddress.random(), 8000).send({ origin: recipient });
       await txInit.isMined({ interval: 0.1 });
 
       // fetch last updated ts from L2 contract and expect it to me same as new timestamp
