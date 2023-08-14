@@ -8,7 +8,7 @@ The Aztec CLI is a tool designed to enable a user to interact with the Aztec Net
 
 ## Requirements
 
-The Aztec CLI is an npm package so you will need to have installed Node.js >= 18. This tutorial will use the Aztec Sandbox so you should first set up the sandbox using the link above.
+The Aztec CLI is an npm package so you will need to have installed node.js >= 18. This tutorial will use the Aztec Sandbox so you should first set up the sandbox using the link above.
 
 To install the Aztec CLI simply:
 
@@ -20,11 +20,9 @@ Then verify that it is installed with:
 
 ## I have the Sandbox running, now what?
 
-Lets first establish that we are able to communicate with the Sandbox. Most command will require the url to the Sandbox, which is probably `http://localhost:8080`. You can either provide this as an option with each command or you can run:
+Lets first establish that we are able to communicate with the Sandbox. Most commands will require the url to the Sandbox, which defaults in the CLI to `http://localhost:8080`. You can override this as an option with each command or by setting `AZTEC_RPC_HOST` environment variable.
 
-`export AZTEC_RPC_HOST='http://localhost:8080'`
-
-Having done that, let's run the command:
+To test communication with the Sandbox, let's run the command:
 
 `% aztec-cli block-number
 0`
@@ -33,7 +31,7 @@ You should see the current block number (0) printed to the screen!
 
 ## Contracts
 
-We have shipped a number of example contracts in the `@aztec/noir-contracts` npm package. This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts simply run:
+We have shipped a number of example contracts in the `@aztec/noir-contracts` npm package. This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
 
 ```
 % aztec-cli example-contracts
@@ -55,160 +53,139 @@ TestContractAbi
 UniswapContractAbi
 ```
 
-In the following sections there will be commands that require contracts as options. You can either specify the full directory path to the contract abi, or you can use the name of one of these examples as the option value. This will become clear later on.
+In the following sections there will be commands that require contracts as options. You can either specify the full directory path to the contract abi, or you can use the name of one of these examples as the option value. This will become clearer later on.
 
 ## Creating Accounts
 
-The first thing we want to do is create a couple of accounts and for that we need some private keys. Running the following command will generate a new private key:
+The first thing we want to do is create a couple of accounts. We will use the `create-account` command which will generate a new private key for us, register the account on the sandbox, and deploy a simple account contract which [uses a single key for privacy and authentication](../../concepts/foundation/accounts/keys.md):
 
 ```
-% aztec-cli generate-private-key
-
-Private Key: 6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
-Public Key: 0x1a5e13e446440e6f22e75e8d736f84b3833cf9358bdf699c0921eb6df78557e51c66bd81b1d84d81ebb595657041933c3b30195eeea294ad8ae56e3567b44242
-```
-
-Let's run that again and copy both outputs to a text file for use later.
-
-```
-% aztec-cli generate-private-key
-
-Private Key: 234379f13ce14fec68a1a087aac2f9af2a9850f8c006dd79ccda554c86d15e80
-Public Key: 0x306043953f2d304214459d039bdc44fbd0f848897c77ac58714692a6af5b759a042b29a5f40d5de9077636d5779bd7d350879cbbc63d5bba9220b41966aa2e21
-```
-
-We will now create accounts with these private keys, run the following (replacing the private key if you wish):
-
-```
-% aztec-cli create-account -k 6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
-
-Created account(s).
-
-Address: 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public Key: 0x153d49cf09acf1b2d79bc72f2842c7fc53a7daae331c1a2dc412ea8bb766faca19df1d9e188cf4fe63b77924ee6805cf94d222bf7cb442c924bcd3680054052f
-```
-
-You can see that the account has been created and the address derived.
-
-Now, for the next account we will export the private key first and then omit the `-k` option:
-
-```
-% export PRIVATE_KEY=234379f13ce14fec68a1a087aac2f9af2a9850f8c006dd79ccda554c86d15e80
 % aztec-cli create-account
+Created new account:
 
-Created account(s).
-
-Address: 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public Key: 0x153d49cf09acf1b2d79bc72f2842c7fc53a7daae331c1a2dc412ea8bb766faca19df1d9e188cf4fe63b77924ee6805cf94d222bf7cb442c924bcd3680054052f
-
-
-Address: 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe
-Public Key: 0x1d80bd83a36d600af5153f4a0339cd6199992e1bb145edba2f1a05ad245cbf6d2761a77f036752b00e8842d5d48524bd2593ade1a6b76d3896148924e2795b43
+Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
+Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
+Private key:     0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
 ```
 
-For all commands that require a user's private key, the utility will look for the exported environment variable in absence of an optional argument.
+Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys).
 
-Now lets double check that the accounts have definitely been registered with the sandbox with the `get-accounts` command:
+Alternatively, we can also manually generate a private key and use it for creating the account, either via a `-k` option or by setting the `PRIVATE_KEY` environment variable.
+ 
+```
+% aztec-cli generate-private-key
+
+Private Key: 0x6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
+Public Key: 0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
+
+
+% aztec-cli create-account --private-key 0x6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
+
+Created new account:
+
+Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
+Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+```
+
+For all commands that require a user's private key, the CLI will look for the `PRIVATE_KEY` environment variable in absence of an optional argument.
+
+Let's double check that the accounts have been registered with the sandbox using the `get-accounts` command:
 
 ```
 % aztec-cli get-accounts
 Accounts found:
 
-Address: 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public Key: 0x153d49cf09acf1b2d79bc72f2842c7fc53a7daae331c1a2dc412ea8bb766faca19df1d9e188cf4fe63b77924ee6805cf94d222bf7cb442c924bcd3680054052f
-Partial Contract Address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
+Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
 
-Address: 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe
-Public Key: 0x1d80bd83a36d600af5153f4a0339cd6199992e1bb145edba2f1a05ad245cbf6d2761a77f036752b00e8842d5d48524bd2593ade1a6b76d3896148924e2795b43
-Partial Contract Address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-```
-
-Our 2 accounts are listed so we can be confident that the account creation succeeded. There is an additional command `get-account-public-key` to retrieve and account's public credentials given it's address:
-
-```
-% aztec-cli get-account-public-key 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe
-Public Key:
- 0x1d80bd83a36d600af5153f4a0339cd6199992e1bb145edba2f1a05ad245cbf6d2761a77f036752b00e8842d5d48524bd2593ade1a6b76d3896148924e2795b43
-Partial Address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
+Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
 ```
 
 ## Deploying a Token Contract
 
-We will now deploy the private token contract using the `deploy` command:
+We will now deploy the private token contract using the `deploy` command, minting 1000000 initial tokens to address `0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c`. Make sure to replace this address with one of the two you created earlier.
 
 ```
-% aztec-cli deploy -c PrivateTokenContractAbi -a 1000000 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe -k 0x0a02fc15dc2d13e0640dd12be05c623c21e0c53a453c0d45ca3b328eeaffae0a09ab14c5762bb3a3aee52336f7495e39f0da322f9383db76fbab7f88bb64c4be
-Using Public Key: 0x0a02fc15dc2d13e0640dd12be05c623c21e0c53a453c0d45ca3b328eeaffae0a09ab14c5762bb3a3aee52336f7495e39f0da322f9383db76fbab7f88bb64c4be
+% aztec-cli deploy --contract-abi PrivateTokenContractAbi --args 1000000 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
 
-Aztec Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 ```
 
-This command has a number of arguments which we will break down here:
+:::info 
+If you use a different address in the constructor above, you will get an error when running the deployment. This is because you need to register an account in the sandbox before it can receive private notes. When you create a new account, it gets automatically registered. Alternatively, you can register an account you do not own along with its public key using the `register-recipient` command.
+:::
 
-- c - This is the abi of the contract that we have deployed. You can either provide a path to a file or use the name of one of the example contracts provided with the cli.
-- a - These are the arguments to the constructor of the contract. In this case we have minted 1000000 initial tokens to the aztec address 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe.
-- k - This is the public key used in the contract deployment. The public key is used in the derivation of the contract address.
+This command takes two main arguments:
 
-The output of the command tells us that the contract was successfully deployed to address 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+- `--contract-abi` - The abi of the contract to deploy. You can either provide a path to a file or use the name of one of the example contracts provided with the CLI.
+- `--args` - Arguments to the constructor of the contract. In this case we have minted 1000000 initial tokens to the aztec address 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c.
 
-We can use the `check-deploy` command to verify that a contract has been successfully deployed to an address:
+The CLI tells us that the contract was successfully deployed. We can use the `check-deploy` command to verify that a contract has been successfully deployed to that address:
 
 ```
-% aztec-cli check-deploy -ca 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+% aztec-cli check-deploy --contract-address 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 
-true
+Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 ```
 
 ## Calling a View Method
 
-When we deployed the token contract, an initial supply of tokens was minted to the address provided in the constructor. We can now query the `getBalance()` method on the contract to retrieve tha balance of that address:
+When we deployed the token contract, an initial supply of tokens was minted to the address provided in the constructor. We can now query the `getBalance()` method on the contract to retrieve the balance of that address. Make sure to replace the `contract-address` with the deployment address you got from the previous command, and the `args` with the account you used in the constructor.
 
 ```
-% aztec-cli call getBalance -a 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe -c PrivateTokenContractAbi -ca 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+% aztec-cli call getBalance \
+  --args 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe \
+  --contract-abi PrivateTokenContractAbi \
+  --contract-address 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 
-View TX result:  [
+View result:  [
   "{\"type\":\"bigint\",\"data\":\"1000000\"}"
 ]
 ```
 
-The `call` command calls a read-only method on a contract, one that will not generate a transaction to be sent to the network. The other arguments are:
+The `call` command calls a read-only method on a contract, one that will not generate a transaction to be sent to the network. The arguments here are:
 
-- a 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe - The address for which we want to retrieve the balance.
-- c PrivateTokenContractAbi - The abi of the contract we are calling.
-- ca - 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f The address of the deployed contract
+- `--args` - The address for which we want to retrieve the balance.
+- `--contract-abi` - The abi of the contract we are calling.
+- `--contract-address` - The address of the deployed contract
 
-As you can see from the result, this address has a balance of 1000000. This is what we expect.
+As you can see from the result, this address has a balance of 1000000, as expected.
 
 ## Sending a Transaction
 
-We can now send a transaction to the network. We will transfer funds from the owner of the initial supply to our other account.
-
-For this we will use the `send` command:
+We can now send a transaction to the network. We will transfer funds from the owner of the initial minted tokens to our other account. For this we will use the `send` command, which expects as arguments the quantity of tokens to be transferred, the sender's address, and the recipient's address. Make sure to replace all addresses in this command with the ones for your run.
 
 ```
-% aztec-cli send transfer -a 543 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c -c PrivateTokenContractAbi -ca 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+% aztec-cli send transfer \
+  --args 543 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c \
+  --contract-abi PrivateTokenContractAbi \
+  --contract-address 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f \
+  --private-key 0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
 
-TX has been mined
-TX Hash: 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
-Block Num: 5
-Block Hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
-TX Status: mined
+Transaction has been mined
+Transaction hash: 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
+Status: mined
+Block number: 5
+Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
 ```
 
-We called the `transfer` function of the contract and provided these further arguments:
+We called the `transfer` function of the contract and provided these arguments:
 
-- a - The list of arguments to the function call, in this case they were the quantity of tokens to be transferred, the sender's address followed by the recipient's address.
-- c - The abi of the contract that we wanted to call
-- ca - The deployed address of the contract we wanted to call.
+- `--args` - The list of arguments to the function call.
+- `--contract-abi` - The abi of the contract to call.
+- `--contract-address` - The deployed address of the contract to call.
 
-The command output tells us the details of the transaction such as it's hash and status.
-
-We can use this hash to query the receipt of the transaction at a later time:
+The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
 ```
 % aztec-cli get-tx-receipt 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
 
-TX Receipt:
+Transaction receipt:
 {
   "txHash": "15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c",
   "status": "mined",
@@ -224,20 +201,20 @@ Let's now call `getBalance()` on each of our accounts and we should see updated 
 ```
 % aztec-cli call getBalance -a 0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe -c PrivateTokenContractAbi -ca 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 
-View TX result:  [
+View result:  [
   "{\"type\":\"bigint\",\"data\":\"999457\"}"
 ]
 
 % aztec-cli call getBalance -a 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c -c PrivateTokenContractAbi -ca 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 
-View TX result:  [
+View result:  [
   "{\"type\":\"bigint\",\"data\":\"543\"}"
 ]
 ```
 
 ## Logs
 
-Finally, we can use the cli's `get-logs` command to retrieve unencrypted logs emitted by the contract:
+Finally, we can use the CLI's `get-logs` command to retrieve unencrypted logs emitted by the contract:
 
 ```
 % aztec-cli get-logs 5 1
