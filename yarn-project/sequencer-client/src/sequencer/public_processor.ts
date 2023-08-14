@@ -40,6 +40,7 @@ import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
+import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -156,6 +157,8 @@ export class PublicProcessor {
       executionStack.push(...result.nestedExecutions);
       const preimages = await this.getPublicCallStackPreimages(result);
       const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
+
+      console.log(toFriendlyJSON(preimages));
       [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
     }
 
@@ -205,10 +208,13 @@ export class PublicProcessor {
 
     // The serialisation of these exists but is never used in noir
 
+    // // Calculate the hash once instead of getting it every time
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    const historicPublicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+    const blockData = HistoricBlockData.empty();
+    // blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
     const wasm = await CircuitsWasm.get();
+    
     const publicCallStack = mapTuple(callStackPreimages, item =>
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
@@ -238,7 +244,7 @@ export class PublicProcessor {
       publicCallStack,
       unencryptedLogsHash,
       unencryptedLogPreimagesLength,
-      historicPublicDataTreeRoot,
+      historicBlockData: blockData,
     });
   }
 
@@ -285,6 +291,11 @@ export class PublicProcessor {
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);
+    
+    // // Calculate the hash once instead of getting it every time
+    // const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
+    // this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
