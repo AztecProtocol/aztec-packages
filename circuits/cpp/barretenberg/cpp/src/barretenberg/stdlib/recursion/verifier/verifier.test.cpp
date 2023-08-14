@@ -1,6 +1,4 @@
-#include "program_settings.hpp"
-#include "verifier.hpp"
-
+#include "barretenberg/stdlib/recursion/verifier/verifier.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/bn254/pairing.hpp"
@@ -11,6 +9,7 @@
 #include "barretenberg/stdlib/hash/blake3s/blake3s.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/recursion/verifier/program_settings.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace proof_system::plonk::stdlib {
@@ -379,7 +378,12 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         create_inner_circuit(inner_circuit, inner_public_inputs);
 
+        std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        std::chrono::milliseconds diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        info("Circuit construction: ", diff.count(), "ms");
+
         EXPECT_EQ(circuit_output.aggregation_state.public_inputs[0].get_value(), inner_public_inputs[0]);
         EXPECT_EQ(circuit_output.aggregation_state.public_inputs[1].get_value(), inner_public_inputs[1]);
 
