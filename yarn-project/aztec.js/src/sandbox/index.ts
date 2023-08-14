@@ -10,11 +10,7 @@ export const INITIAL_SANDBOX_ENCRYPTION_KEYS = [
   new PrivateKey(Buffer.from('0f6addf0da06c33293df974a565b03d1ab096090d907d98055a8b7f4954e120c', 'hex')),
 ];
 
-export const INITIAL_SANDBOX_SIGNING_KEYS = [
-  new PrivateKey(Buffer.from('4e7dc06f8928d473ff3d44faa0746ba8d3885f3273f405605ce0d5f5ed2bdbb5', 'hex')),
-  new PrivateKey(Buffer.from('df229c8111dd59fbab1ee830b5df7dab7d9f3e0085e8bd321f8c54acf8f27eb6', 'hex')),
-  new PrivateKey(Buffer.from('58c89cda340657e637fbfd9155a3d05080ffb48a7c9efd107b10880c74954eca', 'hex')),
-];
+export const INITIAL_SANDBOX_SIGNING_KEYS = INITIAL_SANDBOX_ENCRYPTION_KEYS;
 
 export const INITIAL_SANDBOX_SALTS = [Fr.ZERO, Fr.ZERO, Fr.ZERO];
 

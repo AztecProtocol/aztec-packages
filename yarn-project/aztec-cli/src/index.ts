@@ -14,7 +14,7 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
-import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
+import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
@@ -123,7 +123,7 @@ async function main() {
       const pubKeysAndPartialAddresses = await Promise.all(
         accounts.map(acc => wallet.getPublicKeyAndPartialAddress(acc)),
       );
-      log(`\nCreated account(s).`);
+      log(`\nAvailable account(s):`);
       accounts.map((acc, i) =>
         log(`\nAddress: ${acc.toString()}\nPublic Key: ${pubKeysAndPartialAddresses[i][0].toString()}\n`),
       );
@@ -345,12 +345,12 @@ async function main() {
         );
       }
 
-      const privateKey = new PrivateKey(options.privateKey);
+      const privateKey = new PrivateKey(Buffer.from(stripLeadingHex(options.privateKey), 'hex'));
 
       const client = createAztecRpcClient(options.rpcUrl);
       const wallet = await getAccountWallets(
         client,
-        SchnorrSingleKeyAccountContractAbi,
+        SchnorrAccountContractAbi,
         [privateKey],
         [privateKey],
         [accountCreationSalt],
