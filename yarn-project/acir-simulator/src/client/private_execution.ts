@@ -152,21 +152,13 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: (
-        [acvmContractAddress],
-        [acvmStorageSlot],
-        [owner],
-        [encPubKeyX],
-        [encPubKeyY],
-        acvmPreimage,
-      ) => {
+      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [encPubKeyX], [encPubKeyY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
-        const ownerAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(owner));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
-        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, ownerAddress, storageSlot);
+        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = new Point(fromACVMField(encPubKeyX), fromACVMField(encPubKeyY));
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
@@ -224,7 +216,7 @@ export class PrivateFunctionExecution {
   private getInitialWitness() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
-    const blockData = this.context.constantHistoricBlockData;
+    const blockData = this.context.historicBlockData;
 
     const fields = [
       this.callContext.msgSender,
@@ -239,7 +231,7 @@ export class PrivateFunctionExecution {
       blockData.contractTreeRoot,
       blockData.l1ToL2MessagesTreeRoot,
       blockData.blocksTreeRoot,
-      blockData.prevGlobalVariablesHash,
+      blockData.globalVariablesHash,
       blockData.publicDataTreeRoot,
 
       contractDeploymentData.deployerPublicKey.x,

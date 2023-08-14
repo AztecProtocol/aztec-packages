@@ -55,7 +55,6 @@ impl EasyPrivateUint {
             context,
             (*context).this_address(),
             self.set.storage_slot,
-            owner,
             owner_key,
             addend_note.serialise(),
         );
@@ -109,7 +108,6 @@ impl EasyPrivateUint {
             context,
             (*context).this_address(),
             self.set.storage_slot,
-            owner,
             owner_key,
             encrypted_data,
         );
