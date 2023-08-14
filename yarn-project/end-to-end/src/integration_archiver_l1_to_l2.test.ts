@@ -59,7 +59,7 @@ describe('archiver integration with l1 to l2 messages', () => {
     underlyingERC20 = contracts.underlyingERC20;
     tokenPortal = contracts.tokenPortal;
     tokenPortalAddress = contracts.tokenPortalAddress;
-    await expectBalance(receiver, initialBalance);
+    await expectBalance(owner, initialBalance);
     logger('Successfully deployed contracts and initialized portal');
   }, 100_000);
 
@@ -123,7 +123,7 @@ describe('archiver integration with l1 to l2 messages', () => {
   it('archiver handles l1 to l2 message correctly even when l2block has no such messages', async () => {
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
-    l2Contract.methods.transfer(transferAmount, owner, receiver).send({ origin: receiver });
+    l2Contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner });
 
     expect((await archiver.getPendingL1ToL2Messages(10)).length).toEqual(0);
     expect(() => archiver.getConfirmedL1ToL2Message(Fr.ZERO)).toThrow();
