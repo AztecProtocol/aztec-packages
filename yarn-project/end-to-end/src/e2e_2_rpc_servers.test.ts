@@ -95,9 +95,9 @@ describe('e2e_2_rpc_servers', () => {
 
     const tokenAddress = await deployPrivateTokenContract(initialBalance, userA.address);
 
-    // Add account B pub key and partial address to wallet A
+    // Add account B to wallet A
     await aztecRpcServerA.addAccount(userB);
-    // Add account A pub key and partial address to wallet B
+    // Add account A to wallet B
     await aztecRpcServerB.addAccount(userA);
 
     // Add privateToken to RPC server B
