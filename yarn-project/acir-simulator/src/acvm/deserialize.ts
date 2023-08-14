@@ -252,17 +252,12 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     witnessReader.readField(),
     witnessReader.readField(),
   );
-
-
   const proverAddress = AztecAddress.fromField(witnessReader.readField());
-
-  // TODO(md): Should the global variables and stuff be included in here?
 
   return new PublicCircuitPublicInputs(
     callContext,
     argsHash,
     returnValues,
-    // TODO: how remove
     contractStorageUpdateRequests as Tuple<
       ContractStorageUpdateRequest,
       typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL

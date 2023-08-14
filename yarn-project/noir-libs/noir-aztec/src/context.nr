@@ -472,9 +472,6 @@ impl PublicContext {
 
 
         // Compute the public call stack hashes
-
-        // TODO: include global_variables here?
-
         let pub_circuit_pub_inputs = abi::PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done

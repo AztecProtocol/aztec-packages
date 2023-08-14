@@ -35,11 +35,9 @@ contract Child {
     open fn pubValue(inputs: PublicContextInputs, base_value: Field) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([base_value]));
         
-        // TODO: make these available on context
         let returnValue = base_value + context.chain_id() + context.version() + context.block_number() + context.timestamp();
 
         context.return_values.push(returnValue);
-        // TODO(MADDIAA): MAYBE we put the return values inside the finish object? That could have nice UX
         context.finish()
     }
 

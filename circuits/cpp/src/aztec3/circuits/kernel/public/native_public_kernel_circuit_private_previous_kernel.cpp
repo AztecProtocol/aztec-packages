@@ -47,8 +47,6 @@ using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 KernelCircuitPublicInputs<NT> native_public_kernel_circuit_private_previous_kernel(
     DummyBuilder& builder, PublicKernelInputs<NT> const& public_kernel_inputs)
 {
-    info("got call staqck item");
-    info(public_kernel_inputs.public_call.call_stack_item);
     // construct the circuit outputs
     KernelCircuitPublicInputs<NT> public_inputs{};
 

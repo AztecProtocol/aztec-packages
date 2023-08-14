@@ -75,8 +75,6 @@ template <typename NCT, template <class> typename PrivatePublic> struct CallStac
             public_inputs.hash(),
         };
 
-        // info("partial hashes", contract_address.to_field(), function_data.hash(), public_inputs.hash());
-
         // NOLINTNEXTLINE(misc-const-correctness)
         fr call_stack_item_hash = NCT::hash(inputs, GeneratorIndex::CALL_STACK_ITEM);
 

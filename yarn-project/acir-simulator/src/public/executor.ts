@@ -241,7 +241,6 @@ function getInitialWitness(
     callContext.isStaticCall,
     callContext.isContractDeployment,
 
-    // ...HistoricBlockData.getFields(historicBlockData),
     historicBlockData.privateDataTreeRoot,
     historicBlockData.nullifierTreeRoot,
     historicBlockData.contractTreeRoot,

@@ -17,7 +17,6 @@ struct Set<Note, N> {
     note_interface: NoteInterface<Note, N>,
 }
 
-// TODO(Maddiaa): Can we make the context generic in this part to allow people to insert the same way from either?
 impl<Note, N> Set<Note, N> {
     fn new(storage_slot: Field, note_interface: NoteInterface<Note, N>) -> Self {
         Set { storage_slot, note_interface }

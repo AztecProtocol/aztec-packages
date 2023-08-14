@@ -40,7 +40,6 @@ import { getPublicExecutor } from '../simulator/public_executor.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
 import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
-import { toFriendlyJSON } from '@aztec/circuits.js/utils';
 
 /**
  * Creates new instances of PublicProcessor given the provided merkle tree db and contract data source.
@@ -127,7 +126,6 @@ export class PublicProcessor {
       const [publicKernelOutput, publicKernelProof, newUnencryptedFunctionLogs] = await this.processEnqueuedPublicCalls(
         tx,
       );
-      // TODO: add this within the simulator rather than here???
       tx.unencryptedLogs.addFunctionLogs(newUnencryptedFunctionLogs);
 
       return makeProcessedTx(tx, publicKernelOutput, publicKernelProof);
@@ -158,7 +156,6 @@ export class PublicProcessor {
       const preimages = await this.getPublicCallStackPreimages(result);
       const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
 
-      // console.log(toFriendlyJSON(preimages));
       [kernelOutput, kernelProof] = await this.runKernelCircuit(callData, kernelOutput, kernelProof);
     }
 
@@ -184,7 +181,6 @@ export class PublicProcessor {
       // Run the public kernel circuit with previous private kernel
       const previousKernel = this.getPreviousKernelData(previousOutput, previousProof);
       const inputs = new PublicKernelInputs(previousKernel, callData);
-      // console.log(toFriendlyJSON(inputs));
       return this.publicKernel.publicKernelCircuitPrivateInput(inputs);
     } else if (previousOutput && previousProof) {
       // Run the public kernel circuit with previous public kernel
@@ -204,29 +200,21 @@ export class PublicProcessor {
   }
 
   protected async getPublicCircuitPublicInputs(result: PublicExecutionResult) {
-    // NOTE This fills in the public circuit public inputs stuff for us.
-    // Which does not make sense to me, it should be passed in and returned?
-
-    // The serialisation of these exists but is never used in noir
-
-    // // Calculate the hash once instead of getting it every time
     const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    // const blockData = HistoricBlockData.empty();
     this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
+
     const callStackPreimages = await this.getPublicCallStackPreimages(result);
-    // console.log(toFriendlyJSON(callStackPreimages))
     const wasm = await CircuitsWasm.get();
-    
+
     const publicCallStack = mapTuple(callStackPreimages, item =>
       item.isEmpty() ? Fr.zero() : computeCallStackItemHash(wasm, item),
     );
-    // console.log("publicCallStack", publicCallStack);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
-    const pub =  PublicCircuitPublicInputs.from({
+    const pub = PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
@@ -249,7 +237,6 @@ export class PublicProcessor {
       unencryptedLogPreimagesLength,
       historicBlockData: this.blockData,
     });
-    console.log(toFriendlyJSON(pub));
     return pub;
   }
 
@@ -296,16 +283,7 @@ export class PublicProcessor {
     isExecutionRequest = false,
   ) {
     const bytecodeHash = await this.getBytecodeHash(result);
-    
-    // // Calculate the hash once instead of getting it every time
-    // const publicDataTreeInfo = await this.db.getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-    // this.blockData.publicDataTreeRoot = Fr.fromBuffer(publicDataTreeInfo.root);
-
-    console.log(result);
     const callStackItem = await this.getPublicCallStackItem(result, isExecutionRequest);
-    console.log("first call stack item");
-    console.log(toFriendlyJSON(callStackItem));
-
     const portalContractAddress = result.execution.callContext.portalContractAddress.toField();
     const proof = await this.publicProver.getPublicCircuitProof(callStackItem.publicInputs);
     return new PublicCallData(callStackItem, preimages, proof, portalContractAddress, bytecodeHash);
