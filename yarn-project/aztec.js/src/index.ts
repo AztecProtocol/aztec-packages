@@ -28,3 +28,4 @@ export {
 } from '@aztec/types';
 
 export { createDebugLogger } from '@aztec/foundation/log';
+export { sleep } from '@aztec/foundation/sleep';

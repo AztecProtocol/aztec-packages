@@ -11,6 +11,7 @@ import {
   getL1ContractAddresses,
   getSandboxAccountsWallet,
   mustSucceedFetch,
+  sleep,
   waitForSandbox,
 } from '@aztec/aztec.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
@@ -239,7 +240,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const messageKey = Fr.fromString(messageKeyHex);
 
     // Wait for the archiver to process the message
-    await delay(5000);
+    await sleep(5000);
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
     await transferWethOnL2(wethL2Contract, owner, receiver, transferAmount);
@@ -323,7 +324,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const daiAmountToBridge = daiBalanceOfPortalAfter - daiBalanceOfPortalBefore;
 
     // Wait for the archiver to process the message
-    await delay(5000);
+    await sleep(5000);
     // send a transfer tx to force through rollup with the message included
     await transferWethOnL2(wethL2Contract, owner, receiver, transferAmount);
 
