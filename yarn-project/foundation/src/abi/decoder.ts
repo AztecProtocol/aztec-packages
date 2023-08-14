@@ -62,7 +62,8 @@ class ReturnValuesDecoder {
 
   /**
    * Decodes all the return values for the given function ABI.
-   * Noir support only single return value (value can be struct).
+   * Noir support only single return value
+   * The return value can however be simple types, structs or arrays
    * @returns The decoded return values.
    */
   public decode(): DecodedReturn {
