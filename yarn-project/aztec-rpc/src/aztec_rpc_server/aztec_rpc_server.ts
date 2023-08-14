@@ -81,13 +81,13 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addSignerAccount(privKey: PrivateKey, account: CompleteAddress) {
+  public async registerSigner(privKey: PrivateKey, account: CompleteAddress) {
     this.keyStore.addAccount(privKey);
     await this.db.addAccount(account);
     this.synchroniser.addAccount(account.publicKey, this.keyStore);
   }
 
-  public async addAccount(account: CompleteAddress): Promise<void> {
+  public async registerRecipient(account: CompleteAddress): Promise<void> {
     await this.db.addAccount(account);
     this.log.info(`Added account: ${account.toString()}`);
   }

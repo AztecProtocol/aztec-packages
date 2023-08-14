@@ -45,7 +45,7 @@ describe('e2e_escrow_contract', () => {
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
     const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
-    await aztecRpcServer.addSignerAccount(escrowPrivateKey, deployInfo.completeAddress);
+    await aztecRpcServer.registerSigner(escrowPrivateKey, deployInfo.completeAddress);
 
     escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
       .send({ contractAddressSalt: salt })

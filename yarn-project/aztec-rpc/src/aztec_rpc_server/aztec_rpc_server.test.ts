@@ -29,7 +29,7 @@ describe('AztecRpcServer', function () {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.addSignerAccount(await keyPair.getPrivateKey(), completeAddress);
+    await rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress);
     expect(await db.getAccount(completeAddress.address)).toEqual(completeAddress);
   });
 
@@ -37,10 +37,10 @@ describe('AztecRpcServer', function () {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.addSignerAccount(await keyPair.getPrivateKey(), completeAddress);
-    await expect(async () =>
-      rpcServer.addSignerAccount(await keyPair.getPrivateKey(), completeAddress),
-    ).rejects.toThrow(`Account ${completeAddress.address} already exists`);
+    await rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress);
+    await expect(async () => rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
+      `Account ${completeAddress.address} already exists`,
+    );
   });
 
   it('throws when getting public storage for non-existent contract', async () => {

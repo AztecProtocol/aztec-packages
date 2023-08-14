@@ -31,11 +31,11 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  addSignerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
-    return this.rpc.addSignerAccount(privKey, completeAddress);
+  registerSigner(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
+    return this.rpc.registerSigner(privKey, completeAddress);
   }
-  addAccount(account: CompleteAddress): Promise<void> {
-    return this.rpc.addAccount(account);
+  registerRecipient(account: CompleteAddress): Promise<void> {
+    return this.rpc.registerRecipient(account);
   }
   getAccounts(): Promise<CompleteAddress[]> {
     return this.rpc.getAccounts();

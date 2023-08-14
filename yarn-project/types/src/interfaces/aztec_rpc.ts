@@ -64,26 +64,36 @@ export type SyncStatus = {
  */
 export interface AztecRPC {
   /**
-   * Registers an account backed by an account contract.
+   * Registers signer account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
    * @param completeAddress - Complete address of the account.
    * @returns Empty promise.
    */
-  addSignerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
+  registerSigner(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
+
+  /**
+   * Registers recipient account in the Aztec RPC server.
+   * @param account - A complete address.
+   * @returns Empty promise.
+   * @remarks Called recipient because we can only send notes to this account and not receive them. This is because
+   *          we don't have the associated private key and for this reason we can't decrypt the recipient's notes.
+   *          We can send notes to this account because we can encrypt them with the recipient's public key.
+   */
+  registerRecipient(account: CompleteAddress): Promise<void>;
 
   /**
    * Retrieves the list of complete addresses added to this rpc server
    * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
-   * @returns A promise that resolves to an array of CompleteAddress instances.
+   * @returns A promise that resolves to an array of all the signer and recipient accounts registered on this RPC server.
    */
   getAccounts(): Promise<CompleteAddress[]>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.
    * @param address - The aztec address of the account contract.
-   * @returns A promise that resolves to an array of CompleteAddress instances.
+   * @returns A promise that resolves to the complete address of the requested signer or recipient account.
    */
   getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
@@ -179,13 +189,6 @@ export interface AztecRPC {
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
-
-  /**
-   * Adds account to the database.
-   * @param account - A complete address.
-   * @returns Empty promise.
-   */
-  addAccount(account: CompleteAddress): Promise<void>;
 
   /**
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
