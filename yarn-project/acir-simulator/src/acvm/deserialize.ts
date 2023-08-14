@@ -3,6 +3,7 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  HistoricBlockData,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
@@ -232,7 +233,6 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     const request = new ContractStorageRead(witnessReader.readField(), witnessReader.readField());
     contractStorageReads[i] = request;
   }
-  // const contractStorageRead = witnessReader.readFieldArray(MAX_PUBLIC_DATA_READS_PER_CALL);
 
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
@@ -242,14 +242,17 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   const unencryptedLogsHash = witnessReader.readFieldArray(NUM_FIELDS_PER_SHA256);
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  // const privateDataTreeRoot = witnessReader.readField();
-  // const nullifierTreeRoot = witnessReader.readField();
-  // const contractTreeRoot = witnessReader.readField();
-  // const l1Tol2TreeRoot = witnessReader.readField();
-  // const blocksTreeRoot = witnessReader.readField();
-  // const prevGlobalVariablesHash = witnessReader.readField();
-  // const publicDataTreeRoot = witnessReader.readField();
-  const historicPublicDataTreeRoot = witnessReader.readField();
+  const historicBlockData = new HistoricBlockData(
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    Fr.ZERO,
+    witnessReader.readField(),
+    witnessReader.readField(),
+  );
+
 
   const proverAddress = AztecAddress.fromField(witnessReader.readField());
 
@@ -271,7 +274,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     newL2ToL1Msgs,
     unencryptedLogsHash,
     unencryptedLogPreimagesLength,
-    historicPublicDataTreeRoot,
+    historicBlockData,
     proverAddress,
   );
 }

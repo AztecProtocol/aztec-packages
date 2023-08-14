@@ -14,6 +14,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
+  PublicCircuitPublicInputs,
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
@@ -22,6 +23,7 @@ import {
   makeAztecAddress,
   makeKernelPublicInputs,
   makePublicCallRequest,
+  makePublicCircuitPublicInputs,
   makeSelector,
 } from '@aztec/circuits.js/factories';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -215,6 +217,7 @@ function makePublicExecutionResultFromRequest(item: PublicCallRequest): PublicEx
     newNullifiers: [],
     contractStorageReads: [],
     contractStorageUpdateRequests: [],
+    publicInputs: PublicCircuitPublicInputs.empty(),
     unencryptedLogs: new FunctionL2Logs([]),
   };
 }
@@ -240,6 +243,7 @@ function makePublicExecutionResult(
     newL2ToL1Messages: [],
     contractStorageReads: [],
     contractStorageUpdateRequests: [],
+    publicInputs: PublicCircuitPublicInputs.empty(),
     unencryptedLogs: new FunctionL2Logs([]),
   };
 }

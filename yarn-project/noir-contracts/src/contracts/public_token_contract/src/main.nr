@@ -33,7 +33,7 @@ contract PublicToken {
         // TODO: Remove return value.
         let _hash = emit_unencrypted_log("Coins minted");
         recipient_balance.write(new_amount);
-        
+
         context.return_values.push(new_amount);
 
         context.finish()

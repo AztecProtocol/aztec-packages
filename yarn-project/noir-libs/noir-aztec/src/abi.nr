@@ -10,7 +10,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     GENERATOR_INDEX__FUNCTION_ARGS,
-    CONSTANT_HISTORIC_BLOCK_DATA_LENGTH,
+    HISTORIC_BLOCK_DATA_LENGTH,
     CONTRACT_DEPLOYMENT_DATA_LENGTH,
     CALL_CONTEXT_LENGTH,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -138,7 +138,7 @@ struct HistoricBlockData {
 
 impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; CONSTANT_HISTORIC_BLOCK_DATA_LENGTH] {
+    fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
@@ -304,8 +304,7 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    // block_data: HistoricBlockData,
-    historic_public_data_tree_root: Field,
+    block_data: HistoricBlockData,
     prover_address: Field,
 
 
@@ -331,11 +330,10 @@ impl PublicCircuitPublicInputs {
         inputs.push_array(self.new_l2_to_l1_msgs);
 
         // We do not include block_data since it's not in the cpp hash
-        // inputs.push(self.block_data.hash()); see https://github.com/AztecProtocol/aztec-packages/issues/1473
 
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push(self.historic_public_data_tree_root);
+        inputs.push_array(self.block_data.serialize()); // see https://github.com/AztecProtocol/aztec-packages/issues/1473
         inputs.push(self.prover_address);
 
         dep::std::hash::pedersen_with_separator(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
@@ -358,8 +356,7 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
-        // fields.push_array(self.block_data.serialize());
-        fields.push(self.historic_public_data_tree_root);
+        fields.push_array(self.block_data.serialize());
         fields.push(self.prover_address);
         fields.storage
     }

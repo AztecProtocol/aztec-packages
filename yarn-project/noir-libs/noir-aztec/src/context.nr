@@ -68,6 +68,8 @@ struct PrivateContext {
     public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
+    block_data: HistoricBlockData,
+
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
     // encrypted_logs_preimages: Vec<Field>,
     // unencrypted_logs_preimages: Vec<Field>,
@@ -86,6 +88,8 @@ impl PrivateContext {
             new_commitments: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
             nullified_commitments: BoundedVec::new(0),
+
+            block_data: inputs.block_data,
 
             private_call_stack: BoundedVec::new(0),
             public_call_stack: BoundedVec::new(0),
@@ -139,7 +143,7 @@ impl PrivateContext {
             unencrypted_logs_hash: unencrypted_logs_hash,
             encrypted_log_preimages_length: encrypted_log_preimages_length,
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,
-            block_data: self.inputs.block_data,
+            block_data: self.block_data,
             contract_deployment_data: self.inputs.contract_deployment_data,
             chain_id: self.inputs.private_global_variables.chain_id,
             version: self.inputs.private_global_variables.version,
@@ -349,8 +353,7 @@ impl PrivateContext {
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
-                // block_data: empty_block_data(),
-                historic_public_data_tree_root: 0,
+                block_data: self.block_data,
                 prover_address: 0,
             },
             is_execution_request: true,
@@ -398,8 +401,7 @@ struct PublicContext {
     unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
     unencrypted_logs_preimages_length: Field,
 
-    // block_data: ConstantHistoricBlockData,
-    historic_public_data_tree_root: Field,
+    block_data: HistoricBlockData,
     prover_address: Field,
 }
 
@@ -426,10 +428,8 @@ impl PublicContext {
             unencrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_preimages_length: 0,
 
-            historic_public_data_tree_root: inputs.block_data.public_data_tree_root,
+            block_data: inputs.block_data,
             prover_address: 0,
-
-
 
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
@@ -470,9 +470,14 @@ impl PublicContext {
         let unencrypted_logs_hash = [0; NUM_FIELDS_PER_SHA256];
         let unencrypted_log_preimages_length = 0;
 
-        let priv_circuit_pub_inputs = abi::PublicCircuitPublicInputs {
-            call_context: self.inputs.call_context,
-            args_hash: self.args_hash,
+
+        // Compute the public call stack hashes
+
+        // TODO: include global_variables here?
+
+        let pub_circuit_pub_inputs = abi::PublicCircuitPublicInputs {
+            call_context: self.inputs.call_context, // Done
+            args_hash: self.args_hash, // Done
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_read: self.contract_storage_read.storage,
             return_values: self.return_values.storage,
@@ -482,11 +487,10 @@ impl PublicContext {
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
             unencrypted_logs_hash: unencrypted_logs_hash,
             unencrypted_log_preimages_length: unencrypted_log_preimages_length,
-            // block_data: self.inputs.block_data,
-            historic_public_data_tree_root: self.inputs.block_data.public_data_tree_root,
+            block_data: self.inputs.block_data,
             prover_address: self.prover_address,
         };
-        priv_circuit_pub_inputs
+        pub_circuit_pub_inputs
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
@@ -503,8 +507,9 @@ impl PublicContext {
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
-    fn consume_l1_to_l2_message(&mut self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) {
-        let nullifier = process_l1_to_l2_message(inputs.block_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
+    fn consume_l1_to_l2_message(&mut self, msg_key: Field, content: Field, secret: Field) {
+        let this = (*self).this_address();
+        let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, this, msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)

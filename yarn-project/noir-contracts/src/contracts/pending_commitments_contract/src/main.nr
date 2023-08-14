@@ -215,13 +215,103 @@ contract PendingCommitments {
         args[0] = amount;
         args[1] = owner;
 
-        let this = context.this_address();
         // nested call to create/insert note
-        let _callStackItem1 = context.call_private_function(this, insert_fn_selector, args);
-        // nested call to read that note / pending commitment
-        let _callStackItem2 = context.call_private_function(this, get_then_nullify_fn_selector, args);
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
          // nested call to confirm that balance is zero
-         let _callStackItem3 = context.call_private_function(this, get_note_zero_fn_selector, [owner]);
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+
+        context.finish()
+    }
+
+    // same test as above, but insert 2, get 2, nullify 2
+    fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        // nested call to confirm that balance is zero
+        // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
+        //let _callStackItem5 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
+
+        context.finish()
+    }
+
+    // same test as above, but insert 2, get 1, nullify 1
+    fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+
+        context.finish()
+    }
+
+    // insert 1 note, then get 2 notes (one pending, one persistent) and nullify both.
+    // one nullifier will be squashed with the pending note, one will become persistent.
+    // ONLY WORKS IF THERE IS A PERSISTENT NOTE TO GET
+    fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+        insert_fn_selector: Field,
+        get_then_nullify_fn_selector: Field,
+        get_note_zero_fn_selector: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        //let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner, insert_fn_selector, get_then_nullify_fn_selector, get_note_zero_fn_selector]));
+
+        // args for nested calls
+        let mut args = [0; ARGS_LENGTH];
+        args[0] = amount;
+        args[1] = owner;
+
+        // nested call to create/insert note
+        let _callStackItem1 = context.call_private_function(inputs.call_context.storage_contract_address, insert_fn_selector, args);
+        // nested call to read and nullify that note
+        let _callStackItem2 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+        let _callStackItem3 = context.call_private_function(inputs.call_context.storage_contract_address, get_then_nullify_fn_selector, args);
+
+        let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
 
         context.finish()
     }

@@ -160,7 +160,6 @@ export class PublicExecutor {
       },
     });
 
-    // TODO: get the rest of everything from here, this should also be used to get the new Commitments, Nullifiers etc.
     const publicInputs = extractPublicCircuitPublicInputs(partialWitness, acir);
     const { returnValues } = publicInputs;
 
