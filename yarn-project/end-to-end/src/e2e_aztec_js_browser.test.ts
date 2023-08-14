@@ -99,9 +99,9 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const privateKey = PrivateKey.fromString(privateKeyString);
         await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
-        const accounts = await client.getAccounts();
-        console.log(`Created Account: ${accounts[0].toString()}`);
-        return accounts[0].toString();
+        const account = (await client.getAccounts())[0].address;
+        console.log(`Created Account: ${account.toString()}`);
+        return account.toString();
       },
       SANDBOX_URL,
       privKey.toString(),
@@ -146,7 +146,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           PrivateTokenContractAbi,
           wallet,
         );
-        const [balance] = await contract.methods.getBalance(owner).view({ from: owner.address });
+        const [balance] = await contract.methods.getBalance(owner.address).view({ from: owner.address });
         return balance;
       },
       SANDBOX_URL,

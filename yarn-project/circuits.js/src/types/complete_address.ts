@@ -16,7 +16,10 @@ import { PublicKey } from './public_key.js';
  *          https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
 export class CompleteAddress {
-  private constructor(
+  // TODO: This constructor should be private so that the check in create method is always enforced. However, this is
+  //       not possible now because we need the class to be compatible with `StringIOClass` to be able to pass it
+  //       through `JsonRpcServer`.
+  public constructor(
     /** Contract address (typically of an account contract) */
     public address: AztecAddress,
     /** Public key corresponding to the address (used during note encryption). */
@@ -58,10 +61,10 @@ export class CompleteAddress {
   }
 
   /**
-   * Gets a string representation of the complete address.
-   * @returns A string representation of the complete address.
+   * Gets a readable string representation of a the complete address.
+   * @returns A readable string representation of the complete address.
    */
-  public toString(): string {
+  public toReadableString(): string {
     return `Address: ${this.address.toString()}, Public Key: ${this.publicKey.toString()}, Partial Address: ${this.partialAddress.toString()}`;
   }
 
@@ -104,5 +107,27 @@ export class CompleteAddress {
     const publicKey = reader.readObject(Point);
     const partialAddress = reader.readObject(Fr);
     return new this(address, publicKey, partialAddress);
+  }
+
+  /**
+   * Create a CompleteAddress instance from a hex-encoded string.
+   * The input 'address' should be prefixed with '0x' or not, and have exactly 128 hex characters representing the x and y coordinates.
+   * Throws an error if the input length is invalid or coordinate values are out of range.
+   *
+   * @param address - The hex-encoded string representing the complete address.
+   * @returns A Point instance.
+   */
+  static fromString(address: string): CompleteAddress {
+    return this.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
+  }
+
+  /**
+   * Convert the CompleteAddress to a hexadecimal string representation, with a "0x" prefix.
+   * The resulting string will have a length of 66 characters (including the prefix).
+   *
+   * @returns A hexadecimal string representation of the CompleteAddress.
+   */
+  toString(): string {
+    return `0x${this.toBuffer().toString('hex')}`;
   }
 }

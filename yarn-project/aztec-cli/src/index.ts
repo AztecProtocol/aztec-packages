@@ -125,7 +125,7 @@ async function main() {
       );
       const accounts = await wallet.getAccounts();
       log(`\nCreated account(s).`);
-      accounts.map(acc => log(acc.toString()));
+      accounts.map(acc => log(acc.toReadableString()));
     });
 
   program
@@ -291,7 +291,7 @@ async function main() {
       } else {
         log(`Accounts found: \n`);
         for (const account of accounts) {
-          log(account.toString());
+          log(account.toReadableString());
         }
       }
     });
@@ -309,7 +309,7 @@ async function main() {
       if (!account) {
         log(`Unknown account ${_address}`);
       } else {
-        log(account.toString());
+        log(account.toReadableString());
       }
     });
 
