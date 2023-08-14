@@ -111,7 +111,6 @@ describe('e2e_pending_commitments_contract', () => {
     // Kernel will squash both noteHashes and their nullifier.
     // Realistic way to describe this test is "Mint notes A and B, then burn both in the same transaction"
     const mintAmount = 65n;
-    const [owner] = accounts;
 
     const deployedContract = await deployContract();
 
@@ -138,7 +137,6 @@ describe('e2e_pending_commitments_contract', () => {
     // The other note will become persistent!
     // Realistic way to describe this test is "Mint notes A and B, then burn note A in the same transaction"
     const mintAmount = 65n;
-    const [owner] = accounts;
 
     const deployedContract = await deployContract();
 
@@ -166,7 +164,6 @@ describe('e2e_pending_commitments_contract', () => {
     // but the nullifier for the persistent note (from the first TX) will itself become persistent.
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     const mintAmount = 65n;
-    const [owner] = accounts;
 
     const deployedContract = await deployContract();
 
