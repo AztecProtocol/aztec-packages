@@ -88,6 +88,7 @@ export class AztecRPCServer implements AztecRPC {
 
   public async addAccount(account: CompleteAddress): Promise<void> {
     await this.db.addAccount(account);
+    this.synchroniser.addAccount(account.publicKey, this.keyStore);
     this.log.info(`Added account: ${account.toString()}`);
   }
 
