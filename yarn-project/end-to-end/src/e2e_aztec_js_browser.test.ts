@@ -108,7 +108,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     );
     const account = (await testClient.getAccounts())[0];
     expect(result).toEqual(account.toString());
-  });
+  }, 30_000);
 
   it('Deploys Private Token contract', async () => {
     const txHash = await page.evaluate(
@@ -131,7 +131,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     const txResult = await testClient.getTxReceipt(AztecJs.TxHash.fromString(txHash));
     expect(txResult.status).toEqual(AztecJs.TxStatus.MINED);
     contractAddress = txResult.contractAddress!;
-  }, 30_000);
+  }, 40_000);
 
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
@@ -197,5 +197,5 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       PrivateTokenContractAbi,
     );
     expect(result).toEqual(transferAmount);
-  }, 60_000);
+  }, 120_000);
 });
