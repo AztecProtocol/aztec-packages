@@ -14,6 +14,7 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { createConsoleLogger, createDebugLogger } from '@aztec/foundation/log';
+import { compileContract } from '@aztec/noir-compiler/cli';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { CompleteAddress, ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
 
@@ -467,6 +468,8 @@ async function main() {
       const names = Object.keys(abisList);
       names.forEach(name => log(name));
     });
+
+  compileContract(program, 'compile', log);
 
   await program.parseAsync(process.argv);
 }
