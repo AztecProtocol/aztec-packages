@@ -63,4 +63,19 @@ export class CompleteAddress {
   public toString(): string {
     return `Address: ${this.address.toString()}, Public Key: ${this.publicKey.toString()}, Partial Address: ${this.partialAddress.toString()}`;
   }
+
+  /**
+   * Determines if this CompleteAddress instance is equal to the given CompleteAddress instance.
+   * Equality is based on the content of their respective buffers.
+   *
+   * @param other - The CompleteAddress instance to compare against.
+   * @returns True if the buffers of both instances are equal, false otherwise.
+   */
+  equals(other: CompleteAddress) {
+    return (
+      this.address.equals(other.address) &&
+      this.publicKey.equals(other.publicKey) &&
+      this.partialAddress.equals(other.partialAddress)
+    );
+  }
 }

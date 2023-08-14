@@ -9,4 +9,16 @@ describe('CompleteAddress', () => {
       /cannot be derived/,
     );
   });
+
+  it('equals returns true when 2 instances are equal', async () => {
+    const address1 = await CompleteAddress.random();
+    const address2 = await CompleteAddress.create(address1.address, address1.publicKey, address1.partialAddress);
+    expect(address1.equals(address2)).toBe(true);
+  });
+
+  it('equals returns true when 2 instances are not equal', async () => {
+    const address1 = await CompleteAddress.random();
+    const address2 = await CompleteAddress.random();
+    expect(address1.equals(address2)).toBe(false);
+  });
 });
