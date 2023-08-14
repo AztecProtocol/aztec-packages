@@ -10,7 +10,11 @@ The Aztec CLI is a tool designed to enable a user to interact with the Aztec Net
 
 The Aztec CLI is an npm package so you will need to have installed node.js >= 18. This tutorial will use the Aztec Sandbox so you should first set up the sandbox using the link above.
 
-To install the Aztec CLI simply:
+To install the Aztec CLI run:
+
+`npm install -g @aztec/cli`
+
+Or if you use yarn:
 
 `yarn global add @aztec/cli`
 
