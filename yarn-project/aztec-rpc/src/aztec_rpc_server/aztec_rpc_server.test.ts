@@ -46,13 +46,22 @@ describe('AztecRpcServer', function () {
     expect(recipients).toEqual([completeAddress]);
   });
 
-  it('cannot add the same account twice', async () => {
+  it('cannot register the same account twice', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
     await rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
     await expect(async () => rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
-      `Account ${completeAddress.address} already exists`,
+      `Complete address ${completeAddress.address} already exists`,
+    );
+  });
+
+  it('cannot register the same recipient twice', async () => {
+    const completeAddress = await CompleteAddress.random();
+
+    await rpcServer.registerRecipient(completeAddress);
+    await expect(() => rpcServer.registerRecipient(completeAddress)).rejects.toThrow(
+      `Complete address ${completeAddress.address} already exists`,
     );
   });
 

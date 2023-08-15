@@ -264,7 +264,7 @@ async function main() {
 
   program
     .command('register-recipient')
-    .description('Register an account in the Aztec RPC.')
+    .description('Register a recipient in the Aztec RPC.')
     .option('-a, --address <aztecAddress>', "The account's Aztec address.")
     .option('-p, --public-key <publicKey>', 'The account public key.')
     .option('-pa, --partial-address <partialAddress', 'The partially computed address of the account contract.')
@@ -332,7 +332,7 @@ async function main() {
 
   program
     .command('get-recipient')
-    .description('Gets an recipient given its Aztec address.')
+    .description('Gets a recipient given its Aztec address.')
     .argument('<address>', 'The Aztec address to get recipient for')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_address, options) => {

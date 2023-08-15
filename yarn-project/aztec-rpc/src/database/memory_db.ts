@@ -96,7 +96,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   addCompleteAddress(account: CompleteAddress): Promise<void> {
     const accountIndex = this.accounts.findIndex(r => r.address.equals(account.address));
     if (accountIndex !== -1) {
-      throw new Error(`Account ${account.address.toString()} already exists in memory database`);
+      throw new Error(`Complete address ${account.address.toString()} already exists in memory database`);
     }
     this.accounts.push(account);
     return Promise.resolve();

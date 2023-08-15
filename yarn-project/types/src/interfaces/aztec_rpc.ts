@@ -67,24 +67,24 @@ export interface AztecRPC {
    * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
-   * @param completeAddress - Complete address of the account.
+   * @param account - A complete address of the account.
    * @returns Empty promise.
    */
-  registerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
+  registerAccount(privKey: PrivateKey, account: CompleteAddress): Promise<void>;
 
   /**
-   * Registers recipient account in the Aztec RPC server.
-   * @param account - A complete address.
+   * Registers recipient in the Aztec RPC server.
+   * @param recipient - A complete address of the recipient
    * @returns Empty promise.
    * @remarks Called recipient because we can only send notes to this account and not receive them via this RPC server.
    *          This is because we don't have the associated private key and for this reason we can't decrypt
    *          the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    *          public key.
    */
-  registerRecipient(account: CompleteAddress): Promise<void>;
+  registerRecipient(recipient: CompleteAddress): Promise<void>;
 
   /**
-   * Retrieves the list of complete addresses added to this rpc server
+   * Retrieves the list of accounts added to this rpc server.
    * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
    * @returns A promise that resolves to an array of the accounts registered on this RPC server.
@@ -99,7 +99,7 @@ export interface AztecRPC {
   getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the list of complete addresses added to this rpc server
+   * Retrieves the list of recipients added to this rpc server.
    * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
    * @returns A promise that resolves to an array registered recipients on this RPC server.
