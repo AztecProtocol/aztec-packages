@@ -23,3 +23,5 @@ We can check Alice's private token balance by querying the contract:
 And use Alice's private key to [send a transaction](../concepts/foundation/transactions.md) to transfer tokens to Bob, and check the result:
 
 #include_code transfer yarn-project/end-to-end/src/guides/up_quick_start.sh bash noTitle,noLineNumbers,noSourceLink
+
+To learn more, check out an extended version of this quick start [on our docs](../dev_docs/getting_started/cli.md).
