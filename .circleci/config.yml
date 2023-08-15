@@ -915,6 +915,17 @@ jobs:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
 
+  aztec-rpc:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end aztec_rpc.test.ts docker-compose-e2e-sandbox.yml
+
   e2e-canary-test:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1301,6 +1312,7 @@ workflows:
       - e2e-p2p: *e2e_test
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
+      - aztec-rpc: *e2e_test
 
       - e2e-end:
           requires:
@@ -1326,6 +1338,7 @@ workflows:
             - e2e-p2p
             - e2e-browser-sandbox
             - e2e-canary-test
+            - aztec-rpc
           <<: *defaults
 
       - deploy-dockerhub:
