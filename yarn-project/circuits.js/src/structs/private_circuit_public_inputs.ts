@@ -13,8 +13,8 @@ import {
 import { FieldsOf, assertMemberLength } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { ContractDeploymentData } from './tx_context.js';
 import { HistoricBlockData } from './index.js';
+import { ContractDeploymentData } from './tx_context.js';
 
 /**
  * Public inputs to a private circuit.

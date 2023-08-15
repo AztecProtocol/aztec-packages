@@ -86,16 +86,16 @@ export class HistoricBlockData {
    * @returns Array of items in the order they are stored in the contract
    */
   toArray(): Fr[] {
-        return[
-         this.privateDataTreeRoot,
-                 this.nullifierTreeRoot,
-                 this.contractTreeRoot,
-                 this.l1ToL2MessagesTreeRoot,
-                 this.blocksTreeRoot,  // Note private_kernel_vk_tree_root, is not included yet as
-                                    // it is not present in noir,
-                 this.publicDataTreeRoot,
-                 this.globalVariablesHash
-        ]
+    return [
+      this.privateDataTreeRoot,
+      this.nullifierTreeRoot,
+      this.contractTreeRoot,
+      this.l1ToL2MessagesTreeRoot,
+      this.blocksTreeRoot, // Note private_kernel_vk_tree_root, is not included yet as
+      // it is not present in noir,
+      this.publicDataTreeRoot,
+      this.globalVariablesHash,
+    ];
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {

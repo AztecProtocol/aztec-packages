@@ -227,7 +227,7 @@ export class PrivateFunctionExecution {
       this.callContext.isContractDeployment,
 
       ...blockData.toArray(),
-      
+
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,
       contractDeploymentData.constructorVkHash,

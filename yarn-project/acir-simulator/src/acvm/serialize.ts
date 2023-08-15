@@ -2,10 +2,10 @@ import {
   CallContext,
   ContractDeploymentData,
   FunctionData,
+  HistoricBlockData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
   PublicCallRequest,
-  HistoricBlockData
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -61,7 +61,6 @@ export function toACVMContractDeploymentData(contractDeploymentData: ContractDep
   ];
 }
 
-
 /**
  * Converts a historic block data into ACVM fields.
  * @param historicBlockData - The historic block data object to convert.
@@ -76,7 +75,7 @@ export function toACVMHistoricBlockData(historicBlockData: HistoricBlockData): A
     toACVMField(historicBlockData.blocksTreeRoot),
     toACVMField(historicBlockData.publicDataTreeRoot),
     toACVMField(historicBlockData.globalVariablesHash),
-  ]
+  ];
 }
 
 /**

@@ -512,7 +512,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     const blockData = tx.data.constants.blockData;
-    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, publicDataTreeRoot } = blockData;
+    const { privateDataTreeRoot, nullifierTreeRoot, contractTreeRoot, l1ToL2MessagesTreeRoot, publicDataTreeRoot } =
+      blockData;
     const blockHash = computeBlockHash(
       wasm,
       blockData.globalVariablesHash,
