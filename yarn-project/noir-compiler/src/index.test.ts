@@ -20,6 +20,8 @@ function isNargoAvailable() {
   }
 }
 
+const describeIf = (cond: () => boolean) => (cond() ? describe : xdescribe);
+
 describe('noir-compiler', () => {
   let projectPath: string;
   beforeAll(() => {
@@ -27,9 +29,8 @@ describe('noir-compiler', () => {
     projectPath = path.join(currentDirName, 'fixtures/test_contract');
   });
 
-  describe('using nargo binary', () => {
+  describeIf(isNargoAvailable)('using nargo binary', () => {
     it('compiles the test contract using nargo', async () => {
-      if (!isNargoAvailable()) return;
       const compiled = await compileUsingNargo(projectPath);
       expect(compiled).toMatchSnapshot();
     });
