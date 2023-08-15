@@ -6,14 +6,15 @@ import {
   TxStatus,
   Wallet,
   computeMessageSecretHash,
-  createAccounts,
   createAztecRpcClient,
   createDebugLogger,
   getL1ContractAddresses,
+  getSandboxAccountsWallet,
   mustSucceedFetch,
+  sleep,
+  waitForSandbox,
 } from '@aztec/aztec.js';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
-import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { NonNativeTokenContract, UniswapContract } from '@aztec/noir-contracts/types';
 
 import {
@@ -30,7 +31,7 @@ import {
 import { mnemonicToAccount } from 'viem/accounts';
 import { Chain, foundry } from 'viem/chains';
 
-import { delay, deployAndInitializeNonNativeL2TokenContracts, deployL1Contract, waitForRPCServer } from './utils.js';
+import { deployAndInitializeNonNativeL2TokenContracts, deployL1Contract } from './utils.js';
 
 const logger = createDebugLogger('aztec:canary');
 
@@ -137,8 +138,7 @@ async function deployAllContracts(
 }
 
 const getL2BalanceOf = async (owner: AztecAddress, l2Contract: NonNativeTokenContract) => {
-  const [balance] = await l2Contract.methods.getBalance(owner).view({ from: owner });
-  return balance;
+  return await l2Contract.methods.getBalance(owner).view({ from: owner });
 };
 
 const expectBalanceOnL2 = async (owner: AztecAddress, expectedBalance: bigint, l2Contract: NonNativeTokenContract) => {
@@ -167,7 +167,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   let publicClient: PublicClient<HttpTransport, Chain>;
   let walletClient: WalletClient<HttpTransport, Chain, HDAccount>;
   beforeAll(async () => {
-    await waitForRPCServer(aztecRpcClient);
+    await waitForSandbox(aztecRpcClient);
 
     walletClient = createWalletClient({
       account: hdAccount,
@@ -184,11 +184,11 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     }
 
     ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
-  });
+  }, 60_000);
   it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     logger('Running L1/L2 messaging test on HTTP interface.');
 
-    wallet = await createAccounts(aztecRpcClient, SchnorrSingleKeyAccountContractAbi, privateKey!, Fr.random(), 2);
+    wallet = await getSandboxAccountsWallet(aztecRpcClient);
     const accounts = await wallet.getAccounts();
     const owner = accounts[0].address;
     const receiver = accounts[1].address;
@@ -240,7 +240,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const messageKey = Fr.fromString(messageKeyHex);
 
     // Wait for the archiver to process the message
-    await delay(5000);
+    await sleep(5000);
     // send a transfer tx to force through rollup with the message included
     const transferAmount = 1n;
     await transferWethOnL2(wethL2Contract, owner, receiver, transferAmount);
@@ -324,7 +324,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const daiAmountToBridge = daiBalanceOfPortalAfter - daiBalanceOfPortalBefore;
 
     // Wait for the archiver to process the message
-    await delay(5000);
+    await sleep(5000);
     // send a transfer tx to force through rollup with the message included
     await transferWethOnL2(wethL2Contract, owner, receiver, transferAmount);
 

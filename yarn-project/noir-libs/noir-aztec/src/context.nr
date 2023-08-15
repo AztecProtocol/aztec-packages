@@ -21,7 +21,7 @@ use crate::abi::{
     hash_args,
     CallContext,
     ContractDeploymentData,
-    ConstantHistoricBlockData,
+    HistoricBlockData,
     FunctionData,
     PrivateCircuitPublicInputs,
     PublicCircuitPublicInputs,
@@ -247,7 +247,7 @@ impl Context {
                 unencrypted_logs_hash: arr_copy_slice(fields, [0; NUM_FIELDS_PER_SHA256], 44),
                 encrypted_log_preimages_length: fields[46],
                 unencrypted_log_preimages_length: fields[47],
-                block_data: ConstantHistoricBlockData {
+                block_data: HistoricBlockData {
                     // Must match order in `private_circuit_public_inputs.hpp`
                     private_data_tree_root : fields[48],
                     nullifier_tree_root : fields[49],
@@ -296,7 +296,7 @@ impl Context {
         contract_address: Field, 
         function_selector: Field, 
         args: [Field; ARGS_COUNT]
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) {
         let args_hash = hash_args(args);
         assert(args_hash == arguments::pack_arguments(args));
         self.call_public_function_with_packed_args(contract_address, function_selector, args_hash)
@@ -306,7 +306,7 @@ impl Context {
         &mut self,
         contract_address: Field, 
         function_selector: Field,
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) {
         self.call_public_function_with_packed_args(contract_address, function_selector, 0)
     }
 
@@ -315,7 +315,7 @@ impl Context {
         contract_address: Field,
         function_selector: Field,
         args_hash: Field
-    ) -> [Field; RETURN_VALUES_LENGTH] {
+    ) {
         let fields = enqueue_public_function_call_internal(
             contract_address, 
             function_selector, 
@@ -372,7 +372,5 @@ impl Context {
         assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
         self.public_call_stack.push(item.hash());
-
-        item.public_inputs.return_values
     }
 }
