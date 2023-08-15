@@ -3,22 +3,19 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair, TestKeyStore } from '@aztec/key-store';
 import { AztecNode } from '@aztec/types';
 
-import { MockProxy, mock } from 'jest-mock-extended';
+import { mock } from 'jest-mock-extended';
 
 import { MemoryDB } from '../database/memory_db.js';
 import { RpcServerConfig } from '../index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
 describe('AztecRpcServer', function () {
-  let keyStore: TestKeyStore;
-  let db: MemoryDB;
-  let node: MockProxy<AztecNode>;
   let rpcServer: AztecRPCServer;
 
   beforeEach(async () => {
-    keyStore = new TestKeyStore(await Grumpkin.new());
-    node = mock<AztecNode>();
-    db = new MemoryDB();
+    const keyStore = new TestKeyStore(await Grumpkin.new());
+    const node = mock<AztecNode>();
+    const db = new MemoryDB();
     const config: RpcServerConfig = {
       l2BlockPollingIntervalMS: 100,
     };
