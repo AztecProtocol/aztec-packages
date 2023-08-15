@@ -97,10 +97,15 @@ $$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega,
     * Computing $pow_i(\vec{\beta} + X\vec{\delta})$ 
         * naively, the cost of computing this is $O(n \log n)$ but the paper provides a smart way to compute it in $O(n)$
             * TODO: unroll the linear algorithm in the paper
-        * the current sumcheck code computes $pow_{\zeta}$, we need to modify the sumcheck code to compute $pow_{\beta + X\gamma}$ and presumably in a more efficient way
-            * i.e. univariates rather than values
+        * the current sumcheck code computes $pow_{\zeta}$, we need to modify/rewrite to compute $pow_{\vec{\beta} + X\vec{\gamma}}$ 
+            * TODO: look at the code to understand what can be reused
+        * following the paper notation, my understaing is 
+            * $\vec{\beta} + X\vec{\gamma} = (\beta + X\gamma, \beta^2 + X\gamma^2, \ldots, \beta^{2^{t -1}} + X\gamma^{2^{t -1}})$ let's call this vector $\vec{v} = (v_1,..., v_t)$
+                * so $pow_i(\vec{\beta} + X\vec{\gamma}) = pow_i(\vec{v}) = \prod_{j{}} v_j$ where $i = \sum_j 2^j$
             
-    * final $F$ will be a polynomial of degree $t = log(n)$
+       
+            
+* final $F$ will be a polynomial of degree $t = log(n)$
 4. $P$ sends $F_1, \ldots,F_{t}$ to $V$
 5. $V$ sends random challenge $\alpha \in \mathbb{F}$
     * In the noninteractive setting, this means adding another $logn$ scalars to the transcript 
