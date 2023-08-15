@@ -90,11 +90,11 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         auto recursive_manifest = verifier.transcript.get_manifest();
         auto native_manifest = native_verifier.transcript.get_manifest();
         // Note: Recursive manifest currently goes only though sumcheck
+        recursive_manifest.print();
+        native_manifest.print();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }
-        recursive_manifest.print();
-        native_manifest.print();
     };
 
   public:

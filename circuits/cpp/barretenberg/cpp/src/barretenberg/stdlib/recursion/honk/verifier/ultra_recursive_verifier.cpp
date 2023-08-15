@@ -42,10 +42,10 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
-    // using Curve = typename Flavor::Curve;
-    // using PCS = typename Flavor::PCS;
-    // using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
+    using Curve = typename Flavor::Curve;
+    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
     // using Shplonk = pcs::shplonk::ShplonkVerifier_<PCSParams>;
+    // using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
@@ -133,19 +133,9 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     if (!sumcheck_output.has_value()) {
         return false;
     }
-    // else {
-    //     return true;
-    // }
 
+    // Extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported multivariate evaluations at u
     auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
-
-    // Execute Gemini/Shplonk verification:
-
-    // Construct inputs for Gemini verifier:
-    // - Multivariate opening point u = (u_0, ..., u_{d-1})
-    // - batched unshifted and to-be-shifted polynomial commitments
-    // auto batched_commitment_unshifted = GroupElement(GroupElement::NativeGroup::zero());
-    // auto batched_commitment_to_be_shifted = GroupElement(0);
 
     // Compute powers of batching challenge rho
     FF rho = transcript.get_challenge("rho");
@@ -175,20 +165,22 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     // do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
+    // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
     auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
     auto batched_commitment_to_be_shifted =
         GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
-    (void)batched_commitment_unshifted;
-    (void)batched_commitment_to_be_shifted;
 
     // Produce a Gemini claim consisting of:
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
-    // auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
-    //                                           batched_evaluation,
-    //                                           batched_commitment_unshifted,
-    //                                           batched_commitment_to_be_shifted,
-    //                                           transcript);
+    auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
+                                              batched_evaluation,
+                                              batched_commitment_unshifted,
+                                              batched_commitment_to_be_shifted,
+                                              transcript);
+
+    // Note(luke): Temporary. Done only to complete manifest through Gemini. Delete once we proceed to Shplonk.
+    [[maybe_unused]] FF nu = transcript.get_challenge("Shplonk:nu");
 
     // DEBUG!
     return true;
