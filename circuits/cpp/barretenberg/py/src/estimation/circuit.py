@@ -28,7 +28,6 @@ class CircuitNoPCS:
                               MSM(flavor.NUM_SHIFTED_POLYNOMIALS),
                               MSM(2),
                               MSM(2),
-                              MSM(log_n),
                               MSM(1 + log_n)]
 
         self.proof_size = flavor.base_proof_size
