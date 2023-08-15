@@ -106,7 +106,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       SANDBOX_URL,
       privKey.toString(),
     );
-    const account = (await testClient.getAccounts())[0];
+    const account = (await testClient.getAccounts())[0].address;
     expect(result).toEqual(account.toString());
   });
 
