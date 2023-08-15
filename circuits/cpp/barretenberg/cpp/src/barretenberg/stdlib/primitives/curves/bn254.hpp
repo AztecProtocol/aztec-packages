@@ -9,6 +9,7 @@ namespace stdlib {
 
 template <typename CircuitBuilder> struct bn254 {
     static constexpr proof_system::CurveType type = proof_system::CurveType::BN254;
+    static constexpr bool is_stdlib_type = true;
 
     // Corresponding native types (used exclusively for testing)
     using ScalarFieldNative = curve::BN254::ScalarField;

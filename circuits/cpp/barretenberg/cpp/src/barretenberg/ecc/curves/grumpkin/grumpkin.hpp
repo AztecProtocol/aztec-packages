@@ -42,5 +42,7 @@ class Grumpkin {
     using Group = typename grumpkin::g1;
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
+
+    static constexpr bool is_stdlib_type = false;
 };
 } // namespace curve

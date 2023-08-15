@@ -17,5 +17,7 @@ class BN254 {
     using G2AffineElement = typename barretenberg::g2::affine_element;
     using G2BaseField = typename barretenberg::fq2;
     using TargetField = barretenberg::fq12;
+
+    static constexpr bool is_stdlib_type = false;
 };
 } // namespace curve

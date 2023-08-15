@@ -163,7 +163,7 @@ template <typename Curve> class ShplonkVerifier_ {
      */
     static OpeningClaim<Curve> reduce_verification(std::shared_ptr<VK> vk,
                                               std::span<const OpeningClaim<Curve>> claims,
-                                              VerifierTranscript<Fr>& transcript)
+                                              auto& transcript)
     {
         const size_t num_claims = claims.size();
 
@@ -179,21 +179,25 @@ template <typename Curve> class ShplonkVerifier_ {
         //      = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  +                    G₀ [1]
 
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ )
-        Fr G_commitment_constant{ Fr::zero() };
+        auto G_commitment_constant = Fr(0);
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
         GroupElement G_commitment = Q_commitment;
 
-        // {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-        std::vector<Fr> inverse_vanishing_evals;
-        inverse_vanishing_evals.reserve(num_claims);
+        // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
+        // WORKTODO: doing innefficient inversion for now  since batch inversion is not implemented for field_t
+        std::vector<Fr> vanishing_evals;
+        vanishing_evals.reserve(num_claims);
         for (const auto& claim : claims) {
-            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+            vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
-        Fr::batch_invert(inverse_vanishing_evals);
+        std::vector<Fr> inverse_vanishing_evals;
+        for (const auto& val : vanishing_evals) {
+            inverse_vanishing_evals.emplace_back(val.invert());
+        }
 
-        Fr current_nu{ Fr::one() };
+        auto current_nu = Fr(1);
         for (size_t j = 0; j < num_claims; ++j) {
             // (Cⱼ, xⱼ, vⱼ)
             const auto& [opening_pair, commitment] = claims[j];
@@ -210,10 +214,15 @@ template <typename Curve> class ShplonkVerifier_ {
         // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
 
         //  GroupElement sort_of_one{ x, y };
-        G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
+        if constexpr (Curve::is_stdlib_type) {
+            auto ctx = nu.get_context();
+            G_commitment += GroupElement::one(ctx) * G_commitment_constant;
+        } else {
+            G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
+        }
 
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, Fr::zero() }, G_commitment };
+        return { { z_challenge, Fr(0) }, G_commitment };
     };
 };
 } // namespace proof_system::honk::pcs::shplonk
