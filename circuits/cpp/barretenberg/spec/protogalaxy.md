@@ -89,10 +89,11 @@ $\ProtoGalaxy(\Phi = (\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); \omega, \o
         * this consists of 48 polynomials defined in flavor, the maximum degree among them being 6
         * unlike what happens in sumcheck, we will evaluate each full Honk relation at $i$ (we need code to do that) bu getting all the $f_i$ is a linear operation
     * Computing $pow_i(\vec{\beta} + X\vec{\delta})$ 
-        * naively, the cost of this is $O(n \log n)$ but the paper provides a smart way to compute it in $O(n)$
+        * naively, the cost of computing this is $O(n \log n)$ but the paper provides a smart way to compute it in $O(n)$
+            * TODO: unroll the linear algorithm in the paper
         * the current sumcheck code computes $pow_{\zeta}$, we need to modify the sumcheck code to compute $pow_{\beta + X\gamma}$ and presumably in a more efficient way
             * i.e. univariates rather than values
-            * TODO: unroll the linear algorithm in the paper
+            
     * final $F$ will be a polynomial of degree $t = log(n)$
 4. $P$ sends $F_1, \ldots,F_{t}$ to $V$
 5. $V$ sends random challenge $\alpha \in \mathbb{F}$
@@ -125,7 +126,21 @@ $G(X) = F(\alpha)L_0(X) + Z(X)K(X)$
 
 ProtoGalaxy requires 3 rather than  $2k\log n$ ($\log n$ for sumcheck and $\log n$ zeromorph + gemini) values from the random oracle.
 
+## Estimations of computing K
 
+(WARNING this are very hand wavy)
+
+Option 2:
+* for simplicity assume $G(X) =  X^{dk}, Z(X) = X^{k+1} -1, L_0(X) = X^k$ and look at multiplications
+    * to get all the values we perform the following numbers of multiplications between scalars :
+        * $k(d-1)dk$ for $G$
+        * $k(d-1)(k+1)$ for $Z$
+        * $k(d-1)k$ for $L_0$
+        * in total this is $k(d-1)(dk+ 2k +1)$
+
+
+Option 1:
+* would be worst case $d^2k^2$ (?)
         
 
 
