@@ -1,6 +1,8 @@
 # ProtoGalaxy Implementation Spec
 
 $$
+\newcommand{\MAX}{\text{MAX}}
+\newcommand{\dMAX}{d_\MAX}
 \newcommand{\circuitsize}{n}
 \newcommand{\Rel}{\text{Rel}}
 \newcommand{\UGH}{\text{UGH}}
@@ -20,6 +22,8 @@ $$
 \newcommand{\Honk}{\text{Honk}}
 $$
 
+TODO: names for the globals: 48; 26
+TODO: max degree is 5 (right?) and max relation length is one greater than that.
 # Background
 We will use [ProtoGalaxy](https://eprint.iacr.org/archive/2023/1106/1690490682.pdf) to fold [UltraGoblinHonk](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/honk/flavor/goblin_ultra.hpp) claims. The UltraGoblinHonk (UGH) proving system construct proofs for satisfying assignments for circuits built using [UltraCircuitBuilder](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp). The circuits built using this builder class encode application logic and witnesses in an execution trace $\Trace$:
 
@@ -27,9 +31,9 @@ We will use [ProtoGalaxy](https://eprint.iacr.org/archive/2023/1106/1690490682.p
 |-----|-------|-------|-------|-------|-------|-------|-----|
 | 0   | *     | *     | *     | *     | *     | *     | *   |
 | 1   | *     | *     | *     | *     | *     | *     | *   |
-| 2   | *     | *     | *     | *     | *     | *     | *   |
-| 3   | *     | *     | *     | *     | *     | *     | *   |
-| 4   | *     | *     | *     | *     | *     | *     | *   |
+| ... | ...   | ...   | ...   | ...   | ...   | ...   | ... |
+| n-1 | *     | *     | *     | *     | *     | *     | *   |
+| n   | *     | *     | *     | *     | *     | *     | *   |
 
 Additional witnesses ($Z_\perm$ and $Z_\lookup$) and auxiliary polynomials (Lagrange polynomials e.g.) are derived and stored alongside the polynomials in the execution trace in a `GoblinUltra::ProverPolynomials` instance $\Polys$, which we can model here as a tuple of $\NumPolys$-many polynomials. The claim of interest to the UGH prover is that the full aggregated UGH relation, a polynomial in variables
 $$
@@ -44,6 +48,7 @@ $$
 &+ \alpha^{6}\cdot\Rel_\ECCOpQueue(X_1,\ldots, X_{\NumPolys})\\
 \end{aligned}
 $$
+
 evaluates to 0 on $\Polys_i$ for $i=0,\ldots,\circuitsize-1$, where $n$ is the circuit size. This claim gets repackaged as the claim...
 Each $X$ is a polynomial
 
@@ -52,38 +57,39 @@ Each $X$ is a polynomial
  We unroll the protocol presented in the paper.
 
  ### Relating Paper to Code
- * $\omega$ is the Honk polynomials, for UGH there are 48 of them found in the GoblinUltra flavor
-    * these polynomials are represented in evaluation form over the boolean hypercube $\{0,1\}^d$ where $d = \log n$ and $n$ is the circuit size
+ * $\omega$ is the Honk polynomials $\Polys$, for UGH there are 48 of them found in the GoblinUltra flavor
+    * these polynomials are represented in evaluation form over the boolean hypercube $\{0,1\}^t$ where $t = \log n$ and $n$ is the circuit size (note that the code and earlier Honk resources use $d$ instead of $t$).
  * $f$ in ProtoGalaxy is the full $\Rel_{UGH}$ itself
  * in Honk's sumcheck, each round constructs univariates over two consecutive rows in the table
-    * for each row $i$ the table above is populated with the evaluation of Honk polynomials at $i$
-    * to represent this univariates we need $d + 1$ evaluations
-* when we see $f_i(w)$ in ProtoGalaxy this means the evaluation of the 48 polynomials involved in $\Rel_{UGH}$ at $i$ i.e. $\Trace_i$
+    * the $i$-th row of the execution trace is filled with the evaluation of the Honk polynomials $\Polys$ at $i$, represented as a point of the hypercube
+    * to represent each univariate we need $\dMAX + 1$ evaluations
+* The value $f_i(\omega)$ in ProtoGalaxy is equal to $\Rel_{UGH}(\Trace_i)$, the evaluation of the full relation on the $i$-th row of the execution trace.
+
 ### Notation:
 
-* $k$ is the number of instances we fold with our accumulator, the exact value of $k$ is an open question as the paper presents various techniques with trade-offs
+* $k$ is the number of instances we fold with our accumulator, the exact value of $k$ we will use is an open question as the paper presents various techniques with trade-offs
 
 * $\log(n) = t$
 
-* Define the vanishing polynomial as $Z(X) = \prod_{a \in \mathbb{H}}(X - a)$
+* Define the vanishing polynomial as $Z(X) = \prod_{a \in \mathbb{H}}(X - a)$ where:
     * In our case $\mathbb{H} = {0,\ldots, k}$
-    * It's Lagrange base is $L_0(X), \ldots, L_k(X)$ where
-     $L_i(X) = \prod_{{0 \ldots n , i \neq k}} (X - k) / (i - k)$
+    * Its Lagrange base is $L_0(X), \ldots, L_k(X)$ where
+     $L_i(X) = \prod_{j\in \{0 \ldots k \},\,, j\neq i} \tfrac{(X-j)}{(i-j)}$
+
         * these polynomials have degree $k$
 
 
 
-$\ProtoGalaxy(\Phi = (\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); \omega, \omega_1,\ldots, \omega_k))$
+$$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega, \omega_1,\ldots, \omega_k)))$$
 (semicolumn separates public and private inputs)
 
 1. $V \rightarrow P:\delta \in \mathbb{F}$
     * to achieve this noninteractively, we add ($k + 1$) public inputs corresponding to each instance, $e$ and $\vec{\beta}$ to the transcript
       * $\vec{\beta}$ has size aprox $\log(n)$ so in total we add to the transcript (i.e. hash) $log(n) + 1$ scalars and $Pub_{tot}$ group elements from all the instances $\phi$
-      * $Pub_{tot} = k(26 + Pub_{\omega_i})$
-       * $26$ is the number of selector polynomials whose commitments the verifier has as public inputs in $UGH$
-       * $Pub_{\omega_i}$ is the number of public inputs of $\omega_i$
-            * note that this can vary for each instance $\omega_i$ but $Pub_{tot}$ will have an upper bound
-2. $P, V$ compute $\vec{\delta} = (\delta, \delta^2, \ldots, \delta^{2^{t -1}})$ , presumamby  this can be computed in $O(\log n)$
+      * $Pub_{tot} = 26k + \sum Pub_{\omega_i}$, where: 
+        - $26$ is the number of selector polynomials whose commitments the verifier has as public inputs in $UGH$ 
+        - $Pub_{\omega_i}$ is the number of public inputs of $\omega_i$ note that this can vary for each instance $\omega_i$ but in practice we will haave to bound $Pub_{tot}$.
+2. $P, V$ compute $\vec{\delta} = (\delta, \delta^2, \ldots, \delta^{2^{t -1}})$ , which can be computed with $t-1$ squaring operations.
 3. $P$ computes  $F(X) = \sum_{i \in [n]} pow_i(\vec{\beta} + X\vec{\delta})f_i(\omega)$
     * $i$ corresponds to the rows in the sumcheck matrix and $\omega$ is the full $\Honk$ relation 
         * this consists of 48 polynomials defined in flavor, the maximum degree among them being 6
