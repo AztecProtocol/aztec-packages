@@ -19,7 +19,7 @@ pip3 install --user scipy==1.5.4
 cd $BASE_DIR
 mkdir $BENCH_RESULTS_DIR
 
-# 
+# Build and run the benchmarks 
 echo -e '\nBuilding native benchmarks.'
 cmake --preset bench > /dev/null && cmake --build --preset bench --target native_bench
 cd build-bench
@@ -39,5 +39,5 @@ echo -e '\nRunning simulator benchmarks.'
 # See docs at https://github.com/google/benchmark/blob/main/docs/tools.md for more details.
 $BENCH_TOOLS_DIR/compare.py benchmarks $NATIVE_BENCH_RESULTS $SIMULATOR_BENCH_RESULTS
 
-# # Delete the temporary results directory and its contents
+# Delete the temporary results directory and its contents
 rm -r $BENCH_RESULTS_DIR
