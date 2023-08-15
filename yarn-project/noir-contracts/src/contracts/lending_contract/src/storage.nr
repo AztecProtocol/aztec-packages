@@ -45,6 +45,8 @@ struct Asset {
 
 global ASSET_SERIALISED_LEN: Field = 4;
 
+// Right now we are wasting so many writes. If changing last_updated_ts
+// we will end up rewriting all of them, wasting writes.
 fn deserialiseAsset(fields: [Field; ASSET_SERIALISED_LEN]) -> Asset {
     Asset {
         interest_accumulator: fields[0] as u120,

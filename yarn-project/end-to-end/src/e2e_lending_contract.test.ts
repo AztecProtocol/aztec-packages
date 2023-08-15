@@ -7,6 +7,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, PriceFeedContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
+import { CheatCodes } from './fixtures/cheat_codes.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_lending_contract', () => {
@@ -15,6 +16,11 @@ describe('e2e_lending_contract', () => {
   let wallet: Wallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
+
+  let cc: CheatCodes;
+
+  const WAD = 10n ** 18n;
+  const BASE = 10n ** 9n;
 
   const deployContract = async () => {
     let lendingContract: LendingContract;
@@ -45,7 +51,7 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallet, accounts, logger } = await setup());
+    ({ aztecNode, aztecRpcServer, wallet, accounts, logger, cheatCodes: cc } = await setup());
   }, 100_000);
 
   afterEach(async () => {
@@ -57,6 +63,7 @@ describe('e2e_lending_contract', () => {
 
   // Fetch a storage snapshot from the contract that we can use to compare between transitions.
   const getStorageSnapshot = async (contract: LendingContract, aztecNode: AztecRPC, account: Account) => {
+    logger('Fetching storage snapshot 📸 ');
     const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
 
@@ -67,9 +74,11 @@ describe('e2e_lending_contract', () => {
     storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
     storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
     storageValues['private_collateral'] = new Fr(privatePos['collateral']);
-    storageValues['private_debt'] = new Fr(privatePos['static_debt']);
+    storageValues['private_static_debt'] = new Fr(privatePos['static_debt']);
+    storageValues['private_debt'] = new Fr(privatePos['debt']);
     storageValues['public_collateral'] = new Fr(publicPos['collateral']);
-    storageValues['public_debt'] = new Fr(publicPos['static_debt']);
+    storageValues['public_static_debt'] = new Fr(publicPos['static_debt']);
+    storageValues['public_debt'] = new Fr(publicPos['debt']);
 
     return storageValues;
   };
@@ -95,6 +104,101 @@ describe('e2e_lending_contract', () => {
     }
   }
 
+  const muldivDown = (a: bigint, b: bigint, c: bigint) => (a * b) / c;
+
+  const muldivUp = (a: bigint, b: bigint, c: bigint) => {
+    const adder = (a * b) % c > 0n ? 1n : 0n;
+    return muldivDown(a, b, c) + adder;
+  };
+
+  const computeMultiplier = (rate: bigint, dt: bigint) => {
+    if (dt == 0n) {
+      return BASE;
+    }
+
+    const expMinusOne = dt - 1n;
+    const expMinusTwo = dt > 2 ? dt - 2n : 0n;
+
+    const basePowerTwo = muldivDown(rate, rate, WAD);
+    const basePowerThree = muldivDown(basePowerTwo, rate, WAD);
+
+    const temp = dt * expMinusOne;
+    const secondTerm = muldivDown(temp, basePowerTwo, 2n);
+    const thirdTerm = muldivDown(temp * expMinusTwo, basePowerThree, 6n);
+
+    const offset = (dt * rate + secondTerm + thirdTerm) / (WAD / BASE);
+
+    return BASE + offset;
+  };
+
+  class Skibbidy {
+    public accumulator: bigint = BASE;
+    public time: number = 0;
+
+    private collateral: { [key: string]: Fr } = {};
+    private staticDebt: { [key: string]: Fr } = {};
+
+    private key: Fr = Fr.ZERO;
+
+    constructor(private cc: CheatCodes, private account: Account, private rate: bigint) {}
+
+    prepare = async () => {
+      this.key = await this.account.key();
+      const ts = await this.cc.l1.timestamp();
+      this.time = ts + 10 + (ts % 10);
+      await this.cc.l2.warp(this.time);
+    };
+
+    progressTime = async (diff: number) => {
+      this.time = this.time + diff;
+      await this.cc.l2.warp(this.time);
+      this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
+    };
+
+    deposit = (owner: Fr, amount: bigint) => {
+      const coll = this.collateral[owner.toString()] ?? Fr.ZERO;
+      this.collateral[owner.toString()] = new Fr(coll.value + amount);
+    };
+
+    withdraw = (owner: Fr, amount: bigint) => {
+      const coll = this.collateral[owner.toString()] ?? Fr.ZERO;
+      this.collateral[owner.toString()] = new Fr(coll.value - amount);
+    };
+
+    borrow = (owner: Fr, amount: bigint) => {
+      const staticDebtBal = this.staticDebt[owner.toString()] ?? Fr.ZERO;
+      const increase = muldivUp(amount, BASE, this.accumulator);
+      this.staticDebt[owner.toString()] = new Fr(staticDebtBal.value + increase);
+    };
+
+    repay = (owner: Fr, amount: bigint) => {
+      const staticDebtBal = this.staticDebt[owner.toString()] ?? Fr.ZERO;
+      const decrease = muldivDown(amount, BASE, this.accumulator);
+      this.staticDebt[owner.toString()] = new Fr(staticDebtBal.value - decrease);
+    };
+
+    check = (storage: { [key: string]: Fr }) => {
+      expect(storage['interest_accumulator']).toEqual(new Fr(this.accumulator));
+      expect(storage['last_updated_ts']).toEqual(new Fr(this.time));
+
+      // Private values
+      const keyPriv = this.key.toString();
+      expect(storage['private_collateral']).toEqual(this.collateral[keyPriv] ?? Fr.ZERO);
+      expect(storage['private_static_debt']).toEqual(this.staticDebt[keyPriv] ?? Fr.ZERO);
+      expect(storage['private_debt'].value).toEqual(
+        muldivUp((this.staticDebt[keyPriv] ?? Fr.ZERO).value, this.accumulator, BASE),
+      );
+
+      // Private values
+      const keyPub = this.account.address.toString();
+      expect(storage['public_collateral']).toEqual(this.collateral[keyPub] ?? Fr.ZERO);
+      expect(storage['public_static_debt']).toEqual(this.staticDebt[keyPub] ?? Fr.ZERO);
+      expect(storage['public_debt'].value).toEqual(
+        muldivUp((this.staticDebt[keyPub] ?? Fr.ZERO).value, this.accumulator, BASE),
+      );
+    };
+  }
+
   it('Full lending run-through', async () => {
     const recipientIdx = 0;
 
@@ -114,6 +218,10 @@ describe('e2e_lending_contract', () => {
 
     await setPrice(2n * 10n ** 9n);
 
+    const rate = 1268391679n;
+    const guy = new Skibbidy(cc, account, rate);
+    await guy.prepare();
+
     {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
       logger('Initializing contract');
@@ -123,41 +231,42 @@ describe('e2e_lending_contract', () => {
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['initial']['interest_accumulator']).toEqual(new Fr(1000000000n));
-      expect(storageSnapshots['initial']['last_updated_ts'].value).toBeGreaterThan(0n);
+      guy.check(storageSnapshots['initial']);
     }
 
     {
+      const depositAmount = 420n;
+      await guy.progressTime(10);
+      guy.deposit(await account.key(), depositAmount);
+
       // Make a private deposit of funds into own account.
       // This should:
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the private collateral.
       logger('Depositing 🥸 : 💰 -> 🏦');
-      const tx = lendingContract.methods.deposit_private(account.secret, 0n, 420n).send({ origin: recipient });
+      const tx = lendingContract.methods.deposit_private(account.secret, 0n, depositAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      // @todo The accumulator should not increase when there are no debt. But we don't have reads/writes enough right now to handle that.
-      expect(storageSnapshots['private_deposit']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['initial']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_deposit']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['initial']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_deposit']['private_collateral']).toEqual(new Fr(420n));
+      guy.check(storageSnapshots['private_deposit']);
     }
 
     {
+      const depositAmount = 420n;
+      await guy.progressTime(10);
+      guy.deposit(recipient.toField(), depositAmount);
       // Make a private deposit of funds into another account, in this case, a public account.
       // This should:
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the public collateral.
       logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
-      const tx = lendingContract.methods.deposit_private(0n, recipient.toField(), 420n).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .deposit_private(0n, recipient.toField(), depositAmount)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -167,19 +276,14 @@ describe('e2e_lending_contract', () => {
         account,
       );
 
-      expect(storageSnapshots['private_deposit_on_behalf']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['private_collateral']).toEqual(
-        storageSnapshots['private_deposit']['private_collateral'],
-      );
-      expect(storageSnapshots['private_deposit_on_behalf']['public_collateral']).toEqual(new Fr(420n));
+      guy.check(storageSnapshots['private_deposit_on_behalf']);
     }
 
     {
+      const depositAmount = 211n;
+      await guy.progressTime(10);
+      guy.deposit(recipient.toField(), depositAmount);
+
       // Make a public deposit of funds into self.
       // This should:
       // - increase the interest accumulator
@@ -187,27 +291,20 @@ describe('e2e_lending_contract', () => {
       // - increase the public collateral.
 
       logger('Depositing: 💰 -> 🏦');
-      const tx = lendingContract.methods.deposit_public(account.address, 211n).send({ origin: recipient });
+      const tx = lendingContract.methods.deposit_public(account.address, depositAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['public_deposit']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit_on_behalf']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_deposit']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_deposit_on_behalf']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_deposit']['private_collateral']).toEqual(
-        storageSnapshots['private_deposit_on_behalf']['private_collateral'],
-      );
-      expect(storageSnapshots['public_deposit']['public_collateral']).toEqual(
-        new Fr(storageSnapshots['private_deposit_on_behalf']['public_collateral'].value + 211n),
-      );
+      guy.check(storageSnapshots['public_deposit']);
     }
 
     {
+      const borrowAmount = 69n;
+      await guy.progressTime(10);
+      guy.borrow(await account.key(), borrowAmount);
+
       // Make a private borrow using the private account
       // This should:
       // - increase the interest accumulator
@@ -215,28 +312,20 @@ describe('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger('Borrow 🥸 : 🏦 -> 🍌');
-      const tx = lendingContract.methods.borrow_private(account.secret, 69n).send({ origin: recipient });
+      const tx = lendingContract.methods.borrow_private(account.secret, borrowAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['private_borrow']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_deposit']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_borrow']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_deposit']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_borrow']['private_collateral']).toEqual(
-        storageSnapshots['public_deposit']['private_collateral'],
-      );
-      expect(storageSnapshots['private_borrow']['public_collateral']).toEqual(
-        storageSnapshots['public_deposit']['public_collateral'],
-      );
-      expect(storageSnapshots['private_borrow']['private_debt']).toEqual(new Fr(69n));
+      guy.check(storageSnapshots['private_borrow']);
     }
 
     {
+      const borrowAmount = 69n;
+      await guy.progressTime(10);
+      guy.borrow(recipient.toField(), borrowAmount);
+
       // Make a public borrow using the private account
       // This should:
       // - increase the interest accumulator
@@ -244,31 +333,20 @@ describe('e2e_lending_contract', () => {
       // - increase the public debt.
 
       logger('Borrow: 🏦 -> 🍌');
-      const tx = lendingContract.methods.borrow_public(69n).send({ origin: recipient });
+      const tx = lendingContract.methods.borrow_public(borrowAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['public_borrow']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_borrow']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_borrow']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_borrow']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_borrow']['private_collateral']).toEqual(
-        storageSnapshots['private_borrow']['private_collateral'],
-      );
-      expect(storageSnapshots['public_borrow']['public_collateral']).toEqual(
-        storageSnapshots['private_borrow']['public_collateral'],
-      );
-      expect(storageSnapshots['public_borrow']['private_debt']).toEqual(
-        storageSnapshots['private_borrow']['private_debt'],
-      );
-      expect(storageSnapshots['public_borrow']['public_debt']).toEqual(new Fr(69n));
+      guy.check(storageSnapshots['public_borrow']);
     }
 
     {
+      const repayAmount = 20n;
+      await guy.progressTime(10);
+      guy.repay(await account.key(), repayAmount);
+
       // Make a private repay of the debt in the private account
       // This should:
       // - increase the interest accumulator
@@ -276,33 +354,20 @@ describe('e2e_lending_contract', () => {
       // - decrease the private debt.
 
       logger('Repay 🥸 : 🍌 -> 🏦');
-      const tx = lendingContract.methods.repay_private(account.secret, 0n, 20n).send({ origin: recipient });
+      const tx = lendingContract.methods.repay_private(account.secret, 0n, repayAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['private_repay']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_borrow']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_repay']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_borrow']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_repay']['private_collateral']).toEqual(
-        storageSnapshots['public_borrow']['private_collateral'],
-      );
-      expect(storageSnapshots['private_repay']['public_collateral']).toEqual(
-        storageSnapshots['public_borrow']['public_collateral'],
-      );
-      expect(storageSnapshots['private_repay']['private_debt'].value).toEqual(
-        storageSnapshots['public_borrow']['private_debt'].value - 20n,
-      );
-      expect(storageSnapshots['private_repay']['public_debt']).toEqual(
-        storageSnapshots['public_borrow']['public_debt'],
-      );
+      guy.check(storageSnapshots['private_repay']);
     }
 
     {
+      const repayAmount = 20n;
+      await guy.progressTime(10);
+      guy.repay(recipient.toField(), repayAmount);
+
       // Make a private repay of the debt in the public account
       // This should:
       // - increase the interest accumulator
@@ -310,33 +375,22 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
-      const tx = lendingContract.methods.repay_private(0n, recipient.toField(), 20n).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .repay_private(0n, recipient.toField(), repayAmount)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_repay']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_repay']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['private_collateral']).toEqual(
-        storageSnapshots['private_repay']['private_collateral'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['public_collateral']).toEqual(
-        storageSnapshots['private_repay']['public_collateral'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['private_debt']).toEqual(
-        storageSnapshots['private_repay']['private_debt'],
-      );
-      expect(storageSnapshots['private_repay_on_behalf']['public_debt'].value).toEqual(
-        storageSnapshots['private_repay']['public_debt'].value - 20n,
-      );
+      guy.check(storageSnapshots['private_repay_on_behalf']);
     }
 
     {
+      const repayAmount = 20n;
+      await guy.progressTime(10);
+      guy.repay(recipient.toField(), repayAmount);
+
       // Make a public repay of the debt in the public account
       // This should:
       // - increase the interest accumulator
@@ -350,27 +404,23 @@ describe('e2e_lending_contract', () => {
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['public_repay']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['private_repay_on_behalf']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_repay']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['private_repay_on_behalf']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_repay']['private_collateral']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['private_collateral'],
-      );
-      expect(storageSnapshots['public_repay']['public_collateral']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['public_collateral'],
-      );
-      expect(storageSnapshots['public_repay']['private_debt']).toEqual(
-        storageSnapshots['private_repay_on_behalf']['private_debt'],
-      );
-      expect(storageSnapshots['public_repay']['public_debt'].value).toEqual(
-        storageSnapshots['private_repay_on_behalf']['public_debt'].value - 20n,
-      );
+      guy.check(storageSnapshots['public_repay']);
     }
 
     {
+      // Withdraw more than possible to test the revert.
+      logger('Withdraw: trying to withdraw more than possible');
+      const tx = lendingContract.methods.withdraw_public(10n ** 9n).send({ origin: recipient });
+      await tx.isMined({ interval: 0.1 });
+      const receipt = await tx.getReceipt();
+      expect(receipt.status).toBe(TxStatus.DROPPED);
+    }
+
+    {
+      const withdrawAmount = 42n;
+      await guy.progressTime(10);
+      guy.withdraw(recipient.toField(), withdrawAmount);
+
       // Withdraw funds from the public account
       // This should:
       // - increase the interest accumulator
@@ -378,33 +428,20 @@ describe('e2e_lending_contract', () => {
       // - decrease the public collateral.
 
       logger('Withdraw: 🏦 -> 💰');
-      const tx = lendingContract.methods.withdraw_public(42n).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_public(withdrawAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['public_withdraw']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_repay']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['public_withdraw']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_repay']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['public_withdraw']['private_collateral']).toEqual(
-        storageSnapshots['public_repay']['private_collateral'],
-      );
-      expect(storageSnapshots['public_withdraw']['public_collateral'].value).toEqual(
-        storageSnapshots['public_repay']['public_collateral'].value - 42n,
-      );
-      expect(storageSnapshots['public_withdraw']['private_debt']).toEqual(
-        storageSnapshots['public_repay']['private_debt'],
-      );
-      expect(storageSnapshots['public_withdraw']['public_debt']).toEqual(
-        storageSnapshots['public_repay']['public_debt'],
-      );
+      guy.check(storageSnapshots['public_withdraw']);
     }
 
     {
+      const withdrawAmount = 42n;
+      await guy.progressTime(10);
+      guy.withdraw(await account.key(), withdrawAmount);
+
       // Withdraw funds from the private account
       // This should:
       // - increase the interest accumulator
@@ -412,30 +449,13 @@ describe('e2e_lending_contract', () => {
       // - decrease the private collateral.
 
       logger('Withdraw 🥸 : 🏦 -> 💰');
-      const tx = lendingContract.methods.withdraw_private(account.secret, 42n).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_private(account.secret, withdrawAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
 
-      expect(storageSnapshots['private_withdraw']['interest_accumulator'].value).toBeGreaterThan(
-        storageSnapshots['public_withdraw']['interest_accumulator'].value,
-      );
-      expect(storageSnapshots['private_withdraw']['last_updated_ts'].value).toBeGreaterThan(
-        storageSnapshots['public_withdraw']['last_updated_ts'].value,
-      );
-      expect(storageSnapshots['private_withdraw']['private_collateral'].value).toEqual(
-        storageSnapshots['public_withdraw']['private_collateral'].value - 42n,
-      );
-      expect(storageSnapshots['private_withdraw']['public_collateral']).toEqual(
-        storageSnapshots['public_withdraw']['public_collateral'],
-      );
-      expect(storageSnapshots['private_withdraw']['private_debt']).toEqual(
-        storageSnapshots['public_withdraw']['private_debt'],
-      );
-      expect(storageSnapshots['private_withdraw']['public_debt']).toEqual(
-        storageSnapshots['public_withdraw']['public_debt'],
-      );
+      guy.check(storageSnapshots['private_withdraw']);
     }
 
     {
