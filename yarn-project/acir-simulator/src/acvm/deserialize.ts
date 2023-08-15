@@ -18,7 +18,6 @@ import {
   RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
@@ -215,7 +214,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   );
 
   const argsHash = witnessReader.readField();
-  const returnValues = padArrayEnd(witnessReader.readFieldArray(RETURN_VALUES_LENGTH), Fr.ZERO, RETURN_VALUES_LENGTH);
+  const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
 
   const contractStorageUpdateRequests = new Array(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL).fill(
     ContractStorageUpdateRequest.empty(),

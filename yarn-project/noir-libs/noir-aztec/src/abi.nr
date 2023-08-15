@@ -299,8 +299,8 @@ struct PublicCircuitPublicInputs {
     block_data: HistoricBlockData,
     prover_address: Field,
 
-
     // TODO: include globals in here and check them elsewhere
+    // https://github.com/AztecProtocol/aztec-packages/issues/1567
 }
 
 impl PublicCircuitPublicInputs {

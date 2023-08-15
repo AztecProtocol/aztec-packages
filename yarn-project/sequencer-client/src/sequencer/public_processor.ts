@@ -214,7 +214,7 @@ export class PublicProcessor {
     const unencryptedLogsHash = to2Fields(result.unencryptedLogs.hash());
     const unencryptedLogPreimagesLength = new Fr(result.unencryptedLogs.getSerializedLength());
 
-    const pub = PublicCircuitPublicInputs.from({
+    return PublicCircuitPublicInputs.from({
       callContext: result.execution.callContext,
       proverAddress: AztecAddress.ZERO,
       argsHash: await computeVarArgsHash(wasm, result.execution.args),
@@ -237,7 +237,6 @@ export class PublicProcessor {
       unencryptedLogPreimagesLength,
       historicBlockData: this.blockData,
     });
-    return pub;
   }
 
   protected async getPublicCallStackItem(result: PublicExecutionResult, isExecutionRequest = false) {

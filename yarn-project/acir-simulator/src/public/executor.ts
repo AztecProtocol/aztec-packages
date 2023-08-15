@@ -160,8 +160,7 @@ export class PublicExecutor {
       },
     });
 
-    const publicInputs = extractPublicCircuitPublicInputs(partialWitness, acir);
-    const { returnValues } = publicInputs;
+    const { returnValues } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
 
