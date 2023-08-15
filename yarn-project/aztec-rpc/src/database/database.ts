@@ -105,22 +105,22 @@ export interface Database extends ContractDatabase {
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
   /**
-   * Adds account to the database.
-   * @param account - The account to add.
+   * Adds complete address to the database.
+   * @param address - The complete address to add.
    * @returns Empty promise.
    */
-  addAccount(account: CompleteAddress): Promise<void>;
+  addCompleteAddress(address: CompleteAddress): Promise<void>;
 
   /**
-   * Retrieves the account corresponding to the provided aztec address.
-   * @param address - The aztec address of the account contract.
+   * Retrieves the complete address corresponding to the provided aztec address.
+   * @param address - The aztec address of the complete address contract.
    * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
    */
-  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
-   * Retrieves the list of accounts added to this database
+   * Retrieves the list of complete address added to this database
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
-  getAccounts(): Promise<CompleteAddress[]>;
+  getCompleteAddresses(): Promise<CompleteAddress[]>;
 }

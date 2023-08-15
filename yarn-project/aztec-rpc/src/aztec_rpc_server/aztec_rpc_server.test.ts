@@ -25,20 +25,33 @@ describe('AztecRpcServer', function () {
     rpcServer = new AztecRPCServer(keyStore, node, db, config);
   });
 
-  it('registers a public key in the db when adding a new account', async () => {
+  it('registers an account and returns it as an account only and not as a recipient', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress);
-    expect(await db.getAccount(completeAddress.address)).toEqual(completeAddress);
+    await rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+    const accounts = await rpcServer.getAccounts();
+    const recipients = await rpcServer.getRecipients();
+    expect(accounts).toEqual([completeAddress]);
+    expect(recipients).toEqual([]);
+  });
+
+  it('registers a recipient and returns it as a recipient only and not as an account', async () => {
+    const completeAddress = await CompleteAddress.random();
+
+    await rpcServer.registerRecipient(completeAddress);
+    const accounts = await rpcServer.getAccounts();
+    const recipients = await rpcServer.getRecipients();
+    expect(accounts).toEqual([]);
+    expect(recipients).toEqual([completeAddress]);
   });
 
   it('cannot add the same account twice', async () => {
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
-    await rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress);
-    await expect(async () => rpcServer.registerSigner(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
+    await rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+    await expect(async () => rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
       `Account ${completeAddress.address} already exists`,
     );
   });

@@ -314,6 +314,40 @@ async function main() {
     });
 
   program
+    .command('get-recipients')
+    .description('Gets all the recipients stored in the Aztec RPC.')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .action(async (options: any) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const recipients = await client.getRecipients();
+      if (!recipients.length) {
+        log('No recipients found.');
+      } else {
+        log(`Recipients found: \n`);
+        for (const recipient of recipients) {
+          log(recipient.toReadableString());
+        }
+      }
+    });
+
+  program
+    .command('get-recipient')
+    .description('Gets an recipient given its Aztec address.')
+    .argument('<address>', 'The Aztec address to get recipient for')
+    .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .action(async (_address, options) => {
+      const client = createAztecRpcClient(options.rpcUrl);
+      const address = AztecAddress.fromString(_address);
+      const recipient = await client.getRecipient(address);
+
+      if (!recipient) {
+        log(`Unknown recipient ${_address}`);
+      } else {
+        log(recipient.toReadableString());
+      }
+    });
+
+  program
     .command('send')
     .description('Calls a function on an Aztec contract.')
     .argument('<functionName>', 'Name of Function to view')

@@ -31,8 +31,8 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  registerSigner(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
-    return this.rpc.registerSigner(privKey, completeAddress);
+  registerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
+    return this.rpc.registerAccount(privKey, completeAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.rpc.registerRecipient(account);
@@ -42,6 +42,12 @@ export abstract class BaseWallet implements Wallet {
   }
   getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     return this.rpc.getAccount(address);
+  }
+  getRecipients(): Promise<CompleteAddress[]> {
+    return this.rpc.getRecipients();
+  }
+  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    return this.rpc.getRecipient(address);
   }
   addContracts(contracts: DeployedContract[]): Promise<void> {
     return this.rpc.addContracts(contracts);

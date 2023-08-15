@@ -93,7 +93,7 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  addAccount(account: CompleteAddress): Promise<void> {
+  addCompleteAddress(account: CompleteAddress): Promise<void> {
     const accountIndex = this.accounts.findIndex(r => r.address.equals(account.address));
     if (accountIndex !== -1) {
       throw new Error(`Account ${account.address.toString()} already exists in memory database`);
@@ -102,12 +102,12 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
     const recipient = this.accounts.find(r => r.address.equals(address));
     return Promise.resolve(recipient);
   }
 
-  getAccounts(): Promise<CompleteAddress[]> {
+  getCompleteAddresses(): Promise<CompleteAddress[]> {
     return Promise.resolve(this.accounts);
   }
 }

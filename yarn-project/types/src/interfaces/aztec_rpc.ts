@@ -64,21 +64,22 @@ export type SyncStatus = {
  */
 export interface AztecRPC {
   /**
-   * Registers signer account in the Aztec RPC server.
+   * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
    * @param completeAddress - Complete address of the account.
    * @returns Empty promise.
    */
-  registerSigner(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
+  registerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void>;
 
   /**
    * Registers recipient account in the Aztec RPC server.
    * @param account - A complete address.
    * @returns Empty promise.
-   * @remarks Called recipient because we can only send notes to this account and not receive them. This is because
-   *          we don't have the associated private key and for this reason we can't decrypt the recipient's notes.
-   *          We can send notes to this account because we can encrypt them with the recipient's public key.
+   * @remarks Called recipient because we can only send notes to this account and not receive them via this RPC server.
+   *          This is because we don't have the associated private key and for this reason we can't decrypt
+   *          the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
+   *          public key.
    */
   registerRecipient(account: CompleteAddress): Promise<void>;
 
@@ -86,16 +87,31 @@ export interface AztecRPC {
    * Retrieves the list of complete addresses added to this rpc server
    * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
-   * @returns A promise that resolves to an array of all the signer and recipient accounts registered on this RPC server.
+   * @returns A promise that resolves to an array of the accounts registered on this RPC server.
    */
   getAccounts(): Promise<CompleteAddress[]>;
 
   /**
    * Retrieves the complete address of the account corresponding to the provided aztec address.
    * @param address - The aztec address of the account contract.
-   * @returns A promise that resolves to the complete address of the requested signer or recipient account.
+   * @returns A promise that resolves to the complete address of the requested account.
    */
   getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the list of complete addresses added to this rpc server
+   * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
+   *
+   * @returns A promise that resolves to an array registered recipients on this RPC server.
+   */
+  getRecipients(): Promise<CompleteAddress[]>;
+
+  /**
+   * Retrieves the complete address of the recipient corresponding to the provided aztec address.
+   * @param address - The aztec address of the recipient.
+   * @returns A promise that resolves to the complete address of the requested recipient.
+   */
+  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Add an array of deployed contracts to the database.

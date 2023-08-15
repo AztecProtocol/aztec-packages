@@ -199,7 +199,7 @@ describe('Private Execution test suite', () => {
       owner = ownerCompleteAddress.address;
       recipient = recipientCompleteAddress.address;
 
-      oracle.getAccount.mockImplementation((address: AztecAddress) => {
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
@@ -429,7 +429,7 @@ describe('Private Execution test suite', () => {
       owner = ownerCompleteAddress.address;
       recipient = recipientCompleteAddress.address;
 
-      oracle.getAccount.mockImplementation((address: AztecAddress) => {
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
@@ -632,7 +632,7 @@ describe('Private Execution test suite', () => {
     beforeEach(async () => {
       const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
       recipient = recipientCompleteAddress.address;
-      oracle.getAccount.mockImplementation((address: AztecAddress) => {
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
@@ -773,7 +773,7 @@ describe('Private Execution test suite', () => {
 
       owner = ownerCompleteAddress.address;
 
-      oracle.getAccount.mockImplementation((address: AztecAddress) => {
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
         if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
@@ -959,7 +959,7 @@ describe('Private Execution test suite', () => {
       const args = [completeAddress.address];
       const pubKey = completeAddress.publicKey;
 
-      oracle.getAccount.mockResolvedValue(completeAddress);
+      oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });

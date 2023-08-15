@@ -104,7 +104,7 @@ describe('Synchroniser', () => {
     const privateKey = PrivateKey.random();
     keyStore.addAccount(privateKey);
     const completeAddress = await CompleteAddress.fromPrivateKey(privateKey);
-    await database.addAccount(completeAddress);
+    await database.addCompleteAddress(completeAddress);
 
     // Add the account which will add the note processor to the synchroniser
     synchroniser.addAccount(completeAddress.publicKey, keyStore);

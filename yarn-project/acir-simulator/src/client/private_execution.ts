@@ -70,7 +70,7 @@ export class PrivateFunctionExecution {
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
-        const { publicKey, partialAddress } = await this.context.db.getAccount(address);
+        const { publicKey, partialAddress } = await this.context.db.getCompleteAddress(address);
         return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>

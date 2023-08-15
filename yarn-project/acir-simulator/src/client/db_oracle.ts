@@ -76,7 +76,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param address - Address to fetch the pubkey for.
    * @returns A complete address associated with the input address.
    */
-  getAccount(address: AztecAddress): Promise<CompleteAddress>;
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieve the secret key associated with a specific public key.

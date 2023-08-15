@@ -23,11 +23,11 @@ export class SimulatorOracle implements DBOracle {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
-  async getAccount(address: AztecAddress): Promise<CompleteAddress> {
-    const completeAddress = await this.db.getAccount(address);
+  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(address);
     if (!completeAddress)
       throw new Error(
-        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addAccount(...)`,
+        `Unknown complete address for address ${address.toString()}. Add the information to Aztec RPC server by calling server.registerRecipient(...) or server.registerAccount(...)`,
       );
     return completeAddress;
   }

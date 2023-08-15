@@ -245,7 +245,7 @@ export class Synchroniser {
    *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
   public async isAccountStateSynchronised(account: AztecAddress) {
-    const completeAddress = await this.db.getAccount(account);
+    const completeAddress = await this.db.getCompleteAddress(account);
     if (!completeAddress) {
       return false;
     }

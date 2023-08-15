@@ -81,19 +81,55 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async registerSigner(privKey: PrivateKey, account: CompleteAddress) {
+  public async registerAccount(privKey: PrivateKey, account: CompleteAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
     // TODO: Re-enable this check once https://github.com/AztecProtocol/aztec-packages/issues/1556 is solved
     // if (!pubKey.equals(account.publicKey)) {
     //   throw new Error(`Public key mismatch: ${pubKey.toString()} != ${account.publicKey.toString()}`);
     // }
-    await this.db.addAccount(account);
+    await this.db.addCompleteAddress(account);
     this.synchroniser.addAccount(pubKey, this.keyStore);
   }
 
-  public async registerRecipient(account: CompleteAddress): Promise<void> {
-    await this.db.addAccount(account);
-    this.log.info(`Added account: ${account.toString()}`);
+  public async getAccounts(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses not corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const accounts = addresses.filter(address => accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return accounts;
+  }
+
+  public async getAccount(address: AztecAddress): Promise<CompleteAddress> {
+    const result = await this.getAccounts();
+    const account = result.find(r => r.address.equals(address));
+    if (!account) {
+      throw new Error(`Unable to get complete address for address ${address.toString()}`);
+    }
+    return Promise.resolve(account);
+  }
+
+  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
+    await this.db.addCompleteAddress(recipient);
+    this.log.info(`Added recipient: ${recipient.toString()}`);
+  }
+
+  public async getRecipients(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const recipients = addresses.filter(address => !accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return recipients;
+  }
+
+  public async getRecipient(address: AztecAddress): Promise<CompleteAddress> {
+    const result = await this.getRecipients();
+    const recipient = result.find(r => r.address.equals(address));
+    if (!recipient) {
+      throw new Error(`Unable to get complete address for address ${address.toString()}`);
+    }
+    return Promise.resolve(recipient);
   }
 
   public async addContracts(contracts: DeployedContract[]) {
@@ -104,18 +140,6 @@ export class AztecRPCServer implements AztecRPC {
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
       this.log.info(`Added contract ${contract.name} at ${contract.address}${portalInfo}`);
     }
-  }
-
-  public async getAccounts(): Promise<CompleteAddress[]> {
-    return await this.db.getAccounts();
-  }
-
-  public async getAccount(address: AztecAddress): Promise<CompleteAddress> {
-    const result = await this.db.getAccount(address);
-    if (!result) {
-      throw new Error(`Unable to get public key for address ${address.toString()}`);
-    }
-    return Promise.resolve(result);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
