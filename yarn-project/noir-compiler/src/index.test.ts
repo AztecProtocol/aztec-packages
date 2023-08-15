@@ -29,7 +29,7 @@ describe('noir-compiler', () => {
 
   describe('using nargo binary', () => {
     it('compiles the test contract using nargo', async () => {
-      if (!isNargoAvailable()) return pending();
+      if (!isNargoAvailable()) return;
       const compiled = await compileUsingNargo(projectPath);
       expect(compiled).toMatchSnapshot();
     });
