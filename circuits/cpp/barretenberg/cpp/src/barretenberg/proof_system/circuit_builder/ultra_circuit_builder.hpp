@@ -654,7 +654,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     void create_mul_gate(const mul_triple_<FF>& in) override;
     void create_bool_gate(const uint32_t a) override;
     void create_poly_gate(const poly_triple_<FF>& in) override;
-    void create_ecc_add_gate(const ecc_add_gate_<FF>& in);
+    void create_ecc_add_gate(const ecc_add_gate_<FF>& in) override;
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in) override;
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 

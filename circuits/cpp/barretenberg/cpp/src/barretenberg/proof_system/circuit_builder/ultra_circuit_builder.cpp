@@ -456,6 +456,105 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
 }
 
 /**
+ * @brief Create a gate where we validate an elliptic curve point doubling
+ *        (x1, y1) * 2 = (x3, y3)
+ * @tparam FF
+ * @param in
+ */
+template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+{
+    const auto x1 = this->get_variable(in.x1);
+    const auto x3 = this->get_variable(in.x3);
+    const auto y1 = this->get_variable(in.y1);
+
+    // lambda = 3x^2 / 2y
+    const auto three_x1_sqr_v = x1 * x1 * 3;
+    const auto three_x1_sqr = this->add_variable(three_x1_sqr_v);
+    create_poly_gate({
+        .a = in.x1,
+        .b = in.x1,
+        .c = three_x1_sqr,
+        .q_m = 3,
+        .q_l = 0,
+        .q_r = 0,
+        .q_o = -1,
+        .q_c = 0,
+    });
+    const auto lambda_v = three_x1_sqr_v / (y1 + y1);
+    const auto lambda = this->add_variable(lambda_v);
+    create_poly_gate({
+        .a = lambda,
+        .b = in.y1,
+        .c = three_x1_sqr,
+        .q_m = 2,
+        .q_l = 0,
+        .q_r = 0,
+        .q_o = -1,
+        .q_c = 0,
+    });
+
+    // lambda * lambda - x2 - x1 = 0
+    const auto lambda_sqr_v = lambda_v * lambda_v;
+    const auto lambda_sqr = this->add_variable(lambda_sqr_v);
+    create_poly_gate({
+        .a = lambda,
+        .b = lambda,
+        .c = lambda_sqr,
+        .q_m = 1,
+        .q_l = 0,
+        .q_r = 0,
+        .q_o = -1,
+        .q_c = 0,
+    });
+    create_poly_gate({
+        .a = lambda_sqr,
+        .b = in.x1,
+        .c = this->zero_idx,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = -2,
+        .q_o = 0,
+        .q_c = 0,
+    });
+
+    // lambda * (x1 - x3) - y1 = 0
+    const auto x1_sub_x3_v = x1 - x3;
+    const auto x1_sub_x3 = this->add_variable(x1_sub_x3_v);
+    create_poly_gate({
+        .a = in.x1,
+        .b = in.x3,
+        .c = x1_sub_x3,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = -1,
+        .q_o = -1,
+        .q_c = 0,
+    });
+    const auto lambda_mul_x1_sub_x3_v = lambda_v * x1_sub_x3_v;
+    const auto lambda_mul_x1_sub_x3 = this->add_variable(lambda_mul_x1_sub_x3_v);
+    create_poly_gate({
+        .a = lambda,
+        .b = x1_sub_x3,
+        .c = lambda_mul_x1_sub_x3,
+        .q_m = 1,
+        .q_l = 0,
+        .q_r = 0,
+        .q_o = -1,
+        .q_c = 0,
+    });
+    create_poly_gate({
+        .a = lambda_mul_x1_sub_x3,
+        .b = in.y1,
+        .c = in.y3,
+        .q_m = 0,
+        .q_l = 1,
+        .q_r = -1,
+        .q_o = -1,
+        .q_c = 0,
+    });
+}
+
+/**
  * @brief Add a gate equating a particular witness to a constant, fixing it the value
  *
  * @param witness_index The index of the witness we are fixing

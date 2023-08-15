@@ -54,20 +54,23 @@ template <typename FF> class TurboCircuitBuilder_ : public CircuitBuilderBase<ar
     };
     ~TurboCircuitBuilder_() {}
 
-    void create_add_gate(const add_triple_<FF>& in);
+    void create_add_gate(const add_triple_<FF>& in) override;
 
     void create_big_add_gate(const add_quad_<FF>& in);
     void create_big_add_gate_with_bit_extraction(const add_quad_<FF>& in);
     void create_big_mul_gate(const mul_quad_<FF>& in);
     void create_balanced_add_gate(const add_quad_<FF>& in);
 
-    void create_mul_gate(const mul_triple_<FF>& in);
-    void create_bool_gate(const uint32_t a);
-    void create_poly_gate(const poly_triple_<FF>& in);
+    void create_mul_gate(const mul_triple_<FF>& in) override;
+    void create_bool_gate(const uint32_t a) override;
+    void create_poly_gate(const poly_triple_<FF>& in) override;
     void create_fixed_group_add_gate(const fixed_group_add_quad_<FF>& in);
     void create_fixed_group_add_gate_with_init(const fixed_group_add_quad_<FF>& in,
                                                const fixed_group_init_quad_<FF>& init);
     void create_fixed_group_add_gate_final(const add_quad_<FF>& in);
+    void create_ecc_add_gate(const ecc_add_gate_<FF>& in) override;
+    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in) override;
+
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 
     FF arithmetic_gate_evaluation(const size_t index, const FF alpha_base);
@@ -100,7 +103,7 @@ template <typename FF> class TurboCircuitBuilder_ : public CircuitBuilderBase<ar
 
     uint32_t put_constant_variable(const FF& variable);
 
-    size_t get_num_constant_gates() const { return 0; }
+    size_t get_num_constant_gates() const override { return 0; }
 
     void assert_equal_constant(const uint32_t a_idx, const FF& b, std::string const& msg = "assert_equal_constant")
     {

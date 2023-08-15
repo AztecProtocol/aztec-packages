@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/proof_system/arithmetization/arithmetization.hpp"
 #include "barretenberg/proof_system/arithmetization/gate_data.hpp"
 #include <utility>
@@ -11,6 +12,9 @@ static constexpr uint32_t DUMMY_TAG = 0;
 template <typename Arithmetization> class CircuitBuilderBase {
   public:
     using FF = typename Arithmetization::FF;
+    using EmbeddedCurve =
+        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, barretenberg::g1, grumpkin::g1>;
+
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility
     static constexpr size_t program_width = Arithmetization::NUM_WIRES;
@@ -86,6 +90,9 @@ template <typename Arithmetization> class CircuitBuilderBase {
     virtual void create_mul_gate(const mul_triple_<FF>& in) = 0;
     virtual void create_bool_gate(const uint32_t a) = 0;
     virtual void create_poly_gate(const poly_triple_<FF>& in) = 0;
+    virtual void create_ecc_add_gate(const ecc_add_gate_<FF>& in) = 0;
+    virtual void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in) = 0;
+
     virtual size_t get_num_constant_gates() const = 0;
 
     /**
