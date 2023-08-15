@@ -379,7 +379,7 @@ async function main() {
         [privateKey],
         [accountCreationSalt],
       );
-      const contract = await Contract.create(contractAddress, contractAbi, wallet);
+      const contract = await Contract.at(contractAddress, contractAbi, wallet);
       const tx = contract.methods[functionName](...functionArgs).send();
       await tx.isMined();
       log('\nTransaction has been mined');
