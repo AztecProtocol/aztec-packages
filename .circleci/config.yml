@@ -881,6 +881,18 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_public_token_contract.test.ts
           working_directory: yarn-project/end-to-end
 
+  e2e-cli:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_cli.test.ts
+          working_directory: yarn-project/end-to-end
+
   e2e-p2p:
     docker:
       - image: aztecprotocol/alpine-build-image
