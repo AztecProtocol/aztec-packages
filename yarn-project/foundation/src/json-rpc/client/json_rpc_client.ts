@@ -37,15 +37,20 @@ export async function defaultFetch(host: string, rpcMethod: string, body: any, u
     });
   }
 
-  if (!resp.ok) {
-    throw new Error(resp.statusText);
-  }
-
+  let responseJson;
   try {
-    return await resp.json();
+    responseJson = await resp.json();
   } catch (err) {
+    if (!resp.ok) {
+      throw new Error(resp.statusText);
+    }
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
+  if (!resp.ok) {
+    throw new Error(responseJson.error);
+  }
+
+  return responseJson;
 }
 
 /**
