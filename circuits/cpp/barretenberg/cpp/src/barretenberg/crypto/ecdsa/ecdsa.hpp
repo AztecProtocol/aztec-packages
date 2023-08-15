@@ -31,6 +31,7 @@ signature construct_signature(const std::string& message, const key_pair<Fr, G1>
 template <typename Hash, typename Fq, typename Fr, typename G1>
 typename G1::affine_element recover_public_key(const std::string& message, const signature& sig);
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
 template <typename Hash, typename Fq, typename Fr, typename G1>
 bool verify_signature(const auto& message,
                       const typename G1::affine_element& public_key,

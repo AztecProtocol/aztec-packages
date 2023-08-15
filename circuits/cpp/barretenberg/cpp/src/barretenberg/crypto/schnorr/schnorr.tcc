@@ -24,7 +24,8 @@ namespace schnorr {
  *
  * @tparam Hash the hash-function used as random-oracle
  * @tparam G1 Group over which the signature is produced
- * @param message what are we signing over? // WORKTODO: this was only audited for std::string.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
+ * @param message what are we signing over?
  * @param pubkey the pubkey of the signer
  * @param R the nonce
  * @return e = H(pedersen(R.x || pubkey.x || pubkey.y), message) as a 256-bit integer,
