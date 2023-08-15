@@ -116,7 +116,10 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const { DeployMethod, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const owner = (await client.getAccounts())[0];
-        const tx = new DeployMethod(owner.publicKey, client, PrivateTokenContractAbi, [initialBalance, owner]).send();
+        const tx = new DeployMethod(owner.publicKey, client, PrivateTokenContractAbi, [
+          initialBalance,
+          owner.address,
+        ]).send();
         await tx.wait();
         const receipt = await tx.getReceipt();
         console.log(`Contract Deployed: ${receipt.contractAddress}`);
@@ -139,14 +142,14 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           window.AztecJs;
         const privateKey = PrivateKey.fromString(privateKeyString);
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner.address, privateKey);
+        const owner = (await client.getAccounts())[0].address;
+        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
         const contract = await Contract.create(
           AztecAddress.fromString(contractAddress),
           PrivateTokenContractAbi,
           wallet,
         );
-        const [balance] = await contract.methods.getBalance(owner.address).view({ from: owner.address });
+        const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
         return balance;
       },
       SANDBOX_URL,
@@ -177,14 +180,14 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
           .register()
           .then(w => w.getCompleteAddress());
         console.log(`Created 2nd Account: ${receiver.toString()}`);
-        const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner.address, privateKey);
+        const owner = (await client.getAccounts())[0].address;
+        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
         const contract = await Contract.create(
           AztecAddress.fromString(contractAddress),
           PrivateTokenContractAbi,
           wallet,
         );
-        await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner.address }).wait();
+        await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner }).wait();
         console.log(`Transferred ${transferAmount} tokens to new Account`);
         const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
         return balance;
