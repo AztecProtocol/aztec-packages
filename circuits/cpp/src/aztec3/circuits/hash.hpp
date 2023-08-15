@@ -23,7 +23,7 @@ using aztec3::circuits::abis::FunctionLeafPreimage;
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 
-template <typename NCT> FrOf<NCT> compute_var_args_hash(std::vector<FrOf<NCT>> args)
+template <typename NCT> FrOf<NCT> compute_var_args_hash(const std::vector<FrOf<NCT>>& args)
 {
     auto const MAX_ARGS = 32;
     if (args.size() > MAX_ARGS) {
@@ -32,8 +32,9 @@ template <typename NCT> FrOf<NCT> compute_var_args_hash(std::vector<FrOf<NCT>> a
     return NCT::hash(args, FUNCTION_ARGS);
 }
 
-template <typename NCT>
-FrOf<NCT> compute_constructor_hash(FunctionData<NCT> function_data, FrOf<NCT> args_hash, FrOf<NCT> constructor_vk_hash)
+template <typename NCT> FrOf<NCT> compute_constructor_hash(const FunctionData<NCT>& function_data,
+                                                           const FrOf<NCT>& args_hash,
+                                                           const FrOf<NCT>& constructor_vk_hash)
 {
     using fr = FrOf<NCT>;
 
@@ -48,24 +49,20 @@ FrOf<NCT> compute_constructor_hash(FunctionData<NCT> function_data, FrOf<NCT> ar
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT> FrOf<NCT> compute_partial_address(FrOf<NCT> contract_address_salt,
-                                                          FrOf<NCT> function_tree_root,
-                                                          FrOf<NCT> constructor_hash)
+template <typename NCT> FrOf<NCT> compute_partial_address(const FrOf<NCT>& contract_address_salt,
+                                                          const FrOf<NCT>& function_tree_root,
+                                                          const FrOf<NCT>& constructor_hash)
 {
-    using fr = FrOf<NCT>;
-    std::vector<fr> const inputs = {
-        fr(0), fr(0), contract_address_salt, function_tree_root, constructor_hash,
+    std::vector<FrOf<NCT>> const inputs = {
+        FrOf<NCT>(0), FrOf<NCT>(0), contract_address_salt, function_tree_root, constructor_hash,
     };
     return NCT::hash(inputs, aztec3::GeneratorIndex::PARTIAL_ADDRESS);
 }
 
 template <typename NCT>
-typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, FrOf<NCT> partial_address)
+typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, FrOf<NCT> const& partial_address)
 {
-    using fr = FrOf<NCT>;
-    using address = typename NCT::address;
-
-    std::vector<fr> const inputs = {
+    std::vector<FrOf<NCT>> const inputs = {
         point.x,
         point.y,
         partial_address,
@@ -74,9 +71,9 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
 }
 
 template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
-                                                                       FrOf<NCT> contract_address_salt,
-                                                                       FrOf<NCT> function_tree_root,
-                                                                       FrOf<NCT> constructor_hash)
+                                                                       FrOf<NCT> const& contract_address_salt,
+                                                                       FrOf<NCT> const& function_tree_root,
+                                                                       FrOf<NCT> const& constructor_hash)
 {
     using fr = FrOf<NCT>;
 
