@@ -65,7 +65,6 @@ contract Lending {
         let asset = storage.assets.at(0);
         let mut tot = asset.read();
 
-        // TODO(MADDIAA): Get all timestamps in this file from the context!!
         let dt: u120 = context.timestamp() as u120  - tot.last_updated_ts;
 
         // Need proper interest computation here.
@@ -271,7 +270,6 @@ contract Lending {
 
         // @todo @LHerskind Transferring funds to the recipient.
 
-        // TODO*MD: should internal functions like this return a the context or should they just return vals - will this be inlined?
         context.return_values.push(1);
         context.finish()
     }
