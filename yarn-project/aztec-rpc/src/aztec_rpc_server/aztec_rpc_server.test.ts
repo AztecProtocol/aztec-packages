@@ -1,7 +1,7 @@
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair, TestKeyStore } from '@aztec/key-store';
-import { AztecNode } from '@aztec/types';
+import { AztecNode, AztecRPC } from '@aztec/types';
 
 import { mock } from 'jest-mock-extended';
 
@@ -10,7 +10,7 @@ import { RpcServerConfig } from '../index.js';
 import { AztecRPCServer } from './aztec_rpc_server.js';
 
 describe('AztecRpcServer', function () {
-  let rpcServer: AztecRPCServer;
+  let rpcServer: AztecRPC;
 
   beforeEach(async () => {
     const keyStore = new TestKeyStore(await Grumpkin.new());
@@ -27,20 +27,36 @@ describe('AztecRpcServer', function () {
     const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
 
     await rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+
+    // Check that the account is correctly registered using the getAccounts and getRecipients methods
     const accounts = await rpcServer.getAccounts();
     const recipients = await rpcServer.getRecipients();
     expect(accounts).toEqual([completeAddress]);
     expect(recipients).toEqual([]);
+
+    // Check that the account is correctly registered using the getAccount and getRecipient methods
+    const account = await rpcServer.getAccount(completeAddress.address);
+    const recipient = await rpcServer.getRecipient(completeAddress.address);
+    expect(account).toEqual(completeAddress);
+    expect(recipient).toBeUndefined();
   });
 
   it('registers a recipient and returns it as a recipient only and not as an account', async () => {
     const completeAddress = await CompleteAddress.random();
 
     await rpcServer.registerRecipient(completeAddress);
+
+    // Check that the recipient is correctly registered using the getAccounts and getRecipients methods
     const accounts = await rpcServer.getAccounts();
     const recipients = await rpcServer.getRecipients();
     expect(accounts).toEqual([]);
     expect(recipients).toEqual([completeAddress]);
+
+    // Check that the recipient is correctly registered using the getAccount and getRecipient methods
+    const account = await rpcServer.getAccount(completeAddress.address);
+    const recipient = await rpcServer.getRecipient(completeAddress.address);
+    expect(account).toBeUndefined();
+    expect(recipient).toEqual(completeAddress);
   });
 
   it('cannot register the same account twice', async () => {

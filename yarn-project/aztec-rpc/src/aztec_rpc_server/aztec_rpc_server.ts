@@ -100,12 +100,9 @@ export class AztecRPCServer implements AztecRPC {
     return accounts;
   }
 
-  public async getAccount(address: AztecAddress): Promise<CompleteAddress> {
+  public async getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
     const result = await this.getAccounts();
     const account = result.find(r => r.address.equals(address));
-    if (!account) {
-      throw new Error(`Unable to get complete address for address ${address.toString()}`);
-    }
     return Promise.resolve(account);
   }
 
@@ -123,12 +120,9 @@ export class AztecRPCServer implements AztecRPC {
     return recipients;
   }
 
-  public async getRecipient(address: AztecAddress): Promise<CompleteAddress> {
+  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
     const result = await this.getRecipients();
     const recipient = result.find(r => r.address.equals(address));
-    if (!recipient) {
-      throw new Error(`Unable to get complete address for address ${address.toString()}`);
-    }
     return Promise.resolve(recipient);
   }
 
