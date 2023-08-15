@@ -126,10 +126,18 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it('Deploys Private Token contract', async () => {
     const txHash = await page.evaluate(
-      async (rpcUrl, initialBalance, PrivateTokenContractAbi) => {
-        const { DeployMethod, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
+      async (rpcUrl, privateKeyString, initialBalance, PrivateTokenContractAbi) => {
+        const { PrivateKey, DeployMethod, createAztecRpcClient, mustSucceedFetch, getUnsafeSchnorrAccount } =
+          window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const owner = (await client.getAccounts())[0];
+        let accounts = await client.getAccounts();
+        if (accounts.length === 0) {
+          // This test needs an account for deployment. We create one in case there is none available in the RPC server.
+          const privateKey = PrivateKey.fromString(privateKeyString);
+          await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
+          accounts = await client.getAccounts();
+        }
+        const owner = accounts[0];
         const tx = new DeployMethod(owner.publicKey, client, PrivateTokenContractAbi, [
           initialBalance,
           owner.address,
@@ -140,6 +148,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         return receipt.txHash.toString();
       },
       SANDBOX_URL,
+      privKey.toString(),
       initialBalance,
       PrivateTokenContractAbi,
     );
