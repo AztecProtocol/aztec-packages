@@ -131,8 +131,6 @@ contract Test {
         // Public oracle call to emit new commitment.
         create_nullifier(note.get_commitment());
         
-        // TODO(MD): may not need this return value?
-        context.return_values.push(0);
         context.finish()
     }
 

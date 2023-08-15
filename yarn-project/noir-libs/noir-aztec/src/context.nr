@@ -15,9 +15,6 @@ use crate::constants_gen::{
 use crate::abi;
 
 use crate::abi::{
-    empty_block_data,
-    empty_contract_storage_read,
-    empty_contract_storage_update_request,
     hash_args,
     CallContext,
     ContractDeploymentData,
@@ -345,15 +342,15 @@ impl PrivateContext {
                 },
                 args_hash: fields[11],
                 return_values: [0; RETURN_VALUES_LENGTH],
-                contract_storage_update_requests: [empty_contract_storage_update_request(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
-                contract_storage_read: [empty_contract_storage_read(); MAX_PUBLIC_DATA_READS_PER_CALL],
+                contract_storage_update_requests: [ContractStorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
+                contract_storage_read: [ContractStorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
                 new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
                 new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
-                block_data: empty_block_data(),
+                block_data: HistoricBlockData::empty(),
                 prover_address: 0,
             },
             is_execution_request: true,

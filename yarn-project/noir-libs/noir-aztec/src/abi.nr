@@ -149,10 +149,10 @@ impl HistoricBlockData {
             self.global_variables_hash,
         ]
     }
-}
 
-fn empty_block_data() -> HistoricBlockData {
-    HistoricBlockData{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0,  global_variables_hash: 0 }
+    fn empty() -> Self {
+        Self { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
+    }
 }
 
 struct FunctionData {
@@ -249,10 +249,6 @@ struct ContractStorageRead {
     value: Field,
 }
 
-fn empty_contract_storage_read() -> ContractStorageRead {
-    ContractStorageRead { storage_slot: 0, value: 0 }
-}
-
 impl ContractStorageRead {
     fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value]
@@ -285,10 +281,6 @@ impl ContractStorageUpdateRequest {
     fn empty() -> Self {
         Self { storage_slot: 0, old_value: 0, new_value: 0 }
     }
-}
-
-fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
-    ContractStorageUpdateRequest { storage_slot: 0, old_value: 0, new_value: 0 }
 }
 
 
