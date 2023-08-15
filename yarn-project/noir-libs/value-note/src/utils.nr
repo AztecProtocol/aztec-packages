@@ -9,7 +9,6 @@ use crate::{
     filter::get_4_notes,
     value_note::{ValueNote, VALUE_NOTE_LEN},
 };
-use dep::aztec::oracle::debug_log::debug_log_format;
 
 fn spend_notes(
     context: &mut Context,
@@ -100,11 +99,6 @@ fn spend_one_note(
         assert(owner == note3.owner);
     }
 
-    debug_log_format("i1: v = {0}, o = {1}", [note0.value, note0.owner]);
-    debug_log_format("i2: v = {0}, o = {1}", [note1.value, note1.owner]);
-    debug_log_format("i3: v = {0}, o = {1}", [note2.value, note2.owner]);
-    debug_log_format("i4: v = {0}, o = {1}", [note3.value, note3.owner]);
-
     // Checks that the first notes is greater than or equal to the total amount being transferred.
     let mut note_value = 0;
     if spend_note_index == 0 {
@@ -116,8 +110,6 @@ fn spend_one_note(
     } else {
         note_value = note3.value;
     }
-
-    debug_log_format("spend note value {0}", [note_value]);
     
     // Assert that the note chosen to spend has enough funds.
     assert(note_value as u64 >= amount as u64);
@@ -136,8 +128,6 @@ fn spend_one_note(
     // Creates change note for the owner.
     let change_value = note_value - amount;
     let mut change_note = ValueNote::new(change_value, owner);
-
-    debug_log_format("change: v = {0}, o = {1}", [change_note.value, change_note.owner]);
 
     // Insert the change note to the owner's sets of notes.
     balance.insert(context, &mut change_note);
@@ -198,10 +188,6 @@ fn send_notes(
     let mut recipient0_note = ValueNote::new(amounts[0], recipients[0]);
     let mut recipient1_note = ValueNote::new(amounts[1], recipients[1]);
     let mut recipient2_note = ValueNote::new(amounts[2], recipients[2]);
-
-    debug_log_format("o1: v = {0}, o = {1}", [recipient0_note.value, recipient0_note.owner]);
-    debug_log_format("o2: v = {0}, o = {1}", [recipient1_note.value, recipient1_note.owner]);
-    debug_log_format("o3: v = {0}, o = {1}", [recipient2_note.value, recipient2_note.owner]);
 
     // Insert the new notes to the recipient's sets of notes.
     recipient_balances[0].insert(context, &mut recipient0_note);

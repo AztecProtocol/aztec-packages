@@ -17,7 +17,6 @@ contract PrivateTokenAirdrop {
         utils as note_utils,
     };
     use dep::aztec::log::emit_unencrypted_log;
-    use dep::aztec::oracle::debug_log::debug_log_format;
 
     use crate::storage::Storage;
     use crate::claim_note::{ClaimNote, ClaimNoteMethods};
