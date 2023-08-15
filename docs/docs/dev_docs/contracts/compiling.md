@@ -1,22 +1,136 @@
 # Compiling contracts
 
-Please use the [TUTORIAL-TEMPLATE](../../TUTORIAL_TEMPLATE.md) for standalone guides / tutorials.
+Once you have written your [contracts](../contracts/main.md) in Noir, you will need to compile them into an artifact in order to use them. In this guide we will cover how to do so, both using the CLI and programmatically, as well as generating helper typescript and Noir interfaces for interacting with them.
 
-:::danger TODO
-TODO: this entire page
+## Prerequisites
+
+You will need the Noir build tool `nargo`, which you can install via [`noirup`](https://github.com/noir-lang/noirup). Make sure you install the `aztec` version of nargo:
+
+```bash
+curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
+noirup -v aztec
+```
+
+:::info
+You can re-run `noirup -v aztec` whenever you want to update to the latest version of Noir supported by the Aztec Network.
 :::
-## Compiling a Noir Contract
 
-You can use the `master` branch of Noir/nargo (hooray).
+## Compile using the CLI
 
-`cd path/to/src`
+To compile using the Aztec CLI, first install it:
 
-`nargo compile --contracts`
+`npm install -g @aztec/cli`
 
-> Note: the output abi json artifact file needs some manual tweaking, currently, to insert a mocked verification key. See [this script](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/scripts/compile.sh) (which itself calls upon the two other scripts in that file) to see how compilation and injection of the verification key is being done currently. [noir-compiler](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-compiler) is intended to replace these scripts, but ideally nargo should be outputting aztec-contract-compatible abis.
+Then run the `compile` command with the path to your Noir contract project:
 
-https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts
+```
+aztec-cli compile ./src/noir
+```
 
-## Noir Contract Artifacts
+This will output a JSON artifact for each contract in the project to a `target` folder containing their [ABI](./abi.md), which you can use for deploying or interacting with your contracts.
 
-Compiling a Noir Contract will output an artifact -- a JSON ABI containing information about the contract. This file can be read by `aztec.js`, which is a neat TypeScript wrapper which enables developers to easily deploy contracts, view functions, and send transactions.
+### Typescript
+
+You can use the compiler to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their ABI.
+
+To generate them, include a `--typescript` option in the compile command with a path to the target folder for the typescript files:
+
+```
+aztec-cli compile --typescript ./src/ts/contracts ./src/noir
+```
+
+Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
+
+```ts showLineNumbers
+export class PrivateTokenContract extends ContractBase {
+  /** Creates a contract instance at the given address. */
+  public static async at(address: AztecAddress, wallet: Wallet) { ... }
+
+  /** Creates a tx to deploy a new instance of this contract. */
+  public static deploy(rpc: AztecRPC, initial_supply: FieldLike, owner: FieldLike) { ... }
+
+  /** Type-safe wrappers for the public methods exposed by the contract. */
+  public methods!: {
+    /** getBalance(owner: field) */
+    getBalance: ((owner: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint(amount: field, owner: field) */
+    mint: ((amount: FieldLike, owner: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer(amount: field, sender: field, recipient: field) */
+    transfer: ((amount: FieldLike, sender: FieldLike, recipient: FieldLike) => ContractFunctionInteraction) &
+      Pick<ContractMethod, 'selector'>;
+  };
+}
+```
+
+### Noir interfaces
+
+A Noir contract can [call a function](./functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serialising the arguments, which is not type-safe.
+
+To make this easier, the compiler can generate a contract interface struct that exposes a convenience method for each function listed in a given contract ABI. These structs are intended to be used from another contract project that calls into the current one.
+
+To generate them, include a `--interface` option in the compile command with ap ath to the target folder for the generated Noir interface files:
+
+```
+aztec-cli compile --interface ../client/src/noir ./src/noir
+```
+
+Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
+
+```rust
+impl PrivateTokenContractInterface {
+  fn at(address: Field) -> Self {
+      Self { address }
+  }
+  
+  fn mint(
+    self, context: &mut PrivateContext, amount: Field, owner: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = owner;
+
+    context.call_private_function(self.address, 0x1dc9c3c0, serialised_args)
+  }
+  
+
+  fn transfer(
+    self, context: &mut PrivateContext, amount: Field, sender: Field, recipient: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 3];
+    serialised_args[0] = amount;
+    serialised_args[1] = sender;
+    serialised_args[2] = recipient;
+
+    context.call_private_function(self.address, 0xdcd4c318, serialised_args)
+  }
+}
+
+```
+
+:::info
+At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.
+:::
+
+## Access the compiler using nodejs
+
+You can also programmatically access the compiler via the `@aztec/noir-compiler` package. To do this, install the package into your nodejs project:
+
+`
+npm install @aztec/noir-compiler
+`
+
+The compiler exposes the following functions:
+- `compileUsingNargo`: Compiles a Noir project in the target folder using the `nargo` binary available on the shell `PATH` and returns the generated ABIs.
+- `compileUsingNoirWasm`: Compiles a Noir project in the target folder using an embedded noir-wasm package and returns the generated ABIs.
+- `generateTypescriptContractInterface`: Generates a typescript class for the given contract ABI.
+- `generateNoirContractInterface`: Generates a Noir interface struct for the given contract ABI.
+
+## Next steps
+
+Once you have compiled your contracts, you can use the generated artifacts via the `Contract` class in the `aztec.js` package to deploy and interact with them, or rely on the type-safe typescript classes directly. Alternatively, use the CLI [to deploy](../../dev_docs/getting_started/cli.md#deploying-a-token-contract) and [interact](../../dev_docs/getting_started/cli.md#sending-a-transaction) with them.
+
+
+import Disclaimer from "../../misc/common/\_disclaimer.mdx";
+<Disclaimer/>
