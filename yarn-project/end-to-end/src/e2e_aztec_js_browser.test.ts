@@ -124,7 +124,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       privKey.toString(),
     );
     const accounts = await testClient.getAccounts();
-    const stringAccounts = accounts.map(acc => acc.toString());
+    const stringAccounts = accounts.map(acc => acc.address.toString());
     expect(stringAccounts.includes(result)).toBeTruthy();
   });
 
