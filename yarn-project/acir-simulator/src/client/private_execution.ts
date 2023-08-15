@@ -226,14 +226,8 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
-      blockData.privateDataTreeRoot,
-      blockData.nullifierTreeRoot,
-      blockData.contractTreeRoot,
-      blockData.l1ToL2MessagesTreeRoot,
-      blockData.blocksTreeRoot,
-      blockData.globalVariablesHash,
-      blockData.publicDataTreeRoot,
-
+      ...blockData.toArray(),
+      
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,
       contractDeploymentData.constructorVkHash,

@@ -20,7 +20,6 @@ import {
   frToSelector,
   fromACVMField,
   toACVMField,
-  toACVMHistoricBlockData,
   toACVMWitness,
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
@@ -241,13 +240,7 @@ function getInitialWitness(
     callContext.isStaticCall,
     callContext.isContractDeployment,
 
-    historicBlockData.privateDataTreeRoot,
-    historicBlockData.nullifierTreeRoot,
-    historicBlockData.contractTreeRoot,
-    historicBlockData.l1ToL2MessagesTreeRoot,
-    historicBlockData.blocksTreeRoot,
-    historicBlockData.publicDataTreeRoot,
-    historicBlockData.globalVariablesHash,
+    ...historicBlockData.toArray(),
 
     globalVariables.chainId,
     globalVariables.version,
