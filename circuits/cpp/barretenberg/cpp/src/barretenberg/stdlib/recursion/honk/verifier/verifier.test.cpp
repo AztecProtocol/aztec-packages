@@ -61,6 +61,21 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
                                     inner_scalar_field_ct(witness_ct(&builder, 0)));
 
         big_a* big_b;
+        
+        // const size_t num_gates = 1 << 17;
+        // for (size_t i = 0; i < num_gates; ++i) {
+        //     fr a = fr::random_element();
+        //     uint32_t a_idx = builder.add_variable(a);
+
+        //     fr b = fr::random_element();
+        //     fr c = fr::random_element();
+        //     fr d = a + b + c;
+        //     uint32_t b_idx = builder.add_variable(b);
+        //     uint32_t c_idx = builder.add_variable(c);
+        //     uint32_t d_idx = builder.add_variable(d);
+
+        //     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        // }
     };
 
     static void create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)

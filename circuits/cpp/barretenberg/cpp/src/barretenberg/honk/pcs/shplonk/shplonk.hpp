@@ -186,18 +186,25 @@ template <typename Curve> class ShplonkVerifier_ {
         GroupElement G_commitment = Q_commitment;
 
         // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-        // WORKTODO: doing innefficient inversion for now  since batch inversion is not implemented for field_t
         std::vector<Fr> vanishing_evals;
         vanishing_evals.reserve(num_claims);
         for (const auto& claim : claims) {
             vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
+        // If recursion, invert elements individually, otherwise batch invert
         std::vector<Fr> inverse_vanishing_evals;
-        for (const auto& val : vanishing_evals) {
-            inverse_vanishing_evals.emplace_back(val.invert());
+        if constexpr (Curve::is_stdlib_type) {
+            for (const auto& val : vanishing_evals) {
+                inverse_vanishing_evals.emplace_back(val.invert());
+            }
+        } else {
+            Fr::batch_invert(vanishing_evals);
+            inverse_vanishing_evals = vanishing_evals;
         }
 
         auto current_nu = Fr(1);
+        std::vector<Commitment> commitments; // used in recursion setting only
+        std::vector<Fr> scalars;
         for (size_t j = 0; j < num_claims; ++j) {
             // (Cⱼ, xⱼ, vⱼ)
             const auto& [opening_pair, commitment] = claims[j];
@@ -206,18 +213,30 @@ template <typename Curve> class ShplonkVerifier_ {
 
             // G₀ += ρʲ / ( r − xⱼ ) ⋅ vⱼ
             G_commitment_constant += scaling_factor * opening_pair.evaluation;
-            // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
-            G_commitment -= commitment * scaling_factor;
+
+            // If recursion, store MSM inputs for batch mul, otherwise perform mul and add directly
+            if constexpr (Curve::is_stdlib_type) {
+                commitments.emplace_back(commitment);
+                scalars.emplace_back(scaling_factor);
+            } else {
+                // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
+                G_commitment -= commitment * scaling_factor;
+            }
 
             current_nu *= nu;
         }
-        // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
 
-        //  GroupElement sort_of_one{ x, y };
+        // If recursion, perform [G] -= ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] via batch_mul
+        if constexpr (Curve::is_stdlib_type) {
+            G_commitment -= GroupElement::batch_mul(commitments, scalars);
+        }
+
+        // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
         if constexpr (Curve::is_stdlib_type) {
             auto ctx = nu.get_context();
             G_commitment += GroupElement::one(ctx) * G_commitment_constant;
         } else {
+            //  GroupElement sort_of_one{ x, y };
             G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
         }
 

@@ -237,7 +237,8 @@ template <typename Curve> class GeminiVerifier_ {
         GroupElement C0_r_neg = batched_f;
         Fr r_inv = r.invert();
 
-        // WORKTODO: reinstate some kind of !batched_g.is_point_at_infinity() check for stdlib? This is mostly relevant for Gemini unit tests since in practice batched_g will not be zero
+        // WORKTODO: reinstate some kind of !batched_g.is_point_at_infinity() check for stdlib? This is mostly relevant
+        // for Gemini unit tests since in practice batched_g will not be zero
         bool batched_g_is_point_at_infinity = false;
         if constexpr (!Curve::is_stdlib_type) {
             batched_g_is_point_at_infinity = batched_g.is_point_at_infinity();
@@ -247,7 +248,7 @@ template <typename Curve> class GeminiVerifier_ {
             C0_r_pos += batched_g;
             C0_r_neg -= batched_g;
         }
-        
+
         return { C0_r_pos, C0_r_neg };
     }
 
