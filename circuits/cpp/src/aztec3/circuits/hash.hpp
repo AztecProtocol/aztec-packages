@@ -6,6 +6,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/point.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/template_lookups.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
 
 #include <barretenberg/barretenberg.hpp>
@@ -22,7 +23,7 @@ using aztec3::circuits::abis::FunctionLeafPreimage;
 using MemoryStore = stdlib::merkle_tree::MemoryStore;
 using MerkleTree = stdlib::merkle_tree::MerkleTree<MemoryStore>;
 
-template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typename NCT::fr> args)
+template <typename NCT> FrOf<NCT> compute_var_args_hash(std::vector<FrOf<NCT>> args)
 {
     auto const MAX_ARGS = 32;
     if (args.size() > MAX_ARGS) {
@@ -31,11 +32,10 @@ template <typename NCT> typename NCT::fr compute_var_args_hash(std::vector<typen
     return NCT::hash(args, FUNCTION_ARGS);
 }
 
-template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<NCT> function_data,
-                                                                  typename NCT::fr args_hash,
-                                                                  typename NCT::fr constructor_vk_hash)
+template <typename NCT>
+FrOf<NCT> compute_constructor_hash(FunctionData<NCT> function_data, FrOf<NCT> args_hash, FrOf<NCT> constructor_vk_hash)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     fr const function_data_hash = function_data.hash();
 
@@ -48,11 +48,11 @@ template <typename NCT> typename NCT::fr compute_constructor_hash(FunctionData<N
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT> typename NCT::fr compute_partial_address(typename NCT::fr contract_address_salt,
-                                                                 typename NCT::fr function_tree_root,
-                                                                 typename NCT::fr constructor_hash)
+template <typename NCT> FrOf<NCT> compute_partial_address(FrOf<NCT> contract_address_salt,
+                                                          FrOf<NCT> function_tree_root,
+                                                          FrOf<NCT> constructor_hash)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
     std::vector<fr> const inputs = {
         fr(0), fr(0), contract_address_salt, function_tree_root, constructor_hash,
     };
@@ -60,9 +60,9 @@ template <typename NCT> typename NCT::fr compute_partial_address(typename NCT::f
 }
 
 template <typename NCT>
-typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, typename NCT::fr partial_address)
+typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, FrOf<NCT> partial_address)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
     using address = typename NCT::address;
 
     std::vector<fr> const inputs = {
@@ -74,11 +74,11 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
 }
 
 template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
-                                                                       typename NCT::fr contract_address_salt,
-                                                                       typename NCT::fr function_tree_root,
-                                                                       typename NCT::fr constructor_hash)
+                                                                       FrOf<NCT> contract_address_salt,
+                                                                       FrOf<NCT> function_tree_root,
+                                                                       FrOf<NCT> constructor_hash)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     const fr partial_address =
         compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
@@ -86,10 +86,9 @@ template <typename NCT> typename NCT::address compute_contract_address(Point<NCT
     return compute_contract_address_from_partial(point, partial_address);
 }
 
-template <typename NCT>
-typename NCT::fr compute_commitment_nonce(typename NCT::fr first_nullifier, typename NCT::fr commitment_index)
+template <typename NCT> FrOf<NCT> compute_commitment_nonce(FrOf<NCT> first_nullifier, FrOf<NCT> commitment_index)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         first_nullifier,
@@ -99,10 +98,9 @@ typename NCT::fr compute_commitment_nonce(typename NCT::fr first_nullifier, type
     return NCT::hash(inputs, aztec3::GeneratorIndex::COMMITMENT_NONCE);
 }
 
-template <typename NCT>
-typename NCT::fr silo_commitment(typename NCT::address contract_address, typename NCT::fr inner_commitment)
+template <typename NCT> FrOf<NCT> silo_commitment(typename NCT::address contract_address, FrOf<NCT> inner_commitment)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         contract_address.to_field(),
@@ -112,10 +110,9 @@ typename NCT::fr silo_commitment(typename NCT::address contract_address, typenam
     return NCT::hash(inputs, aztec3::GeneratorIndex::SILOED_COMMITMENT);
 }
 
-template <typename NCT>
-typename NCT::fr compute_unique_commitment(typename NCT::fr nonce, typename NCT::fr siloed_commitment)
+template <typename NCT> FrOf<NCT> compute_unique_commitment(FrOf<NCT> nonce, FrOf<NCT> siloed_commitment)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         nonce,
@@ -125,10 +122,9 @@ typename NCT::fr compute_unique_commitment(typename NCT::fr nonce, typename NCT:
     return NCT::hash(inputs, aztec3::GeneratorIndex::UNIQUE_COMMITMENT);
 }
 
-template <typename NCT>
-typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename NCT::fr nullifier)
+template <typename NCT> FrOf<NCT> silo_nullifier(typename NCT::address contract_address, FrOf<NCT> nullifier)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         contract_address.to_field(),
@@ -140,14 +136,14 @@ typename NCT::fr silo_nullifier(typename NCT::address contract_address, typename
 }
 
 
-template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr globals_hash,
-                                                            typename NCT::fr private_data_tree_root,
-                                                            typename NCT::fr nullifier_tree_root,
-                                                            typename NCT::fr contract_tree_root,
-                                                            typename NCT::fr l1_to_l2_data_tree_root,
-                                                            typename NCT::fr public_data_tree_root)
+template <typename NCT> FrOf<NCT> compute_block_hash(FrOf<NCT> globals_hash,
+                                                     FrOf<NCT> private_data_tree_root,
+                                                     FrOf<NCT> nullifier_tree_root,
+                                                     FrOf<NCT> contract_tree_root,
+                                                     FrOf<NCT> l1_to_l2_data_tree_root,
+                                                     FrOf<NCT> public_data_tree_root)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         globals_hash,       private_data_tree_root,  nullifier_tree_root,
@@ -157,14 +153,14 @@ template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr glo
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
-template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typename abis::GlobalVariables<NCT> globals,
-                                                                         typename NCT::fr private_data_tree_root,
-                                                                         typename NCT::fr nullifier_tree_root,
-                                                                         typename NCT::fr contract_tree_root,
-                                                                         typename NCT::fr l1_to_l2_data_tree_root,
-                                                                         typename NCT::fr public_data_tree_root)
+template <typename NCT> FrOf<NCT> compute_block_hash_with_globals(typename abis::GlobalVariables<NCT> globals,
+                                                                  FrOf<NCT> private_data_tree_root,
+                                                                  FrOf<NCT> nullifier_tree_root,
+                                                                  FrOf<NCT> contract_tree_root,
+                                                                  FrOf<NCT> l1_to_l2_data_tree_root,
+                                                                  FrOf<NCT> public_data_tree_root)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         globals.hash(),     private_data_tree_root,  nullifier_tree_root,
@@ -174,7 +170,7 @@ template <typename NCT> typename NCT::fr compute_block_hash_with_globals(typenam
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
-template <typename NCT> typename NCT::fr compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
+template <typename NCT> FrOf<NCT> compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
 {
     return globals.hash();
 }
@@ -196,10 +192,9 @@ template <typename NCT> typename NCT::fr compute_globals_hash(typename abis::Glo
  * TODO need to use conditional assigns instead of `ifs` for circuit version.
  *      see membership.hpp:check_subtree_membership (left/right/conditional_assign, etc)
  */
-template <typename NCT, size_t N>
-typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::uint32 const& leaf_index,
-                                        std::array<typename NCT::fr, N> const& sibling_path)
+template <typename NCT, size_t N> FrOf<NCT> root_from_sibling_path(FrOf<NCT> const& leaf,
+                                                                   typename NCT::uint32 const& leaf_index,
+                                                                   std::array<FrOf<NCT>, N> const& sibling_path)
 {
     auto node = leaf;
     for (size_t i = 0; i < N; i++) {
@@ -229,10 +224,9 @@ typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
  * TODO need to use conditional assigns instead of `ifs` for circuit version.
  *      see membership.hpp:check_subtree_membership (left/right/conditional_assign, etc)
  */
-template <typename NCT, size_t N>
-typename NCT::fr root_from_sibling_path(typename NCT::fr const& leaf,
-                                        typename NCT::fr const& leaf_index,
-                                        std::array<typename NCT::fr, N> const& sibling_path)
+template <typename NCT, size_t N> FrOf<NCT> root_from_sibling_path(FrOf<NCT> const& leaf,
+                                                                   FrOf<NCT> const& leaf_index,
+                                                                   std::array<FrOf<NCT>, N> const& sibling_path)
 {
     auto node = leaf;
     uint256_t index = leaf_index;
@@ -279,10 +273,10 @@ std::array<fr, N> get_sibling_path(MerkleTree& tree, size_t leaf_index, size_t c
 
 template <typename NCT, typename Builder, size_t SIZE>
 void check_membership(Builder& builder,
-                      typename NCT::fr const& value,
-                      typename NCT::fr const& index,
-                      std::array<typename NCT::fr, SIZE> const& sibling_path,
-                      typename NCT::fr const& root,
+                      FrOf<NCT> const& value,
+                      FrOf<NCT> const& index,
+                      std::array<FrOf<NCT>, SIZE> const& sibling_path,
+                      FrOf<NCT> const& root,
                       std::string const& msg)
 {
     const auto calculated_root = root_from_sibling_path<NCT>(value, index, sibling_path);
@@ -304,14 +298,14 @@ void check_membership(Builder& builder,
  * @param function_leaf_sibling_path
  * @return NCT::fr
  */
-template <typename NCT> typename NCT::fr function_tree_root_from_siblings(
+template <typename NCT> FrOf<NCT> function_tree_root_from_siblings(
     typename NCT::uint32 const& function_selector,
     typename NCT::boolean const& is_internal,
     typename NCT::boolean const& is_private,
-    typename NCT::fr const& vk_hash,
-    typename NCT::fr const& acir_hash,
-    typename NCT::fr const& function_leaf_index,
-    std::array<typename NCT::fr, FUNCTION_TREE_HEIGHT> const& function_leaf_sibling_path)
+    FrOf<NCT> const& vk_hash,
+    FrOf<NCT> const& acir_hash,
+    FrOf<NCT> const& function_leaf_index,
+    std::array<FrOf<NCT>, FUNCTION_TREE_HEIGHT> const& function_leaf_sibling_path)
 {
     const auto function_leaf_preimage = FunctionLeafPreimage<NCT>{
         .function_selector = function_selector,
@@ -339,12 +333,12 @@ template <typename NCT> typename NCT::fr function_tree_root_from_siblings(
  * @param contract_leaf_sibling_path
  * @return NCT::fr
  */
-template <typename NCT> typename NCT::fr contract_tree_root_from_siblings(
-    typename NCT::fr const& function_tree_root,
+template <typename NCT> FrOf<NCT> contract_tree_root_from_siblings(
+    FrOf<NCT> const& function_tree_root,
     typename NCT::address const& storage_contract_address,
     typename NCT::address const& portal_contract_address,
-    typename NCT::fr const& contract_leaf_index,
-    std::array<typename NCT::fr, CONTRACT_TREE_HEIGHT> const& contract_leaf_sibling_path)
+    FrOf<NCT> const& contract_leaf_index,
+    std::array<FrOf<NCT>, CONTRACT_TREE_HEIGHT> const& contract_leaf_sibling_path)
 {
     const ContractLeafPreimage<NCT> contract_leaf_preimage{ storage_contract_address,
                                                             portal_contract_address,
@@ -363,12 +357,12 @@ template <typename NCT> typename NCT::fr contract_tree_root_from_siblings(
  * @tparam NCT (native or circuit)
  * @tparam TREE_HEIGHT
  * @param zero_leaf the leaf value that corresponds to a zero preimage
- * @return std::array<typename NCT::fr, TREE_HEIGHT>
+ * @return std::array<FrOf<NCT>, TREE_HEIGHT>
  */
 template <typename NCT, size_t TREE_HEIGHT>
-std::array<typename NCT::fr, TREE_HEIGHT> compute_empty_sibling_path(typename NCT::fr const& zero_leaf)
+std::array<FrOf<NCT>, TREE_HEIGHT> compute_empty_sibling_path(FrOf<NCT> const& zero_leaf)
 {
-    std::array<typename NCT::fr, TREE_HEIGHT> sibling_path = { zero_leaf };
+    std::array<FrOf<NCT>, TREE_HEIGHT> sibling_path = { zero_leaf };
     for (size_t i = 1; i < TREE_HEIGHT; i++) {
         // hash previous sibling with itself to get node above
         sibling_path[i] = NCT::merkle_hash(sibling_path[i - 1], sibling_path[i - 1]);
@@ -381,7 +375,7 @@ std::array<typename NCT::fr, TREE_HEIGHT> compute_empty_sibling_path(typename NC
  * @param value The value to be inserted into the public data tree
  * @return The hash value required for insertion into the public data tree
  */
-template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename NCT::fr const& value)
+template <typename NCT> FrOf<NCT> compute_public_data_tree_value(FrOf<NCT> const& value)
 {
     // as it's a public value, it doesn't require hashing.
     // leaving this function here in case we decide to change this.
@@ -394,19 +388,19 @@ template <typename NCT> typename NCT::fr compute_public_data_tree_value(typename
  * @param storage_slot The storage slot to which the inserted element belongs
  * @return The index for insertion into the public data tree
  */
-template <typename NCT> typename NCT::fr compute_public_data_tree_index(typename NCT::fr const& contract_address,
-                                                                        typename NCT::fr const& storage_slot)
+template <typename NCT>
+FrOf<NCT> compute_public_data_tree_index(FrOf<NCT> const& contract_address, FrOf<NCT> const& storage_slot)
 {
     return NCT::compress({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
 }
 
-template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::address contract_address,
-                                                               typename NCT::fr rollup_version_id,
-                                                               typename NCT::fr portal_contract_address,
-                                                               typename NCT::fr chain_id,
-                                                               typename NCT::fr content)
+template <typename NCT> FrOf<NCT> compute_l2_to_l1_hash(typename NCT::address contract_address,
+                                                        FrOf<NCT> rollup_version_id,
+                                                        FrOf<NCT> portal_contract_address,
+                                                        FrOf<NCT> chain_id,
+                                                        FrOf<NCT> content)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     std::vector<fr> const inputs = {
         contract_address.to_field(), rollup_version_id, portal_contract_address, chain_id, content,
@@ -434,10 +428,10 @@ template <typename NCT> typename NCT::fr compute_l2_to_l1_hash(typename NCT::add
  * @param hashes 4 fields containing 2 hashes [high, low, high, low].
  * @return Resulting sha256 hash stored in 2 fields.
  */
-template <typename NCT> std::array<typename NCT::fr, NUM_FIELDS_PER_SHA256> accumulate_sha256(
-    std::array<typename NCT::fr, NUM_FIELDS_PER_SHA256 * 2> hashes)
+template <typename NCT>
+std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256> accumulate_sha256(std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256 * 2> hashes)
 {
-    using fr = typename NCT::fr;
+    using fr = FrOf<NCT>;
 
     // Generate a 512 bit input from right and left 256 bit hashes
     constexpr auto num_bytes = 2 * 32;
