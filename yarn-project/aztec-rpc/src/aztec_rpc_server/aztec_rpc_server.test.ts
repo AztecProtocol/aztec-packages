@@ -49,7 +49,7 @@ describe('AztecRpcServer', function () {
 
     await rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
     await expect(async () => rpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
-      `Complete address ${completeAddress.address} already exists`,
+      `Complete address corresponding to ${completeAddress.address} already exists`,
     );
   });
 
@@ -58,7 +58,7 @@ describe('AztecRpcServer', function () {
 
     await rpcServer.registerRecipient(completeAddress);
     await expect(() => rpcServer.registerRecipient(completeAddress)).rejects.toThrow(
-      `Complete address ${completeAddress.address} already exists`,
+      `Complete address corresponding to ${completeAddress.address} already exists`,
     );
   });
 
