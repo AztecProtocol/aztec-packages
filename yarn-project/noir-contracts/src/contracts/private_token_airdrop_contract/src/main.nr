@@ -160,7 +160,6 @@ contract PrivateTokenAirdrop {
         amounts: [Field; 3], 
         recipients: [Field; 3],
         spend_note_offset: Field,
-        spend_note_index: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
         let mut context = Context::new(inputs, abi::hash_args([
@@ -172,15 +171,13 @@ contract PrivateTokenAirdrop {
             recipients[1], 
             recipients[2], 
             spend_note_offset,
-            spend_note_index
         ]));
 
-        assert(spend_note_index as u64 < 4);
-
-        // Gets the set of sender's notes and picks first 4 of those.
+        // Gets the set of sender's notes and picks 4 of those based on the offset.
+        // Spends the first of those 4 notes.
         let sender_balance = storage.balances.at(sender);
         let total = amounts[0] + amounts[1] + amounts[2];
-        spend_one_note(&mut context, sender_balance, total, sender, spend_note_offset, spend_note_index);
+        spend_one_note(&mut context, sender_balance, total, sender, spend_note_offset, 0);
 
         // Creates new note for the recipient.
         let recipient1_balance = storage.balances.at(recipients[0]);

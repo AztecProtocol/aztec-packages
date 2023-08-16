@@ -8,8 +8,13 @@ import { AztecRPC } from '@aztec/types';
 
 import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
+/**
+ * Multi-transfer payments is an example application to demonstrate how a payroll application could be built using aztec.
+ * In the current version of aztec, each multi-transfer can support only 12 recipients per transaction. The sender
+ * can decide which note can be spent.
+ */
 describe('multi-transfer payments', () => {
-  const numberOfAccounts = 6;
+  const numberOfAccounts = 12;
 
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
@@ -18,6 +23,7 @@ describe('multi-transfer payments', () => {
   let logger: DebugLogger;
   let ownerAddress: AztecAddress;
   const recipients: AztecAddress[] = [];
+  let initialBalance: bigint;
 
   let zkTokenContract: PrivateTokenAirdropContract;
   let multiTransferContract: MultiTransferContract;
@@ -30,6 +36,13 @@ describe('multi-transfer payments', () => {
       const account = accounts[i];
       recipients.push(account);
     }
+
+    logger(`Deploying zk token contract...`);
+    initialBalance = 1000n;
+    await deployZkTokenContract(initialBalance, ownerAddress);
+
+    logger(`Deploying multi-transfer contract...`);
+    await deployMultiTransferContract();
   }, 100_000);
 
   afterEach(async () => {
@@ -57,63 +70,72 @@ describe('multi-transfer payments', () => {
     expect(balance).toBe(expectedBalance);
   };
 
+  /**
+   * Transaction 1:
+   * The sender first splits 1000 to create new notes (for himself) with values 100, 200, 300, 400:
+   * 0: sender: [1000]
+   *             |
+   *             +-- [100 (change), 200, 300, 400]
+   *
+   * Transaction 2:
+   * In the next transaction, the sender wants to spend all four notes created in the previous transaction:
+   * index:     [0    1    2    3   4   5   6   7]
+   * 0: sender: [100, 200, 300, 400]
+   *             |
+   *             +-- [25 (change), 20, 25, 30] // first batchTx call
+   *
+   * index:     [0    1    2    3   4   5   6   7]
+   * 1: sender: [200, 300, 400, 25]
+   *             |
+   *             +-- [50 (change), 40, 50, 60] // second batchTx call
+   *
+   * index:     [0    1    2   3   4   5   6   7]
+   * 2: sender: [300, 400, 25, 50]
+   *             |
+   *             +-- [60 (change), 75, 80, 85] // third batchTx call
+   *
+   * index:     [0    1   2   3   4   5   6   7]
+   * 3: sender: [400, 25, 50, 60]
+   *             |
+   *             +-- [50 (change), 100, 120, 130] // fourth batchTx call
+   *
+   */
   it('12 transfers per transactions should work', async () => {
-    const initialNote = 1000n;
-
-    logger(`Deploying zk token contract...`);
-    await deployZkTokenContract(initialNote, ownerAddress);
-
-    logger(`Deploying multi-transfer contract...`);
-    await deployMultiTransferContract();
-
-    // owner: 1000 => [100, 200, 300, 400]
+    // Transaction 1
     logger(`self batchTransfer()`);
     const batchTransferTx = zkTokenContract.methods
-      .batchTransfer(ownerAddress, [200n, 300n, 400n], [ownerAddress, ownerAddress, ownerAddress], 0, 0)
+      .batchTransfer(ownerAddress, [200n, 300n, 400n], [ownerAddress, ownerAddress, ownerAddress], 0)
       .send({ origin: ownerAddress });
     await batchTransferTx.isMined();
     const batchTransferTxReceipt = await batchTransferTx.getReceipt();
     logger(`consumption Receipt status: ${batchTransferTxReceipt.status}`);
-    await expectBalance(zkTokenContract, ownerAddress, initialNote);
+    await expectBalance(zkTokenContract, ownerAddress, initialBalance);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 4);
 
     const amounts: bigint[] = [20n, 25n, 30n, 40n, 50n, 60n, 75n, 80n, 85n, 100n, 120n, 130n];
     const amountSum = amounts.reduce((a, b) => a + b, 0n);
+    const noteOffsets: bigint[] = [0n, 0n, 0n, 0n];
 
-    /**
-     * owner: [100, 200, 300, 400]
-     *         |    |    |    |
-     *         |    |    |    [50 (o), 100, 120, 130] batchTx
-     *         |    |    |
-     *         |    |    [60 (o), 75, 80, 85] batchTx
-     *         |    |
-     *         |    [50 (o), 40, 50, 60] batchTx
-     *         |
-     *         [25 (o), 20, 25, 30] batchTx
-     *
-     * o = owner
-     */
+    // Transaction 2
     logger(`multiTransfer()...`);
     const multiTransferTx = multiTransferContract.methods
       .multiTransfer(
         zkTokenContract.address.toField(),
-        recipients.concat(recipients),
+        recipients,
         amounts,
         ownerAddress,
         Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+        noteOffsets,
       )
       .send({ origin: ownerAddress });
     await multiTransferTx.isMined({ timeout: 1000 }); // mining timeout ≥ time needed for the test to finish.
     const multiTransferTxReceipt = await multiTransferTx.getReceipt();
     logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
 
-    await expectBalance(zkTokenContract, ownerAddress, initialNote - amountSum);
-    await expectBalance(zkTokenContract, recipients[0], amounts[0] + amounts[numberOfAccounts]);
-    await expectBalance(zkTokenContract, recipients[1], amounts[1] + amounts[numberOfAccounts + 1]);
-    await expectBalance(zkTokenContract, recipients[2], amounts[2] + amounts[numberOfAccounts + 2]);
-    await expectBalance(zkTokenContract, recipients[3], amounts[3] + amounts[numberOfAccounts + 3]);
-    await expectBalance(zkTokenContract, recipients[4], amounts[4] + amounts[numberOfAccounts + 4]);
-    await expectBalance(zkTokenContract, recipients[5], amounts[5] + amounts[numberOfAccounts + 5]);
+    await expectBalance(zkTokenContract, ownerAddress, initialBalance - amountSum);
+    for (let index = 0; index < numberOfAccounts; index++) {
+      await expectBalance(zkTokenContract, recipients[index], amounts[index]);
+    }
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
   }, 850_000);
 });

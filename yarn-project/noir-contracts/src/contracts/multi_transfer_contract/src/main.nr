@@ -36,6 +36,7 @@ contract MultiTransfer {
         amounts: [Field; 12], // Amounts to distribute
         owner: Field, // Owner of the asset
         batch_transfer_selector: Field, // Function selector for transfer
+        note_offsets: [Field; 4], // Offsets from which 4 notes of the owner would be read.
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = Context::new(inputs, abi::hash_args([
             asset, 
@@ -64,7 +65,11 @@ contract MultiTransfer {
             amounts[10],
             amounts[11],
             owner,
-            batch_transfer_selector
+            batch_transfer_selector,
+            note_offsets[0],
+            note_offsets[1],
+            note_offsets[2],
+            note_offsets[3],
         ]));
 
         // First batch transfer call
@@ -76,8 +81,7 @@ contract MultiTransfer {
             addresses[0],
             addresses[1],
             addresses[2],
-            0 as Field,
-            0 as Field,
+            note_offsets[0],
         ]);
         let result1 = return_values_1[0];
         context.return_values.push(result1);
@@ -91,8 +95,7 @@ contract MultiTransfer {
             addresses[3],
             addresses[4],
             addresses[5],
-            0 as Field,
-            0 as Field,
+            note_offsets[1],
         ]);
         let result2 = return_values_2[0];
         context.return_values.push(result2);
@@ -106,8 +109,7 @@ contract MultiTransfer {
             addresses[6],
             addresses[7],
             addresses[8],
-            0 as Field,
-            0 as Field,
+            note_offsets[2],
         ]);
         let result3 = return_values_3[0];
         context.return_values.push(result3);
@@ -121,8 +123,7 @@ contract MultiTransfer {
             addresses[9],
             addresses[10],
             addresses[11],
-            0 as Field,
-            0 as Field,
+            note_offsets[3],
         ]);
         let result4 = return_values_4[0];
         context.return_values.push(result4);
