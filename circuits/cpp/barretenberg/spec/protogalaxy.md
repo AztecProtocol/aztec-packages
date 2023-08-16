@@ -92,13 +92,11 @@ $$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega,
 2. $P, V$ compute $\vec{\delta} = (\delta, \delta^2, \ldots, \delta^{2^{t -1}})$ , which can be computed with $t-1$ squaring operations.
 3. $P$ computes  $F(X) = \sum_{i \in [n]} pow_i(\vec{\beta} + X\vec{\delta})f_i(\omega)$
     * $i$ corresponds to the rows in the sumcheck matrix and $\omega$ is the full $\Honk$ relation 
-        * this consists of 48 polynomials defined in flavor, the maximum degree among them being 6
+        * this consists of 48 polynomials defined in flavor, the maximum degree among them being 5
         * unlike what happens in sumcheck, we will evaluate each full Honk relation at $i$ (we need code to do that) bu getting all the $f_i$ is a linear operation
     * Computing $pow_i(\vec{\beta} + X\vec{\delta})$ 
         * naively, the cost of computing this is $O(n \log n)$ but the paper provides a smart way to compute it in $O(n)$
-            * TODO: unroll the linear algorithm in the paper
-        * the current sumcheck code computes $pow_{\zeta}$, we need to modify/rewrite to compute $pow_{\vec{\beta} + X\vec{\gamma}}$ 
-            * TODO: look at the code to understand what can be reused
+            * binary tree trick (*insert drawing*)
         * following the paper notation, my understaing is 
             * $\vec{\beta} + X\vec{\gamma} = (\beta + X\gamma, \beta^2 + X\gamma^2, \ldots, \beta^{2^{t -1}} + X\gamma^{2^{t -1}})$ let's call this vector $\vec{v} = (v_1,..., v_t)$
                 * so $pow_i(\vec{\beta} + X\vec{\gamma}) = pow_i(\vec{v}) = \prod_{j{}} v_j$ where $i = \sum_j 2^j$
@@ -113,6 +111,7 @@ $$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega,
 7. $P, V$ compute $\beta^*_i = \beta_i  +\alpha \cdot \delta^{2^{i-1}}$ these are the elements of $\vec{\beta}^*$ and require another $\log n$ multiplication and additions of scalars
 8. P computes $G(X) = \sum_{i \in [n]} pow_i(\vec{\beta^{*}})f_i(L_0(X)\omega + \sum_{j \in [k]} L_j(X)\omega_j)$ whose maximum degree is $dk$
     * where $d$ is the maximum degree of a relation, in our case 5 (`MAX_RELATION_LENGTH` - 1)
+    * the problem with the $pow_i(\vec{\beta^*})$ polynomial is that it's not preserving the nice structure presented on page 7 and we will probably have to use the binary tree trick here as well
     * we can compute f_i($L_0(X)\omega + \sum_{j \in [k]} L_j(X)\omega_j$) by partially reusing the sumcheck code for computing univariates
         * the current sumcheck code, for $k \in \{0, 1\}$ computes $L_0(X)f_i(\omega) + L_1(X)f_{i+1}(\omega)$ which is obtained by computing $d+1$ evaluations
         * in our case we will need $dk + 1$ evaluation points for computing the polynomial and then apply $f_i$ for each row
@@ -136,23 +135,6 @@ $G(X) = F(\alpha)L_0(X) + Z(X)K(X)$
      * P: $\omega^* = L_0(\gamma)\omega + \sum_{i \in [k]} L_i(\gamma)\omega_i$
 
 ProtoGalaxy requires 3 rather than  $2k\log n$ ($\log n$ for sumcheck and $\log n$ zeromorph + gemini) values from the random oracle.
-
-## Estimations of computing K
-
-(WARNING this are very hand wavy)
-
-Option 2:
-* for simplicity assume $G(X) =  X^{dk}, Z(X) = X^{k+1} -1, L_0(X) = X^k$ and look at multiplications
-    * to get all the values we perform the following numbers of multiplications between scalars :
-        * $k(d-1)dk$ for $G$
-        * $k(d-1)(k+1)$ for $Z$
-        * $k(d-1)k$ for $L_0$
-        * in total this is $k(d-1)(dk+ 2k +1)$
-
-
-Option 1:
-* would be worst case $d^2k^2$ (?)
-        
 
 
 
