@@ -1,5 +1,5 @@
-#include "barretenberg/honk/proof_system/ultra_verifier.hpp"
 #include "barretenberg/honk/flavor/ultra_recursive.hpp"
+#include "barretenberg/honk/proof_system/ultra_verifier.hpp"
 
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
@@ -61,9 +61,10 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
                                     inner_scalar_field_ct(witness_ct(&builder, 0)));
 
         big_a* big_b;
-        
-        // WORKTODO: this provides a way to set the circuit size of the proof to be recursively verified. Formalize this a bit
-        const size_t num_gates = 1 << 10;
+
+        // WORKTODO: this provides a way to set the circuit size of the proof to be recursively verified. Formalize this
+        // a bit
+        const size_t num_gates = 1 << 4;
         for (size_t i = 0; i < num_gates; ++i) {
             fr a = fr::random_element();
             uint32_t a_idx = builder.add_variable(a);
@@ -93,21 +94,26 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
 
         // Instantiate the recursive verification key from the native verification key
         auto verification_key = std::make_shared<VerificationKey>(&outer_builder, native_verification_key);
-        
+
+        // Perform native verification
+        auto native_verifier = inner_composer.create_verifier(inner_circuit);
+        ;
+        auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
+
         // Instantiate the recursive verifier and construct the recusive verification circuit
         RecursiveVerifier verifier(&outer_builder, verification_key);
-        auto result = verifier.verify_proof(proof_to_recursively_verify);
-        EXPECT_EQ(result, true);
+        auto pairing_points = verifier.verify_proof(proof_to_recursively_verify);
 
-        // Perform native verification and check that the result matches
-        auto native_verifier = inner_composer.create_verifier(inner_circuit);;
-        auto native_result = native_verifier.verify_proof(proof_to_recursively_verify);
-        EXPECT_EQ(result, native_result);
+        // Extract the pairing points and using the native verification key to perform the pairing. The result should
+        // match that of native verification.
+        auto lhs = pairing_points[0].get_value();
+        auto rhs = pairing_points[1].get_value();
+        auto recursive_result = native_verifier.pcs_verification_key->pairing_check(lhs, rhs);
+        EXPECT_EQ(recursive_result, native_result);
 
         // Confirm that the manifests produced by the recursive and native verifiers agree
         auto recursive_manifest = verifier.transcript.get_manifest();
         auto native_manifest = native_verifier.transcript.get_manifest();
-        // Note: Recursive manifest currently goes only though sumcheck
         // recursive_manifest.print();
         // native_manifest.print();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
@@ -146,6 +152,9 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         // Create a recursive verification circuit for the proof of the inner circuit
         create_outer_circuit(inner_circuit, outer_circuit);
 
+        if (outer_circuit.failed()) {
+            info(outer_circuit.err());
+        }
         EXPECT_EQ(outer_circuit.failed(), false);
         EXPECT_TRUE(outer_circuit.check_circuit());
     }
@@ -181,7 +190,7 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
     }
 };
 
-using OuterCircuitTypes = testing::Types< ::proof_system::honk::UltraComposer>;
+using OuterCircuitTypes = testing::Types<::proof_system::honk::UltraComposer>;
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, OuterCircuitTypes);
 

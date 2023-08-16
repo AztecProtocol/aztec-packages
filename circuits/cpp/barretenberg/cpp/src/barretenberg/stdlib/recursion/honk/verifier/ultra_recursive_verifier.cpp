@@ -37,7 +37,7 @@ UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(Ultr
  * @brief This function verifies an Ultra Honk proof for given program settings.
  *
  */
-template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
@@ -45,7 +45,7 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     using Curve = typename Flavor::Curve;
     using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
     using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve>;
-    // using PCS = typename Flavor::PCS;
+    using PCS = typename Flavor::PCS; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
 
@@ -68,12 +68,9 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     auto public_input_size_native = static_cast<size_t>(public_input_size.get_value());
     auto pub_inputs_offset_native = static_cast<size_t>(pub_inputs_offset.get_value());
 
-    if (circuit_size_native != key->circuit_size) {
-        return false;
-    }
-    if (public_input_size_native != key->num_public_inputs) {
-        return false;
-    }
+    // For debugging purposes only
+    ASSERT(circuit_size_native == key->circuit_size);
+    ASSERT(public_input_size_native == key->num_public_inputs);
 
     std::vector<FF> public_inputs;
     for (size_t i = 0; i < public_input_size_native; ++i) {
@@ -131,13 +128,8 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     info("Sumcheck: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
-    // // Note(luke): Temporary. Done only to complete manifest through sumcheck. Delete once we proceed to Gemini.
-    // [[maybe_unused]] FF rho = transcript.get_challenge("rho");
-
     // If Sumcheck does not return an output, sumcheck verification has failed
-    if (!sumcheck_output.has_value()) {
-        return false;
-    }
+    ASSERT(sumcheck_output.has_value()); // TODO(luke): Appropriate way to handle this in circuit?
 
     // Extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported multivariate evaluations at u
     auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
@@ -169,16 +161,19 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     for (size_t i = 0; i < NUM_TO_BE_SHIFTED; ++i) {
         scalars_to_be_shifted.emplace_back(rhos[idx++]);
     }
-    // WORKTODO: The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can we
+    // TODO(luke): The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can we
     // do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
     auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+
     info("Batch mul (unshifted): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
+
     auto batched_commitment_to_be_shifted =
         GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+
     info("Batch mul (to-be-shited): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
@@ -193,21 +188,19 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     info("Gemini: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
-    // // Note(luke): Temporary. Done only to complete manifest through Gemini. Delete once we proceed to Shplonk.
-    // [[maybe_unused]] FF nu = transcript.get_challenge("Shplonk:nu");
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
-    (void)shplonk_claim;
+    
     info("Shplonk: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
     info("Total: num gates = ", builder->get_num_gates());
-    // DEBUG!
-    return true;
 
-    // // // Verify the Shplonk claim with KZG or IPA
-    // return PCS::verify(pcs_verification_key, shplonk_claim, transcript);
+    // Constuct the inputs to the final KZG pairing check
+    auto pairing_points = PCS::compute_pairing_points(shplonk_claim, transcript);
+    
+    return pairing_points;
 }
 
 template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;

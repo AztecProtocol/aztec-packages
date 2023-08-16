@@ -14,6 +14,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
+    using PairingPoints = std::array<typename Flavor::GroupElement, 2>;
 
   public:
     explicit UltraRecursiveVerifier_(Builder* builder, std::shared_ptr<VerificationKey> verifier_key = nullptr);
@@ -22,7 +23,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     UltraRecursiveVerifier_& operator=(const UltraRecursiveVerifier_& other) = delete;
     UltraRecursiveVerifier_& operator=(UltraRecursiveVerifier_&& other) noexcept;
 
-    bool verify_proof(const plonk::proof& proof);
+    PairingPoints verify_proof(const plonk::proof& proof);
 
     std::shared_ptr<VerificationKey> key;
     std::map<std::string, Commitment> commitments;

@@ -253,8 +253,16 @@ template <typename Curve> class ShplonkVerifier_ {
             G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
         }
 
+        Fr zero_evaluation;
+        if constexpr (Curve::is_stdlib_type) {
+            auto ctx = transcript.builder;
+            zero_evaluation = Fr::from_witness(ctx, 0);
+        } else {
+            zero_evaluation = Fr(0);
+        }
+
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, Fr(0) }, G_commitment };
+        return { { z_challenge, zero_evaluation }, G_commitment };
     };
 };
 } // namespace proof_system::honk::pcs::shplonk
