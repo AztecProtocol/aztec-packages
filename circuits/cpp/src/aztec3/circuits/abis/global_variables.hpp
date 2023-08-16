@@ -2,7 +2,6 @@
 #include "function_data.hpp"
 #include "tx_context.hpp"
 
-#include "aztec3/template_lookups.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -16,9 +15,9 @@ using aztec3::utils::types::CircuitTypes;
 using aztec3::utils::types::NativeTypes;
 
 template <typename NCT> struct GlobalVariables {
-    using address = AddressOf<NCT>;
-    using fr = FrOf<NCT>;
-    using boolean = BoolOf<NCT>;
+    using address = typename NCT::address;
+    using fr = typename NCT::fr;
+    using boolean = typename NCT::boolean;
 
     fr chain_id = 0;
     fr version = 0;

@@ -32,9 +32,9 @@ template <typename NCT> FrOf<NCT> compute_var_args_hash(const std::vector<FrOf<N
     return NCT::hash(args, FUNCTION_ARGS);
 }
 
-template <typename NCT> FrOf<NCT> compute_constructor_hash(const FunctionData<NCT>& function_data,
-                                                           const FrOf<NCT>& args_hash,
-                                                           const FrOf<NCT>& constructor_vk_hash)
+template <typename NCT> FrOf<NCT> compute_constructor_hash(FunctionData<NCT> const& function_data,
+                                                           FrOf<NCT> const& args_hash,
+                                                           FrOf<NCT> const& constructor_vk_hash)
 {
     using fr = FrOf<NCT>;
 
@@ -49,9 +49,9 @@ template <typename NCT> FrOf<NCT> compute_constructor_hash(const FunctionData<NC
     return NCT::compress(inputs, aztec3::GeneratorIndex::CONSTRUCTOR);
 }
 
-template <typename NCT> FrOf<NCT> compute_partial_address(const FrOf<NCT>& contract_address_salt,
-                                                          const FrOf<NCT>& function_tree_root,
-                                                          const FrOf<NCT>& constructor_hash)
+template <typename NCT> FrOf<NCT> compute_partial_address(FrOf<NCT> const& contract_address_salt,
+                                                          FrOf<NCT> const& function_tree_root,
+                                                          FrOf<NCT> const& constructor_hash)
 {
     std::vector<FrOf<NCT>> const inputs = {
         FrOf<NCT>(0), FrOf<NCT>(0), contract_address_salt, function_tree_root, constructor_hash,
@@ -60,20 +60,20 @@ template <typename NCT> FrOf<NCT> compute_partial_address(const FrOf<NCT>& contr
 }
 
 template <typename NCT>
-typename NCT::address compute_contract_address_from_partial(Point<NCT> const& point, FrOf<NCT> const& partial_address)
+AddressOf<NCT> compute_contract_address_from_partial(Point<NCT> const& point, FrOf<NCT> const& partial_address)
 {
     std::vector<FrOf<NCT>> const inputs = {
         point.x,
         point.y,
         partial_address,
     };
-    return address(NCT::hash(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS));
+    return { NCT::hash(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS) };
 }
 
-template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
-                                                                       FrOf<NCT> const& contract_address_salt,
-                                                                       FrOf<NCT> const& function_tree_root,
-                                                                       FrOf<NCT> const& constructor_hash)
+template <typename NCT> AddressOf<NCT> compute_contract_address(Point<NCT> const& point,
+                                                                FrOf<NCT> const& contract_address_salt,
+                                                                FrOf<NCT> const& function_tree_root,
+                                                                FrOf<NCT> const& constructor_hash)
 {
     using fr = FrOf<NCT>;
 
@@ -83,7 +83,8 @@ template <typename NCT> typename NCT::address compute_contract_address(Point<NCT
     return compute_contract_address_from_partial(point, partial_address);
 }
 
-template <typename NCT> FrOf<NCT> compute_commitment_nonce(FrOf<NCT> first_nullifier, FrOf<NCT> commitment_index)
+template <typename NCT>
+FrOf<NCT> compute_commitment_nonce(FrOf<NCT> const& first_nullifier, FrOf<NCT> const& commitment_index)
 {
     using fr = FrOf<NCT>;
 
@@ -95,7 +96,8 @@ template <typename NCT> FrOf<NCT> compute_commitment_nonce(FrOf<NCT> first_nulli
     return NCT::hash(inputs, aztec3::GeneratorIndex::COMMITMENT_NONCE);
 }
 
-template <typename NCT> FrOf<NCT> silo_commitment(typename NCT::address contract_address, FrOf<NCT> inner_commitment)
+template <typename NCT>
+FrOf<NCT> silo_commitment(AddressOf<NCT> const& contract_address, FrOf<NCT> const& inner_commitment)
 {
     using fr = FrOf<NCT>;
 
@@ -119,7 +121,7 @@ template <typename NCT> FrOf<NCT> compute_unique_commitment(FrOf<NCT> nonce, FrO
     return NCT::hash(inputs, aztec3::GeneratorIndex::UNIQUE_COMMITMENT);
 }
 
-template <typename NCT> FrOf<NCT> silo_nullifier(typename NCT::address contract_address, FrOf<NCT> nullifier)
+template <typename NCT> FrOf<NCT> silo_nullifier(AddressOf<NCT> const& contract_address, FrOf<NCT> nullifier)
 {
     using fr = FrOf<NCT>;
 
@@ -133,7 +135,7 @@ template <typename NCT> FrOf<NCT> silo_nullifier(typename NCT::address contract_
 }
 
 
-template <typename NCT> FrOf<NCT> compute_block_hash(FrOf<NCT> globals_hash,
+template <typename NCT> FrOf<NCT> compute_block_hash(FrOf<NCT> const& globals_hash,
                                                      FrOf<NCT> private_data_tree_root,
                                                      FrOf<NCT> nullifier_tree_root,
                                                      FrOf<NCT> contract_tree_root,
@@ -150,12 +152,12 @@ template <typename NCT> FrOf<NCT> compute_block_hash(FrOf<NCT> globals_hash,
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
-template <typename NCT> FrOf<NCT> compute_block_hash_with_globals(typename abis::GlobalVariables<NCT> globals,
-                                                                  FrOf<NCT> private_data_tree_root,
-                                                                  FrOf<NCT> nullifier_tree_root,
-                                                                  FrOf<NCT> contract_tree_root,
-                                                                  FrOf<NCT> l1_to_l2_data_tree_root,
-                                                                  FrOf<NCT> public_data_tree_root)
+template <typename NCT> FrOf<NCT> compute_block_hash_with_globals(abis::GlobalVariables<NCT> const& globals,
+                                                                  FrOf<NCT> const& private_data_tree_root,
+                                                                  FrOf<NCT> const& nullifier_tree_root,
+                                                                  FrOf<NCT> const& contract_tree_root,
+                                                                  FrOf<NCT> const& l1_to_l2_data_tree_root,
+                                                                  FrOf<NCT> const& public_data_tree_root)
 {
     using fr = FrOf<NCT>;
 
@@ -167,7 +169,7 @@ template <typename NCT> FrOf<NCT> compute_block_hash_with_globals(typename abis:
     return NCT::compress(inputs, aztec3::GeneratorIndex::BLOCK_HASH);
 }
 
-template <typename NCT> FrOf<NCT> compute_globals_hash(typename abis::GlobalVariables<NCT> globals)
+template <typename NCT> FrOf<NCT> compute_globals_hash(abis::GlobalVariables<NCT> const& globals)
 {
     return globals.hash();
 }
@@ -190,7 +192,7 @@ template <typename NCT> FrOf<NCT> compute_globals_hash(typename abis::GlobalVari
  *      see membership.hpp:check_subtree_membership (left/right/conditional_assign, etc)
  */
 template <typename NCT, size_t N> FrOf<NCT> root_from_sibling_path(FrOf<NCT> const& leaf,
-                                                                   typename NCT::uint32 const& leaf_index,
+                                                                   Uint32Of<NCT> const& leaf_index,
                                                                    std::array<FrOf<NCT>, N> const& sibling_path)
 {
     auto node = leaf;
@@ -296,9 +298,9 @@ void check_membership(Builder& builder,
  * @return NCT::fr
  */
 template <typename NCT> FrOf<NCT> function_tree_root_from_siblings(
-    typename NCT::uint32 const& function_selector,
-    typename NCT::boolean const& is_internal,
-    typename NCT::boolean const& is_private,
+    Uint32Of<NCT> const& function_selector,
+    BoolOf<NCT> const& is_internal,
+    BoolOf<NCT> const& is_private,
     FrOf<NCT> const& vk_hash,
     FrOf<NCT> const& acir_hash,
     FrOf<NCT> const& function_leaf_index,
@@ -332,8 +334,8 @@ template <typename NCT> FrOf<NCT> function_tree_root_from_siblings(
  */
 template <typename NCT> FrOf<NCT> contract_tree_root_from_siblings(
     FrOf<NCT> const& function_tree_root,
-    typename NCT::address const& storage_contract_address,
-    typename NCT::address const& portal_contract_address,
+    AddressOf<NCT> const& storage_contract_address,
+    AddressOf<NCT> const& portal_contract_address,
     FrOf<NCT> const& contract_leaf_index,
     std::array<FrOf<NCT>, CONTRACT_TREE_HEIGHT> const& contract_leaf_sibling_path)
 {
@@ -391,11 +393,11 @@ FrOf<NCT> compute_public_data_tree_index(FrOf<NCT> const& contract_address, FrOf
     return NCT::compress({ contract_address, storage_slot }, GeneratorIndex::PUBLIC_LEAF_INDEX);
 }
 
-template <typename NCT> FrOf<NCT> compute_l2_to_l1_hash(typename NCT::address contract_address,
-                                                        FrOf<NCT> rollup_version_id,
-                                                        FrOf<NCT> portal_contract_address,
-                                                        FrOf<NCT> chain_id,
-                                                        FrOf<NCT> content)
+template <typename NCT> FrOf<NCT> compute_l2_to_l1_hash(AddressOf<NCT> const& contract_address,
+                                                        FrOf<NCT> const& rollup_version_id,
+                                                        FrOf<NCT> const& portal_contract_address,
+                                                        FrOf<NCT> const& chain_id,
+                                                        FrOf<NCT> const& content)
 {
     using fr = FrOf<NCT>;
 
@@ -425,8 +427,8 @@ template <typename NCT> FrOf<NCT> compute_l2_to_l1_hash(typename NCT::address co
  * @param hashes 4 fields containing 2 hashes [high, low, high, low].
  * @return Resulting sha256 hash stored in 2 fields.
  */
-template <typename NCT>
-std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256> accumulate_sha256(std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256 * 2> hashes)
+template <typename NCT> std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256> accumulate_sha256(
+    std::array<FrOf<NCT>, NUM_FIELDS_PER_SHA256 * 2> const& hashes)
 {
     using fr = FrOf<NCT>;
 
