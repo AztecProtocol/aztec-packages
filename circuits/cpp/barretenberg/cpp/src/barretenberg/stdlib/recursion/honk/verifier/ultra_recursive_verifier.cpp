@@ -51,8 +51,10 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     RelationParameters<FF> relation_parameters;
 
-    transcript = Transcript<Builder>{ builder, proof.proof_data };
+    size_t prev_num_gates = builder->get_num_gates();
 
+    transcript = Transcript<Builder>{ builder, proof.proof_data };
+    
     auto commitments = VerifierCommitments(key);
     auto commitment_labels = CommitmentLabels();
 
@@ -65,8 +67,6 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     auto circuit_size_native = static_cast<size_t>(circuit_size.get_value());
     auto public_input_size_native = static_cast<size_t>(public_input_size.get_value());
     auto pub_inputs_offset_native = static_cast<size_t>(pub_inputs_offset.get_value());
-
-    info("1. num gates = ", builder->get_num_gates());
 
     if (circuit_size_native != key->circuit_size) {
         return false;
@@ -109,14 +109,10 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
     // Get permutation challenges
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
 
-    info("2. num gates = ", builder->get_num_gates());
-
     const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
         public_inputs, beta, gamma, circuit_size, pub_inputs_offset_native);
     const FF lookup_grand_product_delta =
         proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
-
-    info("3. num gates = ", builder->get_num_gates());
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -132,7 +128,8 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
-    info("4. num gates = ", builder->get_num_gates());
+    info("Sumcheck: num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
 
     // // Note(luke): Temporary. Done only to complete manifest through sumcheck. Delete once we proceed to Gemini.
     // [[maybe_unused]] FF rho = transcript.get_challenge("rho");
@@ -157,7 +154,8 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
         ++evaluation_idx;
     }
 
-    info("5. num gates = ", builder->get_num_gates());
+    info("Batched eval: num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
 
     // Construct vectors of scalars for batched unshifted and to-be-shifted commitments
     const size_t NUM_UNSHIFTED = commitments.get_unshifted().size();
@@ -177,10 +175,12 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
     auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
-    info("6. num gates = ", builder->get_num_gates());
+    info("Batch mul (unshifted): num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
     auto batched_commitment_to_be_shifted =
         GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
-    info("7. num gates = ", builder->get_num_gates());
+    info("Batch mul (to-be-shited): num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
 
     // Produce a Gemini claim consisting of:
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
@@ -191,15 +191,18 @@ template <typename Flavor> bool UltraRecursiveVerifier_<Flavor>::verify_proof(co
                                               batched_commitment_to_be_shifted,
                                               transcript);
 
-    info("8. num gates = ", builder->get_num_gates());
+    info("Gemini: num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
     // // Note(luke): Temporary. Done only to complete manifest through Gemini. Delete once we proceed to Shplonk.
     // [[maybe_unused]] FF nu = transcript.get_challenge("Shplonk:nu");
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
     (void)shplonk_claim;
-    info("9. num gates = ", builder->get_num_gates());
+    info("Shplonk: num gates = ", builder->get_num_gates() - prev_num_gates);
+    prev_num_gates = builder->get_num_gates();
 
+    info("Total: num gates = ", builder->get_num_gates());
     // DEBUG!
     return true;
 

@@ -165,9 +165,17 @@ template <typename Curve> class ShplonkVerifier_ {
                                               std::span<const OpeningClaim<Curve>> claims,
                                               auto& transcript)
     {
+
         const size_t num_claims = claims.size();
 
         const Fr nu = transcript.get_challenge("Shplonk:nu");
+
+        size_t prev_num_gates = 0;
+        (void)prev_num_gates;
+        if constexpr (Curve::is_stdlib_type) {
+            // info("Shplonk, init: num gates = ", nu.get_context().get_num_gates()); 
+            prev_num_gates = nu.get_context()->get_num_gates();
+        }
 
         auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -226,15 +234,20 @@ template <typename Curve> class ShplonkVerifier_ {
             current_nu *= nu;
         }
 
-        // If recursion, perform [G] -= ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] via batch_mul
+        // If recursion, do batch mul to compute [G] -= ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ]
         if constexpr (Curve::is_stdlib_type) {
+            info("Shplonk: inversions, adds: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
+            prev_num_gates = nu.get_context()->get_num_gates();
             G_commitment -= GroupElement::batch_mul(commitments, scalars);
+            info("Shplonk: batch mul: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
+            prev_num_gates = nu.get_context()->get_num_gates();
         }
 
         // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
         if constexpr (Curve::is_stdlib_type) {
             auto ctx = nu.get_context();
             G_commitment += GroupElement::one(ctx) * G_commitment_constant;
+            info("Shplonk: final mul add: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
         } else {
             //  GroupElement sort_of_one{ x, y };
             G_commitment += vk->srs->get_first_g1() * G_commitment_constant;

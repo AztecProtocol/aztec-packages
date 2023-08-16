@@ -62,20 +62,21 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
 
         big_a* big_b;
         
-        // const size_t num_gates = 1 << 17;
-        // for (size_t i = 0; i < num_gates; ++i) {
-        //     fr a = fr::random_element();
-        //     uint32_t a_idx = builder.add_variable(a);
+        // WORKTODO: this provides a way to set the circuit size of the proof to be recursively verified. Formalize this a bit
+        const size_t num_gates = 1 << 10;
+        for (size_t i = 0; i < num_gates; ++i) {
+            fr a = fr::random_element();
+            uint32_t a_idx = builder.add_variable(a);
 
-        //     fr b = fr::random_element();
-        //     fr c = fr::random_element();
-        //     fr d = a + b + c;
-        //     uint32_t b_idx = builder.add_variable(b);
-        //     uint32_t c_idx = builder.add_variable(c);
-        //     uint32_t d_idx = builder.add_variable(d);
+            fr b = fr::random_element();
+            fr c = fr::random_element();
+            fr d = a + b + c;
+            uint32_t b_idx = builder.add_variable(b);
+            uint32_t c_idx = builder.add_variable(c);
+            uint32_t d_idx = builder.add_variable(d);
 
-        //     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
-        // }
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        }
     };
 
     static void create_outer_circuit(InnerBuilder& inner_circuit, OuterBuilder& outer_builder)
@@ -84,6 +85,8 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         InnerComposer inner_composer;
         auto prover = inner_composer.create_prover(inner_circuit);
         auto proof_to_recursively_verify = prover.construct_proof();
+
+        info("Inner circuit size = ", prover.key->circuit_size);
 
         // Compute native verification key
         const auto native_verification_key = inner_composer.compute_verification_key(inner_circuit);
@@ -105,8 +108,8 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
         auto recursive_manifest = verifier.transcript.get_manifest();
         auto native_manifest = native_verifier.transcript.get_manifest();
         // Note: Recursive manifest currently goes only though sumcheck
-        recursive_manifest.print();
-        native_manifest.print();
+        // recursive_manifest.print();
+        // native_manifest.print();
         for (size_t i = 0; i < recursive_manifest.size(); ++i) {
             EXPECT_EQ(recursive_manifest[i], native_manifest[i]);
         }
