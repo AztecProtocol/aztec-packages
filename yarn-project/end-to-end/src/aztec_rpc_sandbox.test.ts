@@ -1,10 +1,10 @@
 import { aztecRpcTestSuite } from '@aztec/aztec-rpc';
-import { createAztecRpcClient, waitForSandbox } from '@aztec/aztec.js';
+import { createAztecRpcClient, mustSucceedFetch, waitForSandbox } from '@aztec/aztec.js';
 
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 const setup = async () => {
-  const aztecRpc = createAztecRpcClient(SANDBOX_URL);
+  const aztecRpc = createAztecRpcClient(SANDBOX_URL, mustSucceedFetch);
   await waitForSandbox(aztecRpc);
   return aztecRpc;
 };
