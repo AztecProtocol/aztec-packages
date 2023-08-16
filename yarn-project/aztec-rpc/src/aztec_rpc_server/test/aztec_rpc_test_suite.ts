@@ -1,7 +1,7 @@
 import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, DeployedContract, randomDeployedContract } from '@aztec/types';
 
 export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
   describe(testName, function () {
@@ -72,6 +72,17 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       await expect(async () => await rpc.getPublicStorageAt(contract, new Fr(0n))).rejects.toThrow(
         `Contract ${contract.toString()} is not deployed`,
       );
+    });
+
+    it('successfully adds a contract', async () => {
+      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
+      await rpc.addContracts(contracts);
+
+      const expectedContractAddresses = contracts.map(contract => contract.address);
+      const contractAddresses = await rpc.getContracts();
+
+      // check if all the contracts were returned
+      expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
     });
   });
 };
