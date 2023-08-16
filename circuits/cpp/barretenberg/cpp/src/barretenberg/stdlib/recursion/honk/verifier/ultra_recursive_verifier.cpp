@@ -6,9 +6,6 @@
 #include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
-using namespace barretenberg;
-using namespace proof_system::honk::sumcheck;
-
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
@@ -42,14 +39,16 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
+    using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
     using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
     using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve>;
     using PCS = typename Flavor::PCS; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using RelationParams = ::proof_system::honk::sumcheck::RelationParameters<FF>;
 
-    RelationParameters<FF> relation_parameters;
+    RelationParams relation_parameters;
 
     size_t prev_num_gates = builder->get_num_gates();
 
@@ -121,7 +120,7 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     commitments.z_lookup = transcript.template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size_native);
+    auto sumcheck = Sumcheck(circuit_size_native);
 
     std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 

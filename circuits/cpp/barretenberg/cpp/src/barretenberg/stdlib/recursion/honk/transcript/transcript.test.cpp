@@ -6,7 +6,7 @@
 #include "barretenberg/honk/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/trancript.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 
@@ -111,7 +111,7 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     Transcript<Builder> transcript{ &builder, proof_data };
     perform_mock_verifier_transcript_operations<UltraRecursiveFlavor, LENGTH>(transcript);
 
-    // Confirm that the native and stdlib transcripts have generated the same manifest
+    // Confirm that the native and stdlib verifier transcripts have generated the same manifest
     EXPECT_EQ(transcript.get_manifest(), native_transcript.get_manifest());
 
     // TODO(luke): This doesn't check much of anything until hashing is constrained in the stdlib transcript

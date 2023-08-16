@@ -1,8 +1,8 @@
 #pragma once
 #include "barretenberg/honk/pcs/claim.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/verification_key.hpp"
+#include "barretenberg/honk/transcript/transcript.hpp"
 
 /**
  * @brief Reduces multiple claims about commitments, each opened at a single point
@@ -162,20 +162,13 @@ template <typename Curve> class ShplonkVerifier_ {
      * @return OpeningClaim
      */
     static OpeningClaim<Curve> reduce_verification(std::shared_ptr<VK> vk,
-                                              std::span<const OpeningClaim<Curve>> claims,
-                                              auto& transcript)
+                                                   std::span<const OpeningClaim<Curve>> claims,
+                                                   auto& transcript)
     {
 
         const size_t num_claims = claims.size();
 
         const Fr nu = transcript.get_challenge("Shplonk:nu");
-
-        size_t prev_num_gates = 0;
-        (void)prev_num_gates;
-        if constexpr (Curve::is_stdlib_type) {
-            // info("Shplonk, init: num gates = ", nu.get_context().get_num_gates()); 
-            prev_num_gates = nu.get_context()->get_num_gates();
-        }
 
         auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk:Q");
 
@@ -211,7 +204,8 @@ template <typename Curve> class ShplonkVerifier_ {
         }
 
         auto current_nu = Fr(1);
-        std::vector<Commitment> commitments; // used in recursion setting only
+        // Note: commitments and scalars vectors used only in recursion setting for batch mul
+        std::vector<Commitment> commitments;
         std::vector<Fr> scalars;
         for (size_t j = 0; j < num_claims; ++j) {
             // (Cⱼ, xⱼ, vⱼ)
@@ -222,7 +216,7 @@ template <typename Curve> class ShplonkVerifier_ {
             // G₀ += ρʲ / ( r − xⱼ ) ⋅ vⱼ
             G_commitment_constant += scaling_factor * opening_pair.evaluation;
 
-            // If recursion, store MSM inputs for batch mul, otherwise perform mul and add directly
+            // If recursion, store MSM inputs for batch mul, otherwise accumulate directly
             if constexpr (Curve::is_stdlib_type) {
                 commitments.emplace_back(commitment);
                 scalars.emplace_back(scaling_factor);
@@ -236,33 +230,26 @@ template <typename Curve> class ShplonkVerifier_ {
 
         // If recursion, do batch mul to compute [G] -= ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ]
         if constexpr (Curve::is_stdlib_type) {
-            info("Shplonk: inversions, adds: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
-            prev_num_gates = nu.get_context()->get_num_gates();
             G_commitment -= GroupElement::batch_mul(commitments, scalars);
-            info("Shplonk: batch mul: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
-            prev_num_gates = nu.get_context()->get_num_gates();
         }
 
         // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
-        if constexpr (Curve::is_stdlib_type) {
-            auto ctx = nu.get_context();
-            G_commitment += GroupElement::one(ctx) * G_commitment_constant;
-            info("Shplonk: final mul add: num gates = ", nu.get_context()->get_num_gates() - prev_num_gates); 
-        } else {
-            //  GroupElement sort_of_one{ x, y };
-            G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
-        }
-
-        Fr zero_evaluation;
+        Fr evaluation_zero; // 0 \in Fr
+        GroupElement group_one; // [1]
         if constexpr (Curve::is_stdlib_type) {
             auto ctx = transcript.builder;
-            zero_evaluation = Fr::from_witness(ctx, 0);
+            evaluation_zero = Fr::from_witness(ctx, 0);
+            group_one = GroupElement::one(ctx);
         } else {
-            zero_evaluation = Fr(0);
+            //  GroupElement sort_of_one{ x, y };
+            evaluation_zero = Fr(0);
+            group_one = vk->srs->get_first_g1();
         }
 
+        G_commitment += group_one * G_commitment_constant;
+
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, zero_evaluation }, G_commitment };
+        return { { z_challenge, evaluation_zero }, G_commitment };
     };
 };
 } // namespace proof_system::honk::pcs::shplonk

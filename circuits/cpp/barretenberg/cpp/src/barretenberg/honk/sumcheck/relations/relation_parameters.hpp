@@ -8,7 +8,6 @@ namespace proof_system::honk::sumcheck {
  *
  * @tparam FF
  */
-// WORKTODO: cant init via FF::zero() for stdlib. Do we need this?
 template <typename FF> struct RelationParameters {
     FF eta = FF(0);                        // Lookup
     FF beta = FF(0);                       // Permutation + Lookup

@@ -122,7 +122,8 @@ template <typename FF> struct PowUnivariate {
     {
         FF current_univariate_eval = univariate_eval(challenge);
         zeta_pow = zeta_pow_sqr;
-        zeta_pow_sqr = zeta_pow_sqr.sqr(); // WORKTODO: used to be self_sqr
+        // TODO(luke): for native FF, this could be self_sqr()
+        zeta_pow_sqr = zeta_pow_sqr.sqr();
 
         partial_evaluation_constant *= current_univariate_eval;
     }

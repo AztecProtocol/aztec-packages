@@ -424,7 +424,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         // S^{l}(1) = ( (1−1) + 1⋅ζ^{ 2^l } ) ⋅ T^{l}(1) = ζ^{ 2^l } ⋅ T^{l}(1)
         FF total_sum = univariate.value_at(0) + univariate.value_at(1);
         // target_total_sum = sigma_{l} =
-        // WORKTODO: perhaps conditionals like this go away once native verification is is just recursive verification
+        // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         if constexpr (IsRecursiveFlavor<Flavor>) {

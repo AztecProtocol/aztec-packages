@@ -32,16 +32,14 @@ class UltraRecursive {
   public:
     using CircuitBuilder = UltraCircuitBuilder;
     using Curve = plonk::stdlib::bn254<CircuitBuilder>;
-    using FF = Curve::ScalarField;
+    using PCS = pcs::kzg::KZG<Curve>;
     using GroupElement = Curve::Element;
     using Commitment = Curve::Element;
     using CommitmentHandle = Curve::Element;
+    using FF = Curve::ScalarField;
 
-    // WORKTODO: these. do we need them?
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
-    
-    using PCS = pcs::kzg::KZG<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
@@ -255,11 +253,17 @@ class UltraRecursive {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> 
-    {
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
       public:
+        /**
+         * @brief Construct a new Verification Key with stdlib types from a provided native verification key
+         *
+         * @param builder
+         * @param native_key Native verification key from which to extract the precomputed commitments
+         */
         VerificationKey(CircuitBuilder* builder, auto native_key)
-            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size, native_key->num_public_inputs)
+            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size,
+                                                                                  native_key->num_public_inputs)
         {
             q_m = Commitment::from_witness(builder, native_key->q_m);
             q_l = Commitment::from_witness(builder, native_key->q_l);

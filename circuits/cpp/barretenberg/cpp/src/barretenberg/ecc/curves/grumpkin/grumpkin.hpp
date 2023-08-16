@@ -43,6 +43,9 @@ class Grumpkin {
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
 
+    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
+    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
+    // with stdlib types, and "native" verification will be acheived via a simulated builder.
     static constexpr bool is_stdlib_type = false;
 };
 } // namespace curve

@@ -5,7 +5,7 @@
 #include "barretenberg/honk/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/recursion/honk/transcript/trancript.hpp"
+#include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Flavor> class UltraRecursiveVerifier_ {

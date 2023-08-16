@@ -2,7 +2,6 @@
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
-#include "barretenberg/honk/flavor/ultra_recursive.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 
@@ -15,10 +14,10 @@ template <typename Flavor> class UltraVerifier_ {
 
   public:
     explicit UltraVerifier_(std::shared_ptr<VerificationKey> verifier_key = nullptr);
-    UltraVerifier_(UltraVerifier_&& other) noexcept;
+    UltraVerifier_(UltraVerifier_&& other);
     UltraVerifier_(const UltraVerifier_& other) = delete;
     UltraVerifier_& operator=(const UltraVerifier_& other) = delete;
-    UltraVerifier_& operator=(UltraVerifier_&& other) noexcept;
+    UltraVerifier_& operator=(UltraVerifier_&& other);
 
     bool verify_proof(const plonk::proof& proof);
 

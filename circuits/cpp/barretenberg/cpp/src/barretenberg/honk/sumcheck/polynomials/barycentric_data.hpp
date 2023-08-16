@@ -3,6 +3,12 @@
 #include <algorithm>
 #include <array>
 
+// TODO(#674): We need the functionality of BarycentricData for both field and field_t. The former is "literal" i.e. is
+// compatible with constexpr operations, and the former is not. The functions for computing the pre-computable arrays in
+// BarycentricData need to be constexpr and it takes some trickery to share these functions with the non-constexpr
+// setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and
+// BarycentricDataRunTime. There should be a way to share more of the logic.
+
 /* IMPROVEMENT(Cody): This could or should be improved in various ways. In no particular order:
    1) Edge cases are not considered. One non-use case situation (I forget which) leads to a segfault.
 
@@ -229,8 +235,7 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataR
         return result;
     }
 
-    static std::array<Fr, domain_size * num_evals> batch_invert(
-        const std::array<Fr, domain_size * num_evals>& coeffs)
+    static std::array<Fr, domain_size * num_evals> batch_invert(const std::array<Fr, domain_size * num_evals>& coeffs)
     {
         constexpr size_t n = domain_size * num_evals;
         std::array<Fr, n> temporaries{};
@@ -260,8 +265,8 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataR
     // for each x_k in the big domain, build set of domain size-many denominator inverses
     // 1/(d_i*(x_k - x_j)). will multiply against each of these (rather than to divide by something)
     // for each barycentric evaluation
-    static std::array<Fr, domain_size * num_evals> construct_denominator_inverses(
-        const auto& big_domain, const auto& lagrange_denominators)
+    static std::array<Fr, domain_size * num_evals> construct_denominator_inverses(const auto& big_domain,
+                                                                                  const auto& lagrange_denominators)
     {
         std::array<Fr, domain_size * num_evals> result{}; // default init to 0 since below does not init all elements
         for (size_t k = domain_size; k < num_evals; ++k) {
@@ -374,37 +379,31 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataR
     };
 };
 
-
 /**
  * @brief Helper to determine whether input is bberg::field type
- * 
- * @tparam T 
+ *
+ * @tparam T
  */
-template <typename T>
-struct is_field_type {
+template <typename T> struct is_field_type {
     static constexpr bool value = false;
 };
 
-template <typename Params>
-struct is_field_type<barretenberg::field<Params>> {
+template <typename Params> struct is_field_type<barretenberg::field<Params>> {
     static constexpr bool value = true;
 };
 
-template<typename T>
-inline constexpr bool is_field_type_v = is_field_type<T>::value;
+template <typename T> inline constexpr bool is_field_type_v = is_field_type<T>::value;
 
 /**
- * @brief Exposes BarycentricData with compile time arrays if the type is bberg::field and runtime arrays otherwise 
+ * @brief Exposes BarycentricData with compile time arrays if the type is bberg::field and runtime arrays otherwise
  * @details This method is also needed for stdlib field, for which the arrays are not compile time computable
- * @tparam Fr 
- * @tparam domain_size 
- * @tparam num_evals 
+ * @tparam Fr
+ * @tparam domain_size
+ * @tparam num_evals
  */
 template <class Fr, size_t domain_size, size_t num_evals>
-using BarycentricData = std::conditional_t<
-    is_field_type_v<Fr>, 
-    BarycentricDataCompileTime<Fr, domain_size, num_evals>, 
-    BarycentricDataRunTime<Fr, domain_size, num_evals>
->;
+using BarycentricData = std::conditional_t<is_field_type_v<Fr>,
+                                           BarycentricDataCompileTime<Fr, domain_size, num_evals>,
+                                           BarycentricDataRunTime<Fr, domain_size, num_evals>>;
 
 } // namespace proof_system::honk::sumcheck

@@ -14,12 +14,12 @@ UltraVerifier_<Flavor>::UltraVerifier_(std::shared_ptr<typename Flavor::Verifica
 {}
 
 template <typename Flavor>
-UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other) noexcept
+UltraVerifier_<Flavor>::UltraVerifier_(UltraVerifier_&& other)
     : key(std::move(other.key))
     , pcs_verification_key(std::move(other.pcs_verification_key))
 {}
 
-template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other) noexcept
+template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::operator=(UltraVerifier_&& other)
 {
     key = other.key;
     pcs_verification_key = (std::move(other.pcs_verification_key));
@@ -119,7 +119,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     if (!sumcheck_output.has_value()) {
         return false;
     }
-    
+
     auto [multivariate_challenge, purported_evaluations] = *sumcheck_output;
 
     // Execute Gemini/Shplonk verification:
@@ -145,7 +145,7 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-            batched_commitment_unshifted += commitment * rhos[commitment_idx];
+        batched_commitment_unshifted += commitment * rhos[commitment_idx];
         ++commitment_idx;
     }
 
@@ -159,10 +159,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
     auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
-                                              batched_evaluation,
-                                              batched_commitment_unshifted,
-                                              batched_commitment_to_be_shifted,
-                                              transcript);
+                                                    batched_evaluation,
+                                                    batched_commitment_unshifted,
+                                                    batched_commitment_to_be_shifted,
+                                                    transcript);
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);

@@ -23,9 +23,8 @@ TYPED_TEST(BarycentricDataTests, CompileTimeComputation)
     BARYCENTIC_DATA_TESTS_TYPE_ALIASES
     const size_t domain_size(2);
     const size_t num_evals(10);
-    // if constexpr (std::is_literal_type_v<FF>) {
+
     static_assert(BarycentricData<FF, domain_size, num_evals>::big_domain[5] == 5);
-    // }
 }
 
 TYPED_TEST(BarycentricDataTests, Extend)
