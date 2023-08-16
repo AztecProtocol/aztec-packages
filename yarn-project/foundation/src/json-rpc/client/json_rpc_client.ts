@@ -47,7 +47,7 @@ export async function defaultFetch(host: string, rpcMethod: string, body: any, u
     throw new Error(`Failed to parse body as JSON: ${resp.text()}`);
   }
   if (!resp.ok) {
-    throw new Error(responseJson.error);
+    throw new Error(responseJson.error, { cause: 'thrownByServer' });
   }
 
   return responseJson;

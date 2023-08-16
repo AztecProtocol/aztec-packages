@@ -38,6 +38,12 @@ export async function retry<Result>(
     try {
       return await fn();
     } catch (err: any) {
+      if (err.cause == 'thrownByServer') {
+        // If the error is specifically marked as thrown by the server, we don't retry because the error should be
+        // propagated. This is because it's an "intentional error" (e.g. "Contract is not deployed") and not
+        // a connection error or an unexpected software bug.
+        throw err;
+      }
       const s = backoff.next().value;
       if (s === undefined) {
         throw err;
