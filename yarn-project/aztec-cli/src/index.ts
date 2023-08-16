@@ -94,7 +94,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('generate-private-key')
     .description('Generates a 32-byte private key.')
-    .requiredOption('-m, --mnemonic', 'A mnemonic string that can be used for the private key generation.')
+    .option(
+      '-m, --mnemonic',
+      'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
+    )
     .action(async options => {
       let privKey;
       let publicKey;
