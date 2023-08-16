@@ -3,8 +3,14 @@ import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
 import { AztecRPC } from '@aztec/types';
 
-export const aztecRpcTestSuite = (testName: string, rpc: AztecRPC) => {
+export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
   describe(testName, function () {
+    let rpc: AztecRPC;
+
+    beforeAll(async () => {
+      rpc = await aztecRpcSetup();
+    });
+
     it('registers an account and returns it as an account only and not as a recipient', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
       const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());

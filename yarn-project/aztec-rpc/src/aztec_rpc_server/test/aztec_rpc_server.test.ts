@@ -19,4 +19,4 @@ async function createAztecRpcServer(): Promise<AztecRPC> {
   return new AztecRPCServer(keyStore, node, db, config);
 }
 
-aztecRpcTestSuite('AztecRPCServer', await createAztecRpcServer());
+aztecRpcTestSuite('AztecRPCServer', createAztecRpcServer);
