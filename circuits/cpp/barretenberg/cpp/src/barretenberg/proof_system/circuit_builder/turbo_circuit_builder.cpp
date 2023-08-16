@@ -542,7 +542,7 @@ template <typename FF> void TurboCircuitBuilder_<FF>::create_ecc_dbl_gate(const 
         .q_c = 0,
     });
 
-    // lambda * lambda - x2 - x1 = 0
+    // lambda * lambda - 2x3 - x3 = 0
     const auto lambda_sqr_v = lambda_v * lambda_v;
     const auto lambda_sqr = this->add_variable(lambda_sqr_v);
     create_poly_gate({
@@ -558,11 +558,11 @@ template <typename FF> void TurboCircuitBuilder_<FF>::create_ecc_dbl_gate(const 
     create_poly_gate({
         .a = lambda_sqr,
         .b = in.x1,
-        .c = this->zero_idx,
+        .c = in.x3,
         .q_m = 0,
         .q_l = 1,
         .q_r = -2,
-        .q_o = 0,
+        .q_o = -1,
         .q_c = 0,
     });
 

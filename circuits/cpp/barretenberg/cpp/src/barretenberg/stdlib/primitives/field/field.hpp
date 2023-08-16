@@ -4,15 +4,13 @@
 #include "barretenberg/common/assert.hpp"
 #include <functional>
 
-namespace proof_system::plonk {
-namespace stdlib {
+namespace proof_system::plonk::stdlib {
 
 template <typename ComposerContext> class bool_t;
 template <typename ComposerContext> class field_t {
   public:
     field_t(ComposerContext* parent_context = nullptr);
     field_t(ComposerContext* parent_context, const barretenberg::fr& value);
-
     field_t(const int value)
         : context(nullptr)
     {
@@ -68,7 +66,7 @@ template <typename ComposerContext> class field_t {
         , witness_index(other.witness_index)
     {}
 
-    field_t(field_t&& other)
+    field_t(field_t&& other) noexcept
         : context(other.context)
         , additive_constant(other.additive_constant)
         , multiplicative_constant(other.multiplicative_constant)
@@ -77,15 +75,20 @@ template <typename ComposerContext> class field_t {
 
     field_t(const bool_t<ComposerContext>& other);
 
+    ~field_t() = default;
+
     static constexpr bool is_composite = false;
     static constexpr uint256_t modulus = barretenberg::fr::modulus;
 
-    static field_t from_witness_index(ComposerContext* parent_context, const uint32_t witness_index);
+    static field_t from_witness_index(ComposerContext* parent_context, uint32_t witness_index);
 
     explicit operator bool_t<ComposerContext>() const;
 
     field_t& operator=(const field_t& other)
     {
+        if (this == &other) {
+            return *this;
+        }
         additive_constant = other.additive_constant;
         multiplicative_constant = other.multiplicative_constant;
         witness_index = other.witness_index;
@@ -93,7 +96,7 @@ template <typename ComposerContext> class field_t {
         return *this;
     }
 
-    field_t& operator=(field_t&& other)
+    field_t& operator=(field_t&& other) noexcept
     {
         additive_constant = other.additive_constant;
         multiplicative_constant = other.multiplicative_constant;
@@ -149,7 +152,8 @@ template <typename ComposerContext> class field_t {
     };
 
     // Postfix increment (x++)
-    field_t operator++(int)
+    // NOLINTNEXTLINE
+    field_t operator++(const int)
     {
         field_t this_before_operation = field_t(*this);
         *this = *this + 1;
@@ -244,7 +248,7 @@ template <typename ComposerContext> class field_t {
      * Slices a `field_t` at given indices (msb, lsb) both included in the slice,
      * returns three parts: [low, slice, high].
      */
-    std::array<field_t, 3> slice(const uint8_t msb, const uint8_t lsb) const;
+    std::array<field_t, 3> slice(uint8_t msb, uint8_t lsb) const;
 
     /**
      * is_zero will return a bool_t, and add constraints that enforce its correctness
@@ -252,7 +256,7 @@ template <typename ComposerContext> class field_t {
      **/
     bool_t<ComposerContext> is_zero() const;
 
-    void create_range_constraint(const size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
+    void create_range_constraint(size_t num_bits, std::string const& msg = "field_t::range_constraint") const;
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
@@ -288,10 +292,12 @@ template <typename ComposerContext> class field_t {
 
     uint32_t get_witness_index() const { return witness_index; }
 
+    // std::vector<field_t<ComposerContext>> decompose_into_slices(size_t num_bits = 256, size_t slice_bits = 1) const;
+
     std::vector<bool_t<ComposerContext>> decompose_into_bits(
-        const size_t num_bits = 256,
+        size_t num_bits = 256,
         std::function<witness_t<ComposerContext>(ComposerContext* ctx, uint64_t, uint256_t)> get_bit =
-            [](ComposerContext* ctx, uint64_t j, uint256_t val) {
+            [](ComposerContext* ctx, uint64_t j, const uint256_t& val) {
                 return witness_t<ComposerContext>(ctx, val.get_bit(j));
             }) const;
 
@@ -421,5 +427,4 @@ template <typename ComposerContext> inline std::ostream& operator<<(std::ostream
 
 EXTERN_STDLIB_TYPE(field_t);
 
-} // namespace stdlib
-} // namespace proof_system::plonk
+} // namespace proof_system::plonk::stdlib

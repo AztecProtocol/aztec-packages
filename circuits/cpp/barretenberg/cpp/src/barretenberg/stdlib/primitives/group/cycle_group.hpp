@@ -32,7 +32,12 @@ template <typename Composer> class cycle_group {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
 
-    Composer* get_context(const cycle_group& other);
+    static constexpr bool IS_ULTRA = Composer::CIRCUIT_TYPE == CircuitType::ULTRA;
+    static constexpr size_t table_bits = IS_ULTRA ? 4 : 1;
+    static constexpr size_t num_bits = FF::modulus.get_msb() + 1;
+    static constexpr size_t num_rounds = (num_bits + table_bits - 1) / table_bits;
+
+    Composer* get_context(const cycle_group& other) const;
 
     cycle_group(Composer* _context = nullptr)
         : context(_context)
@@ -97,19 +102,57 @@ template <typename Composer> class cycle_group {
         return result;
     }
 
-    cycle_group dbl();
-    cycle_group unconditional_add(const cycle_group& other);
-    cycle_group constrained_unconditional_add(const cycle_group& other);
-    cycle_group operator+(const cycle_group& other);
-    cycle_group unconditional_subtract(const cycle_group& other);
-    cycle_group constrained_unconditional_subtract(const cycle_group& other);
-    cycle_group operator-(const cycle_group& other);
+    cycle_group dbl() const;
+    cycle_group unconditional_add(const cycle_group& other) const;
+    cycle_group constrained_unconditional_add(const cycle_group& other) const;
+    cycle_group operator+(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other) const;
+    cycle_group constrained_unconditional_subtract(const cycle_group& other) const;
+    cycle_group operator-(const cycle_group& other) const;
     cycle_group& operator+=(const cycle_group& other);
     cycle_group& operator-=(const cycle_group& other);
 
-    static cycle_group fixed_base_batch_mul(const std::vector<field_t>& scalars,
+    class offset_generators {
+      public:
+        offset_generators(size_t num_points);
+        // cycle_group get_generator(size_t generator_idx);
+        // cycle_group get_final_generator_offset();
+        std::vector<affine_element> generators;
+    };
+
+    struct cycle_scalar {
+        using ScalarField = typename G1::subgroup_field;
+        static constexpr size_t LO_BITS = 128;
+        static constexpr size_t HI_BITS = ScalarField::modulus.get_msb() + 1 - LO_BITS;
+        static cycle_scalar from_witness(Composer* context, const ScalarField& value);
+        cycle_scalar(field_t _lo, field_t _hi);
+        cycle_scalar(field_t _in);
+        field_t lo;
+        field_t hi;
+    };
+    class straus_scalar_slice {
+      public:
+        straus_scalar_slice(Composer* context, const cycle_scalar& scalars, size_t table_bits);
+        field_t read(size_t index);
+        size_t _table_bits;
+        std::vector<field_t> slices;
+    };
+    class straus_lookup_table {
+      public:
+        straus_lookup_table(Composer* context,
+                            const cycle_group& base_point,
+                            const cycle_group& generator_point,
+                            size_t table_bits);
+        cycle_group read(const field_t& index);
+        size_t _table_bits;
+        Composer* _context;
+        std::vector<cycle_group> point_table;
+        size_t rom_id = 0;
+    };
+
+    static cycle_group fixed_base_batch_mul(const std::vector<cycle_scalar>& scalars,
                                             const std::vector<size_t>& generator_indices);
-    static cycle_group variable_base_batch_mul(const std::vector<field_t>& scalars,
+    static cycle_group variable_base_batch_mul(const std::vector<cycle_scalar>& scalars,
                                                const std::vector<cycle_group>& base_points);
 
     Composer* context;

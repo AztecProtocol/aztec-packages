@@ -410,7 +410,7 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_ecc_dbl_gate(con
         .q_c = 0,
     });
 
-    // lambda * lambda - x2 - x1 = 0
+    // lambda * lambda - 2x1 - x3 = 0
     const auto lambda_sqr_v = lambda_v * lambda_v;
     const auto lambda_sqr = this->add_variable(lambda_sqr_v);
     create_poly_gate({
@@ -426,15 +426,15 @@ template <typename FF> void StandardCircuitBuilder_<FF>::create_ecc_dbl_gate(con
     create_poly_gate({
         .a = lambda_sqr,
         .b = in.x1,
-        .c = this->zero_idx,
+        .c = in.x3,
         .q_m = 0,
         .q_l = 1,
         .q_r = -2,
-        .q_o = 0,
+        .q_o = -1,
         .q_c = 0,
     });
 
-    // lambda * (x1 - x3) - y1 = 0
+    // lambda * (x1 - x3) - y1 - y3 = 0
     const auto x1_sub_x3_v = x1 - x3;
     const auto x1_sub_x3 = this->add_variable(x1_sub_x3_v);
     create_poly_gate({
@@ -733,6 +733,8 @@ template <typename FF> bool StandardCircuitBuilder_<FF>::check_circuit()
         gate_sum = q_m[i] * left * right + q_1[i] * left + q_2[i] * right + q_3[i] * output + q_c[i];
         if (!gate_sum.is_zero()) {
             info("gate number", i);
+            info("l, r, o = ", left, ", ", right, ", ", output);
+            info("wl,wr,wo = ", w_l[i], ", ", w_r[i], ", ", w_o[i]);
             return false;
         }
     }

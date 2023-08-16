@@ -33,7 +33,7 @@ template <class Composer> class CycleGroupTest : public ::testing::Test {
     static void SetUpTestSuite()
     {
         for (size_t i = 0; i < num_generators; ++i) {
-            generators[i] = G1::one * FF::random_element(&engine);
+            generators[i] = G1::one * FF::random_element();
         }
     };
 };
@@ -55,7 +55,7 @@ TYPED_TEST(CycleGroupTest, TestDbl)
     EXPECT_EQ(result, expected);
 
     bool proof_result = composer.check_circuit();
-    EXPECT_EQ(proof_result, false);
+    EXPECT_EQ(proof_result, true);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalAdd)
@@ -192,7 +192,7 @@ TYPED_TEST(CycleGroupTest, TestAdd)
     }
 
     bool proof_result = composer.check_circuit();
-    EXPECT_EQ(proof_result, false);
+    EXPECT_EQ(proof_result, true);
 }
 
 TYPED_TEST(CycleGroupTest, TestUnconditionalSubtract)
@@ -329,7 +329,35 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
     }
 
     bool proof_result = composer.check_circuit();
-    EXPECT_EQ(proof_result, false);
+    EXPECT_EQ(proof_result, true);
 }
 
+TYPED_TEST(CycleGroupTest, TestVariableBaseBatchMul)
+{
+    STDLIB_TYPE_ALIASES;
+    auto composer = Composer();
+
+    const size_t num_muls = 1;
+    std::vector<cycle_group_ct> points;
+    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+    element expected = G1::point_at_infinity;
+
+    for (size_t i = 0; i < num_muls; ++i) {
+        auto element = TestFixture::generators[i];
+        typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+
+        expected += (element * scalar);
+        points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+    }
+
+    auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+
+    EXPECT_EQ(result.get_value(), affine_element(expected));
+
+    std::cout << "num gates = " << composer.get_num_gates() << std::endl;
+    bool proof_result = composer.check_circuit();
+    EXPECT_EQ(proof_result, true);
+}
 } // namespace stdlib_cycle_group_tests
