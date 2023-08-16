@@ -8,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { createBackend, SimulatedBackend } from 'acvm_js';
+import { SimulatedBackend, createBackend } from 'acvm_js';
 
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';

@@ -24,8 +24,8 @@ import {
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
-import { AcirSimulator } from '../index.js';
 import { oracleDebugCallToFormattedStr } from '../client/debug.js';
+import { AcirSimulator } from '../index.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';

@@ -75,21 +75,26 @@ export async function acvm(
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
-  const partialWitness = await executeCircuit(backend, acir, initialWitness, async (name: string, args: ForeignCallInput[]) => {
-    try {
-      logger(`Oracle callback ${name}`);
-      const oracleFunction = callback[name as ORACLE_NAMES];
-      if (!oracleFunction) {
-        throw new Error(`Oracle callback ${name} not found`);
-      }
+  const partialWitness = await executeCircuit(
+    backend,
+    acir,
+    initialWitness,
+    async (name: string, args: ForeignCallInput[]) => {
+      try {
+        logger(`Oracle callback ${name}`);
+        const oracleFunction = callback[name as ORACLE_NAMES];
+        if (!oracleFunction) {
+          throw new Error(`Oracle callback ${name} not found`);
+        }
 
-      const result = await oracleFunction.call(callback, ...args);
-      return [result];
-    } catch (err: any) {
-      logger(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
-      throw err;
-    }
-  });
+        const result = await oracleFunction.call(callback, ...args);
+        return [result];
+      } catch (err: any) {
+        logger(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
+        throw err;
+      }
+    },
+  );
   return Promise.resolve({ partialWitness });
 }
 
