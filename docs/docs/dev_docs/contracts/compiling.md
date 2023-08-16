@@ -1,6 +1,10 @@
 # Compiling contracts
 
-Once you have written your [contracts](../contracts/main.md) in Noir, you will need to compile them into an artifact in order to use them. In this guide we will cover how to do so, both using the CLI and programmatically, as well as generating helper typescript and Noir interfaces for interacting with them.
+Once you have written a [contract](../contracts/main.md) in Noir, you will need to compile it into an [artifact](./abi.md) in order to use it.
+
+In this guide we will cover how to do so, both using the CLI and programmatically.
+
+We'll also cover how to generate a helper [TypeScript interface](#typescript-interfaces) and a [Noir interface](#noir-interfaces) for easily interacting with your contract from your typescript app and from other noir contracts, respectively.
 
 ## Prerequisites
 
@@ -21,10 +25,10 @@ To compile a contract using the Aztec CLI, first install it:
 
 `npm install -g @aztec/cli`
 
-Then run the `compile` command with the path to your Noir contract project:
+Then run the `compile` command with the path to your [contract project folder](./layout.md#directory-structure), which is the one that contains the `Nargo.toml` file:
 
 ```
-aztec-cli compile ./src/noir
+aztec-cli compile ./path/to/my_aztec_contract_project
 ```
 
 This will output a JSON artifact for each contract in the project to a `target` folder containing their [ABI](./abi.md), which you can use for deploying or interacting with your contracts.
@@ -36,7 +40,7 @@ You can use the compiler to autogenerate type-safe typescript classes for each o
 To generate them, include a `--typescript` option in the compile command with a path to the target folder for the typescript files:
 
 ```
-aztec-cli compile --typescript ./src/ts/contracts ./src/noir
+aztec-cli compile --typescript ./path/to/typescript/src ./path/to/my_aztec_contract_project
 ```
 
 Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
@@ -64,16 +68,18 @@ export class PrivateTokenContract extends ContractBase {
 }
 ```
 
+Read more about interacting with contracts using `aztec.js` [here](../dapps/main.md).
+
 ### Noir interfaces
 
 A Noir contract can [call a function](./functions.md) in another contract via `context.call_private_function` or `context.call_public_function`. However, this requires manually assembling the function selector and manually serialising the arguments, which is not type-safe.
 
 To make this easier, the compiler can generate a contract interface struct that exposes a convenience method for each function listed in a given contract ABI. These structs are intended to be used from another contract project that calls into the current one.
 
-To generate them, include a `--interface` option in the compile command with ap ath to the target folder for the generated Noir interface files:
+To generate them, include a `--interface` option in the compile command with a path to the target folder for the generated Noir interface files:
 
 ```
-aztec-cli compile --interface ../client/src/noir ./src/noir
+aztec-cli compile --interface ./path/to/another_aztec_contract_project/src ./path/to/my_aztec_contract_project
 ```
 
 Example code generated from the [PrivateToken](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr) contract:
@@ -91,6 +97,7 @@ impl PrivateTokenContractInterface {
     serialised_args[0] = amount;
     serialised_args[1] = owner;
 
+    // 0x1dc9c3c0 is the function selector for `mint(field,field)`
     context.call_private_function(self.address, 0x1dc9c3c0, serialised_args)
   }
   
@@ -103,11 +110,13 @@ impl PrivateTokenContractInterface {
     serialised_args[1] = sender;
     serialised_args[2] = recipient;
 
+    // 0xdcd4c318 is the function selector for `transfer(field,field,field)`
     context.call_private_function(self.address, 0xdcd4c318, serialised_args)
   }
 }
-
 ```
+
+Read more about how to use the Noir interfaces [here](./functions.md#contract-interface).
 
 :::info
 At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.

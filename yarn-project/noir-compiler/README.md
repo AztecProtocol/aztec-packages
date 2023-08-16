@@ -4,9 +4,23 @@ The Aztec noir compiler compiles noir contracts using nargo or noir_wasm and out
 
 ## Installation
 
-To install the package, just run `yarn add @aztec/noir-compiler`.
+To install the package, run: 
+
+```bash
+yarn add @aztec/noir-compiler
+```
 
 ## Usage
 
-To run the compiler as a CLI tool, first install it and then run: `yarn aztec-compile compile --help`
+To run the compiler as a CLI tool, first install the package and then run: 
 
+```bash
+yarn aztec-compile compile --help
+```
+
+You can also run the compiler from the [main Aztec CLI](../aztec-cli/README.md), which includes several other features for interacting with the Aztec Network:
+
+```bash
+yarn add @aztec/cli
+yarn aztec-cli compile --help
+```
