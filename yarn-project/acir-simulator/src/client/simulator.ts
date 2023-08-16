@@ -8,6 +8,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
+import { createBackend, SimulatedBackend } from 'acvm_js';
+
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle } from './db_oracle.js';
@@ -20,10 +22,29 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
+  private static backend: SimulatedBackend; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
     this.log = createDebugLogger('aztec:simulator');
+  }
+
+  /**
+   * Gets or initializes the ACVM SimulatedBackend.
+   *
+   * @remarks
+   *
+   * Occurs only once across all instances of AcirSimulator.
+   * Speeds up execution by only performing setup tasks (like pedersen
+   * generator initialization) one time.
+   * WARNING: it is unclear whether this will work in a multi-threaded
+   * environment where multiple threads seek to use the same backend.
+   *
+   * @returns ACVM SimulatedBackend
+   */
+  public static async getBackend(): Promise<SimulatedBackend> {
+    if (!this.backend) this.backend = await createBackend();
+    return this.backend;
   }
 
   /**

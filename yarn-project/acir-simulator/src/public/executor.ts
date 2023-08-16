@@ -24,6 +24,7 @@ import {
   toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
+import { AcirSimulator } from '../index.js';
 import { oracleDebugCallToFormattedStr } from '../client/debug.js';
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
@@ -71,7 +72,7 @@ export class PublicExecutor {
     // We use this cache to hold the packed arguments.
     const packedArgs = await PackedArgsCache.create([]);
 
-    const { partialWitness } = await acvm(acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getBackend(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
       },
