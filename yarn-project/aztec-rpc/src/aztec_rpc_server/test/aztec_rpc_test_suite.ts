@@ -9,7 +9,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
     beforeAll(async () => {
       rpc = await aztecRpcSetup();
-    });
+    }, 120_000);
 
     it('registers an account and returns it as an account only and not as a recipient', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
