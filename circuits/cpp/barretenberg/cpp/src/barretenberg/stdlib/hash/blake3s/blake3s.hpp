@@ -5,8 +5,6 @@
 namespace proof_system::plonk {
 namespace stdlib {
 
-
-// WORKTODO: simulator goes through plookup code path?
 template <typename Composer> byte_array<Composer> blake3s(const byte_array<Composer>& input);
 #define BLAKE3S(circuit_type) byte_array<circuit_type> blake3s(const byte_array<circuit_type>& input);
 

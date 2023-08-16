@@ -202,18 +202,6 @@ template <typename Composer> class stdlib_field : public testing::Test {
         }
     }
 
-    // static void test_add_mul_with_constants()
-    // {
-    //     Composer composer = Composer();
-    //     auto gates_before = composer.get_num_gates();
-    //     uint64_t expected = fidget(composer);
-    //     auto gates_after = composer.get_num_gates();
-    //     EXPECT_EQ(composer.get_variable(composer.w_o[gates_after - 1]), fr(expected));
-    //     info("Number of gates added", gates_after - gates_before);
-    //     bool result = composer.check_circuit();
-    //     EXPECT_EQ(result, true);
-    // }
-
     static void test_div()
     {
         Composer composer = Composer();
@@ -631,7 +619,7 @@ template <typename Composer> class stdlib_field : public testing::Test {
         using witness_supplier_type = std::function<witness_ct(Composer * ctx, uint64_t, uint256_t)>;
 
         // check that constraints are satisfied for a variety of inputs
-        [[maybe_unused]] auto run_success_test = [&]() {
+        auto run_success_test = [&]() {
             Composer composer = Composer();
 
             constexpr uint256_t modulus_minus_one = fr::modulus - 1;
@@ -961,10 +949,7 @@ TYPED_TEST(stdlib_field, test_assert_equal)
 {
     TestFixture::test_assert_equal();
 }
-// TYPED_TEST(stdlib_field, test_add_mul_with_constants)
-// {
-//     TestFixture::test_add_mul_with_constants();
-// }
+
 TYPED_TEST(stdlib_field, test_div)
 {
     TestFixture::test_div();

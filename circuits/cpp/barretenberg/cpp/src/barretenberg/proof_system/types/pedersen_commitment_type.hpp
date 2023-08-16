@@ -1,6 +1,6 @@
 #pragma once
 
 namespace proof_system::pedersen {
-// TODO(Cody) Get rid of this?
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/426)
 enum CommitmentType { FIXED_BASE_PEDERSEN, LOOKUP_PEDERSEN, NONE };
 } // namespace proof_system::pedersen

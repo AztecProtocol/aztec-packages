@@ -34,7 +34,7 @@ field_t<Composer> logic<Composer>::create_logic_constraint(
     ASSERT(num_bits < 254);
     ASSERT(num_bits > 0);
 
-    if constexpr (IsSimulator<Composer>) { // WORKTODO: or stub create_logic_constraint
+    if constexpr (IsSimulator<Composer>) {
         uint256_t a_native(a.get_value());
         uint256_t b_native(b.get_value());
         uint256_t c_native = is_xor_gate ? (a_native ^ b_native) : (a_native & b_native);

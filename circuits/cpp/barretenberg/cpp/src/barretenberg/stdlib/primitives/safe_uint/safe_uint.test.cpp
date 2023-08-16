@@ -147,9 +147,6 @@ TYPED_TEST(SafeUintTest, TestAddOperationOutOfRangeFails)
 TYPED_TEST(SafeUintTest, TestSubtractMethod)
 {
     STDLIB_TYPE_ALIASES
-    // if constexpr(proof_system::IsSimulator<Composer>){
-    //     GTEST_SKIP() << "Methid is not implemented in this case."; // WORKTODO
-    // }
     auto composer = Composer();
 
     field_ct a(witness_ct(&composer, 2));
@@ -177,7 +174,6 @@ TYPED_TEST(SafeUintTest, TestSubtractMethodMinuedGtLhsFails)
 }
 
 #if !defined(__wasm__)
-// WORKTODO: What is this testing?
 TYPED_TEST(SafeUintTest, TestSubtractMethodUnderflowFails)
 {
     STDLIB_TYPE_ALIASES
@@ -214,7 +210,6 @@ TYPED_TEST(SafeUintTest, TestMinusOperator)
 }
 
 #if !defined(__wasm__)
-// WORKTODO: What is this testing? The `try` succeeds.
 TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
 {
     STDLIB_TYPE_ALIASES
@@ -224,9 +219,11 @@ TYPED_TEST(SafeUintTest, TestMinusOperatorUnderflowFails)
     field_ct b(witness_ct(&composer, field_ct::modulus / 2));
     suint_ct c(a, 2);
     suint_ct d(b, suint_ct::MAX_BIT_NUM);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/669)
+    //      What is this testing? The `try` succeeds.
     try {
         c = c - d;
-        // FAIL() << "Expected out of range error"; // WORKTODO: I this was missing--we aren't aborting at underflows.
+        // FAIL() << "Expected out of range error";
     } catch (std::runtime_error const& err) {
         EXPECT_EQ(err.what(), std::string("maximum value exceeded in safe_uint minus operator"));
     } catch (...) {

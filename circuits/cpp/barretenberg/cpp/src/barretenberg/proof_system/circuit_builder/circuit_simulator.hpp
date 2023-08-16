@@ -18,16 +18,12 @@ class CircuitSimulatorBN254 {
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
     bool contains_recursive_proof = false;
-    static constexpr size_t UINT_LOG2_BASE = 2; // WORKTODO: 6 for Ultra
+    static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
-    static constexpr size_t num_gates = 0;
-    static constexpr uint32_t zero_idx = 0;
+    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static. Should make circuit builders
+    static constexpr uint32_t zero_idx = 0; // I think this also should not be static.
     std::vector<FF> public_inputs;
-
-    // uint32_t add_variable([[maybe_unused]]const FF& in){
-    //   return 0; // WORKTODO: return part of `in` for debugging purposes?
-    // }
 
     void add_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices)
     {
@@ -46,17 +42,12 @@ class CircuitSimulatorBN254 {
     inline barretenberg::fr get_variable([[maybe_unused]] const uint32_t index) const { return 1028; }
 
     uint32_t put_constant_variable([[maybe_unused]] const barretenberg::fr& variable) { return 1028; }
-    void set_public_input([[maybe_unused]] const uint32_t witness_index)
-    {
-        // WORKTODO Public input logic?
-    }
+    void set_public_input([[maybe_unused]] const uint32_t witness_index) {}
 
-    void set_public_input([[maybe_unused]] const barretenberg::fr value) { public_inputs.emplace_back(value); }
+    void set_public_input(const barretenberg::fr value) { public_inputs.emplace_back(value); }
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index,
-                     [[maybe_unused]] const barretenberg::fr& witness_value){
-        // WORKTODO: logic?
-    };
+                     [[maybe_unused]] const barretenberg::fr& witness_value){};
 
     [[nodiscard]] size_t get_num_gates() const { return 0; }
 
@@ -107,14 +98,14 @@ class CircuitSimulatorBN254 {
     void assign_tag([[maybe_unused]] const uint32_t variable_index, [[maybe_unused]] const uint32_t tag){};
 
     accumulator_triple_<FF> create_and_constraint([[maybe_unused]] const uint32_t a,
-                                             [[maybe_unused]] const uint32_t b,
-                                             [[maybe_unused]] const size_t num_bits)
+                                                  [[maybe_unused]] const uint32_t b,
+                                                  [[maybe_unused]] const size_t num_bits)
     {
         return { { 1028 }, { 1028 }, { 1028 } };
     };
     accumulator_triple_<FF> create_xor_constraint([[maybe_unused]] const uint32_t a,
-                                             [[maybe_unused]] const uint32_t b,
-                                             [[maybe_unused]] const size_t num_bits)
+                                                  [[maybe_unused]] const uint32_t b,
+                                                  [[maybe_unused]] const size_t num_bits)
     {
         return { { 1028 }, { 1028 }, { 1028 } };
     };

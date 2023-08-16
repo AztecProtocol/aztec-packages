@@ -29,6 +29,7 @@ bool_t<Composer> verify_signature(const stdlib::byte_array<Composer>& message,
 
     if constexpr (IsSimulator<Composer>) {
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
         std::vector<uint8_t> r_vector = sig.r.get_value();
         std::vector<uint8_t> s_vector = sig.s.get_value();
         std::array<uint8_t, 32> r_array{ 0 };

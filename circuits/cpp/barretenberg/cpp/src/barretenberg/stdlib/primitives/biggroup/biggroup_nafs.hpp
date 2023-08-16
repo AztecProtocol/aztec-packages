@@ -404,7 +404,8 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
         ctx->create_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
     }
 
-    // TODO: VALIDATE SUM DOES NOT OVERFLOW P
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/664)
+    // VALIDATE SUM DOES NOT OVERFLOW P
 
     // validate correctness of wNAF
     if constexpr (!Fr::is_composite) {

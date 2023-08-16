@@ -165,6 +165,7 @@ class Ultra {
     }
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/672)
 class SimulatorBN254 {
   public:
     using CircuitBuilder = proof_system::CircuitSimulatorBN254;

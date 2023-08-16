@@ -99,7 +99,7 @@ TYPED_TEST(LogicTest, LargeOperands)
 {
     STDLIB_TYPE_ALIASES
     if constexpr (proof_system::IsSimulator<Composer>) {
-        GTEST_SKIP() << "This doesn't apply to the simulator?";
+        GTEST_SKIP() << "Skipping this test for the simulator";
     }
     auto composer = Composer();
 

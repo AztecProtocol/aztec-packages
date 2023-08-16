@@ -342,7 +342,7 @@ template <typename Curve> struct verification_key {
             const auto output_key = key_table[key_index];
             output_key.assert_equal(circuit_key_compressed);
         } else {
-            bool_t<Composer> is_valid(context, false); // WORKTODO: changing model here?
+            bool_t<Composer> is_valid(context, false);
             for (const auto& key : keys_in_set) {
                 barretenberg::fr compressed = compress_native(key);
                 is_valid = is_valid || (circuit_key_compressed == compressed);

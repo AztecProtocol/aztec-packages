@@ -308,9 +308,9 @@ concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrump
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra>;
 
-// WORKTODO: move? smart way of not referring to instances?
+// WORKTODO: Find the right place for this.
 template <typename T> 
-concept IsSimulator = IsAnyOf<T, proof_system::CircuitSimulatorBN254>; // WORKTODO: move this
+concept IsSimulator = IsAnyOf<T, proof_system::CircuitSimulatorBN254>;
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
 

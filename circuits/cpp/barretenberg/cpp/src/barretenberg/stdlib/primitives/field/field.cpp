@@ -25,7 +25,6 @@ field_t<ComposerContext>::field_t(const witness_t<ComposerContext>& value)
         additive_constant = value.witness;
         multiplicative_constant = 1;
         witness_index = IS_CONSTANT;
-        // context -> stored_value = value.witness;
     } else {
         additive_constant = 0;
         multiplicative_constant = 1;

@@ -1851,7 +1851,7 @@ TYPED_TEST(stdlib_uint, test_divide_special)
 TYPED_TEST(stdlib_uint, div_remainder_constraint)
 {
     if constexpr (IsSimulator<CircuitSimulatorBN254>) {
-        GTEST_SKIP();
+        GTEST_SKIP()<<"Doesn't apply to the simulator.";
     } else {
         TestFixture::div_remainder_constraint();
     }

@@ -311,6 +311,7 @@ template <typename C>
 void verify_signature(const byte_array<C>& message, const point<C>& pub_key, const signature_bits<C>& sig)
 {
     if constexpr (IsSimulator<C>) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
         const auto deconvert_signature = [](const signature_bits<C>& sig) {
             auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
                                                    (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));

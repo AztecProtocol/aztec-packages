@@ -97,17 +97,8 @@ field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, 
         return pedersen_plookup_commitment<C>::compress(inputs, hash_index);
     }
 
-    // WORKTODO: these are not the same. Was this needed for some pedersen tests in Bb?
-    // if constexpr (IsSimulator<C>) {
-    //     std::vector<barretenberg::fr> native_inputs(inputs.size());
-    //     for (auto& input : inputs) {
-    //         native_inputs.push_back(input.get_value());
-    //     }
-    //     return witness_t<C>(inputs[0].context, crypto::pedersen_commitment::commit_native(native_inputs,
-    //     hash_index).x);
-    // } else {
     return commit(inputs, hash_index).x;
-    // }
+
 }
 
 /**

@@ -48,7 +48,7 @@ point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul_g1(const fi
         using Fr = typename Curve::ScalarField;
         using AffineElement = typename Curve::AffineElement;
 
-        // WORKTODO: ugly.
+        // WORKTODO: this is ugly.
         size_t num_points = 1;
         Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * 1);
         scalars[0] = static_cast<uint256_t>(in.get_value());
@@ -76,7 +76,7 @@ point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul(const field
     if constexpr (IsSimulator<ComposerContext>) {
         if (in.get_value() == barretenberg::fr(0)) {
             in.context->failure("input scalar to fixed_base_scalar_mul_internal cannot be 0");
-            return { 0, 0 }; // WORKTODO: std::optional?
+            return { 0, 0 };
         }
         auto result = crypto::generators::fixed_base_scalar_mul<num_bits>(in.get_value(), generator_index);
         result = result.normalize();

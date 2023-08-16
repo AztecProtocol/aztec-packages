@@ -602,8 +602,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const size_t max_num_bits)
 {
     if constexpr (IsSimulator<C> && std::same_as<G, barretenberg::g1>) {
-        // WORKTODO: We only handle bn254 case here because there is no uniform interface when Fr is a bigfield, in
-        // which case get_value returns a uint512_t.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/663) 
         auto context = points[0].get_context();
         using element_t = typename G::element;
         element_t result = G::one;

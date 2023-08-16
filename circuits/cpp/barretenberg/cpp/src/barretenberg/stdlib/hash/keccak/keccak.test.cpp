@@ -66,6 +66,7 @@ TEST(stdlib_keccak, keccak_theta_output_table)
 
 TEST(stdlib_keccak, keccak_rho_output_table)
 {
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/662)
     GTEST_SKIP() << "Bug in constant case?";
     Composer composer = Composer();
 
@@ -138,6 +139,7 @@ TEST(stdlib_keccak, keccak_chi_output_table)
 
 TEST(stdlib_keccak, test_format_input_lanes)
 {
+    // WORKTODO: this fails? Should it go in https://github.com/AztecProtocol/barretenberg/issues/662?
     GTEST_SKIP() << "Unneeded?";
 
     Composer composer = Composer();

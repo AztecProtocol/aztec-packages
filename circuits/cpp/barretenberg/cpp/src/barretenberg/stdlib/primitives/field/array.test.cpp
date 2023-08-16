@@ -1,5 +1,5 @@
-#include "../bool/bool.hpp"
 #include "array.hpp"
+#include "../bool/bool.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "field.hpp"
@@ -519,7 +519,10 @@ template <typename Composer> class stdlib_array : public testing::Test {
             test_push_array_to_array_helper(composer, source, target, expected_target, expect_fail);
 
         EXPECT_FALSE(proof_result);
-        // EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!"); // WORKTODO
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
+        if constexpr (!proof_system::IsSimulator<Composer>) {
+            EXPECT_EQ(error, "Once we've hit the first zero, there must only be zeros thereafter!");
+        }
     }
 
     class MockClass {
@@ -637,7 +640,8 @@ TYPED_TEST(stdlib_array, test_array_push_generic)
 TYPED_TEST(stdlib_array, test_array_push_generic_full)
 {
     if constexpr (proof_system::IsSimulator<TypeParam>) {
-        GTEST_SKIP() << "WORKTODO";
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/666):
+        GTEST_SKIP() << "Skipped for simulator";
     } else {
         TestFixture::test_array_push_generic_full();
     }

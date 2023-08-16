@@ -260,7 +260,6 @@ template <typename ComposerContext> class field_t {
     {
         if constexpr (IsSimulator<ComposerContext>) {
             auto value = normalize().get_value();
-            // info(value);
             context->set_public_input(value);
         } else {
             context->set_public_input(normalize().witness_index);
