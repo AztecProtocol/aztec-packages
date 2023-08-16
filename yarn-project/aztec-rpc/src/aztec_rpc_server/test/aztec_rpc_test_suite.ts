@@ -1,7 +1,13 @@
 import { AztecAddress, CompleteAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { AztecRPC, DeployedContract, TxExecutionRequest, randomDeployedContract } from '@aztec/types';
+import {
+  AztecRPC,
+  DeployedContract,
+  INITIAL_L2_BLOCK_NUM,
+  TxExecutionRequest,
+  randomDeployedContract,
+} from '@aztec/types';
 
 export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
   describe(testName, function () {
@@ -67,13 +73,6 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       );
     });
 
-    it('throws when getting public storage for non-existent contract', async () => {
-      const contract = AztecAddress.random();
-      await expect(async () => await rpc.getPublicStorageAt(contract, new Fr(0n))).rejects.toThrow(
-        `Contract ${contract.toString()} is not deployed`,
-      );
-    });
-
     it('successfully adds a contract', async () => {
       const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
       await rpc.addContracts(contracts);
@@ -100,5 +99,33 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
         'Public entrypoints are not allowed',
       );
     });
+
+    // Note: Not testing a successful run of `simulateTx`, `sendTx`, `getTxReceipt` and `viewTx` here as it requires
+    //       a larger setup and it's sufficiently tested in the e2e tests.
+
+    it('throws when getting public storage for non-existent contract', async () => {
+      const contract = AztecAddress.random();
+      await expect(async () => await rpc.getPublicStorageAt(contract, new Fr(0n))).rejects.toThrow(
+        `Contract ${contract.toString()} is not deployed`,
+      );
+    });
+
+    // Note: Not testing `getContractDataAndBytecode`, `getContractData` and `getUnencryptedLogs` here as these
+    //       functions only call AztecNode and these methods are frequently used by the e2e tests.
+
+    it('successfully gets a block number', async () => {
+      const blockNum = await rpc.getBlockNum();
+      expect(blockNum).toBeGreaterThanOrEqual(INITIAL_L2_BLOCK_NUM);
+    });
+
+    it('successfully gets node info', async () => {
+      const nodeInfo = await rpc.getNodeInfo();
+      expect(nodeInfo.version).toBeDefined();
+      expect(nodeInfo.chainId).toBeDefined();
+      expect(nodeInfo.rollupAddress).toBeDefined();
+    });
+
+    // Note: Not testing `isGlobalStateSynchronised`, `isAccountStateSynchronised` and `getSyncStatus` as these methods
+    //       only call synchroniser.
   });
 };
