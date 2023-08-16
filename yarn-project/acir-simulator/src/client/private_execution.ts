@@ -13,7 +13,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
-import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
+import { extractPrivateCircuitPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
 import {
   ZERO_ACVM_FIELD,
   acvm,
@@ -24,7 +24,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
+import { AcirSimulator, ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 
@@ -53,7 +53,7 @@ export class PrivateFunctionExecution {
     this.log(`Executing external function ${this.contractAddress.toString()}:${selector}`);
 
     const acir = Buffer.from(this.abi.bytecode, 'base64');
-    const initialWitness = this.writeInputs();
+    const initialWitness = this.getInitialWitness();
 
     // TODO: Move to ClientTxExecutionContext.
     const newNotePreimages: NewNoteData[] = [];
@@ -63,15 +63,15 @@ export class PrivateFunctionExecution {
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
-    const { partialWitness } = await acvm(acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getBackend(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
-        const [pubKey, partialAddress] = await this.context.db.getPublicKey(address);
-        return [pubKey.x, pubKey.y, partialAddress].map(toACVMField);
+        const { publicKey, partialAddress } = await this.context.db.getCompleteAddress(address);
+        return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
@@ -152,21 +152,13 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: (
-        [acvmContractAddress],
-        [acvmStorageSlot],
-        [owner],
-        [encPubKeyX],
-        [encPubKeyY],
-        acvmPreimage,
-      ) => {
+      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [encPubKeyX], [encPubKeyY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
-        const ownerAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(owner));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
-        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, ownerAddress, storageSlot);
+        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = new Point(fromACVMField(encPubKeyX), fromACVMField(encPubKeyY));
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
@@ -182,7 +174,7 @@ export class PrivateFunctionExecution {
       },
     });
 
-    const publicInputs = extractPublicInputs(partialWitness, acir);
+    const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
@@ -221,10 +213,10 @@ export class PrivateFunctionExecution {
    * Writes the function inputs to the initial witness.
    * @returns The initial witness.
    */
-  private writeInputs() {
+  private getInitialWitness() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
 
-    const blockData = this.context.constantHistoricBlockData;
+    const blockData = this.context.historicBlockData;
 
     const fields = [
       this.callContext.msgSender,
@@ -239,8 +231,8 @@ export class PrivateFunctionExecution {
       blockData.contractTreeRoot,
       blockData.l1ToL2MessagesTreeRoot,
       blockData.blocksTreeRoot,
-      blockData.prevGlobalVariablesHash,
       blockData.publicDataTreeRoot,
+      blockData.globalVariablesHash,
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,

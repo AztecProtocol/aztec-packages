@@ -60,9 +60,9 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
         getAccountContract(PrivateKey.random()),
         accountAddress,
       ).getWallet();
-      const childWithInvalidWallet = await ChildContract.create(child.address, invalidWallet);
+      const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
-        /could not satisfy all constraints/,
+        /Cannot satisfy constraint Resolved\([0-9]+\)/,
       );
     });
   });

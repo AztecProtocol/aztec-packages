@@ -1,4 +1,4 @@
-use dep::aztec::context::Context;
+use dep::aztec::context::PrivateContext;
 use dep::aztec::log::emit_encrypted_log;
 use dep::aztec::note::note_getter_options::NoteGetterOptions;
 use dep::aztec::oracle::get_public_key::get_public_key;
@@ -11,7 +11,7 @@ use crate::{
 };
 
 fn spend_notes(
-    context: &mut Context,
+    context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     amount: Field,
     owner: Field,
@@ -51,9 +51,8 @@ fn spend_notes(
     let encryption_pub_key = get_public_key(owner);
     emit_encrypted_log(
         context,
-        context.inputs.call_context.storage_contract_address,
+        (*context).this_address(),
         balance.storage_slot,
-        owner,
         encryption_pub_key,
         encrypted_data,
     );
@@ -141,7 +140,7 @@ fn spend_one_note(
 }
 
 fn send_note(
-    context: &mut Context,
+    context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     amount: Field,
     recipient: Field,
@@ -156,9 +155,8 @@ fn send_note(
     let encryption_pub_key = get_public_key(recipient);
     emit_encrypted_log(
         context,
-        context.inputs.call_context.storage_contract_address,
+        (*context).this_address(),
         balance.storage_slot,
-        recipient,
         encryption_pub_key,
         note.serialise(),
     );

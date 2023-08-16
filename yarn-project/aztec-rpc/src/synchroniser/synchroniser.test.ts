@@ -1,4 +1,4 @@
-import { AztecAddress, Fr, PrivateKey } from '@aztec/circuits.js';
+import { CompleteAddress, Fr, HistoricBlockData, PrivateKey } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { TestKeyStore } from '@aztec/key-store';
 import { AztecNode, L2Block, MerkleTreeId } from '@aztec/types';
@@ -14,15 +14,17 @@ describe('Synchroniser', () => {
   let database: Database;
   let synchroniser: TestSynchroniser;
   let roots: Record<MerkleTreeId, Fr>;
+  let blockData: HistoricBlockData;
 
   beforeEach(() => {
+    blockData = HistoricBlockData.random();
     roots = {
-      [MerkleTreeId.CONTRACT_TREE]: Fr.random(),
-      [MerkleTreeId.PRIVATE_DATA_TREE]: Fr.random(),
-      [MerkleTreeId.NULLIFIER_TREE]: Fr.random(),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: Fr.random(),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: Fr.random(),
-      [MerkleTreeId.BLOCKS_TREE]: Fr.random(),
+      [MerkleTreeId.CONTRACT_TREE]: blockData.contractTreeRoot,
+      [MerkleTreeId.PRIVATE_DATA_TREE]: blockData.privateDataTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: blockData.nullifierTreeRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: blockData.publicDataTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: blockData.l1ToL2MessagesTreeRoot,
+      [MerkleTreeId.BLOCKS_TREE]: blockData.blocksTreeRoot,
     };
 
     aztecNode = mock<AztecNode>();
@@ -32,7 +34,7 @@ describe('Synchroniser', () => {
 
   it('sets tree roots from aztec node on initial sync', async () => {
     aztecNode.getBlockHeight.mockResolvedValue(3);
-    aztecNode.getTreeRoots.mockResolvedValue(roots);
+    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
 
     await synchroniser.initialSync();
 
@@ -53,7 +55,7 @@ describe('Synchroniser', () => {
   it('overrides tree roots from initial sync once block height is larger', async () => {
     // Initial sync is done on block with height 3
     aztecNode.getBlockHeight.mockResolvedValue(3);
-    aztecNode.getTreeRoots.mockResolvedValue(roots);
+    aztecNode.getHistoricBlockData.mockResolvedValue(blockData);
 
     await synchroniser.initialSync();
     const roots0 = database.getTreeRoots();
@@ -101,17 +103,17 @@ describe('Synchroniser', () => {
 
     // Manually adding account to database so that we can call synchroniser.isAccountStateSynchronised
     const keyStore = new TestKeyStore(await Grumpkin.new());
-    keyStore.addAccount(PrivateKey.random());
-    const pubKey = (await keyStore.getAccounts())[0];
-    const address = AztecAddress.random();
-    await database.addPublicKeyAndPartialAddress(address, pubKey, new Fr(0));
+    const privateKey = PrivateKey.random();
+    keyStore.addAccount(privateKey);
+    const completeAddress = await CompleteAddress.fromPrivateKey(privateKey);
+    await database.addCompleteAddress(completeAddress);
 
     // Add the account which will add the note processor to the synchroniser
-    synchroniser.addAccount(pubKey, keyStore);
+    synchroniser.addAccount(completeAddress.publicKey, keyStore);
 
     await synchroniser.workNoteProcessorCatchUp();
 
-    expect(await synchroniser.isAccountStateSynchronised(address)).toBe(true);
+    expect(await synchroniser.isAccountStateSynchronised(completeAddress.address)).toBe(true);
   });
 });
 

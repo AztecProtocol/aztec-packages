@@ -1,10 +1,11 @@
 import {
   CallContext,
   CircuitsWasm,
-  ConstantHistoricBlockData,
+  CompleteAddress,
   ContractDeploymentData,
   FieldsOf,
   FunctionData,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
@@ -15,23 +16,24 @@ import {
 import {
   computeCallStackItemHash,
   computeCommitmentNonce,
-  computeContractAddressFromPartial,
   computeSecretMessageHash,
   computeUniqueCommitment,
+  computeVarArgsHash,
   siloCommitment,
 } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { makeAddressWithPreimagesFromPrivateKey, makeContractDeploymentData } from '@aztec/circuits.js/factories';
+import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
 import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AppendOnlyTree, Pedersen, StandardTree, newTree } from '@aztec/merkle-tree';
 import {
   ChildContractAbi,
+  ImportTestContractAbi,
   NonNativeTokenContractAbi,
   ParentContractAbi,
   PendingCommitmentsContractAbi,
@@ -59,7 +61,8 @@ describe('Private Execution test suite', () => {
   let circuitsWasm: CircuitsWasm;
   let oracle: MockProxy<DBOracle>;
   let acirSimulator: AcirSimulator;
-  let blockData = ConstantHistoricBlockData.empty();
+
+  let blockData = HistoricBlockData.empty();
   let logger: DebugLogger;
 
   const defaultContractAddress = AztecAddress.random();
@@ -110,7 +113,6 @@ describe('Private Execution test suite', () => {
       abi,
       functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       portalContractAddress,
-      blockData,
     );
   };
 
@@ -130,7 +132,7 @@ describe('Private Execution test suite', () => {
     const prevRoots = blockData.toBuffer();
     const rootIndex = name === 'privateData' ? 0 : 32 * 3;
     const newRoots = Buffer.concat([prevRoots.subarray(0, rootIndex), newRoot, prevRoots.subarray(rootIndex + 32)]);
-    blockData = ConstantHistoricBlockData.fromBuffer(newRoots);
+    blockData = HistoricBlockData.fromBuffer(newRoots);
 
     return trees[name];
   };
@@ -145,6 +147,7 @@ describe('Private Execution test suite', () => {
   beforeEach(() => {
     oracle = mock<DBOracle>();
     oracle.getSecretKey.mockResolvedValue(ownerPk);
+    oracle.getHistoricBlockData.mockResolvedValue(blockData);
 
     acirSimulator = new AcirSimulator(oracle);
   });
@@ -193,24 +196,15 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const {
-        address: ownerAddress,
-        partialAddress: ownerPartialAddress,
-        publicKey: ownerPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
 
-      const {
-        address: recipientAddress,
-        partialAddress: recipientPartialAddress,
-        publicKey: recipientPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      owner = ownerCompleteAddress.address;
+      recipient = recipientCompleteAddress.address;
 
-      owner = ownerAddress;
-      recipient = recipientAddress;
-
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
-        if (address.equals(recipient)) return Promise.resolve([recipientPubKey, recipientPartialAddress]);
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
 
@@ -432,24 +426,15 @@ describe('Private Execution test suite', () => {
     };
 
     beforeEach(async () => {
-      const {
-        address: ownerAddress,
-        partialAddress: ownerPartialAddress,
-        publicKey: ownerPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
 
-      const {
-        address: recipientAddress,
-        partialAddress: recipientPartialAddress,
-        publicKey: recipientPubKey,
-      } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
+      owner = ownerCompleteAddress.address;
+      recipient = recipientCompleteAddress.address;
 
-      owner = ownerAddress;
-      recipient = recipientAddress;
-
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([ownerPubKey, ownerPartialAddress]);
-        if (address.equals(recipient)) return Promise.resolve([recipientPubKey, recipientPartialAddress]);
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
 
@@ -641,17 +626,60 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('consuming Messages', () => {
+  describe('nested calls through autogenerated interface', () => {
+    let args: any[];
+    let argsHash: Fr;
+    let testCodeGenAbi: FunctionAbi;
+
+    beforeAll(async () => {
+      // These args should match the ones hardcoded in importer contract
+      const dummyNote = { amount: 1, secretHash: 2 };
+      const deepStruct = { aField: 1, aBool: true, aNote: dummyNote, manyNotes: [dummyNote, dummyNote, dummyNote] };
+      args = [1, true, 1, [1, 2], dummyNote, deepStruct];
+      testCodeGenAbi = TestContractAbi.functions.find(f => f.name === 'testCodeGen')!;
+      const serialisedArgs = encodeArguments(testCodeGenAbi, args);
+      argsHash = await computeVarArgsHash(await CircuitsWasm.get(), serialisedArgs);
+    });
+
+    it('test function should be directly callable', async () => {
+      logger(`Calling testCodeGen function`);
+      const result = await runSimulator({ args, abi: testCodeGenAbi });
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+    });
+
+    it('test function should be callable through autogenerated interface', async () => {
+      const importerAddress = AztecAddress.random();
+      const testAddress = AztecAddress.random();
+      const parentAbi = ImportTestContractAbi.functions.find(f => f.name === 'main')!;
+      const testCodeGenSelector = generateFunctionSelector(testCodeGenAbi.name, testCodeGenAbi.parameters);
+
+      oracle.getFunctionABI.mockResolvedValue(testCodeGenAbi);
+      oracle.getPortalContractAddress.mockResolvedValue(EthAddress.ZERO);
+
+      logger(`Calling importer main function`);
+      const args = [testAddress];
+      const result = await runSimulator({ args, abi: parentAbi, origin: importerAddress });
+
+      expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
+      expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
+      expect(result.nestedExecutions).toHaveLength(1);
+      expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
+    });
+  });
+
+  describe('consuming messages', () => {
     const contractAddress = defaultContractAddress;
     const recipientPk = PrivateKey.fromString('0c9ed344548e8f9ba8aa3c9f8651eaa2853130f6c1e9c050ccf198f7ea18a7ec');
 
     let recipient: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(recipientPk);
-      recipient = address;
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(recipient)) return Promise.resolve([publicKey, partialAddress]);
+      const recipientCompleteAddress = await CompleteAddress.fromPrivateKey(recipientPk);
+      recipient = recipientCompleteAddress.address;
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+        if (address.equals(recipient)) return Promise.resolve(recipientCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -787,10 +815,12 @@ describe('Private Execution test suite', () => {
     let owner: AztecAddress;
 
     beforeEach(async () => {
-      const { address, partialAddress, publicKey } = await makeAddressWithPreimagesFromPrivateKey(ownerPk);
-      owner = address;
-      oracle.getPublicKey.mockImplementation((address: AztecAddress) => {
-        if (address.equals(owner)) return Promise.resolve([publicKey, partialAddress]);
+      const ownerCompleteAddress = await CompleteAddress.fromPrivateKey(ownerPk);
+
+      owner = ownerCompleteAddress.address;
+
+      oracle.getCompleteAddress.mockImplementation((address: AztecAddress) => {
+        if (address.equals(owner)) return Promise.resolve(ownerCompleteAddress);
         throw new Error(`Unknown address ${address}`);
       });
     });
@@ -968,16 +998,14 @@ describe('Private Execution test suite', () => {
     it('gets the public key for an address', async () => {
       // Tweak the contract ABI so we can extract return values
       const abi = TestContractAbi.functions.find(f => f.name === 'getPublicKey')!;
-      abi.returnTypes = [{ kind: 'field' }, { kind: 'field' }];
+      abi.returnTypes = [{ kind: 'array', length: 2, type: { kind: 'field' } }];
 
       // Generate a partial address, pubkey, and resulting address
-      const partialAddress = Fr.random();
-      const pubKey = Point.random();
-      const wasm = await CircuitsWasm.get();
-      const address = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-      const args = [address];
+      const completeAddress = await CompleteAddress.random();
+      const args = [completeAddress.address];
+      const pubKey = completeAddress.publicKey;
 
-      oracle.getPublicKey.mockResolvedValue([pubKey, partialAddress]);
+      oracle.getCompleteAddress.mockResolvedValue(completeAddress);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
       expect(result.returnValues).toEqual([pubKey.x.value, pubKey.y.value]);
     });
@@ -997,7 +1025,7 @@ describe('Private Execution test suite', () => {
       // Overwrite the oracle return value
       oracle.getPortalContractAddress.mockResolvedValue(portalContractAddress);
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
+      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
     });
 
     it('this_address should return the current context address', async () => {
@@ -1009,7 +1037,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args: [], contractAddress });
-      expect(result.returnValues).toEqual([contractAddress.toField().value]);
+      expect(result.returnValues).toEqual(contractAddress.toField().value);
     });
 
     it("this_portal_address should return the current context's portal address", async () => {
@@ -1021,7 +1049,7 @@ describe('Private Execution test suite', () => {
 
       // Overwrite the oracle return value
       const result = await runSimulator({ origin: AztecAddress.random(), abi, args: [], portalContractAddress });
-      expect(result.returnValues).toEqual([portalContractAddress.toField().value]);
+      expect(result.returnValues).toEqual(portalContractAddress.toField().value);
     });
   });
 });

@@ -2,8 +2,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash, computeContractAddressFromPartial } from '../abis/abis.js';
-import { Grumpkin, SchnorrSignature } from '../barretenberg/index.js';
+import { computeCallStackItemHash } from '../abis/abis.js';
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -17,7 +17,6 @@ import {
   CombinedAccumulatedData,
   CombinedConstantData,
   ConstantBaseRollupData,
-  ConstantHistoricBlockData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -27,6 +26,7 @@ import {
   FunctionData,
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
+  HistoricBlockData,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
@@ -65,7 +65,6 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
-  PrivateKey,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -108,8 +107,8 @@ export function makeTxContext(seed: number): TxContext {
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlockData {
-  return new ConstantHistoricBlockData(
+export function makeHistoricBlockData(seed: number): HistoricBlockData {
+  return new HistoricBlockData(
     fr(seed),
     fr(seed + 1),
     fr(seed + 2),
@@ -127,7 +126,7 @@ export function makeConstantHistoricBlockData(seed: number): ConstantHistoricBlo
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeConstantHistoricBlockData(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHistoricBlockData(seed), makeTxContext(seed + 4));
 }
 
 /**
@@ -327,7 +326,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    fr(seed + 0xa00),
+    makeHistoricBlockData(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
   );
 }
@@ -947,19 +946,4 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
-}
-
-/**
- * Computes a valid address, partial address, and public key out of a private key.
- * @param privateKey - A private encryption key (optional, will use a random one if not set).
- * @returns A valid address, partial address, and public key.
- */
-export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: PrivateKey) {
-  privateKey = privateKey ?? PrivateKey.random();
-  const wasm = await CircuitsWasm.get();
-  const grumpkin = new Grumpkin(wasm);
-  const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
-  const partialAddress = Fr.random();
-  const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-  return { address, partialAddress, publicKey, privateKey };
 }

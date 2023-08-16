@@ -4,7 +4,7 @@
   "type": "module",
   "main": "./dest/index.js",
   "bin": {
-    "aztec-cli": "./dest/index.js"
+    "aztec-cli": "./dest/bin/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -39,6 +39,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "commander": "^9.0.0",

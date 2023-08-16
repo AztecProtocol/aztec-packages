@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { ContractData, DeployedContract, NodeInfo, Tx, TxExecutionRequest, TxHash, TxReceipt } from '@aztec/types';
@@ -12,7 +12,7 @@ describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
 
   const contractAddress = AztecAddress.random();
-  const account = AztecAddress.random();
+  let account: CompleteAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
@@ -91,7 +91,8 @@ describe('Contract Class', () => {
     portalContract: EthAddress.random(),
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    account = await CompleteAddress.random();
     wallet = mock<Wallet>();
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
     wallet.getContractData.mockResolvedValue(ContractData.random());
@@ -104,11 +105,11 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = await Contract.create(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
     const param0 = 12;
     const param1 = 345n;
     const sentTx = fooContract.methods.bar(param0, param1).send({
-      origin: account,
+      origin: account.address,
     });
     const txHash = await sentTx.getTxHash();
     const receipt = await sentTx.getReceipt();
@@ -121,29 +122,29 @@ describe('Contract Class', () => {
   });
 
   it('should call view on an unconstrained function', async () => {
-    const fooContract = await Contract.create(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
     const result = await fooContract.methods.qux(123n).view({
-      from: account,
+      from: account.address,
     });
     expect(wallet.viewTx).toHaveBeenCalledTimes(1);
-    expect(wallet.viewTx).toHaveBeenCalledWith('qux', [123n], contractAddress, account);
+    expect(wallet.viewTx).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
     expect(result).toBe(mockViewResultValue);
   });
 
   it('should not call create on an unconstrained function', async () => {
-    const fooContract = await Contract.create(contractAddress, defaultAbi, wallet);
-    await expect(fooContract.methods.qux().create({ origin: account })).rejects.toThrow();
+    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
+    await expect(fooContract.methods.qux().create({ origin: account.address })).rejects.toThrow();
   });
 
   it('should not call view on a secret or open function', async () => {
-    const fooContract = await Contract.create(contractAddress, defaultAbi, wallet);
+    const fooContract = await Contract.at(contractAddress, defaultAbi, wallet);
     expect(() => fooContract.methods.bar().view()).toThrow();
     expect(() => fooContract.methods.baz().view()).toThrow();
   });
 
   it('should add contract and dependencies to aztec rpc', async () => {
     const entry = randomDeployContract();
-    const contract = await Contract.create(entry.address, entry.abi, wallet);
+    const contract = await Contract.at(entry.address, entry.abi, wallet);
 
     {
       await contract.attach(entry.portalContract);

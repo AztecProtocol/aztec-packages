@@ -1,33 +1,9 @@
-import { AztecAddress, AztecRPC, EthAddress, Wallet } from "@aztec/aztec.js";
-import {
-  PortalERC20Abi,
-  PortalERC20Bytecode,
-  TokenPortalAbi,
-  TokenPortalBytecode,
-} from "@aztec/l1-artifacts";
-import { NonNativeTokenContract } from "@aztec/noir-contracts/types";
+import { AztecAddress, EthAddress, Wallet } from '@aztec/aztec.js';
+import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 
-import type { Abi, Narrow } from "abitype";
-import {
-  Account,
-  Chain,
-  Hex,
-  HttpTransport,
-  PublicClient,
-  WalletClient,
-  getContract,
-} from "viem";
-
-export const waitForRPCServer = async (rpcServer: AztecRPC) => {
-  while (true) {
-    try {
-      await rpcServer.getNodeInfo();
-      break;
-    } catch (err) {
-      await delay(1000);
-    }
-  }
-};
+import type { Abi, Narrow } from 'abitype';
+import { Account, Chain, Hex, HttpTransport, PublicClient, WalletClient, getContract } from 'viem';
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
@@ -47,16 +23,11 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
   owner = AztecAddress.ZERO,
-  underlyingERC20Address?: EthAddress
+  underlyingERC20Address?: EthAddress,
 ) {
   // deploy underlying contract if no address supplied
   if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(
-      walletClient,
-      publicClient,
-      PortalERC20Abi,
-      PortalERC20Bytecode
-    );
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
   }
   const underlyingERC20: any = getContract({
     address: underlyingERC20Address.toString(),
@@ -66,12 +37,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
 
   // deploy the token portal
-  const tokenPortalAddress = await deployL1Contract(
-    walletClient,
-    publicClient,
-    TokenPortalAbi,
-    TokenPortalBytecode
-  );
+  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
   const tokenPortal: any = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
@@ -85,21 +51,14 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   });
   await tx.isMined();
   const receipt = await tx.getReceipt();
-  const l2Contract = await NonNativeTokenContract.create(
-    receipt.contractAddress!,
-    wallet
-  );
+  const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
   // initialize portal
   await tokenPortal.write.initialize(
-    [
-      rollupRegistryAddress.toString(),
-      underlyingERC20Address.toString(),
-      l2TokenAddress,
-    ],
-    {} as any
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), l2TokenAddress],
+    {} as any,
   );
   return { l2Contract, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
@@ -118,7 +77,7 @@ export async function deployL1Contract(
   publicClient: PublicClient<HttpTransport, Chain>,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
-  args: readonly unknown[] = []
+  args: readonly unknown[] = [],
 ): Promise<EthAddress> {
   const hash = await walletClient.deployContract({
     abi,
@@ -129,18 +88,8 @@ export async function deployL1Contract(
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(
-      `No contract address found in receipt: ${JSON.stringify(receipt)}`
-    );
+    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
   }
 
   return EthAddress.fromString(receipt.contractAddress!);
-}
-
-/**
- * Sleep for a given number of milliseconds.
- * @param ms - the number of milliseconds to sleep for
- */
-export function delay(ms: number): Promise<void> {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
