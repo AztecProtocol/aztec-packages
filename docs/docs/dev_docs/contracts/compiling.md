@@ -17,7 +17,7 @@ You can re-run `noirup -v aztec` whenever you want to update to the latest versi
 
 ## Compile using the CLI
 
-To compile using the Aztec CLI, first install it:
+To compile a contract using the Aztec CLI, first install it:
 
 `npm install -g @aztec/cli`
 
@@ -29,7 +29,7 @@ aztec-cli compile ./src/noir
 
 This will output a JSON artifact for each contract in the project to a `target` folder containing their [ABI](./abi.md), which you can use for deploying or interacting with your contracts.
 
-### Typescript
+### Typescript Interfaces
 
 You can use the compiler to autogenerate type-safe typescript classes for each of your contracts. These classes define type-safe methods for deploying and interacting with your contract based on their ABI.
 
@@ -113,7 +113,7 @@ impl PrivateTokenContractInterface {
 At the moment, the compiler generates these interfaces from already compiled ABIs, and not from source code. This means that you should not import a generated interface from within the same project as its source contract, or you risk circular references.
 :::
 
-## Access the compiler using nodejs
+## Compile using nodejs
 
 You can also programmatically access the compiler via the `@aztec/noir-compiler` package. To do this, install the package into your nodejs project:
 
