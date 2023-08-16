@@ -214,7 +214,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .description('Gets information about the Aztec contract deployed at the specified address.')
     .argument('<contractAddress>', 'Aztec address of the contract.')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
-    .option('-b, --include-bytecode', "Include the contract's public function bytecode, if any.", false)
+    .option('-b, --include-bytecode <boolean>', "Include the contract's public function bytecode, if any.", false)
     .action(async (contractAddress, options) => {
       const client = createAztecRpcClient(options.rpcUrl);
       const address = AztecAddress.fromString(contractAddress);
