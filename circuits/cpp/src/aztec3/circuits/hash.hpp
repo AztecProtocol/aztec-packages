@@ -138,11 +138,11 @@ typename NCT::fr silo_nullifier(typename NCT::address const& contract_address, t
 
 
 template <typename NCT> typename NCT::fr compute_block_hash(typename NCT::fr const& globals_hash,
-                                                            typename NCT::fr private_data_tree_root,
-                                                            typename NCT::fr nullifier_tree_root,
-                                                            typename NCT::fr contract_tree_root,
-                                                            typename NCT::fr l1_to_l2_data_tree_root,
-                                                            typename NCT::fr public_data_tree_root)
+                                                            typename NCT::fr const& private_data_tree_root,
+                                                            typename NCT::fr const& nullifier_tree_root,
+                                                            typename NCT::fr const& contract_tree_root,
+                                                            typename NCT::fr const& l1_to_l2_data_tree_root,
+                                                            typename NCT::fr const& public_data_tree_root)
 {
     using fr = typename NCT::fr;
 
