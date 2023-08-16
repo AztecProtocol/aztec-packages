@@ -1,7 +1,7 @@
-import { AztecAddress, CompleteAddress, Fr } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
-import { AztecRPC, DeployedContract, randomDeployedContract } from '@aztec/types';
+import { AztecRPC, DeployedContract, TxExecutionRequest, randomDeployedContract } from '@aztec/types';
 
 export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
   describe(testName, function () {
@@ -83,6 +83,22 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
       // check if all the contracts were returned
       expect(contractAddresses).toEqual(expect.arrayContaining(expectedContractAddresses));
+    });
+
+    it('throws when simulating a tx targeting public entrypoint', async () => {
+      const functionData = FunctionData.empty();
+      functionData.isPrivate = false;
+      const txExecutionRequest = new TxExecutionRequest(
+        AztecAddress.random(),
+        functionData,
+        new Fr(0),
+        TxContext.empty(),
+        [],
+      );
+
+      await expect(async () => await rpc.simulateTx(txExecutionRequest)).rejects.toThrow(
+        'Public entrypoints are not allowed',
+      );
     });
   });
 };
