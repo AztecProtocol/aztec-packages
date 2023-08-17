@@ -53,7 +53,7 @@ describe('e2e_public_token_contract', () => {
     expect(txReceipt.status).toEqual(TxStatus.MINED);
   }, 30_000);
 
-  it.only('should deploy a public token contract and mint tokens to a recipient', async () => {
+  it('should deploy a public token contract and mint tokens to a recipient', async () => {
     const mintAmount = 359n;
 
     await deployContract();
