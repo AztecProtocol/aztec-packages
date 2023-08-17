@@ -37,8 +37,8 @@ export class AcirSimulator {
    * Occurs only once across all instances of AcirSimulator.
    * Speeds up execution by only performing setup tasks (like pedersen
    * generator initialization) one time.
-   * WARNING: it is unclear whether this will work in a multi-threaded
-   * environment where multiple threads seek to use the same backend.
+   * TODO(https://github.com/AztecProtocol/aztec-packages/issues/1627):
+   * determine whether this requires a lock
    *
    * @returns ACVM WasmBlackBoxFunctionSolver
    */
