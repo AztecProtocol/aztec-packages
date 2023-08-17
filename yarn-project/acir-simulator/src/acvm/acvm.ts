@@ -3,7 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { executeCircuitWithBlackBoxSolver, ForeignCallInput, ForeignCallOutput, WitnessMap, WasmBlackBoxFunctionSolver } from 'acvm_js';
+import {
+  ForeignCallInput,
+  ForeignCallOutput,
+  WasmBlackBoxFunctionSolver,
+  WitnessMap,
+  executeCircuitWithBlackBoxSolver,
+} from 'acvm_js';
 
 /**
  * The format for fields on the ACVM.
