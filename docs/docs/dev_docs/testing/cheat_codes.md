@@ -1,5 +1,5 @@
 ---
-title: Testing Cheat Codes
+title: Cheat Codes
 ---
 
 ## Introduction
@@ -15,7 +15,7 @@ If you aren't familiar with [Anvil](https://book.getfoundry.sh/anvil/), we recom
 ### Aims
 
 The guide will cover how to manipulate the state of the:
-- L1 blockchain
+- L1 blockchain;
 - Aztec network.
 ### Why is this useful?
 
@@ -31,13 +31,13 @@ For this guide, the following Aztec packages are used:
 import { createAztecRpcClient, CheatCodes } from '@aztec/aztec.js';
 const aztecRpcUrl = 'http://localhost:8080';
 const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
-const cc = CheatCodes.create(aztecRpcUrl, aztecRpcClient);
+const cc = await CheatCodes.create(aztecRpcUrl, aztecRpcClient);
 ```
 
 There are two properties of the CheatCodes class - `l1` and `l2` for cheatcodes relating to the L1 and L2 (Aztec) respectively.
 
 ## L1 related cheatcodes
-These are cheatcodes exposed from anvil. But instead of having to know the right RPC calls to make and format the curl request appropirately, there are convenient wrappers exposed to developers.
+These are cheatcodes exposed from anvil conveniently wrapped for ease of use in the Sandbox.
 
 ### Interface
 ```
@@ -71,7 +71,7 @@ public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<v
 // Computes the slot value for a given map and key on L1. A convenient wrapper to find the appropriate storage slot to load or overwrite the state.
 public keccak256(baseSlot: bigint, key: bigint): bigint
 
-// Send transactions on L1 impersonating an externally owned account or contract.
+// Let you send transactions on L1 impersonating an externally owned or contract, without knowing the private key.
 public async startPrank(who: EthAddress): Promise<void> 
 
 // Stop impersonating an account on L1 that you are currently impersonating.
@@ -92,7 +92,7 @@ public async blockNumber(): Promise<number>
 ```
 
 #### Description
-Fetches the current L1 block number
+Fetches the current L1 block number.
 
 #### Example
 ```js
@@ -122,7 +122,7 @@ public async timestamp(): Promise<number>
 ```
 
 #### Description 
-Fetches the current L1 timestamp
+Fetches the current L1 timestamp.
 
 #### Example
 ```js 
@@ -137,7 +137,7 @@ public async mine(numberOfBlocks = 1): Promise<void>
 ```
 
 #### Description
-Mines the specified number of blocks on L1 (default 1)
+Mines the specified number of blocks on L1 (default 1).
 
 #### Example
 ```js
@@ -154,7 +154,7 @@ public async setNextBlockTimestamp(timestamp: number): Promise<void>
 ```
 
 #### Description
-Sets the timestamp (unix format in seconds) for the next mined block on L1  
+Sets the timestamp (unix format in seconds) for the next mined block on L1.
 Remember that timestamp can only be set in the future and not in the past.
 
 #### Example
@@ -171,7 +171,7 @@ public async dumpChainState(fileName: string): Promise<void>
 ```
 
 #### Description
-Dumps the current L1 chain state to a file
+Dumps the current L1 chain state to a file.
 Returns a hex string representing the complete state of the chain. Can be re-imported into a fresh/restarted instance of Anvil to reattain the same state.
 
 #### Example
@@ -203,7 +203,7 @@ public async load(contract: EthAddress, slot: bigint): Promise<bigint>
 ```
 
 #### Description  
-Loads the value at a storage slot of a L1 contract
+Loads the value at a storage slot of a L1 contract.
 
 #### Example
 ```
@@ -223,7 +223,7 @@ public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<v
 ```
 
 #### Description
-Stores the value in storage slot on a L1 contract
+Stores the value in storage slot on a L1 contract.
 
 #### Example
 ```
@@ -244,7 +244,7 @@ public keccak256(baseSlot: bigint, key: bigint): bigint
 ```
 
 #### Description 
-Computes the storage slot for a map key
+Computes the storage slot for a map key.
 
 #### Example
 ```
@@ -255,7 +255,7 @@ Computes the storage slot for a map key
 
 // find the storage slot for key `0xdead` in the balance map.
 const address = BigInt('0x000000000000000000000000000000000000dead');
-const slot = cc.l1.keccak256(BigInt(1), key) 
+const slot = cc.l1.keccak256(1n, address);
 // store balance of 0xdead as 100
 await cc.l1.store(contractAddress, slot, 100n);
 ```
@@ -268,7 +268,7 @@ public async startPrank(who: EthAddress): Promise<void>
 ```
 
 #### Description  
-Start impersonating an L1 account
+Start impersonating an L1 account.
 Sets msg.sender for all subsequent calls until stopPrank is called.
 
 #### Example
@@ -284,7 +284,7 @@ public async stopPrank(who: EthAddress): Promise<void>
 ```
 
 #### Description
-Stop impersonating an L1 account  
+Stop impersonating an L1 account.
 Stops an active prank started by startPrank, resetting msg.sender to the values before startPrank was called.
 
 #### Example
@@ -300,7 +300,7 @@ public async getBytecode(contract: EthAddress): Promise<`0x${string}`>
 ```
 
 #### Description  
-Get the bytecode for an L1 contract
+Get the bytecode for an L1 contract.
 
 #### Example
 ```js
@@ -315,7 +315,7 @@ public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void>
 ```
 
 #### Description
-Set the bytecode for an L1 contract
+Set the bytecode for an L1 contract.
 
 #### Example  
 ```js
@@ -350,7 +350,7 @@ public async blockNumber(): Promise<number>
 ```
 
 #### Description  
-Get the current L2 block number
+Get the current L2 block number.
 
 #### Example
 ```js
@@ -365,7 +365,7 @@ public async warp(to: number): Promise<void>
 ```
 
 #### Description
-Set time of the next execution on L2 and L1 for next execution.
+Sets the time of L1 and the time of the next L2 block.
 Like with the corresponding L1 cheatcode, time can only be set in the future, not the past.
 
 #### Example
@@ -374,7 +374,7 @@ const timestamp = await cc.l1.timestamp();
 const newTimestamp = timestamp + 100_000_000;
 await cc.l2.warp(newTimestamp);
 
-// any noir contract calls that make use of current timestamp now will have `newTimestamp`
+// any noir contract calls that make use of current timestamp and is executed in the next rollup block will now read `newTimestamp`
 ```
 
 ### loadPublic
