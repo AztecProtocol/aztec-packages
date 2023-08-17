@@ -89,7 +89,7 @@ Each $X$ is a polynomial
 If `bar` was to call a function `baz` there would be another kernel iteration `K_baz` with a similar structure to `K_bar`
 
 ### What Changes with folding
-So instead of recursively proving these circuits, we fold them. This doesn't change anything in the structure of first kernel iteration but eliminates the need to have a Honk verifier circuit at iteration $i$ for recursively verifying the kernel proof from iteration $i-1$. However, each kernel iteration still Honk verifies the Noir proof of the corresponding function (i.e.  `bar` in `K_bar`). TBC
+So instead of recursively proving these circuits, we fold them. This doesn't change anything in the structure of first kernel iteration but eliminates the need to have a Honk verifier circuit at iteration $i$ for recursively verifying the kernel proof from iteration $i-1$. However, each kernel iteration still Honk verifies the Noir proof of the corresponding function or otherwise we need to fold app kernel circuits as well.
 
 ### Notation:
 
