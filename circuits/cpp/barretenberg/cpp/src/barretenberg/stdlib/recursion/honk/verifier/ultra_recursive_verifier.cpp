@@ -57,12 +57,11 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     auto commitments = VerifierCommitments(key);
     auto commitment_labels = CommitmentLabels();
 
-    // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
     const auto public_input_size = transcript.template receive_from_prover<uint32_t>("public_input_size");
     const auto pub_inputs_offset = transcript.template receive_from_prover<uint32_t>("pub_inputs_offset");
 
-    // WORKTODO: need these simple native types in some locations. How to do this properly?
+    // Extract native integer types for these basic quantities for use in subsequent operations
     auto circuit_size_native = static_cast<size_t>(circuit_size.get_value());
     auto public_input_size_native = static_cast<size_t>(public_input_size.get_value());
     auto pub_inputs_offset_native = static_cast<size_t>(pub_inputs_offset.get_value());
