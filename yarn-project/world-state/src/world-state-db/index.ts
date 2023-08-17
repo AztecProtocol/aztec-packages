@@ -1,6 +1,6 @@
-import { GlobalVariables, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { LeafData, LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
 
@@ -183,13 +183,13 @@ export interface MerkleTreeOperations {
   /**
    * Updates the latest global variables hash
    * @param globalVariablesHash - The latest global variables hash
-   */ 
-  updateLatestGlobalVariablesHash(globalVariablesHash: Fr) : Promise<void> 
+   */
+  updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void>;
 
   /**
    * Gets the global variables hash from the previous block
    */
-  getLatestGlobalVariablesHash(): Promise<Fr>
+  getLatestGlobalVariablesHash(): Promise<Fr>;
 
   /**
    * Batch insert multiple leaves into the tree.

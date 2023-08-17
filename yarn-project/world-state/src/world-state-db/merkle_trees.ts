@@ -31,6 +31,7 @@ import { L2Block, MerkleTreeId, SiblingPath, merkleTreeIds } from '@aztec/types'
 import { default as levelup } from 'levelup';
 
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
+import { computeGlobalVariablesHash } from '../utils.js';
 import {
   CurrentTreeRoots,
   INITIAL_NULLIFIER_TREE_SIZE,
@@ -40,7 +41,6 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
-import { computeGlobalVariablesHash } from '../utils.js';
 
 /**
  * A convenience class for managing multiple merkle trees.
@@ -161,9 +161,9 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Updates the latest global variables hash
    * @param globalVariablesHash - The latest global variables hash
-   */ 
+   */
   public async updateLatestGlobalVariablesHash(globalVariablesHash: Fr) {
-    await this.synchronise(() => this._updateLatestGlobalVariablesHash(globalVariablesHash))
+    await this.synchronise(() => this._updateLatestGlobalVariablesHash(globalVariablesHash));
   }
 
   /**
@@ -217,7 +217,6 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.BLOCKS_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
   }
-
 
   /**
    * Gets the value at the given index.
@@ -396,10 +395,9 @@ export class MerkleTrees implements MerkleTreeDb {
     return await this.jobQueue.put(fn);
   }
 
-
   private _updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
-    this.latestGlobalVariablesHash = globalVariablesHash
-    return Promise.resolve()
+    this.latestGlobalVariablesHash = globalVariablesHash;
+    return Promise.resolve();
   }
 
   /**

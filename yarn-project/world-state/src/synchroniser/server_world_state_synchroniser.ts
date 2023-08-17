@@ -1,8 +1,7 @@
-import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
-import { MerkleTreeDb, MerkleTreeOperations, computeGlobalVariablesHash } from '../index.js';
+import { MerkleTreeDb, MerkleTreeOperations } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { getConfigEnvVars } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
@@ -54,7 +53,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
     // get the current latest block number
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockHeight();
-    
+
     const blockToDownloadFrom = this.currentL2BlockNum + 1;
 
     // if there are blocks to be retrieved, go to a synching state

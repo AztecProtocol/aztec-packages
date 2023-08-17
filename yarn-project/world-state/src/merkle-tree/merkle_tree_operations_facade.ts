@@ -1,6 +1,6 @@
+import { Fr } from '@aztec/foundation/fields';
 import { LowLeafWitnessData } from '@aztec/merkle-tree';
 import { L2Block, MerkleTreeId, SiblingPath } from '@aztec/types';
-import { Fr } from '@aztec/foundation/fields';
 
 import { CurrentTreeRoots, LeafData, MerkleTreeDb, MerkleTreeOperations, TreeInfo } from '../index.js';
 
@@ -126,16 +126,16 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   /**
    * Updates the latest global variables hash
    * @param globalVariablesHash - The latest global variables hash
-   */ 
+   */
   public updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
-    return this.trees.updateLatestGlobalVariablesHash(globalVariablesHash, this.includeUncommitted)
+    return this.trees.updateLatestGlobalVariablesHash(globalVariablesHash, this.includeUncommitted);
   }
 
   /**
    * Gets the global variables hash from the previous block
    */
   public getLatestGlobalVariablesHash(): Promise<Fr> {
-    return this.trees.getLatestGlobalVariablesHash(this.includeUncommitted)
+    return this.trees.getLatestGlobalVariablesHash(this.includeUncommitted);
   }
 
   /**
