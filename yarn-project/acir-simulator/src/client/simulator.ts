@@ -8,7 +8,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
-import { SimulatedBackend, createBackend } from 'acvm_js';
+import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
 
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
@@ -22,7 +22,7 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private static backend: SimulatedBackend; // ACVM's backend
+  private static solver: WasmBlackBoxFunctionSolver; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
@@ -30,7 +30,7 @@ export class AcirSimulator {
   }
 
   /**
-   * Gets or initializes the ACVM SimulatedBackend.
+   * Gets or initializes the ACVM WasmBlackBoxFunctionSolver.
    *
    * @remarks
    *
@@ -40,11 +40,11 @@ export class AcirSimulator {
    * WARNING: it is unclear whether this will work in a multi-threaded
    * environment where multiple threads seek to use the same backend.
    *
-   * @returns ACVM SimulatedBackend
+   * @returns ACVM WasmBlackBoxFunctionSolver
    */
-  public static async getBackend(): Promise<SimulatedBackend> {
-    if (!this.backend) this.backend = await createBackend();
-    return this.backend;
+  public static async getSolver(): Promise<WasmBlackBoxFunctionSolver> {
+    if (!this.solver) this.solver = await createBlackBoxSolver();
+    return this.solver;
   }
 
   /**

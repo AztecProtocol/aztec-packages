@@ -41,7 +41,7 @@ export class UnconstrainedFunctionExecution {
     const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = toACVMWitness(1, this.args);
 
-    const { partialWitness } = await acvm(await AcirSimulator.getBackend(), acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));

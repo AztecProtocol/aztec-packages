@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { ForeignCallInput, ForeignCallOutput, SimulatedBackend, WitnessMap, executeCircuit } from 'acvm_js';
+import { executeCircuitWithBlackBoxSolver, ForeignCallInput, ForeignCallOutput, WitnessMap, WasmBlackBoxFunctionSolver } from 'acvm_js';
 
 /**
  * The format for fields on the ACVM.
@@ -69,14 +69,14 @@ export interface ACIRExecutionResult {
  * The function call that executes an ACIR.
  */
 export async function acvm(
-  backend: SimulatedBackend,
+  solver: WasmBlackBoxFunctionSolver,
   acir: Buffer,
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
-  const partialWitness = await executeCircuit(
-    backend,
+  const partialWitness = await executeCircuitWithBlackBoxSolver(
+    solver,
     acir,
     initialWitness,
     async (name: string, args: ForeignCallInput[]) => {

@@ -72,7 +72,7 @@ export class PublicExecutor {
     // We use this cache to hold the packed arguments.
     const packedArgs = await PackedArgsCache.create([]);
 
-    const { partialWitness } = await acvm(await AcirSimulator.getBackend(), acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
       },
