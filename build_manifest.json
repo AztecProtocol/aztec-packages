@@ -65,7 +65,7 @@
     ]
   },
   "bb-bin-tests": {
-    "buildDir": "circuits/cpp/barretenberg/ts",
+    "buildDir": "circuits/cpp/barretenberg/cpp",
     "rebuildPatterns": [
       "^circuits/cpp/barretenberg/ts/"
     ],
