@@ -338,8 +338,6 @@ export class AztecNodeService implements AztecNode {
     const getTreeRoot = async (id: MerkleTreeId) =>
       Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
 
-    const globalsHash = this.worldStateSynchroniser.latestGlobalVariablesHash;
-
     return new HistoricBlockData(
       await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
       await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
@@ -348,7 +346,7 @@ export class AztecNodeService implements AztecNode {
       await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
       Fr.ZERO,
       await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      globalsHash,
+      await this.merkleTreeDB.getLatestGlobalVariablesHash(),
     );
   }
 }

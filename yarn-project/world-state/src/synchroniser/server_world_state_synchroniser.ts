@@ -23,9 +23,6 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
-  /** The latest Global Variables hash for the HEAD of the chain. */
-  public latestGlobalVariablesHash: Fr = Fr.ZERO;
-
   constructor(
     private merkleTreeDb: MerkleTreeDb,
     private l2BlockSource: L2BlockSource,
@@ -57,8 +54,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
     // get the current latest block number
     this.latestBlockNumberAtStart = await this.l2BlockSource.getBlockHeight();
-    this.latestGlobalVariablesHash = await computeGlobalVariablesHash();
-
+    
     const blockToDownloadFrom = this.currentL2BlockNum + 1;
 
     // if there are blocks to be retrieved, go to a synching state
@@ -121,8 +117,6 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private async handleL2Block(l2Block: L2Block) {
     await this.merkleTreeDb.handleL2Block(l2Block);
     this.currentL2BlockNum = l2Block.number;
-    this.latestGlobalVariablesHash = await computeGlobalVariablesHash(l2Block.globalVariables);
-    this.log(`Synced global variables with hash ${this.latestGlobalVariablesHash.toString()}`);
     if (
       this.currentState === WorldStateRunningState.SYNCHING &&
       this.currentL2BlockNum >= this.latestBlockNumberAtStart
