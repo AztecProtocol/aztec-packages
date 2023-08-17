@@ -169,8 +169,8 @@ export class MerkleTrees implements MerkleTreeDb {
   /**
    * Gets the global variables hash from the previous block
    */
-  getLatestGlobalVariablesHash(): Promise<Fr> {
-    return Promise.resolve(this.latestGlobalVariablesHash);
+  public async getLatestGlobalVariablesHash(): Promise<Fr> {
+    return await this.synchronise(() => this._getGlobalVariablesHash());
   }
 
   /**
@@ -398,6 +398,10 @@ export class MerkleTrees implements MerkleTreeDb {
   private _updateLatestGlobalVariablesHash(globalVariablesHash: Fr): Promise<void> {
     this.latestGlobalVariablesHash = globalVariablesHash;
     return Promise.resolve();
+  }
+
+  private _getGlobalVariablesHash(): Promise<Fr> {
+    return Promise.resolve(this.latestGlobalVariablesHash);
   }
 
   /**
