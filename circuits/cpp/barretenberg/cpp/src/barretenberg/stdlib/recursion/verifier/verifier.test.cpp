@@ -1,5 +1,5 @@
-#include "program_settings.hpp"
 #include "verifier.hpp"
+#include "program_settings.hpp"
 
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
@@ -287,17 +287,27 @@ template <typename OuterBuilder_> class stdlib_verifier : public testing::Test {
                                                     const barretenberg::pairing::miller_lines* lines)
     {
         if (builder.contains_recursive_proof && builder.recursive_proof_public_input_indices.size() == 16) {
-            const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
-                [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
-                    const uint256_t l0 = builder.get_variable(inputs[idx0]);
-                    const uint256_t l1 = builder.get_variable(inputs[idx1]);
-                    const uint256_t l2 = builder.get_variable(inputs[idx2]);
-                    const uint256_t l3 = builder.get_variable(inputs[idx3]);
-
-                    const uint256_t limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
-                                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
-                                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
+                [&builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
+                    uint256_t limb;
+                    uint256_t l0;
+                    uint256_t l1;
+                    uint256_t l2;
+                    uint256_t l3;
+                    if constexpr (IsSimulator<OuterBuilder>) {
+                        l0 = builder.public_inputs[idx0];
+                        l1 = builder.public_inputs[idx1];
+                        l2 = builder.public_inputs[idx2];
+                        l3 = builder.public_inputs[idx3];
+                    } else {
+                        l0 = builder.get_variable(builder.public_inputs[idx0]);
+                        l1 = builder.get_variable(builder.public_inputs[idx1]);
+                        l2 = builder.get_variable(builder.public_inputs[idx2]);
+                        l3 = builder.get_variable(builder.public_inputs[idx3]);
+                    }
+                    limb = l0 + (l1 << NUM_LIMB_BITS_IN_FIELD_SIMULATION) +
+                           (l2 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2)) +
+                           (l3 << (NUM_LIMB_BITS_IN_FIELD_SIMULATION * 3));
                     return outer_scalar_field(limb);
                 };
 
@@ -317,13 +327,11 @@ template <typename OuterBuilder_> class stdlib_verifier : public testing::Test {
                                                           builder.recursive_proof_public_input_indices[13],
                                                           builder.recursive_proof_public_input_indices[14],
                                                           builder.recursive_proof_public_input_indices[15]);
-            g1::affine_element P_affine[2]{
-                { x0, y0 },
-                { x1, y1 },
-            };
+
+            std::array<g1::affine_element, 2> P_affine{ g1::affine_element{ x0, y0 }, g1::affine_element{ x1, y1 } };
 
             pairing_target_field result =
-                barretenberg::pairing::reduced_ate_pairing_batch_precomputed(P_affine, lines, 2);
+                barretenberg::pairing::reduced_ate_pairing_batch_precomputed(P_affine.data(), lines, 2);
 
             return (result == pairing_target_field::one());
         }
@@ -348,9 +356,8 @@ template <typename OuterBuilder_> class stdlib_verifier : public testing::Test {
         info("number of gates in recursive verification circuit = ", outer_circuit.get_num_gates());
         bool result = outer_circuit.check_circuit();
         EXPECT_EQ(result, expected_result);
-        // WORKTODO: is this not also done by `check_pairing`?
-        // auto g2_lines = barretenberg::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
-        // EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
+        auto g2_lines = barretenberg::srs::get_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
+        EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
     }
 
   public:

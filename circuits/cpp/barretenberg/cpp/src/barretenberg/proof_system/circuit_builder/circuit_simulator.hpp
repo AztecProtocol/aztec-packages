@@ -21,11 +21,12 @@ class CircuitSimulatorBN254 {
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
-    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static. Should make circuit builders
-    static constexpr uint32_t zero_idx = 0; // I think this also should not be static.
+    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static.
+                                            // Should agree with what is in circuit builders
+    static constexpr uint32_t zero_idx = 0; // Ditto?
     std::vector<FF> public_inputs;
 
-    void add_recursive_proof(const std::vector<uint32_t>& proof_output_witness_indices)
+    void add_recursive_proof(const std::vector<FF>& proof_element_limbs)
     {
 
         if (contains_recursive_proof) {
@@ -33,8 +34,9 @@ class CircuitSimulatorBN254 {
         }
         contains_recursive_proof = true;
 
-        for (uint32_t idx = 0; idx < proof_output_witness_indices.size(); idx++) {
-            recursive_proof_public_input_indices.push_back(idx);
+        for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
+            set_public_input(proof_element_limbs[idx]);
+            recursive_proof_public_input_indices.push_back(static_cast<uint32_t>(public_inputs.size() - 1));
         }
     }
 
@@ -148,7 +150,7 @@ class CircuitSimulatorBN254 {
     bool _failed = false;
     std::string _err;
 
-    [[maybe_unused]] bool failed() const { return _failed; };
+    [[nodiscard]] bool failed() const { return _failed; };
     [[nodiscard]] const std::string& err() const { return _err; };
 
     void set_err(std::string msg) { _err = std::move(msg); }
