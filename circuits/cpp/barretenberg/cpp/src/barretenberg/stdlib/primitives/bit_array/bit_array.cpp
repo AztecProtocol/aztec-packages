@@ -68,7 +68,7 @@ bit_array<ComposerContext>::bit_array(const std::vector<uint32<ComposerContext>>
     for (size_t i = 0; i < num_words; ++i) {
         size_t input_index = num_words - 1 - i;
         for (size_t j = 0; j < 32; ++j) {
-            values[i * 32 + j] = input[input_index].at(j); // WORKTODO: bounds checking here?
+            values[i * 32 + j] = input[input_index].at(j);
         }
     }
     length = num_bits;

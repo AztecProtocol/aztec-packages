@@ -115,7 +115,7 @@ signature construct_signature(const std::string& message, const key_pair<Fr, G1>
 
 /**
  * @brief Verify a Schnorr signature of the sort produced by construct_signature.
- * // WORKTODO: this was only audited for std::string input.
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/659)zs
  */
 template <typename Hash, typename Fq, typename Fr, typename G1>
 bool verify_signature(const auto& message, const typename G1::affine_element& public_key, const signature& sig)

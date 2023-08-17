@@ -838,8 +838,6 @@ template <typename Composer> class stdlib_field : public testing::Test {
         field_ct result = base.pow(exponent);
         barretenberg::fr expected = base_val.pow(exponent_val);
 
-        info(expected);
-        info(result.get_value());
         EXPECT_NE(result.get_value(), expected);
         EXPECT_EQ(composer.failed(), true);
         EXPECT_EQ(composer.err(), "field_t::pow exponent accumulator incorrect");

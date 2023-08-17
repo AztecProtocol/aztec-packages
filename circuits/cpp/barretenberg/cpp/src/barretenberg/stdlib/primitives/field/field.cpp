@@ -780,7 +780,6 @@ void field_t<ComposerContext>::assert_equal(const field_t& rhs, std::string cons
     ComposerContext* ctx = lhs.get_context() ? lhs.get_context() : rhs.get_context();
 
     if constexpr (IsSimulator<ComposerContext>) {
-        // WORKTODO: Dangerous or at least error-prone to have ctx (localo to function) and context (class member)
         ctx->assert_equal(lhs.get_value(), rhs.get_value(), msg);
     } else if (lhs.is_constant() && rhs.is_constant()) {
         ASSERT(lhs.get_value() == rhs.get_value());

@@ -144,9 +144,9 @@ TYPED_TEST(ByteArrayTest, set_bit)
 
     const auto out = arr.get_value();
     EXPECT_EQ(out[0], uint8_t(0));
-    EXPECT_EQ(out[1], uint8_t(7)); // start with 0000'0010, want 0000'0111, get 0000'0110
+    EXPECT_EQ(out[1], uint8_t(7));
     EXPECT_EQ(out[2], uint8_t(131));
-    EXPECT_EQ(out[3], uint8_t(5)); // start with 0000'0100, want 0000'0101, get 0000'0011
+    EXPECT_EQ(out[3], uint8_t(5));
 
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);

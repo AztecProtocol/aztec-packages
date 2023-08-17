@@ -348,7 +348,7 @@ bool_t<C> signature_verification_result(const byte_array<C>& message,
                                         const point<C>& pub_key,
                                         const signature_bits<C>& sig)
 {
-    if constexpr (IsSimulator<C>) { // WORKTODO: duplication
+    if constexpr (IsSimulator<C>) {
         const auto deconvert_signature = [](const signature_bits<C>& sig) {
             auto s_vector = to_buffer(grumpkin::fr(static_cast<uint256_t>(sig.s_lo.get_value()) +
                                                    (static_cast<uint256_t>(sig.s_hi.get_value()) << 128)));

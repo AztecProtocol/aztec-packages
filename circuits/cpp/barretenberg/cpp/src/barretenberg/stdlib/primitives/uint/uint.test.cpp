@@ -1924,7 +1924,7 @@ TYPED_TEST(stdlib_uint, test_at)
 // There was one plookup-specific test in the ./plookup/uint_plookup.test.cpp
 TEST(stdlib_uint32, test_accumulators_plookup_uint32)
 {
-    using Builder = proof_system::UltraCircuitBuilder; // WORKTODO: needs to pass with sim?
+    using Builder = proof_system::UltraCircuitBuilder;
     using uint32_ct = proof_system::plonk::stdlib::uint32<Builder>;
     using witness_ct = proof_system::plonk::stdlib::witness_t<Builder>;
 

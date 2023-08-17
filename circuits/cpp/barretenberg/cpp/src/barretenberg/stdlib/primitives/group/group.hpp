@@ -37,7 +37,6 @@ template <typename ComposerContext>
 template <size_t num_bits>
 point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul_g1(const field_t<ComposerContext>& in)
 {
-    // WORKTODO: native fixed base mul doesn't expose option to use grumpkin::g1::one
     if constexpr (IsSimulator<ComposerContext>) {
         if (in.get_value() == barretenberg::fr(0)) {
             in.context->failure("input scalar to fixed_base_scalar_mul_internal cannot be 0");
@@ -48,6 +47,7 @@ point<ComposerContext> group<ComposerContext>::fixed_base_scalar_mul_g1(const fi
         using Fr = typename Curve::ScalarField;
         using AffineElement = typename Curve::AffineElement;
 
+        // Native fixed base mul doesn't expose option to use grumpkin::g1::one
         // WORKTODO: this is ugly.
         size_t num_points = 1;
         Fr* scalars = (Fr*)aligned_alloc(32, sizeof(Fr) * 1);

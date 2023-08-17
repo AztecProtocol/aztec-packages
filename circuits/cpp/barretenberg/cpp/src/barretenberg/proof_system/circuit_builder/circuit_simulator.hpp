@@ -10,6 +10,29 @@
 
 namespace proof_system {
 
+/**
+ * @brief Simulate circuit construction to quickly get function outputs.
+ * @details Instantiating the stdlib with this type will give a version of the stdlib where none of the classes store
+ * witness data. This significantly speeds us the cost of executing stdlib functions. What's more, for even faster
+ * speeds, we have the option (partially implemented) to completely skip computing most witness constrution, and instead
+ * proxy out to "native" functions (for instance, proof_system::plonk::stdlib::ecdsa::verify_signature we might reformat
+ * its inputs and then directly call the function crypto::ecdsa::verify_signature).
+ *
+ * The general strategy is to use the "constant" code paths that already exist in the stdlib, but with a circuit
+ * simulator as its context (rather than, for instance, a nullptr). In cases where this doesn't quite work, we use
+ * template metaprogramming to provide an alternative implementation.
+ *
+ * This means changing the data model in some ways. Since a simulator does not contain a `variables` vector, we cannot
+ * work with witness indices anymore. In particular, the witness index of every witness instantiated with a simulator
+ * type will be `IS_CONSTANT`, and the witness is just a wrapper for a value. A stdlib `field_t` instance will now store
+ * all of its data in the `additive_constant`, and something similar is true for the `uint` classes. Changes are also
+ * necessary with some basic builder functions, like `assert_equal`, which would take in a pair of witness indices for a
+ * real builder, but which just takes in a pair of native field elements during simulation. This strategy has a
+ * relatively small footprint, but it feels possible to improve upon the idioms, reduce the size of the divergence, or
+ * perhaps organize things more cleanly in a way that avoids the use of compile time `if` statements.
+ *
+ * @todo https://github.com/AztecProtocol/aztec-packages/pull/1195
+ */
 class CircuitSimulatorBN254 {
   public:
     using FF = barretenberg::fr;                                                 // IOU templating
