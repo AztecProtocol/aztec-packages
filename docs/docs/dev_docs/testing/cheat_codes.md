@@ -4,7 +4,7 @@ title: Cheat Codes
 
 ## Introduction
 
-Most of the time, simply testing your smart contract isn't enough. To manipulate the state of the Aztec blockchain, as well as test for specific reverts and events, the sandbox is shipped with a set of cheatcodes.
+To help with testing, the sandbox is shipped with a set of cheatcodes.
 
 Cheatcodes allow you to change the time of the L2 block, load certain state or more easily manipulate L1 instead of having to write dedicated RPC calls to anvil. 
 
@@ -17,9 +17,6 @@ If you aren't familiar with [Anvil](https://book.getfoundry.sh/anvil/), we recom
 The guide will cover how to manipulate the state of the:
 - L1 blockchain;
 - Aztec network.
-### Why is this useful?
-
-<!-- Contextualise why a dapp developer needs this. What use cases / products / features does this unlock? Any real world examples? -->
 
 ### Dependencies
 
@@ -56,7 +53,7 @@ public async mine(numberOfBlocks = 1): Promise<void>
 // Set the timestamp for the next block on L1. 
 public async setNextBlockTimestamp(timestamp: number): Promise<void> 
 
-// Dumps the current L1 chain state to a given file. Can be used with `loadChainState()` to first create a forked version of mainnet on anvil (to for example interact with uniswap), save the chain state to a file, and later load it to the sandbox' anvil instance.
+// Dumps the current L1 chain state to a given file. 
 public async dumpChainState(fileName: string): Promise<void> 
 
 // Loads the L1 chain state from a file. You may use `dumpChainState()` to save the state of the L1 chain to a file and later load it. 
@@ -72,10 +69,10 @@ public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<v
 public keccak256(baseSlot: bigint, key: bigint): bigint
 
 // Let you send transactions on L1 impersonating an externally owned or contract, without knowing the private key.
-public async startPrank(who: EthAddress): Promise<void> 
+public async startImpersonating(who: EthAddress): Promise<void> 
 
 // Stop impersonating an account on L1 that you are currently impersonating.
-public async stopPrank(who: EthAddress): Promise<void> 
+public async stopImpersonating(who: EthAddress): Promise<void> 
 
 // Set the bytecode for a L1 contract
 public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> 
@@ -159,7 +156,8 @@ Remember that timestamp can only be set in the future and not in the past.
 
 #### Example
 ```js
-await cc.l1.setNextBlockTimestamp(1692183270) // Set next block timestamp to 16 Aug 2023 10:54:30 GMT
+// // Set next block timestamp to 16 Aug 2023 10:54:30 GMT
+await cc.l1.setNextBlockTimestamp(1692183270) 
 // next transaction you will do will have the timestamp as 1692183270
 ```
 
@@ -172,7 +170,8 @@ public async dumpChainState(fileName: string): Promise<void>
 
 #### Description
 Dumps the current L1 chain state to a file.
-Returns a hex string representing the complete state of the chain. Can be re-imported into a fresh/restarted instance of Anvil to reattain the same state.
+Stores a hex string representing the complete state of the chain in a file with the provided path. Can be re-imported into a fresh/restarted instance of Anvil to reattain the same state.
+When combined with `loadChainState()` cheatcode, it can be let you easily import the current state of mainnet into the Anvil instance of the sandbox, to use Uniswap for example.
 
 #### Example
 ```js
@@ -187,8 +186,8 @@ public async loadChainState(fileName: string): Promise<void>
 ```
 
 #### Description
-Loads the L1 chain state from a file. 
-When given a hex string previously returned by `cc.l1.dumpChainState()`, merges the contents into the current chain state. Will overwrite any colliding accounts/storage slots.
+Loads the L1 chain state from a file which contains a hex string representing an L1 state. 
+When given a file previously written to by `cc.l1.dumpChainState()`, it merges the contents into the current chain state. Will overwrite any colliding accounts/storage slots.
 
 #### Example  
 ```js
@@ -211,7 +210,8 @@ Loads the value at a storage slot of a L1 contract.
 ///     uint256 private leet = 1337; // slot 0
 /// }
 
-const value = await cc.l1.load(EthAddress.from(leetContractAddress), BigInt(0));
+const leetContractAddress = EthAddress.fromString('0x1234...');
+const value = await cc.l1.load(leetContractAddress, BigInt(0));
 console.log(value); // 1337
 ```
 
@@ -231,8 +231,9 @@ Stores the value in storage slot on a L1 contract.
 ///     uint256 private leet = 1337; // slot 0
 /// }
 
-await cc.l1.store(EthAddress.from(leetContractAddress), BigInt(0), BigInt(1000));
-const value = await cc.l1.load(EthAddress.from(leetContractAddress), BigInt(0));
+const leetContractAddress = EthAddress.fromString('0x1234...');
+await cc.l1.store(leetContractAddress, BigInt(0), BigInt(1000));
+const value = await cc.l1.load(leetContractAddress, BigInt(0));
 console.log(value); // 1000
 ```
 
@@ -260,36 +261,36 @@ const slot = cc.l1.keccak256(1n, address);
 await cc.l1.store(contractAddress, slot, 100n);
 ```
 
-### startPrank
+### startImpersonating
 
 #### Function Signature
 ```js 
-public async startPrank(who: EthAddress): Promise<void>
+public async startImpersonating(who: EthAddress): Promise<void>
 ```
 
 #### Description  
 Start impersonating an L1 account.
-Sets msg.sender for all subsequent calls until stopPrank is called.
+This allows you to use this address as a sender.
 
 #### Example
 ```js
-await cc.l1.startPrank(EthAddress.fromString(address));
+await cc.l1.startImpersonating(EthAddress.fromString(address));
 ```
 
-### stopPrank
+### stopImpersonating
 
 #### Function Signature
 ```js
-public async stopPrank(who: EthAddress): Promise<void>
+public async stopImpersonating(who: EthAddress): Promise<void>
 ```
 
 #### Description
 Stop impersonating an L1 account.
-Stops an active prank started by startPrank, resetting msg.sender to the values before startPrank was called.
+Stops an active impersonation started by startImpersonating.
 
 #### Example
 ```js  
-await cc.l1.stopPrank(EthAddress.fromString(address)) 
+await cc.l1.stopImpersonating(EthAddress.fromString(address)) 
 ```
 
 ### getBytecode
@@ -377,37 +378,6 @@ await cc.l2.warp(newTimestamp);
 // any noir contract calls that make use of current timestamp and is executed in the next rollup block will now read `newTimestamp`
 ```
 
-### loadPublic
-
-#### Function Signature
-```js
-public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> 
-```
-
-#### Description
-Loads the value stored at the given slot in the public storage of the given contract.
-
-#### Example
-```
-/// struct Storage {
-///     current_value: PublicState<Field, FIELD_SERIALISED_LEN>,
-/// }
-/// 
-/// impl Storage {
-///     fn init() -> Self {
-///         Storage {
-///             current_value: PublicState::new(1, FieldSerialisationMethods),
-///         }
-///     }
-/// }
-/// 
-/// contract Hello {
-///     ...
-/// }
-
-const value = await cc.l2.loadPublic(contract, 1n) // current_value is stored in slot 1
-```
-
 ### computeSlotInMap
 
 #### Function Signature
@@ -422,16 +392,18 @@ The baseSlot is specified in the noir contract.
 #### Example  
 ```
 /// struct Storage {
-///     balances: Map<EasyPrivateUint>,
+///     // highlight-next-line:PublicState
+///     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 /// }
 /// 
 /// impl Storage {
 ///     fn init() -> Self {
 ///         Storage {
-///             balances: Map::new(1, |slot| EasyPrivateUint::new(slot)),
+///             balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
 ///         }
 ///     }
 /// }
+/// 
 /// 
 /// contract Token {
 ///     ...
@@ -439,11 +411,48 @@ The baseSlot is specified in the noir contract.
 
 const slot = cc.l2.computeSlotInMap(1n, key)
 ```
+
+### loadPublic
+
+#### Function Signature
+```js
+public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> 
+```
+
+#### Description
+Loads the value stored at the given slot in the public storage of the given contract. 
+
+Note: One Field element occupies a storage slot. So structs with multiple field elements won't fit in a single slot. So using loadPublic would only load a part of the struct (depending on the size of the attributes within it).
+
+#### Example
+```
+/// struct Storage {
+///     // highlight-next-line:PublicState
+///     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+/// }
+/// 
+/// impl Storage {
+///     fn init() -> Self {
+///         Storage {
+///             balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+///         }
+///     }
+/// }
+/// 
+/// 
+/// contract Token {
+///     ...
+/// }
+
+const address = AztecAddress.fromString("0x123...")
+const slot = cc.l2.computeSlotInMap(1n, key)
+const value = await cc.l2.loadPublic(address, slot);
+```
 ## Participate
 
 Keep up with the latest discussion and join the conversation in the [Aztec forum](https://discourse.aztec.network).
 
 You can also use the above link to request for more cheatcodes.
 
-import Disclaimer from "../misc/common/\_disclaimer.mdx";
+import Disclaimer from "../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>

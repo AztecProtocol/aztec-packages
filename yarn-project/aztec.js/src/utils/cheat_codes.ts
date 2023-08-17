@@ -169,9 +169,9 @@ export class L1CheatCodes {
    * Send transactions impersonating an externally owned account or contract.
    * @param who - The address to impersonate
    */
-  public async startPrank(who: EthAddress): Promise<void> {
+  public async startImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('anvil_impersonateAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
+    if (res.error) throw new Error(`Error impersonating ${who}: ${res.error.message}`);
     this.logger(`Impersonating ${who}`);
   }
 
@@ -179,9 +179,9 @@ export class L1CheatCodes {
    * Stop impersonating an account that you are currently impersonating.
    * @param who - The address to stop impersonating
    */
-  public async stopPrank(who: EthAddress): Promise<void> {
+  public async stopImpersonating(who: EthAddress): Promise<void> {
     const res = await this.rpcCall('anvil_stopImpersonatingAccount', [who.toString()]);
-    if (res.error) throw new Error(`Error pranking ${who}: ${res.error.message}`);
+    if (res.error) throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
     this.logger(`Stopped impersonating ${who}`);
   }
 

@@ -66,6 +66,14 @@ describe('e2e_cheat_codes', () => {
       expect(await cc.l1.timestamp()).toBe(timestamp + increment);
     });
 
+    it('setNextBlockTimestamp to a past timestamp throws', async () => {
+      const timestamp = await cc.l1.timestamp();
+      const pastTimestamp = timestamp - 1000;
+      await expect(async () => await cc.l1.setNextBlockTimestamp(pastTimestamp)).rejects.toThrow(
+        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+      );
+    });
+
     it('load a value at a particular storage slot', async () => {
       // check that storage slot 0 is empty as expected
       const res = await cc.l1.load(EthAddress.ZERO, 0n);
@@ -105,7 +113,7 @@ describe('e2e_cheat_codes', () => {
       const beforeBalance = await publicClient.getBalance({ address: randomAddress });
 
       // impersonate random address
-      await cc.l1.startPrank(EthAddress.fromString(randomAddress));
+      await cc.l1.startImpersonating(EthAddress.fromString(randomAddress));
       // send funds from random address
       const amountToSend = parseEther('0.1');
       const txHash = await walletClient.sendTransaction({
@@ -118,7 +126,7 @@ describe('e2e_cheat_codes', () => {
       expect(await publicClient.getBalance({ address: randomAddress })).toBe(beforeBalance - amountToSend - feePaid);
 
       // stop impersonating
-      await cc.l1.stopPrank(EthAddress.fromString(randomAddress));
+      await cc.l1.stopImpersonating(EthAddress.fromString(randomAddress));
 
       // making calls from random address should not be successful
       try {
@@ -134,7 +142,7 @@ describe('e2e_cheat_codes', () => {
       }
     });
 
-    it('can modify L1 block time', async () => {
+    it('can modify L2 block time', async () => {
       // deploy lending contract
       const tx = LendingContract.deploy(aztecRpcServer).send();
       await tx.isMined({ interval: 0.1 });
@@ -164,5 +172,13 @@ describe('e2e_cheat_codes', () => {
       expect(Number(await rollup.read.lastBlockTs())).toEqual(newTimestamp);
       expect;
     }, 50_000);
+
+    it('should throw if setting L2 block time to a past timestamp', async () => {
+      const timestamp = await cc.l1.timestamp();
+      const pastTimestamp = timestamp - 1000;
+      await expect(async () => await cc.l2.warp(pastTimestamp)).rejects.toThrow(
+        `Error setting next block timestamp: Timestamp error: ${pastTimestamp} is lower than or equal to previous block's timestamp`,
+      );
+    });
   });
 });
