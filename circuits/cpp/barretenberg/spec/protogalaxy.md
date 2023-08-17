@@ -59,11 +59,37 @@ Each $X$ is a polynomial
  ### Relating Paper to Code
  * $\omega$ is the Honk polynomials $\Polys$, for UGH there are 48 of them found in the GoblinUltra flavor
     * these polynomials are represented in evaluation form over the boolean hypercube $\{0,1\}^t$ where $t = \log n$ and $n$ is the circuit size (note that the code and earlier Honk resources use $d$ instead of $t$).
+    * Honk polynomials = how we represent a circuit
  * $f$ in ProtoGalaxy is the full $\Rel_{UGH}$ itself
  * in Honk's sumcheck, each round constructs univariates over two consecutive rows in the table
     * the $i$-th row of the execution trace is filled with the evaluation of the Honk polynomials $\Polys$ at $i$, represented as a point of the hypercube
     * to represent each univariate we need $\dMAX + 1$ evaluations
 * The value $f_i(\omega)$ in ProtoGalaxy is equal to $\Rel_{UGH}(\Trace_i)$, the evaluation of the full relation on the $i$-th row of the execution trace.
+
+## How folding transforms Aztec's architecture:
+### Current Structure
+* a Noir contract is a collection of functions, where each function corresponds to a seperate circuit
+* assume a Noir contract has a function `foo` which then calls a function `bar`
+* if the user calls `foo`, executing that Noir code will produce a proof `P_foo` for `foo` and a proof `P_bar` for `bar`. `P_foo` will be accompanied, among other stuff, by a public input which specifies that `foo` calls `bar`
+    * we think of this user action as a transaction and the private kernel circuit is responsible for proving it's validity; this entails recursively checking whatever functions `foo` calls
+* in the example above, the private kernel will have two iterations to prove this private transaction is valid
+    * first iteration is `K_foo` (this is a circuit): it will recursively verify `P_foo`, take most of `foo`'s public inputs (remember `foo` is actually a circuit) and transfer them to `K_foo`, add some constraints and finally, generate `P_K_foo`
+        * so the structure of the `K_foo` circuit is as follows:
+            * public inputs are (more or less) `foo`'s public inputs as well as "bar comes after foo"
+            * `P_foo` also corresponds to inputs (not sure if public or private)
+            * the `K_foo` circuit will have a Honk verifier subcircuit for `P_foo` and some other constraints
+    * second iteration is `K_bar`: it recursively verifies `P_K_foo`, ensures that as part of `K_foo`s public_inputs we have "`foo` comes after `bar`", afterwards it recursively verifies `P_bar`, creates `K_bar`s public inputs from `K_foo` and `bar` and finally generates `P_K_bar`
+         *  the structure of `K_bar` circuit is:
+            * public inputs of `K_foo` and `bar` more or less
+            * `P_bar` passed as input 
+            * the circuit will have:
+                * subcircuits for verifying `P_bar` and `P_k_bar` with Honk
+                * constraints for verifying `bar` comes after `foo`
+                * and some other constraints
+If `bar` was to call a function `baz` there would be another kernel iteration `K_baz` with a similar structure to `K_bar`
+
+### What Changes with folding
+So instead of recursively proving these circuits, we fold them. This doesn't change anything in the structure of first kernel iteration but eliminates the need to have a Honk verifier circuit at iteration $i$ for recursively verifying the kernel proof from iteration $i-1$. However, each kernel iteration still Honk verifies the Noir proof of the corresponding function (i.e.  `bar` in `K_bar`). TBC
 
 ### Notation:
 
