@@ -79,6 +79,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::add_gates_to_ensure_all_po
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(1);
     q_aux.emplace_back(1);
+    q_elliptic_double.emplace_back(1);
     ++this->num_gates;
 
     // Some relations depend on wire shifts so we add another gate with
@@ -136,6 +137,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_add_gate(const add_
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -166,6 +168,7 @@ void UltraCircuitBuilder_<FF>::create_big_add_gate(const add_quad_<FF>& in, cons
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -257,6 +260,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_big_mul_gate(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -281,6 +285,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_balanced_add_gate(c
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
     // Why 3? TODO: return to this
@@ -321,6 +326,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_mul_gate(const mul_
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -348,6 +354,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_bool_gate(const uin
     q_4.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -377,6 +384,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_poly_gate(const pol
     q_4.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -394,11 +402,11 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_poly_gate(const pol
 template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
 {
     /**
+     * gate structure:
      * | 1  | 2  | 3  | 4  |
-     * | a1 | a2 | x1 | y1 |
-     * | x2 | y2 | x3 | y3 |
-     * | -- | -- | x4 | y4 |
-     *
+     * | -- | x1 | y1 | -- |
+     * | x2 | x3 | y3 | y2 |
+     * we can chain successive ecc_add_gates if x3 y3 of previous gate equals x1 y1 of current gate
      **/
 
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
@@ -433,10 +441,10 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(1);
+        q_elliptic_double.emplace_back(0);
         q_aux.emplace_back(0);
         ++this->num_gates;
     }
-
     w_l.emplace_back(in.x2);
     w_4.emplace_back(in.y2);
     w_r.emplace_back(in.x3);
@@ -451,108 +459,141 @@ template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_add_gate(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
 
 /**
- * @brief Create a gate where we validate an elliptic curve point doubling
- *        (x1, y1) * 2 = (x3, y3)
- * @tparam FF
- * @param in
+ * @brief Create an elliptic curve addition gate
+ *
+ * @details x and y are defined over scalar field. Addition can handle applying the curve endomorphism to one of the
+ * points being summed at the time of addition.
+ *
+ * @param in Elliptic curve point addition gate parameters, including the the affine coordinates of the two points being
+ * added, the resulting point coordinates and the selector values that describe whether the endomorphism is used on the
+ * second point and whether it is negated.
  */
 template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
-    const auto x1 = this->get_variable(in.x1);
-    const auto x3 = this->get_variable(in.x3);
-    const auto y1 = this->get_variable(in.y1);
+    // q_elliptic_double.emplace_back(1);
+    w_l.emplace_back(in.x1);
+    w_4.emplace_back(in.y1);
+    w_r.emplace_back(in.x3);
+    w_o.emplace_back(in.y3);
 
-    // lambda = 3x^2 / 2y
-    const auto three_x1_sqr_v = x1 * x1 * 3;
-    const auto three_x1_sqr = this->add_variable(three_x1_sqr_v);
-    create_poly_gate({
-        .a = in.x1,
-        .b = in.x1,
-        .c = three_x1_sqr,
-        .q_m = 3,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = -1,
-        .q_c = 0,
-    });
-    const auto lambda_v = three_x1_sqr_v / (y1 + y1);
-    const auto lambda = this->add_variable(lambda_v);
-    create_poly_gate({
-        .a = lambda,
-        .b = in.y1,
-        .c = three_x1_sqr,
-        .q_m = 2,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = -1,
-        .q_c = 0,
-    });
-
-    // lambda * lambda - 2x1 - x3 = 0
-    const auto lambda_sqr_v = lambda_v * lambda_v;
-    const auto lambda_sqr = this->add_variable(lambda_sqr_v);
-    create_poly_gate({
-        .a = lambda,
-        .b = lambda,
-        .c = lambda_sqr,
-        .q_m = 1,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = -1,
-        .q_c = 0,
-    });
-    create_poly_gate({
-        .a = lambda_sqr,
-        .b = in.x1,
-        .c = in.x3,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = -2,
-        .q_o = -1,
-        .q_c = 0,
-    });
-
-    // lambda * (x1 - x3) - y1 = 0
-    const auto x1_sub_x3_v = x1 - x3;
-    const auto x1_sub_x3 = this->add_variable(x1_sub_x3_v);
-    create_poly_gate({
-        .a = in.x1,
-        .b = in.x3,
-        .c = x1_sub_x3,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = -1,
-        .q_o = -1,
-        .q_c = 0,
-    });
-    const auto lambda_mul_x1_sub_x3_v = lambda_v * x1_sub_x3_v;
-    const auto lambda_mul_x1_sub_x3 = this->add_variable(lambda_mul_x1_sub_x3_v);
-    create_poly_gate({
-        .a = lambda,
-        .b = x1_sub_x3,
-        .c = lambda_mul_x1_sub_x3,
-        .q_m = 1,
-        .q_l = 0,
-        .q_r = 0,
-        .q_o = -1,
-        .q_c = 0,
-    });
-    create_poly_gate({
-        .a = lambda_mul_x1_sub_x3,
-        .b = in.y1,
-        .c = in.y3,
-        .q_m = 0,
-        .q_l = 1,
-        .q_r = -1,
-        .q_o = -1,
-        .q_c = 0,
-    });
+    q_elliptic_double.emplace_back(1);
+    q_m.emplace_back(0);
+    q_1.emplace_back(0);
+    q_2.emplace_back(0);
+    q_3.emplace_back(0);
+    q_c.emplace_back(0);
+    q_arith.emplace_back(0);
+    q_4.emplace_back(0);
+    q_sort.emplace_back(0);
+    q_lookup_type.emplace_back(0);
+    q_elliptic.emplace_back(0);
+    q_aux.emplace_back(0);
+    ++this->num_gates;
 }
+// /**
+//  * @brief Create a gate where we validate an elliptic curve point doubling
+//  *        (x1, y1) * 2 = (x3, y3)
+//  * @tparam FF
+//  * @param in
+//  */
+// template <typename FF> void UltraCircuitBuilder_<FF>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+// {
+//     const auto x1 = this->get_variable(in.x1);
+//     const auto x3 = this->get_variable(in.x3);
+//     const auto y1 = this->get_variable(in.y1);
+
+//     // lambda = 3x^2 / 2y
+//     const auto three_x1_sqr_v = x1 * x1 * 3;
+//     const auto three_x1_sqr = this->add_variable(three_x1_sqr_v);
+//     create_poly_gate({
+//         .a = in.x1,
+//         .b = in.x1,
+//         .c = three_x1_sqr,
+//         .q_m = 3,
+//         .q_l = 0,
+//         .q_r = 0,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+//     const auto lambda_v = three_x1_sqr_v / (y1 + y1);
+//     const auto lambda = this->add_variable(lambda_v);
+//     create_poly_gate({
+//         .a = lambda,
+//         .b = in.y1,
+//         .c = three_x1_sqr,
+//         .q_m = 2,
+//         .q_l = 0,
+//         .q_r = 0,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+
+//     // lambda * lambda - 2x1 - x3 = 0
+//     const auto lambda_sqr_v = lambda_v * lambda_v;
+//     const auto lambda_sqr = this->add_variable(lambda_sqr_v);
+//     create_poly_gate({
+//         .a = lambda,
+//         .b = lambda,
+//         .c = lambda_sqr,
+//         .q_m = 1,
+//         .q_l = 0,
+//         .q_r = 0,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+//     create_poly_gate({
+//         .a = lambda_sqr,
+//         .b = in.x1,
+//         .c = in.x3,
+//         .q_m = 0,
+//         .q_l = 1,
+//         .q_r = -2,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+
+//     // lambda * (x1 - x3) - y1 = 0
+//     const auto x1_sub_x3_v = x1 - x3;
+//     const auto x1_sub_x3 = this->add_variable(x1_sub_x3_v);
+//     create_poly_gate({
+//         .a = in.x1,
+//         .b = in.x3,
+//         .c = x1_sub_x3,
+//         .q_m = 0,
+//         .q_l = 1,
+//         .q_r = -1,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+//     const auto lambda_mul_x1_sub_x3_v = lambda_v * x1_sub_x3_v;
+//     const auto lambda_mul_x1_sub_x3 = this->add_variable(lambda_mul_x1_sub_x3_v);
+//     create_poly_gate({
+//         .a = lambda,
+//         .b = x1_sub_x3,
+//         .c = lambda_mul_x1_sub_x3,
+//         .q_m = 1,
+//         .q_l = 0,
+//         .q_r = 0,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+//     create_poly_gate({
+//         .a = lambda_mul_x1_sub_x3,
+//         .b = in.y1,
+//         .c = in.y3,
+//         .q_m = 0,
+//         .q_l = 1,
+//         .q_r = -1,
+//         .q_o = -1,
+//         .q_c = 0,
+//     });
+// }
 
 /**
  * @brief Add a gate equating a particular witness to a constant, fixing it the value
@@ -578,6 +619,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::fix_witness(const uint32_t
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_aux.emplace_back(0);
     ++this->num_gates;
 }
@@ -798,6 +840,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<FF>::create_gates_from_plookup_
         q_4.emplace_back(0);
         q_sort.emplace_back(0);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_aux.emplace_back(0);
         ++this->num_gates;
     }
@@ -1107,6 +1150,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint(const std::vector<uint32_t
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1125,6 +1169,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint(const std::vector<uint32_t
     q_4.emplace_back(0);
     q_sort.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
 }
@@ -1158,6 +1203,7 @@ void UltraCircuitBuilder_<FF>::create_dummy_constraints(const std::vector<uint32
         q_4.emplace_back(0);
         q_sort.emplace_back(0);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1189,6 +1235,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
     q_4.emplace_back(0);
     q_sort.emplace_back(1);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
     // enforce range check for middle rows
@@ -1208,6 +1255,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1227,6 +1275,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
         q_4.emplace_back(0);
         q_sort.emplace_back(1);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_aux.emplace_back(0);
     }
@@ -1247,6 +1296,7 @@ void UltraCircuitBuilder_<FF>::create_sort_constraint_with_edges(const std::vect
     q_4.emplace_back(0);
     q_sort.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_aux.emplace_back(0);
 }
@@ -1354,6 +1404,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::apply_aux_selectors(const 
     q_sort.emplace_back(0);
     q_lookup_type.emplace_back(0);
     q_elliptic.emplace_back(0);
+    q_elliptic_double.emplace_back(0);
     switch (type) {
     case AUX_SELECTORS::LIMB_ACCUMULATE_1: {
         q_1.emplace_back(0);
@@ -2019,6 +2070,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<FF>::evaluate_non_native_field_addi
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_aux.emplace_back(0);
     }
 
@@ -2140,6 +2192,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<FF>::evaluate_non_native_field_subt
         q_sort.emplace_back(0);
         q_lookup_type.emplace_back(0);
         q_elliptic.emplace_back(0);
+        q_elliptic_double.emplace_back(0);
         q_aux.emplace_back(0);
     }
 
@@ -3363,6 +3416,45 @@ inline FF UltraCircuitBuilder_<FF>::compute_auxilary_identity(FF q_aux_value,
 }
 
 /**
+ * @brief Compute a single general permutation sorting identity
+ *
+ * @param w_1_value
+ * @param w_2_value
+ * @param w_3_value
+ * @param w_4_value
+ * @param w_1_shifted_value
+ * @param alpha_base
+ * @param alpha
+ * @return fr
+ */
+template <typename FF>
+inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(
+    FF q_elliptic_double_value, FF w_1_value, FF w_2_value, FF w_3_value, FF w_4_value, FF alpha_base, FF alpha) const
+{
+    constexpr FF curve_b = CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::curve_b;
+    static_assert(CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::curve_a == 0);
+    const auto x1 = w_1_value;
+    const auto y1 = w_4_value;
+    const auto x3 = w_2_value;
+    const auto y3 = w_3_value;
+
+    // x-coordinate relation
+    // (x3 + 2x1)(4y^2) - (9x^4) = 0
+    // This is degree 4...but
+    // we can use x^3 = y^2 - b
+    // hon hon hon
+    // (x3 + 2x1)(4y^2) - (9x(y^2 - b)) is degree 3
+    const FF x_pow_4 = (y1 * y1 - curve_b) * x1;
+    const FF x_relation = (x3 + x1 + x1) * (y1 + y1) * (y1 + y1) - x_pow_4 * FF(9);
+
+    // Y relation: (x1 - x3)(3x^2) - (2y1)(y1 + y3) = 0
+    const FF x_pow_2 = (x1 * x1);
+    const FF y_relation = x_pow_2 * (x1 - x3) * 3 - (y1 + y1) * (y1 + y3);
+
+    return q_elliptic_double_value * alpha_base * (x_relation + y_relation * alpha);
+}
+
+/**
  * @brief Check that the circuit is correct in its current state
  *
  * @details The method switches the circuit to the "in-the-head" version, finalizes it, checks gates, lookups and
@@ -3384,6 +3476,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
     const FF elliptic_base = FF::random_element();
     const FF genperm_sort_base = FF::random_element();
     const FF auxillary_base = FF::random_element();
+    const FF elliptic_double_base = FF::random_element();
     const FF alpha = FF::random_element();
     const FF eta = FF::random_element();
 
@@ -3464,6 +3557,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         FF q_elliptic_value;
         FF q_sort_value;
         FF q_lookup_type_value;
+        FF q_elliptic_double_value;
         FF q_1_value;
         FF q_2_value;
         FF q_3_value;
@@ -3481,6 +3575,7 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
         q_elliptic_value = q_elliptic[i];
         q_sort_value = q_sort[i];
         q_lookup_type_value = q_lookup_type[i];
+        q_elliptic_double_value = q_elliptic_double[i];
         q_1_value = q_1[i];
         q_2_value = q_2[i];
         q_3_value = q_3[i];
@@ -3619,6 +3714,15 @@ template <typename FF> bool UltraCircuitBuilder_<FF>::check_circuit()
                 result = false;
                 break;
             }
+        }
+        if (!compute_elliptic_double_identity(
+                 q_elliptic_double_value, w_1_value, w_2_value, w_3_value, w_4_value, elliptic_double_base, alpha)
+                 .is_zero()) {
+#ifndef FUZZING
+            info("Elliptic doubling identity fails at gate ", i);
+#endif
+            result = false;
+            break;
         }
     }
     if (left_tag_product != right_tag_product) {
