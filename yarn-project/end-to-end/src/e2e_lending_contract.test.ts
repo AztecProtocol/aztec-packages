@@ -53,7 +53,8 @@ describe('e2e_lending_contract', () => {
     }
 
     {
-      logger(`Deploying collateral asset feed contract...`);
+      // @todo @lherskind This need to be a non-transferrable token.
+      logger(`Deploying debt asset feed contract...`);
       const tx = NativeTokenContract.deploy(aztecRpcServer, 10000n, owner).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
@@ -62,8 +63,6 @@ describe('e2e_lending_contract', () => {
       logger(`Debt asset deployed to ${receipt.contractAddress}`);
       debtAsset = await NativeTokenContract.at(receipt.contractAddress!, wallet);
     }
-
-    // Need to deploy some asset to use as collateral and debt tokens.
 
     {
       logger(`Deploying L2 public contract...`);
@@ -90,14 +89,20 @@ describe('e2e_lending_contract', () => {
   });
 
   // Fetch a storage snapshot from the contract that we can use to compare between transitions.
-  const getStorageSnapshot = async (contract: LendingContract, aztecNode: AztecRPC, account: Account) => {
+  const getStorageSnapshot = async (
+    lendingContract: LendingContract,
+    collateralAsset: NativeTokenContract,
+    aztecNode: AztecRPC,
+    account: Account,
+  ) => {
     logger('Fetching storage snapshot 📸 ');
     const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
 
-    const tot = await contract.methods.getTot(0).view();
-    const privatePos = await contract.methods.getPosition(accountKey).view();
-    const publicPos = await contract.methods.getPosition(account.address.toField()).view();
+    const tot = await lendingContract.methods.getTot(0).view();
+    const privatePos = await lendingContract.methods.getPosition(accountKey).view();
+    const publicPos = await lendingContract.methods.getPosition(account.address.toField()).view();
+    const totalCollateral = await collateralAsset.methods.publicBalanceOf(lendingContract.address).view();
 
     storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
     storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
@@ -107,6 +112,8 @@ describe('e2e_lending_contract', () => {
     storageValues['public_collateral'] = new Fr(publicPos['collateral']);
     storageValues['public_static_debt'] = new Fr(publicPos['static_debt']);
     storageValues['public_debt'] = new Fr(publicPos['debt']);
+
+    storageValues['total_collateral'] = new Fr(totalCollateral);
 
     return storageValues;
   };
@@ -206,8 +213,6 @@ describe('e2e_lending_contract', () => {
     };
 
     check = (storage: { [key: string]: Fr }) => {
-      // @todo: perform actual checks again.
-      return;
       expect(storage['interest_accumulator']).toEqual(new Fr(this.accumulator));
       expect(storage['last_updated_ts']).toEqual(new Fr(this.time));
 
@@ -227,7 +232,10 @@ describe('e2e_lending_contract', () => {
         muldivUp((this.staticDebt[keyPub] ?? Fr.ZERO).value, this.accumulator, BASE),
       );
 
-      // @todo @lherskind: Summed values
+      const totalCollateral = Object.values(this.collateral).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
+      // @todo @lherskind Perform this check when proper token transfers are in place
+      // expect(storage['total_collateral']).toEqual(totalCollateral);
+      console.log(`Total collateral: ${totalCollateral.toString()}`);
     };
   }
 
@@ -271,7 +279,7 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, collateralAsset, aztecRpcServer, account);
 
       guy.check(storageSnapshots['initial']);
     }
@@ -293,10 +301,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
-
-      const HUH = await collateralAsset.methods.publicBalanceOf(lendingContract.address).view();
-      console.log('HUH', HUH);
+      storageSnapshots['private_deposit'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['private_deposit']);
     }
@@ -319,12 +329,10 @@ describe('e2e_lending_contract', () => {
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_deposit_on_behalf'] = await getStorageSnapshot(
         lendingContract,
+        collateralAsset,
         aztecRpcServer,
         account,
       );
-
-      const HUH = await collateralAsset.methods.publicBalanceOf(lendingContract.address).view();
-      console.log('HUH', HUH);
 
       guy.check(storageSnapshots['private_deposit_on_behalf']);
     }
@@ -347,15 +355,15 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_deposit'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
-
-      const HUH = await collateralAsset.methods.publicBalanceOf(lendingContract.address).view();
-      console.log('HUH', HUH);
+      storageSnapshots['public_deposit'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['public_deposit']);
     }
-
-    return;
 
     {
       const borrowAmount = 69n;
@@ -373,7 +381,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['private_borrow'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['private_borrow']);
     }
@@ -394,7 +407,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_borrow'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['public_borrow'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['public_borrow']);
     }
@@ -415,7 +433,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['private_repay'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['private_repay']);
     }
@@ -438,7 +461,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['private_repay_on_behalf']);
     }
@@ -459,7 +487,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_repay'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['public_repay'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['public_repay']);
     }
@@ -489,7 +522,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['public_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['public_withdraw'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['public_withdraw']);
     }
@@ -510,7 +548,12 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['private_withdraw'] = await getStorageSnapshot(lendingContract, aztecRpcServer, account);
+      storageSnapshots['private_withdraw'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['private_withdraw']);
     }
@@ -530,10 +573,11 @@ describe('e2e_lending_contract', () => {
       logger('Rejected call directly to internal function 🧚 ');
       storageSnapshots['attempted_internal_deposit'] = await getStorageSnapshot(
         lendingContract,
+        collateralAsset,
         aztecRpcServer,
         account,
       );
       expect(storageSnapshots['private_withdraw']).toEqual(storageSnapshots['attempted_internal_deposit']);
     }
-  }, 550_000);
+  }, 650_000);
 });

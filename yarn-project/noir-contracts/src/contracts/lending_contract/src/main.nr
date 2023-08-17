@@ -102,29 +102,26 @@ contract Lending {
         inputs: PrivateContextInputs,
         secret: Field,
         asset_owner: Field,
-        owner: Field,
+        on_behalf_of: Field,
         amount: Field,
         collateral_asset: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             asset_owner,
-            owner,
+            on_behalf_of,
             amount,
             collateral_asset,
         ]));
 
-        assert (!((secret == 0) as bool & (owner == 0) as bool));
-        let mut account = owner;
-        let me = context.msg_sender();
+        assert (!((secret == 0) as bool & (on_behalf_of == 0) as bool));
+        let mut account = on_behalf_of;
 
         if (secret != 0) {
-            account = Account::new(me, secret).key();
+            account = Account::new(context.msg_sender(), secret).key();
         }
 
-        // Unshield tokens into this contract.
         // collateral_asset.unshield(amount, asset_owner, this);
-        // will call a public function. If included, ordering is messed up
         let _callStackItem1 = context.call_private_function(collateral_asset, 2423803924, 
             [amount, asset_owner, context.this_address()]
         );
@@ -146,9 +143,7 @@ contract Lending {
         collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
-        // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-        // collateral_asset.transfer();
-        // need approvals and even more reads and views reeeeeeeee.
+        // @todo @LHerskind transfer collateral_asset to self. Need approvals.
 
         let return_values = context.call_public_function(context.this_address(), 139488848, [owner, amount, collateral_asset]);
 
@@ -163,15 +158,14 @@ contract Lending {
         amount: Field,
         collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        // Seems to be this hash that is breaking it. Only happens when we are jumping to this
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
 
-        // keccak256("update_tot()") -> 0x4b10839b -> 1259373467
+        // update_tot()
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
 
-        // Are we breaking because we cannot read the value?
+        // @todo @lherskind check that correct asset is used.
         // let coll_asset = storage.collateral_asset.read();
         // assert(coll_asset == collateral_asset);
 
