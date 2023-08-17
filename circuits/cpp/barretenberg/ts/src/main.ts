@@ -18,7 +18,7 @@ function getBytecode(jsonPath: string) {
   return decompressed;
 }
 
-async function getGates(jsonPath: string, api: BarretenbergApiAsync) {  
+async function getGates(jsonPath: string, api: BarretenbergApiAsync) {
   const { total } = await computeCircuitSize(jsonPath, api);
   return total;
 }
