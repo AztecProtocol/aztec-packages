@@ -29,7 +29,7 @@ contract PriceFeed {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset {
             price: price,
-            timestamp: inputs.public_global_variables.timestamp as u120,
+            //timestamp: inputs.public_global_variables.timestamp as u120,
         });
 
         context.return_values.push(1);

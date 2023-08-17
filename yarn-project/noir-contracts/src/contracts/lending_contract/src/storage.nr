@@ -73,6 +73,8 @@ global AssetSerialisationMethods = TypeSerialisationInterface {
 
 // Storage structure, containing all storage, and specifying what slots they use.
 struct Storage {
+    collateral_asset: PublicState<Field, 1>,
+    debt_asset: PublicState<Field, 1>,
     assets: Map<PublicState<Asset, ASSET_SERIALISED_LEN>>,
     collateral: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
     static_debt: Map<PublicState<Field, FIELD_SERIALISED_LEN>>, // abusing keys very heavily
@@ -81,9 +83,11 @@ struct Storage {
 impl Storage {
     fn init() -> Self {
         Storage {
-            assets: Map::new(1, |slot| PublicState::new(slot, AssetSerialisationMethods)),
-            collateral: Map::new(2, |slot| PublicState::new(slot, FieldSerialisationMethods)),
-            static_debt: Map::new(3, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            collateral_asset: PublicState::new(0, FieldSerialisationMethods),
+            debt_asset: PublicState::new(1, FieldSerialisationMethods),
+            assets: Map::new(2, |slot| PublicState::new(slot, AssetSerialisationMethods)),
+            collateral: Map::new(3, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+            static_debt: Map::new(4, |slot| PublicState::new(slot, FieldSerialisationMethods)),
         }
     }
 }

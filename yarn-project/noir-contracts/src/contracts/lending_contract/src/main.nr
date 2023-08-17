@@ -36,12 +36,14 @@ contract Lending {
         PrivateContext::new(inputs, 0).finish()
     }
 
-    open fn init_asset(
+    open fn init(
         inputs: PublicContextInputs,
         oracle_address: Field,
         loan_to_value: Field,
+        collateral_asset: Field,
+        debt_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value, collateral_asset, debt_asset]));
 
         let storage = Storage::init();
 
@@ -59,6 +61,8 @@ contract Lending {
             loan_to_value: loan_to_value as u120,
             oracle_address,
         });
+        storage.collateral_asset.write(collateral_asset);
+        storage.debt_asset.write(debt_asset);
 
         context.return_values.push(1);
         context.finish()
@@ -97,13 +101,17 @@ contract Lending {
     fn deposit_private(
         inputs: PrivateContextInputs,
         secret: Field,
+        asset_owner: Field,
         owner: Field,
-        amount: Field
+        amount: Field,
+        collateral_asset: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
+            asset_owner,
             owner,
-            amount
+            amount,
+            collateral_asset,
         ]));
 
         assert (!((secret == 0) as bool & (owner == 0) as bool));
@@ -115,12 +123,17 @@ contract Lending {
         }
 
         // Unshield tokens into this contract.
+        // collateral_asset.unshield(amount, asset_owner, this);
+        // will call a public function. If included, ordering is messed up
+        let _callStackItem1 = context.call_private_function(collateral_asset, 2423803924, 
+            [amount, asset_owner, context.this_address()]
+        );
 
-        // _deposit(account, amount)
-        let _callStackItem = context.call_public_function(
+        // _deposit(account, amount, collateral_asset)
+        let _callStackItem2 = context.call_public_function(
             context.this_address(), 
-            3009041984,
-            [account, amount]
+            139488848,
+            [account, amount, collateral_asset]
         );
 
         context.finish()
@@ -129,32 +142,41 @@ contract Lending {
     open fn deposit_public(
         inputs: PublicContextInputs,
         owner: Field,
-        amount: Field
+        amount: Field,
+        collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-    
-        let return_values = context.call_public_function(context.this_address(), 3009041984, [owner, amount]);
+        // collateral_asset.transfer();
+        // need approvals and even more reads and views reeeeeeeee.
+
+        let return_values = context.call_public_function(context.this_address(), 139488848, [owner, amount, collateral_asset]);
 
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
+    // uint256(keccak256("_deposit(field,field,field)")) >> 224 -> 139488848
     open internal fn _deposit(
         inputs: PublicContextInputs,
         owner: Field,
-        amount: Field
+        amount: Field,
+        collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+        // Seems to be this hash that is breaking it. Only happens when we are jumping to this
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
 
         // keccak256("update_tot()") -> 0x4b10839b -> 1259373467
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
 
+        // Are we breaking because we cannot read the value?
+        // let coll_asset = storage.collateral_asset.read();
+        // assert(coll_asset == collateral_asset);
+
         let coll_loc = storage.collateral.at(owner);
         let collateral = coll_loc.read();
-
         coll_loc.write(collateral + amount);
 
         context.return_values.push(1);
@@ -181,7 +203,6 @@ contract Lending {
 
         context.finish()
     }
-
 
     open fn withdraw_public(
         inputs: PublicContextInputs,
@@ -214,7 +235,7 @@ contract Lending {
         // Fetch prices from oracle. Needs to be a static call.
         // keccak256("get_price(field)") -> 0xc83a9cd4 -> 3359284436
         let return_values_price = context.call_public_function(oracle_address, 3359284436, [0]);
-        let price = return_values_price[1] as u120;
+        let price = return_values_price[0] as u120;
         
         let storage = Storage::init();
 
@@ -288,7 +309,7 @@ contract Lending {
         // Fetch prices from oracle. Needs to be a static call.
         // keccak256("get_price(field)") -> 0xc83a9cd4 -> 3359284436
         let return_values_price = context.call_public_function(oracle_address, 3359284436, [0]);
-        let price: u120 = return_values_price[1] as u120;
+        let price: u120 = return_values_price[0] as u120;
         
         let storage = Storage::init();
 
