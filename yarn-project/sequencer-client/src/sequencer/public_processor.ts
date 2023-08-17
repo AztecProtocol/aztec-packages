@@ -73,17 +73,6 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
   ): Promise<PublicProcessor> {
     const blockData = await getHistoricBlockData(this.merkleTree, prevGlobalVariables);
-
-    // TODO(rahul) - fix #1614. By using the cheatcode warp to modify L2 time,
-    // txs in the new rollup would have same time as the txs in the previous rollup.
-    // We overcome this now by identifying if the last rollup time was warped (if two rollups have same time)
-    // and tell public-processor to use a different time (increment last rollup block)
-    // more details at https://github.com/AztecProtocol/aztec-packages/issues/1614
-    const isWarped = prevGlobalVariables.timestamp == globalVariables.timestamp;
-    if (isWarped) {
-      globalVariables.timestamp = new Fr(globalVariables.timestamp.value + 1n);
-    }
-
     return new PublicProcessor(
       this.merkleTree,
       getPublicExecutor(this.merkleTree, this.contractDataSource, this.l1Tol2MessagesDataSource, blockData),
