@@ -148,7 +148,7 @@ int main(int argc, char* argv[])
 
         std::string command = args[0];
 
-        std::string json_path = getOption(args, "-j", "./target/main.json");
+        std::string json_path = getOption(args, "-j", "./target/main.bytecode");
         std::string witness_path = getOption(args, "-w", "./target/witness.tr");
         std::string proof_path = getOption(args, "-p", "./proofs/proof");
         std::string vk_path = getOption(args, "-k", "./target/vk");
