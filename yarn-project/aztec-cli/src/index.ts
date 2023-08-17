@@ -279,7 +279,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const partialAddress = Fr.fromString(options.partialAddress);
 
       await client.registerRecipient(await CompleteAddress.create(address, publicKey, partialAddress));
-      log(`\nRegistered details for Address: ${options.address}\n`);
+      log(`\nRegistered details for account with address: ${options.address}\n`);
     });
 
   program
