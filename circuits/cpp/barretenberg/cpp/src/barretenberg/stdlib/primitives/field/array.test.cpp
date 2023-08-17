@@ -12,8 +12,6 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
-
 using namespace barretenberg;
 using namespace proof_system::plonk;
 

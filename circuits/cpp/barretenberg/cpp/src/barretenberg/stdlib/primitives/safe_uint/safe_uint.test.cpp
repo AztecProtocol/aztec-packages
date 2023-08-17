@@ -1,8 +1,8 @@
+#include "safe_uint.hpp"
 #include "../byte_array/byte_array.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
-#include "safe_uint.hpp"
 #include <cstddef>
 #include <gtest/gtest.h>
 
@@ -24,8 +24,6 @@ auto& engine = numeric::random::get_debug_engine();
 namespace test_stdlib_safe_uint {
 using namespace barretenberg;
 using namespace proof_system::plonk;
-
-template <class T> void ignore_unused(T&) {} // use to ignore unused variables in lambdas
 
 template <class Composer> class SafeUintTest : public ::testing::Test {};
 
@@ -537,8 +535,7 @@ TYPED_TEST(SafeUintTest, TestDivRemainderConstraint)
     suint_ct b(witness_ct(&composer, val), 32);
 
     // set quotient to 0 and remainder to val.
-    auto supply_bad_witnesses = [](uint256_t val, uint256_t divisor) {
-        ignore_unused(divisor);
+    auto supply_bad_witnesses = [](uint256_t val, [[maybe_unused]]uint256_t divisor) {
         return std::make_pair(0, val);
     };
 
