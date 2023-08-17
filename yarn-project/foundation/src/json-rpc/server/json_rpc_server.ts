@@ -91,7 +91,7 @@ export class JsonRpcServer {
           } catch (err: any) {
             // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
             // a duplicate recipient) so this is necessary.
-            ctx.status = 409;
+            ctx.status = 400;
             ctx.body = { error: err.message };
           }
         });
@@ -121,7 +121,7 @@ export class JsonRpcServer {
           } catch (err: any) {
             // Propagate the error message to the client. Plenty of the errors are expected to occur (e.g. adding
             // a duplicate recipient) so this is necessary.
-            ctx.status = 409;
+            ctx.status = 400;
             ctx.body = { error: err.message };
           }
         }
