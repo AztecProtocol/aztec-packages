@@ -9,21 +9,20 @@ Once you have [compiled](./compiling.md) your contracts you can proceed to deplo
 
 ## Deploy
 
-To deploy the contracts we use the `deploy` command form `aztec-cli`:
+To deploy the contracts we use the `deploy` command from `aztec-cli`:
 
 ```bash
 aztec-cli deploy /path/to/contract/abi.json
 ```
 
 ### Arguments
-This command takes 1 mandatory positional argument which is the path to the contract ABI file in a JSON format (e.g. `build/contracts/PrivateToken.json`). Alternatively you can pass here a name of a contract ABI as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to get the list).
+This command takes 1 mandatory argument which is the path to the contract ABI file in a JSON format (e.g. `contracts/target/PrivateToken.json`). Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
 
 The command also takes the following optional arguments:
 - `-args <constructorArgs...>` (default: `[]`): Arguments to pass to the contract constructor.
 - `--rpc-url <string>` (default: `http://localhost:8080`): URL of the Aztec node to connect to.
 - `--public-key <string>` (default: `undefined`): Optional encryption public key for this contract.
 Set this only if this contract is expected to receive private notes (in such a case the public key is used during the note encryption).
-> **NOTE**: Contracts which are expected to receive notes are called account contracts.
 - `--salt <string>` (default: random value): Hexadecimal string used when computing the contract address of the contract being deployed.
 By default is set to a random value.
 Set it, if you need a deterministic contract address (same functionality as Ethereum's `CREATE2` opcode).
@@ -57,4 +56,4 @@ aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f43
 
 the resulting address will be deterministic.
 
-> **NOTE**: You can try running the deployment with the same salt the second time in which case the transaction will fail because it will be considered a double spend.
+> **NOTE**: You can try running the deployment with the same salt the second time in which case the transaction will fail because the address has been already deployed to.
