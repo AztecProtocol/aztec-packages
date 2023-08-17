@@ -238,7 +238,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
+          command: cond_spot_run_test_script ./scripts/bin-test.sh bb-bin-tests
 
   barretenberg-benchmark-aggregator:
     docker:
