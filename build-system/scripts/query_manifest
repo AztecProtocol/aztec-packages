@@ -4,6 +4,8 @@ set -e
 CMD=$1
 REPO=$2
 
+echo "Finding rebuild patterns for $REPO"
+
 MANIFEST=$ROOT_PATH/build_manifest.json
 
 if [ $(jq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
