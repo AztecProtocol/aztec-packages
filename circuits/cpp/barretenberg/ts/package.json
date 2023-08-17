@@ -10,7 +10,7 @@
     "tsconfig": "./tsconfig.json"
   },
   "main": "./dest/index.js",
-  "bin": "./dest/main.js",
+  "bin": "./dest/node/main.js",
   "files": [
     "src/",
     "dest/",
