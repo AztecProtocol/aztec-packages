@@ -43,7 +43,7 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::dbl() 
     auto context = get_context();
 
     cycle_group result = cycle_group<Composer>::from_witness(context, p3);
-    result.is_infinity = is_infinity;
+    result.is_infinity = is_point_at_infinity();
     proof_system::ecc_dbl_gate_<FF> dbl_gate{
         .x1 = x.get_witness_index(),
         .y1 = y.get_witness_index(),
@@ -227,8 +227,8 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     result.x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
     result.y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
-    const bool_t lhs_infinity = is_infinity;
-    const bool_t rhs_infinity = other.is_infinity;
+    const bool_t lhs_infinity = is_point_at_infinity();
+    const bool_t rhs_infinity = other.is_point_at_infinity();
     // if lhs infinity, return rhs
     result.x = field_t::conditional_assign(lhs_infinity, other.x, result.x);
     result.y = field_t::conditional_assign(lhs_infinity, other.y, result.y);
@@ -284,8 +284,8 @@ template <typename Composer> cycle_group<Composer> cycle_group<Composer>::operat
     result.x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
     result.y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
-    const bool_t lhs_infinity = is_infinity;
-    const bool_t rhs_infinity = other.is_infinity;
+    const bool_t lhs_infinity = is_point_at_infinity();
+    const bool_t rhs_infinity = other.is_point_at_infinity();
     // if lhs infinity, return -rhs
     result.x = field_t::conditional_assign(lhs_infinity, other.x, result.x);
     result.y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result.y);
@@ -328,12 +328,12 @@ template <typename Composer> cycle_group<Composer>::offset_generators::offset_ge
     auto init_generator = generators[0];
 }
 template <typename Composer>
-cycle_group<Composer>::cycle_scalar::cycle_scalar(field_t _lo, field_t _hi)
+cycle_group<Composer>::cycle_scalar::cycle_scalar(const field_t& _lo, const field_t& _hi)
     : lo(_lo)
     , hi(_hi)
 {}
 
-template <typename Composer> cycle_group<Composer>::cycle_scalar::cycle_scalar(field_t _in)
+template <typename Composer> cycle_group<Composer>::cycle_scalar::cycle_scalar(const field_t& _in)
 {
     const uint256_t value(_in.get_value());
     const uint256_t lo_v = value.slice(0, LO_BITS);
@@ -349,6 +349,15 @@ template <typename Composer> cycle_group<Composer>::cycle_scalar::cycle_scalar(f
     }
 }
 
+template <typename Composer> cycle_group<Composer>::cycle_scalar::cycle_scalar(const ScalarField& _in)
+{
+    const uint256_t value(_in);
+    const uint256_t lo_v = value.slice(0, LO_BITS);
+    const uint256_t hi_v = value.slice(LO_BITS, HI_BITS);
+    lo = lo_v;
+    hi = hi_v;
+}
+
 template <typename Composer>
 typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar::from_witness(Composer* context,
                                                                                                const ScalarField& value)
@@ -359,6 +368,19 @@ typename cycle_group<Composer>::cycle_scalar cycle_group<Composer>::cycle_scalar
     field_t lo = witness_t(context, lo_v);
     field_t hi = witness_t(context, hi_v);
     return cycle_scalar(lo, hi);
+}
+
+template <typename Composer> bool cycle_group<Composer>::cycle_scalar::is_constant() const
+{
+    return (lo.is_constant() && hi.is_constant());
+}
+
+template <typename Composer>
+typename cycle_group<Composer>::cycle_scalar::ScalarField cycle_group<Composer>::cycle_scalar::get_value() const
+{
+    uint256_t lo_v(lo.get_value());
+    uint256_t hi_v(hi.get_value());
+    return ScalarField(lo_v + (hi_v << LO_BITS));
 }
 
 template <typename Composer>
@@ -372,13 +394,13 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
     const auto slice_scalar = [&](const field_t& scalar, const size_t num_bits) {
         std::vector<field_t> result;
         if (scalar.is_constant()) {
-            const size_t num_slices = num_bits / table_bits;
+            const size_t num_slices = (num_bits + table_bits - 1) / table_bits;
             const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
             uint256_t raw_value = scalar.get_value();
             for (size_t i = 0; i < num_slices; ++i) {
                 uint64_t slice_v = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
-                field_t slice(context, slice_v);
-                result.push_back(slice);
+                result.push_back(field_t(slice_v));
+                raw_value = raw_value >> table_bits;
             }
             return result;
         }
@@ -394,8 +416,7 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
         } else {
             uint256_t raw_value = scalar.get_value();
             const uint64_t table_mask = (1ULL << table_bits) - 1ULL;
-            const size_t num_slices = num_bits / table_bits;
-
+            const size_t num_slices = (num_bits + table_bits - 1) / table_bits;
             for (size_t i = 0; i < num_slices; ++i) {
                 uint64_t slice_v = static_cast<uint64_t>(raw_value.data[0]) & table_mask;
                 field_t slice(witness_t(context, slice_v));
@@ -420,8 +441,8 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
     auto hi_slices = slice_scalar(scalar.hi, cycle_scalar::HI_BITS);
     auto lo_slices = slice_scalar(scalar.lo, cycle_scalar::LO_BITS);
 
-    // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
-    {
+    if (!scalar.is_constant()) {
+        // Check that scalar.hi * 2^LO_BITS + scalar.lo < cycle_group_modulus when evaluated over the integers
         constexpr uint256_t cycle_group_modulus = cycle_scalar::ScalarField::modulus;
         constexpr uint256_t r_lo = cycle_group_modulus.slice(0, cycle_scalar::LO_BITS);
         constexpr uint256_t r_hi = cycle_group_modulus.slice(cycle_scalar::LO_BITS, cycle_scalar::HI_BITS);
@@ -440,7 +461,7 @@ cycle_group<Composer>::straus_scalar_slice::straus_scalar_slice(Composer* contex
         // Hi range check = r_hi - y_hi - borrow
         // Lo range check = r_lo - y_lo + borrow * 2^{126}
         field_t hi = (-scalar.hi + r_hi) - borrow;
-        field_t lo = (-scalar.lo + r_lo) + (borrow * (uint256_t(1) << 126));
+        field_t lo = (-scalar.lo + r_lo) + (borrow * (uint256_t(1) << cycle_scalar::LO_BITS));
 
         hi.create_range_constraint(cycle_scalar::HI_BITS);
         lo.create_range_constraint(cycle_scalar::LO_BITS);
@@ -492,9 +513,14 @@ cycle_group<Composer>::straus_lookup_table::straus_lookup_table(Composer* contex
 }
 
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const field_t& index)
+cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const field_t& _index)
 {
     if constexpr (IS_ULTRA) {
+        field_t index(_index);
+        if (index.is_constant()) {
+            index = witness_t(_context, _index.get_value());
+            index.assert_equal(_index.get_value());
+        }
         auto output_indices = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
         field_t x = field_t::from_witness_index(_context, output_indices[0]);
         field_t y = field_t::from_witness_index(_context, output_indices[1]);
@@ -502,25 +528,45 @@ cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const fie
     }
     // idx * point_table[1] + (1 - idx) * point_table[0]
     // idx (point_table[1] - point_table[0]) + point_table[0]
-    field_t x = index * (point_table[1].x - point_table[0].x) + point_table[0].x;
-    field_t y = index * (point_table[1].y - point_table[0].y) + point_table[0].y;
+    field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
+    field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
     return cycle_group(_context, x, y, false);
 }
 
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::vector<cycle_scalar>& scalars,
-                                                                     const std::vector<cycle_group>& base_points)
+cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
+                                                                     const std::vector<cycle_group>& _base_points)
 {
+    ASSERT(_scalars.size() == _base_points.size());
+
     Composer* context = nullptr;
-    for (auto& point : base_points) {
+    for (auto& point : _base_points) {
         if (point.get_context() != nullptr) {
             context = point.get_context();
             break;
         }
     }
+
+    std::vector<cycle_scalar> scalars;
+    std::vector<cycle_group> base_points;
+    bool has_constant_component = false;
+    bool has_non_constant_component = false;
+    element constant_component = G1::point_at_infinity;
+    for (size_t i = 0; i < _scalars.size(); ++i) {
+        if (_scalars[i].is_constant() && _base_points[i].is_constant()) {
+            has_constant_component = true;
+            constant_component += _base_points[i].get_value() * _scalars[i].get_value();
+        } else {
+            has_non_constant_component = true;
+            scalars.emplace_back(_scalars[i]);
+            base_points.emplace_back(_base_points[i]);
+        }
+    }
+    if (!has_non_constant_component) {
+        return cycle_group(constant_component);
+    }
     // core algorithm
     // define a `table_bits` size lookup table
-    ASSERT(scalars.size() == base_points.size());
     const size_t num_points = scalars.size();
 
     auto generators = offset_generators(num_points);
@@ -555,8 +601,17 @@ cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::
             offset_generator_accumulator = offset_generator_accumulator + element(generators.generators[j + 1]);
         }
     }
+
+    // NOTE: should this be a general addition?
+    // e.g. x.[P] + -x.[P] . We want to be able to support this :/
+    if (has_constant_component) {
+        // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
+        offset_generator_accumulator -= constant_component;
+    }
     cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
-    accumulator = accumulator.constrained_unconditional_add(offset_generator_delta);
+    // use a full conditional add here in case we end with a point at infinity or a point doubling.
+    // e.g. x[P] + x[P], or x[P] + -x[P]
+    accumulator = accumulator + offset_generator_delta;
 
     return accumulator;
 }

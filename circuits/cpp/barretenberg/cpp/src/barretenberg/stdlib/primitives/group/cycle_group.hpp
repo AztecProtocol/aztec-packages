@@ -102,6 +102,7 @@ template <typename Composer> class cycle_group {
         return result;
     }
 
+    bool_t is_point_at_infinity() const { return is_infinity; }
     cycle_group dbl() const;
     cycle_group unconditional_add(const cycle_group& other) const;
     cycle_group constrained_unconditional_add(const cycle_group& other) const;
@@ -125,8 +126,11 @@ template <typename Composer> class cycle_group {
         static constexpr size_t LO_BITS = 128;
         static constexpr size_t HI_BITS = ScalarField::modulus.get_msb() + 1 - LO_BITS;
         static cycle_scalar from_witness(Composer* context, const ScalarField& value);
-        cycle_scalar(field_t _lo, field_t _hi);
-        cycle_scalar(field_t _in);
+        cycle_scalar(const ScalarField& _in);
+        cycle_scalar(const field_t& _lo, const field_t& _hi);
+        cycle_scalar(const field_t& _in);
+        [[nodiscard]] bool is_constant() const;
+        ScalarField get_value() const;
         field_t lo;
         field_t hi;
     };

@@ -338,25 +338,72 @@ TYPED_TEST(CycleGroupTest, TestVariableBaseBatchMul)
     auto composer = Composer();
 
     const size_t num_muls = 1;
-    std::vector<cycle_group_ct> points;
-    std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
     element expected = G1::point_at_infinity;
 
-    for (size_t i = 0; i < num_muls; ++i) {
-        auto element = TestFixture::generators[i];
-        typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+    // case 1, general MSM with inputs that are combinations of constant and witnesses
+    {
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-        expected += (element * scalar);
-        points.emplace_back(cycle_group_ct::from_witness(&composer, element));
-        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        for (size_t i = 0; i < num_muls; ++i) {
+            auto element = TestFixture::generators[i];
+            typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+
+            // 1: add entry where point, scalar are witnesses
+            expected += (element * scalar);
+            points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+
+            // 2: add entry where point is constant, scalar is witness
+            expected += (element * scalar);
+            points.emplace_back(cycle_group_ct(element));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+
+            // 3: add entry where point is witness, scalar is constant
+            expected += (element * scalar);
+            points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+
+            // 4: add entry where point is constant, scalar is constant
+            expected += (element * scalar);
+            points.emplace_back(cycle_group_ct(element));
+            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        }
+        auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+        EXPECT_EQ(result.get_value(), affine_element(expected));
     }
 
-    auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+    // case 2, MSM that produces point at infinity
+    {
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
 
-    EXPECT_EQ(result.get_value(), affine_element(expected));
+        auto element = TestFixture::generators[0];
+        typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+        points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
 
-    std::cout << "num gates = " << composer.get_num_gates() << std::endl;
+        points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, -scalar));
+
+        auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    }
+
+    // case 3. Multiply by zero
+    {
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+        auto element = TestFixture::generators[0];
+        typename G1::subgroup_field scalar = 0;
+        points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+        scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    }
+
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
