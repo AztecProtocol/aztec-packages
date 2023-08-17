@@ -80,7 +80,7 @@ __metadata:
     "@rushstack/eslint-patch": ^1.1.4
     "@types/jest": ^29.5.0
     "@types/node": ^18.7.23
-    acvm_js: /mnt/user-data/david/projects/4-noir-lang/acvm/outputs/out
+    acvm_js: "github:dbanks12/acvm-simulator-wasm#db/init-sim-backend"
     jest: ^29.5.0
     jest-mock-extended: ^3.0.4
     levelup: ^5.1.1
@@ -4018,10 +4018,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"acvm_js@file:/mnt/user-data/david/projects/4-noir-lang/acvm/outputs/out::locator=%40aztec%2Facir-simulator%40workspace%3Aacir-simulator":
+"acvm_js@github:dbanks12/acvm-simulator-wasm#db/init-sim-backend":
   version: 0.21.0
-  resolution: "acvm_js@file:/mnt/user-data/david/projects/4-noir-lang/acvm/outputs/out#/mnt/user-data/david/projects/4-noir-lang/acvm/outputs/out::hash=81130f&locator=%40aztec%2Facir-simulator%40workspace%3Aacir-simulator"
-  checksum: a6c1a94e96b83dbd673cd6d8d7dc4aad14fee02f8ba4ccc117ba17dff8290829437345ca697fb58b29098bcfa9ead35b59479b3130d8a3dd1941d528459902b3
+  resolution: "acvm_js@https://github.com/dbanks12/acvm-simulator-wasm.git#commit=43e3be272258ed66d7b5b365020e1c5f31d6ca84"
+  checksum: a65383c053fc59ef55e65f181277a5edc4ac22c4c0180fc5b05788121360f03fa24fe176da78de51d36892bce76893178c79d1c0284f834d1d6ed5e8209ff1b4
   languageName: node
   linkType: hard
 
