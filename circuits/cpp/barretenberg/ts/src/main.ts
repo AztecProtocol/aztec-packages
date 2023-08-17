@@ -11,28 +11,15 @@ const debug = createDebug('bb.js');
 // Maximum we support.
 const MAX_CIRCUIT_SIZE = 2 ** 19;
 
-function getJsonData(jsonPath: string) {
-  const json = readFileSync(jsonPath, 'utf-8');
-  const parsed = JSON.parse(json);
-  return parsed;
-}
-
 function getBytecode(jsonPath: string) {
-  const parsed = getJsonData(jsonPath);
-  const buffer = Buffer.from(parsed.bytecode, 'base64');
+  const encodedCircuit = readFileSync(jsonPath, 'utf-8');
+  const buffer = Buffer.from(encodedCircuit, 'base64');
   const decompressed = gunzipSync(buffer);
   return decompressed;
 }
 
-async function getGates(jsonPath: string, api: BarretenbergApiAsync) {
-  const parsed = getJsonData(jsonPath);
-  if (parsed.gates) {
-    return +parsed.gates;
-  }
+async function getGates(jsonPath: string, api: BarretenbergApiAsync) {  
   const { total } = await computeCircuitSize(jsonPath, api);
-  const jsonData = getJsonData(jsonPath);
-  jsonData.gates = total;
-  writeFileSync(jsonPath, JSON.stringify(jsonData));
   return total;
 }
 
@@ -231,7 +218,7 @@ function handleGlobalOptions() {
 program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
-  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.json')
+  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.bytecode')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.tr')
   .option('-r, --recursive', 'prove and verify using recursive prover and verifier', false)
   .action(async ({ jsonPath, witnessPath, recursive, crsPath }) => {
@@ -243,7 +230,7 @@ program
 program
   .command('prove')
   .description('Generate a proof and write it to a file.')
-  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.json')
+  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.bytecode')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.tr')
   .option('-r, --recursive', 'prove using recursive prover', false)
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
@@ -255,7 +242,7 @@ program
 program
   .command('gates')
   .description('Print gate count to standard output.')
-  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.json')
+  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.bytecode')
   .action(async ({ jsonPath }) => {
     handleGlobalOptions();
     await gateCount(jsonPath);
@@ -276,7 +263,7 @@ program
 program
   .command('contract')
   .description('Output solidity verification key contract.')
-  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.json')
+  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.bytecode')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', '-')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vk }) => {
