@@ -8,17 +8,23 @@ Once you have [compiled](./compiling.md) your contracts you can proceed to deplo
 
 ## Deploy
 
-To deploy the contracts you can use the `aztec-cli`
+To deploy the contracts you can use `aztec-cli`:
 
 ```bash
 aztec-cli deploy --contract-abi /path/to/contract/abi.json
+```
+
+Example with all the arguments:
+
+```bash
+aztec-cli deploy /path/to/contract/abi.json --rpc-url http://localhost:8080 --public-key 0x1234 --salt 0x1234
 ```
 
 ### Arguments
 This command takes the following mandatory arguments:
 
 - `--contract-abi <file>`: Path to the contract ABI file in JSON format (e.g. `build/contracts/PrivateToken.json`).
-Alternatively you can pass here a name of a contract ABI as exported by `@aztec/noir-contracts` (e.g. `PrivateTokenContractAbi`).
+Alternatively you can pass here a name of a contract ABI as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to get the list).
 
 and the following optional arguments:
 - `-args <constructorArgs...>` (default: `[]`): Arguments to pass to the contract constructor.
