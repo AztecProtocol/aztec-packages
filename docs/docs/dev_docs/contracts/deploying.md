@@ -3,8 +3,8 @@
 Once you have [compiled](./compiling.md) your contracts you can proceed to deploying them using `aztec-cli`.
 
 ## Prerequisites
-- aztec-cli installed
-- contract artifacts ready
+- aztec-cli installed (go to [main section](./main.md) for installation instructions)
+- contract artifacts ready (go to [compiling section](../contracts/compiling.md) for instructions on how to compile contracts)
 
 ## Deploy
 
