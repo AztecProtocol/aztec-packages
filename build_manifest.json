@@ -64,6 +64,15 @@
       "barretenberg-wasm-linux-clang"
     ]
   },
+  "bb-bin-tests": {
+    "buildDir": "circuits/cpp/barretenberg/ts",
+    "rebuildPatterns": [
+      "^circuits/cpp/barretenberg/ts/"
+    ],
+    "dependencies": [
+      "barretenberg-wasm-linux-clang"
+    ]
+  },
   "barretenberg-acir-tests": {
     "buildDir": "circuits/cpp/barretenberg/acir_tests",
     "rebuildPatterns": [
