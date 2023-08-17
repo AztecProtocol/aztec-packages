@@ -706,6 +706,9 @@ bool_t<ComposerContext> field_t<ComposerContext>::operator!=(const field_t& othe
 template <typename ComposerContext>
 field_t<ComposerContext> field_t<ComposerContext>::conditional_negate(const bool_t<ComposerContext>& predicate) const
 {
+    if (predicate.is_constant()) {
+        return predicate.get_value() ? -(*this) : *this;
+    }
     field_t<ComposerContext> predicate_field(predicate);
     field_t<ComposerContext> multiplicand = -(predicate_field + predicate_field);
     return multiplicand.madd(*this, *this);
@@ -717,6 +720,13 @@ field_t<ComposerContext> field_t<ComposerContext>::conditional_assign(const bool
                                                                       const field_t& lhs,
                                                                       const field_t& rhs)
 {
+    if (predicate.is_constant()) {
+        return predicate.get_value() ? lhs : rhs;
+    }
+    // if lhs and rhs are the same witness, just return it!
+    if (lhs.get_witness_index() == rhs.get_witness_index()) {
+        return lhs;
+    }
     return (lhs - rhs).madd(predicate, rhs);
 }
 

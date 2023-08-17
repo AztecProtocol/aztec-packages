@@ -106,6 +106,7 @@ template <typename Composer> class cycle_group {
     cycle_group dbl() const;
     cycle_group unconditional_add(const cycle_group& other) const;
     cycle_group constrained_unconditional_add(const cycle_group& other) const;
+    cycle_group conditional_add(const cycle_group& other) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group unconditional_subtract(const cycle_group& other) const;
     cycle_group constrained_unconditional_subtract(const cycle_group& other) const;

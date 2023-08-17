@@ -335,6 +335,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
 TYPED_TEST(CycleGroupTest, TestVariableBaseBatchMul)
 {
     STDLIB_TYPE_ALIASES;
+    using witness_ct = stdlib::witness_t<Composer>;
     auto composer = Composer();
 
     const size_t num_muls = 1;
@@ -400,6 +401,32 @@ TYPED_TEST(CycleGroupTest, TestVariableBaseBatchMul)
         typename G1::subgroup_field scalar = 0;
         points.emplace_back(cycle_group_ct::from_witness(&composer, element));
         scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+        EXPECT_TRUE(result.is_point_at_infinity().get_value());
+    }
+
+    // case 4. Inputs are points at infinity
+    {
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+        auto element = TestFixture::generators[0];
+        typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+
+        // is_infinity = witness
+        {
+            cycle_group_ct point = cycle_group_ct::from_witness(&composer, element);
+            point.is_infinity = witness_ct(&composer, true);
+            points.emplace_back(point);
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        }
+        // is_infinity = constant
+        {
+            cycle_group_ct point = cycle_group_ct::from_witness(&composer, element);
+            point.is_infinity = true;
+            points.emplace_back(point);
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        }
         auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
     }

@@ -489,8 +489,25 @@ cycle_group<Composer>::straus_lookup_table::straus_lookup_table(Composer* contex
 
     point_table.resize(table_size);
     point_table[0] = generator_point;
+
+    // We want to support the case where input points are points at infinity.
+    // If base point is at infinity, we want every point in the table to just be `generator_point`.
+    // We achieve this via the following:
+    // 1: We create a "work_point" that is base_point if not at infinity, otherwise is just 1
+    // 2: When computing the point table, we use "work_point" in additions instead of the "base_point" (to prevent
+    //    x-coordinate collisions in honest case) 3: When assigning to the point table, we conditionally assign either
+    //    the output of the point addition (if not at infinity) or the generator point (if at infinity)
+    // Note: if `base_point.is_point_at_infinity()` is constant, these conditional assigns produce zero gate overhead
+    cycle_group fallback_point(G1::affine_one);
+    field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
+    field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
+    cycle_group modded_base_point(context, modded_x, modded_y, false);
     for (size_t i = 1; i < table_size; ++i) {
-        point_table[i] = point_table[i - 1].constrained_unconditional_add(base_point);
+
+        auto add_output = point_table[i - 1].constrained_unconditional_add(modded_base_point);
+        field_t x = field_t::conditional_assign(base_point.is_point_at_infinity(), generator_point.x, add_output.x);
+        field_t y = field_t::conditional_assign(base_point.is_point_at_infinity(), generator_point.y, add_output.y);
+        point_table[i] = cycle_group(context, x, y, false);
     }
 
     if constexpr (IS_ULTRA) {
