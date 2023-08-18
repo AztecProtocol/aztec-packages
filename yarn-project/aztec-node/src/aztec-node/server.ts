@@ -335,8 +335,9 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed block data.
    */
   public async getHistoricBlockData(): Promise<HistoricBlockData> {
+    const committedDb = this.worldStateSynchroniser.getCommitted();
     const getTreeRoot = async (id: MerkleTreeId) =>
-      Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
+      Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
     const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree, globalsHash] = await Promise.all([
       getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
@@ -345,7 +346,7 @@ export class AztecNodeService implements AztecNode {
       getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
       getTreeRoot(MerkleTreeId.BLOCKS_TREE),
       getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      this.merkleTreeDB.getLatestGlobalVariablesHash(false),
+      committedDb.getLatestGlobalVariablesHash(),
     ]);
 
     return new HistoricBlockData(
