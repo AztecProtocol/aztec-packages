@@ -190,7 +190,7 @@ unconstrained fn view_notes<Note, N>(
 ) -> [Option<Note>; MAX_NOTES_PER_PAGE] {
     let sort_by = [0; N];
     let sort_order = [0; N];
-    let dummy_notes = [Option::none(); MAX_NOTES_PER_PAGE];
-    let zero_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
-    oracle::notes::get_notes(storage_slot, note_interface, sort_by, sort_order, limit, offset, dummy_notes, zero_fields)
+    let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
+    let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
+    oracle::notes::get_notes(storage_slot, note_interface, sort_by, sort_order, limit, offset, placeholder_opt_notes, placeholder_fields)
 }
