@@ -113,13 +113,9 @@ export class MerkleTrees implements MerkleTreeDb {
 
     // The first leaf in the blocks tree contains the empty roots of the other trees and empty global variables.
     const initialGlobalVariablesHash = await computeGlobalVariablesHash(GlobalVariables.empty());
-    this.latestGlobalVariablesHash.set(initialGlobalVariablesHash);
+    await this._updateLatestGlobalVariablesHash(initialGlobalVariablesHash);
     await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
-
-    // TODO: maybe make this async and awaitable
     await this._commit();
-    // this.latestGlobalVariablesHash.commit();
-    // await historicBlocksTree.commit();
   }
 
   /**
@@ -198,11 +194,8 @@ export class MerkleTrees implements MerkleTreeDb {
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current roots of the trees.
    */
-  public getTreeRoots(includeUncommitted: boolean): CurrentTreeRoots {
-    // TODO: Make this use the synchronise operation
-    // public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
-    // const roots = await this.synchronise(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
-    const roots = this._getAllTreeRoots(includeUncommitted);
+  public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
+    const roots = await this.synchronise(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
 
     return {
       privateDataTreeRoot: roots[0],
@@ -215,13 +208,13 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   private async _getCurrentBlockHash(globalsHash: Fr, includeUncommitted: boolean): Promise<Fr> {
-    const roots = this._getAllTreeRoots(includeUncommitted).map(root => Fr.fromBuffer(root));
+    const roots = (await this._getAllTreeRoots(includeUncommitted)).map(root => Fr.fromBuffer(root));
     const wasm = await CircuitsWasm.get();
     return computeBlockHash(wasm, globalsHash, roots[0], roots[1], roots[2], roots[3], roots[4]);
   }
 
-  private _getAllTreeRoots(includeUncommitted: boolean): Buffer[] {
-    return [
+  private _getAllTreeRoots(includeUncommitted: boolean): Promise<Buffer[]> {
+    const roots = [
       MerkleTreeId.PRIVATE_DATA_TREE,
       MerkleTreeId.NULLIFIER_TREE,
       MerkleTreeId.CONTRACT_TREE,
@@ -229,6 +222,8 @@ export class MerkleTrees implements MerkleTreeDb {
       MerkleTreeId.PUBLIC_DATA_TREE,
       MerkleTreeId.BLOCKS_TREE,
     ].map(tree => this.trees[tree].getRoot(includeUncommitted));
+
+    return Promise.resolve(roots);
   }
 
   /**

@@ -116,7 +116,7 @@ export interface MerkleTreeOperations {
   /**
    * Gets the current roots of the commitment trees.
    */
-  getTreeRoots(): CurrentTreeRoots;
+  getTreeRoots(): Promise<CurrentTreeRoots>;
 
   /**
    * Gets sibling path for a leaf.

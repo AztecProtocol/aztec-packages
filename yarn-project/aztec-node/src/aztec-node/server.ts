@@ -317,16 +317,26 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed roots for the data trees.
    */
   public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const getTreeRoot = async (id: MerkleTreeId) =>
-      Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
+    const committedDb = this.worldStateSynchroniser.getCommitted();
+    const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
+
+    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
+      await Promise.all([
+        getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+        getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+        getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+        getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+        getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+        getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      ]);
 
     return {
-      [MerkleTreeId.CONTRACT_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-      [MerkleTreeId.NULLIFIER_TREE]: await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.BLOCKS_TREE]: await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+      [MerkleTreeId.CONTRACT_TREE]: contractTree,
+      [MerkleTreeId.PRIVATE_DATA_TREE]: privateDataTree,
+      [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,
+      [MerkleTreeId.BLOCKS_TREE]: blocksTree,
     };
   }
 
@@ -335,29 +345,17 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed block data.
    */
   public async getHistoricBlockData(): Promise<HistoricBlockData> {
-    // TODO: could just use above
     const committedDb = this.worldStateSynchroniser.getCommitted();
-    const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
-
-    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree, globalsHash] =
-      await Promise.all([
-        getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-        getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-        getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-        getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-        getTreeRoot(MerkleTreeId.BLOCKS_TREE),
-        getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-        committedDb.getLatestGlobalVariablesHash(),
-      ]);
+    const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
     return new HistoricBlockData(
-      privateDataTree,
-      nullifierTree,
-      contractTree,
-      l1ToL2MessagesTree,
-      blocksTree,
+      roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      roots[MerkleTreeId.NULLIFIER_TREE],
+      roots[MerkleTreeId.CONTRACT_TREE],
+      roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      roots[MerkleTreeId.BLOCKS_TREE],
       Fr.ZERO,
-      publicDataTree,
+      roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,
     );
   }

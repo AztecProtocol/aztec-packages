@@ -24,7 +24,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
    * Get the current roots of the commitment trees.
    * @returns The current roots of the trees.
    */
-  getTreeRoots(): CurrentTreeRoots {
+  getTreeRoots(): Promise<CurrentTreeRoots> {
     return this.trees.getTreeRoots(this.includeUncommitted);
   }
 
