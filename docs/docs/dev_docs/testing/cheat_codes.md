@@ -172,7 +172,7 @@ public async dumpChainState(fileName: string): Promise<void>
 #### Description
 Dumps the current Ethereum chain state to a file.
 Stores a hex string representing the complete state of the chain in a file with the provided path. Can be re-imported into a fresh/restarted instance of Anvil to reattain the same state.
-When combined with `loadChainState()` cheatcode, it can be let you easily import the current state of mainnet into the Anvil instance of the sandbox, to use Uniswap for example.
+When combined with `loadChainState()` cheatcode, it can be let you easily import the current state of mainnet into the Anvil instance of the sandbox.
 
 #### Example
 ```ts
@@ -400,7 +400,6 @@ The baseSlot is specified in the noir contract.
 #### Example  
 ```rust
 struct Storage {
-    // highlight-next-line:PublicState
     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 }
 
@@ -431,12 +430,11 @@ public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr>
 #### Description
 Loads the value stored at the given slot in the public storage of the given contract. 
 
-Note: One Field element occupies a storage slot. So structs with multiple field elements won't fit in a single slot. So using loadPublic would only load a part of the struct (depending on the size of the attributes within it).
+Note: One Field element occupies a storage slot. Hence, structs with multiple field elements will be spread over multiple slots, rather they will be spread over multiple sequential slots. Using loadPublic will only load a single field of the struct (depending on the size of the attributes within it).
 
 #### Example
 ```rust
 struct Storage {
-    // highlight-next-line:PublicState
     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 }
 
@@ -462,7 +460,7 @@ const value = await cc.aztec.loadPublic(address, slot);
 
 Keep up with the latest discussion and join the conversation in the [Aztec forum](https://discourse.aztec.network).
 
-You can also use the above link to request for more cheatcodes.
+You can also use the above link to request more cheatcodes.
 
 import Disclaimer from "../../misc/common/\_disclaimer.mdx";
 <Disclaimer/>
