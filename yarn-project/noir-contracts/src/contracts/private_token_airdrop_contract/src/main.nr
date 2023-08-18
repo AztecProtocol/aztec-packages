@@ -162,7 +162,7 @@ contract PrivateTokenAirdrop {
         spend_note_offset: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             sender, 
             amounts[0], 
             amounts[1], 

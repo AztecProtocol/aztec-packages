@@ -66,7 +66,7 @@ fn spend_notes(
   note is to be spent. 
 */
 fn spend_one_note(
-    context: &mut Context,
+    context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     amount: Field,
     owner: Field,
@@ -133,7 +133,6 @@ fn spend_one_note(
         context,
         context.inputs.call_context.storage_contract_address,
         balance.storage_slot,
-        owner,
         encryption_pub_key,
         encrypted_data,
     );
@@ -168,7 +167,7 @@ fn send_note(
   So we split the output notes as: 3 to recipients + 1 to the owner (the change note).
 */
 fn send_notes(
-    context: &mut Context,
+    context: &mut PrivateContext,
     recipient_balances: [Set<ValueNote, VALUE_NOTE_LEN>; 3],
     amounts: [Field; 3], 
     recipients: [Field; 3],
@@ -192,7 +191,6 @@ fn send_notes(
             context,
             context.inputs.call_context.storage_contract_address,
             recipient_balances[i].storage_slot,
-            recipients[i],
             recipient_encryption_pub_key,
             recipient_encrypted_data,
         );
