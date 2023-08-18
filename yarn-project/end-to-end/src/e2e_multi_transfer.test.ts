@@ -72,6 +72,8 @@ describe('multi-transfer payments', () => {
   };
 
   /**
+   * Payroll example
+   *
    * Transaction 1:
    * The sender first splits 1000 to create new notes (for himself) with values 100, 200, 300, 400:
    * 0: sender: [1000]
@@ -138,9 +140,10 @@ describe('multi-transfer payments', () => {
       await expectBalance(zkTokenContract, recipients[index], amounts[index]);
     }
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
-  }, 850_000);
+  }, 100_000);
 
   /**
+   * Creating change notes for self.
    *
    * Transaction 1: Splits the 1000 note to create 12 notes x 50 each.
    * index:     [0    1   2   3   4   5   6   7]
@@ -183,11 +186,11 @@ describe('multi-transfer payments', () => {
         noteOffsets,
       )
       .send({ origin: ownerAddress });
-    await multiTransferTx.isMined({ timeout: 1000 }); // mining timeout ≥ time needed for the test to finish.
+    await multiTransferTx.isMined({ timeout: 100 }); // mining timeout ≥ time needed for the test to finish.
     const multiTransferTxReceipt = await multiTransferTx.getReceipt();
     logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
 
     await expectBalance(zkTokenContract, ownerAddress, initialBalance);
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
-  }, 850_000);
+  }, 100_000);
 });
