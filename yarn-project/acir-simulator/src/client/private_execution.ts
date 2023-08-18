@@ -24,7 +24,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
+import { AcirSimulator, ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 
@@ -63,15 +63,15 @@ export class PrivateFunctionExecution {
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
-    const { partialWitness } = await acvm(acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
-        const [pubKey, partialAddress] = await this.context.db.getPublicKey(address);
-        return [pubKey.x, pubKey.y, partialAddress].map(toACVMField);
+        const { publicKey, partialAddress } = await this.context.db.getCompleteAddress(address);
+        return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
       },
       getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
         this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),

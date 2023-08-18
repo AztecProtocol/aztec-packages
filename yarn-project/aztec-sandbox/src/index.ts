@@ -1,17 +1,17 @@
+#!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { createAztecRPCServer, getHttpRpcServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { PrivateKey } from '@aztec/circuits.js';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import http from 'http';
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { createApiRouter } from './routes.js';
+import { startHttpRpcServer } from './server.js';
 import { github, splash } from './splash.js';
 
 const { SERVER_PORT = 8080, MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
@@ -35,7 +35,7 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
       try {
         chainId = await publicClient.getChainId();
       } catch (err) {
-        logger(`Failed to get Chain ID. Retrying...`);
+        logger.warn(`Failed to connect to Ethereum node at ${rpcUrl}. Retrying...`);
       }
       return chainId;
     },
@@ -45,7 +45,7 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
   );
 
   if (!chainID) {
-    throw Error(`ETH RPC server unresponsive at ${rpcUrl}.`);
+    throw Error(`Ethereum node unresponsive at ${rpcUrl}.`);
   }
 
   // Deploy L1 contracts
@@ -84,26 +84,18 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  const rpcServer = getHttpRpcServer(aztecRpcServer);
-
-  const app = rpcServer.getApp();
-  const apiRouter = createApiRouter(deployedL1Contracts);
-  app.use(apiRouter.routes());
-  app.use(apiRouter.allowedMethods());
-
-  const httpServer = http.createServer(app.callback());
-  httpServer.listen(SERVER_PORT);
+  startHttpRpcServer(aztecRpcServer, deployedL1Contracts, SERVER_PORT);
   logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`);
   const accountStrings = [`Initial Accounts:\n\n`];
 
   const registeredAccounts = await aztecRpcServer.getAccounts();
   for (const account of accounts) {
-    const completedAddress = await account.account.getCompleteAddress();
-    if (registeredAccounts.find(a => a.equals(completedAddress.address))) {
-      accountStrings.push(` Address: ${completedAddress.address.toString()}\n`);
-      accountStrings.push(` Partial Address: ${completedAddress.partialAddress.toString()}\n`);
+    const completeAddress = await account.account.getCompleteAddress();
+    if (registeredAccounts.find(a => a.equals(completeAddress))) {
+      accountStrings.push(` Address: ${completeAddress.address.toString()}\n`);
+      accountStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
       accountStrings.push(` Private Key: ${account.privateKey.toString()}\n`);
-      accountStrings.push(` Public Key: ${completedAddress.publicKey.toString()}\n\n`);
+      accountStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
     }
   }
   logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings));

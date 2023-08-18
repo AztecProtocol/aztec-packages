@@ -118,6 +118,19 @@ contract PendingCommitments {
         context.finish()
     }
 
+    // Dumy nested/inner function (to pass a function which does nothing)
+    fn dummy(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        amount: Field,
+        owner: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner]));
+        context.finish()
+    }
+
     // Nested/inner function to create and insert a note
     fn insert_note(
         //*********************************/

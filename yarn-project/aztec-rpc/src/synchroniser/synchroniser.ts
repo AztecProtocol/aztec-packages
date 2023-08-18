@@ -132,7 +132,7 @@ export class Synchroniser {
 
       this.synchedToBlock = latestBlock.block.number;
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -186,7 +186,7 @@ export class Synchroniser {
         this.noteProcessors.push(noteProcessor);
       }
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -251,12 +251,11 @@ export class Synchroniser {
    *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
   public async isAccountStateSynchronised(account: AztecAddress) {
-    const result = await this.db.getPublicKeyAndPartialAddress(account);
-    if (!result) {
+    const completeAddress = await this.db.getCompleteAddress(account);
+    if (!completeAddress) {
       return false;
     }
-    const publicKey = result[0];
-    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(completeAddress.publicKey));
     if (!processor) {
       return false;
     }

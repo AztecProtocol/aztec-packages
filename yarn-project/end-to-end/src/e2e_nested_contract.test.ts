@@ -6,7 +6,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContractAbi, ParentContractAbi } from '@aztec/noir-contracts/artifacts';
 import { ChildContract, ImportTestContract, ParentContract, TestContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, TxStatus } from '@aztec/types';
+import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -14,11 +14,13 @@ describe('e2e_nested_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
-  let accounts: AztecAddress[];
+  let sender: AztecAddress;
   let logger: DebugLogger;
 
   beforeEach(async () => {
+    let accounts: CompleteAddress[];
     ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup());
+    sender = accounts[0].address;
   }, 100_000);
 
   afterEach(async () => {
@@ -45,7 +47,7 @@ describe('e2e_nested_contract', () => {
       await tx.isMined({ interval: 0.1 });
 
       const receipt = await tx.getReceipt();
-      const contract = await Contract.create(receipt.contractAddress!, abi, wallet);
+      const contract = await Contract.at(receipt.contractAddress!, abi, wallet);
       logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
       return contract;
     };
@@ -61,7 +63,7 @@ describe('e2e_nested_contract', () => {
     it('performs nested calls', async () => {
       const tx = parentContract.methods
         .entryPoint(childContract.address, Fr.fromBuffer(childContract.methods.value.selector))
-        .send({ origin: accounts[0] });
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -71,8 +73,8 @@ describe('e2e_nested_contract', () => {
 
     it('performs public nested calls', async () => {
       const tx = parentContract.methods
-        .pubEntryPoint(childContract.address, Fr.fromBuffer(childContract.methods.pubValue.selector), 42n)
-        .send({ origin: accounts[0] });
+        .pubEntryPoint(childContract.address, Fr.fromBuffer(childContract.methods.pubGetValue.selector), 42n)
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -82,8 +84,8 @@ describe('e2e_nested_contract', () => {
 
     it('enqueues a single public call', async () => {
       const tx = parentContract.methods
-        .enqueueCallToChild(childContract.address, Fr.fromBuffer(childContract.methods.pubStoreValue.selector), 42n)
-        .send({ origin: accounts[0] });
+        .enqueueCallToChild(childContract.address, Fr.fromBuffer(childContract.methods.pubIncValue.selector), 42n)
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -94,14 +96,15 @@ describe('e2e_nested_contract', () => {
 
     // Fails with "solver opcode resolution error: cannot solve opcode: expression has too many unknowns %EXPR [ 0 ]%"
     // See https://github.com/noir-lang/noir/issues/1347
+    // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1587
     it.skip('enqueues multiple public calls', async () => {
       const tx = parentContract.methods
         .enqueueCallToChildTwice(
           addressToField(childContract.address),
-          Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+          Fr.fromBuffer(childContract.methods.pubIncValue.selector).value,
           42n,
         )
-        .send({ origin: accounts[0] });
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -114,10 +117,10 @@ describe('e2e_nested_contract', () => {
       const tx = parentContract.methods
         .enqueueCallToPubEntryPoint(
           childContract.address,
-          Fr.fromBuffer(childContract.methods.pubStoreValue.selector),
+          Fr.fromBuffer(childContract.methods.pubIncValue.selector),
           42n,
         )
-        .send({ origin: accounts[0] });
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -128,14 +131,15 @@ describe('e2e_nested_contract', () => {
 
     // Fails with "solver opcode resolution error: cannot solve opcode: expression has too many unknowns %EXPR [ 0 ]%"
     // See https://github.com/noir-lang/noir/issues/1347
+    // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1587
     it.skip('enqueues multiple public calls with nested public calls', async () => {
       const tx = parentContract.methods
         .enqueueCallsToPubEntryPoint(
           childContract.address,
-          Fr.fromBuffer(childContract.methods.pubStoreValue.selector),
+          Fr.fromBuffer(childContract.methods.pubIncValue.selector),
           42n,
         )
-        .send({ origin: accounts[0] });
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -147,14 +151,15 @@ describe('e2e_nested_contract', () => {
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/640
     // Fails with "solver opcode resolution error: cannot solve opcode: expression has too many unknowns %EXPR [ 0 ]%"
     // See https://github.com/noir-lang/noir/issues/1347
+    // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1587
     it.skip('reads fresh value after write within the same tx', async () => {
       const tx = parentContract.methods
         .pubEntryPointTwice(
           addressToField(childContract.address),
-          Fr.fromBuffer(childContract.methods.pubStoreValue.selector).value,
+          Fr.fromBuffer(childContract.methods.pubIncValue.selector).value,
           42n,
         )
-        .send({ origin: accounts[0] });
+        .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();

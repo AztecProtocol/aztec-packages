@@ -105,7 +105,7 @@ export class PublicProcessor {
       try {
         result.push(await this.processTx(tx));
       } catch (err) {
-        this.log(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+        this.log.error(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push(tx);
       }
     }
@@ -138,8 +138,7 @@ export class PublicProcessor {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
-    // We execute the requests in order, which means reversing the input as the stack pops from the end of the array
-    const executionStack: (PublicExecution | PublicExecutionResult)[] = [...tx.enqueuedPublicFunctionCalls].reverse();
+    const executionStack: (PublicExecution | PublicExecutionResult)[] = [...tx.enqueuedPublicFunctionCalls];
 
     let kernelOutput = tx.data;
     let kernelProof = tx.proof;
