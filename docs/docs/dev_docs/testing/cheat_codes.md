@@ -151,8 +151,9 @@ public async setNextBlockTimestamp(timestamp: number): Promise<void>
 ```
 
 #### Description
-Sets the timestamp (unix format in seconds) for the next mined block on Ethereum.
-Remember that timestamp can only be set in the future and not in the past.
+Sets the timestamp (unix format in seconds) for the next mined block on Ethereum. 
+Time can only be set in the future.
+If you set the timestamp to a time in the past, this method will throw an error.
 
 #### Example
 ```ts
@@ -374,6 +375,7 @@ public async warp(to: number): Promise<void>
 #### Description
 Sets the time on Ethereum and the time of the next block on Aztec.
 Like with the corresponding Ethereum cheatcode, time can only be set in the future, not the past.
+Otherwise, it will throw an error.
 
 #### Example
 ```ts
