@@ -338,15 +338,25 @@ export class AztecNodeService implements AztecNode {
     const getTreeRoot = async (id: MerkleTreeId) =>
       Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
 
+    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree, globalsHash] = await Promise.all([
+      getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+      getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+      getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+      getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+      getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+      getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      this.merkleTreeDB.getLatestGlobalVariablesHash(false),
+    ]);
+
     return new HistoricBlockData(
-      await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-      await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+      privateDataTree,
+      nullifierTree,
+      contractTree,
+      l1ToL2MessagesTree,
+      blocksTree,
       Fr.ZERO,
-      await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      await this.merkleTreeDB.getLatestGlobalVariablesHash(),
+      publicDataTree,
+      globalsHash,
     );
   }
 }
