@@ -117,8 +117,9 @@ export class MerkleTrees implements MerkleTreeDb {
     await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
 
     // TODO: maybe make this async and awaitable
-    this.latestGlobalVariablesHash.commit();
-    await historicBlocksTree.commit();
+    await this.commit()
+    // this.latestGlobalVariablesHash.commit();
+    // await historicBlocksTree.commit();
   }
 
   /**
