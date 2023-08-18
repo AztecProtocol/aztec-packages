@@ -420,6 +420,7 @@ export class AztecRPCServer implements AztecRPC {
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
+    // HACK(#1639): Manually patches the ordering of the public call stack
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
     return new Tx(
