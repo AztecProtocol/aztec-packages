@@ -1,7 +1,7 @@
 import { ContractAbi, FunctionAbi, FunctionType } from '@aztec/foundation/abi';
 
 import { mockVerificationKey } from '../mocked_keys.js';
-import { NoirCompiledContract, NoirFunctionEntry } from '../noir_artifact.js';
+import { NoirCompilationArtifacts, NoirFunctionEntry } from '../noir_artifact.js';
 
 /**
  * Generates an Aztec ABI for a Noir function build artifact. Replaces verification key with a mock value.
@@ -35,9 +35,10 @@ function generateAbiFunction(fn: NoirFunctionEntry): FunctionAbi {
  * @param compiled - Noir build output.
  * @returns An Aztec valid ABI.
  */
-export function generateAztecAbi(compiled: NoirCompiledContract): ContractAbi {
+export function generateAztecAbi({ contract, debug }: NoirCompilationArtifacts): ContractAbi {
   return {
-    name: compiled.name,
-    functions: compiled.functions.sort((fnA, fnB) => fnA.name.localeCompare(fnB.name)).map(generateAbiFunction),
+    name: contract.name,
+    functions: contract.functions.map(generateAbiFunction),
+    debug,
   };
 }

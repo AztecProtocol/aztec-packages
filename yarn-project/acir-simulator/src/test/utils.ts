@@ -1,7 +1,10 @@
 import { AztecAddress, CircuitsWasm, EthAddress, Fr } from '@aztec/circuits.js';
 import { computeSecretMessageHash } from '@aztec/circuits.js/abis';
+import { ContractAbi } from '@aztec/foundation/abi';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/types';
+
+import { FunctionAbiWithDebugMetadata, FunctionDebugMetadata } from '../index.js';
 
 /**
  * Test utility function to craft an L1 to L2 message.
@@ -37,4 +40,24 @@ export const buildL1ToL2Message = async (
     0,
     0,
   );
+};
+
+export const getFunctionAbi = (abi: ContractAbi, functionName: string): FunctionAbiWithDebugMetadata => {
+  const functionIndex = abi.functions.findIndex(f => f.name === functionName);
+  if (functionIndex < 0) {
+    throw new Error(`Unknown function ${functionName}`);
+  }
+  const functionAbi = abi.functions[functionIndex];
+
+  let debug: FunctionDebugMetadata | undefined = undefined;
+
+  const debugMetadata = abi.debug;
+  if (debugMetadata) {
+    debug = {
+      debugSymbols: debugMetadata.debug_symbols[functionIndex],
+      files: debugMetadata.file_map,
+    };
+  }
+
+  return { ...functionAbi, debug };
 };

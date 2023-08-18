@@ -1,3 +1,4 @@
+import { FunctionDebugMetadata } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
 import { ContractCommitmentProvider, ContractDatabase } from '@aztec/types';
 
@@ -41,6 +42,34 @@ export class ContractDataOracle {
   public async getFunctionAbi(contractAddress: AztecAddress, functionSelector: Buffer) {
     const tree = await this.getTree(contractAddress);
     return tree.getFunctionAbi(functionSelector);
+  }
+
+  /**
+   * Retrieves the debug metadata of a specified function within a given contract.
+   * The function is identified by its selector, which is a unique code generated from the function's signature.
+   * Returns undefined if the debug metadata for the given function is not found.
+   *
+   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param functionSelector - A Buffer containing the unique selector code for the desired function.
+   * @returns The corresponding function's ABI as an object.
+   */
+  public async getFunctionDebugMetadata(
+    contractAddress: AztecAddress,
+    functionSelector: Buffer,
+  ): Promise<FunctionDebugMetadata | undefined> {
+    const contract = await this.db.getContract(contractAddress);
+    if (contract && contract.debug) {
+      const functionIndex = contract.functions.findIndex(f => f.selector.equals(functionSelector));
+      const locations = contract.debug.debug_symbols[functionIndex];
+      const fileMap = contract.debug.file_map;
+
+      return {
+        debugSymbols: locations,
+        files: fileMap,
+      };
+    }
+
+    return undefined;
   }
 
   /**

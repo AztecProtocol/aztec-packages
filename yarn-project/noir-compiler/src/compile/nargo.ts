@@ -1,9 +1,11 @@
+import { DebugMetadata } from '@aztec/foundation/abi';
+
 import { execSync } from 'child_process';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { emptyDirSync } from 'fs-extra';
 import path from 'path';
 
-import { NoirCompiledContract } from '../noir_artifact.js';
+import { NoirCompilationArtifacts, NoirCompiledContract } from '../noir_artifact.js';
 
 /** Compilation options */
 export type CompileOpts = {
@@ -23,24 +25,40 @@ export class NargoContractCompiler {
    * Compiles the contracts in projectPath and returns the Noir artifact.
    * @returns Noir artifact of the compiled contracts.
    */
-  public compile(): Promise<NoirCompiledContract[]> {
+  public compile(): Promise<NoirCompilationArtifacts[]> {
     const stdio = this.opts.quiet ? 'ignore' : 'inherit';
     const nargoBin = this.opts.nargoBin ?? 'nargo';
     execSync(`${nargoBin} --version`, { cwd: this.projectPath, stdio });
     emptyDirSync(this.getTargetFolder());
-    execSync(`${nargoBin} compile `, { cwd: this.projectPath, stdio });
+    execSync(`${nargoBin} compile --output-debug `, { cwd: this.projectPath, stdio });
     return Promise.resolve(this.collectArtifacts());
   }
 
-  private collectArtifacts(): NoirCompiledContract[] {
-    const artifacts = [];
+  private collectArtifacts(): NoirCompilationArtifacts[] {
+    const contractArtifacts = new Map<string, NoirCompiledContract>();
+    const debugArtifacts = new Map<string, DebugMetadata>();
+
     for (const filename of readdirSync(this.getTargetFolder())) {
       const file = path.join(this.getTargetFolder(), filename);
       if (statSync(file).isFile() && file.endsWith('.json')) {
-        artifacts.push(JSON.parse(readFileSync(file).toString()) as NoirCompiledContract);
+        if (filename.startsWith('debug_')) {
+          debugArtifacts.set(
+            filename.replace('debug_', ''),
+            JSON.parse(readFileSync(file).toString()) as DebugMetadata,
+          );
+        } else {
+          contractArtifacts.set(filename, JSON.parse(readFileSync(file).toString()) as NoirCompiledContract);
+        }
       }
     }
-    return artifacts;
+
+    return [...contractArtifacts.entries()].map(([filename, contractArtifact]) => {
+      const debugArtifact = debugArtifacts.get(filename);
+      return {
+        contract: contractArtifact,
+        debug: debugArtifact,
+      };
+    });
   }
 
   private getTargetFolder() {

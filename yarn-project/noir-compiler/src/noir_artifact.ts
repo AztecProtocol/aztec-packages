@@ -1,4 +1,4 @@
-import { ABIParameter, ABIType } from '@aztec/foundation/abi';
+import { ABIParameter, ABIType, DebugMetadata } from '@aztec/foundation/abi';
 
 /** The noir function types. */
 type NoirFunctionType = 'Open' | 'Secret' | 'Unconstrained';
@@ -45,4 +45,18 @@ export interface NoirCompiledContract {
   backend: string;
   /** The functions of the contract. */
   functions: NoirFunctionEntry[];
+}
+
+/**
+ * The compilation artifacts of a given contract.
+ */
+export interface NoirCompilationArtifacts {
+  /**
+   * The compiled contract.
+   */
+  contract: NoirCompiledContract;
+  /**
+   * The artifact that contains the debug metadata about the contract.
+   */
+  debug?: DebugMetadata;
 }

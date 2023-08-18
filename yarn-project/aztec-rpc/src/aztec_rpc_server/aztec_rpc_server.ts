@@ -316,11 +316,18 @@ export class AztecRPCServer implements AztecRPC {
       contractAddress,
       execRequest.functionData.functionSelectorBuffer,
     );
+    const debug = await contractDataOracle.getFunctionDebugMetadata(
+      contractAddress,
+      execRequest.functionData.functionSelectorBuffer,
+    );
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {
       contractAddress,
-      functionAbi,
+      functionAbi: {
+        ...functionAbi,
+        debug,
+      },
       portalContract,
     };
   }

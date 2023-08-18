@@ -5,6 +5,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 
 import { ForeignCallInput, ForeignCallOutput, WitnessMap, executeCircuit } from 'acvm_js';
 
+import { FunctionDebugMetadata } from '../index.js';
+
 /**
  * The format for fields on the ACVM.
  */
@@ -66,12 +68,40 @@ export interface ACIRExecutionResult {
 }
 
 /**
+ * Creates an error string from the opcode location and debug metadata.
+ * @param opcodeLocation - A string representing the opcode location. `${acirIndex}` or `${acirIndex}:${brilligIndex}`.
+ * @param debug - The debug metadata of the failing function.
+ * @returns - The error string or undefined if debug metadata is not available.
+ */
+function createErrorString(opcodeLocation: string, debug?: FunctionDebugMetadata): string | undefined {
+  // If we don't have debug metadata, we cannot create a useful error string
+  if (!debug) {
+    return undefined;
+  }
+
+  const { debugSymbols, files } = debug;
+
+  const callStack = debugSymbols.locations[opcodeLocation];
+
+  const { file: fileId, span } = callStack.pop()!;
+
+  const { path, source } = files[fileId];
+
+  const assertionText = source.substring(span.start, span.end + 1);
+  const precedingText = source.substring(0, span.start);
+  const line = precedingText.split('\n').length;
+
+  return `Assertion failed at ${path}:${line} '${assertionText}'`;
+}
+
+/**
  * The function call that executes an ACIR.
  */
 export async function acvm(
   acir: Buffer,
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
+  debug?: FunctionDebugMetadata,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
   const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: ForeignCallInput[]) => {
@@ -88,6 +118,19 @@ export async function acvm(
       logger(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
       throw err;
     }
+  }).catch(err => {
+    // ACVM_js throws raw string errors
+    if (typeof err !== 'string') {
+      throw err;
+    }
+
+    const match = err.match(/^Cannot satisfy constraint (?<opcodeLocation>[0-9]+(?:\.[0-9]+)?)/);
+    if (!match?.groups?.opcodeLocation) {
+      throw err;
+    }
+
+    const opcodeLocation = match.groups.opcodeLocation;
+    throw createErrorString(opcodeLocation, debug) || err;
   });
   return Promise.resolve({ partialWitness });
 }

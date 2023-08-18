@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 import nodePath from 'path';
 import toml from 'toml';
 
-import { NoirCompiledContract } from '../noir_artifact.js';
+import { NoirCompilationArtifacts } from '../noir_artifact.js';
 
 /** A dependency entry of Nargo.toml. */
 interface Dependency {
@@ -27,7 +27,7 @@ export class WasmContractCompiler {
    * Compiles the contracts in projectPath and returns the Noir artifact.
    * @returns Noir artifact of the compiled contracts.
    */
-  public compile(): Promise<NoirCompiledContract[]> {
+  public compile(): Promise<NoirCompilationArtifacts[]> {
     return this.compileNoir();
   }
 
@@ -48,14 +48,17 @@ export class WasmContractCompiler {
    * @param contract - A contract as outputted by wasm.
    * @returns A nargo-like contract artifact.
    */
-  private cleanUpWasmOutput(contract: any): NoirCompiledContract {
+  private cleanUpWasmOutput(contract: any): NoirCompilationArtifacts {
     return {
-      ...contract,
-      functions: contract.functions.map((fn: any) => ({
-        ...fn,
-        is_internal: !!fn.is_internal, // noir wasm may return undefined for is_internal
-        bytecode: fromByteArray(fn.bytecode), // wasm returns Uint8Array instead of base64-encoded bytecode
-      })),
+      contract: {
+        ...contract,
+        functions: contract.functions.map((fn: any) => ({
+          ...fn,
+          is_internal: !!fn.is_internal, // noir wasm may return undefined for is_internal
+          bytecode: fromByteArray(fn.bytecode), // wasm returns Uint8Array instead of base64-encoded bytecode
+        })),
+      },
+      debug: undefined, // Noir wasm doesn't return debug info yet
     };
   }
 
@@ -63,7 +66,7 @@ export class WasmContractCompiler {
    * Executes the noir compiler.
    * @returns A list of compiled noir contracts.
    */
-  private async compileNoir(): Promise<NoirCompiledContract[]> {
+  private async compileNoir(): Promise<NoirCompilationArtifacts[]> {
     const dependenciesMap = await this.readDependencies(this.projectPath);
 
     /**
