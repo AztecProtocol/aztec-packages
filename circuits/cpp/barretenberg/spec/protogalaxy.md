@@ -14,6 +14,7 @@ $$
 \newcommand{\Elliptic}{\text{Elliptic}}
 \newcommand{\ECCOpQueue}{\text{ECCOpQueue}}
 \newcommand{\perm}{\text{perm}}
+\newcommand{\pow}{\text{pow}}
 \newcommand{\lookup}{\text{lookup}}
 \newcommand{\Trace}{\text{Trace}}
 \newcommand{\Polys}{\text{Polys}}
@@ -27,25 +28,25 @@ TODO: max degree is 5 (right?) and max relation length is one greater than that.
 # Background
 We will use [ProtoGalaxy](https://eprint.iacr.org/archive/2023/1106/1690490682.pdf) to fold [UltraGoblinHonk](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/honk/flavor/goblin_ultra.hpp) claims. The UltraGoblinHonk (UGH) proving system construct proofs for satisfying assignments for circuits built using [UltraCircuitBuilder](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp). The circuits built using this builder class encode application logic and witnesses in an execution trace $\Trace$:
 
-| row | $w_0$ | $w_1$ | $w_2$ | $w_3$ | $w_l$ | $q_l$ | ... |
-|-----|-------|-------|-------|-------|-------|-------|-----|
-| 0   | *     | *     | *     | *     | *     | *     | *   |
-| 1   | *     | *     | *     | *     | *     | *     | *   |
-| ... | ...   | ...   | ...   | ...   | ...   | ...   | ... |
-| n-1 | *     | *     | *     | *     | *     | *     | *   |
-| n   | *     | *     | *     | *     | *     | *     | *   |
+| row | ...   | $w_*$ | ... | $q_*$ | ... |
+|-----|-------|-------|-----|-------|-----|
+| 0   | *     | *     | *   | *     | *   |
+| 1   | *     | *     | *   | *     | *   |
+| ... | ...   | ...   | ... | ...   | ... |
+| n-1 | *     | *     | *   | *     | *   |
+| n   | *     | *     | *   | *     | *   |
 
 Additional witnesses ($Z_\perm$ and $Z_\lookup$) and auxiliary polynomials (Lagrange polynomials e.g.) are derived and stored alongside the polynomials in the execution trace in a `GoblinUltra::ProverPolynomials` instance $\Polys$, which we can model here as a tuple of $\NumPolys$-many polynomials. The claim of interest to the UGH prover is that the full aggregated UGH relation, a polynomial in variables
 $$
 \begin{aligned}
-\Rel_\UGH(X_1,\ldots, X_{\NumPolys}) = 
-&\phantom{+ \alpha^{1} \cdot } \Rel_\Arith(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{1}\cdot\Rel_\Perm(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{2}\cdot\Rel_\Lookup(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{3}\cdot\Rel_\GenPerm(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{4}\cdot\Rel_\Elliptic(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{5}\cdot\Rel_\Aux(X_1,\ldots, X_{\NumPolys}) \\
-&+ \alpha^{6}\cdot\Rel_\ECCOpQueue(X_1,\ldots, X_{\NumPolys})\\
+\Rel_\UGH(P_1,\ldots, P_{\NumPolys}) = 
+&\phantom{+ \alpha^{1} \cdot } \Rel_\Arith(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{1}\cdot\Rel_\Perm(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{2}\cdot\Rel_\Lookup(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{3}\cdot\Rel_\GenPerm(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{4}\cdot\Rel_\Elliptic(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{5}\cdot\Rel_\Aux(P_1,\ldots, P_{\NumPolys}) \\
+&+ \alpha^{6}\cdot\Rel_\ECCOpQueue(P_1,\ldots, P_{\NumPolys})\\
 \end{aligned}
 $$
 
@@ -155,7 +156,7 @@ $G(X) = F(\alpha)L_0(X) + Z(X)K(X)$
 11. V sends $\gamma$ 
     * in the noninteractive setting we add $K$'s coefficients (scalars) to the transcript 
 12. $P, V$ compute  $e^* = F(\alpha)L_0(\gamma) + Z(\gamma)K(\gamma)$ which is (d-1)k scalar operations
-11. At the end of the protocol
+11. At the end of the pr
     * $V: \phi^* = L_0(\gamma)\phi + \sum_{i \in [k]} L_i(\gamma)\phi_i$ 
         * as the public inputs are group elements, we require  $Pub_{tot}$ ecc scalar multiplication which are going to be offset  to the ECC VM
      * P: $\omega^* = L_0(\gamma)\omega + \sum_{i \in [k]} L_i(\gamma)\omega_i$
@@ -163,8 +164,29 @@ $G(X) = F(\alpha)L_0(X) + Z(X)K(X)$
 ProtoGalaxy requires 3 rather than  $2k\log n$ ($\log n$ for sumcheck and $\log n$ zeromorph + gemini) values from the random oracle.
 
 
+---
+## Scratch work on computation of $G(Y)$
+We have reserved $X$ for the names of the inputs to the prover polynomials, the variables on the boolean hypercube, e.g., $w_l = w_l(X_1, \ldots, X_d)$. So let's use $Y$ for the perturbation and combiner variables in PG. This agrees with the notation of Protostar. Let's use $P$ for the inputs to the relations.
 
+How do we interpret the definition of $G(Y)$?
+$$G(Y) 
+= \sum_{i=0}^{n-1}\pow_i(\beta^*)f_i\left(\sum_{j=0}^{k}L_j(Y)\omega_j\right)
+= \sum_{i=0}^{n-1}\pow_i(\beta^*)\Rel_\UGH\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right)
+$$
+
+Let's focus on the sub-term $\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right).$ Using the indexing of `honk::flavor::Ultra`, we have
+
+$$\Rel_\UGH(P_1,\ldots, P_{\NumPolys}) = P_{5}P_{25}P_{26} + P_{1}P_{25} + P_{2}P_{26} + P_{3}P_{27} + P_{0}.$$
+To be clear, if $\Polys$ is an instance of `honk::flavor::Ultra::ProverPolynomials`, then 
+
+$$\Rel_\UGH(\Polys) := \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) = q_{m}w_lw_r + q_{l}w_{} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.$$
+
+Say a relation has a term in it like $q_l*w_l$ and those are indexed in the prover polynomials at index 1 and 4, \Rel_\Arith()
+we're going to have expressions like 
+If k = 128 we're going to need to compute terms like $L_j(Y)L_m(Y)$ of degree 256, meaning we need to barycentrically extend both lagrange polynomials and then do 256 multiplications to get the evaluation form.
 
 
  
+---
 
+## Plan for interfaces
