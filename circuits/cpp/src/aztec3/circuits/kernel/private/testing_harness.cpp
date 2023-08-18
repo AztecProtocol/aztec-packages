@@ -296,7 +296,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .unencrypted_logs_hash = unencrypted_logs_hash,
             .encrypted_log_preimages_length = encrypted_log_preimages_length,
             .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-            .historic_block_data{ .contract_tree_root = contract_tree_root },
+            .historic_block_data = HistoricBlockData<NT>{ .contract_tree_root = contract_tree_root },
             .contract_deployment_data = contract_deployment_data,
         };
     }
