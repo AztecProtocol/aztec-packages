@@ -232,8 +232,8 @@ export async function setup(
   const config = getConfigEnvVars();
 
   if (stateLoad) {
-    const l1CheatCodes = new EthCheatCodes(config.rpcUrl);
-    await l1CheatCodes.loadChainState(stateLoad);
+    const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    await ethCheatCodes.loadChainState(stateLoad);
   }
 
   const logger = getLogger();
