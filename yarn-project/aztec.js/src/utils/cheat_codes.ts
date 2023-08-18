@@ -91,7 +91,7 @@ export class EthCheatCodes {
    * @returns The current chainId
    */
   public async mine(numberOfBlocks = 1): Promise<void> {
-    const res = await this.rpcCall('anvil_mine', [numberOfBlocks]);
+    const res = await this.rpcCall('hardhat_mine', [numberOfBlocks]);
     if (res.error) throw new Error(`Error mining: ${res.error.message}`);
     this.logger(`Mined ${numberOfBlocks} blocks`);
   }
@@ -101,7 +101,7 @@ export class EthCheatCodes {
    * @param timestamp - The timestamp to set the next block to
    */
   public async setNextBlockTimestamp(timestamp: number): Promise<void> {
-    const res = await this.rpcCall('anvil_setNextBlockTimestamp', [timestamp]);
+    const res = await this.rpcCall('evm_setNextBlockTimestamp', [timestamp]);
     if (res.error) throw new Error(`Error setting next block timestamp: ${res.error.message}`);
     this.logger(`Set next block timestamp to ${timestamp}`);
   }
@@ -111,7 +111,7 @@ export class EthCheatCodes {
    * @param fileName - The file name to dump state into
    */
   public async dumpChainState(fileName: string): Promise<void> {
-    const res = await this.rpcCall('anvil_dumpState', []);
+    const res = await this.rpcCall('hardhat_dumpState', []);
     if (res.error) throw new Error(`Error dumping state: ${res.error.message}`);
     const jsonContent = JSON.stringify(res.result);
     fs.writeFileSync(`${fileName}.json`, jsonContent, 'utf8');
@@ -124,7 +124,7 @@ export class EthCheatCodes {
    */
   public async loadChainState(fileName: string): Promise<void> {
     const data = JSON.parse(fs.readFileSync(`${fileName}.json`, 'utf8'));
-    const res = await this.rpcCall('anvil_loadState', [data]);
+    const res = await this.rpcCall('hardhat_loadState', [data]);
     if (res.error) throw new Error(`Error loading state: ${res.error.message}`);
     this.logger(`Loaded state from ${fileName}`);
   }
@@ -148,7 +148,7 @@ export class EthCheatCodes {
    */
   public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> {
     // for the rpc call, we need to change value to be a 32 byte hex string.
-    const res = await this.rpcCall('anvil_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
+    const res = await this.rpcCall('hardhat_setStorageAt', [contract.toString(), toHex(slot), toHex(value, true)]);
     if (res.error) throw new Error(`Error setting storage for contract ${contract} at ${slot}: ${res.error.message}`);
     this.logger(`Set storage for contract ${contract} at ${slot} to ${value}`);
   }
@@ -170,7 +170,7 @@ export class EthCheatCodes {
    * @param who - The address to impersonate
    */
   public async startImpersonating(who: EthAddress): Promise<void> {
-    const res = await this.rpcCall('anvil_impersonateAccount', [who.toString()]);
+    const res = await this.rpcCall('hardhat_impersonateAccount', [who.toString()]);
     if (res.error) throw new Error(`Error impersonating ${who}: ${res.error.message}`);
     this.logger(`Impersonating ${who}`);
   }
@@ -180,7 +180,7 @@ export class EthCheatCodes {
    * @param who - The address to stop impersonating
    */
   public async stopImpersonating(who: EthAddress): Promise<void> {
-    const res = await this.rpcCall('anvil_stopImpersonatingAccount', [who.toString()]);
+    const res = await this.rpcCall('hardhat_stopImpersonatingAccount', [who.toString()]);
     if (res.error) throw new Error(`Error when stopping the impersonation of ${who}: ${res.error.message}`);
     this.logger(`Stopped impersonating ${who}`);
   }
@@ -191,7 +191,7 @@ export class EthCheatCodes {
    * @param bytecode - The bytecode to set
    */
   public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> {
-    const res = await this.rpcCall('anvil_setCode', [contract.toString(), bytecode]);
+    const res = await this.rpcCall('hardhat_setCode', [contract.toString(), bytecode]);
     if (res.error) throw new Error(`Error setting bytecode for ${contract}: ${res.error.message}`);
     this.logger(`Set bytecode for ${contract} to ${bytecode}`);
   }
