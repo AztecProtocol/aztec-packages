@@ -1,5 +1,6 @@
+use dep::std::option::Option;
+
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
-use crate::types::option::Option;
 
 struct SortOrderEnum {
     DESC: u8,
@@ -57,6 +58,19 @@ impl<Note, N, S, P> NoteGetterOptions<Note, N, S, P> {
          NoteGetterOptions {
             sort_by: [Sort::nada(); N],
             offset: 0,
+            filter,
+            filter_args,
+        }
+    }
+
+    fn with_filter_and_offset(
+        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], P) -> [Option<Note>; S],
+        filter_args: P,
+        offset: u32,
+    ) -> Self {
+         NoteGetterOptions {
+            sort_by: [Sort::nada(); N],
+            offset,
             filter,
             filter_args,
         }

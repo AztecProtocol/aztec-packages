@@ -24,9 +24,12 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
+import { AcirSimulator, ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
+
+/** Orderings of side effects */
+type Orderings = { /** Public call stack execution requests */ publicCall: number };
 
 /**
  * The private function execution class.
@@ -40,7 +43,7 @@ export class PrivateFunctionExecution {
     private argsHash: Fr,
     private callContext: CallContext,
     private curve: Grumpkin,
-
+    private orderings: Orderings = { publicCall: 0 },
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
 
@@ -63,7 +66,7 @@ export class PrivateFunctionExecution {
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
-    const { partialWitness } = await acvm(acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
@@ -139,9 +142,12 @@ export class PrivateFunctionExecution {
           frToSelector(fromACVMField(acvmFunctionSelector)),
           this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
+          this.orderings,
         );
 
-        this.log(`Enqueued call to public function ${acvmContractAddress}:${acvmFunctionSelector}`);
+        this.log(
+          `Enqueued call to public function #${enqueuedRequest.order} ${acvmContractAddress}:${acvmFunctionSelector}`,
+        );
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
       },
@@ -279,6 +285,8 @@ export class PrivateFunctionExecution {
       targetArgsHash,
       derivedCallContext,
       curve,
+      this.orderings,
+      this.log,
     );
 
     return nestedExecution.run();
@@ -292,6 +300,7 @@ export class PrivateFunctionExecution {
    * @param targetFunctionSelector - The function selector of the function to call.
    * @param targetArgs - The arguments to pass to the function.
    * @param callerContext - The call context of the caller.
+   * @param orderings - Orderings.
    * @returns The public call stack item with the request information.
    */
   private async enqueuePublicFunctionCall(
@@ -299,15 +308,18 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgs: Fr[],
     callerContext: CallContext,
+    orderings: Orderings,
   ): Promise<PublicCallRequest> {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
+    const order = orderings.publicCall++;
 
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
+      order,
     });
   }
 
