@@ -91,7 +91,7 @@ template <typename Builder> class Transcript {
     template <class T> auto receive_from_prover(const std::string& label)
     {
         // Get native type corresponding to input type
-        using NativeType = typename StdlibTypes::template CorrespondingNativeType<T>::type;
+        using NativeType = typename StdlibTypes::template NativeType<T>::type;
         
         // Extract the native element from the native transcript
         NativeType element = native_transcript.template receive_from_prover<NativeType>(label);

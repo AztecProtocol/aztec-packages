@@ -107,27 +107,27 @@ template <typename Builder> class StdlibTypesUtility {
      * @tparam T
      * @tparam LENGTH (used only for containers which specify a length, e.g. array/Univariate)
      */
-    template <typename T, size_t LENGTH = 0> struct CorrespondingNativeType {
+    template <typename T, size_t LENGTH = 0> struct NativeType {
         using type = void;
     };
 
-    template <size_t LENGTH> struct CorrespondingNativeType<uint32_t, LENGTH> {
+    template <size_t LENGTH> struct NativeType<uint32_t, LENGTH> {
         using type = uint32_t;
     };
 
-    template <size_t LENGTH> struct CorrespondingNativeType<field_ct, LENGTH> {
+    template <size_t LENGTH> struct NativeType<field_ct, LENGTH> {
         using type = FF;
     };
 
-    template <size_t LENGTH> struct CorrespondingNativeType<element_ct, LENGTH> {
+    template <size_t LENGTH> struct NativeType<element_ct, LENGTH> {
         using type = Commitment;
     };
 
-    template <size_t LENGTH> struct CorrespondingNativeType<std::array<field_ct, LENGTH>, 0> {
+    template <size_t LENGTH> struct NativeType<std::array<field_ct, LENGTH>, 0> {
         using type = std::array<FF, LENGTH>;
     };
 
-    template <size_t LENGTH> struct CorrespondingNativeType<Univariate_ct<LENGTH>, 0> {
+    template <size_t LENGTH> struct NativeType<Univariate_ct<LENGTH>, 0> {
         using type = Univariate<LENGTH>;
     };
 };

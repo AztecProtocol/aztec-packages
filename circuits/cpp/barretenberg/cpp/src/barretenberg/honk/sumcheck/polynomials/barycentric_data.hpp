@@ -3,10 +3,10 @@
 #include <algorithm>
 #include <array>
 
-// TODO(#674): We need the functionality of BarycentricData for both field and field_t. The former is "literal" i.e. is
-// compatible with constexpr operations, and the former is not. The functions for computing the pre-computable arrays in
-// BarycentricData need to be constexpr and it takes some trickery to share these functions with the non-constexpr
-// setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and
+// TODO(#674): We need the functionality of BarycentricData for both field (native) and field_t (stdlib). The former is
+// is compatible with constexpr operations, and the former is not. The functions for computing the
+// pre-computable arrays in BarycentricData need to be constexpr and it takes some trickery to share these functions
+// with the non-constexpr setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and
 // BarycentricDataRunTime. There should be a way to share more of the logic.
 
 /* IMPROVEMENT(Cody): This could or should be improved in various ways. In no particular order:

@@ -114,7 +114,8 @@ TEST(RecursiveHonkTranscript, InterfacesMatch)
     // Confirm that the native and stdlib verifier transcripts have generated the same manifest
     EXPECT_EQ(transcript.get_manifest(), native_transcript.get_manifest());
 
-    // TODO(luke): This doesn't check much of anything until hashing is constrained in the stdlib transcript
+    // TODO(#1351): The Honk stdlib transcript does not currently lay down contraints for fiat-shamir hashing so
+    // check_circuit has limited value.
     EXPECT_TRUE(builder.check_circuit());
 }
 

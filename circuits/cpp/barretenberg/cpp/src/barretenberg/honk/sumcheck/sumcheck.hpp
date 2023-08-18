@@ -165,7 +165,7 @@ template <typename Flavor> class SumcheckVerifier {
     const size_t multivariate_d;
     SumcheckVerifierRound<Flavor> round;
 
-    // verifier instantiates sumcheck with circuit size and a verifier transcript
+    // verifier instantiates sumcheck with circuit size
     explicit SumcheckVerifier(size_t multivariate_n)
         : multivariate_d(numeric::get_msb(multivariate_n))
         , round(){};

@@ -31,10 +31,11 @@ UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(Ultr
 }
 
 /**
- * @brief This function verifies an Ultra Honk proof for given program settings.
+ * @brief This function constructs a recursive verifier circuit for an Ultra Honk proof of a given flavor.
  *
  */
-template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+template <typename Flavor>
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
@@ -53,7 +54,7 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     size_t prev_num_gates = builder->get_num_gates();
 
     transcript = Transcript<Builder>{ builder, proof.proof_data };
-    
+
     auto commitments = VerifierCommitments(key);
     auto commitment_labels = CommitmentLabels();
 
@@ -61,17 +62,12 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     const auto public_input_size = transcript.template receive_from_prover<uint32_t>("public_input_size");
     const auto pub_inputs_offset = transcript.template receive_from_prover<uint32_t>("pub_inputs_offset");
 
-    // Extract native integer types for these basic quantities for use in subsequent operations
-    auto circuit_size_native = static_cast<size_t>(circuit_size.get_value());
-    auto public_input_size_native = static_cast<size_t>(public_input_size.get_value());
-    auto pub_inputs_offset_native = static_cast<size_t>(pub_inputs_offset.get_value());
-
     // For debugging purposes only
-    ASSERT(circuit_size_native == key->circuit_size);
-    ASSERT(public_input_size_native == key->num_public_inputs);
+    ASSERT(static_cast<size_t>(circuit_size.get_value()) == key->circuit_size);
+    ASSERT(static_cast<size_t>(public_input_size.get_value()) == key->num_public_inputs);
 
     std::vector<FF> public_inputs;
-    for (size_t i = 0; i < public_input_size_native; ++i) {
+    for (size_t i = 0; i < static_cast<size_t>(public_input_size.get_value()); ++i) {
         auto public_input_i = transcript.template receive_from_prover<FF>("public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
@@ -105,7 +101,7 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
 
     const FF public_input_delta = proof_system::honk::compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, circuit_size, pub_inputs_offset_native);
+        public_inputs, beta, gamma, circuit_size, static_cast<size_t>(pub_inputs_offset.get_value()));
     const FF lookup_grand_product_delta =
         proof_system::honk::compute_lookup_grand_product_delta<FF>(beta, gamma, circuit_size);
 
@@ -119,7 +115,7 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     commitments.z_lookup = transcript.template receive_from_prover<Commitment>(commitment_labels.z_lookup);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = Sumcheck(circuit_size_native);
+    auto sumcheck = Sumcheck(static_cast<size_t>(circuit_size.get_value()));
 
     std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
@@ -147,7 +143,10 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     info("Batched eval: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
-    // Construct vectors of scalars for batched unshifted and to-be-shifted commitments
+    // Compute batched commitments needed for input to Gemini.
+    // Note: For efficiency in emulating the construction of the batched commitments, we want to perform a batch mul
+    // rather than naively accumulate the points one by one. To do this, we collect the points and scalars required for
+    // each MSM then perform the two batch muls.
     const size_t NUM_UNSHIFTED = commitments.get_unshifted().size();
     const size_t NUM_TO_BE_SHIFTED = commitments.get_to_be_shifted().size();
     std::vector<FF> scalars_unshifted;
@@ -159,8 +158,8 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     for (size_t i = 0; i < NUM_TO_BE_SHIFTED; ++i) {
         scalars_to_be_shifted.emplace_back(rhos[idx++]);
     }
-    // TODO(luke): The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can we
-    // do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
+    // TODO(luke): The powers_of_rho fctn does not set the context of rhos[0] = FF(1) so we do it explicitly here. Can
+    // we do something silly like set it to rho.pow(0) in the fctn to make it work both native and stdlib?
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
@@ -179,17 +178,17 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
     auto gemini_claim = Gemini::reduce_verification(multivariate_challenge,
-                                              batched_evaluation,
-                                              batched_commitment_unshifted,
-                                              batched_commitment_to_be_shifted,
-                                              transcript);
+                                                    batched_evaluation,
+                                                    batched_commitment_unshifted,
+                                                    batched_commitment_to_be_shifted,
+                                                    transcript);
 
     info("Gemini: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
-    
+
     info("Shplonk: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
@@ -197,7 +196,7 @@ template <typename Flavor> std::array<typename Flavor::GroupElement, 2> UltraRec
 
     // Constuct the inputs to the final KZG pairing check
     auto pairing_points = PCS::compute_pairing_points(shplonk_claim, transcript);
-    
+
     return pairing_points;
 }
 

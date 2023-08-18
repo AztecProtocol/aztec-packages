@@ -192,7 +192,9 @@ template <typename Curve> class ShplonkVerifier_ {
         for (const auto& claim : claims) {
             vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
-        // If recursion, invert elements individually, otherwise batch invert
+        // If recursion, invert elements individually, otherwise batch invert. (Inversion is cheap in circuits since we
+        // need only prove the correctness of a known inverse, we do not emulate its computation. Hence no need for
+        // batch inversion).
         std::vector<Fr> inverse_vanishing_evals;
         if constexpr (Curve::is_stdlib_type) {
             for (const auto& val : vanishing_evals) {
@@ -234,7 +236,7 @@ template <typename Curve> class ShplonkVerifier_ {
         }
 
         // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
-        Fr evaluation_zero; // 0 \in Fr
+        Fr evaluation_zero;     // 0 \in Fr
         GroupElement group_one; // [1]
         if constexpr (Curve::is_stdlib_type) {
             auto ctx = transcript.builder;
