@@ -117,7 +117,7 @@ export class MerkleTrees implements MerkleTreeDb {
     await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
 
     // TODO: maybe make this async and awaitable
-    await this.commit()
+    await this._commit()
     // this.latestGlobalVariablesHash.commit();
     // await historicBlocksTree.commit();
   }
@@ -562,7 +562,7 @@ export class MerkleTrees implements MerkleTreeDb {
 
       // Sync and add the block to the historic blocks tree
       const globalVariablesHash = await computeGlobalVariablesHash(l2Block.globalVariables);
-      await this.updateLatestGlobalVariablesHash(globalVariablesHash);
+      await this._updateLatestGlobalVariablesHash(globalVariablesHash);
       this.log(`Synced global variables with hash ${this.latestGlobalVariablesHash.toString()}`);
 
       const blockHash = await this._getCurrentBlockHash(globalVariablesHash, true);
