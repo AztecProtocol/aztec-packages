@@ -1,3 +1,4 @@
+use dep::std::option::Option;
 use crate::constants_gen::{
     MAX_READ_REQUESTS_PER_CALL,
     GET_NOTE_ORACLE_RETURN_LENGTH,
@@ -17,7 +18,6 @@ use crate::note::{
 };
 use crate::messaging::get_commitment_getter_data::make_commitment_getter_data;
 use crate::oracle;
-use crate::types::option::Option;
 
 fn check_note_header<Note, N>(
     context: PrivateContext,
@@ -138,8 +138,7 @@ unconstrained fn get_note_internal<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 ) -> Note {
-    let dummy = note_interface.dummy;
-    let placeholder_note = [Option::none(dummy())];
+    let placeholder_note = [Option::none()];
     let placeholder_fields = [0; GET_NOTE_ORACLE_RETURN_LENGTH];
     oracle::notes::get_notes(
         storage_slot,
@@ -158,7 +157,6 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> [Option<Note>; S] {
-    let dummy = note_interface.dummy;
     let sort_by = options.sort_by;
     let mut sort_by_indices = [0; N];
     let mut sort_order = [0; N];
@@ -166,7 +164,7 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
         sort_by_indices[i] = sort_by[i].field_index;
         sort_order[i] = sort_by[i].order;
     };
-    let placeholder_opt_notes = [Option::none(dummy()); MAX_READ_REQUESTS_PER_CALL];
+    let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     let opt_notes = oracle::notes::get_notes(
         storage_slot,
@@ -190,10 +188,9 @@ unconstrained fn view_notes<Note, N>(
     limit: u32,
     offset: u32,
 ) -> [Option<Note>; MAX_NOTES_PER_PAGE] {
-    let dummy = note_interface.dummy;
     let sort_by = [0; N];
     let sort_order = [0; N];
-    let dummy_notes = [Option::none(dummy()); MAX_NOTES_PER_PAGE];
+    let dummy_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let zero_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
     oracle::notes::get_notes(storage_slot, note_interface, sort_by, sort_order, limit, offset, dummy_notes, zero_fields)
 }

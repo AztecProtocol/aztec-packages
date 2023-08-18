@@ -1,3 +1,4 @@
+use dep::std::option::Option;
 use dep::value_note::{
     filter::get_2_notes,
     value_note::{
@@ -6,17 +7,13 @@ use dep::value_note::{
         VALUE_NOTE_LEN,
     },
 };
-
 use dep::aztec::{
     context::PrivateContext,
     log::emit_encrypted_log,
     note::note_getter_options::NoteGetterOptions,
     oracle::get_public_key::get_public_key,
     state_vars::set::Set,
-    types::{
-        point::Point,
-        option::Option,
-    }
+    types::point::Point,
 };
 
 struct EasyPrivateUint {
