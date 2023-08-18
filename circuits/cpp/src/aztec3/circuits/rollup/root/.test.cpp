@@ -9,6 +9,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/rollup/merge/previous_rollup_data.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/base/init.hpp"
@@ -198,18 +199,18 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     // Create commitments
     for (size_t kernel_j = 0; kernel_j < 4; kernel_j++) {
-        std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments;
+        std::array<abis::SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments;
         for (uint8_t commitment_k = 0; commitment_k < MAX_NEW_COMMITMENTS_PER_TX; commitment_k++) {
             auto val = fr(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k + 1);
-            new_commitments[commitment_k] = val;
+            new_commitments[commitment_k].value = val;
             private_data_tree.update_element(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k, val);
         }
         kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
 
-        std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_messages;
+        std::array<abis::SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_messages;
         for (uint8_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_TX; i++) {
             auto val = fr(kernel_j * MAX_NEW_L2_TO_L1_MSGS_PER_TX + i + 1);
-            new_l2_to_l1_messages[i] = val;
+            new_l2_to_l1_messages[i].value = val;
         }
         kernels[kernel_j].public_inputs.end.new_l2_to_l1_msgs = new_l2_to_l1_messages;
     }

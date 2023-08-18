@@ -12,6 +12,7 @@
 #include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
@@ -53,15 +54,15 @@ using aztec3::utils::array_length;
  * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
  */
-std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+std::tuple<std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
-           std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
 get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, int const num_read_requests)
 {
-    std::array<fr, MAX_READ_REQUESTS_PER_CALL> transient_read_requests{};
-    std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> transient_read_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_CALL> leaves{};
 
     // randomize the number of read requests with a configurable minimum
@@ -72,15 +73,15 @@ get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, 
     for (size_t rr = 0; rr < final_num_rr; rr++) {
         // randomize commitment and its leaf index
         // transient read requests are raw (not siloed and not unique at input to kernel circuit)
-        transient_read_requests[rr] = NT::fr::random_element();
+        transient_read_requests[rr].value = NT::fr::random_element();
 
-        const auto siloed_commitment = silo_commitment<NT>(contract_address, read_requests[rr]);
+        const auto siloed_commitment = silo_commitment<NT>(contract_address, read_requests[rr].value);
         const auto nonce = compute_commitment_nonce<NT>(first_nullifier, rr);
         const auto unique_siloed_commitment =
             siloed_commitment == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitment);
 
         leaves[rr] = unique_siloed_commitment;
-        read_requests[rr] = unique_siloed_commitment;
+        read_requests[rr].value = unique_siloed_commitment;
     }
 
     // this set and the following loop lets us generate totally random leaf indices
@@ -290,8 +291,8 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .call_context = call_context,
             .args_hash = args_hash,
             .return_values = {},
-            .new_commitments = { NT::fr::random_element() },  // One random commitment
-            .new_nullifiers = { NT::fr::random_element() },   // One random nullifier
+            .new_commitments = { { { NT::fr::random_element() } } },  // One random commitment
+            .new_nullifiers = { { { NT::fr::random_element() } } },   // One random nullifier
             .nullified_commitments = {},
             .private_call_stack = {},
             .new_l2_to_l1_msgs = {},
@@ -474,8 +475,8 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     // We mock a kernel circuit proof to initialize ipnut required by an inner call
     //***************************************************************************
 
-    std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> initial_kernel_private_call_stack{};
-    initial_kernel_private_call_stack[0] = private_call_data.call_stack_item.hash();
+    std::array<abis::SideEffectWithRange<NT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> initial_kernel_private_call_stack{};
+    initial_kernel_private_call_stack[0].value = private_call_data.call_stack_item.hash();
 
     auto const& private_circuit_public_inputs = private_call_data.call_stack_item.public_inputs;
     // Get dummy previous kernel

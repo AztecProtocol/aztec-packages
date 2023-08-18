@@ -54,8 +54,8 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
-    private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(12);
-    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
+    private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0].value = fr(12);
+    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0].value = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_commitment_hints{};
@@ -71,15 +71,15 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
 
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0].value = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0].value = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     read_commitment_hints[1] = fr(0);
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
-    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs_inner.private_call.call_stack_item.hash();
 
     // The original call is not multi-iterative (call stack depth == 1) and we re-feed the same private call stack
@@ -111,8 +111,8 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
-    private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(10);
-    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
+    private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0].value = fr(10);
+    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0].value = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_commitment_hints{};
@@ -128,15 +128,15 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
 
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0].value = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0].value = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     read_commitment_hints[1] = fr(0);  // There is not correct possible value.
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
-    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs_inner.private_call.call_stack_item.hash();
 
     // The original call is not multi-iterative (call stack depth == 1) and we re-feed the same private call stack
@@ -167,18 +167,18 @@ TEST_F(native_private_kernel_tests, native_empty_nullified_commitment_respected)
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[1] = fr(33);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0].value = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[1].value = fr(33);
 
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[0] = fr(11);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[1] = fr(18);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[0].value = fr(11);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[1].value = fr(18);
 
     private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[0] =
         fr(EMPTY_NULLIFIED_COMMITMENT);
     private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(33);
 
     // update the private call stack contents to reflect the above changes which affect the item hash
-    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs_inner.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_empty_nullified_commitment_respected");

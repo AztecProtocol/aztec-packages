@@ -22,6 +22,9 @@ use crate::abi::{
     FunctionData,
     PrivateCircuitPublicInputs,
     PublicCircuitPublicInputs,
+    SideEffect,
+    SideEffectLinkedToNoteHash,
+    SideEffectWithRange,
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
@@ -53,19 +56,19 @@ use dep::std::option::Option;
 struct PrivateContext {
     // docs:start:private-context
     inputs: abi::PrivateContextInputs,
+    side_effect_counter: Field,
 
     args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
+    read_requests: BoundedVec<SideEffect, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    private_call_stack : BoundedVec<SideEffectWithRange, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack : BoundedVec<SideEffectWithRange, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    new_l2_to_l1_msgs : BoundedVec<SideEffect, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     block_data: HistoricBlockData,
@@ -79,21 +82,26 @@ impl PrivateContext {
     fn new(inputs: abi::PrivateContextInputs, args_hash: Field) -> PrivateContext {
         PrivateContext {
             inputs: inputs,
+            // starts at 1 because all private calls have txhash nullifier as 0th nullifier
+            // and therefore 0th sideeffect
+            // increments for each side effect in this context
+            side_effect_counter: 1,
 
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
-            read_requests: BoundedVec::new(0),
+            read_requests: BoundedVec::new(SideEffect::empty()),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
+            // TODO(dbanks12): remove me!
             nullified_commitments: BoundedVec::new(0),
 
             block_data: inputs.block_data,
 
-            private_call_stack: BoundedVec::new(0),
-            public_call_stack: BoundedVec::new(0),
-            new_l2_to_l1_msgs: BoundedVec::new(0),
+            private_call_stack: BoundedVec::new(SideEffectWithRange::empty()),
+            public_call_stack: BoundedVec::new(SideEffectWithRange::empty()),
+            new_l2_to_l1_msgs: BoundedVec::new(SideEffect::empty()),
 
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165)
             // encrypted_logs_preimages: Vec::new(),
@@ -135,6 +143,7 @@ impl PrivateContext {
             read_requests: self.read_requests.storage,
             new_commitments: self.new_commitments.storage,
             new_nullifiers: self.new_nullifiers.storage,
+            // TODO(dbanks12): remove me!
             nullified_commitments: self.nullified_commitments.storage,
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
@@ -152,15 +161,32 @@ impl PrivateContext {
     }
 
     fn push_read_request(&mut self, read_request: Field) {
-        self.read_requests.push(read_request);
+        let side_effect = SideEffect {
+            value: read_request,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.read_requests.push(side_effect);
+        self.side_effect_counter++;
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter++;
     }
 
     fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: nullified_commitment,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter++;
+        // TODO(dbanks12): remove me!
         self.nullified_commitments.push(nullified_commitment);
     }
 
@@ -168,7 +194,12 @@ impl PrivateContext {
     fn message_portal(&mut self, content: Field) 
     // docs:end:context_message_portal
     {
-        self.new_l2_to_l1_msgs.push(content);
+        let side_effect = SideEffect {
+            value: content,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_l2_to_l1_msgs.push(side_effect);
+        self.side_effect_counter++;
     }
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
@@ -249,6 +280,8 @@ impl PrivateContext {
                     is_delegate_call : fields[8] as bool,
                     is_static_call : fields[9] as bool,
                     is_contract_deployment: fields[10] as bool,
+
+                    start_side_effect_counter: fields[11] as bool,
                 },
                 // TODO handle the offsets as a variable incremented during extraction?
                 args_hash: fields[11],
@@ -303,7 +336,13 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
         assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
-        self.private_call_stack.push(item.hash());
+        let side_effect = SideEffectWithRange {
+            value: item.hash(),
+            start_side_effect_counter: self.inputs.side_effect_counter,
+            end_side_effect_counter: self.side_effect_counter,
+        };
+        self.private_call_stack.push(side_effect);
+        self.side_effect_counter++;
 
         item.public_inputs.return_values
     }
@@ -355,15 +394,17 @@ impl PrivateContext {
                     is_delegate_call : fields[8] as bool,
                     is_static_call : fields[9] as bool,
                     is_contract_deployment: fields[10] as bool,
+
+                    start_side_effect_counter: fields[11] as bool,
                 },
-                args_hash: fields[11],
+                args_hash: fields[12],
                 return_values: [0; RETURN_VALUES_LENGTH],
                 contract_storage_update_requests: [ContractStorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_read: [ContractStorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
-                public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
-                new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
-                new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+                public_call_stack: [SideEffectWithRange::empty(); MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+                new_commitments: [SideEffect::empty(); MAX_NEW_COMMITMENTS_PER_CALL],
+                new_nullifiers: [SideEffectLinkedToNoteHash::empty(); MAX_NEW_NULLIFIERS_PER_CALL],
+                new_l2_to_l1_msgs:[SideEffect::empty(); MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
                 unencrypted_log_preimages_length: 0,
                 block_data: HistoricBlockData::empty(),
@@ -387,7 +428,13 @@ impl PrivateContext {
         assert(item.public_inputs.call_context.msg_sender == self.inputs.call_context.storage_contract_address);
         assert(item.public_inputs.call_context.storage_contract_address == contract_address);
 
-        self.public_call_stack.push(item.hash());
+        let side_effect = SideEffectWithRange {
+            value: item.hash(),
+            start_side_effect_counter: self.inputs.side_effect_counter,
+            end_side_effect_counter: self.side_effect_counter,
+        };
+        self.public_call_stack.push(side_effect);
+        self.private_call_stack.push(side_effect);
     }
 }
 
@@ -404,12 +451,12 @@ struct PublicContext {
 
     contract_storage_update_requests: BoundedVec<ContractStorageUpdateRequest, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>,
     contract_storage_read: BoundedVec<ContractStorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
-    public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_stack: BoundedVec<SideEffectWithRange, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, crate::abi::MAX_NEW_NULLIFIERS_PER_CALL>,
+    new_commitments: BoundedVec<SideEffect, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_nullifiers: BoundedVec<SideEffectLinkedToNoteHash, crate::abi::MAX_NEW_NULLIFIERS_PER_CALL>,
 
-    new_l2_to_l1_msgs: BoundedVec<Field, crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    new_l2_to_l1_msgs: BoundedVec<SideEffect, crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
 
     unencrypted_logs_hash: BoundedVec<Field, NUM_FIELDS_PER_SHA256>,
     unencrypted_logs_preimages_length: Field,
@@ -425,19 +472,20 @@ impl PublicContext {
         PublicContext {
             inputs: inputs,
 
+            side_effect_counter: 0, // incremented for every side effect in this context
+
             args_hash: args_hash,
             return_values: BoundedVec::new(0),
 
             contract_storage_update_requests: BoundedVec::new(empty_storage_update),
             contract_storage_read: BoundedVec::new(empty_storage_read),
-            public_call_stack: BoundedVec::new(0),
+            public_call_stack: BoundedVec::new(SideEffectWithRange::empty()),
 
-            new_commitments: BoundedVec::new(0),
-            new_nullifiers: BoundedVec::new(0),
+            new_commitments: BoundedVec::new(SideEffect::empty()),
+            new_nullifiers: BoundedVec::new(SideEffectLinkedToNoteHash::empty()),
 
-            new_l2_to_l1_msgs: BoundedVec::new(0),
+            new_l2_to_l1_msgs: BoundedVec::new(SideEffect::empty()),
 
-            
             unencrypted_logs_hash: BoundedVec::new(0),
             unencrypted_logs_preimages_length: 0,
 
@@ -485,6 +533,7 @@ impl PublicContext {
 
 
         // Compute the public call stack hashes
+        // TODO(dbanks12): is this actually computing any public call stack hashes as comment says?
         let pub_circuit_pub_inputs = abi::PublicCircuitPublicInputs {
             call_context: self.inputs.call_context, // Done
             args_hash: self.args_hash, // Done
@@ -504,15 +553,31 @@ impl PublicContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        let side_effect = SideEffect {
+            value: note_hash,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_commitments.push(side_effect);
+        self.side_effect_counter++;
     }
 
     fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
-        self.new_nullifiers.push(nullifier);
+        let side_effect = SideEffectLinkedToNoteHash {
+            value: nullifier,
+            note_hash: EMPTY_NULLIFIED_COMMITMENT, // cannot nullify pending notes in public context
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_nullifiers.push(side_effect);
+        self.side_effect_counter++;
     }
 
     fn message_portal(&mut self, content: Field) {
-        self.new_l2_to_l1_msgs.push(content);
+        let side_effect = SideEffect {
+            value: content,
+            side_effect_counter: self.side_effect_counter
+        };
+        self.new_l2_to_l1_msgs.push(side_effect);
+        self.side_effect_counter++;
     }
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns

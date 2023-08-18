@@ -6,6 +6,7 @@
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/rollup/root/root_rollup_public_inputs.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/base/init.hpp"
@@ -108,7 +109,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
         initial_values[i] = i + 1;
     }
 
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
             nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = kernel_data[i].public_inputs.end.new_nullifiers[j];
@@ -300,19 +301,19 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
     for (size_t i = 0; i < initial_values.size(); i++) {
         initial_values[i] = i + 1;
     }
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
 
     for (size_t i = 0; i < 2; i++) {
         for (size_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
             private_data_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j,
-                                             kernel_data[i].public_inputs.end.new_commitments[j]);
+                                             kernel_data[i].public_inputs.end.new_commitments[j].value);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
         if (!contract_data.is_empty()) {
             contract_tree.update_element(i, contract_data.hash());
         }
         for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
-            initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j]);
+            initial_values.push_back(kernel_data[i].public_inputs.end.new_nullifiers[j].value);
             nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j] = kernel_data[2 + i].public_inputs.end.new_nullifiers[j];
         }
     }
@@ -459,10 +460,10 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
                                                                      size_t spacing = 5)
 {
     const size_t NUMBER_OF_NULLIFIERS = MAX_NEW_NULLIFIERS_PER_TX * 2;
-    std::array<fr, NUMBER_OF_NULLIFIERS> nullifiers;
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, NUMBER_OF_NULLIFIERS> nullifiers;
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = (starting_insertion_value + i * spacing);
-        nullifiers[i] = fr(insertion_val);
+        nullifiers[i].value = fr(insertion_val);
     }
 
     // Generate initial values lin spaved
@@ -475,7 +476,9 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 }
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
-    BaseRollupInputs inputs, std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers, size_t spacing = 5)
+    BaseRollupInputs inputs,
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
+    size_t spacing = 5)
 {
     // Generate initial values lin spaced
     std::vector<fr> initial_values;
@@ -488,7 +491,7 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     BaseRollupInputs rollupInputs,
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
     const std::vector<fr>& initial_values)
 {
     size_t const start_tree_size = initial_values.size() + 1;
@@ -504,8 +507,8 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     // Calculate the predecessor nullifier pre-images
     // Get insertion values
     std::vector<fr> insertion_values;
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_1{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_2{};
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_1{};
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers_kernel_2{};
 
     for (size_t i = 0; i < NUMBER_OF_NULLIFIERS; ++i) {
         auto insertion_val = new_nullifiers[i];
@@ -514,8 +517,8 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
         } else {
             new_nullifiers_kernel_2[i - MAX_NEW_NULLIFIERS_PER_TX] = insertion_val;
         }
-        insertion_values.push_back(insertion_val);
-        reference_tree.update_element(insertion_val);
+        insertion_values.push_back(insertion_val.value);
+        reference_tree.update_element(insertion_val.value);
     }
 
     // Get the hash paths etc from the insertion values

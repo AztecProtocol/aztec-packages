@@ -10,6 +10,7 @@
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_call_data.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
 #include "aztec3/circuits/abis/types.hpp"
@@ -21,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <cstddef>
 
 namespace aztec3::circuits::kernel::public_kernel {
 using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
@@ -52,6 +54,17 @@ std::array<NT::fr, SIZE> array_of_values(NT::uint32& count, NT::uint32 num_value
     std::array<NT::fr, SIZE> values{};
     for (size_t i = 0; i < num_values_required; i++) {
         values[i] = ++count;
+    }
+    return values;
+}
+
+template <size_t SIZE, typename SideEffectType>
+std::array<SideEffectType, SIZE> array_of_sideeffect_values(NT::uint32& count, NT::uint32 num_values_required = SIZE)
+{
+    ASSERT(num_values_required <= SIZE);
+    std::array<SideEffectType, SIZE> values{};
+    for (size_t i = 0; i < num_values_required; i++) {
+        values[i].value = ++count;
     }
     return values;
 }
@@ -118,14 +131,14 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     };
     fr const args_hash = count;
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const public_call_stack =
-        array_of_values<MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>(count);
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
-        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
-    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
-        array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(count);
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
-        array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL>(count);
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const public_call_stack =
+        array_of_sideeffect_values<MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, abis::SideEffectWithRange<NT>>(count);
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
+        array_of_sideeffect_values<MAX_NEW_COMMITMENTS_PER_CALL, SideEffect<NT>>(count);
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
+        array_of_sideeffect_values<MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash<NT>>(count);
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
+        array_of_sideeffect_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL, SideEffect<NT>>(count);
     std::array<ContractStorageRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const reads =
         generate_contract_storage_reads(count);
     std::array<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL> const update_requests =
@@ -203,42 +216,47 @@ public_data_update_requests_from_contract_storage_update_requests(
     return values;
 }
 
-std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments_as_siloed_commitments(
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments, NT::fr const& contract_address)
+std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments_as_siloed_commitments(
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments, NT::fr const& contract_address)
 {
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_commitments{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> siloed_commitments{};
     for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_CALL; ++i) {
-        if (!new_commitments[i].is_zero()) {
-            siloed_commitments[i] = silo_commitment<NT>(contract_address, new_commitments[i]);
+        if (!new_commitments[i].is_empty()) {
+            siloed_commitments[i].value = silo_commitment<NT>(contract_address, new_commitments[i].value);
+            siloed_commitments[i].side_effect_counter = new_commitments[i].side_effect_counter;
         }
     }
     return siloed_commitments;
 }
 
-std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers_as_siloed_nullifiers(
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers, NT::fr const& contract_address)
+std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers_as_siloed_nullifiers(
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
+    NT::fr const& contract_address)
 {
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullifiers{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullifiers{};
     for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
-        if (!new_nullifiers[i].is_zero()) {
-            siloed_nullifiers[i] = silo_nullifier<NT>(contract_address, new_nullifiers[i]);
+        if (!new_nullifiers[i].is_empty()) {
+            siloed_nullifiers[i].value = silo_nullifier<NT>(contract_address, new_nullifiers[i].value);
+            siloed_nullifiers[i].note_hash = new_nullifiers[i].note_hash;
+            siloed_nullifiers[i].side_effect_counter = new_nullifiers[i].side_effect_counter;
         }
     }
     return siloed_nullifiers;
 }
 
-std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_messages_from_message(
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_messages,
+std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_messages_from_message(
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_messages,
     NT::fr const& contract_address,
     fr const& portal_contract_address,
     fr const& chain_id,
     fr const& version)
 {
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> formatted_msgs{};
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> formatted_msgs{};
     for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; ++i) {
-        if (!new_messages[i].is_zero()) {
-            formatted_msgs[i] = compute_l2_to_l1_hash<NT>(
-                contract_address, version, portal_contract_address, chain_id, new_messages[i]);
+        if (!new_messages[i].is_empty()) {
+            formatted_msgs[i].value = compute_l2_to_l1_hash<NT>(
+                contract_address, version, portal_contract_address, chain_id, new_messages[i].value);
+            formatted_msgs[i].side_effect_counter = new_messages[i].side_effect_counter;
         }
     }
     return formatted_msgs;
@@ -297,7 +315,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::fr child_contract_address = 100000;
     NT::fr child_portal_contract_address = 200000;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     for (size_t i = 0; i < MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL; i++) {
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         child_call_stacks[i] = generate_call_stack_item(child_contract_address,
@@ -306,7 +324,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
                                                         child_portal_contract_address,
                                                         false,
                                                         seed);
-        call_stack_hashes[i] = child_call_stacks[i].hash();
+        call_stack_hashes[i].value = child_call_stacks[i].hash();
         child_contract_address++;
         child_portal_contract_address++;
     }
@@ -317,12 +335,15 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         generate_contract_storage_update_requests(seed, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL / 2);
     std::array<ContractStorageRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const reads =
         generate_contract_storage_reads(seed, MAX_PUBLIC_DATA_READS_PER_CALL / 2);
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
-        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(seed, MAX_NEW_COMMITMENTS_PER_CALL / 2);
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
-        array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(seed, MAX_NEW_NULLIFIERS_PER_CALL / 2);
-    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
-        array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL>(seed, MAX_NEW_L2_TO_L1_MSGS_PER_CALL / 2);
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
+        array_of_sideeffect_values<MAX_NEW_COMMITMENTS_PER_CALL, SideEffect<NT>>(seed,
+                                                                                 MAX_NEW_COMMITMENTS_PER_CALL / 2);
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
+        array_of_sideeffect_values<MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash<NT>>(
+            seed, MAX_NEW_NULLIFIERS_PER_CALL / 2);
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
+        array_of_sideeffect_values<MAX_NEW_L2_TO_L1_MSGS_PER_CALL, SideEffect<NT>>(seed,
+                                                                                   MAX_NEW_L2_TO_L1_MSGS_PER_CALL / 2);
     std::array<fr, NUM_FIELDS_PER_SHA256> const unencrypted_logs_hash =
         array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256);
     fr const unencrypted_log_preimages_length = ++seed;
@@ -386,17 +407,18 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
                                                          .contract_deployment_data = {},
                                                      } };
 
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
-    public_call_stack[0] = public_call_data.call_stack_item.hash();
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
+    public_call_stack[0].value = public_call_data.call_stack_item.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
-        .new_commitments =
-            array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
-        .new_nullifiers =
-            array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
-        .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
+        .new_commitments = array_of_sideeffect_values<MAX_NEW_COMMITMENTS_PER_TX, SideEffect<NT>>(
+            seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
+        .new_nullifiers = array_of_sideeffect_values<MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash<NT>>(
+            seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
+        .private_call_stack =
+            array_of_sideeffect_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, abis::SideEffectWithRange<NT>>(seed, 0),
         .public_call_stack = public_call_stack,
-        .new_l2_to_l1_msgs = array_of_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX>(
+        .new_l2_to_l1_msgs = array_of_sideeffect_values<MAX_NEW_L2_TO_L1_MSGS_PER_TX, SideEffect<NT>>(
             seed, private_previous ? MAX_NEW_L2_TO_L1_MSGS_PER_TX / 2 : 0),
         .encrypted_logs_hash = array_of_values<NUM_FIELDS_PER_SHA256>(
             seed, private_previous ? 2 : 0),  // only private kernel is producing encrypted logs
@@ -466,10 +488,11 @@ void validate_private_data_propagation(DummyBuilder& builder,
                                        const PublicKernelInputs<NT>& inputs,
                                        const KernelCircuitPublicInputs<NT>& public_inputs)
 {
-    ASSERT_TRUE(source_arrays_are_in_target(builder,
-                                            inputs.previous_kernel.public_inputs.end.private_call_stack,
-                                            std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>{},
-                                            public_inputs.end.private_call_stack));
+    ASSERT_TRUE(
+        source_arrays_are_in_target(builder,
+                                    inputs.previous_kernel.public_inputs.end.private_call_stack,
+                                    std::array<abis::SideEffectWithRange<NT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>{},
+                                    public_inputs.end.private_call_stack));
 
     ASSERT_TRUE(source_arrays_are_in_target(builder,
                                             inputs.previous_kernel.public_inputs.end.new_contracts,
@@ -506,7 +529,7 @@ TEST(public_kernel_tests, only_valid_public_data_reads_should_be_propagated)
     inputs.public_call.call_stack_item.public_inputs.contract_storage_reads = reads;
 
     // adjust the call stack item hash for the current call in the previous iteration
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value = inputs.public_call.call_stack_item.hash();
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
@@ -551,7 +574,7 @@ TEST(public_kernel_tests, only_valid_update_requests_should_be_propagated)
     inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests = update_requests;
 
     // adjust the call stack item hash for the current call in the previous iteration
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value = inputs.public_call.call_stack_item.hash();
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
@@ -686,7 +709,7 @@ TEST(public_kernel_tests, incorrect_storage_contract_address_fails_for_regular_c
         inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.storage_contract_address =
             new_contract_address;
         // update the call stack item hash after the change in the preimage
-        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i].value =
             inputs.public_call.public_call_stack_preimages[i].hash();
         auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
         ASSERT_TRUE(dummyBuilder.failed());
@@ -706,7 +729,7 @@ TEST(public_kernel_tests, incorrect_msg_sender_fails_for_regular_calls)
         // change the storage contract address so it does not equal the contract address
         inputs.public_call.public_call_stack_preimages[i].public_inputs.call_context.msg_sender = new_msg_sender;
         // update the call stack item hash after the change in the preimage
-        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i].value =
             inputs.public_call.public_call_stack_preimages[i].hash();
         auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
         ASSERT_TRUE(dummyBuilder.failed());
@@ -739,7 +762,7 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
                                      is_delegate_call ? contract_portal_address : child_portal_contract_address,
                                      is_delegate_call,
                                      seed);
-        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i] =
+        inputs.public_call.call_stack_item.public_inputs.public_call_stack[i].value =
             inputs.public_call.public_call_stack_preimages[i].hash();
 
         // change the next call type
@@ -750,7 +773,7 @@ TEST(public_kernel_tests, public_kernel_circuit_succeeds_for_mixture_of_regular_
 
     // we update the hash of the current call stack item in the previous kernel,
     // since we modified the hash of the nested calls, which changes the hash of the parent item
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value = inputs.public_call.call_stack_item.hash();
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
@@ -771,7 +794,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
     std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     child_call_stacks[0] =
         // NOLINTNEXTLINE(readability-suspicious-call-argument)
         generate_call_stack_item(child_contract_address,
@@ -780,7 +803,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_msg_sender_in
                                  contract_portal_address,
                                  true,
                                  seed);
-    call_stack_hashes[0] = child_call_stacks[0].hash();
+    call_stack_hashes[0].value = child_call_stacks[0].hash();
 
     inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
@@ -804,14 +827,14 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_storage_contr
     std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> child_call_stacks;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
                                                     child_contract_address,  // this should be contract_address
                                                     contract_portal_address,
                                                     true,
                                                     seed);
-    call_stack_hashes[0] = child_call_stacks[0].hash();
+    call_stack_hashes[0].value = child_call_stacks[0].hash();
 
     inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
@@ -836,7 +859,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
     NT::fr const child_portal_contract = 200000;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> call_stack_hashes{};
     // NOLINTNEXTLINE(readability-suspicious-call-argument)
     child_call_stacks[0] = generate_call_stack_item(child_contract_address,
                                                     origin_msg_sender,
@@ -844,7 +867,7 @@ TEST(public_kernel_tests, public_kernel_circuit_fails_on_incorrect_portal_contra
                                                     child_portal_contract,  // this should be contract_portal_address
                                                     true,
                                                     seed);
-    call_stack_hashes[0] = child_call_stacks[0].hash();
+    call_stack_hashes[0].value = child_call_stacks[0].hash();
 
     inputs.public_call.call_stack_item.public_inputs.public_call_stack = call_stack_hashes;
     inputs.public_call.public_call_stack_preimages = child_call_stacks;
@@ -868,7 +891,7 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
     // these call stack items will have an contract portal address but will be ignored as the call stack will be ignored
     std::array<PublicCallStackItem, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>& child_call_stacks =
         inputs.public_call.public_call_stack_preimages;
-    std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>& call_stack_hashes =
+    std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>& call_stack_hashes =
         inputs.public_call.call_stack_item.public_inputs.public_call_stack;
     NT::uint32 const seed = 1000;
     NT::fr const child_contract_address = 100000;
@@ -882,10 +905,10 @@ TEST(public_kernel_tests, public_kernel_circuit_only_checks_non_empty_call_stack
                                                         false,
                                                         seed);
         // setting this to zero makes the call stack item be ignored so it won't fail
-        call_stack_hashes[i] = 0;
+        call_stack_hashes[i].value = 0;
     }
     // adjust the call stack item hash for the current call in the previous iteration
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] = inputs.public_call.call_stack_item.hash();
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value = inputs.public_call.call_stack_item.hash();
 
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_EQ(dummyBuilder.get_first_failure(), utils::CircuitError::no_error());
@@ -920,7 +943,7 @@ TEST(public_kernel_tests, private_previous_kernel_non_empty_private_call_stack_s
     DummyBuilder dummyBuilder =
         DummyBuilder("public_kernel_tests__private_previous_kernel_non_empty_private_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
-    inputs.previous_kernel.public_inputs.end.private_call_stack[0] = 1;
+    inputs.previous_kernel.public_inputs.end.private_call_stack[0].value = 1;
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__NON_EMPTY_PRIVATE_CALL_STACK);
@@ -932,7 +955,7 @@ TEST(public_kernel_tests, private_previous_kernel_empty_public_call_stack_should
         DummyBuilder("public_kernel_tests__private_previous_kernel_empty_public_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(true);
     inputs.previous_kernel.public_inputs.end.public_call_stack =
-        std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
+        std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
     auto public_inputs = native_public_kernel_circuit_private_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
@@ -996,7 +1019,7 @@ TEST(public_kernel_tests, public_previous_kernel_empty_public_call_stack_should_
         DummyBuilder("public_kernel_tests__public_previous_kernel_empty_public_call_stack_should_fail");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
     inputs.previous_kernel.public_inputs.end.public_call_stack =
-        std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
+        std::array<abis::SideEffectWithRange<NT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>{};
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code, CircuitErrorCode::PUBLIC_KERNEL__EMPTY_PUBLIC_CALL_STACK);
@@ -1052,20 +1075,20 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     inputs.previous_kernel.public_inputs.end.public_data_reads = initial_reads;
 
     // setup 2 previous new commitments
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> initial_commitments{};
-    initial_commitments[0] = fr(1);
-    initial_commitments[1] = fr(2);
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> initial_commitments{};
+    initial_commitments[0].value = fr(1);
+    initial_commitments[1].value = fr(2);
     inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
 
     // setup 2 previous new nullifiers
-    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> initial_nullifiers{};
-    initial_nullifiers[0] = fr(12345);
-    initial_nullifiers[1] = fr(67890);
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> initial_nullifiers{};
+    initial_nullifiers[0].value = fr(12345);
+    initial_nullifiers[1].value = fr(67890);
     inputs.previous_kernel.public_inputs.end.new_nullifiers = initial_nullifiers;
 
     // setup 1 new l2 to l1 messages
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> initial_l2_to_l1_messages{};
-    initial_l2_to_l1_messages[0] = fr(1);
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_TX> initial_l2_to_l1_messages{};
+    initial_l2_to_l1_messages[0].value = fr(1);
     inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs = initial_l2_to_l1_messages;
 
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
@@ -1135,17 +1158,32 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_reads,
                                             public_inputs.end.public_data_reads));
 
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const expected_new_commitments =
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> const expected_new_commitment_values =
         new_commitments_as_siloed_commitments(inputs.public_call.call_stack_item.public_inputs.new_commitments,
                                               contract_address);
+
+    // TODO(suyash): PublicKernelPublicInputs don't contain counters yet, so we initialise expected counters
+    // to be 0 (i.e. default value) for now.
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> expected_new_commitments{};
+    for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_CALL; ++i) {
+        expected_new_commitments[i] = expected_new_commitment_values[i];
+    }
 
     ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
                                             inputs.previous_kernel.public_inputs.end.new_commitments,
                                             expected_new_commitments,
                                             public_inputs.end.new_commitments));
 
-    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
-        inputs.public_call.call_stack_item.public_inputs.new_nullifiers, contract_address);
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> const expected_new_nullifier_values =
+        new_nullifiers_as_siloed_nullifiers(inputs.public_call.call_stack_item.public_inputs.new_nullifiers,
+                                            contract_address);
+
+    // TODO(suyash): PublicKernelPublicInputs don't contain counters yet, so we initialise expected counters
+    // to be 0 for now.
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> expected_new_nullifiers{};
+    for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
+        expected_new_nullifiers[i] = expected_new_nullifier_values[i];
+    }
 
     ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
                                             inputs.previous_kernel.public_inputs.end.new_nullifiers,
@@ -1156,12 +1194,19 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     fr const chain_id = inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
     fr const version = inputs.previous_kernel.public_inputs.constants.tx_context.version;
 
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const expected_new_messages =
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const expected_new_message_values =
         new_l2_messages_from_message(inputs.public_call.call_stack_item.public_inputs.new_l2_to_l1_msgs,
                                      contract_address,
                                      portal_contract_address,
                                      chain_id,
                                      version);
+
+    // TODO(suyash): PublicKernelPublicInputs don't contain counters yet, so we initialise expected counters
+    // to be 0 (i.e. default value) for now.
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> expected_new_messages{};
+    for (size_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_CALL; ++i) {
+        expected_new_messages[i] = expected_new_message_values[i];
+    }
 
     ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
                                             inputs.previous_kernel.public_inputs.end.new_l2_to_l1_msgs,
@@ -1217,7 +1262,7 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_commitments_on_static
         empty_array_of_values<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
 
     // regenerate call data hash
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value =
         get_call_stack_item_hash(inputs.public_call.call_stack_item);
 
     // Update call stack hash
@@ -1240,10 +1285,10 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_
     inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests =
         empty_array_of_values<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
     inputs.public_call.call_stack_item.public_inputs.new_commitments =
-        empty_array_of_values<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL>();
+        empty_array_of_values<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL>();
 
     // regenerate call data hash
-    inputs.previous_kernel.public_inputs.end.public_call_stack[0] =
+    inputs.previous_kernel.public_inputs.end.public_call_stack[0].value =
         get_call_stack_item_hash(inputs.public_call.call_stack_item);
 
     // Update call stack hash

@@ -57,7 +57,7 @@ void validate_this_public_call_hash(DummyBuilder& builder,
 
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
-    const auto popped_public_call_hash = array_pop(public_inputs.end.public_call_stack);
+    const auto popped_public_call_hash = array_pop(public_inputs.end.public_call_stack).value;
     const auto calculated_this_public_call_hash =
         get_call_stack_item_hash(public_kernel_inputs.public_call.call_stack_item);
 

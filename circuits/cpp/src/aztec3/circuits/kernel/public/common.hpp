@@ -5,6 +5,7 @@
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/public_data_update_request.hpp"
 #include "aztec3/circuits/abis/public_kernel/public_kernel_inputs.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
@@ -15,6 +16,8 @@ using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PublicDataRead;
 using aztec3::circuits::abis::PublicDataUpdateRequest;
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
 using aztec3::circuits::abis::public_kernel::PublicKernelInputs;
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::array_length;
@@ -49,7 +52,7 @@ void common_validate_call_stack(DummyBuilder& builder, KernelInput const& public
 
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
         // Assumes `hash == 0` means "this stack item is empty".
-        if (hash == 0) {
+        if (hash.is_empty()) {
             continue;
         }
 
@@ -59,7 +62,7 @@ void common_validate_call_stack(DummyBuilder& builder, KernelInput const& public
 
         const auto calculated_hash = preimage.hash();
         builder.do_assert(
-            hash == calculated_hash,
+            hash.value == calculated_hash,
             format(
                 "public_call_stack[", i, "] = ", hash, "; does not reconcile with calculatedHash = ", calculated_hash),
             CircuitErrorCode::PUBLIC_KERNEL__PUBLIC_CALL_STACK_MISMATCH);
@@ -294,11 +297,13 @@ void propagate_new_commitments(Builder& builder,
     const auto& new_commitments = public_call_public_inputs.new_commitments;
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
     for (size_t i = 0; i < new_commitments.size(); ++i) {
-        if (!new_commitments[i].is_zero()) {
-            siloed_new_commitments[i] = silo_commitment<NT>(storage_contract_address, new_commitments[i]);
-        }
+        const auto& commitment = new_commitments[i];
+        siloed_new_commitments[i] = SideEffect<NT>{
+            .value = commitment.value == 0 ? 0 : silo_commitment<NT>(storage_contract_address, commitment.value),
+            .side_effect_counter = commitment.side_effect_counter,
+        };
     }
 
     push_array_to_array(builder,
@@ -326,13 +331,22 @@ void propagate_new_nullifiers(Builder& builder,
     const auto& new_nullifiers = public_call_public_inputs.new_nullifiers;
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> siloed_new_nullifiers{};
-    for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-        if (!new_nullifiers[i].is_zero()) {
-            siloed_new_nullifiers[i] = silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
-        }
-    }
+    // nullifiers
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
+    for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
+        const auto& nullifier = new_nullifiers[i];
 
+        const auto& siloed_note_hash = nullifier.note_hash == fr(0)
+                                           ? fr(0)  // don't silo when empty
+                                           : nullifier.note_hash == fr(EMPTY_NULLIFIED_COMMITMENT)
+                                                 ? fr(EMPTY_NULLIFIED_COMMITMENT)  // don't silo when empty
+                                                 : silo_commitment<NT>(storage_contract_address, nullifier.note_hash);
+        siloed_new_nullifiers[i] = SideEffectLinkedToNoteHash<NT>{
+            .value = nullifier.value == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, nullifier.value),
+            .note_hash = siloed_note_hash,
+            .side_effect_counter = nullifier.side_effect_counter,
+        };
+    }
     push_array_to_array(builder,
                         siloed_new_nullifiers,
                         circuit_outputs.end.new_nullifiers,
@@ -358,21 +372,25 @@ void propagate_new_l2_to_l1_messages(Builder& builder,
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
     const auto& new_l2_to_l1_msgs = public_call_public_inputs.new_l2_to_l1_msgs;
 
-    std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs_to_insert{};
+    std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs_to_insert{};
     for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-        if (!new_l2_to_l1_msgs[i].is_zero()) {
+        const auto& msg = new_l2_to_l1_msgs[i];
+        if (!msg.value.is_zero()) {
             const auto chain_id = public_kernel_inputs.previous_kernel.public_inputs.constants.tx_context.chain_id;
             const auto version = public_kernel_inputs.previous_kernel.public_inputs.constants.tx_context.version;
 
-            new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(
-                storage_contract_address, version, portal_contract_address, chain_id, new_l2_to_l1_msgs[i]);
+            new_l2_to_l1_msgs_to_insert[i] = SideEffect<NT>{
+                .value = compute_l2_to_l1_hash<NT>(
+                    storage_contract_address, version, portal_contract_address, chain_id, msg.value),
+                .side_effect_counter = msg.side_effect_counter,
+            };
         }
+        push_array_to_array(
+            builder,
+            new_l2_to_l1_msgs_to_insert,
+            circuit_outputs.end.new_l2_to_l1_msgs,
+            format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new l2 to l1 messages in one tx"));
     }
-    push_array_to_array(
-        builder,
-        new_l2_to_l1_msgs_to_insert,
-        circuit_outputs.end.new_l2_to_l1_msgs,
-        format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new l2 to l1 messages in one tx"));
 }
 
 /**

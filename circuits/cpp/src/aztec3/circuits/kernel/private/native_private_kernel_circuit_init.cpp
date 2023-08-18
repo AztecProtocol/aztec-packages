@@ -4,6 +4,7 @@
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
 #include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 
@@ -13,6 +14,7 @@ using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::CombinedConstantData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
 using aztec3::utils::CircuitErrorCode;
@@ -125,13 +127,17 @@ void update_end_values(DummyCircuitBuilder& builder,
                        KernelCircuitPublicInputs<NT>& public_inputs)
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
-    // new nullifiers or logs as part of public_inputs.
+    // new nullifiers, logs, etc as part of public_inputs.
+    builder.do_assert(is_array_empty(public_inputs.end.read_requests),
+                      "public_inputs.end.read_requests must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.new_commitments),
                       "public_inputs.end.new_commitments must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
                       "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    // TODO(dbanks12): remove me!
     builder.do_assert(is_array_empty(public_inputs.end.nullified_commitments),
                       "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
@@ -154,9 +160,14 @@ void update_end_values(DummyCircuitBuilder& builder,
     // Since it's the first iteration, we need to push the the tx hash nullifier into the `new_nullifiers` array
     array_push(builder,
                public_inputs.end.new_nullifiers,
-               private_inputs.tx_request.hash(),
+               SideEffectLinkedToNoteHash<NT>{
+                   .value = private_inputs.tx_request.hash(),
+                   .note_hash = NT::fr(EMPTY_NULLIFIED_COMMITMENT),
+                   .side_effect_counter = NT::fr(0),
+               },
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
+    // TODO(dbanks12): remove me!
     // Push an empty nullified commitment too since each nullifier must
     // be paired with a nonzero (real or "empty") nullified commitment
     array_push(builder,
@@ -213,8 +224,8 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuit
 
     // TODO(dbanks12): kernel vk membership check!
 
-    // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the default
-    // constructor.
+    // In the native version, as there is no verify_proofs call, we can initialize aggregation object with the
+    // default constructor.
     NT::AggregationObject const empty_aggregation_object{};
     public_inputs.end.aggregation_object = empty_aggregation_object;
 

@@ -1,4 +1,5 @@
 use crate::constants_gen::{
+    EMPTY_NULLIFIED_COMMITMENT,
     RETURN_VALUES_LENGTH,
     MAX_READ_REQUESTS_PER_CALL,
     MAX_NEW_COMMITMENTS_PER_CALL,
@@ -61,6 +62,74 @@ impl PublicGlobalVariables {
     }
 }
 
+struct SideEffect {
+    value: Field,
+    side_effect_counter: Field,
+}
+impl SideEffect {
+    fn serialize(self) -> [Field; 2] {
+        [self.value, self.side_effect_counter]
+    }
+    //fn hash(self) -> Field {
+    //    // no generator index to hash these...
+    //    dep::std::hash::pedersen_with_separator(self.serialize(), 2)[0]
+    //}
+    fn empty() -> Self {
+        Self {
+            value: 0,
+            side_effect_counter: 0,
+        }
+    }
+}
+
+// like read, nullifier, and possibly encrypted logs
+// (they may be linked to a note / note-hash)
+struct SideEffectLinkedToNoteHash {
+    value: Field,
+    note_hash: Field, // e.g. noteHash
+    side_effect_counter: Field,
+}
+
+impl SideEffectLinkedToNoteHash {
+    fn serialize(self) -> [Field; 3] {
+        [self.value, self.note_hash, self.side_effect_counter]
+    }
+    //fn hash(self) -> Field {
+    //    // no generator index to hash these...
+    //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
+    //}
+    fn empty() -> Self {
+        Self {
+            value: 0,
+            note_hash: 0,
+            side_effect_counter: 0,
+        }
+    }
+}
+
+struct SideEffectWithRange {
+    value: Field,
+    start_side_effect_counter: Field,
+    end_side_effect_counter: Field,
+}
+
+impl SideEffectWithRange {
+    fn serialize(self) -> [Field; 3] {
+        [self.value, self.start_side_effect_counter, self.end_side_effect_counter]
+    }
+    //fn hash(self) -> Field {
+    //    // no generator index to hash these...
+    //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
+    //}
+    fn empty() -> Self {
+        Self {
+            value: 0,
+            start_side_effect_counter: 0,
+            end_side_effect_counter: 0,
+        }
+    }
+}
+
 // docs:start:contract-deployment-data
 struct ContractDeploymentData {
     deployer_public_key: Point,
@@ -95,6 +164,8 @@ struct PrivateContextInputs {
     block_data: HistoricBlockData,
     contract_deployment_data: ContractDeploymentData,
     private_global_variables: PrivateGlobalVariables,
+
+    start_side_effect_counter: Field,
 }
 // docs:end:private-context-inputs
 
@@ -105,6 +176,8 @@ struct PublicContextInputs {
     block_data: HistoricBlockData,
 
     public_global_variables: PublicGlobalVariables,
+
+    start_side_effect_counter: Field,
 }
 // docs:end:public-context-inputs
 
@@ -190,13 +263,13 @@ struct PrivateCircuitPublicInputs {
     call_context: CallContext,
     args_hash: Field,
     return_values: [Field; RETURN_VALUES_LENGTH],
-    read_requests: [Field; crate::abi::MAX_READ_REQUESTS_PER_CALL],
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
-    new_nullifiers: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
+    read_requests: [SideEffect; crate::abi::MAX_READ_REQUESTS_PER_CALL],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [SideEffectLinkedToNoteHash; MAX_NEW_NULLIFIERS_PER_CALL],
     nullified_commitments: [Field; MAX_NEW_NULLIFIERS_PER_CALL],
-    private_call_stack: [Field; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
-    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    new_l2_to_l1_msgs: [Field; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+    private_call_stack: [SideEffectWithRange; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL],
+    public_call_stack: [SideEffectWithRange; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_l2_to_l1_msgs: [SideEffect; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     // Explore introducing a new type like uint256 (similar to Point), so it's more explicit that
     // we're talking about a single number backed by two field elements.
     encrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
@@ -215,13 +288,13 @@ impl PrivateCircuitPublicInputs {
         fields.push(self.call_context.hash());
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        fields.push_array(self.read_requests);
-        fields.push_array(self.new_commitments);
-        fields.push_array(self.new_nullifiers);
+        fields.flatten_and_push_array(SideEffect::serialize, self.read_requests);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
+        fields.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
         fields.push_array(self.nullified_commitments);
-        fields.push_array(self.private_call_stack);
-        fields.push_array(self.public_call_stack);
-        fields.push_array(self.new_l2_to_l1_msgs);
+        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.private_call_stack);
+        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
         fields.push_array(self.encrypted_logs_hash);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
@@ -239,12 +312,13 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.call_context.serialize());
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        fields.push_array(self.read_requests);
-        fields.push_array(self.new_commitments);
-        fields.push_array(self.new_nullifiers);
-        fields.push_array(self.private_call_stack);
-        fields.push_array(self.public_call_stack);
-        fields.push_array(self.new_l2_to_l1_msgs);
+        fields.flatten_and_push_array(SideEffect::serialize, self.read_requests);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
+        fields.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
+        // TODO(dbanks12): should nullified commitments be here!
+        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.private_call_stack);
+        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
         fields.push_array(self.encrypted_logs_hash);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
@@ -260,19 +334,21 @@ impl PrivateCircuitPublicInputs {
 struct ContractStorageRead {
     storage_slot: Field,
     value: Field,
+    side_effect_counter: Field,
 }
 
 impl ContractStorageRead {
     fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
-        [self.storage_slot, self.value]
+        [self.storage_slot, self.value, self.side_effect_counter]
     }
 
     fn hash(self) -> Field {
+        // TODO(dbanks12): do we include side-effect counter in hash?
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
     }
 
     fn empty() -> Self {
-        Self { storage_slot: 0, value: 0 }
+        Self { storage_slot: 0, value: 0, side_effect_counter: 0 }
     }
 }
 
@@ -280,19 +356,21 @@ struct ContractStorageUpdateRequest {
     storage_slot: Field,
     old_value: Field,
     new_value: Field,
+    side_effect_counter: Field,
 }
 
 impl ContractStorageUpdateRequest {
     fn serialize(self) -> [Field; CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH] {
-        [self.storage_slot, self.old_value, self.new_value]
+        [self.storage_slot, self.old_value, self.new_value, self.side_effect_counter]
     }
 
     fn hash(self) -> Field {
+        // TODO(dbanks12): do we include side-effect counter in hash?
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
     }
 
     fn empty() -> Self {
-        Self { storage_slot: 0, old_value: 0, new_value: 0 }
+        Self { storage_slot: 0, old_value: 0, new_value: 0, side_effect_counter: 0 }
     }
 }
 
@@ -303,10 +381,10 @@ struct PublicCircuitPublicInputs {
     return_values: [Field; RETURN_VALUES_LENGTH],
     contract_storage_update_requests: [ContractStorageUpdateRequest; MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
     contract_storage_read: [ContractStorageRead; MAX_PUBLIC_DATA_READS_PER_CALL],
-    public_call_stack: [Field; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-    new_commitments: [Field; MAX_NEW_COMMITMENTS_PER_CALL],
-    new_nullifiers: [Field; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
-    new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
+    public_call_stack: [SideEffectWithRange; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
+    new_commitments: [SideEffect; MAX_NEW_COMMITMENTS_PER_CALL],
+    new_nullifiers: [SideEffectLinkedToNoteHash; crate::abi::MAX_NEW_NULLIFIERS_PER_CALL],
+    new_l2_to_l1_msgs: [SideEffect; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
     block_data: HistoricBlockData,
@@ -317,7 +395,7 @@ struct PublicCircuitPublicInputs {
 }
 
 impl PublicCircuitPublicInputs {
-    
+
     fn hash(self) -> Field {
         let mut inputs: BoundedVec<Field, PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH> = BoundedVec::new(0);
         inputs.push(self.call_context.hash());
@@ -329,10 +407,22 @@ impl PublicCircuitPublicInputs {
         for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
             inputs.push(self.contract_storage_read[i].hash());
         }
-        inputs.push_array(self.public_call_stack);
-        inputs.push_array(self.new_commitments);
-        inputs.push_array(self.new_nullifiers);
-        inputs.push_array(self.new_l2_to_l1_msgs);
+        inputs.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
+        //for i in 0..MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL {
+        //    inputs.push(self.public_call_stack[i].hash());
+        //}
+        inputs.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
+        //for i in 0..MAX_NEW_COMMITMENTS_PER_CALL {
+        //    inputs.push(self.new_commitments[i].hash());
+        //}
+        inputs.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
+        //for i in 0..MAX_NEW_NULLIFIERS_PER_CALL {
+        //    inputs.push(self.new_nullifiers[i].hash());
+        //}
+        inputs.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
+        //for i in 0..MAX_NEW_L2_TO_L1_MSGS_PER_CALL {
+        //    inputs.push(self.new_l2_to_l1_msgs[i].hash());
+        //}
 
         // We do not include block_data since it's not in the cpp hash
 
@@ -349,16 +439,12 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.call_context.serialize());   
         fields.push(self.args_hash);
         fields.push_array(self.return_values);
-        for i in 0..MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL {
-            fields.push_array(self.contract_storage_update_requests[i].serialize());
-        }
-        for i in 0..MAX_PUBLIC_DATA_READS_PER_CALL {
-            fields.push_array(self.contract_storage_read[i].serialize());
-        }
-        fields.push_array(self.public_call_stack);
-        fields.push_array(self.new_commitments);
-        fields.push_array(self.new_nullifiers);
-        fields.push_array(self.new_l2_to_l1_msgs);
+        fields.flatten_and_push_array(ContractStorageUpdateRequest::serialize, self.contract_storage_update_requests);
+        fields.flatten_and_push_array(ContractStorageRead::serialize, self.contract_storage_read);
+        fields.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
+        fields.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
+        fields.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
         fields.push_array(self.block_data.serialize());

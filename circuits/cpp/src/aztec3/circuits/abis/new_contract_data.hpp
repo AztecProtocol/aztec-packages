@@ -86,12 +86,16 @@ template <typename NCT> struct NewContractData {
         return NCT::compress(inputs, GeneratorIndex::CONTRACT_LEAF);
     }
 
-    void conditional_select(const boolean& condition, const NewContractData<NCT>& other)
+    NewContractData<NCT> static conditional_assign(const boolean& condition,
+                                                   const NewContractData<NCT>& lhs,
+                                                   const NewContractData<NCT>& rhs)
     {
-        contract_address = address::conditional_assign(condition, other.contract_address, contract_address);
-        portal_contract_address =
-            address::conditional_assign(condition, other.portal_contract_address, portal_contract_address);
-        function_tree_root = fr::conditional_assign(condition, other.function_tree_root, function_tree_root);
+        return NewContractData<NCT>{
+            .contract_address = address::conditional_assign(condition, lhs.contract_address, rhs.contract_address),
+            .portal_contract_address =
+                address::conditional_assign(condition, lhs.portal_contract_address, rhs.portal_contract_address),
+            .function_tree_root = fr::conditional_assign(condition, lhs.function_tree_root, rhs.function_tree_root),
+        };
     }
 };
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "./types/circuit_types.hpp"
 #include "./types/native_types.hpp"
 
 #include "aztec3/utils/circuit_errors.hpp"
@@ -248,6 +249,168 @@ bool source_arrays_are_in_target(Builder& builder,
         }
     }
     return true;
+}
+
+// TODO(suyash): Need this function to support NT::fr as well as circuit types.
+template <typename Builder, typename T>
+typename types::CircuitTypes<Builder>::boolean aztec_circuit_is_empty(T const& value)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using boolean = typename CT::boolean;
+
+    if constexpr (std::is_same<T, NT::fr>::value) {
+        return boolean(value == NT::fr(0));
+    } else {
+        return value.is_empty();
+    }
+}
+
+/**
+ * Gets the number of contiguous nonzero values of an array from the start.
+ * Note: This assumes `0` always means 'not used', so be careful. As soon as we locate 0, we stop the counting.
+ * If you actually want `0` to be counted, you'll need something else.
+ */
+template <typename Builder, typename T, size_t SIZE>
+typename types::CircuitTypes<Builder>::fr aztec_circuit_array_length(std::array<T, SIZE> const& arr)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using fr = typename CT::fr;
+    using boolean = typename CT::boolean;
+
+    fr length = 0;
+    boolean hit_zero = false;
+    for (const auto& e : arr) {
+        boolean is_zero = aztec_circuit_is_empty<Builder>(e);
+        hit_zero.must_imply(is_zero, "Once we've hit the first zero, there must only be zeros thereafter!");
+        hit_zero |= is_zero;
+        const fr increment = !hit_zero;
+        length += increment;
+    }
+    return length;
+};
+
+/**
+ * Note: doesn't remove the last element from the array; only returns it!
+ * Note: this assumes `0` always means 'not used', so be careful. If you actually want `0` to be counted, you'll need
+ * something else.
+ * If it returns `0`, the array is considered 'empty'.
+ */
+template <typename Builder, typename T, size_t SIZE> T aztec_circuit_array_pop(std::array<T, SIZE> const& arr)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using boolean = typename CT::boolean;
+
+    T popped_value{};
+    boolean already_popped = false;
+    for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {
+        boolean is_non_zero = !aztec_circuit_is_empty<Builder>(arr[i]);
+        popped_value = T::conditional_assign(!already_popped && is_non_zero, arr[i], popped_value);
+
+        already_popped |= is_non_zero;
+    }
+    already_popped.assert_equal(true, "array_pop cannot pop from an empty array");
+
+    return popped_value;
+};
+
+// TODO(dbanks12): should be able to move this into bberg
+// real circuit stuff
+template <typename Builder, typename T, size_t SIZE>
+void aztec_circuit_array_push(std::array<T, SIZE>& arr, T const& value)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using boolean = typename CT::boolean;
+
+    boolean already_pushed = false;
+    for (size_t i = 0; i < arr.size(); ++i) {
+        boolean is_empty = arr[i].is_empty();
+        arr[i] = T::conditional_assign(!already_pushed && is_empty, value, arr[i]);
+
+        already_pushed |= is_empty;
+    }
+    already_pushed.assert_equal(true, "array_push cannot push to a full array");
+};
+
+// TODO(suyash): Do we really need this for optional type?
+template <typename Builder, typename T, size_t SIZE>
+void aztec_circuit_array_push(std::array<std::optional<T>, SIZE>& arr, T const& value)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using boolean = typename CT::boolean;
+
+    boolean already_pushed = false;
+    for (size_t i = 0; i < arr.size(); ++i) {
+        boolean is_empty = true;
+        if (arr[i].has_value()) {
+            is_empty = arr[i].value().is_empty();
+            arr[i] = T::conditional_assign(!already_pushed && is_empty, value, arr[i].value());
+        }
+
+        already_pushed |= is_empty;
+    }
+    already_pushed.assert_equal(true, "array_push cannot push to a full array");
+};
+
+template <typename Builder, typename T, size_t SIZE>
+typename types::CircuitTypes<Builder>::boolean aztec_circuit_is_array_empty(std::array<T, SIZE> const& arr)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using boolean = typename CT::boolean;
+
+    boolean nonzero_found = false;
+    for (size_t i = arr.size() - 1; i != (size_t)-1; i--) {
+        boolean is_non_empty = !arr[i].is_empty();
+        nonzero_found |= is_non_empty;
+    }
+    return !nonzero_found;
+};
+
+template <typename Builder, typename T, size_t size_1, size_t size_2>
+void aztec_circuit_push_array_to_array(std::array<T, size_1> const& source, std::array<T, size_2>& target)
+{
+    using CT = types::CircuitTypes<Builder>;
+    using fr = typename CT::fr;
+    using boolean = typename CT::boolean;
+
+    fr target_length = aztec_circuit_array_length<Builder>(target);
+    const fr overflow_capacity = target.max_size() + 1;
+
+    fr j_ct = 0;  // circuit-type index for the inner loop
+    // Find the first empty slot in the target:
+    fr next_target_index = target_length;
+
+    boolean hit_s_zero = false;
+    boolean not_hit_s_zero = true;
+
+    for (size_t i = 0; i < source.max_size(); ++i) {
+        // Loop over each source value we want to push:
+        auto& s = source[i];
+        {
+            auto is_s_zero = s.is_empty();
+            hit_s_zero.must_imply(is_s_zero,
+                                  "Once we've hit the first source zero, there must only be zeros thereafter!");
+            hit_s_zero |= is_s_zero;
+            not_hit_s_zero = !hit_s_zero;
+        }
+
+        // Triangular loop:
+        for (size_t j = i; j < target.max_size(); ++j) {
+            auto& t = target[j];
+
+            // Check whether we've reached the next target index at which we can push `s`:
+            boolean at_next_target_index = j_ct == next_target_index;
+
+            t = T::conditional_assign(at_next_target_index && not_hit_s_zero, s, t);
+
+            j_ct++;
+        }
+
+        next_target_index += not_hit_s_zero;
+
+        next_target_index.assert_not_equal(overflow_capacity, "push_array_to_array target array capacity exceeded");
+
+        j_ct = i + 1;
+    }
 }
 
 }  // namespace aztec3::utils

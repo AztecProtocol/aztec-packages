@@ -14,7 +14,7 @@ import {
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { HistoricBlockData, SideEffect, SideEffectLinkedToNoteHash, SideEffectWithRange } from './index.js';
 import { ContractDeploymentData } from './tx_context.js';
 
 /**
@@ -38,15 +38,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * Read requests created by the corresponding function call.
      */
-    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_CALL>,
+    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
      * New commitments created by the corresponding function call.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * The commitments those were nullified by the above newNullifiers.
      */
@@ -54,15 +54,15 @@ export class PrivateCircuitPublicInputs {
     /**
      * Private call stack at the current kernel iteration.
      */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public privateCallStack: Tuple<SideEffectWithRange, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * Public call stack at the current kernel iteration.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallStack: Tuple<SideEffectWithRange, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New L2 to L1 messages created by the corresponding function call.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<SideEffect, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Hash of the encrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -118,13 +118,13 @@ export class PrivateCircuitPublicInputs {
       CallContext.empty(),
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, SideEffectWithRange.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, SideEffectWithRange.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, SideEffect.empty),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       makeTuple(NUM_FIELDS_PER_SHA256, Fr.zero),
       Fr.ZERO,

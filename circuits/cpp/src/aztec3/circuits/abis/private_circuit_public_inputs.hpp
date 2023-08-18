@@ -2,6 +2,7 @@
 
 #include "call_context.hpp"
 #include "contract_deployment_data.hpp"
+#include "side_effects.hpp"
 
 #include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/constants.hpp"
@@ -10,6 +11,8 @@
 #include "aztec3/utils/types/native_types.hpp"
 
 #include <barretenberg/barretenberg.hpp>
+
+#include <cstddef>
 
 namespace aztec3::circuits::abis {
 
@@ -27,15 +30,16 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     fr args_hash = 0;
     std::array<fr, RETURN_VALUES_LENGTH> return_values{};
 
-    std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
+    std::array<SideEffect<NCT>, MAX_READ_REQUESTS_PER_CALL> read_requests{};
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
+    std::array<SideEffect<NCT>, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NCT>, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
+    // TODO(dbanks12): remove me!
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_commitments{};
 
-    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack{};
-    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
-    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
+    std::array<SideEffectWithRange<NCT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack{};
+    std::array<SideEffectWithRange<NCT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
+    std::array<SideEffect<NCT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
     std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
@@ -59,6 +63,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    read_requests,
                    new_commitments,
                    new_nullifiers,
+                   // TODO(dbanks12): remove me!
                    nullified_commitments,
                    private_call_stack,
                    public_call_stack,
@@ -77,9 +82,11 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         return call_context == other.call_context && args_hash == other.args_hash &&
                return_values == other.return_values && read_requests == other.read_requests &&
                new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
-               nullified_commitments == other.nullified_commitments && private_call_stack == other.private_call_stack &&
-               public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
-               encrypted_logs_hash == other.encrypted_logs_hash &&
+               // TODO(dbanks12): remove me!
+               nullified_commitments == other.nullified_commitments &&
+               // TODO(dbanks12): ^ remove me!
+               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
+               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
                encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
                unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
@@ -103,15 +110,16 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_ct(args_hash),
             to_ct(return_values),
 
-            to_ct(read_requests),
+            map(read_requests, to_circuit_type),
 
-            to_ct(new_commitments),
-            to_ct(new_nullifiers),
+            map(new_commitments, to_circuit_type),
+            map(new_nullifiers, to_circuit_type),
+            // TODO(dbanks12): remove me!
             to_ct(nullified_commitments),
 
-            to_ct(private_call_stack),
-            to_ct(public_call_stack),
-            to_ct(new_l2_to_l1_msgs),
+            map(private_call_stack, to_circuit_type),
+            map(public_call_stack, to_circuit_type),
+            map(new_l2_to_l1_msgs, to_circuit_type),
 
             to_ct(encrypted_logs_hash),
             to_ct(unencrypted_logs_hash),
@@ -142,15 +150,16 @@ template <typename NCT> class PrivateCircuitPublicInputs {
             to_nt(args_hash),
             to_nt(return_values),
 
-            to_nt(read_requests),
+            map(read_requests, to_native_type),
 
-            to_nt(new_commitments),
-            to_nt(new_nullifiers),
+            map(new_commitments, to_native_type),
+            map(new_nullifiers, to_native_type),
+            // TODO(dbanks12): remove me!
             to_nt(nullified_commitments),
 
-            to_nt(private_call_stack),
-            to_nt(public_call_stack),
-            to_nt(new_l2_to_l1_msgs),
+            map(private_call_stack, to_native_type),
+            map(public_call_stack, to_native_type),
+            map(new_l2_to_l1_msgs, to_native_type),
 
             to_nt(encrypted_logs_hash),
             to_nt(unencrypted_logs_hash),
@@ -184,6 +193,7 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
         spread_arr_into_vec(new_commitments, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
+        // TODO(dbanks12): remove me!
         spread_arr_into_vec(nullified_commitments, inputs);
 
         spread_arr_into_vec(private_call_stack, inputs);
@@ -214,6 +224,15 @@ template <typename NCT> class PrivateCircuitPublicInputs {
         const auto arr_size = sizeof(arr) / sizeof(fr);
         vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
     }
+
+    template <typename T, size_t SIZE>
+    void spread_arr_into_vec(std::array<T, SIZE> const& arr, std::vector<fr>& vec) const
+    {
+        const auto arr_size = sizeof(arr) / sizeof(fr);
+        for (size_t i = 0; i < arr_size; i++) {
+            vec.insert(vec.end(), arr[i].value);
+        }
+    }
 };
 
 // It's been extremely useful for all members here to be std::optional. It allows test app circuits to be very
@@ -223,6 +242,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     using fr = typename NCT::fr;
     using opt_fr = typename std::optional<fr>;
+    using opt_se = typename std::optional<SideEffect<NCT>>;
+    using opt_se_linked = typename std::optional<SideEffectLinkedToNoteHash<NCT>>;
+    using opt_se_ranged = typename std::optional<SideEffectWithRange<NCT>>;
 
   public:
     std::optional<CallContext<NCT>> call_context;
@@ -230,15 +252,16 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     opt_fr args_hash;
     std::array<opt_fr, RETURN_VALUES_LENGTH> return_values;
 
-    std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> read_requests;
+    std::array<opt_se, MAX_READ_REQUESTS_PER_CALL> read_requests;
 
-    std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
-    std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
+    std::array<opt_se, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
+    std::array<opt_se_linked, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
+    // TODO(dbanks12): remove me!
     std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_commitments;
 
-    std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack;
-    std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack;
-    std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs;
+    std::array<opt_se_ranged, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack;
+    std::array<opt_se_ranged, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack;
+    std::array<opt_se, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs;
 
     std::array<opt_fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash;
     std::array<opt_fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash;
@@ -260,6 +283,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    read_requests,
                    new_commitments,
                    new_nullifiers,
+                   // TODO(dbanks12): remove me!
                    nullified_commitments,
                    private_call_stack,
                    public_call_stack,
@@ -281,15 +305,16 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         opt_fr const& args_hash,
         std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
 
-        std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+        std::array<opt_se, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
 
-        std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
-        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
+        std::array<opt_se, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
+        std::array<opt_se_linked, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
+        // TODO(dbanks12): remove me!
         std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& nullified_commitments,
 
-        std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
-        std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
-        std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_l2_to_l1_msgs,
+        std::array<opt_se_ranged, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
+        std::array<opt_se_ranged, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
+        std::array<opt_se, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_l2_to_l1_msgs,
 
         std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
         std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
@@ -309,6 +334,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , read_requests(read_requests)
         , new_commitments(new_commitments)
         , new_nullifiers(new_nullifiers)
+        // TODO(dbanks12): remove me!
         , nullified_commitments(nullified_commitments)
         , private_call_stack(private_call_stack)
         , public_call_stack(public_call_stack)
@@ -337,6 +363,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         new_inputs.new_commitments.fill(std::nullopt);
         new_inputs.new_nullifiers.fill(std::nullopt);
+        // TODO(dbanks12): remove me!
         new_inputs.nullified_commitments.fill(std::nullopt);
 
         new_inputs.private_call_stack.fill(std::nullopt);
@@ -359,7 +386,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         return new_inputs;
     };
 
-    void set_commitments(std::vector<fr> commitments)
+    void set_commitments(std::vector<SideEffect<NCT>> commitments)
     {
         if (commitments.size() > new_commitments.size()) {
             throw_or_abort("Too many commitments for the number supported by the public inputs ABI.");
@@ -369,7 +396,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         }
     }
 
-    void set_nullifiers(std::vector<fr> nullifiers)
+    void set_nullifiers(std::vector<SideEffectLinkedToNoteHash<NCT>> nullifiers)
     {
         if (nullifiers.size() > new_nullifiers.size()) {
             throw_or_abort("Too many commitments for the number supported by the public inputs ABI.");
@@ -379,6 +406,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         }
     }
 
+    // TODO(dbanks12): remove me!
     void set_nullified_commitments(std::vector<fr> input_nullified_commitments)
     {
         if (input_nullified_commitments.size() > nullified_commitments.size()) {
@@ -402,6 +430,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         make_unused_array_elements_zero(builder, new_commitments);
         make_unused_array_elements_zero(builder, new_nullifiers);
+        // TODO(dbanks12): remove me!
         make_unused_array_elements_zero(builder, nullified_commitments);
 
         make_unused_array_elements_zero(builder, private_call_stack);
@@ -441,6 +470,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
+        // TODO(dbanks12): remove me!
         set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
@@ -482,6 +512,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
+            // TODO(dbanks12): remove me!
             to_ct(nullified_commitments),
 
             to_ct(private_call_stack),
@@ -519,15 +550,16 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                                                                 to_nt(args_hash),
                                                                 to_nt(return_values),
 
-                                                                to_nt(read_requests),
+                                                                map(read_requests, to_native_type),
 
-                                                                to_nt(new_commitments),
-                                                                to_nt(new_nullifiers),
+                                                                map(new_commitments, to_native_type),
+                                                                map(new_nullifiers, to_native_type),
+                                                                // TODO(dbanks12): remove me!
                                                                 to_nt(nullified_commitments),
 
-                                                                to_nt(private_call_stack),
-                                                                to_nt(public_call_stack),
-                                                                to_nt(new_l2_to_l1_msgs),
+                                                                map(private_call_stack, to_native_type),
+                                                                map(public_call_stack, to_native_type),
+                                                                map(new_l2_to_l1_msgs, to_native_type),
 
                                                                 to_nt(encrypted_logs_hash),
                                                                 to_nt(unencrypted_logs_hash),
@@ -565,6 +597,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         spread_arr_opt_into_vec(new_commitments, inputs);
         spread_arr_opt_into_vec(new_nullifiers, inputs);
+        // TODO(dbanks12): remove me!
         spread_arr_opt_into_vec(nullified_commitments, inputs);
 
         spread_arr_opt_into_vec(private_call_stack, inputs);
@@ -602,6 +635,7 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
             .new_commitments = map(new_commitments, get_value),
             .new_nullifiers = map(new_nullifiers, get_value),
+            // TODO(dbanks12): remove me!
             .nullified_commitments = map(nullified_commitments, get_value),
 
             .private_call_stack = map(private_call_stack, get_value),
@@ -626,24 +660,25 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
   private:
     bool all_elements_populated = false;
 
-    template <size_t SIZE>
-    void spread_arr_opt_into_vec(std::array<std::optional<fr>, SIZE> const& arr, std::vector<fr>& vec) const
+    template <typename SE, size_t SIZE>
+    void spread_arr_opt_into_vec(std::array<std::optional<SE>, SIZE> const& arr, std::vector<SE>& vec) const
     {
-        auto get_opt_value = [](const std::optional<fr>& e) {
+        auto get_opt_value = [](const std::optional<SE>& e) {
             if (!e) {
                 throw_or_abort("Value is nullopt");
             }
             return *e;
         };
 
-        std::array<fr, SIZE> arr_values = map(arr, get_opt_value);
-        const auto arr_size = sizeof(arr_values) / sizeof(fr);
+        std::array<SE, SIZE> arr_values = map(arr, get_opt_value);
+        const auto arr_size = sizeof(arr_values) / sizeof(SE);
         vec.insert(vec.end(), arr_values.data(), arr_values.data() + arr_size);
     }
 
-    template <size_t SIZE> void spread_arr_into_vec(std::array<fr, SIZE> const& arr, std::vector<fr>& vec) const
+    template <typename SE, size_t SIZE>
+    void spread_arr_into_vec(std::array<SE, SIZE> const& arr, std::vector<SE>& vec) const
     {
-        const auto arr_size = sizeof(arr) / sizeof(fr);
+        const auto arr_size = sizeof(arr) / sizeof(SE);
         vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
     }
 
@@ -686,6 +721,30 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
     {
         for (std::optional<T>& e : arr) {
             fr(*e).set_public();
+        }
+    }
+
+    // We need the following functions for SideEffect* data types because a side-effect object contains:
+    // (value, counter, ...)
+    // TODO(suyash): Decide if we want to make counters, etc public.
+    template <size_t SIZE> void set_array_public(std::array<std::optional<SideEffect<NCT>>, SIZE>& arr)
+    {
+        for (std::optional<SideEffect<NCT>>& e : arr) {
+            fr((*e).value).set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<std::optional<SideEffectWithRange<NCT>>, SIZE>& arr)
+    {
+        for (std::optional<SideEffectWithRange<NCT>>& e : arr) {
+            fr((*e).value).set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<std::optional<SideEffectLinkedToNoteHash<NCT>>, SIZE>& arr)
+    {
+        for (std::optional<SideEffectLinkedToNoteHash<NCT>>& e : arr) {
+            fr((*e).value).set_public();
         }
     }
 };

@@ -199,6 +199,114 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
   };
 }
 
+interface MsgpackSideEffect {
+  value: Buffer;
+  side_effect_counter: Buffer;
+}
+
+export function toSideEffect(o: MsgpackSideEffect): SideEffect {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffect deserialization');
+  }
+  if (o.side_effect_counter === undefined) {
+    throw new Error('Expected side_effect_counter in SideEffect deserialization');
+  }
+  return new SideEffect(Fr.fromBuffer(o.value), Fr.fromBuffer(o.side_effect_counter));
+}
+
+export function fromSideEffect(o: SideEffect): MsgpackSideEffect {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffect serialization');
+  }
+  if (o.sideEffectCounter === undefined) {
+    throw new Error('Expected sideEffectCounter in SideEffect serialization');
+  }
+  return {
+    value: toBuffer(o.value),
+    side_effect_counter: toBuffer(o.sideEffectCounter),
+  };
+}
+
+interface MsgpackSideEffectLinkedToNoteHash {
+  value: Buffer;
+  note_hash: Buffer;
+  side_effect_counter: Buffer;
+}
+
+export function toSideEffectLinkedToNoteHash(o: MsgpackSideEffectLinkedToNoteHash): SideEffectLinkedToNoteHash {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffectLinkedToNoteHash deserialization');
+  }
+  if (o.note_hash === undefined) {
+    throw new Error('Expected note_hash in SideEffectLinkedToNoteHash deserialization');
+  }
+  if (o.side_effect_counter === undefined) {
+    throw new Error('Expected side_effect_counter in SideEffectLinkedToNoteHash deserialization');
+  }
+  return new SideEffectLinkedToNoteHash(
+    Fr.fromBuffer(o.value),
+    Fr.fromBuffer(o.note_hash),
+    Fr.fromBuffer(o.side_effect_counter),
+  );
+}
+
+export function fromSideEffectLinkedToNoteHash(o: SideEffectLinkedToNoteHash): MsgpackSideEffectLinkedToNoteHash {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffectLinkedToNoteHash serialization');
+  }
+  if (o.noteHash === undefined) {
+    throw new Error('Expected noteHash in SideEffectLinkedToNoteHash serialization');
+  }
+  if (o.sideEffectCounter === undefined) {
+    throw new Error('Expected sideEffectCounter in SideEffectLinkedToNoteHash serialization');
+  }
+  return {
+    value: toBuffer(o.value),
+    note_hash: toBuffer(o.noteHash),
+    side_effect_counter: toBuffer(o.sideEffectCounter),
+  };
+}
+
+interface MsgpackSideEffectWithRange {
+  value: Buffer;
+  start_side_effect_counter: Buffer;
+  end_side_effect_counter: Buffer;
+}
+
+export function toSideEffectWithRange(o: MsgpackSideEffectWithRange): SideEffectWithRange {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffectWithRange deserialization');
+  }
+  if (o.start_side_effect_counter === undefined) {
+    throw new Error('Expected start_side_effect_counter in SideEffectWithRange deserialization');
+  }
+  if (o.end_side_effect_counter === undefined) {
+    throw new Error('Expected end_side_effect_counter in SideEffectWithRange deserialization');
+  }
+  return new SideEffectWithRange(
+    Fr.fromBuffer(o.value),
+    Fr.fromBuffer(o.start_side_effect_counter),
+    Fr.fromBuffer(o.end_side_effect_counter),
+  );
+}
+
+export function fromSideEffectWithRange(o: SideEffectWithRange): MsgpackSideEffectWithRange {
+  if (o.value === undefined) {
+    throw new Error('Expected value in SideEffectWithRange serialization');
+  }
+  if (o.startSideEffectCounter === undefined) {
+    throw new Error('Expected startSideEffectCounter in SideEffectWithRange serialization');
+  }
+  if (o.endSideEffectCounter === undefined) {
+    throw new Error('Expected endSideEffectCounter in SideEffectWithRange serialization');
+  }
+  return {
+    value: toBuffer(o.value),
+    start_side_effect_counter: toBuffer(o.startSideEffectCounter),
+    end_side_effect_counter: toBuffer(o.endSideEffectCounter),
+  };
+}
+
 interface MsgpackNewContractData {
   contract_address: Buffer;
   portal_contract_address: Buffer;
@@ -526,13 +634,13 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
-    mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.read_requests, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_commitments, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_nullifiers, (v: MsgpackSideEffectLinkedToNoteHash) => toSideEffectLinkedToNoteHash(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.public_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: MsgpackSideEffect) => toSideEffect(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.encrypted_log_preimages_length),
@@ -595,13 +703,13 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
-    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    read_requests: mapTuple(o.readRequests, (v: SideEffect) => fromSideEffect(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: SideEffect) => fromSideEffect(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: SideEffectLinkedToNoteHash) => fromSideEffectLinkedToNoteHash(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
-    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: SideEffect) => fromSideEffect(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
@@ -1244,13 +1352,13 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
     toCallContext(o.call_context),
     Fr.fromBuffer(o.args_hash),
     mapTuple(o.return_values, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.read_requests, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_commitments, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_nullifiers, (v: MsgpackSideEffectLinkedToNoteHash) => toSideEffectLinkedToNoteHash(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.public_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: MsgpackSideEffect) => toSideEffect(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.encrypted_log_preimages_length),
@@ -1321,13 +1429,13 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
     call_context: fromCallContext(o.callContext),
     args_hash: toBuffer(o.argsHash),
     return_values: mapTuple(o.returnValues, (v: Fr) => toBuffer(v)),
-    read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
-    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    read_requests: mapTuple(o.readRequests, (v: SideEffect) => fromSideEffect(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: SideEffect) => fromSideEffect(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: SideEffectLinkedToNoteHash) => fromSideEffectLinkedToNoteHash(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
-    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: SideEffect) => fromSideEffect(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
@@ -1781,12 +1889,12 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
   }
   return new FinalAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_commitments, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_nullifiers, (v: MsgpackSideEffectLinkedToNoteHash) => toSideEffectLinkedToNoteHash(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.public_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: MsgpackSideEffect) => toSideEffect(v)),
     mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.encrypted_log_preimages_length),
@@ -1838,12 +1946,12 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
-    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: SideEffect) => fromSideEffect(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: SideEffectLinkedToNoteHash) => fromSideEffectLinkedToNoteHash(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
-    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
-    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: SideEffect) => fromSideEffect(v)),
     encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
     encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
@@ -2031,10 +2139,10 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
       toContractStorageUpdateRequest(v),
     ),
     mapTuple(o.contract_storage_reads, (v: MsgpackContractStorageRead) => toContractStorageRead(v)),
-    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.public_call_stack, (v: MsgpackSideEffectWithRange) => toSideEffectWithRange(v)),
+    mapTuple(o.new_commitments, (v: MsgpackSideEffect) => toSideEffect(v)),
+    mapTuple(o.new_nullifiers, (v: MsgpackSideEffectLinkedToNoteHash) => toSideEffectLinkedToNoteHash(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: MsgpackSideEffect) => toSideEffect(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     toHistoricBlockData(o.historic_block_data),
@@ -2090,10 +2198,10 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
       fromContractStorageUpdateRequest(v),
     ),
     contract_storage_reads: mapTuple(o.contractStorageReads, (v: ContractStorageRead) => fromContractStorageRead(v)),
-    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
-    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: SideEffectWithRange) => fromSideEffectWithRange(v)),
+    new_commitments: mapTuple(o.newCommitments, (v: SideEffect) => fromSideEffect(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: SideEffectLinkedToNoteHash) => fromSideEffectLinkedToNoteHash(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: SideEffect) => fromSideEffect(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
     historic_block_data: fromHistoricBlockData(o.historicBlockData),

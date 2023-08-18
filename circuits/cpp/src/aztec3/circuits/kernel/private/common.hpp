@@ -8,6 +8,7 @@
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
 
@@ -18,6 +19,7 @@ using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
+using aztec3::circuits::abis::SideEffect;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
 
 using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
@@ -28,7 +30,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
 
 void common_validate_read_requests(DummyBuilder& builder,
                                    NT::fr const& historic_private_data_tree_root,
-                                   std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+                                   std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses);
 

@@ -6,6 +6,7 @@
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/convert.hpp"
@@ -30,15 +31,16 @@ template <typename NCT> struct FinalAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NCT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NCT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    // TODO(dbanks12): remove me!
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
     // For pending nullifiers, we have:
     // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
-    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
-    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
-    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
+    std::array<SideEffectWithRange<NCT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
+    std::array<SideEffectWithRange<NCT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
+    std::array<SideEffect<NCT>, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
     std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
@@ -89,13 +91,14 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_ct(new_commitments),
-            to_ct(new_nullifiers),
+            map(new_commitments, to_circuit_type),
+            map(new_nullifiers, to_circuit_type),
+            // TODO(dbanks12): remove me!
             to_ct(nullified_commitments),
 
-            to_ct(private_call_stack),
-            to_ct(public_call_stack),
-            to_ct(new_l2_to_l1_msgs),
+            map(private_call_stack, to_circuit_type),
+            map(public_call_stack, to_circuit_type),
+            map(new_l2_to_l1_msgs, to_circuit_type),
 
             to_ct(encrypted_logs_hash),
             to_ct(unencrypted_logs_hash),
@@ -125,13 +128,14 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_nt(new_commitments),
-            to_nt(new_nullifiers),
+            map(new_commitments, to_native_type),
+            map(new_nullifiers, to_native_type),
+            // TODO(dbanks12): remove me!
             to_nt(nullified_commitments),
 
-            to_nt(private_call_stack),
-            to_nt(public_call_stack),
-            to_nt(new_l2_to_l1_msgs),
+            map(private_call_stack, to_native_type),
+            map(public_call_stack, to_native_type),
+            map(new_l2_to_l1_msgs, to_native_type),
 
             to_nt(encrypted_logs_hash),
             to_nt(unencrypted_logs_hash),
@@ -153,6 +157,7 @@ template <typename NCT> struct FinalAccumulatedData {
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
+        // TODO(dbanks12): remove me!
         set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
@@ -187,6 +192,31 @@ template <typename NCT> struct FinalAccumulatedData {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (auto& e : arr) {
             e.set_public();
+        }
+    }
+
+    // TODO(suyash): We're only making the value public not the counter. Check if this is okay.
+    template <size_t SIZE> void set_array_public(std::array<SideEffect<NCT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.value.set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<SideEffectWithRange<NCT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.value.set_public();
+        }
+    }
+
+    template <size_t SIZE> void set_array_public(std::array<SideEffectLinkedToNoteHash<NCT>, SIZE>& arr)
+    {
+        static_assert(!(std::is_same<NativeTypes, NCT>::value));
+        for (auto& e : arr) {
+            e.value.set_public();
         }
     }
 };

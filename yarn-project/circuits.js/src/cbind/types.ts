@@ -126,6 +126,9 @@ export {
   MergeRollupInputs,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SideEffect,
+  SideEffectWithRange,
+  SideEffectLinkedToNoteHash,
 } from '../structs/index.js';
 export { FunctionSelector } from '@aztec/foundation/abi';
 

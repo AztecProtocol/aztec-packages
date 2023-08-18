@@ -5,6 +5,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/dummy_circuit_builder.hpp"
 
@@ -14,6 +15,7 @@ using NT = aztec3::utils::types::NativeTypes;
 using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::SideEffectWithRange;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_length;
@@ -58,11 +60,11 @@ namespace aztec3::circuits::kernel::private_kernel {
 void pop_and_validate_this_private_call_hash(
     DummyCircuitBuilder& builder,
     PrivateCallData<NT> const& private_call,
-    std::array<NT::fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>& private_call_stack)
+    std::array<SideEffectWithRange<NT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>& private_call_stack)
 {
     // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the
     // 'fee' tx, and the 'gas rebate' tx).
-    const auto popped_private_call_hash = array_pop(private_call_stack);
+    const auto popped_private_call_hash = array_pop(private_call_stack).value;
     const auto calculated_this_private_call_hash = private_call.call_stack_item.hash();
 
     builder.do_assert(

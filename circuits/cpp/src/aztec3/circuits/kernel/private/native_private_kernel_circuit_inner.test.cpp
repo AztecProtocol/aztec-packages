@@ -2,6 +2,7 @@
 #include "testing_harness.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/constants.hpp"
@@ -50,7 +51,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_zero_storage_contract
     private_inputs.private_call.call_stack_item.contract_address = 0;
 
     // Modify the call stack item's hash with the newly added contract address.
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     // Invoke the native private kernel circuit
@@ -76,7 +77,7 @@ TEST_F(native_private_kernel_inner_tests, private_function_incorrect_is_internal
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the function_data and public_inputs->call_context of the current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     // Invoke the native private kernel circuit
@@ -195,7 +196,7 @@ TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_ca
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     // Set the first call stack member corresponding to the `deposit` function to random scalar.
-    private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[0] = NT::fr::random_element();
+    private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[0].value = NT::fr::random_element();
 
     // Invoke the native private kernel circuit
     DummyBuilder builder = DummyBuilder("private_kernel_tests__private_function_incorrect_call_stack_item_hash_fails");
@@ -218,9 +219,9 @@ TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregat
         do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     // Mock the previous new commitments to be full, therefore no need commitments can be added
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> full_new_commitments{};
+    std::array<abis::SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> full_new_commitments{};
     for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_TX; ++i) {
-        full_new_commitments[i] = i + 1;
+        full_new_commitments[i].value = i + 1;
     }
     private_inputs.previous_kernel.public_inputs.end.new_commitments = full_new_commitments;
     native_private_kernel_circuit_inner(builder, private_inputs);
@@ -252,7 +253,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -262,7 +263,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
     private_inputs.private_call.call_stack_item.public_inputs.historic_block_data.private_data_tree_root = root;
 
     // tweak read_request so it gives wrong root when paired with its sibling path
-    read_requests[1] += 1;
+    read_requests[1].value += 1;
 
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -270,7 +271,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_request)
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_request");
@@ -291,7 +292,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -308,7 +309,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_leaf_index)
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_leaf_index");
@@ -329,7 +330,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -346,7 +347,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_bad_sibling_path)
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_bad_sibling_path");
@@ -368,7 +369,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
 
     // generate two random sets of read requests and mix them so their roots don't match
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests0,
           read_request_membership_witnesses0,
           _transient_read_requests0,
@@ -381,7 +382,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
           _transient_read_requests1,
           _transient_read_request_membership_witnesses1,
           _root] = get_random_reads(first_nullifier, contract_address, 2);
-    std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
@@ -398,7 +399,7 @@ TEST_F(native_private_kernel_inner_tests, native_read_request_root_mismatch)
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_read_request_root_mismatch");
@@ -418,7 +419,7 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
     auto private_inputs = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     // empty requests
-    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -426,7 +427,7 @@ TEST_F(native_private_kernel_inner_tests, native_no_read_requests_works)
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests of the current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_no_read_requests_works");
@@ -454,7 +455,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -467,7 +468,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_read_requests_works)
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests of the current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_read_requests_works");
@@ -495,7 +496,7 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -508,7 +509,7 @@ TEST_F(native_private_kernel_inner_tests, native_two_read_requests_works)
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests of the current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_two_read_requests_works");
@@ -536,7 +537,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           _transient_read_requests,
@@ -550,7 +551,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_works)
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_max_read_requests_works");
@@ -578,7 +579,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_wor
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,
@@ -595,7 +596,7 @@ TEST_F(native_private_kernel_inner_tests, native_one_transient_read_requests_wor
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_inner_tests__native_one_transient_read_requests_works");
@@ -622,7 +623,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,
@@ -640,7 +641,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_one_transient
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder =
@@ -669,7 +670,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_all_transient
         private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address;
 
     auto const first_nullifier =
-        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0]);
+        silo_nullifier<NT>(contract_address, private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value);
     auto [read_requests,
           read_request_membership_witnesses,
           transient_read_requests,
@@ -683,7 +684,7 @@ TEST_F(native_private_kernel_inner_tests, native_max_read_requests_all_transient
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the public_inputs->read_requests and public_inputs->historic_private_data_tree_root of the
     // current_call_stack_item
-    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0] =
+    private_inputs.previous_kernel.public_inputs.end.private_call_stack[0].value =
         private_inputs.private_call.call_stack_item.hash();
 
     DummyBuilder builder =

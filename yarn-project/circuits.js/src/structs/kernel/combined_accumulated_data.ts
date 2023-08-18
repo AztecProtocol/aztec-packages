@@ -16,7 +16,16 @@ import {
 } from '../../cbind/constants.gen.js';
 import { makeTuple } from '../../index.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
-import { AggregationObject, AztecAddress, EthAddress, Fr, FunctionData } from '../index.js';
+import {
+  AggregationObject,
+  AztecAddress,
+  EthAddress,
+  Fr,
+  FunctionData,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectWithRange,
+} from '../index.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.
@@ -286,15 +295,15 @@ export class CombinedAccumulatedData {
     /**
      * All the read requests made in this transaction.
      */
-    public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readRequests: Tuple<SideEffect, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
      * The new commitments made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
      * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
@@ -303,15 +312,15 @@ export class CombinedAccumulatedData {
     /**
      * Current private call stack.
      */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    public privateCallStack: Tuple<SideEffectWithRange, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     /**
      * Current public call stack.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicCallStack: Tuple<SideEffectWithRange, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<SideEffect, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -382,13 +391,13 @@ export class CombinedAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_READ_REQUESTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, SideEffect),
       reader.readArray(2, Fr),
       reader.readArray(2, Fr),
       reader.readFr(),
@@ -403,7 +412,7 @@ export class CombinedAccumulatedData {
   static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       finalData.aggregationObject,
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
       finalData.newCommitments,
       finalData.newNullifiers,
       finalData.nullifiedCommitments,
@@ -433,13 +442,13 @@ export class CombinedAccumulatedData {
   static empty() {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, SideEffect.empty),
       makeTuple(2, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.zero(),
@@ -465,11 +474,11 @@ export class FinalAccumulatedData {
     /**
      * The new commitments made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
      * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
@@ -478,15 +487,15 @@ export class FinalAccumulatedData {
     /**
      * Current private call stack.
      */
-    public privateCallStack: Tuple<Fr, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
+    public privateCallStack: Tuple<SideEffectWithRange, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>,
     /**
      * Current public call stack.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
+    public publicCallStack: Tuple<SideEffectWithRange, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX>,
     /**
      * All the new L2 to L1 messages created in this transaction.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<SideEffect, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Accumulated encrypted logs hash from all the previous kernel iterations.
      * Note: Represented as a tuple of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -546,12 +555,12 @@ export class FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, SideEffect),
+      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
-      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr),
-      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
+      reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange),
+      reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange),
+      reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, SideEffect),
       reader.readArray(2, Fr),
       reader.readArray(2, Fr),
       reader.readFr(),
@@ -573,12 +582,12 @@ export class FinalAccumulatedData {
   static empty() {
     return new FinalAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, SideEffectLinkedToNoteHash.empty),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
-      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.zero),
+      makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange.empty),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, SideEffectWithRange.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, SideEffect.empty),
       makeTuple(2, Fr.zero),
       makeTuple(2, Fr.zero),
       Fr.zero(),

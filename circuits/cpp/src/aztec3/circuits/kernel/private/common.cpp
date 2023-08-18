@@ -8,6 +8,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -21,6 +22,8 @@ using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
 
 using aztec3::utils::array_push;
 using aztec3::utils::is_array_empty;
@@ -36,7 +39,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
     const auto& stack = private_call.call_stack_item.public_inputs.private_call_stack;
     const auto& preimages = private_call.private_call_stack_preimages;
     for (size_t i = 0; i < stack.size(); ++i) {
-        const auto& hash = stack[i];
+        const auto& hash = stack[i].value;
         const auto& preimage = preimages[i];
 
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
@@ -67,14 +70,14 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  */
 void common_validate_read_requests(DummyBuilder& builder,
                                    NT::fr const& historic_private_data_tree_root,
-                                   std::array<fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+                                   std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
-        const auto& read_request = read_requests[rr_idx];
+        const auto& read_request = read_requests[rr_idx].value;
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
         // A pending commitment is the one that is not yet added to private data tree
@@ -147,8 +150,12 @@ void common_update_end_values(DummyBuilder& builder,
             const auto& read_request = read_requests[i];
             const auto& witness = read_request_membership_witnesses[i];
             if (witness.is_transient) {  // only forward transient to public inputs
-                const auto siloed_read_request =
-                    read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
+                const auto siloed_read_request_value =
+                    read_request.value == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request.value);
+                const auto siloed_read_request = SideEffect<NT>{
+                    .value = siloed_read_request_value,
+                    .side_effect_counter = read_request.side_effect_counter,
+                };
                 array_push(builder,
                            public_inputs.end.read_requests,
                            siloed_read_request,
@@ -161,10 +168,19 @@ void common_update_end_values(DummyBuilder& builder,
     // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
     {
         // nullifiers
-        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
+        std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
         for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
-            siloed_new_nullifiers[i] =
-                new_nullifiers[i] == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, new_nullifiers[i]);
+            const auto& nullifier = new_nullifiers[i];
+
+            const auto& siloed_note_hash = nullifier.note_hash == fr(0) ? fr(0)  // don't silo when empty
+                                           : nullifier.note_hash == fr(EMPTY_NULLIFIED_COMMITMENT)
+                                               ? fr(EMPTY_NULLIFIED_COMMITMENT)  // don't silo when empty
+                                               : silo_commitment<NT>(storage_contract_address, nullifier.note_hash);
+            siloed_new_nullifiers[i] = SideEffectLinkedToNoteHash<NT>{
+                .value = nullifier.value == 0 ? 0 : silo_nullifier<NT>(storage_contract_address, nullifier.value),
+                .note_hash = siloed_note_hash,
+                .side_effect_counter = nullifier.side_effect_counter,
+            };
         }
         push_array_to_array(
             builder,
@@ -173,10 +189,13 @@ void common_update_end_values(DummyBuilder& builder,
             format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullifiers in one tx"));
 
         // commitments
-        std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
+        std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
         for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] =
-                new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
+            const auto& commitment = new_commitments[i];
+            siloed_new_commitments[i] = SideEffect<NT>{
+                .value = commitment.value == 0 ? 0 : silo_commitment<NT>(storage_contract_address, commitment.value),
+                .side_effect_counter = commitment.side_effect_counter,
+            };
         }
         push_array_to_array(
             builder,
@@ -184,6 +203,7 @@ void common_update_end_values(DummyBuilder& builder,
             public_inputs.end.new_commitments,
             format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
 
+        // TODO(dbanks12): remove me!
         // nullified commitments (for matching transient nullifiers to transient commitments)
         // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
         // is used here for nullified_commitments of persistable nullifiers. EMPTY will still
@@ -225,14 +245,18 @@ void common_update_end_values(DummyBuilder& builder,
     {  // new l2 to l1 messages
         const auto& portal_contract_address = private_call.portal_contract_address;
         const auto& new_l2_to_l1_msgs = private_call_public_inputs.new_l2_to_l1_msgs;
-        std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs_to_insert{};
+        std::array<SideEffect<NT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs_to_insert{};
         for (size_t i = 0; i < new_l2_to_l1_msgs.size(); ++i) {
-            if (!new_l2_to_l1_msgs[i].is_zero()) {
-                new_l2_to_l1_msgs_to_insert[i] = compute_l2_to_l1_hash<NT>(storage_contract_address,
-                                                                           private_call_public_inputs.version,
-                                                                           portal_contract_address,
-                                                                           private_call_public_inputs.chain_id,
-                                                                           new_l2_to_l1_msgs[i]);
+            const auto& msg = new_l2_to_l1_msgs[i];
+            if (!msg.value.is_zero()) {
+                new_l2_to_l1_msgs_to_insert[i] = {
+                    .value = compute_l2_to_l1_hash<NT>(storage_contract_address,
+                                                       private_call_public_inputs.version,
+                                                       portal_contract_address,
+                                                       private_call_public_inputs.chain_id,
+                                                       msg.value),
+                    .side_effect_counter = msg.side_effect_counter,
+                };
             }
         }
         push_array_to_array(
@@ -319,7 +343,11 @@ void common_contract_logic(DummyBuilder& builder,
         // push the contract address nullifier to nullifier vector
         array_push(builder,
                    public_inputs.end.new_nullifiers,
-                   new_contract_address_nullifier,
+                   SideEffectLinkedToNoteHash<NT>{
+                       .value = new_contract_address_nullifier,
+                       .note_hash = NT::fr(EMPTY_NULLIFIED_COMMITMENT),
+                       .side_effect_counter = NT::fr(99999999),  // TODO(dbanks12): assign se counter to new contract?
+                   },
                    format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                           "too many nullifiers in one tx to add the new contract address"));
     } else {

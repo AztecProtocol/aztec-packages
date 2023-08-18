@@ -3,6 +3,7 @@
 #include "nullifier_tree_testing_harness.hpp"
 
 #include "aztec3/circuits/abis/public_data_update_request.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 
@@ -82,7 +83,7 @@ abis::AppendOnlyTreeSnapshot<NT> get_snapshot_of_tree_state(NullifierMemoryTreeT
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values_explicit(
     BaseRollupInputs inputs,
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
     const std::vector<fr>& initial_values);
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupInputs inputs,
@@ -92,7 +93,9 @@ nullifier_tree_testing_values generate_nullifier_tree_testing_values(BaseRollupI
 std::array<fr, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> get_empty_l1_to_l2_messages();
 
 nullifier_tree_testing_values generate_nullifier_tree_testing_values(
-    BaseRollupInputs inputs, std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers, size_t spacing);
+    BaseRollupInputs inputs,
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers,
+    size_t spacing);
 
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree_empty();
 NullifierMemoryTreeTestingHarness get_initial_nullifier_tree(const std::vector<fr>& initial_values);

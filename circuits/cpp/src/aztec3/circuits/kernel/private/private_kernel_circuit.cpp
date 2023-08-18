@@ -3,8 +3,10 @@
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
 
 #include <barretenberg/barretenberg.hpp>
 
@@ -12,6 +14,9 @@ namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
+using aztec3::circuits::abis::SideEffectWithRange;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInner;
 
 using plonk::stdlib::array_length;
@@ -19,6 +24,12 @@ using plonk::stdlib::array_pop;
 using plonk::stdlib::array_push;
 using plonk::stdlib::is_array_empty;
 using plonk::stdlib::push_array_to_array;
+
+using aztec3::utils::aztec_circuit_array_length;
+using aztec3::utils::aztec_circuit_array_pop;
+using aztec3::utils::aztec_circuit_array_push;
+using aztec3::utils::aztec_circuit_is_array_empty;
+using aztec3::utils::aztec_circuit_push_array_to_array;
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
@@ -92,8 +103,8 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
 
     // No state changes are allowed for static calls:
-    is_static_call.must_imply(is_array_empty<Builder>(new_commitments) == true);
-    is_static_call.must_imply(is_array_empty<Builder>(new_nullifiers) == true);
+    is_static_call.must_imply(aztec_circuit_is_array_empty<Builder>(new_commitments) == true);
+    is_static_call.must_imply(aztec_circuit_is_array_empty<Builder>(new_nullifiers) == true);
 
     // TODO: name change (just contract_address)
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
@@ -135,7 +146,9 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
         // push the contract address nullifier to nullifier vector
         CT::fr const conditional_contract_address_nullifier =
             CT::fr::conditional_assign(is_contract_deployment, contract_address_nullifier, CT::fr(0));
-        array_push<Builder>(public_inputs.end.new_nullifiers, conditional_contract_address_nullifier);
+        aztec_circuit_array_push<Builder>(
+            public_inputs.end.new_nullifiers,
+            { conditional_contract_address_nullifier, fr(EMPTY_NULLIFIED_COMMITMENT), 0 });
 
         // Add new contract data if its a contract deployment function
         auto const new_contract_data = NewContractData<CT>{
@@ -144,31 +157,46 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
             .function_tree_root = contract_deployment_data.function_tree_root,
         };
 
-        array_push<Builder, NewContractData<CT>, MAX_NEW_CONTRACTS_PER_TX>(public_inputs.end.new_contracts,
-                                                                           new_contract_data);
+        aztec_circuit_array_push<Builder, NewContractData<CT>, MAX_NEW_CONTRACTS_PER_TX>(
+            public_inputs.end.new_contracts, new_contract_data);
     }
 
     {  // commitments, nullifiers, and contracts
-        std::array<CT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments;
+        std::array<SideEffect<CT>, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments;
         for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] = CT::fr::conditional_assign(
-                new_commitments[i] == 0, 0, silo_commitment<CT>(storage_contract_address, new_commitments[i]));
+            const auto& commitment = new_commitments[i];
+            // TODO(dbanks12): check value == 0 or is_empty here? Think about security implications either way
+            // instinct is that value == 0 is actually safer?
+            siloed_new_commitments[i] =
+                SideEffect<CT>::conditional_assign(commitment.value == 0,
+                                                   {},
+                                                   SideEffect<CT>{
+                                                       silo_commitment<CT>(storage_contract_address, commitment.value),
+                                                       commitment.side_effect_counter,
+                                                   });
         }
-        std::array<CT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers;
+        std::array<SideEffectLinkedToNoteHash<CT>, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers;
         for (size_t i = 0; i < new_nullifiers.size(); ++i) {
-            siloed_new_nullifiers[i] = CT::fr::conditional_assign(
-                new_nullifiers[i] == 0, 0, silo_nullifier<CT>(storage_contract_address, new_nullifiers[i]));
+            const auto& nullifier = new_nullifiers[i];
+            siloed_new_nullifiers[i] = SideEffectLinkedToNoteHash<CT>::conditional_assign(
+                nullifier.value == 0,
+                {},
+                SideEffectLinkedToNoteHash<CT>{
+                    silo_nullifier<CT>(storage_contract_address, nullifier.value),
+                    nullifier.note_hash,
+                    nullifier.side_effect_counter,
+                });
         }
 
         // Add new commitments/etc to AggregatedData
-        push_array_to_array<Builder>(siloed_new_commitments, public_inputs.end.new_commitments);
-        push_array_to_array<Builder>(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
+        aztec_circuit_push_array_to_array<Builder>(siloed_new_commitments, public_inputs.end.new_commitments);
+        aztec_circuit_push_array_to_array<Builder>(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
     }
 
     {  // call stacks
         // copy the private function circuit's callstack into the AggregatedData
         const auto& this_private_call_stack = private_call_public_inputs.private_call_stack;
-        push_array_to_array<Builder>(this_private_call_stack, public_inputs.end.private_call_stack);
+        aztec_circuit_push_array_to_array<Builder>(this_private_call_stack, public_inputs.end.private_call_stack);
     }
 
     // {
@@ -193,7 +221,7 @@ void validate_this_private_call_hash(PrivateKernelInputsInner<CT> const& private
     const auto& start = private_inputs.previous_kernel.public_inputs.end;
     // TODO: this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee' tx,
     // and the 'gas rebate' tx).
-    const auto this_private_call_hash = array_pop<Builder>(start.private_call_stack);
+    const auto this_private_call_hash = aztec_circuit_array_pop<Builder>(start.private_call_stack).value;
     const auto calculated_this_private_call_hash = private_inputs.private_call.call_stack_item.hash();
 
     this_private_call_hash.assert_equal(calculated_this_private_call_hash, "this private_call_hash does not reconcile");
@@ -212,7 +240,7 @@ void validate_this_private_call_stack(PrivateKernelInputsInner<CT> const& privat
     const auto& stack = private_inputs.private_call.call_stack_item.public_inputs.private_call_stack;
     const auto& preimages = private_inputs.private_call.private_call_stack_preimages;
     for (size_t i = 0; i < stack.size(); ++i) {
-        const auto& hash = stack[i];
+        const auto& hash = stack[i].value;
         const auto& preimage = preimages[i];
 
         // Note: this assumes it's computationally infeasible to have `0` as a valid call_stack_item_hash.
@@ -243,9 +271,9 @@ void validate_inputs(PrivateKernelInputsInner<CT> const& private_inputs, bool fi
     // These lengths are calculated by counting entries until a non-zero one is encountered
     // True array length is constant which is a property we need for circuit inputs,
     // but we want to know "length" in terms of how many nonzero entries have been inserted
-    CT::fr const start_private_call_stack_length = array_length<Builder>(start.private_call_stack);
-    CT::fr const start_public_call_stack_length = array_length<Builder>(start.public_call_stack);
-    CT::fr const start_new_l2_to_l1_msgs_length = array_length<Builder>(start.new_l2_to_l1_msgs);
+    CT::fr const start_private_call_stack_length = aztec_circuit_array_length<Builder>(start.private_call_stack);
+    CT::fr const start_public_call_stack_length = aztec_circuit_array_length<Builder>(start.public_call_stack);
+    CT::fr const start_new_l2_to_l1_msgs_length = aztec_circuit_array_length<Builder>(start.new_l2_to_l1_msgs);
 
     // Recall: we can't do traditional `if` statements in a circuit; all code paths are always executed. The below is
     // some syntactic sugar, which seeks readability similar to an `if` statement.

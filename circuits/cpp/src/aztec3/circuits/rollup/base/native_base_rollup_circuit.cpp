@@ -117,7 +117,7 @@ NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs con
 
         for (size_t j = 0; j < new_commitments.size(); j++) {
             // todo: batch insert
-            commitments_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j, new_commitments[j]);
+            commitments_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j, new_commitments[j].value);
         }
     }
 
@@ -228,7 +228,7 @@ AppendOnlySnapshot check_nullifier_tree_non_membership_and_insert_to_tree(DummyB
             // Preimage of the lo-index required for a non-membership proof
             auto low_nullifier_preimage = baseRollupInputs.low_nullifier_leaf_preimages[nullifier_index];
             // Newly created nullifier
-            auto nullifier = new_nullifiers[j];
+            auto nullifier = new_nullifiers[j].value;
 
             // TODO(maddiaa): reason about this more strongly, can this cause issues?
             if (nullifier != 0) {

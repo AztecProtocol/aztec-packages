@@ -6,6 +6,7 @@
 #include "../../constants.hpp"
 
 #include "aztec3/circuits/abis/historic_block_data.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/utils/types/circuit_types.hpp"
 #include "aztec3/utils/types/native_types.hpp"
 
@@ -31,10 +32,10 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         contract_storage_update_requests{};
     std::array<ContractStorageRead<NCT>, MAX_PUBLIC_DATA_READS_PER_CALL> contract_storage_reads{};
 
-    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
-    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
+    std::array<SideEffectWithRange<NCT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
+    std::array<SideEffect<NCT>, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NCT>, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
+    std::array<SideEffect<NCT>, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
 
@@ -83,10 +84,10 @@ template <typename NCT> struct PublicCircuitPublicInputs {
             .contract_storage_update_requests = map(contract_storage_update_requests, to_circuit_type),
             .contract_storage_reads = map(contract_storage_reads, to_circuit_type),
 
-            .public_call_stack = to_ct(public_call_stack),
-            .new_commitments = to_ct(new_commitments),
-            .new_nullifiers = to_ct(new_nullifiers),
-            .new_l2_to_l1_msgs = to_ct(new_l2_to_l1_msgs),
+            .public_call_stack = map(public_call_stack, to_circuit_type),
+            .new_commitments = map(new_commitments, to_circuit_type),
+            .new_nullifiers = map(new_nullifiers, to_circuit_type),
+            .new_l2_to_l1_msgs = map(new_l2_to_l1_msgs, to_circuit_type),
 
             .unencrypted_logs_hash = to_ct(unencrypted_logs_hash),
             .unencrypted_log_preimages_length = to_ct(unencrypted_log_preimages_length),
@@ -135,6 +136,16 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         const auto arr_size = sizeof(arr) / sizeof(fr);
         vec.insert(vec.end(), arr.data(), arr.data() + arr_size);
     }
+
+    template <typename T, size_t SIZE>
+    void spread_arr_into_vec(std::array<T, SIZE> const& arr, std::vector<fr>& vec) const
+    {
+        const auto arr_size = sizeof(arr) / sizeof(fr);
+        for (size_t i = 0; i < arr_size; i++) {
+            vec.insert(vec.end(), arr[i].value);
+        }
+    }
+
 };  // namespace aztec3::circuits::abis
 
 }  // namespace aztec3::circuits::abis

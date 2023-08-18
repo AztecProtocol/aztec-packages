@@ -1,6 +1,7 @@
 #include "testing_harness.hpp"
 
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/apps/test_apps/basic_contract_deployment/basic_contract_deployment.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -69,7 +70,7 @@ TEST_F(native_private_kernel_init_tests, deposit)
     EXPECT_TRUE(validate_no_new_deployed_contract(public_inputs));
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 
     // Log preimages length should increase by `(un)encrypted_log_preimages_length` from private input
     ASSERT_EQ(public_inputs.end.encrypted_log_preimages_length, encrypted_log_preimages_length);
@@ -123,7 +124,7 @@ TEST_F(native_private_kernel_init_tests, DISABLED_contract_deployment_call_stack
     auto private_inputs = do_private_call_get_kernel_inputs_init(true, constructor, standard_test_args());
 
     // Randomise the second item in the private call stack (i.e. hash of the private call item).
-    private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[1] = NT::fr::random_element();
+    private_inputs.private_call.call_stack_item.public_inputs.private_call_stack[1].value = NT::fr::random_element();
 
     DummyBuilder builder =
         DummyBuilder("private_kernel_tests__contract_deployment_call_stack_item_hash_mismatch_fails");
@@ -319,7 +320,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)
     private_inputs.private_call.call_stack_item.public_inputs.historic_block_data.private_data_tree_root = root;
 
     // tweak read_request so it gives wrong root when paired with its sibling path
-    read_requests[1] += 1;
+    read_requests[1].value += 1;
 
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
     private_inputs.private_call.read_request_membership_witnesses = read_request_membership_witnesses;
@@ -334,7 +335,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_request)
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 }
 
 TEST_F(native_private_kernel_init_tests, native_read_request_bad_leaf_index)
@@ -367,7 +368,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_leaf_index)
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 }
 
 TEST_F(native_private_kernel_init_tests, native_read_request_bad_sibling_path)
@@ -400,7 +401,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_bad_sibling_path)
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 }
 
 TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
@@ -423,7 +424,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
           _transient_read_requests1,
           _transient_read_request_membership_witnesses1,
           _root] = get_random_reads(first_nullifier, contract_address, 2);
-    std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> bad_requests{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> bad_witnesses;
     // note we are using read_requests0 for some and read_requests1 for others
     bad_requests[0] = read_requests0[0];
@@ -447,7 +448,7 @@ TEST_F(native_private_kernel_init_tests, native_read_request_root_mismatch)
               CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_PRIVATE_DATA_ROOT_MISMATCH);
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 }
 
 TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
@@ -457,7 +458,7 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     auto private_inputs = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
     // empty requests
-    std::array<fr, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
+    std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL> const read_requests{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL> const
         read_request_membership_witnesses{};
     private_inputs.private_call.call_stack_item.public_inputs.read_requests = read_requests;
@@ -475,7 +476,7 @@ TEST_F(native_private_kernel_init_tests, native_no_read_requests_works)
     ASSERT_FALSE(builder.failed());
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 
     // non-transient read requests are NOT forwarded
     ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
@@ -512,7 +513,7 @@ TEST_F(native_private_kernel_init_tests, native_one_read_requests_works)
     ASSERT_FALSE(builder.failed());
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 
     // non-transient read requests are NOT forwarded
     ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
@@ -549,7 +550,7 @@ TEST_F(native_private_kernel_init_tests, native_two_read_requests_works)
     ASSERT_FALSE(builder.failed());
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 
     // non-transient read requests are NOT forwarded
     ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);
@@ -586,7 +587,7 @@ TEST_F(native_private_kernel_init_tests, native_max_read_requests_works)
     ASSERT_FALSE(builder.failed());
 
     // Check the first nullifier is hash of the signed tx request
-    ASSERT_EQ(public_inputs.end.new_nullifiers[0], private_inputs.tx_request.hash());
+    ASSERT_EQ(public_inputs.end.new_nullifiers[0].value, private_inputs.tx_request.hash());
 
     // non-transient read requests are NOT forwarded
     ASSERT_EQ(array_length(public_inputs.end.read_requests), 0);

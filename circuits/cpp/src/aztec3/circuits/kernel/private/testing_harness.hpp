@@ -91,9 +91,9 @@ inline const auto& get_empty_contract_siblings()
  *      transient_read_request_memberships_witnesses,
  *      historic_private_data_tree_root>
  */
-std::tuple<std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+std::tuple<std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
-           std::array<NT::fr, MAX_READ_REQUESTS_PER_CALL>,
+           std::array<abis::SideEffect<NT>, MAX_READ_REQUESTS_PER_CALL>,
            std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_CALL>,
            NT::fr>
 get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, int num_read_requests);

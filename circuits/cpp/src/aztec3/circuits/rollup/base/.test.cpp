@@ -10,6 +10,7 @@
 #include "aztec3/circuits/abis/new_contract_data.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/public_data_read.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/utils.hpp"
 #include "aztec3/circuits/rollup/components/components.hpp"
@@ -260,9 +261,9 @@ TEST_F(base_rollup_tests, native_new_commitments_tree)
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX* 2> new_commitments = { 0, 1, 2, 3, 4, 5, 6, 7 };
     for (uint8_t i = 0; i < 2; i++) {
-        std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> kernel_commitments;
+        std::array<abis::SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> kernel_commitments;
         for (uint8_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
-            kernel_commitments[j] = new_commitments[i * MAX_NEW_COMMITMENTS_PER_TX + j];
+            kernel_commitments[j].value = new_commitments[i * MAX_NEW_COMMITMENTS_PER_TX + j];
         }
         kernel_data[i].public_inputs.end.new_commitments = kernel_commitments;
     }
@@ -375,9 +376,9 @@ void nullifier_insertion_test(std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_
     DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup_tests__nullifier_insertion_test");
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
     for (uint8_t i = 0; i < 2; i++) {
-        std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> kernel_nullifiers;
+        std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> kernel_nullifiers;
         for (uint8_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
-            kernel_nullifiers[j] = new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j];
+            kernel_nullifiers[j].value = new_nullifiers[i * MAX_NEW_NULLIFIERS_PER_TX + j];
         }
         kernel_data[i].public_inputs.end.new_nullifiers = kernel_nullifiers;
     }
@@ -418,10 +419,10 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse_insertions)
 
 TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
 {
-    std::array<fr, 2 * MAX_NEW_NULLIFIERS_PER_TX> nullifiers;
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, 2 * MAX_NEW_NULLIFIERS_PER_TX> nullifiers;
 
     for (size_t i = 0; i < nullifiers.size(); i++) {
-        nullifiers[i] = 2 * MAX_NEW_NULLIFIERS_PER_TX + 5 * i + 1;
+        nullifiers[i].value = 2 * MAX_NEW_NULLIFIERS_PER_TX + 5 * i + 1;
     }
 
     std::vector<fr> initial_values(2 * MAX_NEW_NULLIFIERS_PER_TX - 1);
@@ -433,7 +434,7 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_sparse)
     auto nullifier_tree = get_initial_nullifier_tree(initial_values);
     auto expected_start_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
     for (auto v : nullifiers) {
-        nullifier_tree.update_element(v);
+        nullifier_tree.update_element(v.value);
     }
     auto expected_end_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
 
@@ -481,14 +482,14 @@ TEST_F(base_rollup_tests, native_nullifier_tree_regression)
     initial_values[7] = uint256_t("2bb9aa4a22a6ae7204f2c67abaab59cead6558cde4ee25ce3464704cb2e38136");
     initial_values[8] = uint256_t("16a732095298ccca828c4d747813f8bd46e188079ed17904e2c9de50760833c8");
 
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX* 2> new_nullifiers = { 0 };
-    new_nullifiers[0] = uint256_t("16da4f27fb78de7e0db4c5a04b569bc46382c5f471da2f7d670beff1614e0118"),
-    new_nullifiers[1] = uint256_t("26ab07ce103a55e29f11478eaa36cebd10c4834b143a7debcc7ef53bfdb547dd");
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers{};
+    new_nullifiers[0].value = uint256_t("16da4f27fb78de7e0db4c5a04b569bc46382c5f471da2f7d670beff1614e0118"),
+    new_nullifiers[1].value = uint256_t("26ab07ce103a55e29f11478eaa36cebd10c4834b143a7debcc7ef53bfdb547dd");
 
     auto nullifier_tree = get_initial_nullifier_tree(initial_values);
     auto expected_start_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
     for (auto v : new_nullifiers) {
-        nullifier_tree.update_element(v);
+        nullifier_tree.update_element(v.value);
     }
     auto expected_end_nullifier_tree_snapshot = nullifier_tree.get_snapshot();
 
@@ -550,10 +551,10 @@ TEST_F(base_rollup_tests, native_new_nullifier_tree_double_spend)
 
     fr const nullifier_to_insert =
         2 * MAX_NEW_NULLIFIERS_PER_TX + 4;  // arbitrary value greater than 2 * MAX_NEW_NULLIFIERS_PER_TX
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers{};
+    std::array<abis::SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX * 2> new_nullifiers{};
 
-    new_nullifiers[0] = nullifier_to_insert;
-    new_nullifiers[2] = nullifier_to_insert;
+    new_nullifiers[0].value = nullifier_to_insert;
+    new_nullifiers[2].value = nullifier_to_insert;
 
     std::tuple<BaseRollupInputs, AppendOnlyTreeSnapshot<NT>, AppendOnlyTreeSnapshot<NT>> inputs_and_snapshots =
         test_utils::utils::generate_nullifier_tree_testing_values(empty_inputs, new_nullifiers, 1);
@@ -592,8 +593,8 @@ TEST_F(base_rollup_tests, native_calldata_hash)
     // Commitments inserted are [1,2,3,4,5,6,7,8 ...]. Nullifiers inserted are [8,9,10,11,12,13,14,15 ...]
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
-            kernel_data[i].public_inputs.end.new_commitments[j] = fr(i * MAX_NEW_NULLIFIERS_PER_TX + j + 1);
-            kernel_data[i].public_inputs.end.new_nullifiers[j] = fr((2 + i) * MAX_NEW_NULLIFIERS_PER_TX + j);
+            kernel_data[i].public_inputs.end.new_commitments[j].value = fr(i * MAX_NEW_NULLIFIERS_PER_TX + j + 1);
+            kernel_data[i].public_inputs.end.new_nullifiers[j].value = fr((2 + i) * MAX_NEW_NULLIFIERS_PER_TX + j);
         }
     }
 

@@ -89,6 +89,9 @@ import {
   RollupTypes,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectWithRange,
   TxContext,
   TxRequest,
   VK_TREE_HEIGHT,
@@ -210,13 +213,13 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
 
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_READ_REQUESTS_PER_TX, sideEffectFromNumber, seed + 0x80),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, sideEffectRangeFromNumber, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, sideEffectRangeFromNumber, seed + 0x500),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, sideEffectFromNumber, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
@@ -238,12 +241,12 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
 
   return new FinalAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, sideEffectFromNumber, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, sideEffectLinkedFromNumber, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, sideEffectRangeFromNumber, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, sideEffectRangeFromNumber, seed + 0x500),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, sideEffectFromNumber, seed + 0x600),
     tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
     tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
     fr(seed + 0x900), // encrypted_log_preimages_length
@@ -323,10 +326,10 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x800),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, sideEffectRangeFromNumber, seed + 0x600),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x700),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x800),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, sideEffectFromNumber, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
     makeHistoricBlockData(seed + 0xa00),
@@ -533,7 +536,7 @@ export async function makePublicCallData(seed = 1, full = false): Promise<Public
   const wasm = await CircuitsWasm.get();
   publicCallData.callStackItem.publicInputs.publicCallStack = mapTuple(
     publicCallData.publicCallStackPreimages,
-    preimage => computeCallStackItemHash(wasm!, preimage),
+    preimage => new SideEffectWithRange(computeCallStackItemHash(wasm!, preimage), Fr.zero(), Fr.zero()),
   );
 
   return publicCallData;
@@ -582,7 +585,7 @@ export async function makePublicKernelInputsWithTweak(
   if (tweak) tweak(publicKernelInputs);
   // Set the call stack item for this circuit iteration at the top of the call stack
   const wasm = await CircuitsWasm.get();
-  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1] =
+  publicKernelInputs.previousKernel.publicInputs.end.publicCallStack[MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX - 1].value =
     computeCallStackItemHash(wasm, publicKernelInputs.publicCall.callStackItem);
   return publicKernelInputs;
 }
@@ -655,13 +658,13 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
-    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
-    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
-    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
+    readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, sideEffectFromNumber, seed + 0x300),
+    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, sideEffectFromNumber, seed + 0x400),
+    newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, sideEffectLinkedFromNumber, seed + 0x500),
     nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
-    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
-    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
+    privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, sideEffectRangeFromNumber, seed + 0x600),
+    publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, sideEffectRangeFromNumber, seed + 0x700),
+    newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, sideEffectFromNumber, seed + 0x800),
     encryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0x900),
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
@@ -952,4 +955,31 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
+}
+
+/**
+ * Test only. Easy to identify big endian side-effect serialize.
+ * @param n - The number.
+ * @returns The SideEffect instance.
+ */
+export function sideEffectFromNumber(n: number): SideEffect {
+  return new SideEffect(new Fr(BigInt(n)), Fr.zero());
+}
+
+/**
+ * Test only. Easy to identify big endian side-effect serialize.
+ * @param n - The number.
+ * @returns The SideEffect instance.
+ */
+export function sideEffectRangeFromNumber(n: number): SideEffectWithRange {
+  return new SideEffectWithRange(new Fr(BigInt(n)), Fr.zero(), Fr.zero());
+}
+
+/**
+ * Test only. Easy to identify big endian side-effect serialize.
+ * @param n - The number.
+ * @returns The SideEffect instance.
+ */
+export function sideEffectLinkedFromNumber(n: number): SideEffectLinkedToNoteHash {
+  return new SideEffectLinkedToNoteHash(new Fr(BigInt(n)), Fr.zero(), Fr.zero());
 }

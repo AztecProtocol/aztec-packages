@@ -3,6 +3,7 @@
 #include "optionally_revealed_data.hpp"
 #include "public_data_read.hpp"
 #include "public_data_update_request.hpp"
+#include "side_effects.hpp"
 
 #include "aztec3/circuits/abis/membership_witness.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
@@ -30,17 +31,18 @@ template <typename NCT> struct CombinedAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<SideEffect<NCT>, MAX_READ_REQUESTS_PER_TX> read_requests{};
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NCT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NCT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    // TODO(dbanks12): remove me!
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
     // For pending nullifiers, we have:
     // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
-    std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
-    std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
-    std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
+    std::array<SideEffectWithRange<NCT>, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
+    std::array<SideEffectWithRange<NCT>, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
+    std::array<SideEffect<NCT>, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_msgs{};
 
     std::array<fr, NUM_FIELDS_PER_SHA256> encrypted_logs_hash{};
     std::array<fr, NUM_FIELDS_PER_SHA256> unencrypted_logs_hash{};
@@ -62,6 +64,7 @@ template <typename NCT> struct CombinedAccumulatedData {
                    read_requests,
                    new_commitments,
                    new_nullifiers,
+                   // TODO(dbanks12): remove me!
                    nullified_commitments,
                    private_call_stack,
                    public_call_stack,
@@ -97,15 +100,16 @@ template <typename NCT> struct CombinedAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_ct(read_requests),
+            map(read_requests, to_circuit_type),
 
-            to_ct(new_commitments),
-            to_ct(new_nullifiers),
+            map(new_commitments, to_circuit_type),
+            map(new_nullifiers, to_circuit_type),
+            // TODO(dbanks12): remove me!
             to_ct(nullified_commitments),
 
-            to_ct(private_call_stack),
-            to_ct(public_call_stack),
-            to_ct(new_l2_to_l1_msgs),
+            map(private_call_stack, to_circuit_type),
+            map(public_call_stack, to_circuit_type),
+            map(new_l2_to_l1_msgs, to_circuit_type),
 
             to_ct(encrypted_logs_hash),
             to_ct(unencrypted_logs_hash),
@@ -137,15 +141,16 @@ template <typename NCT> struct CombinedAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_nt(read_requests),
+            map(read_requests, to_native_type),
 
-            to_nt(new_commitments),
-            to_nt(new_nullifiers),
+            map(new_commitments, to_native_type),
+            map(new_nullifiers, to_native_type),
+            // TODO(dbanks12): remove me!
             to_nt(nullified_commitments),
 
-            to_nt(private_call_stack),
-            to_nt(public_call_stack),
-            to_nt(new_l2_to_l1_msgs),
+            map(private_call_stack, to_native_type),
+            map(public_call_stack, to_native_type),
+            map(new_l2_to_l1_msgs, to_native_type),
 
             to_nt(encrypted_logs_hash),
             to_nt(unencrypted_logs_hash),
@@ -171,6 +176,7 @@ template <typename NCT> struct CombinedAccumulatedData {
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
+        // TODO(dbanks12): remove me!
         set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
@@ -190,41 +196,58 @@ template <typename NCT> struct CombinedAccumulatedData {
     {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (T& e : arr) {
-            fr(e).set_public();
-        }
-    }
-
-    template <size_t SIZE> void set_array_public(std::array<OptionallyRevealedData<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
             e.set_public();
         }
     }
 
-    template <size_t SIZE> void set_array_public(std::array<NewContractData<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
-        }
-    }
+    // template <typename T, size_t SIZE> void set_array_public(std::array<T, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (T& e : arr) {
+    //         fr(e).set_public();
+    //     }
+    // }
 
-    template <size_t SIZE> void set_array_public(std::array<PublicDataUpdateRequest<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
-        }
-    }
+    // template <size_t SIZE>
+    // void set_array_public(std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (auto& e : arr) {
+    //         e.set_public();
+    //     }
+    // }
 
-    template <size_t SIZE> void set_array_public(std::array<PublicDataRead<NCT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
-        }
-    }
+    // template <size_t SIZE> void set_array_public(std::array<OptionallyRevealedData<NCT>, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (auto& e : arr) {
+    //         e.set_public();
+    //     }
+    // }
+
+    // template <size_t SIZE> void set_array_public(std::array<NewContractData<NCT>, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (auto& e : arr) {
+    //         e.set_public();
+    //     }
+    // }
+
+    // template <size_t SIZE> void set_array_public(std::array<PublicDataUpdateRequest<NCT>, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (auto& e : arr) {
+    //         e.set_public();
+    //     }
+    // }
+
+    // template <size_t SIZE> void set_array_public(std::array<PublicDataRead<NCT>, SIZE>& arr)
+    //{
+    //     static_assert(!(std::is_same<NativeTypes, NCT>::value));
+    //     for (auto& e : arr) {
+    //         e.set_public();
+    //     }
+    // }
 };
 
 }  // namespace aztec3::circuits::abis

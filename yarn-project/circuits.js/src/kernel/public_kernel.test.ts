@@ -4,6 +4,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_TX,
+  SideEffectWithRange,
   makeTuple,
   simulatePublicKernelCircuit,
 } from '../index.js';
@@ -23,7 +24,10 @@ describe('kernel/public_kernel', () => {
   it('simulates public kernel circuit with previous private kernel', async function () {
     const input = await makePublicKernelInputsWithTweak(1, input => {
       input.previousKernel.publicInputs.isPrivate = true;
-      input.previousKernel.publicInputs.end.privateCallStack = makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero);
+      input.previousKernel.publicInputs.end.privateCallStack = makeTuple(
+        MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
+        SideEffectWithRange.empty,
+      );
     });
     const result = await simulatePublicKernelCircuit(input);
     expect(result).toBeDefined();

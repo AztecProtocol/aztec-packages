@@ -4,6 +4,7 @@
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs_final.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_ordering.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -17,6 +18,8 @@ using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::KernelCircuitPublicInputsFinal;
 using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsOrdering;
 using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_rearrange;
@@ -35,9 +38,9 @@ void initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
 namespace aztec3::circuits::kernel::private_kernel {
 
 void match_reads_to_commitments(DummyCircuitBuilder& builder,
-                                std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
+                                std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_TX> const& read_requests,
                                 std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_commitment_hints,
-                                std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> const& new_commitments)
+                                std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> const& new_commitments)
 {
     // match reads to commitments from the previous call(s)
     for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
@@ -45,10 +48,10 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
         const auto& read_commitment_hint = read_commitment_hints[rr_idx];
         const auto hint_pos = static_cast<size_t>(uint64_t(read_commitment_hint));
 
-        if (read_request != 0) {
+        if (read_request.value != 0) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
             if (hint_pos < MAX_NEW_COMMITMENTS_PER_TX) {
-                match_pos = read_request == new_commitments[hint_pos] ? hint_pos : match_pos;
+                match_pos = read_request.value == new_commitments[hint_pos].value ? hint_pos : match_pos;
             }
 
             builder.do_assert(
@@ -57,7 +60,7 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
                        rr_idx,
                        "]* is transient but does not match any new commitment.",
                        "\n\tread_request: ",
-                       read_request,
+                       read_request.value,
                        "\n\thint_to_commitment: ",
                        read_commitment_hint,
                        "\n\t* the read_request position/index is not expected to match position in app-circuit "
@@ -90,10 +93,10 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
  */
 void match_nullifiers_to_commitments_and_squash(
     DummyCircuitBuilder& builder,
-    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullified_commitments,
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullifier_commitment_hints,
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
     // match nullifiers/nullified_commitments to commitments from the previous call(s)
     for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
@@ -117,8 +120,38 @@ void match_nullifiers_to_commitments_and_squash(
                 // squash both the nullifier and the commitment
                 // (set to 0 here and then rearrange array after loop)
                 important("chopped commitment for siloed inner hash note \n", new_commitments[match_pos]);
-                new_commitments[match_pos] = NT::fr(0);
-                new_nullifiers[n_idx] = NT::fr(0);
+                new_commitments[match_pos] = SideEffect<NT>{ .value = 0, .side_effect_counter = 0 };
+                new_nullifiers[n_idx] =
+                    SideEffectLinkedToNoteHash<NT>{ .value = 0, .note_hash = 0, .side_effect_counter = 0 };
+            } else {
+                // Transient nullifiers MUST match a pending commitment
+                builder.do_assert(false,
+                                  format("OLD new_nullifier at position [",
+                                         n_idx,
+                                         "]* is transient but does not match any new commitment.",
+                                         "\n\tnullifier: ",
+                                         new_nullifiers[n_idx],
+                                         "\n\tnullified_commitment: ",
+                                         nullified_commitments[n_idx]),
+                                  CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
+            }
+        }
+        const auto& nullifier = new_nullifiers[n_idx];
+        if (nullifier.note_hash != NT::fr(0) && nullifier.note_hash != NT::fr(EMPTY_NULLIFIED_COMMITMENT)) {
+            size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
+            // O(n^2) inner loop will be optimized via matching hints
+            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
+                // If there are multiple matches, this picks the last one
+                match_pos = (nullifier.note_hash == new_commitments[c_idx].value) ? c_idx : match_pos;
+            }
+
+            if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
+                // match found!
+                // squash both the nullifier and the commitment
+                // (set to 0 here and then rearrange array after loop)
+                new_commitments[match_pos] = {};
+                new_nullifiers[n_idx] = {};
             } else {
                 // Transient nullifiers MUST match a pending commitment
                 builder.do_assert(false,
@@ -126,9 +159,9 @@ void match_nullifiers_to_commitments_and_squash(
                                          n_idx,
                                          "]* is transient but does not match any new commitment.",
                                          "\n\tnullifier: ",
-                                         new_nullifiers[n_idx],
+                                         nullifier.value,
                                          "\n\tnullified_commitment: ",
-                                         nullified_commitments[n_idx]),
+                                         nullifier.note_hash),
                                   CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_NEW_NULLIFIER_NO_MATCH);
             }
         }
@@ -141,14 +174,14 @@ void match_nullifiers_to_commitments_and_squash(
 }
 
 void apply_commitment_nonces(NT::fr const& first_nullifier,
-                             std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
+                             std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
         // Apply nonce to all non-zero/non-empty commitments
         // Nonce is the hash of the first (0th) nullifier and the commitment's index into new_commitments array
         const auto nonce = compute_commitment_nonce<NT>(first_nullifier, c_idx);
-        new_commitments[c_idx] =
-            new_commitments[c_idx] == 0 ? 0 : compute_unique_commitment<NT>(nonce, new_commitments[c_idx]);
+        new_commitments[c_idx].value =
+            new_commitments[c_idx].value == 0 ? 0 : compute_unique_commitment<NT>(nonce, new_commitments[c_idx].value);
     }
 }
 
@@ -186,7 +219,7 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
                                                public_inputs.end.new_commitments);
 
     // tx hash
-    const auto& first_nullifier = private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0];
+    const auto& first_nullifier = private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0].value;
     apply_commitment_nonces(first_nullifier, public_inputs.end.new_commitments);
 
     return public_inputs;

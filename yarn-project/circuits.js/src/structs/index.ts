@@ -30,6 +30,7 @@ export * from './membership_witness.js';
 export * from './read_request_membership_witness.js';
 export * from './public_call_request.js';
 export * from '@aztec/foundation/eth-address';
+export * from './side_effects.js';
 
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/aztec-address';

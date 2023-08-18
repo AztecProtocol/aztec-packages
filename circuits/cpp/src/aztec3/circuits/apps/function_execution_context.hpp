@@ -8,11 +8,14 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/abis/types.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
+#include "aztec3/utils/array.hpp"
 #include "aztec3/utils/types/convert.hpp"
 
+#include "barretenberg/common/map.hpp"
 #include <barretenberg/barretenberg.hpp>
 
 namespace aztec3::circuits::apps {
@@ -22,6 +25,8 @@ using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::OptionalPrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
 using aztec3::circuits::abis::PrivateTypes;
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
 
 using aztec3::circuits::apps::notes::NoteInterface;
 using aztec3::circuits::apps::opcodes::Opcodes;
@@ -246,7 +251,12 @@ template <typename Builder> class FunctionExecutionContext {
 
         auto call_stack_item_hash = f_call_stack_item_ct.hash();
 
-        array_push<Builder>(private_circuit_public_inputs.private_call_stack, call_stack_item_hash);
+        // TODO(suyash): Counters are set to 0 for now.
+        auto call_stack_item_se = abis::SideEffectWithRange<CT>{ .value = call_stack_item_hash,
+                                                                 .start_side_effect_counter = 0,
+                                                                 .end_side_effect_counter = 0 };
+
+        utils::aztec_circuit_array_push<Builder>(private_circuit_public_inputs.private_call_stack, call_stack_item_se);
 
         // The return values are implicitly constrained by being returned as circuit types from this method, for
         // further use in the circuit. Note: ALL elements of the return_values array MUST be constrained, even if
@@ -322,8 +332,12 @@ template <typename Builder> class FunctionExecutionContext {
     void finalise()
     {
         finalise_utxos();
-        private_circuit_public_inputs.set_commitments(new_commitments);
-        private_circuit_public_inputs.set_nullifiers(new_nullifiers);
+        auto to_se_arr = [&](auto& val) { return SideEffect<CT>{ val, 0 }; };
+        auto to_se_linked_arr = [&](auto& val) { return SideEffectLinkedToNoteHash<CT>{ val, 0, 0 }; };
+
+        private_circuit_public_inputs.set_commitments(map(new_commitments, to_se_arr));
+        private_circuit_public_inputs.set_nullifiers(map(new_nullifiers, to_se_linked_arr));
+        // TODO(dbanks12): remove me!
         private_circuit_public_inputs.set_nullified_commitments(nullified_commitments);
         private_circuit_public_inputs.set_public(builder);
         final_private_circuit_public_inputs =

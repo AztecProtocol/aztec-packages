@@ -111,6 +111,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
     // 2 contract deployments (1 per kernel) -> 6 fields
     // 2 encrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
     // 2 unencrypted logs hashes (1 per kernel) -> 4 fields --> 2 sha256 hashes --> 64 bytes
+    // TODO(dbanks12): should this hash include side effect counters?
     auto const number_of_inputs =
         (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
          MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 +
@@ -130,12 +131,12 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
         size_t offset = 0;
 
         for (size_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
-            calldata_hash_inputs[offset + i * MAX_NEW_COMMITMENTS_PER_TX + j] = new_commitments[j];
+            calldata_hash_inputs[offset + i * MAX_NEW_COMMITMENTS_PER_TX + j] = new_commitments[j].value;
         }
         offset += MAX_NEW_COMMITMENTS_PER_TX * 2;
 
         for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
-            calldata_hash_inputs[offset + i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers[j];
+            calldata_hash_inputs[offset + i * MAX_NEW_NULLIFIERS_PER_TX + j] = new_nullifiers[j].value;
         }
         offset += MAX_NEW_NULLIFIERS_PER_TX * 2;
 
@@ -148,7 +149,7 @@ std::array<fr, NUM_FIELDS_PER_SHA256> compute_kernels_calldata_hash(
         offset += MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 * 2;
 
         for (size_t j = 0; j < MAX_NEW_L2_TO_L1_MSGS_PER_TX; j++) {
-            calldata_hash_inputs[offset + i * MAX_NEW_L2_TO_L1_MSGS_PER_TX + j] = newL2ToL1msgs[j];
+            calldata_hash_inputs[offset + i * MAX_NEW_L2_TO_L1_MSGS_PER_TX + j] = newL2ToL1msgs[j].value;
         }
         offset += MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
 

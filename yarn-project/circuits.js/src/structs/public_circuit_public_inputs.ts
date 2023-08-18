@@ -15,7 +15,7 @@ import {
 import { FieldsOf, makeTuple } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { CallContext } from './call_context.js';
-import { HistoricBlockData } from './index.js';
+import { HistoricBlockData, SideEffect, SideEffectLinkedToNoteHash, SideEffectWithRange } from './index.js';
 
 /**
  * Contract storage read operation on a specific contract.
@@ -175,19 +175,19 @@ export class PublicCircuitPublicInputs {
     /**
      * Public call stack of the current kernel iteration.
      */
-    public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
+    public publicCallStack: Tuple<SideEffectWithRange, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * New commitments created within a public execution call
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newCommitments: Tuple<SideEffect, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
-    public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public newNullifiers: Tuple<SideEffectLinkedToNoteHash, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * New L2 to L1 messages generated during the call.
      */
-    public newL2ToL1Msgs: Tuple<Fr, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
+    public newL2ToL1Msgs: Tuple<SideEffect, typeof MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
     /**
      * Hash of the unencrypted logs emitted in this function call.
      * Note: Represented as an array of 2 fields in order to fit in all of the 256 bits of sha256 hash.
@@ -227,10 +227,10 @@ export class PublicCircuitPublicInputs {
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
-      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
+      makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, SideEffectWithRange.empty),
+      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, SideEffect.empty),
+      makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, SideEffectLinkedToNoteHash.empty),
+      makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, SideEffect.empty),
       makeTuple(2, Fr.zero),
       Fr.ZERO,
       HistoricBlockData.empty(),
@@ -240,16 +240,20 @@ export class PublicCircuitPublicInputs {
 
   isEmpty() {
     const isFrArrayEmpty = (arr: Fr[]) => isArrayEmpty(arr, item => item.isZero());
+    const isSideEffectArrayEmpty = (arr: SideEffect[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isSideEffectRangeArrayEmpty = (arr: SideEffectWithRange[]) => isArrayEmpty(arr, item => item.isEmpty());
+    const isSideEffectLinkedArrayEmpty = (arr: SideEffectLinkedToNoteHash[]) =>
+      isArrayEmpty(arr, item => item.isEmpty());
     return (
       this.callContext.isEmpty() &&
       this.argsHash.isZero() &&
       isFrArrayEmpty(this.returnValues) &&
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
-      isFrArrayEmpty(this.publicCallStack) &&
-      isFrArrayEmpty(this.newCommitments) &&
-      isFrArrayEmpty(this.newNullifiers) &&
-      isFrArrayEmpty(this.newL2ToL1Msgs) &&
+      isSideEffectRangeArrayEmpty(this.publicCallStack) &&
+      isSideEffectArrayEmpty(this.newCommitments) &&
+      isSideEffectLinkedArrayEmpty(this.newNullifiers) &&
+      isSideEffectArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
       this.unencryptedLogPreimagesLength.isZero() &&
       this.historicBlockData.isEmpty() &&

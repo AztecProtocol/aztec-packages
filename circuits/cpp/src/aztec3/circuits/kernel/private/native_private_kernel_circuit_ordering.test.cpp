@@ -1,5 +1,6 @@
 #include "testing_harness.hpp"
 
+#include "aztec3/circuits/abis/side_effects.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
 #include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/constants.hpp"
@@ -18,6 +19,9 @@ namespace aztec3::circuits::kernel::private_kernel {
 
 using aztec3::circuits::apps::test_apps::escrow::deposit;
 
+using aztec3::circuits::abis::SideEffect;
+using aztec3::circuits::abis::SideEffectLinkedToNoteHash;
+using aztec3::circuits::abis::SideEffectWithRange;
 using aztec3::circuits::kernel::private_kernel::testing_harness::do_private_call_get_kernel_inputs_inner;
 using aztec3::utils::array_length;
 using aztec3::utils::CircuitErrorCode;
@@ -81,23 +85,23 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> unique_siloed_commitments{};
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
 
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
-    new_nullifiers[0] = NT::fr::random_element();
-    siloed_commitments[0] = NT::fr::random_element();  // create random commitment
+    new_nullifiers[0].value = NT::fr::random_element();
+    siloed_commitments[0].value = NT::fr::random_element();  // create random commitment
     // ordering circuit applies nonces to commitments
-    const auto nonce = compute_commitment_nonce<NT>(new_nullifiers[0], 0);
+    const auto nonce = compute_commitment_nonce<NT>(new_nullifiers[0].value, 0);
     unique_siloed_commitments[0] =
-        siloed_commitments[0] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[0]);
+        siloed_commitments[0].value == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[0].value);
 
-    read_requests[0] = siloed_commitments[0];
+    read_requests[0].value = siloed_commitments[0].value;
     // hints[0] == fr(0) due to the default initialization of hints
     read_request_membership_witnesses[0].is_transient = true;
 
@@ -115,32 +119,33 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure();
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
-    ASSERT_TRUE(public_inputs.end.new_commitments[0] == unique_siloed_commitments[0]);
+    ASSERT_TRUE(public_inputs.end.new_commitments[0].value == unique_siloed_commitments[0]);
 }
 
 TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_to_commitments_works)
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> unique_siloed_commitments{};
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
 
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
-    new_nullifiers[0] = NT::fr::random_element();
-    const auto& first_nullifier = new_nullifiers[0];
+    new_nullifiers[0].value = NT::fr::random_element();
+    const auto& first_nullifier = new_nullifiers[0].value;
     // create random commitments to input to ordering circuit, and compute their "unique" versions
     // to be expected at the output
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-        siloed_commitments[c_idx] = NT::fr::random_element();  // create random commitment
+        siloed_commitments[c_idx].value = NT::fr::random_element();  // create random commitment
         // ordering circuit applies nonces to commitments
         const auto nonce = compute_commitment_nonce<NT>(first_nullifier, c_idx);
-        unique_siloed_commitments[c_idx] =
-            siloed_commitments[c_idx] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[c_idx]);
+        unique_siloed_commitments[c_idx] = siloed_commitments[c_idx].value == 0
+                                               ? 0
+                                               : compute_unique_commitment<NT>(nonce, siloed_commitments[c_idx].value);
     }
 
     read_requests[0] = siloed_commitments[1];
@@ -166,7 +171,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == MAX_NEW_COMMITMENTS_PER_TX);
     // ensure that commitments had nonce applied properly and all appear at output
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-        ASSERT_TRUE(public_inputs.end.new_commitments[c_idx] == unique_siloed_commitments[c_idx]);
+        ASSERT_TRUE(public_inputs.end.new_commitments[c_idx].value == unique_siloed_commitments[c_idx]);
     }
 }
 
@@ -174,19 +179,19 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
+    std::array<SideEffect<NT>, MAX_READ_REQUESTS_PER_TX> read_requests{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-        siloed_commitments[c_idx] = NT::fr::random_element();          // create random commitment
+        siloed_commitments[c_idx].value = NT::fr::random_element();    // create random commitment
         read_requests[c_idx] = siloed_commitments[c_idx];              // create random read requests
         hints[c_idx] = fr(c_idx);                                      // ^ will match each other!
         read_request_membership_witnesses[c_idx].is_transient = true;  // ordering circuit only allows transient reads
     }
-    read_requests[3] = NT::fr::random_element();  // force one read request not to match
+    read_requests[3].value = NT::fr::random_element();  // force one read request not to match
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
 
@@ -206,14 +211,14 @@ TEST_F(native_private_kernel_ordering_tests, native_squash_one_of_one_transient_
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
     const auto commitment0 = fr(213);
-    new_commitments[0] = commitment0;
+    new_commitments[0].value = commitment0;
 
-    new_nullifiers[0] = fr(32);
+    new_nullifiers[0].value = fr(32);
     nullifier_commitments[0] = commitment0;
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
@@ -239,15 +244,15 @@ TEST_F(native_private_kernel_ordering_tests, native_squash_one_of_two_transient_
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
     const auto commitment1 = fr(213);
-    new_commitments[0] = fr(763);
-    new_commitments[1] = commitment1;
+    new_commitments[0].value = fr(763);
+    new_commitments[1].value = commitment1;
 
-    new_nullifiers[0] = fr(32);
+    new_nullifiers[0].value = fr(32);
     nullifier_commitments[0] = commitment1;
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
@@ -273,17 +278,17 @@ TEST_F(native_private_kernel_ordering_tests, native_squash_two_of_two_transient_
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
     const auto commitment0 = fr(763);
     const auto commitment1 = fr(213);
-    new_commitments[0] = commitment0;
-    new_commitments[1] = commitment1;
+    new_commitments[0].value = commitment0;
+    new_commitments[1].value = commitment1;
 
-    new_nullifiers[0] = fr(32);
-    new_nullifiers[1] = fr(43);
+    new_nullifiers[0].value = fr(32);
+    new_nullifiers[1].value = fr(43);
     nullifier_commitments[0] = commitment1;
     nullifier_commitments[1] = commitment0;
 
@@ -310,13 +315,13 @@ TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_m
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
-    new_commitments[0] = fr(213);
+    new_commitments[0].value = fr(213);
 
-    new_nullifiers[0] = fr(32);
+    new_nullifiers[0].value = fr(32);
     nullifier_commitments[0] = fr(EMPTY_NULLIFIED_COMMITMENT);
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
@@ -342,11 +347,11 @@ TEST_F(native_private_kernel_ordering_tests, native_empty_nullified_commitment_m
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<SideEffect<NT>, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<SideEffectLinkedToNoteHash<NT>, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitments{};
 
-    new_nullifiers[0] = fr(32);
+    new_nullifiers[0].value = fr(32);
     nullifier_commitments[0] = fr(EMPTY_NULLIFIED_COMMITMENT);
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
