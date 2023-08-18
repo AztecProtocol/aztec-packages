@@ -274,7 +274,7 @@ program
 program
   .command('write_vk')
   .description('Output verification key.')
-  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.json')
+  .option('-j, --json-path <path>', 'Specify the JSON path', './target/main.bytecode')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ jsonPath, outputPath, crsPath }) => {
     handleGlobalOptions();
