@@ -3,7 +3,7 @@ use dep::aztec::types::option::Option;
 
 use crate::address_note::AddressNote;
 
-fn get_owner_note(
+fn filter_by_owner_and_address(
     notes: [Option<AddressNote>; MAX_READ_REQUESTS_PER_CALL],
     params: [Field; 2],
 ) -> [Option<AddressNote>; 1] {

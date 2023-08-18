@@ -22,7 +22,7 @@ contract Escrow {
         AddressNote,
         AddressNoteMethods,
         ADDRESS_NOTE_LEN,
-        filter::get_owner_note,
+        filter::filter_by_owner_and_address,
     };
 
     use crate::storage::Storage;
@@ -62,11 +62,12 @@ contract Escrow {
         let storage = Storage::init();
         
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
-        let options = NoteGetterOptions::with_filter(get_owner_note, [sender, this]);
+        let options = NoteGetterOptions::with_filter(filter_by_owner_and_address, [sender, this]);
         let notes = storage.owners.get_notes(&mut context, options);
+        let note = notes[0].unwrap_unchecked();
         // Filter is not constrained. We still need to check if the note is what we expected.
-        assert(notes[0].unwrap().address == sender);
-        assert(notes[0].unwrap().owner == this);
+        assert(note.address == sender);
+        assert(note.owner == this);
 
         // TODO: Can we dynamically get this selector?
         let transfer_selector = 0xdcd4c318;
