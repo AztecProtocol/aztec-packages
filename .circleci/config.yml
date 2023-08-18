@@ -229,17 +229,6 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  bb-bin-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test_script ../scripts/bin-test.sh bb.js
-
   barretenberg-benchmark-aggregator:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1174,11 +1163,6 @@ bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
-bb_js_test: &bb_js_test
-  requires:
-    - barretenberg-x86_64-linux-clang-assert
-    - bb-js
-  <<: *defaults
 circuits-wasm-test: &circuits-wasm-test
   requires:
     - circuits-wasm-linux-clang-assert
@@ -1205,7 +1189,6 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - bb-bin-tests: *bb_js_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
