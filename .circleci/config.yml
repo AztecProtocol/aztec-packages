@@ -238,7 +238,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/bin-test.sh bb-bin-tests
+          command: cond_spot_run_test_script ./scripts/bin-test.sh bb.js
 
   barretenberg-benchmark-aggregator:
     docker:
@@ -1174,6 +1174,11 @@ bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
+bb_js_test: &bb_js_test
+  requires:
+    - barretenberg-x86_64-linux-clang-assert
+    - bb-js
+  <<: *defaults
 circuits-wasm-test: &circuits-wasm-test
   requires:
     - circuits-wasm-linux-clang-assert
@@ -1200,7 +1205,7 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - bb-bin-tests: *bb_test
+      - bb-bin-tests: *bb_js_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
