@@ -11,6 +11,7 @@ import {
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { computeBlockHash } from '@aztec/circuits.js/abis';
+import { Committable } from '@aztec/foundation/committable';
 import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { IWasmModule } from '@aztec/foundation/wasm';
@@ -41,15 +42,13 @@ import {
   PublicTreeId,
   TreeInfo,
 } from './index.js';
-import { Committable } from '@aztec/foundation/committable';
-
 
 /**
  * A convenience class for managing multiple merkle trees.
  */
 export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
-  
+
   // TODO: make this field committable
   private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
@@ -116,7 +115,7 @@ export class MerkleTrees implements MerkleTreeDb {
     const initialGlobalVariablesHash = await computeGlobalVariablesHash(GlobalVariables.empty());
     this.latestGlobalVariablesHash.set(initialGlobalVariablesHash);
     await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
-    
+
     // TODO: maybe make this async and awaitable
     this.latestGlobalVariablesHash.commit();
     await historicBlocksTree.commit();
@@ -200,7 +199,7 @@ export class MerkleTrees implements MerkleTreeDb {
    */
   public getTreeRoots(includeUncommitted: boolean): CurrentTreeRoots {
     // TODO: Make this use the synchronise operation
-  // public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
+    // public async getTreeRoots(includeUncommitted: boolean): Promise<CurrentTreeRoots> {
     // const roots = await this.synchronise(() => Promise.resolve(this._getAllTreeRoots(includeUncommitted)));
     const roots = this._getAllTreeRoots(includeUncommitted);
 
@@ -219,9 +218,6 @@ export class MerkleTrees implements MerkleTreeDb {
     const wasm = await CircuitsWasm.get();
     return computeBlockHash(wasm, globalsHash, roots[0], roots[1], roots[2], roots[3], roots[4]);
   }
-
-  
-
 
   private _getAllTreeRoots(includeUncommitted: boolean): Buffer[] {
     return [

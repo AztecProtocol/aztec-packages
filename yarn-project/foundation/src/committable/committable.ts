@@ -1,4 +1,3 @@
-
 /**
  * A class that allows for a value to be committed or rolled back.
  */
@@ -15,7 +14,7 @@ export class Committable<T> {
    */
   public commit() {
     if (this.nextValue === undefined) {
-      return
+      return;
     }
     this.currentValue = this.nextValue;
     this.nextValue = undefined;
@@ -25,7 +24,7 @@ export class Committable<T> {
    * Rolls back the uncommitted value.
    */
   public rollback() {
-    this.nextValue === undefined
+    this.nextValue === undefined;
   }
 
   /**

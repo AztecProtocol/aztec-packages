@@ -1,1 +1,1 @@
-export * from "./committable.js";
+export * from './committable.js';
