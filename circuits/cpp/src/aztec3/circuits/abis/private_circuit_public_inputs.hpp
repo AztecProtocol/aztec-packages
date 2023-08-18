@@ -271,30 +271,39 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    unencrypted_log_preimages_length,
                    historic_block_data,
                    contract_deployment_data,
-                   std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
+                   chain_id,
+                   version);
 
-                   std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
+    OptionalPrivateCircuitPublicInputs<NCT>() = default;
 
-                   std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
-                   std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
-                   std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& nullified_commitments,
+    OptionalPrivateCircuitPublicInputs<NCT>(
+        std::optional<CallContext<NCT>> const& call_context,
 
-                   std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
-                   std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
-                   std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_l2_to_l1_msgs,
+        opt_fr const& args_hash,
+        std::array<opt_fr, RETURN_VALUES_LENGTH> const& return_values,
 
-                   std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
-                   std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
+        std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
 
-                   opt_fr const& encrypted_log_preimages_length,
-                   opt_fr const& unencrypted_log_preimages_length,
+        std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
+        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
+        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& nullified_commitments,
 
-                   std::optional<HistoricBlockData<NCT>> const& historic_block_data,
+        std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
+        std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
+        std::array<opt_fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const& new_l2_to_l1_msgs,
 
-                   std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data,
+        std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& encrypted_logs_hash,
+        std::array<opt_fr, NUM_FIELDS_PER_SHA256> const& unencrypted_logs_hash,
 
-                   opt_fr const& chain_id,
-                   opt_fr const& version)
+        opt_fr const& encrypted_log_preimages_length,
+        opt_fr const& unencrypted_log_preimages_length,
+
+        std::optional<HistoricBlockData<NCT>> const& historic_block_data,
+
+        std::optional<ContractDeploymentData<NCT>> const& contract_deployment_data,
+
+        opt_fr const& chain_id,
+        opt_fr const& version)
         : call_context(call_context)
         , args_hash(args_hash)
         , return_values(return_values)
