@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -8,7 +8,6 @@ import { LendingContract, PriceFeedContract } from '@aztec/noir-contracts/types'
 import { NativeTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { CheatCodes } from './fixtures/cheat_codes.js';
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_lending_contract', () => {
@@ -28,7 +27,7 @@ describe('e2e_lending_contract', () => {
     let priceFeedContract: PriceFeedContract;
 
     let collateralAsset: NativeTokenContract;
-    let debtAsset: NativeTokenContract;
+    let stableCoin: NativeTokenContract;
 
     {
       logger(`Deploying price feed contract...`);
@@ -61,7 +60,7 @@ describe('e2e_lending_contract', () => {
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Debt asset deployed to ${receipt.contractAddress}`);
-      debtAsset = await NativeTokenContract.at(receipt.contractAddress!, wallet);
+      stableCoin = await NativeTokenContract.at(receipt.contractAddress!, wallet);
     }
 
     {
@@ -74,7 +73,7 @@ describe('e2e_lending_contract', () => {
       logger(`CDP deployed at ${receipt.contractAddress}`);
       lendingContract = await LendingContract.at(receipt.contractAddress!, wallet);
     }
-    return { priceFeedContract, lendingContract, collateralAsset, debtAsset };
+    return { priceFeedContract, lendingContract, collateralAsset, stableCoin };
   };
 
   beforeEach(async () => {
@@ -233,9 +232,7 @@ describe('e2e_lending_contract', () => {
       );
 
       const totalCollateral = Object.values(this.collateral).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
-      // @todo @lherskind Perform this check when proper token transfers are in place
-      // expect(storage['total_collateral']).toEqual(totalCollateral);
-      console.log(`Total collateral: ${totalCollateral.toString()}`);
+      expect(storage['total_collateral']).toEqual(totalCollateral);
     };
   }
 
@@ -243,7 +240,7 @@ describe('e2e_lending_contract', () => {
     const recipientIdx = 0;
 
     const recipient = accounts[recipientIdx].address;
-    const { lendingContract, priceFeedContract, collateralAsset, debtAsset } = await deployContract(recipient);
+    const { lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContract(recipient);
 
     const account = new Account(recipient, new Fr(42));
 
@@ -264,6 +261,16 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
+
+      const tx2 = collateralAsset.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
+      await tx2.isMined({ interval: 0.1 });
+      const receipt2 = await tx2.getReceipt();
+      expect(receipt2.status).toBe(TxStatus.MINED);
+
+      const tx3 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
+      await tx3.isMined({ interval: 0.1 });
+      const receipt3 = await tx3.getReceipt();
+      expect(receipt3.status).toBe(TxStatus.MINED);
     }
 
     const rate = 1268391679n;
@@ -274,7 +281,7 @@ describe('e2e_lending_contract', () => {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
       logger('Initializing contract');
       const tx = lendingContract.methods
-        .init(priceFeedContract.address, 8000, collateralAsset.address, debtAsset.address)
+        .init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address)
         .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -361,7 +368,7 @@ describe('e2e_lending_contract', () => {
         aztecRpcServer,
         account,
       );
-
+      console.log(await collateralAsset.methods.publicAllowance(recipient, lendingContract.address).view());
       guy.check(storageSnapshots['public_deposit']);
     }
 
@@ -500,7 +507,7 @@ describe('e2e_lending_contract', () => {
     {
       // Withdraw more than possible to test the revert.
       logger('Withdraw: trying to withdraw more than possible');
-      const tx = lendingContract.methods.withdraw_public(10n ** 9n).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_public(recipient, 10n ** 9n).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
@@ -518,7 +525,7 @@ describe('e2e_lending_contract', () => {
       // - decrease the public collateral.
 
       logger('Withdraw: 🏦 -> 💰');
-      const tx = lendingContract.methods.withdraw_public(withdrawAmount).send({ origin: recipient });
+      const tx = lendingContract.methods.withdraw_public(recipient, withdrawAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -544,7 +551,9 @@ describe('e2e_lending_contract', () => {
       // - decrease the private collateral.
 
       logger('Withdraw 🥸 : 🏦 -> 💰');
-      const tx = lendingContract.methods.withdraw_private(account.secret, withdrawAmount).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .withdraw_private(account.secret, account.address, withdrawAmount)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);

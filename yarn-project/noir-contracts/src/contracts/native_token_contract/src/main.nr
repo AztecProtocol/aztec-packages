@@ -53,6 +53,7 @@ contract NativeToken {
     // oracles
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
+        debug_log::{debug_log_format, debug_log_field},
     };
 
     // public messaging
@@ -254,22 +255,73 @@ contract NativeToken {
         context.finish()
     }
 
+    open fn approve(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PublicContextInputs,
+        //*********************************/
+        spender: Field,
+        allowance: Field,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([spender, allowance]));
+
+        let storage = Storage::init();
+        storage.public_allowances.at(context.msg_sender()).at(spender).write(allowance);
+
+        context.finish()
+    }
+
     // uint256(keccak256("transfer_pub(field,field)")) >> 224 -> 1012824788
     open fn transfer_pub(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
         //*********************************/
-        amount: Field,
         to: Field,
+        amount: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, to]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([to, amount]));
 
         let storage = Storage::init();
 
         // Decrease user's balance.
         let sender = context.msg_sender();
         let sender_balance = storage.public_balances.at(sender);
+        let current_sender_balance: Field = sender_balance.read();
+        assert(current_sender_balance as u120 >= amount as u120);
+
+        let to_balance = storage.public_balances.at(to);
+        let current_to_balance: Field = to_balance.read();
+
+        // User has sufficient balance so we decrement it by `amount`
+        sender_balance.write(current_sender_balance - amount);
+        to_balance.write(current_to_balance + amount);
+
+        context.finish()
+    }
+
+    // uint256(keccak256("transfer_from_pub(field,field,field)")) >> 224 -> 1602017294
+    open fn transfer_from_pub(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PublicContextInputs,
+        //*********************************/
+        from: Field,
+        to: Field,
+        amount: Field,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([from, to ,amount]));
+
+        let storage = Storage::init();
+
+        // Decrease allowance
+        let allowance = storage.public_allowances.at(from).at(to);
+        let current_allowance: Field = allowance.read();
+        assert(current_allowance as u120 >= amount as u120);
+        allowance.write(current_allowance - amount);
+
+        // Decrease user's balance.
+        let sender_balance = storage.public_balances.at(from);
         let current_sender_balance: Field = sender_balance.read();
         assert(current_sender_balance as u120 >= amount as u120);
 
@@ -454,5 +506,13 @@ contract NativeToken {
     ) -> Field {
         let storage = Storage::init();
         storage.public_balances.at(owner).read()
+    }
+
+    unconstrained fn publicAllowance(
+        owner: Field,
+        spender: Field,
+    ) -> Field {
+        let storage = Storage::init();
+        storage.public_allowances.at(owner).at(spender).read()
     }
 }

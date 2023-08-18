@@ -41,9 +41,9 @@ contract Lending {
         oracle_address: Field,
         loan_to_value: Field,
         collateral_asset: Field,
-        debt_asset: Field,
+        stable_coin: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value, collateral_asset, debt_asset]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value, collateral_asset, stable_coin]));
 
         let storage = Storage::init();
 
@@ -61,8 +61,9 @@ contract Lending {
             loan_to_value: loan_to_value as u120,
             oracle_address,
         });
+
         storage.collateral_asset.write(collateral_asset);
-        storage.debt_asset.write(debt_asset);
+        storage.stable_coin.write(stable_coin);
 
         context.return_values.push(1);
         context.finish()
@@ -143,7 +144,8 @@ contract Lending {
         collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
-        // @todo @LHerskind transfer collateral_asset to self. Need approvals.
+
+        let _transfer_return_values = context.call_public_function(collateral_asset, 1602017294, [context.msg_sender(), context.this_address(), amount]);
 
         let return_values = context.call_public_function(context.this_address(), 139488848, [owner, amount, collateral_asset]);
 
@@ -165,9 +167,8 @@ contract Lending {
 
         let storage = Storage::init();
 
-        // @todo @lherskind check that correct asset is used.
-        // let coll_asset = storage.collateral_asset.read();
-        // assert(coll_asset == collateral_asset);
+        let coll_asset = storage.collateral_asset.read();
+        assert(coll_asset == collateral_asset);
 
         let coll_loc = storage.collateral.at(owner);
         let collateral = coll_loc.read();
@@ -180,10 +181,12 @@ contract Lending {
     fn withdraw_private(
         inputs: PrivateContextInputs,
         secret: Field,
+        to: Field,
         amount: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
+            to,
             amount
         ]));
 
@@ -191,8 +194,8 @@ contract Lending {
         let account = Account::new(me, secret).key();
         let _callStackItem = context.call_public_function(
             context.this_address(), 
-            1065861440,
-            [account, amount]
+            1526134324,
+            [account, to, amount]
         );
 
         context.finish()
@@ -200,27 +203,28 @@ contract Lending {
 
     open fn withdraw_public(
         inputs: PublicContextInputs,
-        amount: Field
+        to: Field,
+        amount: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
-        // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
-    
-        let return_values = context.call_public_function(context.this_address(), 1065861440, [context.msg_sender(), amount]);
+        let mut context = PublicContext::new(inputs, abi::hash_args([to, amount]));
+
+        // _withdraw(msg.sender, to, amount);
+        let return_values = context.call_public_function(context.this_address(), 1526134324, [context.msg_sender(), to, amount]);
 
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
-     open internal fn _withdraw(
+    // uint256(keccak256("_withdraw(field,field,field)")) >> 224 -> 1526134324
+    open internal fn _withdraw(
         inputs: PublicContextInputs,
         owner: Field,
-        // recipient: Field,
+        recipient: Field,
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, recipient, amount]));
 
-        // Updating accumulator etc.
-        // keccak256("update_tot()") -> 0x4b10839b -> 1259373467
+        // update_tot();
         let return_values = context.call_public_function_no_args(context.this_address(), 1259373467);
         let interest_accumulator = return_values[0] as u120;
         let loan_to_value = return_values[2] as u120;
@@ -249,7 +253,10 @@ contract Lending {
 
         coll_loc.write(collateral - amount);
 
-        // Transfer tokens to recipient (could be with shielding or without, for now, can't to either).
+        // @todo @LHerskind Support both shielding and transfers (for now just transfer)
+        let collateral_asset = storage.collateral_asset.read();
+        let _transfer_return_values = context.call_public_function(collateral_asset, 1012824788, [recipient, amount]);
+
         context.return_values.push(1);
         context.finish()
     }
@@ -319,8 +326,6 @@ contract Lending {
 
         // static_debt[owner] = debt_returns.static_debt;
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
-
-        // @todo @LHerskind Transferring funds to the recipient.
 
         context.return_values.push(1);
         context.finish()
@@ -414,5 +419,10 @@ contract Lending {
         let asset = storage.assets.at(0).read();
         let debt = debt_value(static_debt as u120, asset.interest_accumulator as u120) as Field;
         Pos {collateral, static_debt, debt}
+    }
+
+    unconstrained fn get_assets() -> [Field; 2] {
+        let storage = Storage::init();
+        [storage.collateral_asset.read(), storage.stable_coin.read()]
     }
 }
