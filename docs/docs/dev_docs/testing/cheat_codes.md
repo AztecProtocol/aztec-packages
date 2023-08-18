@@ -24,7 +24,7 @@ For this guide, the following Aztec packages are used:
 - @aztec/aztec.js
 
 ### Initialisation
-```js
+```ts
 import { createAztecRpcClient, CheatCodes } from '@aztec/aztec.js';
 const aztecRpcUrl = 'http://localhost:8080';
 const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
@@ -37,7 +37,7 @@ There are two properties of the CheatCodes class - `eth` and `aztec` for cheatco
 These are cheatcodes exposed from anvil/hardhat conveniently wrapped for ease of use in the Sandbox.
 
 ### Interface
-```
+```ts
 // Fetch current block number of Ethereum
 public async blockNumber(): Promise<number> 
 
@@ -84,7 +84,7 @@ public async getBytecode(contract: EthAddress): Promise<`0x${string}`>
 ### blockNumber
 
 #### Function Signature 
-```js
+```ts
 public async blockNumber(): Promise<number>
 ```
 
@@ -92,14 +92,14 @@ public async blockNumber(): Promise<number>
 Fetches the current Ethereum block number.
 
 #### Example
-```js
+```ts
 const blockNumber = await cc.eth.blockNumber()
 ```
 
 ### chainId
 
 #### Function Signature 
-```js
+```ts
 public async chainId(): Promise<number>  
 ```
 
@@ -107,14 +107,14 @@ public async chainId(): Promise<number>
 Fetches the Ethereum chain ID
 
 #### Example 
-```js
+```ts
 const chainId = await cc.eth.chainId()
 ```
 
 ### timestamp
 
 #### Function Signature
-```js
+```ts
 public async timestamp(): Promise<number> 
 ```
 
@@ -122,14 +122,14 @@ public async timestamp(): Promise<number>
 Fetches the current Ethereum timestamp.
 
 #### Example
-```js 
+```ts 
 const timestamp = await cc.eth.timestamp()
 ```
 
 ### mine
 
 #### Function Signature
-```js
+```ts
 public async mine(numberOfBlocks = 1): Promise<void> 
 ```
 
@@ -137,7 +137,7 @@ public async mine(numberOfBlocks = 1): Promise<void>
 Mines the specified number of blocks on Ethereum (default 1).
 
 #### Example
-```js
+```ts
 const blockNum = await cc.eth.blockNumber();
 await cc.eth.mine(10) // mines 10 blocks
 const newBlockNum = await cc.eth.blockNumber(); // = blockNum + 10.
@@ -146,7 +146,7 @@ const newBlockNum = await cc.eth.blockNumber(); // = blockNum + 10.
 ### setNextBlockTimestamp
 
 #### Function Signature  
-```js
+```ts
 public async setNextBlockTimestamp(timestamp: number): Promise<void>
 ```
 
@@ -155,7 +155,7 @@ Sets the timestamp (unix format in seconds) for the next mined block on Ethereum
 Remember that timestamp can only be set in the future and not in the past.
 
 #### Example
-```js
+```ts
 // // Set next block timestamp to 16 Aug 2023 10:54:30 GMT
 await cc.eth.setNextBlockTimestamp(1692183270) 
 // next transaction you will do will have the timestamp as 1692183270
@@ -164,7 +164,7 @@ await cc.eth.setNextBlockTimestamp(1692183270)
 ### dumpChainState
 
 #### Function Signature
-```js
+```ts
 public async dumpChainState(fileName: string): Promise<void> 
 ```
 
@@ -174,14 +174,14 @@ Stores a hex string representing the complete state of the chain in a file with 
 When combined with `loadChainState()` cheatcode, it can be let you easily import the current state of mainnet into the Anvil instance of the sandbox, to use Uniswap for example.
 
 #### Example
-```js
+```ts
 await cc.eth.dumpChainState('chain-state.json') 
 ```
 
 ### loadChainState
 
 #### Function Signature 
-```js
+```ts
 public async loadChainState(fileName: string): Promise<void>
 ```
 
@@ -190,14 +190,14 @@ Loads the Ethereum chain state from a file which contains a hex string represent
 When given a file previously written to by `cc.eth.dumpChainState()`, it merges the contents into the current chain state. Will overwrite any colliding accounts/storage slots.
 
 #### Example  
-```js
+```ts
 await cc.eth.loadChainState('chain-state.json')
 ```
 
 ### load  
 
 #### Function Signature
-```js
+```ts
 public async load(contract: EthAddress, slot: bigint): Promise<bigint>
 ```
 
@@ -205,11 +205,13 @@ public async load(contract: EthAddress, slot: bigint): Promise<bigint>
 Loads the value at a storage slot of a Ethereum contract.
 
 #### Example
+```solidity
+contract LeetContract {
+    uint256 private leet = 1337; // slot 0
+}
 ```
-/// contract LeetContract {
-///     uint256 private leet = 1337; // slot 0
-/// }
 
+```ts
 const leetContractAddress = EthAddress.fromString('0x1234...');
 const value = await cc.eth.load(leetContractAddress, BigInt(0));
 console.log(value); // 1337
@@ -218,7 +220,7 @@ console.log(value); // 1337
 ### store
 
 #### Function Signature
-```js
+```ts
 public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void>  
 ```
 
@@ -226,11 +228,13 @@ public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<v
 Stores the value in storage slot on a Ethereum contract.
 
 #### Example
+```solidity
+contract LeetContract {
+    uint256 private leet = 1337; // slot 0
+}
 ```
-/// contract LeetContract {
-///     uint256 private leet = 1337; // slot 0
-/// }
 
+```ts
 const leetContractAddress = EthAddress.fromString('0x1234...');
 await cc.eth.store(leetContractAddress, BigInt(0), BigInt(1000));
 const value = await cc.eth.load(leetContractAddress, BigInt(0));
@@ -240,7 +244,7 @@ console.log(value); // 1000
 ### keccak256
 
 #### Function Signature  
-```js
+```ts
 public keccak256(baseSlot: bigint, key: bigint): bigint
 ```
 
@@ -248,12 +252,14 @@ public keccak256(baseSlot: bigint, key: bigint): bigint
 Computes the storage slot for a map key.
 
 #### Example
+```solidity
+contract LeetContract {
+    uint256 private leet = 1337; // slot 0
+    mapping(address => uint256) public balances; // base slot 1
+}
 ```
-/// contract LeetContract {
-///     uint256 private leet = 1337; // slot 0
-///     mapping(address => uint256) public balances; // base slot 1
-/// }
 
+```ts
 // find the storage slot for key `0xdead` in the balance map.
 const address = BigInt('0x000000000000000000000000000000000000dead');
 const slot = cc.eth.keccak256(1n, address);
@@ -264,7 +270,7 @@ await cc.eth.store(contractAddress, slot, 100n);
 ### startImpersonating
 
 #### Function Signature
-```js 
+```ts 
 public async startImpersonating(who: EthAddress): Promise<void>
 ```
 
@@ -273,14 +279,14 @@ Start impersonating an Ethereum account.
 This allows you to use this address as a sender.
 
 #### Example
-```js
+```ts
 await cc.eth.startImpersonating(EthAddress.fromString(address));
 ```
 
 ### stopImpersonating
 
 #### Function Signature
-```js
+```ts
 public async stopImpersonating(who: EthAddress): Promise<void>
 ```
 
@@ -289,14 +295,14 @@ Stop impersonating an Ethereum account.
 Stops an active impersonation started by startImpersonating.
 
 #### Example
-```js  
+```ts  
 await cc.eth.stopImpersonating(EthAddress.fromString(address)) 
 ```
 
 ### getBytecode
 
 #### Function Signature
-```js
+```ts
 public async getBytecode(contract: EthAddress): Promise<`0x${string}`>
 ```
 
@@ -304,14 +310,14 @@ public async getBytecode(contract: EthAddress): Promise<`0x${string}`>
 Get the bytecode for an Ethereum contract.
 
 #### Example
-```js
+```ts
 const bytecode = await cc.eth.getBytecode(contract) // 0x6080604052348015610010...
 ```
 
 ### etch
 
 #### Function Signature 
-```js
+```ts
 public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> 
 ```
 
@@ -319,7 +325,7 @@ public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void>
 Set the bytecode for an Ethereum contract.
 
 #### Example  
-```js
+```ts
 const bytecode = `0x6080604052348015610010...`
 await cc.eth.etch(contract, bytecode)
 console.log(await cc.eth.getBytecode(contract)) // 0x6080604052348015610010...
@@ -329,7 +335,7 @@ console.log(await cc.eth.getBytecode(contract)) // 0x6080604052348015610010...
 These are cheatcodes specific to manipulating the state of Aztec rollup.
 
 ### Interface
-```
+```ts
 // Get the current aztec block number
 public async blockNumber(): Promise<number>
 
@@ -346,7 +352,7 @@ public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint): Fr
 ### blockNumber
 
 #### Function Signature
-```js
+```ts
 public async blockNumber(): Promise<number>
 ```
 
@@ -354,14 +360,14 @@ public async blockNumber(): Promise<number>
 Get the current aztec block number.
 
 #### Example
-```js
+```ts
 const blockNumber = await cc.aztec.blockNumber()
 ```
 
 ### warp 
 
 #### Function Signature
-```js
+```ts
 public async warp(to: number): Promise<void>
 ```
 
@@ -370,18 +376,18 @@ Sets the time on Ethereum and the time of the next block on Aztec.
 Like with the corresponding Ethereum cheatcode, time can only be set in the future, not the past.
 
 #### Example
-```js
+```ts
 const timestamp = await cc.eth.timestamp();
 const newTimestamp = timestamp + 100_000_000;
 await cc.aztec.warp(newTimestamp);
-
-// any noir contract calls that make use of current timestamp and is executed in the next rollup block will now read `newTimestamp`
+// any noir contract calls that make use of current timestamp 
+// and is executed in the next rollup block will now read `newTimestamp`
 ```
 
 ### computeSlotInMap
 
 #### Function Signature
-```js
+```ts
 public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint): Fr
 ```
 
@@ -390,32 +396,33 @@ Compute storage slot for a map key.
 The baseSlot is specified in the noir contract. 
 
 #### Example  
-```
-/// struct Storage {
-///     // highlight-next-line:PublicState
-///     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
-/// }
-/// 
-/// impl Storage {
-///     fn init() -> Self {
-///         Storage {
-///             balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
-///         }
-///     }
-/// }
-/// 
-/// 
-/// contract Token {
-///     ...
-/// }
+```rust
+struct Storage {
+    // highlight-next-line:PublicState
+    balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+}
 
+impl Storage {
+    fn init() -> Self {
+        Storage {
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+        }
+    }
+}
+
+contract Token {
+    ...
+}
+```
+
+```ts
 const slot = cc.aztec.computeSlotInMap(1n, key)
 ```
 
 ### loadPublic
 
 #### Function Signature
-```js
+```ts
 public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> 
 ```
 
@@ -425,25 +432,26 @@ Loads the value stored at the given slot in the public storage of the given cont
 Note: One Field element occupies a storage slot. So structs with multiple field elements won't fit in a single slot. So using loadPublic would only load a part of the struct (depending on the size of the attributes within it).
 
 #### Example
-```
-/// struct Storage {
-///     // highlight-next-line:PublicState
-///     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
-/// }
-/// 
-/// impl Storage {
-///     fn init() -> Self {
-///         Storage {
-///             balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
-///         }
-///     }
-/// }
-/// 
-/// 
-/// contract Token {
-///     ...
-/// }
+```rust
+struct Storage {
+    // highlight-next-line:PublicState
+    balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+}
 
+impl Storage {
+    fn init() -> Self {
+        Storage {
+            balances: Map::new(1, |slot| PublicState::new(slot, FieldSerialisationMethods)),
+        }
+    }
+}
+
+contract Token {
+    ...
+}
+```
+
+```ts
 const address = AztecAddress.fromString("0x123...")
 const slot = cc.aztec.computeSlotInMap(1n, key)
 const value = await cc.aztec.loadPublic(address, slot);
