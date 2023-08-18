@@ -138,4 +138,55 @@ describe('multi-transfer payments', () => {
     }
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
   }, 850_000);
+
+  /**
+   *
+   * Transaction 1: Splits the 1000 note to create 12 notes x 50 each.
+   * index:     [0    1   2   3   4   5   6   7]
+   * 0: sender: [1000]
+   *             |
+   *             +-- [850, 50, 50, 50]
+   *
+   * index:     [0    1   2   3    4   5   6   7]
+   * 1: sender: [850, 50, 50, 50]
+   *             |
+   *             +-- [700, 50, 50, 50]
+   *
+   * index:     [0   1   2   3    4   5   6   7]
+   * 2: sender: [50, 50, 50, 700, 50, 50, 50]
+   *                         |
+   *                         +-- [550, 50, 50, 50]
+   *
+   * index:     [0   1   2   3   4   5   6    7]
+   * 3: sender: [50, 50, 50, 50, 50, 50, 550, 50, 50, 50]
+   *                                     |
+   *                                     +-- [400, 50, 50, 50]
+   *
+   * End state:
+   * sender: [50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 50, 50, 50]
+   */
+  it('create 12 small notes out of 1 large note', async () => {
+    // Transaction 1
+    const amounts: bigint[] = [50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n];
+    const noteOffsets: bigint[] = [0n, 0n, 3n, 6n];
+    const repeatedSelfAdddress: AztecAddress[] = Array(12).fill(ownerAddress);
+
+    logger(`split multiTransfer()...`);
+    const multiTransferTx = multiTransferContract.methods
+      .multiTransfer(
+        zkTokenContract.address.toField(),
+        repeatedSelfAdddress,
+        amounts,
+        ownerAddress,
+        Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+        noteOffsets,
+      )
+      .send({ origin: ownerAddress });
+    await multiTransferTx.isMined({ timeout: 1000 }); // mining timeout ≥ time needed for the test to finish.
+    const multiTransferTxReceipt = await multiTransferTx.getReceipt();
+    logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
+
+    await expectBalance(zkTokenContract, ownerAddress, initialBalance);
+    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
+  }, 850_000);
 });
