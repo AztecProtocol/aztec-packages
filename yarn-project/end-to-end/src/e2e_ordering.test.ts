@@ -3,11 +3,10 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { Wallet } from '@aztec/aztec.js';
 import { Fr } from '@aztec/circuits.js';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract, ParentContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, L2BlockL2Logs, TxStatus } from '@aztec/types';
-
-import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 
 import { setup } from './fixtures/utils.js';
 
@@ -28,7 +27,7 @@ describe('e2e_ordering', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallet, /*logger*/ } = await setup());
+    ({ aztecNode, aztecRpcServer, wallet /*, logger*/ } = await setup());
   }, 100_000);
 
   afterEach(async () => {
@@ -120,7 +119,8 @@ describe('e2e_ordering', () => {
 
           const value = await aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)).then(x => toBigInt(x!));
           expect(value).toEqual(expectedOrder[1]); // final state should match last value set
-        });
+        },
+      );
     });
   });
 });
