@@ -77,9 +77,9 @@ node -v
 
 2. Initialize a yarn project
 ```sh
-~$ mkdir private-token
-~$ cd private-token
-~/private-token$ yarn init
+mkdir private-token
+cd private-token
+yarn init
 ```
 This should ask a series of questions that you can fill like so:
 ```
