@@ -6,16 +6,16 @@ title: Cheat Codes
 
 To help with testing, the sandbox is shipped with a set of cheatcodes.
 
-Cheatcodes allow you to change the time of the L2 block, load certain state or more easily manipulate L1 instead of having to write dedicated RPC calls to anvil. 
+Cheatcodes allow you to change the time of the Aztec block, load certain state or more easily manipulate Ethereum instead of having to write dedicated RPC calls to anvil. 
 
 :::info Prerequisites
-If you aren't familiar with [Anvil](https://book.getfoundry.sh/anvil/), we recommend reading up on that since Aztec Sandbox uses Anvil as the local L1 instance.
+If you aren't familiar with [Anvil](https://book.getfoundry.sh/anvil/), we recommend reading up on that since Aztec Sandbox uses Anvil as the local Ethereum instance.
 :::
 
 ### Aims
 
 The guide will cover how to manipulate the state of the:
-- L1 blockchain;
+- Ethereum blockchain;
 - Aztec network.
 
 ### Dependencies
@@ -31,53 +31,53 @@ const aztecRpcClient = createAztecRpcClient(aztecRpcUrl);
 const cc = await CheatCodes.create(aztecRpcUrl, aztecRpcClient);
 ```
 
-There are two properties of the CheatCodes class - `l1` and `l2` for cheatcodes relating to the L1 and L2 (Aztec) respectively.
+There are two properties of the CheatCodes class - `eth` and `aztec` for cheatcodes relating to the Ethereum blockchain (L1) and the Aztec network (L2) respectively.
 
-## L1 related cheatcodes
+## Ethereum related cheatcodes
 These are cheatcodes exposed from anvil conveniently wrapped for ease of use in the Sandbox.
 
 ### Interface
 ```
-// Fetch current block number of L1
+// Fetch current block number of Ethereum
 public async blockNumber(): Promise<number> 
 
-// Fetch chain ID of L1
+// Fetch chain ID of the local Ethereum instance
 public async chainId(): Promise<number> 
 
-// Fetch current timestamp on L1
+// Fetch current timestamp on Ethereum
 public async timestamp(): Promise<number> 
 
-// Mine a given number of blocks on L1. Mines 1 block by default
+// Mine a given number of blocks on Ethereum. Mines 1 block by default
 public async mine(numberOfBlocks = 1): Promise<void> 
 
-// Set the timestamp for the next block on L1. 
+// Set the timestamp for the next block on Ethereum. 
 public async setNextBlockTimestamp(timestamp: number): Promise<void> 
 
-// Dumps the current L1 chain state to a given file. 
+// Dumps the current Ethereum chain state to a given file. 
 public async dumpChainState(fileName: string): Promise<void> 
 
-// Loads the L1 chain state from a file. You may use `dumpChainState()` to save the state of the L1 chain to a file and later load it. 
+// Loads the Ethereum chain state from a file. You may use `dumpChainState()` to save the state of the Ethereum chain to a file and later load it. 
 public async loadChainState(fileName: string): Promise<void> 
 
-// Load the value at a storage slot of a contract address on L1
+// Load the value at a storage slot of a contract address on Ethereum
 public async load(contract: EthAddress, slot: bigint): Promise<bigint> 
 
-// Set the value at a storage slot of a contract address on L1 (e.g. modify a storage variable on your portal contract or even the rollup contract). 
+// Set the value at a storage slot of a contract address on Ethereum (e.g. modify a storage variable on your portal contract or even the rollup contract). 
 public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<void> 
 
-// Computes the slot value for a given map and key on L1. A convenient wrapper to find the appropriate storage slot to load or overwrite the state.
+// Computes the slot value for a given map and key on Ethereum. A convenient wrapper to find the appropriate storage slot to load or overwrite the state.
 public keccak256(baseSlot: bigint, key: bigint): bigint
 
-// Let you send transactions on L1 impersonating an externally owned or contract, without knowing the private key.
+// Let you send transactions on Ethereum impersonating an externally owned or contract, without knowing the private key.
 public async startImpersonating(who: EthAddress): Promise<void> 
 
-// Stop impersonating an account on L1 that you are currently impersonating.
+// Stop impersonating an account on Ethereum that you are currently impersonating.
 public async stopImpersonating(who: EthAddress): Promise<void> 
 
-// Set the bytecode for a L1 contract
+// Set the bytecode for a Ethereum contract
 public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void> 
 
-// Get the bytecode for a L1 contract
+// Get the bytecode for a Ethereum contract
 public async getBytecode(contract: EthAddress): Promise<`0x${string}`> 
 ```
 
@@ -89,11 +89,11 @@ public async blockNumber(): Promise<number>
 ```
 
 #### Description
-Fetches the current L1 block number.
+Fetches the current Ethereum block number.
 
 #### Example
 ```js
-const blockNumber = await cc.l1.blockNumber()
+const blockNumber = await cc.eth.blockNumber()
 ```
 
 ### chainId
@@ -104,11 +104,11 @@ public async chainId(): Promise<number>
 ```
 
 #### Description
-Fetches the L1 chain ID
+Fetches the Ethereum chain ID
 
 #### Example 
 ```js
-const chainId = await cc.l1.chainId()
+const chainId = await cc.eth.chainId()
 ```
 
 ### timestamp
@@ -119,11 +119,11 @@ public async timestamp(): Promise<number>
 ```
 
 #### Description 
-Fetches the current L1 timestamp.
+Fetches the current Ethereum timestamp.
 
 #### Example
 ```js 
-const timestamp = await cc.l1.timestamp()
+const timestamp = await cc.eth.timestamp()
 ```
 
 ### mine
@@ -134,13 +134,13 @@ public async mine(numberOfBlocks = 1): Promise<void>
 ```
 
 #### Description
-Mines the specified number of blocks on L1 (default 1).
+Mines the specified number of blocks on Ethereum (default 1).
 
 #### Example
 ```js
-const blockNum = await cc.l1.blockNumber();
-await cc.l1.mine(10) // mines 10 blocks
-const newBlockNum = await cc.l1.blockNumber(); // = blockNum + 10.
+const blockNum = await cc.eth.blockNumber();
+await cc.eth.mine(10) // mines 10 blocks
+const newBlockNum = await cc.eth.blockNumber(); // = blockNum + 10.
 ```
 
 ### setNextBlockTimestamp
@@ -151,13 +151,13 @@ public async setNextBlockTimestamp(timestamp: number): Promise<void>
 ```
 
 #### Description
-Sets the timestamp (unix format in seconds) for the next mined block on L1.
+Sets the timestamp (unix format in seconds) for the next mined block on Ethereum.
 Remember that timestamp can only be set in the future and not in the past.
 
 #### Example
 ```js
 // // Set next block timestamp to 16 Aug 2023 10:54:30 GMT
-await cc.l1.setNextBlockTimestamp(1692183270) 
+await cc.eth.setNextBlockTimestamp(1692183270) 
 // next transaction you will do will have the timestamp as 1692183270
 ```
 
@@ -169,13 +169,13 @@ public async dumpChainState(fileName: string): Promise<void>
 ```
 
 #### Description
-Dumps the current L1 chain state to a file.
+Dumps the current Ethereum chain state to a file.
 Stores a hex string representing the complete state of the chain in a file with the provided path. Can be re-imported into a fresh/restarted instance of Anvil to reattain the same state.
 When combined with `loadChainState()` cheatcode, it can be let you easily import the current state of mainnet into the Anvil instance of the sandbox, to use Uniswap for example.
 
 #### Example
 ```js
-await cc.l1.dumpChainState('chain-state.json') 
+await cc.eth.dumpChainState('chain-state.json') 
 ```
 
 ### loadChainState
@@ -186,12 +186,12 @@ public async loadChainState(fileName: string): Promise<void>
 ```
 
 #### Description
-Loads the L1 chain state from a file which contains a hex string representing an L1 state. 
-When given a file previously written to by `cc.l1.dumpChainState()`, it merges the contents into the current chain state. Will overwrite any colliding accounts/storage slots.
+Loads the Ethereum chain state from a file which contains a hex string representing an Ethereum state. 
+When given a file previously written to by `cc.eth.dumpChainState()`, it merges the contents into the current chain state. Will overwrite any colliding accounts/storage slots.
 
 #### Example  
 ```js
-await cc.l1.loadChainState('chain-state.json')
+await cc.eth.loadChainState('chain-state.json')
 ```
 
 ### load  
@@ -202,7 +202,7 @@ public async load(contract: EthAddress, slot: bigint): Promise<bigint>
 ```
 
 #### Description  
-Loads the value at a storage slot of a L1 contract.
+Loads the value at a storage slot of a Ethereum contract.
 
 #### Example
 ```
@@ -211,7 +211,7 @@ Loads the value at a storage slot of a L1 contract.
 /// }
 
 const leetContractAddress = EthAddress.fromString('0x1234...');
-const value = await cc.l1.load(leetContractAddress, BigInt(0));
+const value = await cc.eth.load(leetContractAddress, BigInt(0));
 console.log(value); // 1337
 ```
 
@@ -223,7 +223,7 @@ public async store(contract: EthAddress, slot: bigint, value: bigint): Promise<v
 ```
 
 #### Description
-Stores the value in storage slot on a L1 contract.
+Stores the value in storage slot on a Ethereum contract.
 
 #### Example
 ```
@@ -232,8 +232,8 @@ Stores the value in storage slot on a L1 contract.
 /// }
 
 const leetContractAddress = EthAddress.fromString('0x1234...');
-await cc.l1.store(leetContractAddress, BigInt(0), BigInt(1000));
-const value = await cc.l1.load(leetContractAddress, BigInt(0));
+await cc.eth.store(leetContractAddress, BigInt(0), BigInt(1000));
+const value = await cc.eth.load(leetContractAddress, BigInt(0));
 console.log(value); // 1000
 ```
 
@@ -256,9 +256,9 @@ Computes the storage slot for a map key.
 
 // find the storage slot for key `0xdead` in the balance map.
 const address = BigInt('0x000000000000000000000000000000000000dead');
-const slot = cc.l1.keccak256(1n, address);
+const slot = cc.eth.keccak256(1n, address);
 // store balance of 0xdead as 100
-await cc.l1.store(contractAddress, slot, 100n);
+await cc.eth.store(contractAddress, slot, 100n);
 ```
 
 ### startImpersonating
@@ -269,12 +269,12 @@ public async startImpersonating(who: EthAddress): Promise<void>
 ```
 
 #### Description  
-Start impersonating an L1 account.
+Start impersonating an Ethereum account.
 This allows you to use this address as a sender.
 
 #### Example
 ```js
-await cc.l1.startImpersonating(EthAddress.fromString(address));
+await cc.eth.startImpersonating(EthAddress.fromString(address));
 ```
 
 ### stopImpersonating
@@ -285,12 +285,12 @@ public async stopImpersonating(who: EthAddress): Promise<void>
 ```
 
 #### Description
-Stop impersonating an L1 account.
+Stop impersonating an Ethereum account.
 Stops an active impersonation started by startImpersonating.
 
 #### Example
 ```js  
-await cc.l1.stopImpersonating(EthAddress.fromString(address)) 
+await cc.eth.stopImpersonating(EthAddress.fromString(address)) 
 ```
 
 ### getBytecode
@@ -301,11 +301,11 @@ public async getBytecode(contract: EthAddress): Promise<`0x${string}`>
 ```
 
 #### Description  
-Get the bytecode for an L1 contract.
+Get the bytecode for an Ethereum contract.
 
 #### Example
 ```js
-const bytecode = await cc.l1.getBytecode(contract) // 0x6080604052348015610010...
+const bytecode = await cc.eth.getBytecode(contract) // 0x6080604052348015610010...
 ```
 
 ### etch
@@ -316,24 +316,24 @@ public async etch(contract: EthAddress, bytecode: `0x${string}`): Promise<void>
 ```
 
 #### Description
-Set the bytecode for an L1 contract.
+Set the bytecode for an Ethereum contract.
 
 #### Example  
 ```js
 const bytecode = `0x6080604052348015610010...`
-await cc.l1.etch(contract, bytecode)
-console.log(await cc.l1.getBytecode(contract)) // 0x6080604052348015610010...
+await cc.eth.etch(contract, bytecode)
+console.log(await cc.eth.getBytecode(contract)) // 0x6080604052348015610010...
 ```
 
-## L2 related cheatcodes
+## Aztec related cheatcodes
 These are cheatcodes specific to manipulating the state of Aztec rollup.
 
 ### Interface
 ```
-// Get the current L2 block number
+// Get the current aztec block number
 public async blockNumber(): Promise<number>
 
-// Set time of the next execution on L2. It also modifies time on L1 for next execution and stores this time as the last rollup block on the rollup contract.
+// Set time of the next execution on aztec. It also modifies time on Ethereum for next execution and stores this time as the last rollup block on the rollup contract.
 public async warp(to: number): Promise<void>
 
 // Loads the value stored at the given slot in the public storage of the given contract.
@@ -351,11 +351,11 @@ public async blockNumber(): Promise<number>
 ```
 
 #### Description  
-Get the current L2 block number.
+Get the current aztec block number.
 
 #### Example
 ```js
-const blockNumber = await cc.l2.blockNumber()
+const blockNumber = await cc.aztec.blockNumber()
 ```
 
 ### warp 
@@ -366,14 +366,14 @@ public async warp(to: number): Promise<void>
 ```
 
 #### Description
-Sets the time of L1 and the time of the next L2 block.
-Like with the corresponding L1 cheatcode, time can only be set in the future, not the past.
+Sets the time on Ethereum and the time of the next block on Aztec.
+Like with the corresponding Ethereum cheatcode, time can only be set in the future, not the past.
 
 #### Example
 ```js
-const timestamp = await cc.l1.timestamp();
+const timestamp = await cc.eth.timestamp();
 const newTimestamp = timestamp + 100_000_000;
-await cc.l2.warp(newTimestamp);
+await cc.aztec.warp(newTimestamp);
 
 // any noir contract calls that make use of current timestamp and is executed in the next rollup block will now read `newTimestamp`
 ```
@@ -409,7 +409,7 @@ The baseSlot is specified in the noir contract.
 ///     ...
 /// }
 
-const slot = cc.l2.computeSlotInMap(1n, key)
+const slot = cc.aztec.computeSlotInMap(1n, key)
 ```
 
 ### loadPublic
@@ -445,8 +445,8 @@ Note: One Field element occupies a storage slot. So structs with multiple field 
 /// }
 
 const address = AztecAddress.fromString("0x123...")
-const slot = cc.l2.computeSlotInMap(1n, key)
-const value = await cc.l2.loadPublic(address, slot);
+const slot = cc.aztec.computeSlotInMap(1n, key)
+const value = await cc.aztec.loadPublic(address, slot);
 ```
 ## Participate
 

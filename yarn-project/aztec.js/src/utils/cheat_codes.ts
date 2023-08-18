@@ -17,35 +17,35 @@ const toFr = (value: Fr | bigint): Fr => {
 export class CheatCodes {
   constructor(
     /**
-     * The L1 cheat codes.
+     * The cheat codes for ethereum (L1).
      */
-    public l1: L1CheatCodes,
+    public eth: EthCheatCodes,
     /**
-     * The L2 cheat codes.
+     * The cheat codes for aztec.
      */
-    public l2: L2CheatCodes,
+    public aztec: AztecCheatCodes,
   ) {}
 
   static async create(rpcUrl: string, aztecRpc: AztecRPC): Promise<CheatCodes> {
-    const l1CheatCodes = new L1CheatCodes(rpcUrl);
-    const l2CheatCodes = new L2CheatCodes(aztecRpc, await CircuitsWasm.get(), l1CheatCodes);
-    return new CheatCodes(l1CheatCodes, l2CheatCodes);
+    const ethCheatCodes = new EthCheatCodes(rpcUrl);
+    const aztecCheatCodes = new AztecCheatCodes(aztecRpc, await CircuitsWasm.get(), ethCheatCodes);
+    return new CheatCodes(ethCheatCodes, aztecCheatCodes);
   }
 }
 
 /**
- * A class that provides utility functions for interacting with the L1 chain.
+ * A class that provides utility functions for interacting with ethereum (L1).
  */
-export class L1CheatCodes {
+export class EthCheatCodes {
   constructor(
     /**
      * The RPC client to use for interacting with the chain
      */
     public rpcUrl: string,
     /**
-     * The logger to use for the l1 cheatcodes
+     * The logger to use for the eth cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:l1'),
+    public logger = createDebugLogger('aztec:cheat_codes:eth'),
   ) {}
 
   async rpcCall(method: string, params: any[]) {
@@ -130,7 +130,7 @@ export class L1CheatCodes {
   }
 
   /**
-   * Load the value at a storage slot of a contract address on L1
+   * Load the value at a storage slot of a contract address on eth
    * @param contract - The contract address
    * @param slot - The storage slot
    * @returns - The value at the storage slot
@@ -141,7 +141,7 @@ export class L1CheatCodes {
   }
 
   /**
-   * Set the value at a storage slot of a contract address on L1
+   * Set the value at a storage slot of a contract address on eth
    * @param contract - The contract address
    * @param slot - The storage slot
    * @param value - The value to set the storage slot to
@@ -208,9 +208,9 @@ export class L1CheatCodes {
 }
 
 /**
- * A class that provides utility functions for interacting with the L2 chain.
+ * A class that provides utility functions for interacting with the aztec chain.
  */
-export class L2CheatCodes {
+export class AztecCheatCodes {
   constructor(
     /**
      * The RPC client to use for interacting with the chain
@@ -221,13 +221,13 @@ export class L2CheatCodes {
      */
     public wasm: CircuitsWasm,
     /**
-     * The L1 cheat codes.
+     * The eth cheat codes.
      */
-    public l1: L1CheatCodes,
+    public eth: EthCheatCodes,
     /**
-     * The logger to use for the l2 cheatcodes
+     * The logger to use for the aztec cheatcodes
      */
-    public logger = createDebugLogger('aztec:cheat_codes:l2'),
+    public logger = createDebugLogger('aztec:cheat_codes:aztec'),
   ) {}
 
   /**
@@ -256,16 +256,16 @@ export class L2CheatCodes {
   }
 
   /**
-   * Set time of the next execution on L2.
-   * It also modifies time on L1 for next execution and stores this time as the last rollup block on the rollup contract.
+   * Set time of the next execution on aztec.
+   * It also modifies time on eth for next execution and stores this time as the last rollup block on the rollup contract.
    * @param to - The timestamp to set the next block to (must be greater than current time)
    */
   public async warp(to: number): Promise<void> {
     const rollupContract = (await this.aztecRpc.getNodeInfo()).rollupAddress;
-    await this.l1.setNextBlockTimestamp(to);
+    await this.eth.setNextBlockTimestamp(to);
     // also store this time on the rollup contract (slot 1 tracks `lastBlockTs`).
     // This is because when the sequencer executes public functions, it uses the timestamp stored in the rollup contract.
-    await this.l1.store(rollupContract, 1n, BigInt(to));
+    await this.eth.store(rollupContract, 1n, BigInt(to));
   }
 
   /**
