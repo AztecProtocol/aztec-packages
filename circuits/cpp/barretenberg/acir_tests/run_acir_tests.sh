@@ -49,9 +49,9 @@ function test() {
 
   set +e
   if [ -n "$VERBOSE" ]; then
-    $BB prove_and_verify -v -c $CRS_PATH -j ./target/$dir_name.bytecode
+    $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
   else
-    $BB prove_and_verify -c $CRS_PATH -j ./target/$dir_name.bytecode > /dev/null 2>&1
+    $BB prove_and_verify -c $CRS_PATH -b ./target/$dir_name.bytecode > /dev/null 2>&1
   fi
   result=$?
   set -e
