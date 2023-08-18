@@ -117,7 +117,7 @@ $$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega,
         - $26$ is the number of selector polynomials whose commitments the verifier has as public inputs in $UGH$ 
         - $Pub_{\omega_i}$ is the number of public inputs of $\omega_i$ note that this can vary for each instance $\omega_i$ but in practice we will haave to bound $Pub_{tot}$.
 2. $P, V$ compute $\vec{\delta} = (\delta, \delta^2, \ldots, \delta^{2^{t -1}})$ , which can be computed with $t-1$ squaring operations.
-3. $P$ computes  $F(X) = \sum_{i \in [n]} pow_i(\vec{\beta} + X\vec{\delta})f_i(\omega)$
+3. $P$ computes  $F(X) = \sum_{i = 0..n-1} pow_i(\vec{\beta} + X\vec{\delta})f_i(\omega)$ where $pow_0(\vec{\beta} + X\vec{\delta}) = 1$
     * $i$ corresponds to the rows in the sumcheck matrix and $\omega$ is the full $\Honk$ relation 
         * this consists of 48 polynomials defined in flavor, the maximum degree among them being 5
         * unlike what happens in sumcheck, we will evaluate each full Honk relation at $i$ (we need code to do that) bu getting all the $f_i$ is a linear operation
@@ -134,9 +134,9 @@ $$\ProtoGalaxy(\Phi = ((\phi, \vec{\beta}, e), (\phi_1,\ldots, \phi_k); (\omega,
 4. $P$ sends $F_1, \ldots,F_{t}$ to $V$
 5. $V$ sends random challenge $\alpha \in \mathbb{F}$
     * In the noninteractive setting, this means adding another $logn$ scalars to the transcript 
-6. $P, V$ compute $F(\alpha) = e + \sum_{i \in [t]}F_i \alpha^i$, this is $\log n$ scalar operations
+6. $P, V$ compute $F(\alpha) = e + \sum_{i  = 0..t-1}F_i \alpha^i$, this is $\log n$ scalar operations
 7. $P, V$ compute $\beta^*_i = \beta_i  +\alpha \cdot \delta^{2^{i-1}}$ these are the elements of $\vec{\beta}^*$ and require another $\log n$ multiplication and additions of scalars
-8. P computes $G(X) = \sum_{i \in [n]} pow_i(\vec{\beta^{*}})f_i(L_0(X)\omega + \sum_{j \in [k]} L_j(X)\omega_j)$ whose maximum degree is $dk$
+8. P computes $G(X) = \sum_{i = 0..n-1} pow_i(\vec{\beta^{*}})f_i(L_0(X)\omega + \sum_{j \in [k]} L_j(X)\omega_j)$ whose maximum degree is $dk$
     * where $d$ is the maximum degree of a relation, in our case 5 (`MAX_RELATION_LENGTH` - 1)
     * the problem with the $pow_i(\vec{\beta^*})$ polynomial is that it's not preserving the nice structure presented on page 7 and we will probably have to use the binary tree trick here as well
     * we can compute f_i($L_0(X)\omega + \sum_{j \in [k]} L_j(X)\omega_j$) by partially reusing the sumcheck code for computing univariates
@@ -193,6 +193,10 @@ Say a relation has a term in it like $q_l*w_l$ and those are indexed in the prov
 we're going to have expressions like 
 If k = 128 we're going to need to compute terms like $L_j(Y)L_m(Y)$ of degree 256, meaning we need to barycentrically extend both lagrange polynomials and then do 256 multiplications to get the evaluation form.
 
+### Interfaces
+* we will fold `CircuitBuilder`s in bberg
+* open question:
+    * can the PG implementation take a bunch of `CircuitBuilder`, fold them and produce another `CircuitBuilder` which has similar structure or will the structure slightly change?
 
  
 ---
