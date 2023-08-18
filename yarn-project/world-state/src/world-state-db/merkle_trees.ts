@@ -48,8 +48,6 @@ import {
  */
 export class MerkleTrees implements MerkleTreeDb {
   private trees: (AppendOnlyTree | UpdateOnlyTree)[] = [];
-
-  // TODO: make this field committable
   private latestGlobalVariablesHash: Committable<Fr>;
   private jobQueue = new SerialQueue();
 
