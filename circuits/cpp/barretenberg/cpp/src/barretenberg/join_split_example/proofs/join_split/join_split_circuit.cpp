@@ -269,6 +269,16 @@ join_split_outputs join_split_circuit_component(join_split_inputs const& inputs)
              public_asset_id, tx_fee,     bridge_call_data,         defi_deposit_value };
 }
 
+/* 
+   uint32_t is a standard numerical type
+   a and b such things, then you can write `a+b` and get a value which is also a uint32_t.
+
+   uint32_ct is a stdlib/circuit type
+   a and b such things, then you can write `a+b` and get a value which is also a uint32_ct
+   AND some gates will be added to the supplied builder type to show that a+b was computed correctly.
+
+ */
+
 void join_split_circuit(Builder& builder, join_split_tx const& tx)
 {
     join_split_inputs inputs = {

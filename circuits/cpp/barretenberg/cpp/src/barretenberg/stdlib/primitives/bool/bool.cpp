@@ -102,6 +102,12 @@ bool_t<ComposerContext>& bool_t<ComposerContext>::operator=(const witness_t<Comp
     return *this;
 }
 
+/* 
+   bool_ct's b1 and b2
+   want to compute b1 & b2 with attestation
+   b1 & b2   is   b1.operator&(b2).
+ */
+
 template <typename ComposerContext>
 bool_t<ComposerContext> bool_t<ComposerContext>::operator&(const bool_t& other) const
 {

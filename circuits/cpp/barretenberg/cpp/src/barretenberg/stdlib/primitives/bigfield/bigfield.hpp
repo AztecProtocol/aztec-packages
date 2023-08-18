@@ -506,3 +506,12 @@ template <typename C, typename T> inline std::ostream& operator<<(std::ostream& 
 } // namespace proof_system::plonk
 
 #include "bigfield_impl.hpp"
+
+/* 
+
+  Most primitive data type in the standard library is field_t. This is the circuit
+  avatar of the type barretenberg::fr =: Fr.
+  What if we want to do finit efield arithmetic for some finite Fq where q\neq r?
+  We need to represent elements of Fq using (tuples of?) Fr's.
+  In fact, what we do is use 4 68-bit limbs to represent arithmetic Fq for q a prime of bit lengths <= 256.
+ */

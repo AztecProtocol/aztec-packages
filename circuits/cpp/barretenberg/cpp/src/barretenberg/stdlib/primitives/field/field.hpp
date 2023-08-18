@@ -13,6 +13,67 @@ template <typename ComposerContext> class field_t {
     field_t(ComposerContext* parent_context = nullptr);
     field_t(ComposerContext* parent_context, const barretenberg::fr& value);
 
+
+/* 
+   We're going to have a + on field_t types. So we can do x1 + x2 where x1, x2 are field_t<UltraCircuitBuilder>
+
+   The circuit writer could ask a prover: 
+     "prove to me you've taken two field elts and added them together."
+
+   They would write their circuit like this:
+   barretenberg::fr val1;
+   barretenberg::fr val2;
+   field_ct x1(witness_ct(&builder, val1));  \x1
+   field_ct x2(witness_ct(&builder, val2));   +--- x3
+   auto x3 = x1 + x2;                        /x2
+
+   OR a circuit writer could ask a prover:
+      "prove you've added 5 to a field element"
+
+   barretenberg::fr val1;
+   barretenberg::fr five(5);
+   field_ct x1(witness_ct(&builder, val1));  \x1      | This gate doesn't exist
+   field_ct x2(five);                         +--- x3 |
+   auto x3 = x1 + x2;                        /5       |
+   (What happens under the hood is tha tyou increment the additive_constant of x1 by 5)
+
+
+    The "value" of a field element consists of three pieces:
+      - the additive part
+      - the multiplicative part
+      - the witness part
+
+    if you have a field_t x, then you get the value using the function x.get_value
+    and it return multiplicative_part * witness_part + additive_part 
+        it returns multiplicative_constant 
+                   * composer->variables[composer->real_variable_index[witness_index]] 
+                   + additive_part 
+
+    The reason we do this is that sometimes if we're dealing with constants we can avoid adding gates.
+
+
+   OR a circuit writer could ask a prover:
+      "prove you've added 5 to a field element"
+    then ask you a prover
+      "prove you've added 4 to the result"
+
+   A smarter circuit write would you ask you:
+      "prove you've added 9 to a field element"
+
+   barretenberg::fr val1;[]
+   barretenberg::fr five(5);
+   barretenberg::fr four(4);
+   field_ct x1(witness_ct(&builder, val1)); 
+   field_ct x2(five);
+   field_ct x4(four);
+   auto x3 = x1 + x2;
+   auto x4 = x3 + x4;  // no gates added; additive constant of x1 is now 9                     
+ 
+    To record this addition we now call x4.normalize().
+    This creaets a new witness whose value is get_value() and shows that it was computed for the parts of x4.
+
+ */
+
     field_t(const int value)
         : context(nullptr)
     {
