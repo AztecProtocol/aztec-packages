@@ -53,7 +53,7 @@ contract NativeToken {
     // oracles
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
-        debug_log::{debug_log_format, debug_log_field},
+        debug_log::{debug_log_format, debug_log_field, debug_log_array},
     };
 
     // public messaging
@@ -96,6 +96,8 @@ contract NativeToken {
         // storage.public_balances[owner] += amount;
         let new_balance = storage.public_balances.at(owner).read() + amount;
         storage.public_balances.at(owner).write(new_balance);
+
+        storage.total_supply.write(storage.total_supply.read() + amount);
     
         context.return_values.push(1);
         context.finish()
@@ -111,9 +113,14 @@ contract NativeToken {
 
         let storage = Storage::init();
         // @todo Add access control.
+        let pending_shields = storage.pending_shields;
 
         let mut note = TransparentNote::new(amount, secret_hash);
-        storage.pending_shields.insert_from_public(context, &mut note);
+        pending_shields.insert_from_public(context, &mut note);
+
+        debug_log_format("owner_mint_priv {0} {1}", [amount, secret_hash]);
+
+        storage.total_supply.write(storage.total_supply.read() + amount);
     
         context.return_values.push(1);
         context.finish()
@@ -499,6 +506,11 @@ contract NativeToken {
         } else {
             note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
         }
+    }
+
+    unconstrained fn total_supply() -> Field {
+        let storage = Storage::init();
+        storage.total_supply.read()
     }
 
     unconstrained fn publicBalanceOf(

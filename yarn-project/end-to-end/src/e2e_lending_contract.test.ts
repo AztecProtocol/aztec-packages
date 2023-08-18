@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, CheatCodes, Fr, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, CheatCodes, Fr, Wallet, computeMessageSecretHash, sleep } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -52,9 +52,8 @@ describe('e2e_lending_contract', () => {
     }
 
     {
-      // @todo @lherskind This need to be a non-transferrable token.
-      logger(`Deploying debt asset feed contract...`);
-      const tx = NativeTokenContract.deploy(aztecRpcServer, 10000n, owner).send();
+      logger(`Deploying stable coin contract...`);
+      const tx = NativeTokenContract.deploy(aztecRpcServer, 0n, owner).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
       const receipt = await tx.getReceipt();
@@ -91,9 +90,13 @@ describe('e2e_lending_contract', () => {
   const getStorageSnapshot = async (
     lendingContract: LendingContract,
     collateralAsset: NativeTokenContract,
+    stableCoin: NativeTokenContract,
     aztecNode: AztecRPC,
     account: Account,
   ) => {
+    // This is horrible.
+    await sleep(1000);
+
     logger('Fetching storage snapshot 📸 ');
     const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
@@ -113,6 +116,17 @@ describe('e2e_lending_contract', () => {
     storageValues['public_debt'] = new Fr(publicPos['debt']);
 
     storageValues['total_collateral'] = new Fr(totalCollateral);
+
+    // The total repaid.
+    storageValues['stable_coin_lending'] = new Fr(
+      await stableCoin.methods.publicBalanceOf(lendingContract.address).view(),
+    );
+    storageValues['stable_coin_public'] = new Fr(await stableCoin.methods.publicBalanceOf(account.address).view());
+
+    // Should have the private positions as well. We are abusing notation.
+    storageValues['stable_coin_private'] = new Fr(await stableCoin.methods.getBalance(account.address).view());
+
+    storageValues['stable_coin_supply'] = new Fr(await stableCoin.methods.total_supply().view());
 
     return storageValues;
   };
@@ -171,6 +185,8 @@ describe('e2e_lending_contract', () => {
 
     private collateral: { [key: string]: Fr } = {};
     private staticDebt: { [key: string]: Fr } = {};
+    private stableBalance: { [key: string]: Fr } = {};
+    private repaid: bigint = 0n;
 
     private key: Fr = Fr.ZERO;
 
@@ -189,9 +205,14 @@ describe('e2e_lending_contract', () => {
       this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
     };
 
-    deposit = (owner: Fr, amount: bigint) => {
-      const coll = this.collateral[owner.toString()] ?? Fr.ZERO;
-      this.collateral[owner.toString()] = new Fr(coll.value + amount);
+    mintStable = (to: Fr, amount: bigint) => {
+      const balance = this.stableBalance[to.toString()] ?? Fr.ZERO;
+      this.stableBalance[to.toString()] = new Fr(balance.value + amount);
+    };
+
+    deposit = (onBehalfOf: Fr, amount: bigint) => {
+      const coll = this.collateral[onBehalfOf.toString()] ?? Fr.ZERO;
+      this.collateral[onBehalfOf.toString()] = new Fr(coll.value + amount);
     };
 
     withdraw = (owner: Fr, amount: bigint) => {
@@ -199,16 +220,23 @@ describe('e2e_lending_contract', () => {
       this.collateral[owner.toString()] = new Fr(coll.value - amount);
     };
 
-    borrow = (owner: Fr, amount: bigint) => {
+    borrow = (owner: Fr, recipient: Fr, amount: bigint) => {
       const staticDebtBal = this.staticDebt[owner.toString()] ?? Fr.ZERO;
       const increase = muldivUp(amount, BASE, this.accumulator);
       this.staticDebt[owner.toString()] = new Fr(staticDebtBal.value + increase);
+
+      const balance = this.stableBalance[recipient.toString()] ?? Fr.ZERO;
+      this.stableBalance[recipient.toString()] = new Fr(balance.value + amount);
     };
 
-    repay = (owner: Fr, amount: bigint) => {
-      const staticDebtBal = this.staticDebt[owner.toString()] ?? Fr.ZERO;
+    repay = (owner: Fr, onBehalfOf: Fr, amount: bigint) => {
+      const staticDebtBal = this.staticDebt[onBehalfOf.toString()] ?? Fr.ZERO;
       const decrease = muldivDown(amount, BASE, this.accumulator);
-      this.staticDebt[owner.toString()] = new Fr(staticDebtBal.value - decrease);
+      this.staticDebt[onBehalfOf.toString()] = new Fr(staticDebtBal.value - decrease);
+
+      const balance = this.stableBalance[owner.toString()] ?? Fr.ZERO;
+      this.stableBalance[owner.toString()] = new Fr(balance.value - amount);
+      this.repaid += amount;
     };
 
     check = (storage: { [key: string]: Fr }) => {
@@ -223,7 +251,7 @@ describe('e2e_lending_contract', () => {
         muldivUp((this.staticDebt[keyPriv] ?? Fr.ZERO).value, this.accumulator, BASE),
       );
 
-      // Private values
+      // Public values
       const keyPub = this.account.address.toString();
       expect(storage['public_collateral']).toEqual(this.collateral[keyPub] ?? Fr.ZERO);
       expect(storage['public_static_debt']).toEqual(this.staticDebt[keyPub] ?? Fr.ZERO);
@@ -233,6 +261,16 @@ describe('e2e_lending_contract', () => {
 
       const totalCollateral = Object.values(this.collateral).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
       expect(storage['total_collateral']).toEqual(totalCollateral);
+
+      expect(storage['stable_coin_lending'].value).toEqual(this.repaid);
+      expect(storage['stable_coin_public']).toEqual(this.stableBalance[keyPub] ?? Fr.ZERO);
+
+      // Abusing notation and using the `keyPriv` as if an address for private holdings of stable_coin while it has the same owner in reality.
+      expect(storage['stable_coin_private']).toEqual(this.stableBalance[keyPriv] ?? Fr.ZERO);
+
+      const totalStableSupply = Object.values(this.stableBalance).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
+      // @todo @lherskind To be updated such that we burn assets on repay instead.
+      expect(storage['stable_coin_supply'].value).toEqual(totalStableSupply.value + this.repaid);
     };
   }
 
@@ -267,15 +305,31 @@ describe('e2e_lending_contract', () => {
       const receipt2 = await tx2.getReceipt();
       expect(receipt2.status).toBe(TxStatus.MINED);
 
-      const tx3 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
+      // Minting some collateral in private so we got it at hand.
+      const secret = Fr.random();
+      const secretHash = await computeMessageSecretHash(secret);
+      const shieldAmount = 10000n;
+      const tx3 = stableCoin.methods.owner_mint_priv(shieldAmount, secretHash).send({ origin: recipient });
       await tx3.isMined({ interval: 0.1 });
       const receipt3 = await tx3.getReceipt();
       expect(receipt3.status).toBe(TxStatus.MINED);
+
+      const tx4 = stableCoin.methods.redeemShield(shieldAmount, secret, recipient).send({ origin: recipient });
+      await tx4.isMined({ interval: 0.1 });
+      const receipt4 = await tx4.getReceipt();
+      expect(receipt4.status).toBe(TxStatus.MINED);
+
+      const tx5 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
+      await tx5.isMined({ interval: 0.1 });
+      const receipt5 = await tx5.getReceipt();
+      expect(receipt5.status).toBe(TxStatus.MINED);
     }
 
     const rate = 1268391679n;
     const guy = new Skibbidy(cc, account, rate);
     await guy.prepare();
+    // To handle initial mint (we use these funds to refund privately without shielding first).
+    guy.mintStable(await account.key(), 10000n);
 
     {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
@@ -286,7 +340,13 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, collateralAsset, aztecRpcServer, account);
+      storageSnapshots['initial'] = await getStorageSnapshot(
+        lendingContract,
+        collateralAsset,
+        stableCoin,
+        aztecRpcServer,
+        account,
+      );
 
       guy.check(storageSnapshots['initial']);
     }
@@ -311,6 +371,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['private_deposit'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -337,6 +398,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['private_deposit_on_behalf'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -365,17 +427,17 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['public_deposit'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
-      console.log(await collateralAsset.methods.publicAllowance(recipient, lendingContract.address).view());
       guy.check(storageSnapshots['public_deposit']);
     }
 
     {
       const borrowAmount = 69n;
       await guy.progressTime(10);
-      guy.borrow(await account.key(), borrowAmount);
+      guy.borrow(await account.key(), account.address.toField(), borrowAmount);
 
       // Make a private borrow using the private account
       // This should:
@@ -384,13 +446,16 @@ describe('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger('Borrow 🥸 : 🏦 -> 🍌');
-      const tx = lendingContract.methods.borrow_private(account.secret, borrowAmount).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .borrow_private(account.secret, account.address, borrowAmount)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_borrow'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -401,7 +466,7 @@ describe('e2e_lending_contract', () => {
     {
       const borrowAmount = 69n;
       await guy.progressTime(10);
-      guy.borrow(recipient.toField(), borrowAmount);
+      guy.borrow(recipient.toField(), account.address.toField(), borrowAmount);
 
       // Make a public borrow using the private account
       // This should:
@@ -410,13 +475,14 @@ describe('e2e_lending_contract', () => {
       // - increase the public debt.
 
       logger('Borrow: 🏦 -> 🍌');
-      const tx = lendingContract.methods.borrow_public(borrowAmount).send({ origin: recipient });
+      const tx = lendingContract.methods.borrow_public(account.address, borrowAmount).send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_borrow'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -427,7 +493,7 @@ describe('e2e_lending_contract', () => {
     {
       const repayAmount = 20n;
       await guy.progressTime(10);
-      guy.repay(await account.key(), repayAmount);
+      guy.repay(await account.key(), await account.key(), repayAmount);
 
       // Make a private repay of the debt in the private account
       // This should:
@@ -436,13 +502,17 @@ describe('e2e_lending_contract', () => {
       // - decrease the private debt.
 
       logger('Repay 🥸 : 🍌 -> 🏦');
-      const tx = lendingContract.methods.repay_private(account.secret, 0n, repayAmount).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .repay_private(account.secret, account.address, 0n, repayAmount, stableCoin.address)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
+      // At this point, the storage is unchanged... But we can see the writes and there are no revert...
       storageSnapshots['private_repay'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -453,7 +523,7 @@ describe('e2e_lending_contract', () => {
     {
       const repayAmount = 20n;
       await guy.progressTime(10);
-      guy.repay(recipient.toField(), repayAmount);
+      guy.repay(await account.key(), account.address.toField(), repayAmount);
 
       // Make a private repay of the debt in the public account
       // This should:
@@ -463,7 +533,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_private(0n, recipient.toField(), repayAmount)
+        .repay_private(0n, account.address, recipient.toField(), repayAmount, stableCoin.address)
         .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
@@ -471,6 +541,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -481,7 +552,7 @@ describe('e2e_lending_contract', () => {
     {
       const repayAmount = 20n;
       await guy.progressTime(10);
-      guy.repay(recipient.toField(), repayAmount);
+      guy.repay(account.address.toField(), account.address.toField(), repayAmount);
 
       // Make a public repay of the debt in the public account
       // This should:
@@ -490,13 +561,16 @@ describe('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger('Repay: 🍌 -> 🏦');
-      const tx = lendingContract.methods.repay_public(recipient.toField(), 20n).send({ origin: recipient });
+      const tx = lendingContract.methods
+        .repay_public(recipient.toField(), 20n, stableCoin.address)
+        .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_repay'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -532,6 +606,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['public_withdraw'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -560,6 +635,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['private_withdraw'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
@@ -583,6 +659,7 @@ describe('e2e_lending_contract', () => {
       storageSnapshots['attempted_internal_deposit'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,
+        stableCoin,
         aztecRpcServer,
         account,
       );
