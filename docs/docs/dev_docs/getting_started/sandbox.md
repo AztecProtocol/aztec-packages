@@ -62,7 +62,9 @@ With the help of Aztec.js you will be able to:
 
 ## I have the Sandbox running, show me how to use it!
 
-We will deploy and use a private token contract on our Sandbox. Writing the contract itself is out of scope for this tutorial, we will use the Private Token Contract supplied as one of the example contracts.
+We will deploy a private token contract, and send tokens privately, using the Sandbox.
+
+> Writing the contract itself is out of scope for this tutorial, we will use a Private Token Contract which as been pre-supplied as an example. See [here](LINK) for more information on how to write contracts for Aztec.
 
 The following should work for MacOS, Linux or even WSL2 Ubuntu under Windows. 
 
@@ -96,7 +98,7 @@ success Saved package.json
 Done in 23.60s.
 ```
 
-3. Create a `src` folder at the root of the repo:
+3. Create a `src` folder inside your new `private-token` directory:
 ```sh
 mkdir src
 ```
