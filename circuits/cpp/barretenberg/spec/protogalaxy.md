@@ -179,7 +179,15 @@ Let's focus on the sub-term $\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\
 $$\Rel_\UGH(P_1,\ldots, P_{\NumPolys}) = P_{5}P_{25}P_{26} + P_{1}P_{25} + P_{2}P_{26} + P_{3}P_{27} + P_{0}.$$
 To be clear, if $\Polys$ is an instance of `honk::flavor::Ultra::ProverPolynomials`, then 
 
-$$\Rel_\UGH(\Polys) := \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) = q_{m}w_lw_r + q_{l}w_{} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.$$
+$$\Rel_\UGH(\Polys) := \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) = q_{m}w_lw_r + q_{l}w_{l} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.$$
+
+Similarly, 
+$$\begin{aligned}
+\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right) 
+&:= \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) \\
+&= q_{m}w_lw_r + q_{l}w_{l} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.
+\end{aligned}
+$$
 
 Say a relation has a term in it like $q_l*w_l$ and those are indexed in the prover polynomials at index 1 and 4, \Rel_\Arith()
 we're going to have expressions like 
