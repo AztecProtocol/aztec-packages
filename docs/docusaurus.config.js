@@ -94,7 +94,9 @@ const config = {
         indexName: "aztec",
       },
       colorMode: {
-        respectPrefersColorScheme: true,
+        defaultMode: "light",
+        disableSwitch: false,
+        respectPrefersColorScheme: false,
       },
       docs: {
         sidebar: {
@@ -105,8 +107,8 @@ const config = {
       navbar: {
         logo: {
           alt: "Aztec Logo",
-          srcDark: "img/new_logo-01.svg",
-          src: "img/Aztec_logo_dark-01.svg",
+          srcDark: "img/Aztec_Labs_logo_white.svg",
+          src: "img/Aztec_Labs_logo_dark.svg",
         },
         items: [
           {
