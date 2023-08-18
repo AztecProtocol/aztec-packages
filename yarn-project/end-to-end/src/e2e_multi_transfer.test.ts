@@ -19,7 +19,6 @@ describe('multi-transfer payments', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
-  // let accountAddresses: AztecAddress[];
   let logger: DebugLogger;
   let ownerAddress: AztecAddress;
   const recipients: AztecAddress[] = [];
