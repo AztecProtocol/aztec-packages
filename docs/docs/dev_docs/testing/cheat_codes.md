@@ -430,7 +430,7 @@ public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr>
 #### Description
 Loads the value stored at the given slot in the public storage of the given contract. 
 
-Note: One Field element occupies a storage slot. Hence, structs with multiple field elements will be spread over multiple slots, rather they will be spread over multiple sequential slots. Using loadPublic will only load a single field of the struct (depending on the size of the attributes within it).
+Note: One Field element occupies a storage slot. Hence, structs with multiple field elements will be spread over multiple sequential slots. Using loadPublic will only load a single field of the struct (depending on the size of the attributes within it).
 
 #### Example
 ```rust
