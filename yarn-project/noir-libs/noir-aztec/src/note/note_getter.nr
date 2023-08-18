@@ -131,7 +131,12 @@ fn get_notes<Note, N, S, P>(
         // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
         context.push_read_request(note_hash_for_read_request);
     };
-    opt_notes
+
+    // TODO(#1660)
+    // Move it back to get_notes_internal and only make read request for selected notes.
+    let filter = options.filter;
+    let filter_args = options.filter_args;
+    filter(opt_notes, filter_args)
 }
 
 unconstrained fn get_note_internal<Note, N>(
@@ -156,7 +161,7 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
-) -> [Option<Note>; S] {
+) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
     let sort_by = options.sort_by;
     let mut sort_by_indices = [0; N];
     let mut sort_order = [0; N];
@@ -166,7 +171,7 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
     };
     let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
-    let opt_notes = oracle::notes::get_notes(
+    oracle::notes::get_notes(
         storage_slot,
         note_interface,
         sort_by_indices,
@@ -175,11 +180,7 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
         options.offset,
         placeholder_opt_notes,
         placeholder_fields,
-    );
-
-    let filter = options.filter;
-    let filter_args = options.filter_args;
-    filter(opt_notes, filter_args)
+    )
 }
 
 unconstrained fn view_notes<Note, N>(
