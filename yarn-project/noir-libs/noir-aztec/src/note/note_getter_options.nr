@@ -13,9 +13,9 @@ impl Select {
 }
 
 struct SortOrderEnum {
-    DESC: u8,
-    ASC: u8,
-    NADA: u8,
+    DESC: u2,
+    ASC: u2,
+    NADA: u2,
 }
 
 global SortOrder = SortOrderEnum {
@@ -26,11 +26,11 @@ global SortOrder = SortOrderEnum {
 
 struct Sort {
     field_index: u8,
-    order: u8,
+    order: u2,
 }
 
 impl Sort {
-    fn new(field_index: u8, order: u8) -> Self {
+    fn new(field_index: u8, order: u2) -> Self {
         Sort { field_index, order }
     }
 
@@ -93,7 +93,7 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
         *self
     }
 
-    fn sort(&mut self, field_index: u8, order: u8) -> Self {
+    fn sort(&mut self, field_index: u8, order: u2) -> Self {
         let mut sorts = self.sorts;
         let mut updated = false;
         for i in 0..sorts.len() {
