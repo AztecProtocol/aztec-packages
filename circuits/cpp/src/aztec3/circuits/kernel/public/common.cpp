@@ -59,10 +59,6 @@ void validate_this_public_call_hash(DummyBuilder& builder,
     const auto calculated_this_public_call_hash =
         get_call_stack_item_hash(public_kernel_inputs.public_call.call_stack_item);
 
-    if (popped_public_call_hash != calculated_this_public_call_hash) {
-        info(public_inputs.end.public_call_stack);
-    }
-
     builder.do_assert(
         popped_public_call_hash == calculated_this_public_call_hash,
         format("calculated public_call_hash (",

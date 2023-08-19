@@ -322,7 +322,7 @@ contract NativeToken {
         let storage = Storage::init();
 
         // Decrease allowance
-        let allowance = storage.public_allowances.at(from).at(to);
+        let allowance = storage.public_allowances.at(from).at(context.msg_sender());
         let current_allowance: Field = allowance.read();
         assert(current_allowance as u120 >= amount as u120);
         allowance.write(current_allowance - amount);

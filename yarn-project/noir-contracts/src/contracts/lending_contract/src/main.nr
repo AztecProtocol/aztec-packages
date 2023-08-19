@@ -2,7 +2,7 @@ mod storage;
 mod safe_math;
 mod interest_math;
 mod helpers;
-//mod interfaces;
+mod interfaces;
 
 // Single asset CDP contract.
 // Shoving re-entries up the ass.
@@ -22,7 +22,7 @@ contract Lending {
     use crate::safe_math::SafeU120;
     use crate::interest_math::compute_multiplier;
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value};
-    // use crate::interfaces::{Token, Lending};
+    use crate::interfaces::{Token, Lending, PriceFeed};
 
     struct Pos {
         collateral: Field,
@@ -46,18 +46,15 @@ contract Lending {
         stable_coin: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([oracle_address, loan_to_value, collateral_asset, stable_coin]));
-
         let storage = Storage::init();
-
-        let asset = storage.assets.at(0);
-
-        let tot = asset.read();
+        let asset_loc = storage.assets.at(0);
+        let asset = asset_loc.read();
 
         assert (loan_to_value as u120 <= 10000);
-        assert (tot.last_updated_ts == 0);
-        assert (tot.interest_accumulator == 0);
+        assert (asset.last_updated_ts == 0);
+        assert (asset.interest_accumulator == 0);
 
-        asset.write(Asset {
+        asset_loc.write(Asset {
             interest_accumulator: 1000000000,
             last_updated_ts: context.timestamp() as u120,
             loan_to_value: loan_to_value as u120,
@@ -125,7 +122,7 @@ contract Lending {
             account = Account::new(context.msg_sender(), secret).key();
         }
 
-        // let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
+        //let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
         let _res = context.call_private_function(
             collateral_asset,
             2423803924, 
@@ -172,11 +169,7 @@ contract Lending {
         collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
-
-        let _return_values = context.call_public_function_no_args(
-            context.this_address(),
-            1259373467
-        );
+        let _asset = Lending::at(context.this_address()).update_accumulator(context);
 
         let storage = Storage::init();
 
@@ -236,25 +229,8 @@ contract Lending {
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, recipient, amount]));
-
-        // update_tot();
-        // let asset = Lending::at(context.this_address()).update_accumulator(context);
-        let return_values = context.call_public_function_no_args(
-            context.this_address(), 
-            1259373467
-        );
-
-        let asset = Asset {
-            interest_accumulator: return_values[0] as u120,
-            last_updated_ts: return_values[1] as u120,
-            loan_to_value: return_values[2] as u120,
-            oracle_address: return_values[3],
-        };
-
-        // Fetch prices from oracle. Needs to be a static call.
-        // keccak256("get_price(field)") -> 0xc83a9cd4 -> 3359284436
-        let return_values_price = context.call_public_function(asset.oracle_address, 3359284436, [0]);
-        let price = return_values_price[0] as u120;
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
+        let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
         let storage = Storage::init();
 
@@ -276,12 +252,12 @@ contract Lending {
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = storage.collateral_asset.read();
-        // Token::at(collateral_asset).transfer_pub(context, recipient, amount);
-        let _transfer_return_values = context.call_public_function(
-            collateral_asset,
-            1012824788, 
-            [recipient, amount]
-        );
+        Token::at(collateral_asset).transfer_pub(context, recipient, amount);
+        // let _transfer_return_values = context.call_public_function(
+        //    collateral_asset,
+        //    1012824788, 
+        //    [recipient, amount]
+        //);
 
         context.return_values.push(1);
         context.finish()
@@ -333,15 +309,8 @@ contract Lending {
         amount: Field
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, to, amount]));
-        let return_values = context.call_public_function_no_args(context.this_address(), 1259373467);
-        let interest_accumulator = return_values[0] as u120;
-        let loan_to_value = return_values[2] as u120;
-        let oracle_address = return_values[3];
-
-        // Fetch prices from oracle. Needs to be a static call.
-        // keccak256("get_price(field)") -> 0xc83a9cd4 -> 3359284436
-        let return_values_price = context.call_public_function(oracle_address, 3359284436, [0]);
-        let price: u120 = return_values_price[0] as u120;
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
+        let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
         let storage = Storage::init();
 
@@ -349,8 +318,8 @@ contract Lending {
         let collateral = storage.collateral.at(owner).read() as u120;
         let static_debt = storage.static_debt.at(owner).read() as u120;
 
-        let debt_covered = covered_by_collateral(price, loan_to_value, collateral, 0, 0);
-        let debt_returns = debt_updates(interest_accumulator, static_debt, amount as u120, 0);
+        let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0, 0);
+        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount as u120, 0);
 
         // Ensure that debt is covered by collateral
         assert (debt_returns.debt_value < debt_covered);
@@ -360,12 +329,12 @@ contract Lending {
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
-        // Token::at(stable_coin).owner_mint_pub(context, to, amount);
-        let _transfer_return_values = context.call_public_function(
-            stable_coin, 
-            1071038680, 
-            [to, amount]
-        );
+        Token::at(stable_coin).owner_mint_pub(context, to, amount);
+        // let _transfer_return_values = context.call_public_function(
+        //    stable_coin, 
+        //    1071038680, 
+        //    [to, amount]
+        //);
 
         context.return_values.push(1);
         context.finish()
@@ -399,7 +368,7 @@ contract Lending {
             account = Account::new(me, secret).key();
         }
 
-        //let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
+        // let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
         let _res = context.call_private_function(
             stable_coin, 
             2423803924, 
@@ -424,12 +393,12 @@ contract Lending {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
 
         // Should probably just burn the tokens actually :thinking:
-        // Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
-        let _transfer_return_values = context.call_public_function(
-            stable_coin, 
-            1602017294, 
-            [context.msg_sender(), context.this_address(), amount]
-        );
+        Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        // let _transfer_return_values = context.call_public_function(
+        //    stable_coin, 
+        //    1602017294, 
+        //    [context.msg_sender(), context.this_address(), amount]
+        //);
 
         let return_values = context.call_public_function(context.this_address(), 4204047188, [owner, amount, stable_coin]);
 
@@ -447,8 +416,7 @@ contract Lending {
         // todo: need an explicit case to repay all debt.
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, stable_coin]));
 
-        let return_values = context.call_public_function_no_args(context.this_address(), 1259373467);
-        let interest_accumulator = return_values[0] as u120;
+        let asset = Lending::at(context.this_address()).update_accumulator(context);
 
         let storage = Storage::init();
 
@@ -456,7 +424,7 @@ contract Lending {
         assert(stable_coin == storage.stable_coin.read());
 
         let static_debt = storage.static_debt.at(owner).read() as u120;
-        let debt_returns = debt_updates(interest_accumulator, static_debt, 0, amount as u120);
+        let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0, amount as u120);
 
         // static_debt[owner] = debt_returns.static_debt;
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);

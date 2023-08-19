@@ -508,7 +508,6 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      // At this point, the storage is unchanged... But we can see the writes and there are no revert...
       storageSnapshots['private_repay'] = await getStorageSnapshot(
         lendingContract,
         collateralAsset,

@@ -8,6 +8,25 @@ use dep::aztec::context::{
 use crate::storage::Asset;
 use dep::aztec::constants_gen::RETURN_VALUES_LENGTH;
 
+struct PriceFeed {
+  address: Field,
+}
+
+impl PriceFeed {
+  fn at(address: Field) -> Self {
+    Self { address }
+  }
+
+  fn get_price(self: Self, context: PublicContext) -> u120 {
+    let return_values = context.call_public_function(
+      self.address, 
+      3359284436,
+      [0]
+    );
+
+    return_values[0] as u120
+  }
+}
 
 struct Token {
   address: Field,
@@ -50,12 +69,6 @@ impl Token {
       [amount, from, to]
     )
   }
-}
-
-
-struct UpdateResponse {
-  context: PublicContext,
-  asset: Asset,
 }
 
 struct Lending {
