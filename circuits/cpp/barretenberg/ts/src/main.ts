@@ -106,10 +106,10 @@ export async function prove(
     const witness = getWitness(witnessPath);
     const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
     debug(`done.`);
-    
+
     process.stdout.write(proof);
     writeFileSync(outputPath, proof);
-    
+
     debug(`proof written to: ${outputPath}`);
   } finally {
     await api.destroy();
@@ -130,7 +130,7 @@ export async function verify(proofPath: string, isRecursive: boolean, vkPath: st
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath), isRecursive);
-    
+
     process.stdout.write(`${verified}`);
     return verified;
   } finally {
@@ -143,7 +143,7 @@ export async function contract(outputPath: string, vkPath: string) {
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const contract = await api.acirGetSolidityVerifier(acirComposer);
-    
+
     process.stdout.write(contract);
     writeFileSync(outputPath, contract);
 
@@ -162,10 +162,10 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
 
     debug('initing verification key...');
     const vk = await api.acirGetVerificationKey(acirComposer);
-    
+
     process.stdout.write(vk);
     writeFileSync(outputPath, vk);
-    
+
     debug(`vk written to: ${outputPath}`);
   } finally {
     await api.destroy();
@@ -183,10 +183,10 @@ export async function proofAsFields(proofPath: string, numInnerPublicInputs: num
       numInnerPublicInputs,
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
-    
+
     process.stdout.write(jsonProofAsFields);
     writeFileSync(outputPath, jsonProofAsFields);
-    
+
     debug('done.');
   } finally {
     await api.destroy();
@@ -205,7 +205,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 
     process.stdout.write(jsonVKAsFields);
     writeFileSync(vkeyOutputPath, jsonVKAsFields);
-    
+
     debug('done.');
   } finally {
     await api.destroy();
