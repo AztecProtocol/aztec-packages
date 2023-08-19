@@ -95,7 +95,7 @@ describe('e2e_lending_contract', () => {
     account: Account,
   ) => {
     // @todo This is horrible.
-    await sleep(1000);
+    await sleep(5000);
 
     logger('Fetching storage snapshot 📸 ');
     const storageValues: { [key: string]: Fr } = {};
