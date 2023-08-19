@@ -194,14 +194,14 @@ describe('e2e_lending_contract', () => {
 
     prepare = async () => {
       this.key = await this.account.key();
-      const ts = await this.cc.l1.timestamp();
+      const ts = await this.cc.eth.timestamp();
       this.time = ts + 10 + (ts % 10);
-      await this.cc.l2.warp(this.time);
+      await this.cc.aztec.warp(this.time);
     };
 
     progressTime = async (diff: number) => {
       this.time = this.time + diff;
-      await this.cc.l2.warp(this.time);
+      await this.cc.aztec.warp(this.time);
       this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
     };
 
