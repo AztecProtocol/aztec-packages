@@ -14,6 +14,16 @@ export enum SortOrder {
  */
 interface GetOptions {
   /**
+   * An array of indices of the fields to select.
+   * Default: empty array.
+   */
+  selectBy?: number[];
+  /**
+   * An array of values of the corresponding fields to select and match.
+   * Default: empty array.
+   */
+  selectValues?: Fr[];
+  /**
    * An array of indices of the fields to sort.
    * Default: empty array.
    */
@@ -45,6 +55,9 @@ interface BasicNoteData {
   preimage: Fr[];
 }
 
+const selectNotes = <T extends BasicNoteData>(notes: T[], selectBy: number[], selectValues: Fr[]): T[] =>
+  notes.filter(note => selectBy.every((fieldIndex, i) => note.preimage[fieldIndex]?.equals(selectValues[i])));
+
 const sortNotes = (a: Fr[], b: Fr[], sortBy: number[], sortOrder: number[], level = 0): number => {
   const index = sortBy[level];
   if (sortBy[level] === undefined) return 0;
@@ -65,9 +78,9 @@ const sortNotes = (a: Fr[], b: Fr[], sortBy: number[], sortOrder: number[], leve
  */
 export function pickNotes<T extends BasicNoteData>(
   notes: T[],
-  { sortBy = [], sortOrder = [], limit = 0, offset = 0 }: GetOptions,
+  { selectBy = [], selectValues = [], sortBy = [], sortOrder = [], limit = 0, offset = 0 }: GetOptions,
 ) {
-  return notes
+  return selectNotes(notes, selectBy, selectValues)
     .sort((a, b) => sortNotes(a.preimage, b.preimage, sortBy, sortOrder))
     .slice(offset, limit ? offset + limit : undefined);
 }

@@ -104,6 +104,9 @@ export class ClientTxExecutionContext {
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
+   * @param numSelects - The number of valid selects in selectBy and selectValues.
+   * @param selectBy - An array of indices of the fields to selects.
+   * @param selectValues - The values to match.
    * @param sortBy - An array of indices of the fields to sort.
    * @param sortOrder - The order of the corresponding index in sortBy. (1: DESC, 2: ASC, 0: Do nothing)
    * @param limit - The number of notes to retrieve per query.
@@ -118,6 +121,9 @@ export class ClientTxExecutionContext {
   public async getNotes(
     contractAddress: AztecAddress,
     storageSlot: ACVMField,
+    numSelects: number,
+    selectBy: ACVMField[],
+    selectValues: ACVMField[],
     sortBy: ACVMField[],
     sortOrder: ACVMField[],
     limit: number,
@@ -136,6 +142,8 @@ export class ClientTxExecutionContext {
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
+      selectBy: selectBy.slice(0, numSelects).map(field => +field),
+      selectValues: selectValues.slice(0, numSelects).map(field => fromACVMField(field)),
       sortBy: sortBy.map(field => +field),
       sortOrder: sortOrder.map(field => +field),
       limit,

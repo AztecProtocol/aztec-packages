@@ -148,6 +148,9 @@ unconstrained fn get_note_internal<Note, N>(
     oracle::notes::get_notes(
         storage_slot,
         note_interface,
+        0,
+        [],
+        [],
         [],
         [],
         1, // limit
@@ -162,19 +165,37 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, S, P>,
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
-    let sort_by = options.sort_by;
-    let mut sort_by_indices = [0; N];
-    let mut sort_order = [0; N];
-    for i in 0..sort_by.len() {
-        sort_by_indices[i] = sort_by[i].field_index;
-        sort_order[i] = sort_by[i].order;
+    let selects = options.selects;
+    let mut num_selects = 0;
+    let mut select_by = [0; N];
+    let mut select_values = [0; N];
+    for i in 0..selects.len() {
+        if selects[i].is_some() {
+            select_by[num_selects] = selects[i].unwrap_unchecked().field_index;
+            select_values[num_selects] = selects[i].unwrap_unchecked().value;
+            num_selects += 1;
+        };
     };
+
+    let sorts = options.sorts;
+    let mut sort_by = [0; N];
+    let mut sort_order = [0; N];
+    for i in 0..sorts.len() {
+        if sorts[i].is_some() {
+            sort_by[i] = sorts[i].unwrap_unchecked().field_index;
+            sort_order[i] = sorts[i].unwrap_unchecked().order;
+        };
+    };
+
     let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     oracle::notes::get_notes(
         storage_slot,
         note_interface,
-        sort_by_indices,
+        num_selects,
+        select_by,
+        select_values,
+        sort_by,
         sort_order,
         MAX_READ_REQUESTS_PER_CALL as u32,
         options.offset,
@@ -189,9 +210,23 @@ unconstrained fn view_notes<Note, N>(
     limit: u32,
     offset: u32,
 ) -> [Option<Note>; MAX_NOTES_PER_PAGE] {
+    let select_by = [0; N];
+    let select_values = [0; N];
     let sort_by = [0; N];
     let sort_order = [0; N];
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
-    oracle::notes::get_notes(storage_slot, note_interface, sort_by, sort_order, limit, offset, placeholder_opt_notes, placeholder_fields)
+    oracle::notes::get_notes(
+        storage_slot,
+        note_interface,
+        0,
+        select_by,
+        select_values,
+        sort_by,
+        sort_order,
+        limit,
+        offset,
+        placeholder_opt_notes,
+        placeholder_fields,
+    )
 }

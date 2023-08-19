@@ -1,6 +1,16 @@
 use dep::std::option::Option;
-
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+
+struct Select {
+    field_index: u8,
+    value: Field,
+}
+
+impl Select {
+    fn new(field_index: u8, value: Field) -> Self {
+        Select { field_index, value }
+    }
+}
 
 struct SortOrderEnum {
     DESC: u8,
@@ -29,50 +39,72 @@ impl Sort {
     }
 }
 
-struct NoteGetterOptions<Note, N, S, P> {
-    sort_by: [Sort; N],
-    offset: u32,
-    filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], P) -> [Option<Note>; S],
-    filter_args: P,
+fn return_all_notes<Note, N>(notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL], _p: Field) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
+    notes
 }
 
-impl<Note, N, S, P> NoteGetterOptions<Note, N, S, P> {
-    fn new(
-        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], P) -> [Option<Note>; S],
-        filter_args: P,
-        sort_by: [Sort; N],
-        offset: u32,
-    ) -> Self {
+// docs:start:NoteGetterOptions
+struct NoteGetterOptions<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> {
+    selects: [Option<Select>; N],
+    sorts: [Option<Sort>; N],
+    offset: u32,
+    filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; NUM_RETURN_NOTES],
+    filter_args: FILTER_ARGS,
+}
+// docs:end:NoteGetterOptions
+
+impl<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> NoteGetterOptions<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> {
+    fn new() -> NoteGetterOptions<Note, N, MAX_READ_REQUESTS_PER_CALL, Field> {
         NoteGetterOptions {
-            sort_by,
-            offset,
-            filter,
-            filter_args,
+            selects: [Option::none(); N],
+            sorts: [Option::none(); N],
+            offset: 0,
+            filter: return_all_notes,
+            filter_args: 0,
         }
     }
 
     fn with_filter(
-        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], P) -> [Option<Note>; S],
-        filter_args: P,
+        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; NUM_RETURN_NOTES],
+        filter_args: FILTER_ARGS,
     ) -> Self {
          NoteGetterOptions {
-            sort_by: [Sort::nada(); N],
+            selects: [Option::none(); N],
+            sorts: [Option::none(); N],
             offset: 0,
             filter,
             filter_args,
         }
     }
 
-    fn with_filter_and_offset(
-        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], P) -> [Option<Note>; S],
-        filter_args: P,
-        offset: u32,
-    ) -> Self {
-         NoteGetterOptions {
-            sort_by: [Sort::nada(); N],
-            offset,
-            filter,
-            filter_args,
+    fn select(&mut self, field_index: u8, value: Field) -> Self {
+        let mut selects = self.selects;
+        let mut updated = false;
+        for i in 0..selects.len() {
+            if !updated & selects[i].is_none() {
+                selects[i] = Option::some(Select::new(field_index, value));
+                updated = true;
+            }
         }
+        self.selects = selects;
+        *self
+    }
+
+    fn sort(&mut self, field_index: u8, order: u8) -> Self {
+        let mut sorts = self.sorts;
+        let mut updated = false;
+        for i in 0..sorts.len() {
+            if !updated & sorts[i].is_none() {
+                sorts[i] = Option::some(Sort::new(field_index, order));
+                updated = true;
+            }
+        }
+        self.sorts = sorts;
+        *self
+    }
+
+    fn set_offset(&mut self, offset: u32) -> Self {
+        self.offset = offset;
+        *self
     }
 }
