@@ -2,6 +2,25 @@ mod safe_math;
 mod interest_math;
 use crate::safe_math::SafeU120;
 use crate::interest_math::compute_multiplier;
+use dep::std::hash::pedersen;
+
+
+// Utility used to easily get a "id" for a private user that sits in the same
+// "space" as the public users.
+// It help us to have a single mapping for collateral that have both public and private users.
+fn compute_identifier(
+    secret: Field,
+    on_behalf_of: Field,
+    self: Field,
+) -> Field {
+    // EITHER secret OR on_behalf_of MUST be set. But not both
+    assert (!((secret == 0) as bool & (on_behalf_of == 0) as bool));
+    if (secret != 0) {
+        pedersen([self, secret])[0]
+    } else {
+        on_behalf_of
+    }
+}
 
 fn covered_by_collateral(
     price: u120,

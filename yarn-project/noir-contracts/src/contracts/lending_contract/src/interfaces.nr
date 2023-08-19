@@ -63,10 +63,10 @@ impl Token {
 
   // Private
   fn unshield(self: Self, context: &mut PrivateContext, from: Field, to: Field, amount: Field) -> [Field; RETURN_VALUES_LENGTH] {
-    (*context).call_private_function(
-      self.address, 
+    context.call_private_function(
+      self.address,
       2423803924, 
-      [amount, from, to]
+      [from, to, amount]
     )
   }
 }
@@ -83,7 +83,7 @@ impl Lending {
   fn update_accumulator(self: Self, context: PublicContext) -> Asset {
     let return_values = context.call_public_function_no_args(
       self.address, 
-      1259373467
+      0x1873b536
     );
 
     Asset {

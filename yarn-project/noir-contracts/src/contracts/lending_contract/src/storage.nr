@@ -3,33 +3,6 @@ use dep::aztec::state_vars::public_state::PublicState;
 use dep::aztec::types::type_serialisation::TypeSerialisationInterface;
 use dep::aztec::types::type_serialisation::field_serialisation::FieldSerialisationMethods;
 use dep::aztec::types::type_serialisation::field_serialisation::FIELD_SERIALISED_LEN;
-use dep::std::hash::pedersen;
-
-// Utility struct used to easily get a "id" for a private user that sits in the same
-// "space" as the public users.
-// It help us to have a single mapping for collateral that have both public and private users.
-struct Account {
-    address: Field,
-    secret: Field,
-}
-
-impl Account {
-    fn new(
-        address: Field,
-        secret: Field
-    ) -> Self {
-        Self {
-            address,
-            secret
-        }
-    }
-
-    fn key(self: Self) -> Field {
-        pedersen([self.address, self.secret])[0]
-    }
-}
-
-
 
 // Struct to be used to represent "totals". Generally, there should be one per asset.
 // It stores the global values that are shared among all users, such as an accumulator

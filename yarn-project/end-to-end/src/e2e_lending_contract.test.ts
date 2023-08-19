@@ -94,17 +94,17 @@ describe('e2e_lending_contract', () => {
     aztecNode: AztecRPC,
     account: Account,
   ) => {
-    // This is horrible.
+    // @todo This is horrible.
     await sleep(1000);
 
     logger('Fetching storage snapshot 📸 ');
     const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
 
-    const tot = await lendingContract.methods.getTot(0).view();
-    const privatePos = await lendingContract.methods.getPosition(accountKey).view();
-    const publicPos = await lendingContract.methods.getPosition(account.address.toField()).view();
-    const totalCollateral = await collateralAsset.methods.publicBalanceOf(lendingContract.address).view();
+    const tot = await lendingContract.methods.get_asset(0).view();
+    const privatePos = await lendingContract.methods.get_position(accountKey).view();
+    const publicPos = await lendingContract.methods.get_position(account.address.toField()).view();
+    const totalCollateral = await collateralAsset.methods.public_balance_of(lendingContract.address).view();
 
     storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
     storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
@@ -119,12 +119,12 @@ describe('e2e_lending_contract', () => {
 
     // The total repaid.
     storageValues['stable_coin_lending'] = new Fr(
-      await stableCoin.methods.publicBalanceOf(lendingContract.address).view(),
+      await stableCoin.methods.public_balance_of(lendingContract.address).view(),
     );
-    storageValues['stable_coin_public'] = new Fr(await stableCoin.methods.publicBalanceOf(account.address).view());
+    storageValues['stable_coin_public'] = new Fr(await stableCoin.methods.public_balance_of(account.address).view());
 
     // Should have the private positions as well. We are abusing notation.
-    storageValues['stable_coin_private'] = new Fr(await stableCoin.methods.getBalance(account.address).view());
+    storageValues['stable_coin_private'] = new Fr(await stableCoin.methods.balance_of(account.address).view());
 
     storageValues['stable_coin_supply'] = new Fr(await stableCoin.methods.total_supply().view());
 

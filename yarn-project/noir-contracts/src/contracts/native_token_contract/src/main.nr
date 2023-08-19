@@ -2,20 +2,11 @@ mod hash;
 mod storage;
 mod transparent_note;
 
-// Represents an ERC20 token bridged from L1 to L2 via `l1-contracts/test/portals/TokenPortal.sol`. The bridged user
-// balance can be stored in both public and private domain. If the balance is stored in the private domain then it
-// is represented as a set of notes in the private data tree. If the balance is stored in the public domain then it is
-// represented as a single value in the public data tree.
-//
-// It is also used to test insertion of a note from public domain into the private data tree. How this works is that
-// a user provides a secret hash as an argument on the input of the public function, and the contract then inserts
-// a note into the private data tree once the public call is processed. A note can later on be spent by providing
-// the secret hash preimage on the input of a private function call.
-//
-// This flow will be typically used when performing a token swap:
-// 1. A calls a private function which enqueues a public call to the DEX contract (with the secret hash on input).
-// 2. The sequencer performs the public call to the DEX and the note gets inserted into the private data tree.
-// 3. At this point a recipient can spend the note in a private function assuming he/she knows the secret.
+// Testing token that can be bridged in and out.
+// TODOS:
+// - Add role based access control to mint functions
+// - Add function for managing roles
+// - Add public self-burn function for users to burn their own tokens
 contract NativeToken {
     // Libs
     use dep::value_note::{
@@ -53,7 +44,6 @@ contract NativeToken {
     // oracles
     use dep::aztec::oracle::{
         create_l2_to_l1_message::create_l2_to_l1_message,
-        debug_log::{debug_log_format, debug_log_field, debug_log_array},
     };
 
     // public messaging
@@ -77,28 +67,20 @@ contract NativeToken {
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, initial_supply, owner);
 
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
     }
 
     // uint256(keccak256("owner_mint_pub(field,field)")) >> 224 -> 1071038680
     open fn owner_mint_pub(
         inputs: PublicContextInputs,
-        owner: Field,
+        to: Field,
         amount: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-
+        let mut context = PublicContext::new(inputs, abi::hash_args([to, amount]));
         let storage = Storage::init();
-        // @todo Add access control.
-
-        // Update the public balance
-        // storage.public_balances[owner] += amount;
-        let new_balance = storage.public_balances.at(owner).read() + amount;
-        storage.public_balances.at(owner).write(new_balance);
-
+        let new_balance = storage.public_balances.at(to).read() + amount;
+        storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
-    
         context.return_values.push(1);
         context.finish()
     }
@@ -112,13 +94,10 @@ contract NativeToken {
         let mut context = PublicContext::new(inputs, abi::hash_args([amount, secret_hash]));
 
         let storage = Storage::init();
-        // @todo Add access control.
         let pending_shields = storage.pending_shields;
 
         let mut note = TransparentNote::new(amount, secret_hash);
         pending_shields.insert_from_public(context, &mut note);
-
-        debug_log_format("owner_mint_priv {0} {1}", [amount, secret_hash]);
 
         storage.total_supply.write(storage.total_supply.read() + amount);
     
@@ -350,23 +329,22 @@ contract NativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
+        from: Field,
+        to: Field,
         amount: Field,
-        sender: Field,
-        recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
         let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, sender, recipient
+            from, to, amount
         ]));
 
         // Gets the set of sender's notes and picks 2 of those.
-        let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        let sender_balance = storage.balances.at(from);
+        spend_notes(&mut context, sender_balance, amount, from);
 
-        let balance = storage.balances.at(recipient);
-        send_note(&mut context, balance, amount, recipient);
+        let balance = storage.balances.at(to);
+        send_note(&mut context, balance, amount, to);
 
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
     }
 
@@ -446,18 +424,18 @@ contract NativeToken {
     // uint256(keccak256("unshieldTokens(field,field,field)")) >> 224 -> 2423803924
     fn unshieldTokens(
         inputs: PrivateContextInputs,
+        from: Field,
+        to: Field,
         amount: Field,
-        owner: Field,
-        recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
         let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, owner, recipient
+            from, to, amount,
         ]));
 
         // Remove user balance
-        let sender_balance = storage.balances.at(owner);
-        spend_notes(&mut context, sender_balance, amount, owner);
+        let sender_balance = storage.balances.at(from);
+        spend_notes(&mut context, sender_balance, amount, from);
 
         // enqueue a public function to perform the public state update.
         let thisAddress = context.this_address();
@@ -465,7 +443,7 @@ contract NativeToken {
         // addUnshieldedBalance selector (in decimal)
         // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
-        let _callStackItem1 = context.call_public_function(thisAddress, pubEntryPointSelector, [amount, recipient]);
+        let _callStackItem1 = context.call_public_function(thisAddress, pubEntryPointSelector, [amount, to]);
 
         context.finish()
     }
@@ -473,21 +451,21 @@ contract NativeToken {
     open internal fn addUnshieldedBalance(
         inputs: PublicContextInputs,
         amount: Field,
-        recipient: Field,
+        to: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, to]));
 
         let storage = Storage::init();
 
-        let recipient_balance = storage.public_balances.at(recipient);
-        let current_balance = recipient_balance.read();
+        let to_balance = storage.public_balances.at(to);
+        let current_balance = to_balance.read();
         let new_balance = current_balance + amount;
-        recipient_balance.write(new_balance);
+        to_balance.write(new_balance);
 
         context.finish()
     }
 
-    unconstrained fn getBalance(
+    unconstrained fn balance_of(
         owner: Field,
     ) -> Field {
         let storage = Storage::init();
@@ -513,14 +491,14 @@ contract NativeToken {
         storage.total_supply.read()
     }
 
-    unconstrained fn publicBalanceOf(
+    unconstrained fn public_balance_of(
         owner: Field,
     ) -> Field {
         let storage = Storage::init();
         storage.public_balances.at(owner).read()
     }
 
-    unconstrained fn publicAllowance(
+    unconstrained fn public_allowance(
         owner: Field,
         spender: Field,
     ) -> Field {

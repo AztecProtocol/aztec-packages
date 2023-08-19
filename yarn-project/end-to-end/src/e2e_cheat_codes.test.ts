@@ -166,7 +166,7 @@ describe('e2e_cheat_codes', () => {
       await txInit.isMined({ interval: 0.1 });
 
       // fetch last updated ts from L2 contract and expect it to me same as new timestamp
-      const lastUpdatedTs = Number((await contract.methods.getTot(0).view())['last_updated_ts']);
+      const lastUpdatedTs = Number((await contract.methods.get_asset(0).view())['last_updated_ts']);
       expect(lastUpdatedTs).toEqual(newTimestamp);
       // ensure anvil is correctly updated
       expect(await cc.eth.timestamp()).toEqual(newTimestamp);

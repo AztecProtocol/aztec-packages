@@ -6,6 +6,11 @@ mod interfaces;
 
 // Single asset CDP contract.
 // Shoving re-entries up the ass.
+// TODO's:
+// - Use asset address instead of 0. We only use 0, as there is only one collateral asset :shrug:.
+// - Update accumulator should be for specific asset, just abusing only 1 asset atm.
+// - A way to repay all debt at once
+// - Liquidations
 contract Lending {
     use dep::aztec::{
         abi,
@@ -18,10 +23,10 @@ contract Lending {
     };
     use dep::aztec::oracle::{logs::emit_unencrypted_log};
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use crate::storage::{Storage, Asset, Account};
+    use crate::storage::{Storage, Asset};
     use crate::safe_math::SafeU120;
     use crate::interest_math::compute_multiplier;
-    use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value};
+    use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
 
     struct Pos {
@@ -30,11 +35,7 @@ contract Lending {
         debt: Field,
     }
 
-    // Constructs the contract.
-    fn constructor(
-        inputs: PrivateContextInputs
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+    fn constructor(inputs: PrivateContextInputs) -> distinct pub abi::PrivateCircuitPublicInputs {
         PrivateContext::new(inputs, 0).finish()
     }
 
@@ -67,12 +68,9 @@ contract Lending {
         context.return_values.push(1);
         context.finish()
     }
-
-    open fn update_tot(
-        inputs: PublicContextInputs
-    ) -> pub abi::PublicCircuitPublicInputs {
+    // keccak256("update_accumulator()") >> 224 -> 0x1873b536
+    open fn update_accumulator(inputs: PublicContextInputs) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([]));
-
         let storage = Storage::init();
 
         let asset_loc = storage.assets.at(0);
@@ -98,7 +96,6 @@ contract Lending {
         context.finish()        
     }
 
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
     fn deposit_private(
         inputs: PrivateContextInputs,
         secret: Field,
@@ -115,27 +112,10 @@ contract Lending {
             collateral_asset,
         ]));
 
-        assert (!((secret == 0) as bool & (on_behalf_of == 0) as bool));
-        let mut account = on_behalf_of;
-
-        if (secret != 0) {
-            account = Account::new(context.msg_sender(), secret).key();
-        }
-
-        //let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
-        let _res = context.call_private_function(
-            collateral_asset,
-            2423803924, 
-            [amount, asset_owner, context.this_address()]
-        );
-
-        // _deposit(account, amount, collateral_asset)
-        let _callStackItem2 = context.call_public_function(
-            context.this_address(), 
-            139488848,
-            [account, amount, collateral_asset]
-        );
-
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+        let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
+        // _deposit(on_behalf_of, amount, collateral_asset)
+        let _callStackItem2 = context.call_public_function(context.this_address(), 0x08506e50,[on_behalf_of, amount, collateral_asset]);
         context.finish()
     }
 
@@ -146,22 +126,13 @@ contract Lending {
         collateral_asset: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, collateral_asset]));
-
-        // If calling this with a mutating context. The following call will not execute as planned.
-        // Token::at(collateral_asset).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
-        let _transfer_return_values = context.call_public_function(
-            collateral_asset, 
-            1602017294, 
-            [context.msg_sender(), context.this_address(), amount]
-        );
-
-        let return_values = context.call_public_function(context.this_address(), 139488848, [owner, amount, collateral_asset]);
-
+        Token::at(collateral_asset).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        let return_values = context.call_public_function(context.this_address(), 0x08506e50, [owner, amount, collateral_asset]);
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
-    // uint256(keccak256("_deposit(field,field,field)")) >> 224 -> 139488848
+    // keccak256("_deposit(field,field,field)") >> 224 -> 0x08506e50
     open internal fn _deposit(
         inputs: PublicContextInputs,
         owner: Field,
@@ -195,15 +166,8 @@ contract Lending {
             to,
             amount
         ]));
-
-        let me = context.msg_sender();
-        let account = Account::new(me, secret).key();
-        let _callStackItem = context.call_public_function(
-            context.this_address(), 
-            1526134324,
-            [account, to, amount]
-        );
-
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender());
+        let _callStackItem = context.call_public_function(context.this_address(), 0x5af6f634, [on_behalf_of, to, amount]);
         context.finish()
     }
 
@@ -213,15 +177,13 @@ contract Lending {
         amount: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([to, amount]));
-
         // _withdraw(msg.sender, to, amount);
-        let return_values = context.call_public_function(context.this_address(), 1526134324, [context.msg_sender(), to, amount]);
-
+        let return_values = context.call_public_function(context.this_address(), 0x5af6f634, [context.msg_sender(), to, amount]);
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
-    // uint256(keccak256("_withdraw(field,field,field)")) >> 224 -> 1526134324
+    // keccak256("_withdraw(field,field,field)") >> 224 -> 0x5af6f634
     open internal fn _withdraw(
         inputs: PublicContextInputs,
         owner: Field,
@@ -245,7 +207,6 @@ contract Lending {
         let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral as u120, 0, amount as u120);
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt as u120, 0, 0);
 
-        // Ensure that debt is covered by collateral
         assert (debt_returns.debt_value < debt_covered);
 
         coll_loc.write(collateral - amount);
@@ -253,11 +214,6 @@ contract Lending {
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = storage.collateral_asset.read();
         Token::at(collateral_asset).transfer_pub(context, recipient, amount);
-        // let _transfer_return_values = context.call_public_function(
-        //    collateral_asset,
-        //    1012824788, 
-        //    [recipient, amount]
-        //);
 
         context.return_values.push(1);
         context.finish()
@@ -274,17 +230,9 @@ contract Lending {
             to,
             amount
         ]));
-
-        let me = context.msg_sender();
-        let account = Account::new(me, secret).key();
-
+        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender());
         // _borrow(msg.sender, to, amount)
-        let _callStackItem = context.call_public_function(
-            context.this_address(), 
-            3472859930,
-            [account, to, amount]
-        );
-
+        let _callStackItem = context.call_public_function(context.this_address(), 0xceffa31a, [on_behalf_of, to, amount]);
         context.finish()
     }
 
@@ -295,13 +243,12 @@ contract Lending {
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([to, amount]));
         // _borrow(msg.sender, to, amount)
-        let return_values = context.call_public_function(context.this_address(), 3472859930, [context.msg_sender(), to, amount]);
-
+        let return_values = context.call_public_function(context.this_address(), 0xceffa31a, [context.msg_sender(), to, amount]);
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
-    // uint256(keccak256("_borrow(field,field,field)")) >> 224 -> 3472859930
+    // keccak256("_borrow(field,field,field)") >> 224 -> 0xceffa31a
     open internal fn _borrow(
         inputs: PublicContextInputs,
         owner: Field,
@@ -321,26 +268,18 @@ contract Lending {
         let debt_covered = covered_by_collateral(price, asset.loan_to_value, collateral, 0, 0);
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, amount as u120, 0);
 
-        // Ensure that debt is covered by collateral
         assert (debt_returns.debt_value < debt_covered);
 
-        // static_debt[owner] = debt_returns.static_debt;
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
         Token::at(stable_coin).owner_mint_pub(context, to, amount);
-        // let _transfer_return_values = context.call_public_function(
-        //    stable_coin, 
-        //    1071038680, 
-        //    [to, amount]
-        //);
 
         context.return_values.push(1);
         context.finish()
     }
 
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
     fn repay_private(
         inputs: PrivateContextInputs,
         secret: Field,
@@ -349,9 +288,6 @@ contract Lending {
         amount: Field,
         stable_coin: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Take funds from asset_owner
-        // Reduce debt of on_behalf_of
-
         let mut context = PrivateContext::new(inputs, abi::hash_args([
             secret,
             asset_owner,
@@ -359,28 +295,9 @@ contract Lending {
             amount,
             stable_coin,
         ]));
-
-        assert (!((secret == 0) as bool & (on_behalf_of == 0) as bool));
-        let mut account = on_behalf_of;
-        let me = context.msg_sender();
-
-        if (secret != 0) {
-            account = Account::new(me, secret).key();
-        }
-
-        // let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
-        let _res = context.call_private_function(
-            stable_coin, 
-            2423803924, 
-            [amount, asset_owner, context.this_address()]
-        );
-
-        let _callStackItem = context.call_public_function(
-            context.this_address(), 
-            4204047188,
-            [account, amount, stable_coin]
-        );
-
+        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
+        let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
+        let _callStackItem = context.call_public_function(context.this_address(), 0xfa94ab54, [on_behalf_of, amount, stable_coin]);
         context.finish()
     }
 
@@ -390,34 +307,23 @@ contract Lending {
         amount: Field,
         stable_coin: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-
+        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, stable_coin]));
         // Should probably just burn the tokens actually :thinking:
         Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
-        // let _transfer_return_values = context.call_public_function(
-        //    stable_coin, 
-        //    1602017294, 
-        //    [context.msg_sender(), context.this_address(), amount]
-        //);
-
-        let return_values = context.call_public_function(context.this_address(), 4204047188, [owner, amount, stable_coin]);
-
+        let return_values = context.call_public_function(context.this_address(), 0xfa94ab54, [owner, amount, stable_coin]);
         context.return_values.push(return_values[0]);
         context.finish()
     }
 
-    // uint256(keccak256("_repay(field,field,field)")) >> 224 -> 4204047188
+    // keccak256("_repay(field,field,field)") >> 224 -> 0xfa94ab54
     open internal fn _repay(
         inputs: PublicContextInputs,
         owner: Field,
         amount: Field,
         stable_coin: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
-        // todo: need an explicit case to repay all debt.
         let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount, stable_coin]));
-
         let asset = Lending::at(context.this_address()).update_accumulator(context);
-
         let storage = Storage::init();
 
         // To ensure that private is using the correct token.
@@ -426,21 +332,20 @@ contract Lending {
         let static_debt = storage.static_debt.at(owner).read() as u120;
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0, amount as u120);
 
-        // static_debt[owner] = debt_returns.static_debt;
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
         
         context.return_values.push(1);
         context.finish()
     }
 
-    unconstrained fn getTot(
+    unconstrained fn get_asset(
         assetId: Field,
     ) -> Asset {
         let storage = Storage::init();
         storage.assets.at(assetId).read()
     }
 
-    unconstrained fn getPosition(
+    unconstrained fn get_position(
         owner: Field,
     ) -> Pos {
         let storage = Storage::init();
