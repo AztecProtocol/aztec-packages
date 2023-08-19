@@ -1,5 +1,6 @@
 use dep::std::option::Option;
 use crate::abi::PublicContextInputs;
+use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
 use crate::context::{
     PrivateContext,
     PublicContext,
@@ -64,11 +65,11 @@ impl<Note, N> Set<Note, N> {
         destroy_note(context, self.storage_slot, note, self.note_interface);
     }
 
-    fn get_notes<S, P>(
+    fn get_notes<FILTER_ARGS>(
         self,
         context: &mut PrivateContext,
-        options: NoteGetterOptions<Note, N, S, P>,
-    ) -> [Option<Note>; S] {
+        options: NoteGetterOptions<Note, N, FILTER_ARGS>,
+    ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
         let storage_slot = self.storage_slot;
         let opt_notes = get_notes(context, storage_slot, self.note_interface, options);
         opt_notes

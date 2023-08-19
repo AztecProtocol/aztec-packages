@@ -61,7 +61,7 @@ contract Escrow {
         let storage = Storage::init();
         
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
-        let options = NoteGetterOptions::new().select(0, sender).select(1, this);
+        let options = NoteGetterOptions::new().select(0, sender).select(1, this).set_limit(1);
         let notes = storage.owners.get_notes(&mut context, options);
         let note = notes[0].unwrap_unchecked();
         // Filter is not constrained. We still need to check if the note is what we expected.

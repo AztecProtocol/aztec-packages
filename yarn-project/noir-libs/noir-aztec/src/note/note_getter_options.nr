@@ -44,20 +44,22 @@ fn return_all_notes<Note, N>(notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL], 
 }
 
 // docs:start:NoteGetterOptions
-struct NoteGetterOptions<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> {
+struct NoteGetterOptions<Note, N, FILTER_ARGS> {
     selects: [Option<Select>; N],
     sorts: [Option<Sort>; N],
+    limit: u32,
     offset: u32,
-    filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; NUM_RETURN_NOTES],
+    filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
     filter_args: FILTER_ARGS,
 }
 // docs:end:NoteGetterOptions
 
-impl<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> NoteGetterOptions<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> {
-    fn new() -> NoteGetterOptions<Note, N, MAX_READ_REQUESTS_PER_CALL, Field> {
+impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
+    fn new() -> NoteGetterOptions<Note, N, Field> {
         NoteGetterOptions {
             selects: [Option::none(); N],
             sorts: [Option::none(); N],
+            limit: MAX_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
             filter: return_all_notes,
             filter_args: 0,
@@ -65,12 +67,13 @@ impl<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> NoteGetterOptions<Note, N, NUM_RETU
     }
 
     fn with_filter(
-        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; NUM_RETURN_NOTES],
+        filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
         filter_args: FILTER_ARGS,
     ) -> Self {
          NoteGetterOptions {
             selects: [Option::none(); N],
             sorts: [Option::none(); N],
+            limit: 0,
             offset: 0,
             filter,
             filter_args,
@@ -100,6 +103,12 @@ impl<Note, N, NUM_RETURN_NOTES, FILTER_ARGS> NoteGetterOptions<Note, N, NUM_RETU
             }
         }
         self.sorts = sorts;
+        *self
+    }
+
+    fn set_limit(&mut self, limit: u32) -> Self {
+        assert(limit <= MAX_READ_REQUESTS_PER_CALL as u32);
+        self.limit = limit;
         *self
     }
 

@@ -112,12 +112,12 @@ fn get_note<Note, N>(
     note
 }
 
-fn get_notes<Note, N, S, P>(
+fn get_notes<Note, N, FILTER_ARGS>(
     context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    options: NoteGetterOptions<Note, N, S, P>,
-) -> [Option<Note>; S] {
+    options: NoteGetterOptions<Note, N, FILTER_ARGS>,
+) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
     let opt_notes = get_notes_internal(storage_slot, note_interface, options);
     for i in 0..opt_notes.len() {
         let opt_note = opt_notes[i];
@@ -160,10 +160,10 @@ unconstrained fn get_note_internal<Note, N>(
     )[0].unwrap() // Notice: we don't allow dummies to be returned from get_note (singular).
 }
 
-unconstrained fn get_notes_internal<Note, N, S, P>(
+unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    options: NoteGetterOptions<Note, N, S, P>,
+    options: NoteGetterOptions<Note, N, FILTER_ARGS>,
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
     let selects = options.selects;
     let mut num_selects = 0;
@@ -197,7 +197,7 @@ unconstrained fn get_notes_internal<Note, N, S, P>(
         select_values,
         sort_by,
         sort_order,
-        MAX_READ_REQUESTS_PER_CALL as u32,
+        options.limit,
         options.offset,
         placeholder_opt_notes,
         placeholder_fields,

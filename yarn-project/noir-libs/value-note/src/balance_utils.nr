@@ -1,14 +1,15 @@
+use dep::aztec::constants_gen::MAX_NOTES_PER_PAGE;
 use dep::aztec::note::note_getter::view_notes;
 use crate::value_note::{VALUE_NOTE_LEN, ValueNoteMethods};
 
 unconstrained fn get_balance(storage_slot: Field) -> Field {
-    get_balance_internal(storage_slot, 10, 0)
+    get_balance_internal(storage_slot, 0)
 }
 
-unconstrained fn get_balance_internal(storage_slot: Field, limit: u32, offset: u32) -> Field {
+unconstrained fn get_balance_internal(storage_slot: Field, offset: u32) -> Field {
     let mut balance = 0;
 
-    let opt_notes = view_notes(storage_slot, ValueNoteMethods, limit, offset);
+    let opt_notes = view_notes(storage_slot, ValueNoteMethods, MAX_NOTES_PER_PAGE as u32, offset);
     let len = opt_notes.len();
     for i in 0..len {
         if opt_notes[i].is_some() {
@@ -16,7 +17,7 @@ unconstrained fn get_balance_internal(storage_slot: Field, limit: u32, offset: u
         }
     }
     if (opt_notes[len - 1].is_some()) {
-        balance += get_balance_internal(storage_slot, limit, offset + limit);
+        balance += get_balance_internal(storage_slot, offset + MAX_NOTES_PER_PAGE as u32);
     }
 
     balance
