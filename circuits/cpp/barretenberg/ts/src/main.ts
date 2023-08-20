@@ -172,6 +172,26 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
   }
 }
 
+export async function writeKeys(bytecodePath: string, crsPath: string, outputVkPath: string, outputPkPath: string) {
+  const { api, acirComposer } = await init(bytecodePath, crsPath);
+  try {
+    debug('initing proving key...');
+    const bytecode = getBytecode(bytecodePath);
+    const pk = await api.acirGetProvingKey(acirComposer, bytecode);
+
+    debug('initing verification key...');
+    const vk = await api.acirGetVerificationKey(acirComposer);
+
+    writeFileSync(outputVkPath, vk);
+    writeFileSync(outputPkPath, pk);
+
+    debug(`vk written to: ${outputVkPath}`);
+    debug(`pk written to: ${outputPkPath}`);
+  } finally {
+    await api.destroy();
+  }
+}
+
 export async function proofAsFields(proofPath: string, numInnerPublicInputs: number, outputPath: string) {
   const { api, acirComposer } = await initLite();
 
@@ -287,6 +307,17 @@ program
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
     await writeVk(bytecodePath, crsPath, outputPath);
+  });
+
+program
+  .command('write_keys')
+  .description('Output verification and proving key.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
+  .requiredOption('-ovk, --output-vk-path <path>', 'Specify the path to write the verification key')
+  .requiredOption('-opk, --output-pk-path <path>', 'Specify the path to write the proving key')
+  .action(async ({ bytecodePath, outputVkPath, outputPkPath,crsPath }) => {
+    handleGlobalOptions();
+    await writeKeys(bytecodePath, crsPath, outputVkPath, outputPkPath);
   });
 
 program
