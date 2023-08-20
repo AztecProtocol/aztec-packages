@@ -1,4 +1,6 @@
 #include "barretenberg/bb/get_crs.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "get_bytecode.hpp"
 #include "get_witness.hpp"
 #include <barretenberg/common/container.hpp>
@@ -67,17 +69,24 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  * - Filesystem: The proof is written to the path specified by outputPath
  *
  * @param bytecodePath Path to the file containing the serialized circuit
+ * @param provingKeyPath Path to the file containing the provingKey
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
  */
 void prove(const std::string& bytecodePath,
+           const std::string& provingKeyPath,
            const std::string& witnessPath,
            bool recursive,
            const std::string& outputPath)
 {
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto constraint_system = get_constraint_system(bytecodePath);
+    if (provingKeyPath.empty()) {
+        auto pk_data = from_buffer<plonk::proving_key_data>(read_file(provingKeyPath));
+        acir_composer->load_proving_key(barretenberg::srs::get_crs_factory(), std::move(pk_data));
+    }
+
     auto witness = get_witness(witnessPath);
     auto proof = acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
 
@@ -149,6 +158,38 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
     write_file(outputPath, serialized_vk);
 
     info("vk written to: ", outputPath);
+}
+
+/**
+ * @brief Writes a verification and proving key for an ACIR circuit to a file
+ *
+ * Why is this needed?
+ * Generally we want to save the proving key, so that we can create proofs without having to recompute the proving key.
+ * and so that verification procedures are not slow.
+ *
+ *
+ *
+ * Communication:
+ * - We do not write anything to stdout because proving key can be very large
+ * - Filesystem: The verification key and proving key are written to the path specified by outputPkPath and outputVkPath
+ *
+ * @param bytecodePath Path to the file containing the serialized circuit
+ * @param outputVkPath Path to write the verification key to
+ * @param outputPkPath Path to write the proving key to
+ */
+void writeKeys(const std::string& bytecodePath, const std::string& outputVkPath, const std::string& outputPkPath)
+{
+    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
+    auto constraint_system = get_constraint_system(bytecodePath);
+    auto pk = acir_composer->init_proving_key(srs::get_crs_factory(), constraint_system);
+    auto vk = acir_composer->init_verification_key();
+    auto serialized_pk = to_buffer(*pk);
+    auto serialized_vk = to_buffer(*vk);
+    write_file(outputVkPath, serialized_vk);
+    write_file(outputPkPath, serialized_pk);
+
+    info("vk written to: ", outputVkPath);
+    info("pk written to: ", outputPkPath);
 }
 
 /**
@@ -272,7 +313,10 @@ int main(int argc, char* argv[])
         std::string bytecode_path = getOption(args, "-b", "./target/main.bytecode");
         std::string witness_path = getOption(args, "-w", "./target/witness.tr");
         std::string proof_path = getOption(args, "-p", "./proofs/proof");
-        std::string vk_path = getOption(args, "-k", "./target/vk");
+        std::string vk_path = getOption(args, "-vk", "./target/vk");
+        // "" this optional so we don't supply a default
+        // Unlike other argument, we want to differentiate between the user not supplying a path
+        std::string pk_path = getOption(args, "-pk", "");
         CRS_PATH = getOption(args, "-c", "./crs");
         bool recursive = flagPresent(args, "-r") || flagPresent(args, "--recursive");
         init();
@@ -281,7 +325,7 @@ int main(int argc, char* argv[])
             return proveAndVerify(bytecode_path, witness_path, recursive) ? 0 : 1;
         } else if (command == "prove") {
             std::string output_path = getOption(args, "-o", "./proofs/proof");
-            prove(bytecode_path, witness_path, recursive, output_path);
+            prove(bytecode_path, pk_path, witness_path, recursive, output_path);
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
@@ -292,6 +336,10 @@ int main(int argc, char* argv[])
         } else if (command == "write_vk") {
             std::string output_path = getOption(args, "-o", "./target/vk");
             writeVk(bytecode_path, output_path);
+        } else if (command == "write_keys") {
+            std::string output_vk_path = getOption(args, "-ovk", "./target/vk");
+            std::string output_pk_path = getOption(args, "-opk", "./target/pk");
+            writeKeys(bytecode_path, output_vk_path, output_pk_path);
         } else if (command == "proof_as_fields") {
             std::string output_path = getOption(args, "-o", proof_path + "_fields.json");
             proofAsFields(proof_path, vk_path, output_path);
