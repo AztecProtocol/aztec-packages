@@ -116,19 +116,16 @@ describe('e2e_ordering', () => {
       //     in reverse order. More info in this thread: https://discourse.aztec.network/t/identifying-the-ordering-of-state-access-across-contract-calls/382/12#transition-counters-for-private-calls-2
       // Once fixed, re-include the `setValueTwiceWithNestedFirst` test
       //it.each(['setValueTwiceWithNestedFirst', 'setValueTwiceWithNestedLast'] as const)(
-      it.each(['setValueTwiceWithNestedLast'] as const)(
-        'orders unencrypted logs in %s',
-        async method => {
-          const expectedOrder = expectedOrders[method];
+      it.each(['setValueTwiceWithNestedLast'] as const)('orders unencrypted logs in %s', async method => {
+        const expectedOrder = expectedOrders[method];
 
-          const tx = child.methods[method]().send();
-          const receipt = await tx.wait();
-          expect(receipt.status).toBe(TxStatus.MINED);
+        const tx = child.methods[method]().send();
+        const receipt = await tx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
 
-          // Logs are emitted in the expected order
-          await expectLogsFromLastBlockToBe(expectedOrder);
-        },
-      );
+        // Logs are emitted in the expected order
+        await expectLogsFromLastBlockToBe(expectedOrder);
+      });
     });
   });
 });
