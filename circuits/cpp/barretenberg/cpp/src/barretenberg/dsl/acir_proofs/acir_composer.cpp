@@ -4,6 +4,7 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/dsl/types.hpp"
+#include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/sol_gen.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
@@ -31,7 +32,7 @@ void AcirComposer::create_circuit(acir_format::acir_format& constraint_system)
     size_hint_ = circuit_subgroup_size_;
 }
 
-void AcirComposer::init_proving_key(
+std::shared_ptr<proof_system::plonk::proving_key> AcirComposer::init_proving_key(
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
     acir_format::acir_format& constraint_system)
 {
@@ -50,6 +51,7 @@ void AcirComposer::init_proving_key(
     composer_ = acir_format::Composer(crs_factory);
     vinfo("computing proving key...");
     proving_key_ = composer_.compute_proving_key(builder_);
+    return proving_key_;
 }
 
 std::vector<uint8_t> AcirComposer::create_proof(
@@ -108,6 +110,14 @@ std::shared_ptr<proof_system::plonk::verification_key> AcirComposer::init_verifi
     return verification_key_;
 }
 
+void AcirComposer::load_proving_key(
+    std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
+    proof_system::plonk::proving_key_data&& data)
+{
+    auto proving_key_ =
+        std::make_shared<plonk::proving_key>(std::move(data), crs_factory->get_prover_crs(data.circuit_size + 1));
+    composer_ = acir_format::Composer(proving_key_, verification_key_);
+}
 void AcirComposer::load_verification_key(
     std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
     proof_system::plonk::verification_key_data&& data)

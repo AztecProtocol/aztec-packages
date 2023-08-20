@@ -14,8 +14,12 @@ class AcirComposer {
 
     void create_circuit(acir_format::acir_format& constraint_system);
 
-    void init_proving_key(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
-                          acir_format::acir_format& constraint_system);
+    void load_proving_key(std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
+                          proof_system::plonk::proving_key_data&& data);
+
+    std::shared_ptr<proof_system::plonk::proving_key> init_proving_key(
+        std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
+        acir_format::acir_format& constraint_system);
 
     std::vector<uint8_t> create_proof(
         std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> const& crs_factory,
