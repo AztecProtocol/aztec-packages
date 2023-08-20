@@ -38,6 +38,15 @@ WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* 
     acir_composer->init_proving_key(barretenberg::srs::get_crs_factory(), constraint_system);
 }
 
+WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* acir_vec, uint8_t** out)
+{
+    auto acir_composer = reinterpret_cast<acir_proofs::AcirComposer*>(*acir_composer_ptr);
+    auto constraint_system = acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec));
+
+    auto pk = acir_composer->init_proving_key(barretenberg::srs::get_crs_factory(), constraint_system);
+    *out = to_heap_buffer(to_buffer(*pk));
+}
+
 WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
                                    uint8_t const* acir_vec,
                                    uint8_t const* witness_vec,

@@ -21,6 +21,8 @@ WASM_EXPORT void acir_create_circuit(in_ptr acir_composer_ptr,
 
 WASM_EXPORT void acir_init_proving_key(in_ptr acir_composer_ptr, uint8_t const* constraint_system_buf);
 
+WASM_EXPORT void acir_get_proving_key(in_ptr acir_composer_ptr, uint8_t const* acir_vec, uint8_t** out);
+
 /**
  * It would have been nice to just hold onto the constraint_system in the acir_composer, but we can't waste the
  * memory. Being able to reuse the underlying Composer would help as well. But, given the situation, we just have
