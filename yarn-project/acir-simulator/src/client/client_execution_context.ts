@@ -142,10 +142,10 @@ export class ClientTxExecutionContext {
 
     // Nullified pending notes are already removed from the list.
     const notes = pickNotes([...dbNotesFiltered, ...pendingNotes], {
-      selectBy: selectBy.slice(0, numSelects).map(field => +field),
-      selectValues: selectValues.slice(0, numSelects).map(field => fromACVMField(field)),
-      sortBy: sortBy.map(field => +field),
-      sortOrder: sortOrder.map(field => +field),
+      selects: selectBy
+        .slice(0, numSelects)
+        .map((fieldIndex, i) => ({ index: +fieldIndex, value: fromACVMField(selectValues[i]) })),
+      sorts: sortBy.map((fieldIndex, i) => ({ index: +fieldIndex, order: +sortOrder[i] })),
       limit,
       offset,
     });

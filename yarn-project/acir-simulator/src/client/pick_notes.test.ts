@@ -35,21 +35,26 @@ describe('getNotes', () => {
 
     // Sort 1st field in ascending order.
     {
-      const options = { sortBy: [1], sortOrder: [SortOrder.ASC] };
+      const options = { sorts: [{ index: 1, order: SortOrder.ASC }] };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [1, [0n, 1n, 5n, 5n, 5n, 6n]]);
     }
 
     // Sort 1st field in descending order.
     {
-      const options = { sortBy: [1] };
+      const options = { sorts: [{ index: 1, order: SortOrder.DESC }] };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [1, [6n, 5n, 5n, 5n, 1n, 0n]], [0, [7n, 4n, 6n, 6n, 2n, 0n]]);
     }
 
     // Sort 1st and 0th fields in descending order.
     {
-      const options = { sortBy: [1, 0] };
+      const options = {
+        sorts: [
+          { index: 1, order: SortOrder.DESC },
+          { index: 0, order: SortOrder.DESC },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [1, [6n, 5n, 5n, 5n, 1n, 0n]], [0, [7n, 6n, 6n, 4n, 2n, 0n]]);
     }
@@ -57,7 +62,12 @@ describe('getNotes', () => {
     // Sort 1st field in descending order
     // Then 0th field in ascending order
     {
-      const options = { sortBy: [1, 0], sortOrder: [SortOrder.DESC, SortOrder.ASC] };
+      const options = {
+        sorts: [
+          { index: 1, order: SortOrder.DESC },
+          { index: 0, order: SortOrder.ASC },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotesFields(
         result,
@@ -71,7 +81,13 @@ describe('getNotes', () => {
     // Then 0th field in ascending order
     // Then 2nd field in descending order.
     {
-      const options = { sortBy: [1, 0, 2], sortOrder: [SortOrder.DESC, SortOrder.ASC, SortOrder.DESC] };
+      const options = {
+        sorts: [
+          { index: 1, order: SortOrder.DESC },
+          { index: 0, order: SortOrder.ASC },
+          { index: 2, order: SortOrder.DESC },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotesFields(
         result,
@@ -85,23 +101,23 @@ describe('getNotes', () => {
   it('should get sorted notes in a range', () => {
     const notes = [createNote([2n]), createNote([8n]), createNote([6n]), createNote([5n]), createNote([0n])];
 
-    const sortBy = [0];
+    const sorts = [{ index: 0, order: SortOrder.DESC }];
     // Sorted values: [8n, 6n, 5n, 2n, 0n]
 
     {
-      const options = { sortBy, limit: 3 };
+      const options = { sorts, limit: 3 };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [0, [8n, 6n, 5n]]);
     }
 
     {
-      const options = { sortBy, limit: 3, offset: 1 };
+      const options = { sorts, limit: 3, offset: 1 };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [0, [6n, 5n, 2n]]);
     }
 
     {
-      const options = { sortBy, limit: 3, offset: 4 };
+      const options = { sorts, limit: 3, offset: 4 };
       const result = pickNotes(notes, options);
       expectNotesFields(result, [0, [0n]]);
     }
@@ -109,7 +125,7 @@ describe('getNotes', () => {
 
   it('should not change order if sortOrder is NADA', () => {
     const notes = [createNote([2n]), createNote([8n]), createNote([6n]), createNote([5n]), createNote([0n])];
-    const options = { sortBy: [0], sortOrder: [SortOrder.NADA] };
+    const options = { sorts: [{ index: 0, order: SortOrder.NADA }] };
     const result = pickNotes(notes, options);
     expectNotesFields(result, [0, [2n, 8n, 6n, 5n, 0n]]);
   });
@@ -124,7 +140,7 @@ describe('getNotes', () => {
     ];
 
     {
-      const options = { selectBy: [0], selectValues: [new Fr(2n)] };
+      const options = { selects: [{ index: 0, value: new Fr(2n) }] };
       const result = pickNotes(notes, options);
       expectNotes(result, [
         [2n, 1n, 3n],
@@ -134,7 +150,12 @@ describe('getNotes', () => {
     }
 
     {
-      const options = { selectBy: [0, 2], selectValues: [new Fr(2n), new Fr(3n)] };
+      const options = {
+        selects: [
+          { index: 0, value: new Fr(2n) },
+          { index: 2, value: new Fr(3n) },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotes(result, [
         [2n, 1n, 3n],
@@ -143,19 +164,29 @@ describe('getNotes', () => {
     }
 
     {
-      const options = { selectBy: [1, 2], selectValues: [new Fr(2n), new Fr(3n)] };
+      const options = {
+        selects: [
+          { index: 1, value: new Fr(2n) },
+          { index: 2, value: new Fr(3n) },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotes(result, [[1n, 2n, 3n]]);
     }
 
     {
-      const options = { selectBy: [1], selectValues: [new Fr(5n)] };
+      const options = { selects: [{ index: 1, value: new Fr(5n) }] };
       const result = pickNotes(notes, options);
       expectNotes(result, []);
     }
 
     {
-      const options = { selectBy: [0, 1], selectValues: [new Fr(2), new Fr(5n)] };
+      const options = {
+        selects: [
+          { index: 0, value: new Fr(2n) },
+          { index: 1, value: new Fr(5n) },
+        ],
+      };
       const result = pickNotes(notes, options);
       expectNotes(result, []);
     }
@@ -171,7 +202,7 @@ describe('getNotes', () => {
       createNote([6n, 5n, 8n]),
     ];
 
-    const options = { selectBy: [2], selectValues: [new Fr(8n)], sortBy: [1], sortOrder: [SortOrder.ASC] };
+    const options = { selects: [{ index: 2, value: new Fr(8n) }], sorts: [{ index: 1, order: SortOrder.ASC }] };
     const result = pickNotes(notes, options);
     expectNotes(result, [
       [0n, 0n, 8n],
