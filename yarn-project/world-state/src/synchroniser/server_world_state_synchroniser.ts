@@ -111,6 +111,8 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
       return Promise.resolve();
     }
+    // ensure any outstanding block updates are completed first.
+    await this.jobQueue.syncPoint();
     const numBlocks = await this.l2BlockDownloader.pollImmediate();
     this.log(`Block download immediate poll yielded ${numBlocks} blocks`);
     if (!numBlocks) {
