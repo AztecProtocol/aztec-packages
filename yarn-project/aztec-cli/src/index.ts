@@ -31,6 +31,7 @@ import {
   getExampleContractArtifacts,
   getTxSender,
   prepTx,
+  unboxContract,
 } from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
@@ -476,6 +477,21 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const names = Object.keys(abisList);
       names.forEach(name => log(name));
     });
+
+  program
+    .command('unbox')
+    .description('Unboxes an example contract from @aztec/noir-contracts')
+    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
+    .action(async (contractName) => {
+      // console.log(contractName);
+      await unboxContract(contractName, log);
+      // TODO: add react frontend file.  read a contract ABI json file and generate frontend from that
+      // what does frontend look like?  support for "wallet" interaction with the contract?
+      // TODO: do we need a webserver ? (if so, next.js?)
+});
+
+
+
 
   compileContract(program, 'compile', log);
 

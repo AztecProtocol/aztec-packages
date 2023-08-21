@@ -7,6 +7,7 @@ import fs from 'fs';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
+import { assert } from 'console';
 
 /**
  * Helper type to dynamically import contracts.
@@ -139,4 +140,32 @@ export async function prepTx(
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
   return { contractAddress, functionArgs, contractAbi };
+}
+
+/**
+ * Unboxes a contract from `@aztec/noir-contracts` and generates a simple frontend.
+ * Performs the following operations in order:
+ * 1. Checks if the contract exists in `@aztec/noir-contracts`
+ * 2. Copies the contract from the `@aztec/noir-contracts` to the current working directory
+ * This is done via brute force find+copy of the globally installed `node_modules/@aztec/noir-contracts` folder.
+ * 3. Copies the frontend template from `@aztec/cli` to the current working directory
+ * 4. Generates a frontend for the contract
+ * @param contractName - name of contract from `@aztec/noir-contracts`
+ */
+export async function unboxContract(
+  contractName: string,
+  log: LogFn,
+) {
+  const contracts =  await import('@aztec/noir-contracts/artifacts');
+  // console.log(contracts);
+  const contractNames = Object.values(contracts).map((contract) => contract.name);
+  // console.log(contractNames);
+  assert(contractNames.includes(contractName),
+   `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
+   We recommend "PrivateToken" as a default.`);
+
+  const chosenContractAbi = Object.values(contracts).filter((contract) => contract.name === contractName)[0];
+  console.log(chosenContractAbi);
+
+  return;
 }
