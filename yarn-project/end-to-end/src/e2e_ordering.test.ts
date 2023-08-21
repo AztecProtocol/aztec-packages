@@ -15,7 +15,6 @@ describe('e2e_ordering', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
-  //let logger: DebugLogger;
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
     const l2BlockNum = await aztecRpcServer.getBlockNum();
@@ -27,7 +26,7 @@ describe('e2e_ordering', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallet /*, logger*/ } = await setup());
+    ({ aztecNode, aztecRpcServer, wallet } = await setup());
   }, 100_000);
 
   afterEach(async () => {
