@@ -386,7 +386,9 @@ export class AztecNodeService implements AztecNode {
       if (!blockDifference) {
         break;
       }
-      this.log(`World State ${blockDifference} block(s) behind block source, forcing sync...`);
+      this.log(
+        `World State at block ${worldStateStatus.syncedToL2Block}, block source at block ${blockSourceHeight} forcing sync...`,
+      );
       await this.worldStateSynchroniser.syncImmediate();
     }
   }
