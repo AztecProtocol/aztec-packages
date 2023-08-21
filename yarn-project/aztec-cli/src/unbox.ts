@@ -60,6 +60,8 @@ function copyFolderFromGlobalPackage(packageName: string, sourceFolder: string, 
 // i think we can leave destination blank to copy to current working directory
 
 
+// not sure if we need the temp part, think we can grab from the install directory directly
+// but temp would be needed to support copying from a branch
 async function copyTempIntoDestination(
     tmpDir: string,
     destination: string,
