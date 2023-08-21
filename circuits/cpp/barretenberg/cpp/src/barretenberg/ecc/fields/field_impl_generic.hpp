@@ -1,9 +1,13 @@
 #pragma once
 
+#include <array>
+#include <cstdint>
+
+#include "./field_impl.hpp"
 namespace barretenberg {
 
-template <class T>
-constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide(const uint64_t a, const uint64_t b) noexcept
+// NOLINTBEGIN(google-readability-casting, readability-implicit-bool-conversion)
+template <class T> constexpr std::pair<uint64_t, uint64_t> field<T>::mul_wide(uint64_t a, uint64_t b) noexcept
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t res = ((uint128_t)a * (uint128_t)b);
@@ -141,8 +145,8 @@ constexpr uint64_t field<T>::square_accumulate(const uint64_t a,
 {
 #if defined(__SIZEOF_INT128__) && !defined(__wasm__)
     const uint128_t product = (uint128_t)b * (uint128_t)c;
-    const uint64_t r0 = (uint64_t)product;
-    const uint64_t r1 = (uint64_t)(product >> 64);
+    const auto r0 = (uint64_t)product;
+    const auto r1 = (uint64_t)(product >> 64);
     uint64_t out = r0 + r0;
     carry_lo = (out < r0);
     out += a;
@@ -297,12 +301,12 @@ template <class T> constexpr field<T> field<T>::montgomery_mul_big(const field& 
     uint64_t t4 = 0;
     uint64_t t5 = 0;
     uint64_t k = 0;
-    for (size_t i = 0; i < 4; ++i) {
+    for (const auto& element : data) {
         c = 0;
-        mac(t0, data[i], other.data[0], c, t0, c);
-        mac(t1, data[i], other.data[1], c, t1, c);
-        mac(t2, data[i], other.data[2], c, t2, c);
-        mac(t3, data[i], other.data[3], c, t3, c);
+        mac(t0, element, other.data[0], c, t0, c);
+        mac(t1, element, other.data[1], c, t1, c);
+        mac(t2, element, other.data[2], c, t2, c);
+        mac(t3, element, other.data[3], c, t3, c);
         t4 = addc(t4, c, 0, t5);
 
         c = 0;
@@ -807,4 +811,5 @@ template <class T> constexpr struct field<T>::wide_array field<T>::mul_512(const
 #endif
 }
 
+// NOLINTEND(google-readability-casting, readability-implicit-bool-conversion)
 } // namespace barretenberg

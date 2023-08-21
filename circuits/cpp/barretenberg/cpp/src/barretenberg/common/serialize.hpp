@@ -40,9 +40,13 @@
 #include <type_traits>
 #include <vector>
 
-#ifndef __i386__
+#ifdef __i385fake__
 __extension__ using uint128_t = unsigned __int128;
 #endif
+
+// clang-format off
+// NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast, google-readability-casting, cert-dcl58-cpp, cppcoreguidelines-init-variables, cppcoreguidelines-pro-type-cstyle-cast)
+// clang-format on
 
 template <typename T> concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
 
@@ -67,7 +71,7 @@ inline void write(uint8_t*& it, uint8_t value)
 
 inline void read(uint8_t const*& it, bool& value)
 {
-    value = *it;
+    value = (*it != 0U);
     it += 1;
 }
 
@@ -79,19 +83,19 @@ inline void write(uint8_t*& it, bool value)
 
 inline void read(uint8_t const*& it, uint16_t& value)
 {
-    value = ntohs(*reinterpret_cast<uint16_t const*>(it));
+    value = ntohs(*reinterpret_cast<uint16_t const*>(it)); // NOLINT
     it += 2;
 }
 
 inline void write(uint8_t*& it, uint16_t value)
 {
-    *reinterpret_cast<uint16_t*>(it) = htons(value);
+    *reinterpret_cast<uint16_t*>(it) = htons(value); // NOLINT
     it += 2;
 }
 
 inline void read(uint8_t const*& it, uint32_t& value)
 {
-    value = ntohl(*reinterpret_cast<uint32_t const*>(it));
+    value = ntohl(*reinterpret_cast<uint32_t const*>(it)); // NOLINT
     it += 4;
 }
 
@@ -113,18 +117,18 @@ inline void write(uint8_t*& it, uint64_t value)
     it += 8;
 }
 
-#ifndef __i386__
+#ifdef __i385fake__
 inline void read(uint8_t const*& it, uint128_t& value)
 {
-    uint64_t hi, lo;
+    uint64_t hi, lo; // NOLINT
     read(it, hi);
     read(it, lo);
     value = (static_cast<uint128_t>(hi) << 64) | lo;
 }
 inline void write(uint8_t*& it, uint128_t value)
 {
-    uint64_t hi = static_cast<uint64_t>(value >> 64);
-    uint64_t lo = static_cast<uint64_t>(value);
+    auto hi = static_cast<uint64_t>(value >> 64);
+    auto lo = static_cast<uint64_t>(value);
     write(it, hi);
     write(it, lo);
 }
@@ -133,7 +137,7 @@ inline void write(uint8_t*& it, uint128_t value)
 // Reading / writing integer types to / from vectors.
 void read(std::vector<uint8_t> const& buf, std::integral auto& value)
 {
-    auto ptr = &buf[0];
+    const auto* ptr = &buf[0];
     read(ptr, value);
 }
 
@@ -225,7 +229,7 @@ inline void write(std::ostream& os, std::vector<uint8_t> const& value)
 template <size_t N> inline void write(std::vector<uint8_t>& buf, std::array<uint8_t, N> const& value)
 {
     buf.resize(buf.size() + N);
-    auto ptr = &*buf.end() - N;
+    auto* ptr = &*buf.end() - N;
     write(ptr, value);
 }
 
@@ -383,7 +387,7 @@ template <typename T, typename B> T from_buffer(B const& buffer, size_t offset =
 {
     using serialize::read;
     T result;
-    auto ptr = (uint8_t const*)&buffer[offset];
+    const auto* ptr = (uint8_t const*)&buffer[offset];
     read(ptr, result);
     return result;
 }
@@ -401,7 +405,7 @@ template <typename T> uint8_t* to_heap_buffer(T const& value)
     using serialize::write;
     std::vector<uint8_t> buf;
     write(buf, value);
-    auto* ptr = (uint8_t*)aligned_alloc(64, buf.size());
+    auto* ptr = (uint8_t*)aligned_alloc(64, buf.size()); // NOLINT
     std::copy(buf.begin(), buf.end(), ptr);
     return ptr;
 }
@@ -494,3 +498,6 @@ inline void write(auto& buf, const msgpack_concepts::HasMsgPack auto& obj)
     });
 }
 } // namespace serialize
+// clang-format off
+// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast, google-readability-casting, cert-dcl58-cpp, cppcoreguidelines-init-variables, cppcoreguidelines-pro-type-cstyle-cast)
+// clang-format on
