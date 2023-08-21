@@ -597,7 +597,7 @@ describe('Private Execution test suite', () => {
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(initialValue + privateIncrement));
     });
 
-    it.only('parent should call child', async () => {
+    it('parent should call child', async () => {
       const childAbi = getFunctionAbi(ChildContractAbi, 'value');
       const parentAbi = getFunctionAbi(ParentContractAbi, 'entryPoint');
       const parentAddress = AztecAddress.random();
