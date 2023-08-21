@@ -49,6 +49,8 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode {
+  private worldStateSyncPromise?: Promise<void> = undefined;
+
   constructor(
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
@@ -368,13 +370,30 @@ export class AztecNodeService implements AztecNode {
    * @returns An instance of a committed MerkleTreeOperations
    */
   private async getWorldState() {
-    const blockSourceHeight = await this.blockSource.getBlockHeight();
-    const worldStateStatus = await this.worldStateSynchroniser.status();
-    const blockDifference = blockSourceHeight - worldStateStatus.syncedToL2Block;
-    if (blockDifference) {
+    if (!this.worldStateSyncPromise) {
+      this.worldStateSyncPromise = this.syncWorldState();
+    }
+    await this.worldStateSyncPromise;
+    this.worldStateSyncPromise = undefined;
+    return this.worldStateSynchroniser.getCommitted();
+  }
+
+  /**
+   * Ensure we fully sync the world state
+   * @returns A promise that fulfils once the world state is synced
+   */
+  private async syncWorldState() {
+    while (true) {
+      const [blockSourceHeight, worldStateStatus] = await Promise.all([
+        this.blockSource.getBlockHeight(),
+        this.worldStateSynchroniser.status(),
+      ]);
+      const blockDifference = blockSourceHeight - worldStateStatus.syncedToL2Block;
+      if (!blockDifference) {
+        break;
+      }
       this.log(`World State ${blockDifference} blocks behind block source, forcing sync...`);
       await this.worldStateSynchroniser.syncImmediate();
     }
-    return this.worldStateSynchroniser.getCommitted();
   }
 }

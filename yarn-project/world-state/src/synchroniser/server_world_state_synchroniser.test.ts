@@ -318,12 +318,18 @@ describe('server_world_state_synchroniser', () => {
     status = await server.status();
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 1);
 
+    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 2)];
+    await server.syncImmediate();
+
+    status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 2);
+
     // stop the synchroniser
     await server.stop();
 
     // check the final status
     status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.STOPPED);
-    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 1);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 2);
   });
 });
