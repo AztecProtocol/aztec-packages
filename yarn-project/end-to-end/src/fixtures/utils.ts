@@ -3,11 +3,13 @@ import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfig
 import {
   Account as AztecAccount,
   AztecAddress,
+  CheatCodes,
   Contract,
   ContractDeployer,
   EntrypointCollection,
   EntrypointWallet,
   EthAddress,
+  EthCheatCodes,
   Wallet,
   createAztecRpcClient as createJsonRpcClient,
   getL1ContractAddresses,
@@ -41,7 +43,6 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { CheatCodes, L1CheatCodes } from './cheat_codes.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
@@ -49,7 +50,7 @@ const { SANDBOX_URL = '' } = process.env;
 export const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
-      logger('Attmpting to contact RPC Server...');
+      logger('Attempting to contact RPC Server...');
       await rpcServer.getNodeInfo();
       return true;
     } catch (error) {
@@ -231,8 +232,8 @@ export async function setup(
   const config = getConfigEnvVars();
 
   if (stateLoad) {
-    const l1CheatCodes = new L1CheatCodes(config.rpcUrl);
-    await l1CheatCodes.loadChainState(stateLoad);
+    const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    await ethCheatCodes.loadChainState(stateLoad);
   }
 
   const logger = getLogger();

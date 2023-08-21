@@ -7,6 +7,7 @@ import { AztecNode } from '@aztec/types';
 
 import { extractReturnWitness, frToAztecAddress } from '../acvm/deserialize.js';
 import { ACVMField, ZERO_ACVM_FIELD, acvm, fromACVMField, toACVMField, toACVMWitness } from '../acvm/index.js';
+import { AcirSimulator } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { FunctionAbiWithDebugMetadata } from './db_oracle.js';
 import { oracleDebugCallToFormattedStr } from './debug.js';
@@ -42,6 +43,7 @@ export class UnconstrainedFunctionExecution {
     const initialWitness = toACVMWitness(1, this.args);
 
     const { partialWitness } = await acvm(
+      await AcirSimulator.getSolver(),
       acir,
       initialWitness,
       {
@@ -63,7 +65,7 @@ export class UnconstrainedFunctionExecution {
         storageRead: async ([slot], [numberOfElements]) => {
           if (!aztecNode) {
             const errMsg = `Aztec node is undefined, cannot read storage`;
-            this.log(errMsg);
+            this.log.error(errMsg);
             throw new Error(errMsg);
           }
 

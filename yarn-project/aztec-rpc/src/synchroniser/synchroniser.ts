@@ -69,7 +69,7 @@ export class Synchroniser {
   protected async initialSync() {
     const [blockNumber, historicBlockData] = await Promise.all([
       this.node.getBlockHeight(),
-      Promise.resolve(this.node.getHistoricBlockData()),
+      this.node.getHistoricBlockData(),
     ]);
     this.initialSyncBlockHeight = blockNumber;
     this.synchedToBlock = this.initialSyncBlockHeight;
@@ -132,7 +132,7 @@ export class Synchroniser {
 
       this.synchedToBlock = latestBlock.block.number;
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -186,7 +186,7 @@ export class Synchroniser {
         this.noteProcessors.push(noteProcessor);
       }
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }

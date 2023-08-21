@@ -229,17 +229,6 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  bb-bin-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: cond_spot_run_test_script ./scripts/bin-test.sh barretenberg-x86_64-linux-clang-assert
-
   barretenberg-benchmark-aggregator:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -726,6 +715,17 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_private_token_contract.test.ts
           working_directory: yarn-project/end-to-end
 
+  e2e-multi-transfer-contract:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end e2e_multi_transfer.test.ts
+
   e2e-block-building:
     machine:
       image: ubuntu-2004:202010-01
@@ -833,6 +833,18 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
           working_directory: yarn-project/end-to-end
 
+  e2e-ordering:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_ordering.test.ts
+          working_directory: yarn-project/end-to-end
+
   uniswap-trade-on-l1-from-l2:
     machine:
       image: ubuntu-2004:202010-01
@@ -914,6 +926,17 @@ jobs:
       - run:
           name: "Test"
           command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+
+  aztec-rpc-sandbox:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: cond_spot_run_tests end-to-end aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-canary-test:
     docker:
@@ -1051,6 +1074,12 @@ jobs:
             deploy_ecr world-state
             deploy_npm world-state
       - run:
+          name: "key-store"
+          working_directory: key-store
+          command: |
+            deploy_ecr key-store
+            deploy_npm key-store
+      - run:
           name: "aztec-node"
           working_directory: aztec-node
           command: |
@@ -1171,7 +1200,6 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - bb-bin-tests: *bb_test
       - barretenberg-benchmark-aggregator:
           requires:
             - barretenberg-tests
@@ -1283,6 +1311,7 @@ workflows:
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
       - e2e-zk-token-contract: *e2e_test
+      - e2e-multi-transfer-contract: *e2e_test
       - e2e-block-building: *e2e_test
       - e2e-nested-contract: *e2e_test
       - e2e-non-contract-account: *e2e_test
@@ -1295,12 +1324,14 @@ workflows:
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
       - e2e-pending-commitments-contract: *e2e_test
+      - e2e-ordering: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
       - integration-archiver-l1-to-l2: *e2e_test
       - e2e-p2p: *e2e_test
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
+      - aztec-rpc-sandbox: *e2e_test
 
       - e2e-end:
           requires:
@@ -1308,6 +1339,7 @@ workflows:
             - e2e-deploy-contract
             - e2e-lending-contract
             - e2e-zk-token-contract
+            - e2e-multi-transfer-contract
             - e2e-block-building
             - e2e-nested-contract
             - e2e-non-contract-account
@@ -1320,12 +1352,14 @@ workflows:
             - e2e-account-contracts
             - e2e-escrow-contract
             - e2e-pending-commitments-contract
+            - e2e-ordering
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher
             - integration-archiver-l1-to-l2
             - e2e-p2p
             - e2e-browser-sandbox
             - e2e-canary-test
+            - aztec-rpc-sandbox
           <<: *defaults
 
       - deploy-dockerhub:

@@ -24,9 +24,18 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, FunctionAbiWithDebugMetadata, NewNoteData, NewNullifierData } from '../index.js';
+import {
+  AcirSimulator,
+  ExecutionResult,
+  FunctionAbiWithDebugMetadata,
+  NewNoteData,
+  NewNullifierData,
+} from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
+
+/** Orderings of side effects */
+type Orderings = { /** Public call stack execution requests */ publicCall: number };
 
 /**
  * The private function execution class.
@@ -40,7 +49,7 @@ export class PrivateFunctionExecution {
     private argsHash: Fr,
     private callContext: CallContext,
     private curve: Grumpkin,
-
+    private orderings: Orderings = { publicCall: 0 },
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
 
@@ -64,6 +73,7 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(
+      await AcirSimulator.getSolver(),
       acir,
       initialWitness,
       {
@@ -142,9 +152,12 @@ export class PrivateFunctionExecution {
             frToSelector(fromACVMField(acvmFunctionSelector)),
             this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
             this.callContext,
+            this.orderings,
           );
 
-          this.log(`Enqueued call to public function ${acvmContractAddress}:${acvmFunctionSelector}`);
+          this.log(
+            `Enqueued call to public function #${enqueuedRequest.order} ${acvmContractAddress}:${acvmFunctionSelector}`,
+          );
           enqueuedPublicFunctionCalls.push(enqueuedRequest);
           return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
         },
@@ -231,13 +244,7 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
-      blockData.privateDataTreeRoot,
-      blockData.nullifierTreeRoot,
-      blockData.contractTreeRoot,
-      blockData.l1ToL2MessagesTreeRoot,
-      blockData.blocksTreeRoot,
-      blockData.publicDataTreeRoot,
-      blockData.globalVariablesHash,
+      ...blockData.toArray(),
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,
@@ -284,6 +291,8 @@ export class PrivateFunctionExecution {
       targetArgsHash,
       derivedCallContext,
       curve,
+      this.orderings,
+      this.log,
     );
 
     return nestedExecution.run();
@@ -297,6 +306,7 @@ export class PrivateFunctionExecution {
    * @param targetFunctionSelector - The function selector of the function to call.
    * @param targetArgs - The arguments to pass to the function.
    * @param callerContext - The call context of the caller.
+   * @param orderings - Orderings.
    * @returns The public call stack item with the request information.
    */
   private async enqueuePublicFunctionCall(
@@ -304,15 +314,18 @@ export class PrivateFunctionExecution {
     targetFunctionSelector: Buffer,
     targetArgs: Fr[],
     callerContext: CallContext,
+    orderings: Orderings,
   ): Promise<PublicCallRequest> {
     const targetAbi = await this.context.db.getFunctionABI(targetContractAddress, targetFunctionSelector);
     const derivedCallContext = await this.deriveCallContext(callerContext, targetContractAddress, false, false);
+    const order = orderings.publicCall++;
 
     return PublicCallRequest.from({
       args: targetArgs,
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
+      order,
     });
   }
 

@@ -37,55 +37,13 @@ impl TestContractInterface {
       }
   }
   
-  fn createL2ToL1MessagePublic(
+  fn getThisPortalAddress(
     self,
-    context: &mut PrivateContext,
-    amount: Field,
-    secretHash: Field
-  ) {
-    let mut serialised_args = [0; 2];
-    serialised_args[0] = amount;
-    serialised_args[1] = secretHash;
-
-    context.call_public_function(self.address, 0x1c031d17, serialised_args)
-  }
-  
-
-  fn createNullifierPublic(
-    self,
-    context: &mut PrivateContext,
-    amount: Field,
-    secretHash: Field
-  ) {
-    let mut serialised_args = [0; 2];
-    serialised_args[0] = amount;
-    serialised_args[1] = secretHash;
-
-    context.call_public_function(self.address, 0x0217ef40, serialised_args)
-  }
-  
-
-  fn getPortalContractAddress(
-    self,
-    context: &mut PrivateContext,
-    aztec_address: Field
+    context: &mut PrivateContext
   ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 1];
-    serialised_args[0] = aztec_address;
+    let mut serialised_args = [0; 0];
 
-    context.call_private_function(self.address, 0xe5df1726, serialised_args)
-  }
-  
-
-  fn getPublicKey(
-    self,
-    context: &mut PrivateContext,
-    address: Field
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 1];
-    serialised_args[0] = address;
-
-    context.call_private_function(self.address, 0x553aaad4, serialised_args)
+    context.call_private_function(self.address, 0x82cc9431, serialised_args)
   }
   
 
@@ -96,16 +54,6 @@ impl TestContractInterface {
     let mut serialised_args = [0; 0];
 
     context.call_private_function(self.address, 0xd3953822, serialised_args)
-  }
-  
-
-  fn getThisPortalAddress(
-    self,
-    context: &mut PrivateContext
-  ) -> [Field; RETURN_VALUES_LENGTH] {
-    let mut serialised_args = [0; 0];
-
-    context.call_private_function(self.address, 0x82cc9431, serialised_args)
   }
   
 
@@ -139,6 +87,58 @@ impl TestContractInterface {
     serialised_args[16] = aDeepStruct.manyNotes[2].secretHash;
 
     context.call_private_function(self.address, 0x7c97ca29, serialised_args)
+  }
+  
+
+  fn createNullifierPublic(
+    self,
+    context: &mut PrivateContext,
+    amount: Field,
+    secretHash: Field
+  ) {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = secretHash;
+
+    context.call_public_function(self.address, 0x0217ef40, serialised_args)
+  }
+  
+
+  fn getPublicKey(
+    self,
+    context: &mut PrivateContext,
+    address: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 1];
+    serialised_args[0] = address;
+
+    context.call_private_function(self.address, 0x553aaad4, serialised_args)
+  }
+  
+
+  fn getPortalContractAddress(
+    self,
+    context: &mut PrivateContext,
+    aztec_address: Field
+  ) -> [Field; RETURN_VALUES_LENGTH] {
+    let mut serialised_args = [0; 1];
+    serialised_args[0] = aztec_address;
+
+    context.call_private_function(self.address, 0xe5df1726, serialised_args)
+  }
+  
+
+  fn createL2ToL1MessagePublic(
+    self,
+    context: &mut PrivateContext,
+    amount: Field,
+    secretHash: Field
+  ) {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = secretHash;
+
+    context.call_public_function(self.address, 0x1c031d17, serialised_args)
   }
   
 }

@@ -1,3 +1,5 @@
+mod filter;
+
 use dep::std::hash::pedersen;
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
@@ -40,14 +42,6 @@ impl AddressNote {
     fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
     }
-
-    fn dummy() -> Self {
-        AddressNote {
-            address: 0,
-            owner: 0,
-            header: NoteHeader::empty(),
-        }
-    }
 }
 
 fn deserialise(preimage: [Field; ADDRESS_NOTE_LEN]) -> AddressNote {
@@ -70,10 +64,6 @@ fn compute_nullifier(note: AddressNote) -> Field {
     note.compute_nullifier()
 }
 
-fn dummy() -> AddressNote {
-    AddressNote::dummy()
-}
-
 fn get_header(note: AddressNote) -> NoteHeader {
     note.header
 }
@@ -87,7 +77,6 @@ global AddressNoteMethods = NoteInterface {
     serialise,
     compute_note_hash,
     compute_nullifier,
-    dummy,
     get_header,
     set_header,
 };

@@ -3,7 +3,13 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
-import { ForeignCallInput, ForeignCallOutput, WitnessMap, executeCircuit } from 'acvm_js';
+import {
+  ForeignCallInput,
+  ForeignCallOutput,
+  WasmBlackBoxFunctionSolver,
+  WitnessMap,
+  executeCircuitWithBlackBoxSolver,
+} from 'acvm_js';
 
 import { FunctionDebugMetadata } from '../index.js';
 
@@ -68,70 +74,123 @@ export interface ACIRExecutionResult {
 }
 
 /**
- * Creates an error string from the opcode location and debug metadata.
- * @param opcodeLocation - A string representing the opcode location. `${acirIndex}` or `${acirIndex}:${brilligIndex}`.
- * @param debug - The debug metadata of the failing function.
- * @returns - The error string or undefined if debug metadata is not available.
+ * Extracts the opcode location from an ACVM error string.
  */
-function createErrorString(opcodeLocation: string, debug?: FunctionDebugMetadata): string | undefined {
-  // If we don't have debug metadata, we cannot create a useful error string
-  if (!debug) {
-    return undefined;
-  }
+function extractOpcodeLocationFromError(err: string): string | undefined {
+  const match = err.match(/^Cannot satisfy constraint (?<opcodeLocation>[0-9]+(?:\.[0-9]+)?)/);
+  return match?.groups?.opcodeLocation;
+}
 
+/**
+ * The data for a call in the call stack.
+ */
+interface SourceCodeLocation {
+  /**
+   * The path to the source file.
+   */
+  filePath: string;
+  /**
+   * The line number of the call.
+   */
+  line: number;
+  /**
+   * The source code of the file.
+   */
+  fileSource: string;
+  /**
+   * The source code text of the failed constraint.
+   */
+  assertionText: string;
+}
+
+/**
+ * Extracts the call stack from the location of a failing opcode and the debug metadata.
+ */
+function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionDebugMetadata): SourceCodeLocation[] {
   const { debugSymbols, files } = debug;
 
   const callStack = debugSymbols.locations[opcodeLocation];
 
-  const { file: fileId, span } = callStack.pop()!;
+  return callStack.map(call => {
+    const { file: fileId, span } = call;
 
-  const { path, source } = files[fileId];
+    const { path, source } = files[fileId];
 
-  const assertionText = source.substring(span.start, span.end + 1);
-  const precedingText = source.substring(0, span.start);
-  const line = precedingText.split('\n').length;
+    const assertionText = source.substring(span.start, span.end + 1);
+    const precedingText = source.substring(0, span.start);
+    const line = precedingText.split('\n').length;
 
-  return `Assertion failed at ${path}:${line} '${assertionText}'`;
+    return {
+      filePath: path,
+      line,
+      fileSource: source,
+      assertionText,
+    };
+  });
+}
+
+/**
+ * Creates a formatted string for an error stack
+ * @param callStack - The error stack
+ * @returns - The formatted string
+ */
+function printErrorStack(callStack: SourceCodeLocation[]): string {
+  // TODO experiment with formats of reporting this for better error reporting
+  return [
+    'Error: Assertion failed',
+    callStack.map(call => `  at ${call.filePath}:${call.line} '${call.assertionText}'`),
+  ].join('\n');
 }
 
 /**
  * The function call that executes an ACIR.
  */
 export async function acvm(
+  solver: WasmBlackBoxFunctionSolver,
   acir: Buffer,
   initialWitness: ACVMWitness,
   callback: ACIRCallback,
   debug?: FunctionDebugMetadata,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
-  const partialWitness = await executeCircuit(acir, initialWitness, async (name: string, args: ForeignCallInput[]) => {
-    try {
-      logger(`Oracle callback ${name}`);
-      const oracleFunction = callback[name as ORACLE_NAMES];
-      if (!oracleFunction) {
-        throw new Error(`Oracle callback ${name} not found`);
-      }
+  const partialWitness = await executeCircuitWithBlackBoxSolver(
+    solver,
+    acir,
+    initialWitness,
+    async (name: string, args: ForeignCallInput[]) => {
+      try {
+        logger(`Oracle callback ${name}`);
+        const oracleFunction = callback[name as ORACLE_NAMES];
+        if (!oracleFunction) {
+          throw new Error(`Oracle callback ${name} not found`);
+        }
 
-      const result = await oracleFunction.call(callback, ...args);
-      return [result];
-    } catch (err: any) {
-      logger(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
-      throw err;
-    }
-  }).catch(err => {
+        const result = await oracleFunction.call(callback, ...args);
+        return [result];
+      } catch (err: any) {
+        logger.error(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
+        throw err;
+      }
+    },
+  ).catch(err => {
     // ACVM_js throws raw string errors
     if (typeof err !== 'string') {
       throw err;
     }
 
-    const match = err.match(/^Cannot satisfy constraint (?<opcodeLocation>[0-9]+(?:\.[0-9]+)?)/);
-    if (!match?.groups?.opcodeLocation) {
+    const opcodeLocation = extractOpcodeLocationFromError(err);
+    if (!opcodeLocation || !debug) {
       throw err;
     }
 
-    const opcodeLocation = match.groups.opcodeLocation;
-    throw createErrorString(opcodeLocation, debug) || err;
+    const callStack = getCallStackFromOpcodeLocation(opcodeLocation, debug);
+    logger(printErrorStack(callStack));
+
+    // The ACVM only lets string errors pass through so we need to throw a string at the execution level.
+    // We should probably update the ACVM to let proper errors through.
+    throw `Assertion failed: '${callStack.pop()!.assertionText}`;
   });
+
   return Promise.resolve({ partialWitness });
 }
 

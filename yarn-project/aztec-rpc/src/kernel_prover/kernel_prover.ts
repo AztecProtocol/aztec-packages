@@ -132,7 +132,8 @@ export class KernelProver {
       if (firstIteration) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/778): remove historic root
         // from app circuit public inputs and add it to PrivateCallData
-        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
+        privateCallData.callStackItem.publicInputs.historicBlockData.privateDataTreeRoot =
+          await this.oracle.getPrivateDataRoot();
 
         output = await this.proofCreator.createProofInit(txRequest, privateCallData);
       } else {
@@ -188,8 +189,7 @@ export class KernelProver {
       functionData.functionSelectorBuffer,
     );
 
-    // TODO
-    // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
+    // TODO(#262): Use real acir hash
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 
