@@ -13,7 +13,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * not giving a damn about gas costs.
  * @dev there is currently no padding of the elements, so we are for now assuming nice trees as inputs.
  * Furthermore, if no contract etc are deployed, we expect there to be address(0) for input.
- * 
+ *
  * -------------------
  * You can use https://gist.github.com/LHerskind/724a7e362c97e8ac2902c6b961d36830 to generate the below outline.
  * -------------------
@@ -21,7 +21,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  * -------------------
  *
  *  | byte start                                                                       | num bytes    | name
- *  | ---                                                                              | ---          | --- 
+ *  | ---                                                                              | ---          | ---
  *  | 0x0000                                                                           | 0x20         | chain-id
  *  | 0x0020                                                                           | 0x20         | version
  *  | 0x0040                                                                           | 0x20         | L2 block number
@@ -65,7 +65,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  *  | 0x0244 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20         | g            | newEncryptedLogs
  *  | 0x0244 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | 0x04         | byteLen(newUnencryptedLogs) (denoted h)
  *  | 0x0248 + a * 0x20 + b * 0x20 + c * 0x40 + d * 0x20 + e * 0x54 + f * 0x20 + g     | h            | newUnencryptedLogs
- *  | ---                                                                              | ---          | --- 
+ *  | ---                                                                              | ---          | ---
  */
 library Decoder {
   struct ArrayOffsets {
