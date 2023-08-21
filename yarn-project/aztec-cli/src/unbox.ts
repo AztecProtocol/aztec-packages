@@ -36,6 +36,9 @@ function copyFolderRecursive(source: string, target: string) {
 }
 
 
+// Example usage:
+// copyFolderFromGlobalPackage('your-package-name', 'path/to/source/folder');
+// i think we can leave destination blank to copy to current working directory
 function copyFolderFromGlobalPackage(packageName: string, sourceFolder: string, destination: string = process.cwd()) {
     const globalNpmPath = getGlobalNpmPath();
 
@@ -55,9 +58,6 @@ function copyFolderFromGlobalPackage(packageName: string, sourceFolder: string, 
     }
 }
 
-// Example usage:
-// copyFolderFromGlobalPackage('your-package-name', 'path/to/source/folder');
-// i think we can leave destination blank to copy to current working directory
 
 
 // not sure if we need the temp part, think we can grab from the install directory directly
