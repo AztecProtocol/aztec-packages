@@ -49,8 +49,6 @@ export const createMemDown = () => (memdown as any)() as MemDown<any, any>;
  * The aztec node.
  */
 export class AztecNodeService implements AztecNode {
-  private worldStateSyncPromise?: Promise<void> = undefined;
-
   constructor(
     protected p2pClient: P2P,
     protected blockSource: L2BlockSource,
@@ -370,11 +368,7 @@ export class AztecNodeService implements AztecNode {
    * @returns An instance of a committed MerkleTreeOperations
    */
   private async getWorldState() {
-    if (!this.worldStateSyncPromise) {
-      this.worldStateSyncPromise = this.syncWorldState();
-    }
-    await this.worldStateSyncPromise;
-    this.worldStateSyncPromise = undefined;
+    await this.syncWorldState();
     return this.worldStateSynchroniser.getCommitted();
   }
 
