@@ -103,6 +103,14 @@ template <typename Composer> class cycle_group {
     }
 
     bool_t is_point_at_infinity() const { return is_infinity; }
+    void validate_is_on_curve() const
+    {
+        auto xx = x * x;
+        auto xxx = xx * x;
+        auto res = y.madd(y, -xxx - G1::curve_b);
+        res *= is_point_at_infinity();
+        res.assert_is_zero();
+    }
     cycle_group dbl() const;
     cycle_group unconditional_add(const cycle_group& other) const;
     cycle_group constrained_unconditional_add(const cycle_group& other) const;

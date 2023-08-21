@@ -27,7 +27,7 @@ template <class Composer> class CycleGroupTest : public ::testing::Test {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
 
-    static constexpr size_t num_generators = 10;
+    static constexpr size_t num_generators = 110;
     static inline std::array<affine_element, num_generators> generators{};
 
     static void SetUpTestSuite()
@@ -434,4 +434,37 @@ TYPED_TEST(CycleGroupTest, TestVariableBaseBatchMul)
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);
 }
+
+TYPED_TEST(CycleGroupTest, ProfileVariableBaseBatcMul)
+{
+    STDLIB_TYPE_ALIASES;
+    auto composer = Composer();
+
+    const size_t num_muls = 2;
+
+    element expected = G1::point_at_infinity;
+
+    // case 1, general MSM with inputs that are combinations of constant and witnesses
+    {
+        std::vector<cycle_group_ct> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+        for (size_t i = 0; i < num_muls; ++i) {
+            auto element = TestFixture::generators[i];
+            typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+
+            // 1: add entry where point, scalar are witnesses
+            expected += (element * scalar);
+            points.emplace_back(cycle_group_ct::from_witness(&composer, element));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+        }
+        auto result = cycle_group_ct::variable_base_batch_mul(scalars, points);
+        EXPECT_EQ(result.get_value(), affine_element(expected));
+    }
+
+    std::cout << "composer gates = " << composer.get_num_gates() << std::endl;
+    bool proof_result = composer.check_circuit();
+    EXPECT_EQ(proof_result, true);
+}
+
 } // namespace stdlib_cycle_group_tests

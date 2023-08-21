@@ -319,7 +319,7 @@ template <typename Composer> cycle_group<Composer>& cycle_group<Composer>::opera
 
 template <typename Composer> cycle_group<Composer>::offset_generators::offset_generators(size_t num_points)
 {
-    auto generator_temp = G1::template derive_generators<100>(); // hmm bad
+    auto generator_temp = G1::template derive_generators<300>(); // hmm bad
     const size_t num_generators = num_points + 1;
     for (size_t i = 0; i < num_generators; ++i) {
         generators.emplace_back(generator_temp[i]);
@@ -550,6 +550,10 @@ cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const fie
     return cycle_group(_context, x, y, false);
 }
 
+// for fixed base batch mul...
+// 1. take each generator point and split into table_bits chunks
+// 2. precompute multiples of each generator point and store in lookup table
+// 3.
 template <typename Composer>
 cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
                                                                      const std::vector<cycle_group>& _base_points)
