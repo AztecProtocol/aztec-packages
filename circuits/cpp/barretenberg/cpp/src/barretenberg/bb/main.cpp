@@ -69,7 +69,6 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
  * - Filesystem: The proof is written to the path specified by outputPath
  *
  * @param bytecodePath Path to the file containing the serialized circuit
- * @param provingKeyPath Path to the file containing the provingKey
  * @param witnessPath Path to the file containing the serialized witness
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param outputPath Path to write the proof to
@@ -123,10 +122,10 @@ void gateCount(const std::string& bytecodePath)
  * @param proof_path Path to the file containing the serialized proof
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param vk_path Path to the file containing the serialized verification key
- * @return true
- * @return false
+ * @return true If the proof is valid
+ * @return false If the proof is invalid
  */
-void verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
+bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
@@ -134,6 +133,7 @@ void verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto verified = acir_composer->verify_proof(read_file(proof_path), recursive);
 
     std::cout << verified << std::endl;
+    return verified;
 }
 
 /**
@@ -158,38 +158,6 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
     write_file(outputPath, serialized_vk);
 
     info("vk written to: ", outputPath);
-}
-
-/**
- * @brief Writes a verification and proving key for an ACIR circuit to a file
- *
- * Why is this needed?
- * Generally we want to save the proving key, so that we can create proofs without having to recompute the proving key.
- * and so that verification procedures are not slow.
- *
- *
- *
- * Communication:
- * - We do not write anything to stdout because proving key can be very large
- * - Filesystem: The verification key and proving key are written to the path specified by outputPkPath and outputVkPath
- *
- * @param bytecodePath Path to the file containing the serialized circuit
- * @param outputVkPath Path to write the verification key to
- * @param outputPkPath Path to write the proving key to
- */
-void writeKeys(const std::string& bytecodePath, const std::string& outputVkPath, const std::string& outputPkPath)
-{
-    auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
-    auto constraint_system = get_constraint_system(bytecodePath);
-    auto pk = acir_composer->init_proving_key(srs::get_crs_factory(), constraint_system);
-    auto vk = acir_composer->init_verification_key();
-    auto serialized_pk = to_buffer(*pk);
-    auto serialized_vk = to_buffer(*vk);
-    write_file(outputVkPath, serialized_vk);
-    write_file(outputPkPath, serialized_pk);
-
-    info("vk written to: ", outputVkPath);
-    info("pk written to: ", outputPkPath);
 }
 
 /**
@@ -329,7 +297,7 @@ int main(int argc, char* argv[])
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
-            verify(proof_path, recursive, vk_path);
+            return verify(proof_path, recursive, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = getOption(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);

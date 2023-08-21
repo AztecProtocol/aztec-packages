@@ -172,26 +172,6 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
   }
 }
 
-export async function writeKeys(bytecodePath: string, crsPath: string, outputVkPath: string, outputPkPath: string) {
-  const { api, acirComposer } = await init(bytecodePath, crsPath);
-  try {
-    debug('initing proving key...');
-    const bytecode = getBytecode(bytecodePath);
-    const pk = await api.acirGetProvingKey(acirComposer, bytecode);
-
-    debug('initing verification key...');
-    const vk = await api.acirGetVerificationKey(acirComposer);
-
-    writeFileSync(outputVkPath, vk);
-    writeFileSync(outputPkPath, pk);
-
-    debug(`vk written to: ${outputVkPath}`);
-    debug(`pk written to: ${outputPkPath}`);
-  } finally {
-    await api.destroy();
-  }
-}
-
 export async function proofAsFields(proofPath: string, numInnerPublicInputs: number, outputPath: string) {
   const { api, acirComposer } = await initLite();
 
@@ -333,7 +313,7 @@ program
 
 program
   .command('vk_as_fields')
-  .description('Return the verifiation key represented as fields elements. Also return the verification key hash.')
+  .description('Return the verification key represented as fields elements. Also return the verification key hash.')
   .requiredOption('-i, --input-path <path>', 'Specifies the vk path (output from write_vk)')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields and key hash')
   .action(async ({ inputPath, outputPath }) => {
