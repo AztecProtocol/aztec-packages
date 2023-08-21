@@ -24,7 +24,6 @@ contract Child {
         inputs: PrivateContextInputs,
         input: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        assert(inputs.call_context.msg_sender == 0);
         let mut context = PrivateContext::new(inputs, abi::hash_args([input]));
 
         context.return_values.push(input + context.chain_id() + context.version());
