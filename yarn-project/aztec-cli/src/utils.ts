@@ -8,6 +8,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
 import { assert } from 'console';
+import { downloadContractFromGithub } from './unbox.js';
 
 /**
  * Helper type to dynamically import contracts.
@@ -157,12 +158,23 @@ export async function unboxContract(
   log: LogFn,
 ) {
   const contracts =  await import('@aztec/noir-contracts/artifacts');
-  // console.log(contracts);
+
+  //console.log(contracts);
   const contractNames = Object.values(contracts).map((contract) => contract.name);
   // console.log(contractNames);
   assert(contractNames.includes(contractName),
    `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
    We recommend "PrivateToken" as a default.`);
+
+   // download the noir source code.  TODO: add the jest tests
+   console.log('downloading')
+   await downloadContractFromGithub(contractName, process.cwd());
+  //  await downloadDirectoryFromGithub('AztecProtocol', 'aztec-packages', 
+  //  // `yarn-project/noir-contracts`
+  //  `yarn-project/noir-contracts/src/contracts/${contractName.toLowerCase()}_contract`
+  //  , process.cwd());
+   console.log('downloaded')
+   return;
 
   const chosenContractAbi = Object.values(contracts).filter((contract) => contract.name === contractName)[0];
   console.log(chosenContractAbi);
