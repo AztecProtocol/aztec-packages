@@ -132,8 +132,8 @@ function contractStorageReadToPublicDataRead(
  * Convert a Contract Storage Update Request to a Public Data Update Request.
  * @param wasm - A module providing low-level wasm access.
  * @param update - the contract storage update request to convert
- * @param contractAddress - the contract address of the read
- * @returns The public data read.
+ * @param contractAddress - the contract address of the data update request.
+ * @returns The public data update request.
  */
 function contractStorageUpdateRequestToPublicDataUpdateRequest(
   wasm: IWasmModule,

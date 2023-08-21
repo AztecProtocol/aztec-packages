@@ -182,7 +182,7 @@ export class PublicProcessor {
 
         if (!enqueuedExecutionResult) enqueuedExecutionResult = result;
       }
-      // HACK(#1685): Manually patches the ordering of public state actions
+      // HACK(#1622): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
       await this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
