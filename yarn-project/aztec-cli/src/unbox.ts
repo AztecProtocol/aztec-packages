@@ -56,10 +56,9 @@ function copyFolderFromGlobalPackage(packageName: string, sourceFolder: string, 
 }
 
 // Example usage:
-copyFolderFromGlobalPackage('your-package-name', 'path/to/source/folder');
+// copyFolderFromGlobalPackage('your-package-name', 'path/to/source/folder');
+// i think we can leave destination blank to copy to current working directory
 
-// Example usage:
-copyFolderFromGlobalPackage('your-package-name', 'path/to/source/folder', '/path/to/destination');
 
 async function copyTempIntoDestination(
     tmpDir: string,
