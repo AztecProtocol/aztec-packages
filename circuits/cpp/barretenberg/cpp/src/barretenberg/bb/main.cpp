@@ -117,7 +117,7 @@ void gateCount(const std::string& bytecodePath)
  * @return true If the proof is valid
  * @return false If the proof is invalid
  */
-void verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
+bool verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
     auto acir_composer = new acir_proofs::AcirComposer(MAX_CIRCUIT_SIZE, verbose);
     auto vk_data = from_buffer<plonk::verification_key_data>(read_file(vk_path));
@@ -125,6 +125,7 @@ void verify(const std::string& proof_path, bool recursive, const std::string& vk
     auto verified = acir_composer->verify_proof(read_file(proof_path), recursive);
 
     std::cout << verified << std::endl;
+    return verified;
 }
 
 /**
@@ -285,7 +286,7 @@ int main(int argc, char* argv[])
         } else if (command == "gates") {
             gateCount(bytecode_path);
         } else if (command == "verify") {
-            verify(proof_path, recursive, vk_path);
+            return verify(proof_path, recursive, vk_path) ? 0 : 1;
         } else if (command == "contract") {
             std::string output_path = getOption(args, "-o", "./target/contract.sol");
             contract(output_path, vk_path);
