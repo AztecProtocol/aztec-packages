@@ -1,4 +1,4 @@
-import { MemoryFifo, Semaphore } from '@aztec/foundation/fifo';
+import { MemoryFifo, Semaphore, SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
 
@@ -18,15 +18,11 @@ export class L2BlockDownloader {
   private from = 0;
   private interruptableSleep = new InterruptableSleep();
   private semaphore: Semaphore;
-  private queue = new MemoryFifo<L2Block[]>();
-  private obseverPromise = Promise.resolve(0);
-  private observerResolve?: (qty: number) => void = undefined;
+  private jobQueue = new SerialQueue();
+  private blockQueue = new MemoryFifo<L2Block[]>();
 
   constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number, private pollIntervalMS = 10000) {
     this.semaphore = new Semaphore(maxQueueSize);
-    this.obseverPromise = new Promise<number>(resolve => {
-      this.observerResolve = resolve;
-    });
   }
 
   /**
@@ -42,36 +38,36 @@ export class L2BlockDownloader {
     this.running = true;
 
     const fn = async () => {
-      let numBlocks = 0;
       while (this.running) {
         try {
-          const blocks = await this.l2BlockSource.getL2Blocks(this.from, 10);
+          const numBlocks = await this.jobQueue.put(() => this.collectBlocks());
 
-          if (!blocks.length) {
-            if (this.observerResolve) {
-              this.observerResolve(numBlocks);
-            }
-            this.obseverPromise = new Promise<number>(resolve => {
-              this.observerResolve = resolve;
-            });
-            numBlocks = 0;
+          if (!numBlocks) {
             await this.interruptableSleep.sleep(this.pollIntervalMS);
             continue;
           }
-
-          // Blocks if there are maxQueueSize results in the queue, until released after the callback.
-          await this.semaphore.acquire();
-          this.queue.put(blocks);
-          this.from += blocks.length;
-          numBlocks += blocks.length;
         } catch (err) {
           log.error(err);
           await this.interruptableSleep.sleep(this.pollIntervalMS);
         }
       }
     };
-
+    this.jobQueue.start();
     this.runningPromise = fn();
+  }
+
+  private async collectBlocks() {
+    let totalBlocks = 0;
+    while (true) {
+      const blocks = await this.l2BlockSource.getL2Blocks(this.from, 10);
+      if (!blocks.length) {
+        return totalBlocks;
+      }
+      await this.semaphore.acquire();
+      this.blockQueue.put(blocks);
+      this.from += blocks.length;
+      totalBlocks += blocks.length;
+    }
   }
 
   /**
@@ -80,7 +76,8 @@ export class L2BlockDownloader {
   public async stop() {
     this.running = false;
     this.interruptableSleep.interrupt();
-    this.queue.cancel();
+    await this.jobQueue.cancel();
+    this.blockQueue.cancel();
     await this.runningPromise;
   }
 
@@ -89,9 +86,9 @@ export class L2BlockDownloader {
    * @param timeout - optional timeout value to prevent permaanent blocking
    * @returns The next batch of blocks from the queue.
    */
-  public async getL2Blocks(timeout: number | undefined) {
+  public async getL2Blocks(timeout?: number) {
     try {
-      const blocks = await this.queue.get(timeout);
+      const blocks = await this.blockQueue.get(timeout);
       if (!blocks) {
         return [];
       }
@@ -108,8 +105,6 @@ export class L2BlockDownloader {
    * @returns A promise that fulfills once the poll is complete
    */
   public pollImmediate(): Promise<number> {
-    const observerPromise = this.obseverPromise;
-    this.interruptableSleep.interrupt();
-    return observerPromise;
+    return this.jobQueue.put(this.collectBlocks);
   }
 }

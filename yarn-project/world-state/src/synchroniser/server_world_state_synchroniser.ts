@@ -1,3 +1,4 @@
+import { SerialQueue } from '@aztec/foundation/fifo';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
@@ -18,7 +19,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
-  private observerResolves: (() => void)[] = [];
+  private jobQueue = new SerialQueue();
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
@@ -74,15 +75,10 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     // start looking for further blocks
     const blockProcess = async () => {
       while (!this.stopping) {
-        const observers = this.observerResolves;
-        this.observerResolves = [];
-        const blocks = await this.l2BlockDownloader.getL2Blocks(1);
-        await this.handleL2Blocks(blocks);
-        for (const observer of observers) {
-          observer();
-        }
+        await this.jobQueue.put(() => this.collectAndProcessBlocks());
       }
     };
+    this.jobQueue.start();
     this.runningPromise = blockProcess();
     this.l2BlockDownloader.start(blockToDownloadFrom);
     this.log(`Started block downloader from block ${blockToDownloadFrom}`);
@@ -93,6 +89,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     this.log('Stopping world state...');
     this.stopping = true;
     await this.l2BlockDownloader.stop();
+    await this.jobQueue.cancel();
     await this.merkleTreeDb.stop();
     await this.runningPromise;
     this.setCurrentState(WorldStateRunningState.STOPPED);
@@ -108,6 +105,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
   /**
    * Forces an immediate sync
+   * @returns A promise that resolves once the sync has completed.
    */
   public async syncImmediate(): Promise<void> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
@@ -117,10 +115,15 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     if (!numBlocks) {
       return;
     }
-    const promise = new Promise<void>(resolve => {
-      this.observerResolves.push(resolve);
-    });
-    return promise;
+    await this.jobQueue.put(this.collectAndProcessBlocks);
+  }
+
+  /**
+   * Checks and process new blocks
+   */
+  private async collectAndProcessBlocks() {
+    const blocks = await this.l2BlockDownloader.getL2Blocks(1);
+    await this.handleL2Blocks(blocks);
   }
 
   /**

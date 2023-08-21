@@ -26,7 +26,7 @@ import {
 import { jest } from '@jest/globals';
 import times from 'lodash.times';
 
-import { MerkleTreeDb } from '../index.js';
+import { MerkleTreeDb, MerkleTrees } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
 
@@ -97,7 +97,7 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
 };
 
 const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
-  new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTreeDb, rollupSource as L2BlockSource);
+  new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTrees, rollupSource as L2BlockSource);
 
 const log = createDebugLogger('aztec:server_world_state_synchroniser_test');
 
@@ -126,6 +126,7 @@ describe('server_world_state_synchroniser', () => {
     commit: jest.fn().mockImplementation(() => Promise.resolve()),
     rollback: jest.fn().mockImplementation(() => Promise.resolve()),
     handleL2Block: jest.fn().mockImplementation(() => Promise.resolve()),
+    stop: jest.fn().mockImplementation(() => Promise.resolve()),
   } as any;
 
   it('can be constructed', () => {
