@@ -19,6 +19,7 @@ use crate::note::{
 };
 use crate::messaging::get_commitment_getter_data::make_commitment_getter_data;
 use crate::oracle;
+use crate::types::vec::BoundedVec;
 
 fn check_note_header<Note, N>(
     context: PrivateContext,
@@ -208,26 +209,28 @@ unconstrained fn view_notes<Note, N>(
 }
 
 unconstrained fn flatten_options<Note, N>(
-    selects: [Option<Select>; N],
-    sorts: [Option<Sort>; N],
+    selects: BoundedVec<Option<Select>, N>,
+    sorts: BoundedVec<Option<Sort>, N>,
 ) -> (u8, [u8; N], [Field; N], [u8; N], [u2; N]) {
     let mut num_selects = 0;
     let mut select_by = [0; N];
     let mut select_values = [0; N];
-    for i in 0..selects.len() {
-        if selects[i].is_some() {
-            select_by[num_selects] = selects[i].unwrap_unchecked().field_index;
-            select_values[num_selects] = selects[i].unwrap_unchecked().value;
+    for i in 0..selects.len {
+        let select = selects.get(i);
+        if select.is_some() {
+            select_by[num_selects] = select.unwrap_unchecked().field_index;
+            select_values[num_selects] = select.unwrap_unchecked().value;
             num_selects += 1;
         };
     };
 
     let mut sort_by = [0; N];
     let mut sort_order = [0; N];
-    for i in 0..sorts.len() {
-        if sorts[i].is_some() {
-            sort_by[i] = sorts[i].unwrap_unchecked().field_index;
-            sort_order[i] = sorts[i].unwrap_unchecked().order;
+    for i in 0..sorts.len {
+        let sort = sorts.get(i);
+        if sort.is_some() {
+            sort_by[i] = sort.unwrap_unchecked().field_index;
+            sort_order[i] = sort.unwrap_unchecked().order;
         };
     };
 

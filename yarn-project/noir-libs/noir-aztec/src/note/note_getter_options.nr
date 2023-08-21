@@ -1,6 +1,6 @@
 use dep::std::option::Option;
+use crate::types::vec::BoundedVec;
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
-use crate::utils::get_array_size;
 
 struct Select {
     field_index: u8,
@@ -46,8 +46,8 @@ fn return_all_notes<Note, N>(notes: [Option<Note>; MAX_READ_REQUESTS_PER_CALL], 
 
 // docs:start:NoteGetterOptions
 struct NoteGetterOptions<Note, N, FILTER_ARGS> {
-    selects: [Option<Select>; N],
-    sorts: [Option<Sort>; N],
+    selects: BoundedVec<Option<Select>, N>,
+    sorts: BoundedVec<Option<Sort>, N>,
     limit: u32,
     offset: u32,
     filter: fn ([Option<Note>; MAX_READ_REQUESTS_PER_CALL], FILTER_ARGS) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL],
@@ -58,8 +58,8 @@ struct NoteGetterOptions<Note, N, FILTER_ARGS> {
 impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     fn new() -> NoteGetterOptions<Note, N, Field> {
         NoteGetterOptions {
-            selects: [Option::none(); N],
-            sorts: [Option::none(); N],
+            selects: BoundedVec::new(Option::none()),
+            sorts: BoundedVec::new(Option::none()),
             limit: MAX_READ_REQUESTS_PER_CALL as u32,
             offset: 0,
             filter: return_all_notes,
@@ -72,8 +72,8 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
         filter_args: FILTER_ARGS,
     ) -> Self {
          NoteGetterOptions {
-            selects: [Option::none(); N],
-            sorts: [Option::none(); N],
+            selects: BoundedVec::new(Option::none()),
+            sorts: BoundedVec::new(Option::none()),
             limit: 0,
             offset: 0,
             filter,
@@ -82,14 +82,12 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     }
 
     fn select(&mut self, field_index: u8, value: Field) -> Self {
-        let idx = get_array_size(self.selects);
-        self.selects[idx] = Option::some(Select::new(field_index, value));
+        self.selects.push(Option::some(Select::new(field_index, value)));
         *self
     }
 
     fn sort(&mut self, field_index: u8, order: u2) -> Self {
-        let idx = get_array_size(self.sorts);
-        self.sorts[idx] = Option::some(Sort::new(field_index, order));
+        self.sorts.push(Option::some(Sort::new(field_index, order)));
         *self
     }
 
