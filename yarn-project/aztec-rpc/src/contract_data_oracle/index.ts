@@ -60,8 +60,8 @@ export class ContractDataOracle {
     const contract = await this.db.getContract(contractAddress);
     if (contract && contract.debug) {
       const functionIndex = contract.functions.findIndex(f => f.selector.equals(functionSelector));
-      const locations = contract.debug.debug_symbols[functionIndex];
-      const fileMap = contract.debug.file_map;
+      const locations = contract.debug.debugSymbols[functionIndex];
+      const fileMap = contract.debug.fileMap;
 
       return {
         debugSymbols: locations,

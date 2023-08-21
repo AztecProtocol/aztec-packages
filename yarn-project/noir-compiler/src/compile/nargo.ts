@@ -1,11 +1,9 @@
-import { DebugMetadata } from '@aztec/foundation/abi';
-
 import { execSync } from 'child_process';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { emptyDirSync } from 'fs-extra';
 import path from 'path';
 
-import { NoirCompilationArtifacts, NoirCompiledContract } from '../noir_artifact.js';
+import { NoirCompilationArtifacts, NoirCompiledContract, NoirDebugMetadata } from '../noir_artifact.js';
 
 /** Compilation options */
 export type CompileOpts = {
@@ -36,7 +34,7 @@ export class NargoContractCompiler {
 
   private collectArtifacts(): NoirCompilationArtifacts[] {
     const contractArtifacts = new Map<string, NoirCompiledContract>();
-    const debugArtifacts = new Map<string, DebugMetadata>();
+    const debugArtifacts = new Map<string, NoirDebugMetadata>();
 
     for (const filename of readdirSync(this.getTargetFolder())) {
       const file = path.join(this.getTargetFolder(), filename);
@@ -44,7 +42,7 @@ export class NargoContractCompiler {
         if (filename.startsWith('debug_')) {
           debugArtifacts.set(
             filename.replace('debug_', ''),
-            JSON.parse(readFileSync(file).toString()) as DebugMetadata,
+            JSON.parse(readFileSync(file).toString()) as NoirDebugMetadata,
           );
         } else {
           contractArtifacts.set(filename, JSON.parse(readFileSync(file).toString()) as NoirCompiledContract);

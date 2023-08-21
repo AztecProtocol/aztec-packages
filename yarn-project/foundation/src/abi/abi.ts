@@ -204,11 +204,11 @@ export interface DebugMetadata {
   /**
    * The debug information for each function.
    */
-  debug_symbols: DebugInfo[];
+  debugSymbols: DebugInfo[];
   /**
    * The map of file ID to the source code and path of the file.
    */
-  file_map: DebugFileMap;
+  fileMap: DebugFileMap;
 }
 
 /**

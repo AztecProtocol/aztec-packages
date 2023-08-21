@@ -109,8 +109,7 @@ interface SourceCodeLocation {
 function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionDebugMetadata): SourceCodeLocation[] {
   const { debugSymbols, files } = debug;
 
-  const callStack = debugSymbols.locations[opcodeLocation];
-
+  const callStack = debugSymbols.locations[opcodeLocation] || [];
   return callStack.map(call => {
     const { file: fileId, span } = call;
 
@@ -188,7 +187,7 @@ export async function acvm(
 
     // The ACVM only lets string errors pass through so we need to throw a string at the execution level.
     // We should probably update the ACVM to let proper errors through.
-    throw `Assertion failed: '${callStack.pop()!.assertionText}`;
+    throw `Assertion failed: '${callStack.pop()!.assertionText}'`;
   });
 
   return Promise.resolve({ partialWitness });

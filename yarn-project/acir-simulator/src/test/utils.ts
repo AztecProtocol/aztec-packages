@@ -54,8 +54,8 @@ export const getFunctionAbi = (abi: ContractAbi, functionName: string): Function
   const debugMetadata = abi.debug;
   if (debugMetadata) {
     debug = {
-      debugSymbols: debugMetadata.debug_symbols[functionIndex],
-      files: debugMetadata.file_map,
+      debugSymbols: debugMetadata.debugSymbols[functionIndex],
+      files: debugMetadata.fileMap,
     };
   }
 
