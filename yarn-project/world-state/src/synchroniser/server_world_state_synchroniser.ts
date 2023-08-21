@@ -4,7 +4,7 @@ import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
 import { MerkleTreeOperations, MerkleTrees } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
-import { getConfigEnvVars } from './config.js';
+import { WorldStateConfig } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
 
 /**
@@ -27,9 +27,9 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   constructor(
     private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource,
+    config: WorldStateConfig,
     private log = createDebugLogger('aztec:world_state'),
   ) {
-    const config = getConfigEnvVars();
     this.l2BlockDownloader = new L2BlockDownloader(
       l2BlockSource,
       config.l2QueueSize,
@@ -115,13 +115,14 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     if (!numBlocks) {
       return;
     }
-    await this.jobQueue.put(this.collectAndProcessBlocks);
+    await this.jobQueue.put(() => this.collectAndProcessBlocks());
   }
 
   /**
    * Checks and process new blocks
    */
   private async collectAndProcessBlocks() {
+    // This request for blocks will timeout after 1 second
     const blocks = await this.l2BlockDownloader.getL2Blocks(1);
     await this.handleL2Blocks(blocks);
   }

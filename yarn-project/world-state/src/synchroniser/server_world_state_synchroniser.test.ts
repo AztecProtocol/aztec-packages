@@ -26,7 +26,7 @@ import {
 import { jest } from '@jest/globals';
 import times from 'lodash.times';
 
-import { MerkleTreeDb, MerkleTrees } from '../index.js';
+import { MerkleTreeDb, MerkleTrees, WorldStateConfig } from '../index.js';
 import { ServerWorldStateSynchroniser } from './server_world_state_synchroniser.js';
 import { WorldStateRunningState } from './world_state_synchroniser.js';
 
@@ -96,8 +96,13 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
   return block;
 };
 
-const createSynchroniser = (merkleTreeDb: any, rollupSource: any) =>
-  new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTrees, rollupSource as L2BlockSource);
+const createSynchroniser = (merkleTreeDb: any, rollupSource: any, blockCheckInterval = 100) => {
+  const worldStateConfig: WorldStateConfig = {
+    worldStateBlockCheckIntervalMS: blockCheckInterval,
+    l2QueueSize: 1000,
+  };
+  return new ServerWorldStateSynchroniser(merkleTreeDb as MerkleTrees, rollupSource as L2BlockSource, worldStateConfig);
+};
 
 const log = createDebugLogger('aztec:server_world_state_synchroniser_test');
 
@@ -284,5 +289,41 @@ describe('server_world_state_synchroniser', () => {
 
     expect(merkleTreeDb.handleL2Block).toHaveBeenCalledTimes(totalBlocks);
     await server.stop();
+  });
+
+  it('can immediately sync', async () => {
+    const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
+
+    // test initial state
+    let status = await server.status();
+    expect(status.syncedToL2Block).toEqual(0);
+    expect(status.state).toEqual(WorldStateRunningState.IDLE);
+
+    // create an initial block
+    nextBlocks = Array(LATEST_BLOCK_NUMBER)
+      .fill(0)
+      .map((_, index: number) => getMockBlock(index + 1));
+
+    // start the sync process and await it
+    await server.start().catch(err => log.error('Sync not completed: ', err));
+
+    status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER);
+
+    // the server should now be asleep for a long time
+    // we will add a new block and force an immediate sync
+    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 1)];
+    await server.syncImmediate();
+
+    status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 1);
+
+    // stop the synchroniser
+    await server.stop();
+
+    // check the final status
+    status = await server.status();
+    expect(status.state).toEqual(WorldStateRunningState.STOPPED);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 1);
   });
 });

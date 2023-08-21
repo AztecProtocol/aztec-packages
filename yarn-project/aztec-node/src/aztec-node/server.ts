@@ -32,8 +32,10 @@ import {
 import {
   MerkleTrees,
   ServerWorldStateSynchroniser,
+  WorldStateConfig,
   WorldStateSynchroniser,
   computePublicDataTreeLeafIndex,
+  getConfigEnvVars as getWorldStateConfig,
 } from '@aztec/world-state';
 
 import { default as levelup } from 'levelup';
@@ -79,7 +81,8 @@ export class AztecNodeService implements AztecNode {
 
     // now create the merkle trees and the world state syncher
     const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver);
+    const worldStateConfig: WorldStateConfig = getWorldStateConfig();
+    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver, worldStateConfig);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
@@ -368,6 +371,7 @@ export class AztecNodeService implements AztecNode {
     const blockSourceHeight = await this.blockSource.getBlockHeight();
     const worldStateStatus = await this.worldStateSynchroniser.status();
     if (blockSourceHeight > worldStateStatus.syncedToL2Block) {
+      this.log(`World State `);
       await this.worldStateSynchroniser.syncImmediate();
     }
     return this.worldStateSynchroniser.getCommitted();

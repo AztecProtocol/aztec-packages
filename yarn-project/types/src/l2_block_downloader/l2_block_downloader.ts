@@ -105,6 +105,6 @@ export class L2BlockDownloader {
    * @returns A promise that fulfills once the poll is complete
    */
   public pollImmediate(): Promise<number> {
-    return this.jobQueue.put(this.collectBlocks);
+    return this.jobQueue.put(() => this.collectBlocks());
   }
 }
