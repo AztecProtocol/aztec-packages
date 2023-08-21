@@ -137,7 +137,7 @@ Add a `tsconfig.json` file into the project root, here is an example:
     "skipLibCheck": true
   },
   "references": [],
-  "include": ["src", "src/*.json"]
+  "include": ["src"]
 }
 ```
 
@@ -375,6 +375,3 @@ Our complete output should now be:
 ```
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
-
-## Next Steps
-See how to write and deploy a contract [here](./write_a_contract.md).
