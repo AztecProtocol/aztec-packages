@@ -3,12 +3,13 @@ import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
+import { assert } from 'console';
 import fs from 'fs';
+import * as path from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
-import { assert } from 'console';
-import { downloadContractFromGithub } from './unbox.js';
+import { contractNameToFolder, downloadContractFromGithub } from './unbox.js';
 
 /**
  * Helper type to dynamically import contracts.
@@ -153,27 +154,32 @@ export async function prepTx(
  * TODO: 4. Frontend parses the contract ABI and generates a UI to interact with the contract.
  * @param contractName - name of contract from `@aztec/noir-contracts`
  */
-export async function unboxContract(
-  contractName: string,
-  log: LogFn,
-) {
-  const contracts =  await import('@aztec/noir-contracts/artifacts');
+export async function unboxContract(contractName: string, log: LogFn) {
+  const contracts = await import('@aztec/noir-contracts/artifacts');
 
   //console.log(contracts);
-  const contractNames = Object.values(contracts).map((contract) => contract.name);
+  const contractNames = Object.values(contracts).map(contract => contract.name);
   // console.log(contractNames);
-  assert(contractNames.includes(contractName),
-   `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
-   We recommend "PrivateToken" as a default.`);
+  assert(
+    contractNames.includes(contractName),
+    `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
+   We recommend "PrivateToken" as a default.`,
+  );
 
-   // download the noir source code into `starter-kit`, along with the starter-kit subpackage.
-   //  TODO: add the jest tests
-   await downloadContractFromGithub(contractName, process.cwd());
-   log(`Downloaded ${contractName} from @aztec/noir-contracts. to ${process.cwd()}/starter-kit`);
-   return;
+  // downloads the selected contract's noir source code into `starter-kit`, along with the @aztec/starter-kit subpackage.
+  //  TODO: add the jest tests
+  await downloadContractFromGithub(contractName, process.cwd());
+  log(`Downloaded ${contractName} from @aztec/noir-contracts. to ${process.cwd()}/starter-kit`);
 
-  const chosenContractAbi = Object.values(contracts).filter((contract) => contract.name === contractName)[0];
-  console.log(chosenContractAbi);
-
+  const chosenContractAbi = Object.values(contracts).filter(contract => contract.name === contractName)[0];
+  const outputPath = path.join(
+    process.cwd(),
+    'starter-kit',
+    'noir-contracts',
+    `${contractNameToFolder(contractName)}_contract.json`,
+  );
+  // TODO: confirm naming convention will match what will be compiled when the contract is recompiled
+  fs.writeFileSync(outputPath, JSON.stringify(chosenContractAbi, null, 4));
+  log(`copied contract ABI to ${outputPath}`);
   return;
 }
