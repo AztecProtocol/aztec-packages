@@ -114,8 +114,8 @@ void gateCount(const std::string& bytecodePath)
  * @param proof_path Path to the file containing the serialized proof
  * @param recursive Whether to use recursive proof generation of non-recursive
  * @param vk_path Path to the file containing the serialized verification key
- * @return true
- * @return false
+ * @return true If the proof is valid
+ * @return false If the proof is invalid
  */
 void verify(const std::string& proof_path, bool recursive, const std::string& vk_path)
 {
