@@ -13,7 +13,10 @@
 namespace barretenberg {
 
 // clang-format off
-// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays, google-readability-casting)
+// disable the following style guides:
+// cppcoreguidelines-avoid-c-arrays : we make heavy use of c-style arrays here to prevent default-initialization of memory when constructing `field` objects.
+//                                    The intention is for field to act like a primitive numeric type with the performance/complexity trade-offs expected from this.
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 // clang-format on
 /**
  *
@@ -651,5 +654,5 @@ template <class Params> void field<Params>::msgpack_unpack(auto o)
 } // namespace barretenberg
 
 // clang-format off
-// NOLINTEND(cppcoreguidelines-avoid-c-arrays, google-readability-casting)
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays)
 // clang-format on

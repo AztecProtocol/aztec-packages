@@ -40,12 +40,15 @@
 #include <type_traits>
 #include <vector>
 
-#ifdef __i385fake__
+#ifndef __i386__
 __extension__ using uint128_t = unsigned __int128;
 #endif
 
 // clang-format off
-// NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast, google-readability-casting, cert-dcl58-cpp, cppcoreguidelines-init-variables, cppcoreguidelines-pro-type-cstyle-cast)
+// disabling the following style guides:
+// cert-dcl58-cpp , restricts modifying the standard library. We need to do this for portable serialization methods
+// cppcoreguidelines-pro-type-reinterpret-cast, we heavily use reinterpret-cast and would be difficult to refactor this out
+// NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast, cert-dcl58-cpp)
 // clang-format on
 
 template <typename T> concept IntegralOrEnum = std::integral<T> || std::is_enum_v<T>;
@@ -117,7 +120,7 @@ inline void write(uint8_t*& it, uint64_t value)
     it += 8;
 }
 
-#ifdef __i385fake__
+#ifndef __i386__
 inline void read(uint8_t const*& it, uint128_t& value)
 {
     uint64_t hi, lo; // NOLINT
@@ -152,7 +155,7 @@ void write(std::vector<uint8_t>& buf, const std::integral auto& value)
 void read(std::istream& is, std::integral auto& value)
 {
     std::array<uint8_t, sizeof(value)> buf;
-    is.read((char*)buf.data(), sizeof(value));
+    is.read(reinterpret_cast<char*>(buf.data()), sizeof(value));
     uint8_t const* ptr = &buf[0];
     read(ptr, value);
 }
@@ -162,7 +165,7 @@ void write(std::ostream& os, const std::integral auto& value)
     std::array<uint8_t, sizeof(value)> buf;
     uint8_t* ptr = &buf[0];
     write(ptr, value);
-    os.write((char*)buf.data(), sizeof(value));
+    os.write(reinterpret_cast<char*>(buf.data()), sizeof(value));
 }
 } // namespace serialize
 
@@ -194,7 +197,7 @@ template <size_t N> inline void write(uint8_t*& buf, std::array<uint8_t, N> cons
 // Optimised specialisation for reading vectors of bytes from a raw buffer.
 inline void read(uint8_t const*& it, std::vector<uint8_t>& value)
 {
-    uint32_t size;
+    uint32_t size = 0;
     read(it, size);
     value.resize(size);
     std::copy(it, it + size, value.data());
@@ -212,17 +215,17 @@ inline void write(uint8_t*& buf, std::vector<uint8_t> const& value)
 // Optimised specialisation for reading vectors of bytes from an input stream.
 inline void read(std::istream& is, std::vector<uint8_t>& value)
 {
-    uint32_t size;
+    uint32_t size = 0;
     read(is, size);
     value.resize(size);
-    is.read((char*)value.data(), (std::streamsize)size);
+    is.read(reinterpret_cast<char*>(value.data()), static_cast<std::streamsize>(size));
 }
 
 // Optimised specialisation for writing vectors of bytes to an output stream.
 inline void write(std::ostream& os, std::vector<uint8_t> const& value)
 {
     write(os, static_cast<uint32_t>(value.size()));
-    os.write((char*)value.data(), (std::streamsize)value.size());
+    os.write(reinterpret_cast<const char*>(value.data()), static_cast<std::streamsize>(value.size()));
 }
 
 // Optimised specialisation for writing arrays of bytes to a vector.
@@ -236,7 +239,7 @@ template <size_t N> inline void write(std::vector<uint8_t>& buf, std::array<uint
 // Optimised specialisation for writing arrays of bytes to an output stream.
 template <size_t N> inline void write(std::ostream& os, std::array<uint8_t, N> const& value)
 {
-    os.write((char*)value.data(), value.size());
+    os.write(reinterpret_cast<char*>(value.data()), value.size());
 }
 
 // Generic read of array of types from supported buffer types.
@@ -261,7 +264,7 @@ template <typename B, typename T, size_t N> inline void write(B& buf, std::array
 template <typename B, typename T, typename A> inline void read(B& it, std::vector<T, A>& value)
 {
     using serialize::read;
-    uint32_t size;
+    uint32_t size = 0;
     read(it, size);
     value.resize(size);
     for (size_t i = 0; i < size; ++i) {
@@ -332,7 +335,7 @@ template <typename B, typename T, typename U> inline void read(B& it, std::map<T
 {
     using serialize::read;
     value.clear();
-    uint32_t size;
+    uint32_t size = 0;
     read(it, size);
     for (size_t i = 0; i < size; ++i) {
         std::pair<T, U> v;
@@ -355,7 +358,7 @@ template <typename B, typename T, typename U> inline void write(B& buf, std::map
 template <typename B, typename T> inline void read(B& it, std::optional<T>& opt_value)
 {
     using serialize::read;
-    bool is_nullopt;
+    bool is_nullopt = false;
     read(it, is_nullopt);
     if (is_nullopt) {
         opt_value = std::nullopt;
@@ -387,7 +390,7 @@ template <typename T, typename B> T from_buffer(B const& buffer, size_t offset =
 {
     using serialize::read;
     T result;
-    const auto* ptr = (uint8_t const*)&buffer[offset];
+    const auto* ptr = reinterpret_cast<uint8_t const*>(&buffer[offset]);
     read(ptr, result);
     return result;
 }
@@ -499,5 +502,5 @@ inline void write(auto& buf, const msgpack_concepts::HasMsgPack auto& obj)
 }
 } // namespace serialize
 // clang-format off
-// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast, google-readability-casting, cert-dcl58-cpp, cppcoreguidelines-init-variables, cppcoreguidelines-pro-type-cstyle-cast)
+// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast, cert-dcl58-cpp)
 // clang-format on
