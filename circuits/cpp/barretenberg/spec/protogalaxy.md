@@ -1,6 +1,7 @@
 # ProtoGalaxy Implementation Spec
 
 $$
+\newcommand{\bin}{\text{bin}}
 \newcommand{\MAX}{\text{MAX}}
 \newcommand{\dMAX}{d_\MAX}
 \newcommand{\circuitsize}{n}
@@ -28,15 +29,15 @@ TODO: max degree is 5 (right?) and max relation length is one greater than that.
 # Background
 We will use [ProtoGalaxy](https://eprint.iacr.org/archive/2023/1106/1690490682.pdf) to fold [UltraGoblinHonk](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/honk/flavor/goblin_ultra.hpp) claims. The UltraGoblinHonk (UGH) proving system construct proofs for satisfying assignments for circuits built using [UltraCircuitBuilder](https://github.com/AztecProtocol/aztec-packages/blob/master/circuits/cpp/barretenberg/cpp/src/barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp). The circuits built using this builder class encode application logic and witnesses in an execution trace $\Trace$:
 
-| row | ...   | $w_*$ | ... | $q_*$ | ... |
-|-----|-------|-------|-----|-------|-----|
-| 0   | *     | *     | *   | *     | *   |
-| 1   | *     | *     | *   | *     | *   |
-| ... | ...   | ...   | ... | ...   | ... |
-| n-1 | *     | *     | *   | *     | *   |
-| n   | *     | *     | *   | *     | *   |
+| row   | ... | $w_l$        | ... | $q_r$         | ... |
+|-------|-----|--------------|-----|---------------|-----|
+| $0$   | *   | $w_{l, 0}$   | *   | $q_{r, 0}$   | *   |
+| $1$   | *   | $w_{l, 1}$   | *   | $q_{r, 1}$   | *   |
+| ...   | ... | ...          | ... | ...          | ... |
+| $n-1$ | *   | $w_{l, n-1}$ | *   | $q_{r, n-1}$ | *   |
 
-Additional witnesses ($Z_\perm$ and $Z_\lookup$) and auxiliary polynomials (Lagrange polynomials e.g.) are derived and stored alongside the polynomials in the execution trace in a `GoblinUltra::ProverPolynomials` instance $\Polys$, which we can model here as a tuple of $\NumPolys$-many polynomials. The claim of interest to the UGH prover is that the full aggregated UGH relation, a polynomial in variables
+
+Using the Lagrange basis on the boolean hypercube of dimension $\log(n)$, this data, along with the data of additional derived witnesses ($Z_\perm$ and $Z_\lookup$) and auxiliary polynomials (Lagrange polynomials e.g.) are stored in a `GoblinUltra::ProverPolynomials` instance $\Polys$, which we can model here as a tuple of $\NumPolys$-many polynomials. The claim of interest to the UGH prover is that the full aggregated UGH relation, a polynomial in variables
 $$
 \begin{aligned}
 \Rel_\UGH(P_1,\ldots, P_{\NumPolys}) = 
@@ -50,8 +51,13 @@ $$
 \end{aligned}
 $$
 
-evaluates to 0 on $\Polys_i$ for $i=0,\ldots,\circuitsize-1$, where $n$ is the circuit size. This claim gets repackaged as the claim...
-Each $X$ is a polynomial
+evaluates to 0 on $\Polys_i$ for $i=0,\ldots,\circuitsize-1$, where $n$ is the circuit size. Generically, a prover can argue this claim in linear time by allowing a verifier to generate a challenge $\beta$ and then using a sumcheck argument for the claim
+$$
+\sum_{i=0}^{n-1}\beta^i\Rel_\UGH(\bin(i)) = 0
+$$
+where $\bin(i)$ is the length-$\log(n)$ vector of binary digits of $i$.
+
+For comparison, ProtoGalaxy uses the notation for $\omega$ for the data encoded in $\Polys$ regarded simly as a data of vectors. The relation $\Rel_\UGH$ gets 
 
 # Mara's sketch work.
 
@@ -168,30 +174,49 @@ ProtoGalaxy requires 3 rather than  $2k\log n$ ($\log n$ for sumcheck and $\log 
 ## Scratch work on computation of $G(Y)$
 We have reserved $X$ for the names of the inputs to the prover polynomials, the variables on the boolean hypercube, e.g., $w_l = w_l(X_1, \ldots, X_d)$. So let's use $Y$ for the perturbation and combiner variables in PG. This agrees with the notation of Protostar. Let's use $P$ for the inputs to the relations.
 
-How do we interpret the definition of $G(Y)$?
+How do we interpret the definition of $G(Y)$? In the paper we write
 $$G(Y) 
 = \sum_{i=0}^{n-1}\pow_i(\beta^*)f_i\left(\sum_{j=0}^{k}L_j(Y)\omega_j\right)
-= \sum_{i=0}^{n-1}\pow_i(\beta^*)\Rel_\UGH\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right)
+= \sum_{i=0}^{n-1}\pow_i(\beta^*)\Rel_\UGH\left(\sum_{j=0}^{k}L_j(Y)\Polys^{(j)}_{i}\right)
 $$
 
-Let's focus on the sub-term $\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right).$ Using the indexing of `honk::flavor::Ultra`, we have
+To rewrite this in our terms, the instances $\omega_0,\omega_1, \ldots, \omega_k$ correspond to `honk::flavor::Ultra::ProverPolynomials` instances $\Polys^{(0)}, \Polys^{(1)}, \ldots, \Polys^{(k)}$ and the polynomial $G$ becomes
+$$G(Y) 
+= \sum_{i=0}^{n-1}\pow_i(\beta^*)\Rel_\UGH\left(\sum_{j=0}^{k}L_j(Y)\Polys^{(j)}_{i}\right)
+$$
+
+Let's focus on the sub-term $\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys^{(j)}_{i}\right).$ Using the indexing of `honk::flavor::Ultra`, we have
 
 $$\Rel_\UGH(P_1,\ldots, P_{\NumPolys}) = P_{5}P_{25}P_{26} + P_{1}P_{25} + P_{2}P_{26} + P_{3}P_{27} + P_{0}.$$
 To be clear, if $\Polys$ is an instance of `honk::flavor::Ultra::ProverPolynomials`, then 
 
 $$\Rel_\UGH(\Polys) := \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) = q_{m}w_lw_r + q_{l}w_{l} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.$$
 
-Similarly, 
+Similarly, with the superscript $(j)$ used in the natural way,
 $$\begin{aligned}
-\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys_{j, i}\right) 
-&:= \Rel_\UGH(\Polys_1,\ldots, \Polys_{\NumPolys}) \\
-&= q_{m}w_lw_r + q_{l}w_{l} + q_{r}w_{r} + q_{o}w_{o} + q_{c}.
+\Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys^{(j)}\right) 
+&:= \Rel_\Arith\left(\sum_{j=0}^{k}L_j(Y)\Polys^{(j)}_{1},
+                    \ldots, \sum_{j=0}^{k}L_j(Y)\Polys^{(j)}_{\NumPolys}\right) \\
+&= \left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{m}\right)
+   \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{l}\right)
+   \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{r}\right) \\ 
+&\hphantom{...}+ \left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{l}\right)
+                 \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{l}\right)\\ 
+&\hphantom{...}+ \left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{r}\right)
+                 \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{r}\right)\\ 
+&\hphantom{...}+ \left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{o}\right)
+                 \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{o}\right)\\ 
+&\hphantom{...}+ \left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{c}\right)
 \end{aligned}
 $$
+which is a polynomial of degree $3\circuitsize$ (in general, $G$ has degree $\dMAX\circuitsize$ where $\dMAX=5$ is one less than the maximum `RELATION_LENGTH` over the relations in  `honk::flavor::Ultra::Relations`).
 
-Say a relation has a term in it like $q_l*w_l$ and those are indexed in the prover polynomials at index 1 and 4, \Rel_\Arith()
-we're going to have expressions like 
-If k = 128 we're going to need to compute terms like $L_j(Y)L_m(Y)$ of degree 256, meaning we need to barycentrically extend both lagrange polynomials and then do 256 multiplications to get the evaluation form.
+Let's focus on the term
+$$
+\left(\sum_{j=0}^{k}L_j(Y)q^{(j)}_{l}\right)
+                 \left(\sum_{j=0}^{k}L_j(Y)w^{(j)}_{l}\right)
+    = \sum_{j,m=0}^{k}  L_j(Y)L_m(Y)q^{(j)}_{l}w^{(m)}_{l}
+$$
 
 ### Interfaces
 * we will fold `CircuitBuilder`s in bberg
