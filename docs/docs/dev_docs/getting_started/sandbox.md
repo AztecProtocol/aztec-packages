@@ -64,7 +64,7 @@ With the help of Aztec.js you will be able to:
 
 We will deploy a private token contract, and send tokens privately, using the Sandbox.
 
-> Writing the contract itself is out of scope for this tutorial, we will use a Private Token Contract which as been pre-supplied as an example. See [here](LINK) for more information on how to write contracts for Aztec.
+Writing the contract itself is out of scope for this tutorial, so we will use a Private Token Contract which has been pre-supplied as an example. See [here](../contracts/main.md) for more information on how to write contracts for Aztec.
 
 The following should work for MacOS, Linux or even WSL2 Ubuntu under Windows. 
 
