@@ -147,10 +147,10 @@ export async function prepTx(
  * Unboxes a contract from `@aztec/noir-contracts` and generates a simple frontend.
  * Performs the following operations in order:
  * 1. Checks if the contract exists in `@aztec/noir-contracts`
- * 2. Copies the contract from the `@aztec/noir-contracts` to the current working directory
- * This is done via brute force find+copy of the globally installed `node_modules/@aztec/noir-contracts` folder.
- * 3. Copies the frontend template from `@aztec/cli` to the current working directory
- * 4. Generates a frontend for the contract
+ * 2. Copies the contract from the `@aztec/noir-contracts` to the current working directory under "starter-kit/"
+ * This is done via brute force search of the master branch of the monorepo, within the yarn-projects/noir-contracts folder.
+ * 3. Copies the frontend template from `@aztec/starter-kit` to the current working directory under "starter-kit"
+ * TODO: 4. Frontend parses the contract ABI and generates a UI to interact with the contract.
  * @param contractName - name of contract from `@aztec/noir-contracts`
  */
 export async function unboxContract(
@@ -166,14 +166,10 @@ export async function unboxContract(
    `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
    We recommend "PrivateToken" as a default.`);
 
-   // download the noir source code.  TODO: add the jest tests
-   console.log('downloading')
+   // download the noir source code into `starter-kit`, along with the starter-kit subpackage.
+   //  TODO: add the jest tests
    await downloadContractFromGithub(contractName, process.cwd());
-  //  await downloadDirectoryFromGithub('AztecProtocol', 'aztec-packages', 
-  //  // `yarn-project/noir-contracts`
-  //  `yarn-project/noir-contracts/src/contracts/${contractName.toLowerCase()}_contract`
-  //  , process.cwd());
-   console.log('downloaded')
+   log(`Downloaded ${contractName} from @aztec/noir-contracts. to ${process.cwd()}/starter-kit`);
    return;
 
   const chosenContractAbi = Object.values(contracts).filter((contract) => contract.name === contractName)[0];

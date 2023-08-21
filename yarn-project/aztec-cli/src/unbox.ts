@@ -6,7 +6,7 @@ import { promises as fs } from 'fs';
 const GITHUB_OWNER = 'AztecProtocol';
 const GITHUB_REPO = 'aztec-packages';
 const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts'
-const STARTER_KIT_PATH = 'yarn-project/starter-kit/'
+const STARTER_KIT_PATH = 'yarn-project/starter-kit'
 
 /**
  * Converts a contract name in "upper camel case" to a folder name in snake case.
@@ -32,23 +32,30 @@ export async function downloadContractFromGithub(
 ): Promise<void> {
     // small string conversion, in the ABI the contract name looks like PrivateToken
     // but in the repostory it looks like private_token
-    const folder = `${NOIR_CONTRACTS_PATH}/${contractNameToFolder(contractName)}_contract`;
-    console.log(folder);
-    await _downloadDirectoryFromGithub(GITHUB_OWNER, GITHUB_REPO, folder, outputPath);
+    const contractFolder = `${NOIR_CONTRACTS_PATH}/${contractNameToFolder(contractName)}_contract`;
+    await _downloadNoirFilesFromGithub(contractFolder, outputPath);
 }   
 
-async function _downloadDirectoryFromGithub(
-    owner: string,
-    repo: string,
+/**
+ * Not flexible at at all, but quick fix to download a noir smart contract from our
+ * monorepo on github.  this will copy over the `yarn-projects/starter-kit` folder in its entirey
+ * as well as the specfieid directoryPath, which should point to a single noir contract in 
+ * `yarn-projects/noir-contracts/src/contracts/...`
+ * @param directoryPath - path to the directory in the github repo
+ * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
+ * @returns 
+ */
+async function _downloadNoirFilesFromGithub(
     directoryPath: string,
-    outputPath: string
+    outputPath: string,
+    outputPrefix: string = 'starter-kit'
 ): Promise<string> {
-    // Step 1: Fetch the ZIP from GitHub
+    const owner = GITHUB_OWNER;
+    const repo = GITHUB_REPO;
+    // Step 1: Fetch the ZIP from GitHub, hardcoded to the master branch
     const url = `https://github.com/${owner}/${repo}/archive/refs/heads/master.zip`;
-    console.log(url);
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
-    console.log(buffer);
 
     // Step 2: Use JSZip to read the ZIP contents
     const zip = new JSZip();
@@ -57,36 +64,28 @@ async function _downloadDirectoryFromGithub(
     // Step 3: Extract the specific directory from the ZIP
     const repoDirectoryPrefix = `${repo}-master/`;
     const fullDirectoryPath = `${repoDirectoryPrefix}${directoryPath}/`;
-    //console.log(Object.values(data.files));
-    console.log(fullDirectoryPath);
+    const starterKitPath = `${repoDirectoryPrefix}${STARTER_KIT_PATH}/`;
 
     const contractFiles = Object.values(data.files).filter(file => {
-        return file.dir && file.name.startsWith(fullDirectoryPath);
+        return file.dir && (file.name.startsWith(fullDirectoryPath) || file.name.startsWith(starterKitPath));
     });
     
-    console.log(contractFiles);
-
     for (const file of contractFiles) {
         // note that we strip out the entire "directoryPath"!
-        const relativePath = file.name.replace(fullDirectoryPath, "starter-kit/noir-contracts/");
+        const relativePath = file.name.replace(fullDirectoryPath, `${outputPrefix}/noir-contracts/`).replace(starterKitPath, `${outputPrefix}/`);
         const targetPath = `${outputPath}/${relativePath}`;
         await fs.mkdir(targetPath, { recursive: true });
-        console.log('made dir', targetPath);
     }
 
     const directoryFiles = Object.values(data.files).filter(file => {
-        return !file.dir && file.name.startsWith(fullDirectoryPath);
+        return !file.dir && (file.name.startsWith(fullDirectoryPath) || file.name.startsWith(starterKitPath));
     });
 
     for (const file of directoryFiles) {
-        const relativePath = file.name.replace(fullDirectoryPath, "starter-kit/noir-contracts/");
+        const relativePath = file.name.replace(fullDirectoryPath, `${outputPrefix}/noir-contracts/`).replace(starterKitPath, `${outputPrefix}/`);
         const targetPath = `${outputPath}/${relativePath}`;
         const content = await file.async("nodebuffer");
         await fs.writeFile(targetPath, content);
-        console.log('wrote file', targetPath);
     }
-    return Promise.resolve(`${outputPath}/starter-kit`);
+    return Promise.resolve(`${outputPath}/${outputPrefix}`);
 }
-
-// Example usage:
-// downloadDirectoryFromGithub('microsoft', 'TypeScript', 'src/compiler', './downloaded').catch(console.error);
