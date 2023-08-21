@@ -382,8 +382,7 @@ export class AztecNodeService implements AztecNode {
         this.blockSource.getBlockHeight(),
         this.worldStateSynchroniser.status(),
       ]);
-      const blockDifference = blockSourceHeight - worldStateStatus.syncedToL2Block;
-      if (!blockDifference) {
+      if (blockSourceHeight <= worldStateStatus.syncedToL2Block) {
         break;
       }
       this.log(
