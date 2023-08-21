@@ -106,7 +106,7 @@ contract PokeableToken {
         let sender_balance = storage.balances.at(sender);
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(sender_balance.storage_slot)
+        balance_utils::get_balance(sender_balance)
     }
 
     // Computes note hash and nullifier.

@@ -1,5 +1,6 @@
 use dep::std::option::Option;
 use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+use crate::utils::get_array_size;
 
 struct Select {
     field_index: u8,
@@ -81,28 +82,14 @@ impl<Note, N, FILTER_ARGS> NoteGetterOptions<Note, N, FILTER_ARGS> {
     }
 
     fn select(&mut self, field_index: u8, value: Field) -> Self {
-        let mut selects = self.selects;
-        let mut updated = false;
-        for i in 0..selects.len() {
-            if !updated & selects[i].is_none() {
-                selects[i] = Option::some(Select::new(field_index, value));
-                updated = true;
-            }
-        }
-        self.selects = selects;
+        let idx = get_array_size(self.selects);
+        self.selects[idx] = Option::some(Select::new(field_index, value));
         *self
     }
 
     fn sort(&mut self, field_index: u8, order: u2) -> Self {
-        let mut sorts = self.sorts;
-        let mut updated = false;
-        for i in 0..sorts.len() {
-            if !updated & sorts[i].is_none() {
-                sorts[i] = Option::some(Sort::new(field_index, order));
-                updated = true;
-            }
-        }
-        self.sorts = sorts;
+        let idx = get_array_size(self.sorts);
+        self.sorts[idx] = Option::some(Sort::new(field_index, order));
         *self
     }
 

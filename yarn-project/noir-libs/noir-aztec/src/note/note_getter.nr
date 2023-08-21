@@ -8,9 +8,10 @@ use crate::constants_gen::{
 };
 use crate::context::PrivateContext;
 use crate::note::{
-    note_getter_options::NoteGetterOptions,
+    note_getter_options::{NoteGetterOptions, Select, Sort},
     note_interface::NoteInterface,
     note_header::NoteHeader,
+    note_viewer_options::NoteViewerOptions,
     utils::compute_note_hash_for_read_or_nullify,
     utils::compute_unique_siloed_note_hash,
     utils::compute_inner_note_hash,
@@ -165,28 +166,7 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
     note_interface: NoteInterface<Note, N>,
     options: NoteGetterOptions<Note, N, FILTER_ARGS>,
 ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
-    let selects = options.selects;
-    let mut num_selects = 0;
-    let mut select_by = [0; N];
-    let mut select_values = [0; N];
-    for i in 0..selects.len() {
-        if selects[i].is_some() {
-            select_by[num_selects] = selects[i].unwrap_unchecked().field_index;
-            select_values[num_selects] = selects[i].unwrap_unchecked().value;
-            num_selects += 1;
-        };
-    };
-
-    let sorts = options.sorts;
-    let mut sort_by = [0; N];
-    let mut sort_order = [0; N];
-    for i in 0..sorts.len() {
-        if sorts[i].is_some() {
-            sort_by[i] = sorts[i].unwrap_unchecked().field_index;
-            sort_order[i] = sorts[i].unwrap_unchecked().order;
-        };
-    };
-
+    let (num_selects, select_by, select_values, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
     let placeholder_fields = [0; GET_NOTES_ORACLE_RETURN_LENGTH];
     oracle::notes::get_notes(
@@ -207,26 +187,49 @@ unconstrained fn get_notes_internal<Note, N, FILTER_ARGS>(
 unconstrained fn view_notes<Note, N>(
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
-    limit: u32,
-    offset: u32,
+    options: NoteViewerOptions<Note, N>,
 ) -> [Option<Note>; MAX_NOTES_PER_PAGE] {
-    let select_by = [0; N];
-    let select_values = [0; N];
-    let sort_by = [0; N];
-    let sort_order = [0; N];
+    let (num_selects, select_by, select_values, sort_by, sort_order) = flatten_options(options.selects, options.sorts);
     let placeholder_opt_notes = [Option::none(); MAX_NOTES_PER_PAGE];
     let placeholder_fields = [0; VIEW_NOTE_ORACLE_RETURN_LENGTH];
     oracle::notes::get_notes(
         storage_slot,
         note_interface,
-        0,
+        num_selects,
         select_by,
         select_values,
         sort_by,
         sort_order,
-        limit,
-        offset,
+        options.limit,
+        options.offset,
         placeholder_opt_notes,
         placeholder_fields,
     )
+}
+
+unconstrained fn flatten_options<Note, N>(
+    selects: [Option<Select>; N],
+    sorts: [Option<Sort>; N],
+) -> (u8, [u8; N], [Field; N], [u8; N], [u2; N]) {
+    let mut num_selects = 0;
+    let mut select_by = [0; N];
+    let mut select_values = [0; N];
+    for i in 0..selects.len() {
+        if selects[i].is_some() {
+            select_by[num_selects] = selects[i].unwrap_unchecked().field_index;
+            select_values[num_selects] = selects[i].unwrap_unchecked().value;
+            num_selects += 1;
+        };
+    };
+
+    let mut sort_by = [0; N];
+    let mut sort_order = [0; N];
+    for i in 0..sorts.len() {
+        if sorts[i].is_some() {
+            sort_by[i] = sorts[i].unwrap_unchecked().field_index;
+            sort_order[i] = sorts[i].unwrap_unchecked().order;
+        };
+    };
+
+    (num_selects, select_by, select_values, sort_by, sort_order)
 }

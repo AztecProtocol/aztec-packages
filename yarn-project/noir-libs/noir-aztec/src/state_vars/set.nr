@@ -1,15 +1,16 @@
 use dep::std::option::Option;
 use crate::abi::PublicContextInputs;
-use crate::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+use crate::constants_gen::{MAX_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE};
 use crate::context::{
     PrivateContext,
     PublicContext,
 };
 use crate::note::lifecycle::{create_note, create_note_hash_from_public, destroy_note};
 use crate::note::{
-    note_getter::{get_notes, ensure_note_exists, ensure_note_hash_exists},
+    note_getter::{get_notes, ensure_note_exists, ensure_note_hash_exists, view_notes},
     note_getter_options::NoteGetterOptions,
     note_interface::NoteInterface,
+    note_viewer_options::NoteViewerOptions,
     utils::compute_inner_note_hash,
 };
 
@@ -73,5 +74,12 @@ impl<Note, N> Set<Note, N> {
         let storage_slot = self.storage_slot;
         let opt_notes = get_notes(context, storage_slot, self.note_interface, options);
         opt_notes
+    }
+
+    unconstrained fn view_notes(
+        self,
+        options: NoteViewerOptions<Note, N>,
+    ) -> [Option<Note>; MAX_NOTES_PER_PAGE] {
+        view_notes(self.storage_slot, self.note_interface, options)
     }
 }
