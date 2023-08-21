@@ -1,4 +1,11 @@
-import { PublicExecution, PublicExecutionResult, PublicExecutor, isPublicExecutionResult, collectPublicDataReads, collectPublicDataUpdateRequests } from '@aztec/acir-simulator';
+import {
+  PublicExecution,
+  PublicExecutionResult,
+  PublicExecutor,
+  collectPublicDataReads,
+  collectPublicDataUpdateRequests,
+  isPublicExecutionResult,
+} from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CircuitsWasm,
@@ -164,7 +171,9 @@ export class PublicProcessor {
         const result = isExecutionRequest ? await this.publicExecutor.execute(current, this.globalVariables) : current;
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.functionSelectorBuffer.toString('hex');
-        this.log(`Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`);
+        this.log(
+          `Running public kernel circuit for ${functionSelector}@${result.execution.contractAddress.toString()}`,
+        );
         executionStack.push(...result.nestedExecutions);
         const preimages = await this.getPublicCallStackPreimages(result);
         const callData = await this.getPublicCallData(result, preimages, isExecutionRequest);
@@ -173,7 +182,7 @@ export class PublicProcessor {
 
         if (!enqueuedExecutionResult) enqueuedExecutionResult = result;
       }
-      // HACK(#1622): Manually patches the ordering of public state actions
+      // HACK(#1685): Manually patches the ordering of public state actions
       // TODO(#757): Enforce proper ordering of public state actions
       await this.patchPublicStorageActionOrdering(kernelOutput, enqueuedExecutionResult!);
     }
@@ -332,19 +341,27 @@ export class PublicProcessor {
 
     // Validate all items in enqueued public calls are in the kernel emitted stack
     const readsAreEqual = simPublicDataReads.reduce(
-      (accum, read) => accum && !!publicDataReads.find(item => item.leafIndex.equals(read.leafIndex) && item.value.equals(read.value)),
+      (accum, read) =>
+        accum && !!publicDataReads.find(item => item.leafIndex.equals(read.leafIndex) && item.value.equals(read.value)),
       true,
     );
     const updatesAreEqual = simPublicDataUpdateRequests.reduce(
-      (accum, update) => accum && !!publicDataUpdateRequests.find(item => item.leafIndex.equals(update.leafIndex) && item.oldValue.equals(update.oldValue) && item.newValue.equals(update.newValue)),
+      (accum, update) =>
+        accum &&
+        !!publicDataUpdateRequests.find(
+          item =>
+            item.leafIndex.equals(update.leafIndex) &&
+            item.oldValue.equals(update.oldValue) &&
+            item.newValue.equals(update.newValue),
+        ),
       true,
     );
 
     if (!readsAreEqual) {
       throw new Error(
         `Public data reads from simulator do not match those from public kernel.\nFrom simulator: ${simPublicDataReads
-        .map(p => p.toFriendlyJSON())
-        .join(', ')}\nFrom public kernel: ${publicDataReads.map(i => i.toFriendlyJSON()).join(', ')}`,
+          .map(p => p.toFriendlyJSON())
+          .join(', ')}\nFrom public kernel: ${publicDataReads.map(i => i.toFriendlyJSON()).join(', ')}`,
       );
     }
     if (!updatesAreEqual) {
@@ -358,8 +375,14 @@ export class PublicProcessor {
     // Assume that kernel public inputs has the right number of items.
     // We only want to reorder the items from the public inputs of the
     // most recently processed top/enqueued call.
-    const numTotalReadsInKernel = arrayNonEmptyLength(publicInputs.end.publicDataReads,  f => f.leafIndex.equals(Fr.ZERO) && f.value.equals(Fr.ZERO));
-    const numTotalUpdatesInKernel = arrayNonEmptyLength(publicInputs.end.publicDataUpdateRequests, f => f.leafIndex.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO));
+    const numTotalReadsInKernel = arrayNonEmptyLength(
+      publicInputs.end.publicDataReads,
+      f => f.leafIndex.equals(Fr.ZERO) && f.value.equals(Fr.ZERO),
+    );
+    const numTotalUpdatesInKernel = arrayNonEmptyLength(
+      publicInputs.end.publicDataUpdateRequests,
+      f => f.leafIndex.equals(Fr.ZERO) && f.oldValue.equals(Fr.ZERO) && f.newValue.equals(Fr.ZERO),
+    );
     const numReadsBeforeThisEnqueuedCall = numTotalReadsInKernel - simPublicDataReads.length;
     const numUpdatesBeforeThisEnqueuedCall = numTotalUpdatesInKernel - simPublicDataUpdateRequests.length;
 
@@ -368,7 +391,7 @@ export class PublicProcessor {
       [
         // do not mess with items from previous top/enqueued calls in kernel output
         ...publicDataReads.slice(0, numReadsBeforeThisEnqueuedCall),
-        ...simPublicDataReads
+        ...simPublicDataReads,
       ],
       PublicDataRead.empty(),
       MAX_PUBLIC_DATA_READS_PER_TX,
@@ -378,7 +401,7 @@ export class PublicProcessor {
       [
         // do not mess with items from previous top/enqueued calls in kernel output
         ...publicDataUpdateRequests.slice(0, numUpdatesBeforeThisEnqueuedCall),
-        ...simPublicDataUpdateRequests
+        ...simPublicDataUpdateRequests,
       ],
       PublicDataUpdateRequest.empty(),
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,

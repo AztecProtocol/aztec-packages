@@ -75,7 +75,9 @@ export function collectPublicDataReads(wasm: IWasmModule, execResult: PublicExec
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
   const contractAddress = execResult.execution.contractAddress;
 
-  const thisExecPublicDataReads = execResult.contractStorageReads.map(read => contractStorageReadToPublicDataRead(wasm, read, contractAddress));
+  const thisExecPublicDataReads = execResult.contractStorageReads.map(read =>
+    contractStorageReadToPublicDataRead(wasm, read, contractAddress),
+  );
   const unsorted = [
     ...thisExecPublicDataReads,
     ...[...execResult.nestedExecutions].flatMap(result => collectPublicDataReads(wasm, result)),
@@ -90,11 +92,16 @@ export function collectPublicDataReads(wasm: IWasmModule, execResult: PublicExec
  * @param execResult - The topmost execution result.
  * @returns All public data reads (in execution order).
  */
-export function collectPublicDataUpdateRequests(wasm: IWasmModule, execResult: PublicExecutionResult): PublicDataUpdateRequest[] {
+export function collectPublicDataUpdateRequests(
+  wasm: IWasmModule,
+  execResult: PublicExecutionResult,
+): PublicDataUpdateRequest[] {
   // HACK(#1622): part of temporary hack - may be able to remove this function after public state ordering is fixed
   const contractAddress = execResult.execution.contractAddress;
 
-  const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update => contractStorageUpdateRequestToPublicDataUpdateRequest(wasm, update, contractAddress));
+  const thisExecPublicDataUpdateRequests = execResult.contractStorageUpdateRequests.map(update =>
+    contractStorageUpdateRequestToPublicDataUpdateRequest(wasm, update, contractAddress),
+  );
   const unsorted = [
     ...thisExecPublicDataUpdateRequests,
     ...[...execResult.nestedExecutions].flatMap(result => collectPublicDataUpdateRequests(wasm, result)),
@@ -109,11 +116,15 @@ export function collectPublicDataUpdateRequests(wasm: IWasmModule, execResult: P
  * @param contractAddress - the contract address of the read
  * @returns The public data read.
  */
-function contractStorageReadToPublicDataRead(wasm: IWasmModule, read: ContractStorageRead, contractAddress: AztecAddress): PublicDataRead {
+function contractStorageReadToPublicDataRead(
+  wasm: IWasmModule,
+  read: ContractStorageRead,
+  contractAddress: AztecAddress,
+): PublicDataRead {
   return new PublicDataRead(
     computePublicDataTreeIndex(wasm, contractAddress.toField(), read.storageSlot),
     computePublicDataTreeValue(wasm, read.currentValue),
-    read.sideEffectCounter!
+    read.sideEffectCounter!,
   );
 }
 
@@ -124,11 +135,15 @@ function contractStorageReadToPublicDataRead(wasm: IWasmModule, read: ContractSt
  * @param contractAddress - the contract address of the read
  * @returns The public data read.
  */
-function contractStorageUpdateRequestToPublicDataUpdateRequest(wasm: IWasmModule, update: ContractStorageUpdateRequest, contractAddress: AztecAddress): PublicDataUpdateRequest {
+function contractStorageUpdateRequestToPublicDataUpdateRequest(
+  wasm: IWasmModule,
+  update: ContractStorageUpdateRequest,
+  contractAddress: AztecAddress,
+): PublicDataUpdateRequest {
   return new PublicDataUpdateRequest(
     computePublicDataTreeIndex(wasm, contractAddress.toField(), update.storageSlot),
     computePublicDataTreeValue(wasm, update.oldValue),
     computePublicDataTreeValue(wasm, update.newValue),
-    update.sideEffectCounter!
+    update.sideEffectCounter!,
   );
 }

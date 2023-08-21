@@ -11,12 +11,19 @@ import { PublicStateDB } from './db.js';
  */
 export class ContractStorageActionsCollector {
   // Map from slot to first read value
-  private readonly contractStorageReads: Map<bigint, { /** The value read. */ currentValue: Fr, /** Side effect counter. */ sideEffectCounter: number }> = new Map();
+  private readonly contractStorageReads: Map<
+    bigint,
+    { /** The value read. */ currentValue: Fr; /** Side effect counter. */ sideEffectCounter: number }
+  > = new Map();
 
   // Map from slot to first read value and latest updated value
   private readonly contractStorageUpdateRequests: Map<
     bigint,
-    { /** The old value. */ oldValue: Fr; /** The updated value. */ newValue: Fr, /** Side effect counter. */ sideEffectCounter: number }
+    {
+      /** The old value. */ oldValue: Fr;
+      /** The updated value. */ newValue: Fr;
+      /** Side effect counter. */ sideEffectCounter: number;
+    }
   > = new Map();
 
   constructor(private db: PublicStateDB, private address: AztecAddress) {}
@@ -36,7 +43,7 @@ export class ContractStorageActionsCollector {
     const read = this.contractStorageReads.get(slot);
     if (read) return read.currentValue;
     const value = await this.db.storageRead(this.address, storageSlot);
-    this.contractStorageReads.set(slot, { currentValue: value, sideEffectCounter, });
+    this.contractStorageReads.set(slot, { currentValue: value, sideEffectCounter });
     return value;
   }
 

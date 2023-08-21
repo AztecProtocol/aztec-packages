@@ -319,7 +319,6 @@ export class PrivateFunctionExecution {
     // side-effect counter, that will leak info about how many other private
     // side-effects occurred in the TX. Ultimately the private kernel should
     // just outut everything in the proper order without any counters.
-
   }
 
   /**

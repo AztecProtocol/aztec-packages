@@ -9,9 +9,9 @@ import {
   abisComputeBlockHashWithGlobals,
   abisComputeCommitmentNonce,
   abisComputeGlobalsHash,
-  abisComputeUniqueCommitment,
-  abisComputePublicDataTreeValue,
   abisComputePublicDataTreeIndex,
+  abisComputePublicDataTreeValue,
+  abisComputeUniqueCommitment,
   abisSiloCommitment,
   abisSiloNullifier,
 } from '../cbind/circuits.gen.js';
@@ -403,7 +403,6 @@ export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: F
   wasm.call('pedersen__init');
   return abisComputePublicDataTreeIndex(wasm, contractAddress, storageSlot);
 }
-
 
 const ARGS_HASH_CHUNK_SIZE = 32;
 const ARGS_HASH_CHUNK_COUNT = 16;

@@ -79,7 +79,13 @@ export class PublicCallRequest {
    * @returns The array.
    */
   static getFields(fields: FieldsOf<PublicCallRequest>) {
-    return [fields.contractAddress, fields.functionData, fields.callContext, fields.args, fields.sideEffectCounter] as const;
+    return [
+      fields.contractAddress,
+      fields.functionData,
+      fields.callContext,
+      fields.args,
+      fields.sideEffectCounter,
+    ] as const;
   }
 
   /**
