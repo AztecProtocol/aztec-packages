@@ -112,6 +112,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
       return Promise.resolve();
     }
     const numBlocks = await this.l2BlockDownloader.pollImmediate();
+    this.log(`Block download immediate poll yielded ${numBlocks} blocks`);
     if (!numBlocks) {
       return;
     }
