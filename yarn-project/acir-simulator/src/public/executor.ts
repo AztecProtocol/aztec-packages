@@ -164,6 +164,11 @@ export class PublicExecutor {
     const { returnValues } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
+    this.log(
+      `Contract storage reads: ${contractStorageReads
+        .map(r => r.toFriendlyJSON() + ` - sec: ${r.sideEffectCounter}`)
+        .join(', ')}`,
+    );
 
     return {
       execution,
