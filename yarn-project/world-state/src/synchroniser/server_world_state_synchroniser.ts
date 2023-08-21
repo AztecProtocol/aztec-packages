@@ -1,7 +1,7 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
-import { MerkleTreeDb, MerkleTreeOperations } from '../index.js';
+import { MerkleTreeOperations, MerkleTrees } from '../index.js';
 import { MerkleTreeOperationsFacade } from '../merkle-tree/merkle_tree_operations_facade.js';
 import { getConfigEnvVars } from './config.js';
 import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from './world_state_synchroniser.js';
@@ -18,12 +18,13 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;
+  private observerResolves: (() => void)[] = [];
   private stopping = false;
   private runningPromise: Promise<void> = Promise.resolve();
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
   constructor(
-    private merkleTreeDb: MerkleTreeDb,
+    private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource,
     private log = createDebugLogger('aztec:world_state'),
   ) {
@@ -73,8 +74,13 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     // start looking for further blocks
     const blockProcess = async () => {
       while (!this.stopping) {
-        const blocks = await this.l2BlockDownloader.getL2Blocks();
+        const observers = this.observerResolves;
+        this.observerResolves = [];
+        const blocks = await this.l2BlockDownloader.getL2Blocks(1);
         await this.handleL2Blocks(blocks);
+        for (const observer of observers) {
+          observer();
+        }
       }
     };
     this.runningPromise = blockProcess();
@@ -87,6 +93,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     this.log('Stopping world state...');
     this.stopping = true;
     await this.l2BlockDownloader.stop();
+    await this.merkleTreeDb.stop();
     await this.runningPromise;
     this.setCurrentState(WorldStateRunningState.STOPPED);
   }
@@ -97,6 +104,23 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
       state: this.currentState,
     } as WorldStateStatus;
     return Promise.resolve(status);
+  }
+
+  /**
+   * Forces an immediate sync
+   */
+  public async syncImmediate(): Promise<void> {
+    if (this.currentState !== WorldStateRunningState.RUNNING) {
+      return Promise.resolve();
+    }
+    const numBlocks = await this.l2BlockDownloader.pollImmediate();
+    if (!numBlocks) {
+      return;
+    }
+    const promise = new Promise<void>(resolve => {
+      this.observerResolves.push(resolve);
+    });
+    return promise;
   }
 
   /**

@@ -54,7 +54,6 @@ export class AztecNodeService implements AztecNode {
     protected unencryptedLogsSource: L2LogsSource,
     protected contractDataSource: ContractDataSource,
     protected l1ToL2MessageSource: L1ToL2MessageSource,
-    protected merkleTreeDB: MerkleTrees,
     protected worldStateSynchroniser: WorldStateSynchroniser,
     protected sequencer: SequencerClient,
     protected chainId: number,
@@ -101,7 +100,6 @@ export class AztecNodeService implements AztecNode {
       archiver,
       archiver,
       archiver,
-      merkleTreeDB,
       worldStateSynchroniser,
       sequencer,
       config.chainId,
@@ -216,7 +214,6 @@ export class AztecNodeService implements AztecNode {
     await this.sequencer.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchroniser.stop();
-    await this.merkleTreeDB.stop();
     await this.blockSource.stop();
     this.log.info(`Stopped`);
   }
@@ -243,8 +240,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafValue - The value to search for.
    * @returns The index of the given leaf in the contracts tree or undefined if not found.
    */
-  public findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue, false);
+  public async findContractIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    const committedDb = await this.getWorldState();
+    return committedDb.findLeafIndex(MerkleTreeId.CONTRACT_TREE, leafValue);
   }
 
   /**
@@ -252,8 +250,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex, false);
+  public async getContractPath(leafIndex: bigint): Promise<SiblingPath<typeof CONTRACT_TREE_HEIGHT>> {
+    const committedDb = await this.getWorldState();
+    return committedDb.getSiblingPath(MerkleTreeId.CONTRACT_TREE, leafIndex);
   }
 
   /**
@@ -261,8 +260,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafValue - The value to search for.
    * @returns The index of the given leaf in the private data tree or undefined if not found.
    */
-  public findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    return this.merkleTreeDB.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue, false);
+  public async findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    const committedDb = await this.getWorldState();
+    return committedDb.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, leafValue);
   }
 
   /**
@@ -270,8 +270,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - The index of the leaf for which the sibling path is required.
    * @returns The sibling path for the leaf index.
    */
-  public getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex, false);
+  public async getDataTreePath(leafIndex: bigint): Promise<SiblingPath<typeof PRIVATE_DATA_TREE_HEIGHT>> {
+    const committedDb = await this.getWorldState();
+    return committedDb.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, leafIndex);
   }
 
   /**
@@ -282,12 +283,9 @@ export class AztecNodeService implements AztecNode {
    */
   public async getL1ToL2MessageAndIndex(messageKey: Fr): Promise<L1ToL2MessageAndIndex> {
     // todo: #697 - make this one lookup.
+    const committedDb = await this.getWorldState();
     const message = await this.l1ToL2MessageSource.getConfirmedL1ToL2Message(messageKey);
-    const index = (await this.merkleTreeDB.findLeafIndex(
-      MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
-      messageKey.toBuffer(),
-      false,
-    ))!;
+    const index = (await committedDb.findLeafIndex(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, messageKey.toBuffer()))!;
     return Promise.resolve({ message, index });
   }
 
@@ -296,8 +294,9 @@ export class AztecNodeService implements AztecNode {
    * @param leafIndex - Index of the leaf in the tree.
    * @returns The sibling path.
    */
-  public getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
-    return this.merkleTreeDB.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex, false);
+  public async getL1ToL2MessagesTreePath(leafIndex: bigint): Promise<SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>> {
+    const committedDb = await this.getWorldState();
+    return committedDb.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGES_TREE, leafIndex);
   }
 
   /**
@@ -308,8 +307,9 @@ export class AztecNodeService implements AztecNode {
    * Note: Aztec's version of `eth_getStorageAt`.
    */
   public async getPublicStorageAt(contract: AztecAddress, slot: bigint): Promise<Buffer | undefined> {
+    const committedDb = await this.getWorldState();
     const leafIndex = computePublicDataTreeLeafIndex(contract, new Fr(slot), await CircuitsWasm.get());
-    return this.merkleTreeDB.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex, false);
+    return committedDb.getLeafValue(MerkleTreeId.PUBLIC_DATA_TREE, leafIndex);
   }
 
   /**
@@ -317,7 +317,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed roots for the data trees.
    */
   public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const committedDb = this.worldStateSynchroniser.getCommitted();
+    const committedDb = await this.getWorldState();
     const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
 
     const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
@@ -345,7 +345,7 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed block data.
    */
   public async getHistoricBlockData(): Promise<HistoricBlockData> {
-    const committedDb = this.worldStateSynchroniser.getCommitted();
+    const committedDb = await this.getWorldState();
     const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
 
     return new HistoricBlockData(
@@ -358,5 +358,18 @@ export class AztecNodeService implements AztecNode {
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,
     );
+  }
+
+  /**
+   * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched
+   * @returns An instance of a committed MerkleTreeOperations
+   */
+  private async getWorldState() {
+    const blockSourceHeight = await this.blockSource.getBlockHeight();
+    const worldStateStatus = await this.worldStateSynchroniser.status();
+    if (blockSourceHeight > worldStateStatus.syncedToL2Block) {
+      await this.worldStateSynchroniser.syncImmediate();
+    }
+    return this.worldStateSynchroniser.getCommitted();
   }
 }

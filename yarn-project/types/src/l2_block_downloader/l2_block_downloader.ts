@@ -19,9 +19,14 @@ export class L2BlockDownloader {
   private interruptableSleep = new InterruptableSleep();
   private semaphore: Semaphore;
   private queue = new MemoryFifo<L2Block[]>();
+  private obseverPromise = Promise.resolve(0);
+  private observerResolve?: (qty: number) => void = undefined;
 
   constructor(private l2BlockSource: L2BlockSource, maxQueueSize: number, private pollIntervalMS = 10000) {
     this.semaphore = new Semaphore(maxQueueSize);
+    this.obseverPromise = new Promise<number>(resolve => {
+      this.observerResolve = resolve;
+    });
   }
 
   /**
@@ -29,21 +34,27 @@ export class L2BlockDownloader {
    * @param from - The block number to start downloading from. Defaults to INITIAL_L2_BLOCK_NUM.
    */
   public start(from = INITIAL_L2_BLOCK_NUM) {
-    this.from = from;
-
     if (this.running) {
       this.interruptableSleep.interrupt();
       return;
     }
-
+    this.from = from;
     this.running = true;
 
     const fn = async () => {
+      let numBlocks = 0;
       while (this.running) {
         try {
           const blocks = await this.l2BlockSource.getL2Blocks(this.from, 10);
 
           if (!blocks.length) {
+            if (this.observerResolve) {
+              this.observerResolve(numBlocks);
+            }
+            this.obseverPromise = new Promise<number>(resolve => {
+              this.observerResolve = resolve;
+            });
+            numBlocks = 0;
             await this.interruptableSleep.sleep(this.pollIntervalMS);
             continue;
           }
@@ -52,6 +63,7 @@ export class L2BlockDownloader {
           await this.semaphore.acquire();
           this.queue.put(blocks);
           this.from += blocks.length;
+          numBlocks += blocks.length;
         } catch (err) {
           log.error(err);
           await this.interruptableSleep.sleep(this.pollIntervalMS);
@@ -74,14 +86,30 @@ export class L2BlockDownloader {
 
   /**
    * Gets the next batch of blocks from the queue.
+   * @param timeout - optional timeout value to prevent permaanent blocking
    * @returns The next batch of blocks from the queue.
    */
-  public async getL2Blocks() {
-    const blocks = await this.queue.get();
-    if (!blocks) {
+  public async getL2Blocks(timeout: number | undefined) {
+    try {
+      const blocks = await this.queue.get(timeout);
+      if (!blocks) {
+        return [];
+      }
+      this.semaphore.release();
+      return blocks;
+    } catch (err) {
+      // nothing to do
       return [];
     }
-    this.semaphore.release();
-    return blocks;
+  }
+
+  /**
+   * Forces an immediate request for blocks.
+   * @returns A promise that fulfills once the poll is complete
+   */
+  public pollImmediate(): Promise<number> {
+    const observerPromise = this.obseverPromise;
+    this.interruptableSleep.interrupt();
+    return observerPromise;
   }
 }

@@ -46,6 +46,11 @@ export interface WorldStateSynchroniser {
   stop(): Promise<void>;
 
   /**
+   * Forces an immediate sync
+   */
+  syncImmediate(): Promise<void>;
+
+  /**
    * Returns an instance of MerkleTreeOperations that will include uncommitted data.
    * @returns An instance of MerkleTreeOperations that will include uncommitted data.
    */
