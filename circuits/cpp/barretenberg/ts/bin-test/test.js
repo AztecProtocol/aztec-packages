@@ -64,62 +64,90 @@ function checkArtifactsPresent() {
   throwMissingFile(solvedWitnessLocation, "execute 'nargo execute' first");
 }
 
-function executeBBCli(command, expectedOutputTemplate, done) {
+function executeBBCli(command) {
   // const extendedEnv = Object.assign({}, process.env, {
   //   DEBUG: '*',
   // });
-  exec(
-    command,
-    {
-      cwd: scriptDirectory,
-      // env: extendedEnv,
-    },
-    function (error, stdout, stderr) {
-      if (error) {
-        done(error);
-        return;
+  // exec(
+  //   command,
+  //   {
+  //     cwd: scriptDirectory,
+  //     // env: extendedEnv,
+  //   },
+  //   function (error, stdout, stderr) {
+  //     if (error) {
+  //       done(error);
+  //       return;
+  //     }
+
+  //     // Assert that the stdout matches the expected output template
+  //     assert.match(stdout.trim(), expectedOutputTemplate);
+
+  //     // Since no error from execution and assert matched expected template
+  //     // this is now understood as correct execution.
+  //     done();
+  //   },
+  // );
+
+  return new Promise((resolve, reject) => {
+    const childProcess = exec(
+      command,
+      {
+        cwd: scriptDirectory,
+        // env: extendedEnv,
+      },
+      (error, stdout, stderr) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve({ stdout, stderr });
+        }
+      },
+    );
+
+    childProcess.on('exit', code => {
+      if (code !== 0) {
+        reject(new Error(`Command '${command}' exited with code ${code}`));
       }
-
-      // Assert that the stdout matches the expected output template
-      assert.match(stdout.trim(), expectedOutputTemplate);
-
-      // Since no error from execution and assert matched expected template 
-      // this is now understood as correct execution. 
-      done();
-    },
-  );
+    });
+  });
 }
 
 describe('Test bb subcommands', () => {
   before(checkArtifactsPresent);
 
-  it('get gate count using `bb gates` command', done => {
+  it('get gate count using `bb gates` command', async () => {
     const expectedOutputTemplate = /^\d+$/gm;
     const command = `${executionScript} gates`;
 
-    executeBBCli(command, expectedOutputTemplate, done);
+    const {stdout, stderr} = await executeBBCli(command);
+    assert.match(stdout.trim(), expectedOutputTemplate);
+    
   });
 
-  it('creates proof with `bb prove -o proof` command', done => {
+  it('creates proof with `bb prove -o proof` command', async () => {
     // We expect any character stream since binary print is result of this command
     const expectedOutputTemplate = /.+/;
     const command = `${executionScript} prove -o proof`;
 
-    executeBBCli(command, expectedOutputTemplate, done);
+    const {stdout, stderr} = await executeBBCli(command);
+    assert.match(stdout.trim(), expectedOutputTemplate);
   });
 
-  it('writes verification key with `bb write_vk -o vk` command', done => {
+  it('writes verification key with `bb write_vk -o vk` command', async () => {
     // We expect any character stream since binary print is result of this command
     const expectedOutputTemplate = /.+/;
     const command = `${executionScript} write_vk -o vk`;
 
-    executeBBCli(command, expectedOutputTemplate, done);
+    const {stdout, stderr} = await executeBBCli(command);
+    assert.match(stdout.trim(), expectedOutputTemplate);
   });
 
-  it('verifies proof with `bb verify -k vk -p proof` command', done => {
+  it('verifies proof with `bb verify -k vk -p proof` command', async () => {
     const expectedOutputTemplate = /true/;
     const command = `${executionScript} verify -k vk -p proof`;
 
-    executeBBCli(command, expectedOutputTemplate, done);
+    const {stdout, stderr} = await executeBBCli(command);
+    assert.match(stdout.trim(), expectedOutputTemplate);
   });
 });

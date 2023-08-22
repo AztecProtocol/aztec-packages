@@ -1,5 +1,5 @@
 #!/bin/sh
 
-node --version
+echo "NodeJS version: $(node --version)"
 
 node ./test.js
