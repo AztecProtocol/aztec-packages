@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -u
 
 # Get the clang version string
 clang_version_string=$(clang --version 2>/dev/null)
@@ -19,6 +19,8 @@ else
   echo "Error: clang version 16 or greater is required."
   exit 1
 fi
+
+set -e
 
 # Clean.
 rm -rf ./build
