@@ -31,10 +31,9 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying price feed contract...`);
-      const tx = PriceFeedContract.deploy(aztecRpcServer).send();
+      const tx = PriceFeedContract.deploy(wallet).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
-      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Price feed deployed to ${receipt.contractAddress}`);
       priceFeedContract = await PriceFeedContract.at(receipt.contractAddress!, wallet);
@@ -42,10 +41,9 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying collateral asset feed contract...`);
-      const tx = NativeTokenContract.deploy(aztecRpcServer, 10000n, owner).send();
+      const tx = NativeTokenContract.deploy(wallet, 10000n, owner).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
-      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Collateral asset deployed to ${receipt.contractAddress}`);
       collateralAsset = await NativeTokenContract.at(receipt.contractAddress!, wallet);
@@ -53,10 +51,9 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying stable coin contract...`);
-      const tx = NativeTokenContract.deploy(aztecRpcServer, 0n, owner).send();
+      const tx = NativeTokenContract.deploy(wallet, 0n, owner).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
-      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Debt asset deployed to ${receipt.contractAddress}`);
       stableCoin = await NativeTokenContract.at(receipt.contractAddress!, wallet);
@@ -64,10 +61,9 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying L2 public contract...`);
-      const tx = LendingContract.deploy(aztecRpcServer).send();
+      const tx = LendingContract.deploy(wallet).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
-      logger(`isMined: ${await tx.isMined({ interval: 0.1 })}`);
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`CDP deployed at ${receipt.contractAddress}`);
       lendingContract = await LendingContract.at(receipt.contractAddress!, wallet);
@@ -93,7 +89,7 @@ describe('e2e_lending_contract', () => {
     stableCoin: NativeTokenContract,
     account: Account,
   ) => {
-    // @todo This is horrible.
+    // @todo This is horrible. See #1687 and #1691
     await sleep(5000);
 
     logger('Fetching storage snapshot 📸 ');
@@ -119,30 +115,6 @@ describe('e2e_lending_contract', () => {
       stableCoinPrivate: new Fr(await stableCoin.methods.balance_of(account.address).view()),
       stableCoinSupply: new Fr(await stableCoin.methods.total_supply().view()),
     };
-    /*
-    storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
-    storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
-    storageValues['private_collateral'] = new Fr(privatePos['collateral']);
-    storageValues['private_static_debt'] = new Fr(privatePos['static_debt']);
-    storageValues['private_debt'] = new Fr(privatePos['debt']);
-    storageValues['public_collateral'] = new Fr(publicPos['collateral']);
-    storageValues['public_static_debt'] = new Fr(publicPos['static_debt']);
-    storageValues['public_debt'] = new Fr(publicPos['debt']);
-
-    storageValues['total_collateral'] = new Fr(totalCollateral);
-
-    // The total repaid.
-    storageValues['stable_coin_lending'] = new Fr(
-      await stableCoin.methods.public_balance_of(lendingContract.address).view(),
-    );
-    storageValues['stable_coin_public'] = new Fr(await stableCoin.methods.public_balance_of(account.address).view());
-
-    // Should have the private positions as well. We are abusing notation.
-    storageValues['stable_coin_private'] = new Fr(await stableCoin.methods.balance_of(account.address).view());
-
-    storageValues['stable_coin_supply'] = new Fr(await stableCoin.methods.total_supply().view());
-
-    return storageValues;*/
   };
 
   // Convenience struct to hold an account's address and secret that can easily be passed around.
@@ -193,6 +165,7 @@ describe('e2e_lending_contract', () => {
     return BASE + offset;
   };
 
+// Helper class that emulates the logic of the lending contract. Used to have a "twin" to check values against.
   class LendingSimulator {
     public accumulator: bigint = BASE;
     public time: number = 0;
@@ -300,8 +273,7 @@ describe('e2e_lending_contract', () => {
 
     const setPrice = async (newPrice: bigint) => {
       const tx = priceFeedContract.methods.set_price(0n, newPrice).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
     };
 
@@ -310,13 +282,11 @@ describe('e2e_lending_contract', () => {
     {
       // Minting some collateral in public so we got it at hand.
       const tx = collateralAsset.methods.owner_mint_pub(account.address, 10000n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
 
       const tx2 = collateralAsset.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
-      await tx2.isMined({ interval: 0.1 });
-      const receipt2 = await tx2.getReceipt();
+      const receipt2 = await tx2.wait();
       expect(receipt2.status).toBe(TxStatus.MINED);
 
       // Minting some collateral in private so we got it at hand.
@@ -324,18 +294,15 @@ describe('e2e_lending_contract', () => {
       const secretHash = await computeMessageSecretHash(secret);
       const shieldAmount = 10000n;
       const tx3 = stableCoin.methods.owner_mint_priv(shieldAmount, secretHash).send({ origin: recipient });
-      await tx3.isMined({ interval: 0.1 });
-      const receipt3 = await tx3.getReceipt();
+      const receipt3 = await tx3.wait();
       expect(receipt3.status).toBe(TxStatus.MINED);
 
       const tx4 = stableCoin.methods.redeemShield(shieldAmount, secret, recipient).send({ origin: recipient });
-      await tx4.isMined({ interval: 0.1 });
-      const receipt4 = await tx4.getReceipt();
+      const receipt4 = await tx4.wait();
       expect(receipt4.status).toBe(TxStatus.MINED);
 
       const tx5 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
-      await tx5.isMined({ interval: 0.1 });
-      const receipt5 = await tx5.getReceipt();
+      const receipt5 = await tx5.wait();
       expect(receipt5.status).toBe(TxStatus.MINED);
     }
 
@@ -352,8 +319,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, collateralAsset, stableCoin, account);
 
@@ -374,8 +340,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .deposit_private(account.secret, account.address, 0n, depositAmount, collateralAsset.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_deposit'] = await getStorageSnapshot(
         lendingContract,
@@ -400,8 +365,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .deposit_private(0n, account.address, recipient.toField(), depositAmount, collateralAsset.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_deposit_on_behalf'] = await getStorageSnapshot(
         lendingContract,
@@ -428,8 +392,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .deposit_public(account.address, depositAmount, collateralAsset.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_deposit'] = await getStorageSnapshot(
         lendingContract,
@@ -455,8 +418,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .borrow_private(account.secret, account.address, borrowAmount)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_borrow'] = await getStorageSnapshot(
         lendingContract,
@@ -481,8 +443,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Borrow: 🏦 -> 🍌');
       const tx = lendingContract.methods.borrow_public(account.address, borrowAmount).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_borrow'] = await getStorageSnapshot(
         lendingContract,
@@ -509,8 +470,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .repay_private(account.secret, account.address, 0n, repayAmount, stableCoin.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_repay'] = await getStorageSnapshot(
         lendingContract,
@@ -537,8 +497,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .repay_private(0n, account.address, recipient.toField(), repayAmount, stableCoin.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_repay_on_behalf'] = await getStorageSnapshot(
         lendingContract,
@@ -565,8 +524,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .repay_public(recipient.toField(), 20n, stableCoin.address)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_repay'] = await getStorageSnapshot(
         lendingContract,
@@ -582,8 +540,7 @@ describe('e2e_lending_contract', () => {
       // Withdraw more than possible to test the revert.
       logger('Withdraw: trying to withdraw more than possible');
       const tx = lendingContract.methods.withdraw_public(recipient, 10n ** 9n).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.DROPPED);
     }
 
@@ -600,8 +557,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Withdraw: 🏦 -> 💰');
       const tx = lendingContract.methods.withdraw_public(recipient, withdrawAmount).send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['public_withdraw'] = await getStorageSnapshot(
         lendingContract,
@@ -628,8 +584,7 @@ describe('e2e_lending_contract', () => {
       const tx = lendingContract.methods
         .withdraw_private(account.secret, account.address, withdrawAmount)
         .send({ origin: recipient });
-      await tx.isMined({ interval: 0.1 });
-      const receipt = await tx.getReceipt();
+      const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       storageSnapshots['private_withdraw'] = await getStorageSnapshot(
         lendingContract,
