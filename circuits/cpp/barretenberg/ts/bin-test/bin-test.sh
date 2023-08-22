@@ -1,8 +1,5 @@
 #!/bin/bash
 
-echo "node --version"
-node --version
-
 node ./test.js
 
 if [ $? -eq 0 ]; then
