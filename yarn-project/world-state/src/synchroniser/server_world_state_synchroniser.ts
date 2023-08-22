@@ -105,20 +105,43 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
 
   /**
    * Forces an immediate sync
+   * @param blockHeight - The minimum block height that we must sync to
    * @returns A promise that resolves once the sync has completed.
    */
-  public async syncImmediate(): Promise<void> {
+  public async syncImmediate(blockHeight?: number): Promise<void> {
     if (this.currentState !== WorldStateRunningState.RUNNING) {
-      return Promise.resolve();
+      throw new Error(`World State is not running, unable to perform sync`);
     }
-    // ensure any outstanding block updates are completed first.
-    await this.jobQueue.syncPoint();
-    const numBlocks = await this.l2BlockDownloader.pollImmediate();
-    this.log(`Block download immediate poll yielded ${numBlocks} blocks`);
-    if (!numBlocks) {
+    // If we have been given a block height to sync to and we have reached that height
+    // then return.
+    if (blockHeight !== undefined && blockHeight <= this.currentL2BlockNum) {
       return;
     }
-    await this.jobQueue.put(() => this.collectAndProcessBlocks());
+    const blockToSyncTo = blockHeight === undefined ? 'latest' : `${blockHeight}`;
+    this.log(`World State at block ${this.currentL2BlockNum}, told to sync to block ${blockToSyncTo}...`);
+    // ensure any outstanding block updates are completed first.
+    await this.jobQueue.syncPoint();
+    while (true) {
+      // Check the block height again
+      if (blockHeight !== undefined && blockHeight <= this.currentL2BlockNum) {
+        return;
+      }
+      // Poll for more blocks
+      const numBlocks = await this.l2BlockDownloader.pollImmediate();
+      this.log(`Block download immediate poll yielded ${numBlocks} blocks`);
+      if (numBlocks) {
+        // More blocks were received, process them and go round again
+        await this.jobQueue.put(() => this.collectAndProcessBlocks());
+        continue;
+      }
+      // No blocks are available, if we have been given a block height then we can't achieve it
+      if (blockHeight !== undefined) {
+        throw new Error(
+          `Unable to sync to block height ${blockHeight}, currently synced to block ${this.currentL2BlockNum}`,
+        );
+      }
+      return;
+    }
   }
 
   /**

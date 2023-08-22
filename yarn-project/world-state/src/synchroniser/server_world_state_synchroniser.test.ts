@@ -134,6 +134,24 @@ describe('server_world_state_synchroniser', () => {
     stop: jest.fn().mockImplementation(() => Promise.resolve()),
   } as any;
 
+  const performInitialSync = async (server: ServerWorldStateSynchroniser) => {
+    // test initial state
+    let status = await server.status();
+    expect(status.syncedToL2Block).toEqual(0);
+    expect(status.state).toEqual(WorldStateRunningState.IDLE);
+
+    // create the initial blocks
+    nextBlocks = Array(LATEST_BLOCK_NUMBER)
+      .fill(0)
+      .map((_, index: number) => getMockBlock(index + 1));
+
+    // start the sync process and await it
+    await server.start().catch(err => log.error('Sync not completed: ', err));
+
+    status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER);
+  };
+
   it('can be constructed', () => {
     expect(() => createSynchroniser(merkleTreeDb, rollupSource)).not.toThrow();
   });
@@ -291,37 +309,96 @@ describe('server_world_state_synchroniser', () => {
     await server.stop();
   });
 
-  it('can immediately sync', async () => {
+  it('can immediately sync to latest', async () => {
     const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
 
-    // test initial state
-    let status = await server.status();
-    expect(status.syncedToL2Block).toEqual(0);
-    expect(status.state).toEqual(WorldStateRunningState.IDLE);
-
-    // create an initial block
-    nextBlocks = Array(LATEST_BLOCK_NUMBER)
-      .fill(0)
-      .map((_, index: number) => getMockBlock(index + 1));
-
-    // start the sync process and await it
-    await server.start().catch(err => log.error('Sync not completed: ', err));
-
-    status = await server.status();
-    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER);
+    await performInitialSync(server);
 
     // the server should now be asleep for a long time
     // we will add a new block and force an immediate sync
     nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 1)];
     await server.syncImmediate();
 
-    status = await server.status();
+    let status = await server.status();
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 1);
 
-    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 2)];
+    nextBlocks = [getMockBlock(LATEST_BLOCK_NUMBER + 2), getMockBlock(LATEST_BLOCK_NUMBER + 3)];
     await server.syncImmediate();
 
     status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 3);
+
+    // stop the synchroniser
+    await server.stop();
+
+    // check the final status
+    status = await server.status();
+    expect(status.state).toEqual(WorldStateRunningState.STOPPED);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 3);
+  });
+
+  it('can immediately sync to a minimum block number', async () => {
+    const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
+
+    await performInitialSync(server);
+
+    // the server should now be asleep for a long time
+    // we will add 20 blocks and force a sync to at least LATEST + 5
+    nextBlocks = Array(20)
+      .fill(0)
+      .map((_, index: number) => getMockBlock(index + 1 + LATEST_BLOCK_NUMBER));
+    await server.syncImmediate(LATEST_BLOCK_NUMBER + 5);
+
+    // we should have synced all of the blocks
+    let status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 20);
+
+    // stop the synchroniser
+    await server.stop();
+
+    // check the final status
+    status = await server.status();
+    expect(status.state).toEqual(WorldStateRunningState.STOPPED);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 20);
+  });
+
+  it('can immediately sync to a minimum block in the past', async () => {
+    const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
+
+    await performInitialSync(server);
+    // syncing to a block in the past should succeed
+    await server.syncImmediate(LATEST_BLOCK_NUMBER - 1);
+    // syncing to the current block should succeed
+    await server.syncImmediate(LATEST_BLOCK_NUMBER);
+
+    // we should have synced all of the blocks
+    let status = await server.status();
+    expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER);
+
+    // stop the synchroniser
+    await server.stop();
+
+    // check the final status
+    status = await server.status();
+    expect(status.state).toEqual(WorldStateRunningState.STOPPED);
+    expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER);
+  });
+
+  it('throws if you try to sync to an unavailable block', async () => {
+    const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
+
+    await performInitialSync(server);
+
+    // the server should now be asleep for a long time
+    // we will add 2 blocks and force a sync to at least LATEST + 5
+    nextBlocks = Array(2)
+      .fill(0)
+      .map((_, index: number) => getMockBlock(index + 1 + LATEST_BLOCK_NUMBER));
+    await expect(server.syncImmediate(LATEST_BLOCK_NUMBER + 5)).rejects.toThrow(
+      `Unable to sync to block height ${LATEST_BLOCK_NUMBER + 5}, currently synced to block ${LATEST_BLOCK_NUMBER + 2}`,
+    );
+
+    let status = await server.status();
     expect(status.syncedToL2Block).toBe(LATEST_BLOCK_NUMBER + 2);
 
     // stop the synchroniser
@@ -331,5 +408,21 @@ describe('server_world_state_synchroniser', () => {
     status = await server.status();
     expect(status.state).toEqual(WorldStateRunningState.STOPPED);
     expect(status.syncedToL2Block).toEqual(LATEST_BLOCK_NUMBER + 2);
+  });
+
+  it('throws if you try to immediate sync when not running', async () => {
+    const server = createSynchroniser(merkleTreeDb, rollupSource, 10000);
+
+    // test initial state
+    const status = await server.status();
+    expect(status.syncedToL2Block).toEqual(0);
+    expect(status.state).toEqual(WorldStateRunningState.IDLE);
+
+    // create an initial block
+    nextBlocks = Array(LATEST_BLOCK_NUMBER)
+      .fill(0)
+      .map((_, index: number) => getMockBlock(index + 1));
+
+    await expect(server.syncImmediate()).rejects.toThrow(`World State is not running, unable to perform sync`);
   });
 });
