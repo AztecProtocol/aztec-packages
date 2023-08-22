@@ -89,20 +89,15 @@ describe('e2e_sandbox_example', () => {
     // Deploy a private token contract, create a contract abstraction object and link it to the owner's wallet
     // The contract's constructor takes 2 arguments, the initial supply and the owner of that initial supply
     const initialSupply = 1_000_000;
+
     logger(`Deploying private token contract minting an initial ${initialSupply} tokens to Alice...`);
-    const tokenContractTx = PrivateTokenContract.deploy(
+    const contract = await PrivateTokenContract.deploy(
       aztecRpc,
       initialSupply, // the initial supply
       alice, // the owner of the initial supply
-    ).send();
-    // wait for the tx to settle
-    await tokenContractTx.isMined();
-    const receipt = await tokenContractTx.getReceipt();
-    logger(`Transaction status is ${receipt.status}`);
-    const contractData = await aztecRpc.getContractData(receipt.contractAddress!);
-    if (contractData) {
-      logger(`Contract successfully deployed at address ${receipt.contractAddress!.toShortString()}`);
-    }
+    ).send().deployed();
+
+      logger(`Contract successfully deployed at address ${contract.address!.toShortString()}`);
     // docs:end:Deployment
     // docs:start:Logs
 
@@ -125,10 +120,10 @@ describe('e2e_sandbox_example', () => {
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
     // Create the contract abstraction and link to Alice's wallet for future signing
-    const tokenContractAlice = await PrivateTokenContract.at(receipt.contractAddress!, await accounts[0].getWallet());
+    const tokenContractAlice = await PrivateTokenContract.at(contract.address!, await accounts[0].getWallet());
 
     // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
-    const tokenContractBob = await PrivateTokenContract.at(receipt.contractAddress!, await accounts[1].getWallet());
+    const tokenContractBob = await PrivateTokenContract.at(contract.address!, await accounts[1].getWallet());
 
     const checkBalances = async () => {
       // Check Alice's balance
