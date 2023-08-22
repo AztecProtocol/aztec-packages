@@ -1,9 +1,9 @@
 import {
   CallContext,
   CircuitsWasm,
-  ConstantHistoricBlockData,
   FunctionData,
   GlobalVariables,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
@@ -37,7 +37,7 @@ describe('ACIR public execution simulator', () => {
   let publicContracts: MockProxy<PublicContractsDB>;
   let commitmentsDb: MockProxy<CommitmentsDB>;
   let executor: PublicExecutor;
-  let blockData: ConstantHistoricBlockData;
+  let blockData: HistoricBlockData;
 
   beforeAll(async () => {
     circuitsWasm = await CircuitsWasm.get();
@@ -48,7 +48,7 @@ describe('ACIR public execution simulator', () => {
     publicContracts = mock<PublicContractsDB>();
     commitmentsDb = mock<CommitmentsDB>();
 
-    blockData = ConstantHistoricBlockData.empty();
+    blockData = HistoricBlockData.empty();
     executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
   }, 10000);
 
@@ -85,11 +85,11 @@ describe('ACIR public execution simulator', () => {
         const result = await executor.execute(execution, GlobalVariables.empty());
 
         const expectedBalance = new Fr(160n);
-        expect(result.returnValues).toEqual([expectedBalance]);
+        expect(result.returnValues[0]).toEqual(expectedBalance);
 
         const storageSlot = computeSlotForMapping(new Fr(1n), recipient.toField(), circuitsWasm);
         expect(result.contractStorageUpdateRequests).toEqual([
-          { storageSlot, oldValue: previousBalance, newValue: expectedBalance },
+          { storageSlot, oldValue: previousBalance, newValue: expectedBalance, sideEffectCounter: 1 }, // 0th is a read
         ]);
 
         expect(result.contractStorageReads).toEqual([]);
@@ -154,11 +154,21 @@ describe('ACIR public execution simulator', () => {
         const expectedRecipientBalance = new Fr(160n);
         const expectedSenderBalance = new Fr(60n);
 
-        expect(result.returnValues).toEqual([expectedRecipientBalance]);
+        expect(result.returnValues[0]).toEqual(expectedRecipientBalance);
 
         expect(result.contractStorageUpdateRequests).toEqual([
-          { storageSlot: senderStorageSlot, oldValue: senderBalance, newValue: expectedSenderBalance },
-          { storageSlot: recipientStorageSlot, oldValue: recipientBalance, newValue: expectedRecipientBalance },
+          {
+            storageSlot: senderStorageSlot,
+            oldValue: senderBalance,
+            newValue: expectedSenderBalance,
+            sideEffectCounter: 2,
+          }, // 0th, 1st are reads
+          {
+            storageSlot: recipientStorageSlot,
+            oldValue: recipientBalance,
+            newValue: expectedRecipientBalance,
+            sideEffectCounter: 3,
+          },
         ]);
 
         expect(result.contractStorageReads).toEqual([]);
@@ -167,6 +177,7 @@ describe('ACIR public execution simulator', () => {
       // Contract storage reads and update requests are implemented as built-ins, which at the moment Noir does not
       // now whether they have side-effects or not, so they get run even when their code path
       // is not picked by a conditional. Once that's fixed, we should re-enable this test.
+      // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1588
       it.skip('should run the transfer function without enough sender balance', async () => {
         const senderBalance = new Fr(10n);
         const recipientBalance = new Fr(20n);
@@ -174,7 +185,7 @@ describe('ACIR public execution simulator', () => {
 
         const result = await executor.execute(execution, GlobalVariables.empty());
 
-        expect(result.returnValues).toEqual([recipientBalance]);
+        expect(result.returnValues[0]).toEqual(recipientBalance);
 
         expect(result.contractStorageReads).toEqual([
           { storageSlot: recipientStorageSlot, value: recipientBalance },
@@ -198,7 +209,7 @@ describe('ACIR public execution simulator', () => {
         );
 
         const childContractAddress = AztecAddress.random();
-        const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubValue')!;
+        const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubGetValue')!;
         const childValueFnSelector = generateFunctionSelector(childValueFn.name, childValueFn.parameters);
 
         const initialValue = 3n;
@@ -245,7 +256,7 @@ describe('ACIR public execution simulator', () => {
         } else {
           const result = await executor.execute(execution, globalVariables);
 
-          expect(result.returnValues).toEqual([
+          expect(result.returnValues[0]).toEqual(
             new Fr(
               initialValue +
                 globalVariables.chainId.value +
@@ -253,7 +264,7 @@ describe('ACIR public execution simulator', () => {
                 globalVariables.blockNumber.value +
                 globalVariables.timestamp.value,
             ),
-          ]);
+          );
         }
       },
       20_000,

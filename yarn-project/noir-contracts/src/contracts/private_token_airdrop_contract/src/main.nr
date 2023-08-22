@@ -5,13 +5,13 @@ contract PrivateTokenAirdrop {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::{send_note, spend_notes, send_notes, spend_one_note},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::context::Context;
+    use dep::aztec::context::PrivateContext;
     use dep::aztec::note::{
         note_header::NoteHeader,
         utils as note_utils,
@@ -32,7 +32,7 @@ contract PrivateTokenAirdrop {
         owner: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, owner]));
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
@@ -55,7 +55,7 @@ contract PrivateTokenAirdrop {
         owner: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner]));
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
@@ -77,7 +77,7 @@ contract PrivateTokenAirdrop {
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, sender, recipient]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, sender, recipient]));
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
@@ -103,7 +103,7 @@ contract PrivateTokenAirdrop {
         sender: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amounts[0], amounts[1], secrets[0], secrets[1], sender]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amounts[0], amounts[1], secrets[0], secrets[1], sender]));
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
@@ -133,16 +133,63 @@ contract PrivateTokenAirdrop {
         owner: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([amount, secret, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, secret, owner]));
 
         // Remove the claim note if it exists in the set.
-        let mut note = ClaimNote::new(amount, secret);
-        storage.claims.assert_contains(&mut context, &mut note);
-        storage.claims.remove(&mut context, note);
+        let note = ClaimNote::new(amount, secret);
+        storage.claims.assert_contains_note_and_remove(&mut context, note);
 
         // Send the value note.
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, amount, owner);
+
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
+        context.finish()
+    }
+
+    // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
+    // Aztec only allows `MAX_NEW_COMMITMENTS_PER_CALL = 4` notes per tx =>
+    // 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
+    fn batchTransfer(
+        //*********************************/
+        // Should eventually be hidden:
+        inputs: PrivateContextInputs,
+        //*********************************/
+        sender: Field, 
+        amounts: [Field; 3], 
+        recipients: [Field; 3],
+        spend_note_offset: u32,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        let storage = Storage::init();
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
+            sender, 
+            amounts[0], 
+            amounts[1], 
+            amounts[2], 
+            recipients[0], 
+            recipients[1], 
+            recipients[2], 
+            spend_note_offset as Field,
+        ]));
+
+        // Gets the set of sender's notes and picks 4 of those based on the offset.
+        // Spends the first of those 4 notes.
+        let sender_balance = storage.balances.at(sender);
+        let total = amounts[0] + amounts[1] + amounts[2];
+        spend_one_note(&mut context, sender_balance, total, sender, spend_note_offset);
+
+        // Creates new note for the recipient.
+        let recipient1_balance = storage.balances.at(recipients[0]);
+        let recipient2_balance = storage.balances.at(recipients[1]);
+        let recipient3_balance = storage.balances.at(recipients[2]);
+
+        send_notes(&mut context, [recipient1_balance, recipient2_balance, recipient3_balance], amounts, recipients);
+
+        // Also emit an unencrypted log, eg. "Coins transferred"
+        // In this example, we emit the first output note's commitment to ensure that the unencrypted log
+        // for each call to this function is distinct. This is done to detect any issues while collecting 
+        // logs when building a transaction. See: https://github.com/AztecProtocol/aztec-packages/issues/987
+        emit_unencrypted_log(&mut context, context.new_commitments.storage[0]);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()

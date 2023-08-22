@@ -4,6 +4,7 @@ import {
   CircuitsWasm,
   EthAddress,
   Fr,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -70,7 +71,7 @@ export class AztecNodeService implements AztecNode {
     // first create and sync the archiver
     const archiver = await Archiver.createAndSync(config);
 
-    // we idenfity the P2P transaction protocol by using the rollup contract address.
+    // we identify the P2P transaction protocol by using the rollup contract address.
     // this may well change in future
     config.transactionProtocol = `/aztec/tx/${config.rollupContract.toString()}`;
 
@@ -316,16 +317,46 @@ export class AztecNodeService implements AztecNode {
    * @returns The current committed roots for the data trees.
    */
   public async getTreeRoots(): Promise<Record<MerkleTreeId, Fr>> {
-    const getTreeRoot = async (id: MerkleTreeId) =>
-      Fr.fromBuffer((await this.merkleTreeDB.getTreeInfo(id, false)).root);
+    const committedDb = this.worldStateSynchroniser.getCommitted();
+    const getTreeRoot = async (id: MerkleTreeId) => Fr.fromBuffer((await committedDb.getTreeInfo(id)).root);
+
+    const [privateDataTree, nullifierTree, contractTree, l1ToL2MessagesTree, blocksTree, publicDataTree] =
+      await Promise.all([
+        getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
+        getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
+        getTreeRoot(MerkleTreeId.CONTRACT_TREE),
+        getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
+        getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+        getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
+      ]);
 
     return {
-      [MerkleTreeId.CONTRACT_TREE]: await getTreeRoot(MerkleTreeId.CONTRACT_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE]: await getTreeRoot(MerkleTreeId.PRIVATE_DATA_TREE),
-      [MerkleTreeId.NULLIFIER_TREE]: await getTreeRoot(MerkleTreeId.NULLIFIER_TREE),
-      [MerkleTreeId.PUBLIC_DATA_TREE]: await getTreeRoot(MerkleTreeId.PUBLIC_DATA_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: await getTreeRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.BLOCKS_TREE]: await getTreeRoot(MerkleTreeId.BLOCKS_TREE),
+      [MerkleTreeId.CONTRACT_TREE]: contractTree,
+      [MerkleTreeId.PRIVATE_DATA_TREE]: privateDataTree,
+      [MerkleTreeId.NULLIFIER_TREE]: nullifierTree,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: publicDataTree,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: l1ToL2MessagesTree,
+      [MerkleTreeId.BLOCKS_TREE]: blocksTree,
     };
+  }
+
+  /**
+   * Returns the currently committed historic block data.
+   * @returns The current committed block data.
+   */
+  public async getHistoricBlockData(): Promise<HistoricBlockData> {
+    const committedDb = this.worldStateSynchroniser.getCommitted();
+    const [roots, globalsHash] = await Promise.all([this.getTreeRoots(), committedDb.getLatestGlobalVariablesHash()]);
+
+    return new HistoricBlockData(
+      roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      roots[MerkleTreeId.NULLIFIER_TREE],
+      roots[MerkleTreeId.CONTRACT_TREE],
+      roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      roots[MerkleTreeId.BLOCKS_TREE],
+      Fr.ZERO,
+      roots[MerkleTreeId.PUBLIC_DATA_TREE],
+      globalsHash,
+    );
   }
 }

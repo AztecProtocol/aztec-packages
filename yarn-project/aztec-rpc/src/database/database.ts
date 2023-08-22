@@ -1,4 +1,4 @@
-import { PartialAddress } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { ContractDatabase, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
@@ -20,14 +20,6 @@ export interface Database extends ContractDatabase {
    * @returns A Promise that resolves to the found TxDao instance, or undefined if not found.
    */
   getTx(txHash: TxHash): Promise<TxDao | undefined>;
-
-  /**
-   * Retrieve all transactions associated with a given AztecAddress.
-   *
-   * @param origin - The sender's address.
-   * @returns A Promise resolving to an array of TxDao objects associated with the sender.
-   */
-  getTxsByAddress(origin: AztecAddress): Promise<TxDao[]>;
 
   /**
    * Adds a TxDao instance to the transaction table.
@@ -113,34 +105,42 @@ export interface Database extends ContractDatabase {
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
   /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
+   * Retrieve the stored Historic Block Data from the database.
+   * The function returns a Promise that resolves to the Historic Block Data.
+   * This data is required to reproduce block attestations.
+   * Throws an error if the historic block data is not available within the database.
+   *
+   * note: this data is a combination of the tree roots and the global variables hash.
    */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<void>;
+  getHistoricBlockData(): HistoricBlockData;
 
   /**
-   * Retrieve the public key and partial address associated with an address.
-   * Throws an error if the account is not found in the key store.
+   * Set the latest Historic Block Data.
+   * This function updates the 'global variables hash' and `tree roots` property of the instance
+   * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
-   * @remarks The public key and partial address form a preimage of a contract address. See
-   * https://github.com/AztecProtocol/aztec-packages/blob/janb/rpc-interface-cleanup/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+   * @param historicBlockData - An object containing the most recent historic block data.
+   * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress] | undefined>;
+  setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void>;
 
   /**
-   * Retrieves the list of Aztec addresses added to this database
-   * The addresses are returned as a promise that resolves to an array of AztecAddress objects.
-   *
+   * Adds complete address to the database.
+   * @param address - The complete address to add.
+   * @returns Empty promise.
+   */
+  addCompleteAddress(address: CompleteAddress): Promise<void>;
+
+  /**
+   * Retrieves the complete address corresponding to the provided aztec address.
+   * @param address - The aztec address of the complete address contract.
+   * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
+   */
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the list of complete address added to this database
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
-  getAccounts(): Promise<AztecAddress[]>;
+  getCompleteAddresses(): Promise<CompleteAddress[]>;
 }

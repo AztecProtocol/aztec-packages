@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/circuits.js';
+import { Fr, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, MerkleTreeId, Tx, TxHash } from '@aztec/types';
@@ -31,7 +31,7 @@ export function appFactory(node: AztecNode, prefix: string) {
     try {
       await next();
     } catch (err: any) {
-      logger(err);
+      logger.error(err);
       ctx.status = 400;
       ctx.body = { error: err.message };
     }
@@ -127,6 +127,18 @@ export function appFactory(node: AztecNode, prefix: string) {
     }
     ctx.body = {
       roots: output,
+    };
+    ctx.status = 200;
+  });
+
+  router.get('/historic-block-data', async (ctx: Koa.Context) => {
+    const blockData: HistoricBlockData = await node.getHistoricBlockData();
+    const output: { [key: string]: string } = {};
+    for (const [key, value] of Object.entries(blockData)) {
+      output[key] = value.toString();
+    }
+    ctx.body = {
+      blockData: output,
     };
     ctx.status = 200;
   });
@@ -246,7 +258,7 @@ export function appFactory(node: AztecNode, prefix: string) {
 
   const app = new Koa();
   app.on('error', error => {
-    logger(`KOA app-level error. ${JSON.stringify({ error })}`);
+    logger.error(`KOA app-level error. ${JSON.stringify({ error })}`);
   });
   app.proxy = true;
   app.use(exceptionHandler);

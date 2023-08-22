@@ -42,9 +42,8 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     // Verify that all accounts use the same encryption key
     const encryptionPublicKey = await generatePublicKey(encryptionPrivateKey);
-    for (let i = 0; i < numAccounts; i++) {
-      const accountEncryptionPublicKey = (await aztecRpcServer.getPublicKeyAndPartialAddress(accounts[i]))[0];
-      expect(accountEncryptionPublicKey).toEqual(encryptionPublicKey);
+    for (const account of await aztecRpcServer.getAccounts()) {
+      expect(account.publicKey).toEqual(encryptionPublicKey);
     }
 
     logger(`Deploying Private Token...`);
@@ -67,8 +66,8 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     const owner = accounts[userIndex];
 
     // Then check the balance
-    const contractWithWallet = await PrivateTokenContract.create(privateTokenAddress, wallet);
-    const [balance] = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
+    const contractWithWallet = await PrivateTokenContract.at(privateTokenAddress, wallet);
+    const balance = await contractWithWallet.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -84,7 +83,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     const sender = accounts[senderIndex];
     const receiver = accounts[receiverIndex];
 
-    const contractWithWallet = await PrivateTokenContract.create(privateTokenAddress, wallets[senderIndex]);
+    const contractWithWallet = await PrivateTokenContract.at(privateTokenAddress, wallets[senderIndex]);
 
     const tx = contractWithWallet.methods.transfer(transferAmount, sender, receiver).send({ origin: sender });
     await tx.isMined({ interval: 0.1 });

@@ -27,6 +27,20 @@ const { SANDBOX_URL } = process.env;
 const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
 const privKey = PrivateKey.random();
 
+/**
+ * This test is a bit of a special case as it's relying on sandbox and web browser and not only on anvil and node.js.
+ * To run the test, do the following:
+ *    1) Build the whole repository,
+ *    2) go to `yarn-project/aztec.js` and build the web packed package with `yarn build:web`,
+ *    3) start anvil: `anvil`,
+ *    4) open new terminal and optionally set the more verbose debug level: `DEBUG=aztec:*`,
+ *    5) go to the sandbox dir `yarn-project/aztec-sandbox` and run `yarn start`,
+ *    6) open new terminal and export the sandbox URL: `export SANDBOX_URL='http://localhost:8080'`,
+ *    7) go to `yarn-project/end-to-end` and run the test: `yarn test aztec_js_browser`
+ *
+ * NOTE: If you see aztec-sandbox logs spammed with unexpected logs there is probably a chrome process with a webpage
+ *       unexpectedly running in the background. Kill it with `killall chrome`
+ */
 conditionalDescribe()('e2e_aztec.js_browser', () => {
   const initialBalance = 33n;
   const transferAmount = 3n;
@@ -44,6 +58,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   beforeAll(async () => {
     testClient = AztecJs.createAztecRpcClient(SANDBOX_URL!, AztecJs.mustSucceedFetch);
+    await AztecJs.waitForSandbox(testClient);
 
     app = new Koa();
     app.use(serve(path.resolve(__dirname, './web')));
@@ -77,7 +92,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
       pageLogger.error(err.toString());
     });
     await page.goto(`http://localhost:${PORT}/index.html`);
-  });
+  }, 120_000);
 
   afterAll(async () => {
     await browser.close();
@@ -98,32 +113,46 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const { PrivateKey, createAztecRpcClient, mustSucceedFetch, getUnsafeSchnorrAccount } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
         const privateKey = PrivateKey.fromString(privateKeyString);
-        await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
-        const accounts = await client.getAccounts();
-        console.log(`Created Account: ${accounts[0].toString()}`);
-        return accounts[0].toString();
+        const account = getUnsafeSchnorrAccount(client, privateKey);
+        await account.waitDeploy();
+        const completeAddress = await account.getCompleteAddress();
+        const addressString = completeAddress.address.toString();
+        console.log(`Created Account: ${addressString}`);
+        return addressString;
       },
       SANDBOX_URL,
       privKey.toString(),
     );
-    const account = (await testClient.getAccounts())[0];
-    expect(result).toEqual(account.toString());
-  });
+    const accounts = await testClient.getAccounts();
+    const stringAccounts = accounts.map(acc => acc.address.toString());
+    expect(stringAccounts.includes(result)).toBeTruthy();
+  }, 15_000);
 
   it('Deploys Private Token contract', async () => {
     const txHash = await page.evaluate(
-      async (rpcUrl, initialBalance, PrivateTokenContractAbi) => {
-        const { DeployMethod, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
+      async (rpcUrl, privateKeyString, initialBalance, PrivateTokenContractAbi) => {
+        const { PrivateKey, DeployMethod, createAztecRpcClient, mustSucceedFetch, getUnsafeSchnorrAccount } =
+          window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const owner = (await client.getAccounts())[0];
-        const publicKey = (await client.getPublicKeyAndPartialAddress(owner))[0];
-        const tx = new DeployMethod(publicKey, client, PrivateTokenContractAbi, [initialBalance, owner]).send();
+        let accounts = await client.getAccounts();
+        if (accounts.length === 0) {
+          // This test needs an account for deployment. We create one in case there is none available in the RPC server.
+          const privateKey = PrivateKey.fromString(privateKeyString);
+          await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
+          accounts = await client.getAccounts();
+        }
+        const owner = accounts[0];
+        const tx = new DeployMethod(owner.publicKey, client, PrivateTokenContractAbi, [
+          initialBalance,
+          owner.address,
+        ]).send();
         await tx.wait();
         const receipt = await tx.getReceipt();
         console.log(`Contract Deployed: ${receipt.contractAddress}`);
         return receipt.txHash.toString();
       },
       SANDBOX_URL,
+      privKey.toString(),
       initialBalance,
       PrivateTokenContractAbi,
     );
@@ -135,23 +164,16 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it("Gets the owner's balance", async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, PrivateTokenContractAbi) => {
-        const { Contract, AztecAddress, PrivateKey, createAztecRpcClient, getUnsafeSchnorrWallet, mustSucceedFetch } =
-          window.AztecJs;
-        const privateKey = PrivateKey.fromString(privateKeyString);
+      async (rpcUrl, contractAddress, PrivateTokenContractAbi) => {
+        const { Contract, AztecAddress, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
-        const contract = await Contract.create(
-          AztecAddress.fromString(contractAddress),
-          PrivateTokenContractAbi,
-          wallet,
-        );
-        const [balance] = await contract.methods.getBalance(owner).view({ from: owner });
+        const owner = (await client.getAccounts())[0].address;
+        const wallet = await AztecJs.getSandboxAccountsWallet(client);
+        const contract = await Contract.at(AztecAddress.fromString(contractAddress), PrivateTokenContractAbi, wallet);
+        const balance = await contract.methods.getBalance(owner).view({ from: owner });
         return balance;
       },
       SANDBOX_URL,
-      privKey.toString(),
       contractAddress.toString(),
       PrivateTokenContractAbi,
     );
@@ -161,37 +183,20 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
 
   it('Sends a transfer TX', async () => {
     const result = await page.evaluate(
-      async (rpcUrl, privateKeyString, contractAddress, transferAmount, PrivateTokenContractAbi) => {
+      async (rpcUrl, contractAddress, transferAmount, PrivateTokenContractAbi) => {
         console.log(`Starting transfer tx`);
-        const {
-          AztecAddress,
-          Contract,
-          PrivateKey,
-          createAztecRpcClient,
-          getUnsafeSchnorrAccount,
-          getUnsafeSchnorrWallet,
-          mustSucceedFetch,
-        } = window.AztecJs;
+        const { AztecAddress, Contract, createAztecRpcClient, mustSucceedFetch } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, mustSucceedFetch);
-        const privateKey = PrivateKey.fromString(privateKeyString);
-        const { address: receiver } = await getUnsafeSchnorrAccount(client, PrivateKey.random())
-          .register()
-          .then(w => w.getCompleteAddress());
-        console.log(`Created 2nd Account: ${receiver.toString()}`);
-        const [owner] = await client.getAccounts();
-        const wallet = await getUnsafeSchnorrWallet(client, owner, privateKey);
-        const contract = await Contract.create(
-          AztecAddress.fromString(contractAddress),
-          PrivateTokenContractAbi,
-          wallet,
-        );
+        const accounts = await client.getAccounts();
+        const owner = accounts[0].address;
+        const receiver = accounts[1].address;
+        const wallet = await AztecJs.getSandboxAccountsWallet(client);
+        const contract = await Contract.at(AztecAddress.fromString(contractAddress), PrivateTokenContractAbi, wallet);
         await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner }).wait();
-        console.log(`Transfered ${transferAmount} tokens to new Account`);
-        const [balance] = await contract.methods.getBalance(receiver).view({ from: receiver });
-        return balance;
+        console.log(`Transferred ${transferAmount} tokens to new Account`);
+        return await contract.methods.getBalance(receiver).view({ from: receiver });
       },
       SANDBOX_URL,
-      privKey.toString(),
       contractAddress.toString(),
       transferAmount,
       PrivateTokenContractAbi,

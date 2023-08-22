@@ -25,6 +25,9 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
     std::optional<fr> salt;
     std::optional<fr> nonce;
 
+    // For serialization, update with new fields
+    MSGPACK_FIELDS(value, owner, salt, nonce);
+
     bool operator==(DefaultSingletonPrivateNotePreimage<NCT, V> const&) const = default;
 
     template <typename Builder> auto to_circuit_type(Builder& builder) const
@@ -99,35 +102,5 @@ template <typename NCT, typename V> struct DefaultSingletonPrivateNotePreimage {
         return preimage;
     };
 };
-
-template <typename NCT, typename V> void read(uint8_t const*& it, DefaultSingletonPrivateNotePreimage<NCT, V>& preimage)
-{
-    using serialize::read;
-
-    read(it, preimage.value);
-    read(it, preimage.owner);
-    read(it, preimage.salt);
-    read(it, preimage.nonce);
-};
-
-template <typename NCT, typename V>
-void write(std::vector<uint8_t>& buf, DefaultSingletonPrivateNotePreimage<NCT, V> const& preimage)
-{
-    using serialize::write;
-
-    write(buf, preimage.value);
-    write(buf, preimage.owner);
-    write(buf, preimage.salt);
-    write(buf, preimage.nonce);
-};
-
-template <typename NCT, typename V>
-std::ostream& operator<<(std::ostream& os, DefaultSingletonPrivateNotePreimage<NCT, V> const& preimage)
-{
-    return os << "value: " << preimage.value << "\n"
-              << "owner: " << preimage.owner << "\n"
-              << "salt: " << preimage.salt << "\n"
-              << "nonce: " << preimage.nonce << "\n";
-}
 
 }  // namespace aztec3::circuits::apps::notes

@@ -6,15 +6,15 @@ import {
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
-  CircuitsWasm,
-  ConstantHistoricBlockData,
+  CompleteAddress,
   FunctionData,
-  PartialAddress,
+  KernelCircuitPublicInputs,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PrivateKey,
-  PublicKey,
+  PublicCallRequest,
 } from '@aztec/circuits.js';
-import { computeContractAddressFromPartial } from '@aztec/circuits.js/abis';
 import { encodeArguments } from '@aztec/foundation/abi';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -90,35 +90,49 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialAddress: PartialAddress) {
+  public async registerAccount(privKey: PrivateKey, account: CompleteAddress) {
     const pubKey = this.keyStore.addAccount(privKey);
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialAddress);
-    if (!expectedAddress.equals(address)) {
-      throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
-      );
-    }
-    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialAddress);
+    // TODO: Re-enable this check once https://github.com/AztecProtocol/aztec-packages/issues/1556 is solved
+    // if (!pubKey.equals(account.publicKey)) {
+    //   throw new Error(`Public key mismatch: ${pubKey.toString()} != ${account.publicKey.toString()}`);
+    // }
+    await this.db.addCompleteAddress(account);
     this.synchroniser.addAccount(pubKey, this.keyStore);
-    this.log.info(`Added account ${address.toString()}`);
-    return address;
   }
 
-  public async addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialAddress,
-  ): Promise<void> {
-    const wasm = await CircuitsWasm.get();
-    const expectedAddress = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-    if (!expectedAddress.equals(address)) {
-      throw new Error(
-        `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
-      );
-    }
-    await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
-    this.log.info(`Added public key for ${address.toString()}`);
+  public async getAccounts(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses not corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const accounts = addresses.filter(address => accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return accounts;
+  }
+
+  public async getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const result = await this.getAccounts();
+    const account = result.find(r => r.address.equals(address));
+    return Promise.resolve(account);
+  }
+
+  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
+    await this.db.addCompleteAddress(recipient);
+    this.log.info(`Added recipient: ${recipient.toString()}`);
+  }
+
+  public async getRecipients(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const recipients = addresses.filter(address => !accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return recipients;
+  }
+
+  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const result = await this.getRecipients();
+    const recipient = result.find(r => r.address.equals(address));
+    return Promise.resolve(recipient);
   }
 
   public async addContracts(contracts: DeployedContract[]) {
@@ -131,16 +145,8 @@ export class AztecRPCServer implements AztecRPC {
     }
   }
 
-  public async getAccounts(): Promise<AztecAddress[]> {
-    return await this.db.getAccounts();
-  }
-
-  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) {
-      throw new Error(`Unable to get public key for address ${address.toString()}`);
-    }
-    return Promise.resolve(result);
+  public async getContracts(): Promise<AztecAddress[]> {
+    return (await this.db.getContracts()).map(c => c.address);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
@@ -326,11 +332,7 @@ export class AztecRPCServer implements AztecRPC {
     };
   }
 
-  async #simulate(
-    txRequest: TxExecutionRequest,
-    constantHistoricBlockData: ConstantHistoricBlockData,
-    contractDataOracle?: ContractDataOracle,
-  ): Promise<ExecutionResult> {
+  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
@@ -345,13 +347,7 @@ export class AztecRPCServer implements AztecRPC {
 
     try {
       this.log('Executing simulator...');
-      const result = await simulator.run(
-        txRequest,
-        functionAbi,
-        contractAddress,
-        portalContract,
-        constantHistoricBlockData,
-      );
+      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
       this.log('Simulation completed!');
 
       return result;
@@ -371,8 +367,6 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const kernelOracle = new KernelOracle(contractDataOracle, this.node);
-    const constantHistoricBlockData = await kernelOracle.getConstantHistoricBlockData();
 
     const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
@@ -388,7 +382,6 @@ export class AztecRPCServer implements AztecRPC {
       functionAbi,
       contractAddress,
       portalContract,
-      constantHistoricBlockData,
       this.node,
     );
     this.log('Unconstrained simulation completed!');
@@ -415,20 +408,21 @@ export class AztecRPCServer implements AztecRPC {
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
 
     // Get values that allow us to reconstruct the block hash
-    const constantHistoricBlockData = await kernelOracle.getConstantHistoricBlockData();
-
-    const executionResult = await this.#simulate(txExecutionRequest, constantHistoricBlockData, contractDataOracle);
+    const executionResult = await this.#simulate(txExecutionRequest, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
-    this.log('Proof completed!');
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+
+    // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
+    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
     return new Tx(
       publicInputs,
@@ -437,6 +431,43 @@ export class AztecRPCServer implements AztecRPC {
       unencryptedLogs,
       newContractPublicFunctions,
       enqueuedPublicFunctions,
+    );
+  }
+
+  // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel
+  // cannot keep track of side effects that happen after or before a nested call, we override the public call stack
+  // it emits with whatever we got from the simulator collected enqueued calls. As a sanity check, we at least verify
+  // that the elements are the same, so we are only tweaking their ordering.
+  // See yarn-project/end-to-end/src/e2e_ordering.test.ts
+  // See https://github.com/AztecProtocol/aztec-packages/issues/1615
+  // TODO(#757): Enforce proper ordering of enqueued public calls
+  private async patchPublicCallStackOrdering(
+    publicInputs: KernelCircuitPublicInputs,
+    enqueuedPublicCalls: PublicCallRequest[],
+  ) {
+    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());
+    const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
+    const { publicCallStack } = publicInputs.end;
+
+    // Validate all items in enqueued public calls are in the kernel emitted stack
+    const areEqual = enqueuedPublicCallsHashes.reduce(
+      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
+      true,
+    );
+
+    if (!areEqual) {
+      throw new Error(
+        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallsHashes
+          .map(h => h.toString())
+          .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
+      );
+    }
+
+    // Override kernel output
+    publicInputs.end.publicCallStack = padArrayEnd(
+      enqueuedPublicCallsHashes,
+      Fr.ZERO,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
     );
   }
 

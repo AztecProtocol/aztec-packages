@@ -14,6 +14,7 @@ import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from
 export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   private currentL2BlockNum = 0;
   private latestBlockNumberAtStart = 0;
+
   private l2BlockDownloader: L2BlockDownloader;
   private syncPromise: Promise<void> = Promise.resolve();
   private syncResolve?: () => void = undefined;

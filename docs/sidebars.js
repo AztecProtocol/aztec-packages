@@ -194,6 +194,7 @@ const sidebars = {
       items: [
         "dev_docs/getting_started/noir",
         "dev_docs/getting_started/sandbox",
+        "dev_docs/getting_started/cli",
       ],
     },
 
@@ -219,6 +220,20 @@ const sidebars = {
         "dev_docs/contracts/constrain",
         "dev_docs/contracts/compiling",
         "dev_docs/contracts/deploying",
+        {
+          label: "Portals",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/portals/main",
+          },
+          items: [
+            "dev_docs/contracts/portals/data_structures",
+            "dev_docs/contracts/portals/registry",
+            "dev_docs/contracts/portals/inbox",
+            "dev_docs/contracts/portals/outbox",
+          ],
+        },
         {
           label: "Resources",
           type: "category",
@@ -266,6 +281,16 @@ const sidebars = {
         id: "dev_docs/sandbox/main",
       },
       items: ["dev_docs/sandbox/components", "dev_docs/sandbox/common_errors"],
+    },
+
+    {
+      label: "CLI",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/cli/main",
+      },
+      items: [],
     },
 
     {

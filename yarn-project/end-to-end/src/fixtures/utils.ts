@@ -3,17 +3,20 @@ import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfig
 import {
   Account as AztecAccount,
   AztecAddress,
+  CheatCodes,
   Contract,
   ContractDeployer,
   EntrypointCollection,
   EntrypointWallet,
   EthAddress,
+  EthCheatCodes,
   Wallet,
   createAztecRpcClient as createJsonRpcClient,
   getL1ContractAddresses,
+  getSandboxAccountsWallet,
   getUnsafeSchnorrAccount,
 } from '@aztec/aztec.js';
-import { PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { CompleteAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
@@ -40,7 +43,6 @@ import {
 } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { CheatCodes, L1CheatCodes } from './cheat_codes.js';
 import { MNEMONIC, localAnvil } from './fixtures.js';
 
 const { SANDBOX_URL = '' } = process.env;
@@ -48,7 +50,7 @@ const { SANDBOX_URL = '' } = process.env;
 export const waitForRPCServer = async (rpcServer: AztecRPC, logger: DebugLogger) => {
   await retryUntil(async () => {
     try {
-      logger('Attmpting to contact RPC Server...');
+      logger('Attempting to contact RPC Server...');
       await rpcServer.getNodeInfo();
       return true;
     } catch (error) {
@@ -139,7 +141,7 @@ export async function setupAztecRPCServer(
   /**
    * The accounts created by the RPC server.
    */
-  accounts: AztecAddress[];
+  accounts: CompleteAddress[];
   /**
    * The wallet to be used.
    */
@@ -152,23 +154,31 @@ export async function setupAztecRPCServer(
   const rpcConfig = getRpcConfigEnvVars();
   const aztecRpcServer = await createRpcServer(rpcConfig, aztecNode, logger, useLogSuffix);
 
-  logger('RPC server created, deploying accounts...');
   const accounts: AztecAccount[] = [];
 
-  // Prepare deployments
-  for (let i = 0; i < numberOfAccounts; ++i) {
-    const privateKey = i === 0 && firstPrivKey !== null ? firstPrivKey! : PrivateKey.random();
-    const account = getUnsafeSchnorrAccount(aztecRpcServer, privateKey);
-    await account.getDeployMethod().then(d => d.simulate({ contractAddressSalt: account.salt }));
-    accounts.push(account);
-  }
+  const createWalletWithAccounts = async () => {
+    if (!SANDBOX_URL) {
+      logger('RPC server created, deploying new accounts...');
 
-  // Send them and await them to be mined
-  const txs = await Promise.all(accounts.map(account => account.deploy()));
-  await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
+      // Prepare deployments
+      for (let i = 0; i < numberOfAccounts; ++i) {
+        const privateKey = i === 0 && firstPrivKey !== null ? firstPrivKey! : PrivateKey.random();
+        const account = getUnsafeSchnorrAccount(aztecRpcServer, privateKey);
+        await account.getDeployMethod().then(d => d.simulate({ contractAddressSalt: account.salt }));
+        accounts.push(account);
+      }
 
-  // Assemble them into a single wallet
-  const wallet = new EntrypointWallet(aztecRpcServer, await EntrypointCollection.fromAccounts(accounts));
+      // Send them and await them to be mined
+      const txs = await Promise.all(accounts.map(account => account.deploy()));
+      await Promise.all(txs.map(tx => tx.wait({ interval: 0.1 })));
+      return new EntrypointWallet(aztecRpcServer, await EntrypointCollection.fromAccounts(accounts));
+    } else {
+      logger('RPC server created, constructing wallet from initial sandbox accounts...');
+      return await getSandboxAccountsWallet(aztecRpcServer);
+    }
+  };
+
+  const wallet = await createWalletWithAccounts();
 
   return {
     aztecRpcServer: aztecRpcServer!,
@@ -201,7 +211,7 @@ export async function setup(
   /**
    * The accounts created by the RPC server.
    */
-  accounts: AztecAddress[];
+  accounts: CompleteAddress[];
   /**
    * The Aztec Node configuration.
    */
@@ -222,8 +232,8 @@ export async function setup(
   const config = getConfigEnvVars();
 
   if (stateLoad) {
-    const l1CheatCodes = new L1CheatCodes(config.rpcUrl);
-    await l1CheatCodes.loadChainState(stateLoad);
+    const ethCheatCodes = new EthCheatCodes(config.rpcUrl);
+    await ethCheatCodes.loadChainState(stateLoad);
   }
 
   const logger = getLogger();
@@ -311,7 +321,7 @@ export async function deployL2Contracts(wallet: Wallet, abis: ContractAbi[]) {
   const contracts = zipWith(
     abis,
     receipts,
-    async (abi, receipt) => await Contract.create(receipt!.contractAddress!, abi!, wallet),
+    async (abi, receipt) => await Contract.at(receipt!.contractAddress!, abi!, wallet),
   );
   contracts.forEach(async c => logger(`L2 contract ${(await c).abi.name} deployed at ${(await c).address}`));
   return contracts;
@@ -334,7 +344,7 @@ export function getLogger() {
  * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
  * @param initialBalance - initial balance of the owner of the L2 contract
  * @param owner - owner of the L2 contract
- * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if noone supplied, it deploys one)
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
  * @returns l2 contract instance, token portal instance, token portal address and the underlying ERC20 instance
  */
 export async function deployAndInitializeNonNativeL2TokenContracts(
@@ -374,7 +384,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   await tx.isMined({ interval: 0.1 });
   const receipt = await tx.getReceipt();
   if (receipt.status !== TxStatus.MINED) throw new Error(`Tx status is ${receipt.status}`);
-  const l2Contract = await NonNativeTokenContract.create(receipt.contractAddress!, wallet);
+  const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
   const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 

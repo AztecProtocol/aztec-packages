@@ -6,9 +6,9 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/constant_historic_block_data.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
+#include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
@@ -34,7 +34,7 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::ConstantHistoricBlockData;
+using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::NewContractData;
 using aztec3::circuits::abis::OptionallyRevealedData;
 using aztec3::circuits::abis::PreviousKernelData;
@@ -326,7 +326,16 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     std::array<fr, NUM_FIELDS_PER_SHA256> const unencrypted_logs_hash =
         array_of_values<NUM_FIELDS_PER_SHA256>(seed, NUM_FIELDS_PER_SHA256);
     fr const unencrypted_log_preimages_length = ++seed;
-    fr const historic_public_data_tree_root = ++seed;
+    HistoricBlockData<NT> block_data = {
+        .private_data_tree_root = ++seed,
+        .nullifier_tree_root = ++seed,
+        .contract_tree_root = ++seed,
+        .l1_to_l2_messages_tree_root = ++seed,
+        .blocks_tree_root = ++seed,
+        .private_kernel_vk_tree_root = ++seed,
+        .public_data_tree_root = ++seed,
+        .global_variables_hash = ++seed,
+    };
 
     // create the public circuit public inputs
     auto const public_circuit_public_inputs = PublicCircuitPublicInputs<NT>{
@@ -341,7 +350,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
         .unencrypted_logs_hash = unencrypted_logs_hash,
         .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-        .historic_public_data_tree_root = historic_public_data_tree_root,
+        .historic_block_data = block_data,
     };
 
     const PublicCallStackItem call_stack_item{
@@ -358,7 +367,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     };
 
     // TODO(914) Should this be unused?
-    [[maybe_unused]] ConstantHistoricBlockData<NT> const historic_tree_roots = {
+    [[maybe_unused]] HistoricBlockData<NT> const historic_tree_roots = {
         .private_data_tree_root = 1000,
         .contract_tree_root = 2000,
         .l1_to_l2_messages_tree_root = 3000,
@@ -366,11 +375,10 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     };
 
     CombinedConstantData<NT> const end_constants = { .block_data =
-                                                         ConstantHistoricBlockData<NT>{
-                                                             .private_data_tree_root = ++seed,
-                                                             .nullifier_tree_root = ++seed,
-                                                             .contract_tree_root = ++seed,
-                                                             .private_kernel_vk_tree_root = ++seed },
+                                                         HistoricBlockData<NT>{ .private_data_tree_root = ++seed,
+                                                                                .nullifier_tree_root = ++seed,
+                                                                                .contract_tree_root = ++seed,
+                                                                                .private_kernel_vk_tree_root = ++seed },
                                                      .tx_context = TxContext<NT>{
                                                          .is_fee_payment_tx = false,
                                                          .is_rebate_payment_tx = false,
