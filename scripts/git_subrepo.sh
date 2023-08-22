@@ -34,7 +34,7 @@ output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1)
 # Check for the specific error message
 if echo "$output" | grep -q "doesn't contain upstream HEAD"; then
     "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
-    echo "Rerunning 
+    echo "Rerunning"
     #"$SCRIPT_DIR"/git-subrepo/lib/git-subrepo $@
 else
     # Forward the output (both stdout and stderr)
