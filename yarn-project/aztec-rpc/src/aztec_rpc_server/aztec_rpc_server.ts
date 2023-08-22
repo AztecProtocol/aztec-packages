@@ -352,15 +352,11 @@ export class AztecRPCServer implements AztecRPC {
 
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
-    try {
-      this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
-      this.log('Simulation completed!');
+    this.log('Executing simulator...');
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+    this.log('Simulation completed!');
 
-      return result;
-    } catch (err: any) {
-      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
-    }
+    return result;
   }
 
   /**

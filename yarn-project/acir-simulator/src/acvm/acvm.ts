@@ -152,6 +152,10 @@ export async function acvm(
   debug?: FunctionDebugMetadata,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
+  // This is a workaround to avoid the ACVM removing the information about the underlying error.
+  // We should probably update the ACVM to let proper errors through.
+  let oracleError: Error | undefined = undefined;
+
   const partialWitness = await executeCircuitWithBlackBoxSolver(
     solver,
     acir,
@@ -166,28 +170,30 @@ export async function acvm(
 
         const result = await oracleFunction.call(callback, ...args);
         return [result];
-      } catch (err: any) {
-        logger.error(`Error in oracle callback ${name}: ${err.message ?? err ?? 'Unknown'}`);
-        throw err;
+      } catch (err) {
+        let typedError: Error;
+        if (err instanceof Error) {
+          typedError = err;
+        } else {
+          typedError = new Error(`Error in oracle callback ${err}`);
+        }
+        oracleError = typedError;
+        logger.error(`Error in oracle callback ${name}: ${typedError.message}`);
+        throw typedError;
       }
     },
-  ).catch(err => {
-    // ACVM_js throws raw string errors
-    if (typeof err !== 'string') {
-      throw err;
+  ).catch((acvmError: string) => {
+    if (oracleError) {
+      throw oracleError;
     }
-
-    const opcodeLocation = extractOpcodeLocationFromError(err);
+    const opcodeLocation = extractOpcodeLocationFromError(acvmError);
     if (!opcodeLocation || !debug) {
-      throw err;
+      throw new Error(acvmError);
     }
 
     const callStack = getCallStackFromOpcodeLocation(opcodeLocation, debug);
     logger(printErrorStack(callStack));
-
-    // The ACVM only lets string errors pass through so we need to throw a string at the execution level.
-    // We should probably update the ACVM to let proper errors through.
-    throw `Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`;
+    throw new Error(`Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`);
   });
 
   return Promise.resolve({ partialWitness });
