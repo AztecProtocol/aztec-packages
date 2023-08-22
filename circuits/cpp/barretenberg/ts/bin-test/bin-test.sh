@@ -1,3 +1,5 @@
-#!/bin/bash
+#!/bin/sh
+
+node --version
 
 node ./test.js
