@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable import/no-duplicates */
 // docs:start:imports
 import {
   AztecRPC,
