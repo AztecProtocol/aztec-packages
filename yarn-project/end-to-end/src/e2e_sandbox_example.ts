@@ -33,7 +33,7 @@ describe('e2e_sandbox_example', () => {
     const createSchnorrAccounts = async (numAccounts: number, aztecRpc: AztecRPC) => {
       const accountManagers = Array(numAccounts)
         .fill(0)
-        .map(x =>
+        .map(() =>
           getSchnorrAccount(
             aztecRpc,
             PrivateKey.random(), // encryption private key
