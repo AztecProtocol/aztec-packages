@@ -540,7 +540,8 @@ describe('e2e_lending_contract', () => {
       // Withdraw more than possible to test the revert.
       logger('Withdraw: trying to withdraw more than possible');
       const tx = lendingContract.methods.withdraw_public(recipient, 10n ** 9n).send({ origin: recipient });
-      const receipt = await tx.wait();
+      await tx.isMined({ interval: 0.1 });
+      const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.DROPPED);
     }
 
