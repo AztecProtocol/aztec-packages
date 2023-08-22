@@ -31,6 +31,7 @@ fi
 # Capture both stdout and stderr to a variable
 output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1)
 
+echo $output
 # Check for the specific error message
 if echo "$output" | grep -q "doesn't contain upstream HEAD"; then
     "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
