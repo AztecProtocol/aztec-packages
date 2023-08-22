@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // docs:start:imports
 import {
   AztecRPC,
@@ -12,7 +13,19 @@ import { PrivateTokenContract } from '@aztec/noir-contracts/types';
 
 // docs:end:imports
 
+/* eslint-enable @typescript-eslint/no-unused-vars */
+// Note: this is a hack to make the docs use http://localhost:8080 and CI to use the SANDBOX_URL
+import { createAztecRpcClient as createAztecRpcClient2 } from '@aztec/aztec.js';
+import { defaultFetch } from '@aztec/foundation/json-rpc/client';
+
+const { SANDBOX_URL } = process.env;
+
 describe('e2e_sandbox_example', () => {
+  // Note: this is a hack to make the docs use http://localhost:8080 and CI to use the SANDBOX_URL
+  const createAztecRpcClient = (url: string, fetch = defaultFetch) => {
+    return createAztecRpcClient2(SANDBOX_URL!, fetch);
+  };
+
   it('sandbox example works', async () => {
     // docs:start:setup
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
