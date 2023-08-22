@@ -52,6 +52,11 @@ export class L2BlockDownloader {
     this.runningPromise = fn();
   }
 
+  /**
+   * Repeatedly queries the block source and adds the received blocks to the block queue.
+   * Stops when no further blocks are received.
+   * @returns The total number of blocks added to the block queue.
+   */
   private async collectBlocks() {
     let totalBlocks = 0;
     while (true) {
@@ -79,7 +84,7 @@ export class L2BlockDownloader {
 
   /**
    * Gets the next batch of blocks from the queue.
-   * @param timeout - optional timeout value to prevent permaanent blocking
+   * @param timeout - optional timeout value to prevent permanent blocking
    * @returns The next batch of blocks from the queue.
    */
   public async getL2Blocks(timeout?: number) {

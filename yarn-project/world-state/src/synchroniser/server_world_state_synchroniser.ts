@@ -122,7 +122,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   }
 
   /**
-   * Checks and process new blocks
+   * Checks and processes new blocks
    */
   private async collectAndProcessBlocks() {
     // This request for blocks will timeout after 1 second
