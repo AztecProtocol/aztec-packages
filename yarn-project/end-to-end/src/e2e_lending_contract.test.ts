@@ -165,7 +165,7 @@ describe('e2e_lending_contract', () => {
     return BASE + offset;
   };
 
-// Helper class that emulates the logic of the lending contract. Used to have a "twin" to check values against.
+  // Helper class that emulates the logic of the lending contract. Used to have a "twin" to check values against.
   class LendingSimulator {
     public accumulator: bigint = BASE;
     public time: number = 0;
