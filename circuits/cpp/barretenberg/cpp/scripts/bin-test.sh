@@ -11,4 +11,4 @@ docker pull $IMAGE_URI
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
   set -e; \
   cd /usr/src/barretenberg/cpp/bin-test; \
-  ./test.js"
+  ./bin-test.sh"
