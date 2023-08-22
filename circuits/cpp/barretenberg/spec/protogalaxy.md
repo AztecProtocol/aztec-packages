@@ -304,9 +304,9 @@ template <DeciderFlavor Flavor> class DeciderComposer {
     }
 }
 ```
-How does this change the way things are done in the circuits library
+### How does this change the way things are done in the circuits library
 
-Currently, after `stdlib::recursion::verify_proof` has been called once (this is responsible for recursive verification), an `AggregationObject` is constructed, whose `aggregate` method incrementally verifies proofs
+Currently in the circuits library, after `stdlib::recursion::verify_proof` has been called once (`verify_proof` is responsible for recursive verification), an `AggregationObject` is constructed, whose `aggregate` method incrementally continues to verify proofs, wtih folding this could change to something like below
 
 ```c++
     // the AggregationObject needs to only gather k CircuitBuilders somehow
