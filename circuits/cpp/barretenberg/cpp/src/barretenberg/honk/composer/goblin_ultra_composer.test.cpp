@@ -5,7 +5,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 
 using namespace proof_system::honk;
 
@@ -27,7 +27,7 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinUltraHonkComposerTests, SimpleCircuit)
 {
-    auto builder = UltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
 
     // Define an arbitrary number of operations/gates
     size_t num_ecc_ops = 3;

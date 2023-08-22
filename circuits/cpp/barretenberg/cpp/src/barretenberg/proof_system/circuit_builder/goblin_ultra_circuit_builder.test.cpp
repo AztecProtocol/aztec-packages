@@ -1,5 +1,5 @@
 #include "barretenberg/crypto/generators/generator_data.hpp"
-#include "ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
 using namespace barretenberg;
@@ -18,7 +18,7 @@ namespace proof_system {
  */
 TEST(UltraCircuitBuilder, GoblinSimple)
 {
-    auto builder = UltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
 
     // Compute a simple point accumulation natively
     auto P1 = g1::affine_element::random_element();
@@ -89,7 +89,7 @@ TEST(UltraCircuitBuilder, GoblinBatchMul)
     using Point = g1::affine_element;
     using Scalar = fr;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
     const size_t num_muls = 3;
 
     // Compute some random points and scalars to batch multiply

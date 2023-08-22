@@ -37,11 +37,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
-
-    // Stores record of ecc operations and performs corresponding native operations internally
-    ECCOpQueue op_queue;
-
     struct non_native_field_witnesses {
         // first 4 array elements = limbs
         // 5th element = prime basis limb
@@ -702,19 +697,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     accumulator_triple_<FF> create_xor_constraint(const uint32_t a, const uint32_t b, const size_t num_bits);
 
     uint32_t put_constant_variable(const FF& variable);
-
-    /**
-     * ** Goblin Methods ** (methods for add ecc op queue gates)
-     **/
-    void queue_ecc_add_accum(const g1::affine_element& point);
-    void queue_ecc_mul_accum(const g1::affine_element& point, const fr& scalar);
-    g1::affine_element queue_ecc_eq();
-    g1::affine_element batch_mul(const std::vector<g1::affine_element>& points, const std::vector<fr>& scalars);
-
-  private:
-    void record_ecc_op(const ecc_op_tuple& in);
-    void add_ecc_op_gates(uint32_t op, const g1::affine_element& point, const fr& scalar = fr::zero());
-    ecc_op_tuple make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const fr& scalar = fr::zero());
 
   public:
     size_t get_num_constant_gates() const override { return 0; }

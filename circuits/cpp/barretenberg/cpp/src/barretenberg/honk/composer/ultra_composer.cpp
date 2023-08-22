@@ -24,7 +24,10 @@ void UltraComposer_<Flavor>::compute_circuit_size_parameters(CircuitBuilder& cir
     // Get num conventional gates, num public inputs and num Goblin style ECC op gates
     const size_t num_gates = circuit_constructor.num_gates;
     num_public_inputs = circuit_constructor.public_inputs.size();
-    num_ecc_op_gates = circuit_constructor.num_ecc_op_gates;
+    num_ecc_op_gates = 0;
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        num_ecc_op_gates = circuit_constructor.num_ecc_op_gates;
+    }
 
     // minimum circuit size due to the length of lookups plus tables
     const size_t minimum_circuit_size_due_to_lookups = tables_size + lookups_size + num_zero_rows;
