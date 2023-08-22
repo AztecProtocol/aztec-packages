@@ -309,8 +309,24 @@ How does this change the way things are done in the circuits library
 Currently, after `stdlib::recursion::verify_proof` has been called once (this is responsible for recursive verification), an `AggregationObject` is constructed, whose `aggregate` method incrementally verifies proofs
 
 ```c++
-// the AggregationObject needs to only aggregate k CircuitBuilders somehow
-FoldingComposer composer = FoldingComposer();
-composer.
+    // the AggregationObject needs to only gather k CircuitBuilders somehow
+    auto circuit_builders = ...
+    // iteration #1 of folding
+    FoldingComposer composer = FoldingComposer();
+    auto prover = composer.create_folding_prover(circuit_builders);
+    // this is not correct C++ syntax, use std::pair or std::tuple
+    auto (folding_proof, acc_proving_key) = prover.construct_folding_proof();
+    auto verifier = composer.create_folding_verifier(circuit_builders);
+    auto acc_verifying_key = verifier.verify_folding_proof(folding_proof);
+
+    // in practice the FoldingVerifier will be a RecursiveVerifier
+
+    // Option 1: we want to fold again
+    FoldingComposer composer = FoldingComposer(acc_proving_key, acc_verifying_key);
+    // same thing again 
+
+    // Option 2: we want to decide
+    DeciderComposer composer = DeciderComposer(acc_proving_key, acc_verifying_key);
+    auto result = composer.decide()
 
 ```
