@@ -1,11 +1,10 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, CheatCodes, Fr, Wallet, computeMessageSecretHash, sleep } from '@aztec/aztec.js';
+import { AztecAddress, CheatCodes, Fr, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { LendingContract, PriceFeedContract } from '@aztec/noir-contracts/types';
-import { NativeTokenContract } from '@aztec/noir-contracts/types';
+import { LendingContract, NativeTokenContract, PriceFeedContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
