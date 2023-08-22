@@ -89,9 +89,6 @@ describe('e2e_lending_contract', () => {
     stableCoin: NativeTokenContract,
     account: Account,
   ) => {
-    // @todo This is horrible. See #1687 and #1691
-    await sleep(5000);
-
     logger('Fetching storage snapshot 📸 ');
     const accountKey = await account.key();
 
