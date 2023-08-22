@@ -3,13 +3,17 @@ import { createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
-import { assert } from 'console';
 import fs from 'fs';
 import * as path from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
-import { contractNameToFolder, downloadContractFromGithub } from './unbox.js';
+import {
+  contractNameToFolder,
+  createEnvFile,
+  downloadContractAndStarterKitFromGithub,
+  updatePackageJsonVersions,
+} from './unbox.js';
 
 /**
  * Helper type to dynamically import contracts.
@@ -151,35 +155,46 @@ export async function prepTx(
  * 2. Copies the contract from the `@aztec/noir-contracts` to the current working directory under "starter-kit/"
  * This is done via brute force search of the master branch of the monorepo, within the yarn-projects/noir-contracts folder.
  * 3. Copies the frontend template from `@aztec/starter-kit` to the current working directory under "starter-kit"
- * TODO: 4. Frontend parses the contract ABI and generates a UI to interact with the contract.
- * @param contractName - name of contract from `@aztec/noir-contracts`
+ *
+ * These will be used by a simple next.js/React app in `@aztec/starter-kit` which parses the contract ABI
+ * and generates a UI to deploy + interact with the contract on a local aztec testnet.
+ * @param contractName - name of contract from `@aztec/noir-contracts`, in a format like "PrivateToken" (rather than "private_token", as it appears in the noir-contracts repo)
+ * @param log - Logger instance that will output to the CLI
  */
-export async function unboxContract(contractName: string, log: LogFn) {
+export async function unboxContract(contractName: string, outputDirectoryName: string, log: LogFn) {
   const contracts = await import('@aztec/noir-contracts/artifacts');
 
-  //console.log(contracts);
   const contractNames = Object.values(contracts).map(contract => contract.name);
-  // console.log(contractNames);
-  assert(
-    contractNames.includes(contractName),
-    `Contract ${contractName} not found in @aztec/noir-contracts: ${contractNames}
-   We recommend "PrivateToken" as a default.`,
-  );
-
+  if (!contractNames.includes(contractName)) {
+    log(
+      `The noir contract named "${contractName}" was not found in "@aztec/noir-contracts" package.  Valid options are: 
+        ${contractNames.join('\n\t')}
+  We recommend "PrivateToken" as a default.`,
+    );
+    return;
+  }
   // downloads the selected contract's noir source code into `starter-kit`, along with the @aztec/starter-kit subpackage.
   //  TODO: add the jest tests
-  await downloadContractFromGithub(contractName, process.cwd());
-  log(`Downloaded ${contractName} from @aztec/noir-contracts. to ${process.cwd()}/starter-kit`);
+
+  const starterKitPath = path.join(process.cwd(), outputDirectoryName);
+  await downloadContractAndStarterKitFromGithub(contractName, starterKitPath, log);
+  log(`Downloaded 'starter-kit' and ${contractName} from @aztec/noir-contracts. to ${starterKitPath}`);
 
   const chosenContractAbi = Object.values(contracts).filter(contract => contract.name === contractName)[0];
-  const outputPath = path.join(
-    process.cwd(),
-    'starter-kit',
-    'noir-contracts',
-    `${contractNameToFolder(contractName)}_contract.json`,
-  );
+  const contractAbiOutputPath = path.join(starterKitPath, 'src', 'artifacts');
+  fs.mkdir(contractAbiOutputPath, { recursive: true }, err => {
+    log(err);
+  });
   // TODO: confirm naming convention will match what will be compiled when the contract is recompiled
-  fs.writeFileSync(outputPath, JSON.stringify(chosenContractAbi, null, 4));
-  log(`copied contract ABI to ${outputPath}`);
-  return;
+  // OK, the contract abi json file name is defined by Nargo.toml.  may want to overwrite it in this function.
+
+  const contractAbiFileName = `${contractNameToFolder(contractName)}_contract.json`;
+  fs.writeFileSync(path.join(contractAbiOutputPath, contractAbiFileName), JSON.stringify(chosenContractAbi, null, 4));
+  log(`copied contract ABI to ${contractAbiOutputPath}`);
+
+  await createEnvFile(starterKitPath, contractAbiFileName);
+
+  await updatePackageJsonVersions(outputDirectoryName, log);
+  // TODO: write a .env file with the RPC url for the sandbox
+  // and also point to the contract ABI json file so frontend can read it
 }

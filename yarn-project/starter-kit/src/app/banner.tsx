@@ -1,3 +1,4 @@
+/* eslint-disable jsdoc/require-jsdoc */
 /**
  * 
  * @param background - background color, either "black" or "purple"
@@ -14,7 +15,7 @@ export default function Banner({
   const end = direction === "reverse" ? "animate-marquee2" : "animate-marquee4"
 
   // Apply relevant color styles
-  let containerStyles = background === "black" ? `relative flex overflow-x-hidden bg-indigo-950 text-orange-100` : `relative flex overflow-x-hidden bg-orange-100 text-indigo-950`
+  const containerStyles = background === "black" ? `relative flex overflow-x-hidden bg-indigo-950 text-orange-100` : `relative flex overflow-x-hidden bg-orange-100 text-indigo-950`
 
   return (
       <div className={containerStyles}>

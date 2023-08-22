@@ -482,16 +482,15 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .command('unbox')
     .description('Unboxes an example contract from @aztec/noir-contracts')
     .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
-    .action(async (contractName) => {
+    .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
+    .action(async (contractName, localDirectory) => {
       // console.log(contractName);
-      await unboxContract(contractName, log);
+      const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
+      await unboxContract(contractName, unboxTo, log);
       // TODO: add react frontend file.  read a contract ABI json file and generate frontend from that
       // what does frontend look like?  support for "wallet" interaction with the contract?
       // TODO: do we need a webserver ? (if so, next.js?)
-});
-
-
-
+    });
 
   compileContract(program, 'compile', log);
 
