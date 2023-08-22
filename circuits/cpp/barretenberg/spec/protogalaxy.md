@@ -193,12 +193,91 @@ Say a relation has a term in it like $q_l*w_l$ and those are indexed in the prov
 we're going to have expressions like 
 If k = 128 we're going to need to compute terms like $L_j(Y)L_m(Y)$ of degree 256, meaning we need to barycentrically extend both lagrange polynomials and then do 256 multiplications to get the evaluation form.
 
-### Interfaces
-* we will fold `CircuitBuilder`s in bberg
-* open question:
-    * can the PG implementation take a bunch of `CircuitBuilder`, fold them and produce another `CircuitBuilder` which has similar structure or will the structure slightly change?
-
- 
 ---
 
 ## Plan for interfaces
+
+```c++
+// for simplicity I ommitted header/source file separation and shared_ptr mentions
+template <FoldingFlavor Flavor> class FoldingComposer {
+    using CircuitBuilder = typename Flavor::CircuitBuilder;
+    // The ProvingKey and VerificationKey in the FoldingFlavor will also have beta and e (which will be update to Beta* and e* in construct_folding_proof and verify_folding_proof)
+    // what if beta = randomizer_term
+    // and e = relaxation_term (or are we happy with beta and e?)
+    using ProvingKey = typename Flavor::ProvingKey;
+    using VerificationKey = typename Flavor::VerificationKey;
+    // Produced by the FoldingProver and FoldingVerifier, respectively, in the previous folding stage.
+    // If this is the first folding stage, we take k+1 CircuitBuilders and we initialise
+    // acc_proving_key and acc_verification_key from the first CircuitBuilder.
+    ProvingKey acc_proving_key;
+    VerificationKey acc_verification_key;
+
+    // Should these be encapsulated in an array of FoldingInstance structs?
+    // Meh, these are given as parameters to different structs so maybe it makes sense to stay separate
+    CircuitBuilder[] circuit_builders;
+    ProvingKey[] inst_proving_keys[];
+    VerificationKey[] inst_verification_keys;
+
+    // We will use tp create a FoldingComposer after we have folded at least once
+    FoldingComposer(ProvingKey pk, VerificationKey vk);
+
+    ...
+
+    FoldingProver<Flavor> create_prover (CircuitBuilder[] builders) {
+        // if this is the first time we fold i.e acc_proving_key is null, need to initialise the acc_proving_key with the first Circuit_Builder
+        // is this extra if clause too expensive to have?
+
+        // Finalise the k Circuit Builders - this is needed to be able to 
+        // build the polynomials. Also, in brute force recursion, we would finalise each
+        // CircuitBuilder in part. The only issue is that the prover needs more memory available at once.
+        // TODO: based on memory estimates of FoldingProver decide if this is acceptable
+
+        // compute the k proving keys and the k witnesses
+        // the witnesses are also stored in their corresponding proving key
+
+        FoldingProver<Flavor> prover(acc_proving_key, inst_proving_keys);
+        return prover;
+    }
+
+    FoldingVerifier<Flavor> create_verifier(CircuitBuilder[] builders) {
+        // if this is the first time we fold i.e. acc_verifier_key is null, need to initialise the acc_verification_key with the first Circuit_Builder
+        // is this extra if clause too expensive to have?
+
+        // Compute the k verification keys
+
+        FoldingVerifier<Flavor> verifier(acc_verification_key, inst_verification_keys);
+     }
+
+    template <FoldingFlavor Flavor> struct FoldingProof {
+        using ProvingKey = typename Flavor::ProvingKey;
+        using FF = typename Flavor::FF;
+
+        // ONLY non-constant coefficients of F
+        std::vector<FF> pow_perturbation_coeffs;
+        // Coefficients of K
+        std::vector<FF> combiner_quotient_coeffs;
+
+    }
+
+    template <FoldingFlavor Flavor> class FoldingProver {
+        using ProvingKey = typename Flavor::ProvingKey;
+        // The FoldingProof goes to the FoldingVerifier and the ProvingKey will be used to construct the next 
+        // FoldingComposer
+        std::pair<FoldingProof, ProvingKey> construct_folding_proof() {
+        }
+
+    }
+
+     template <FoldingFlavor Flavor> class FoldingVerifier {
+        using VerificationKey = typename Flavor::VerificationKey;
+
+        VerificationKey verify_folding_proof(FoldingProof proof){
+        }
+    }
+}
+```
+How does this change the way things are done in the circuits library?
+
+``` C++ 
+TODO
+```
