@@ -23,16 +23,12 @@ contract PrivateTokenAirdrop {
 
 
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
+    #[aztec(private)]
     fn constructor(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         initial_supply: Field, 
         owner: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, owner]));
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
@@ -40,44 +36,30 @@ contract PrivateTokenAirdrop {
             send_note(&mut context, owner_balance, initial_supply, owner);
             emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
 
     // Mints `amount` of tokens to `owner`.
+    #[aztec(private)]
     fn mint(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field, 
         owner: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner]));
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         send_note(&mut context, owner_balance, amount, owner);
         emit_unencrypted_log(&mut context, "Coins minted");
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
+    #[aztec(private)]
     fn transfer(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field, 
         sender: Field, 
         recipient: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, sender, recipient]));
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
@@ -88,9 +70,6 @@ contract PrivateTokenAirdrop {
         send_note(&mut context, recipient_balance, amount, recipient);
         
         emit_unencrypted_log(&mut context, "Coins transferred");
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     fn createClaims(
@@ -98,7 +77,7 @@ contract PrivateTokenAirdrop {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amounts: [Field; 2], 
+        amounts: [Field; 2],  // TODO: handle fields
         secrets: [Field; 2], 
         sender: Field
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -123,17 +102,13 @@ contract PrivateTokenAirdrop {
         context.finish()
     }
 
+    #[aztec(private)]
     fn claim(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field,
         secret: Field,
         owner: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, secret, owner]));
 
         // Remove the claim note if it exists in the set.
         let note = ClaimNote::new(amount, secret);
@@ -142,9 +117,6 @@ contract PrivateTokenAirdrop {
         // Send the value note.
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, amount, owner);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
@@ -157,7 +129,7 @@ contract PrivateTokenAirdrop {
         //*********************************/
         sender: Field, 
         amounts: [Field; 3], 
-        recipients: [Field; 3],
+        recipients: [Field; 3], // TODO: handle arrays
         spend_note_offset: u32,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();

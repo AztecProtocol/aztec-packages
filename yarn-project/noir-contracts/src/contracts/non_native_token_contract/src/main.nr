@@ -61,45 +61,30 @@ contract NonNativeToken {
 
     use dep::aztec::oracle::create_commitment::create_commitment;
 
+    #[aztec(private)]
     fn constructor(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         initial_supply: Field,
         owner: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-
-        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, owner]));
 
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, initial_supply, owner);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
 
     // Mint Private Function
     // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
+    #[aztec(private)]
     fn mint(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field,
         owner: Field,
         // This field should be hidden
         msg_key: Field,
         secret: Field,
         canceller: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, owner, msg_key, secret, canceller
-        ]));
 
         let content_hash = get_mint_content_hash(amount, owner, canceller);
 
@@ -108,56 +93,39 @@ contract NonNativeToken {
 
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, amount, owner);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
 
     // Withdraws using user's private balance.
     // @dev Destroys 2 of user's notes and sends a message to the L1 portal contract. That message can then be consumed
     //      by calling the `withdraw` function on the L1 portal contract (assuming the args are set correctly).
+    #[aztec(private)]
     fn withdraw(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field,
         sender: Field,
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, sender, recipient, callerOnL1
-        ]));
 
         let sender_balance = storage.balances.at(sender);
         spend_notes(&mut context, sender_balance, amount, sender);
 
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
         context.message_portal(content);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
 
     // Mint Public Function
     // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
+    #[aztec(public)]
     open fn mintPublic(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PublicContextInputs,
-        //*********************************/
         amount: Field,
         owner_address: Field,
         // This field should be hidden
         msg_key: Field,
         secret: Field,
         canceller: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, owner_address, msg_key, secret, canceller]));
-
+    ) {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
 
@@ -173,22 +141,16 @@ contract NonNativeToken {
 
         // Push the return value into the context
         context.return_values.push(new_balance);
-        context.finish()
     }
 
 
     // Withdraws using user's public balance.
+    #[aztec(public)]
     open fn withdrawPublic(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PublicContextInputs,
-        //*********************************/
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient, callerOnL1]));
-
+    ) {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
 
@@ -208,27 +170,18 @@ contract NonNativeToken {
         // Emit the l2 to l1 message
         // TODO: make in the context
         create_l2_to_l1_message(content);
-
-        // Push the return value into the context
-        context.finish()
     }
 
 
     // Transfers `amount` of tokens from `sender`'s private balance to a `recipient`.
     // Note: Copied from PrivateToken
+    #[aztec(private)]
     fn transfer(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field,
         sender: Field,
         recipient: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, sender, recipient
-        ]));
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(sender);
@@ -236,19 +189,14 @@ contract NonNativeToken {
 
         let balance = storage.balances.at(recipient);
         send_note(&mut context, balance, amount, recipient);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
+    #[aztec(public)]
     open fn shield(
-        inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
-
+    ) {
         let storage = Storage::init();
         let public_balances = storage.public_balances;
         let pending_shields = storage.pending_shields;
@@ -268,24 +216,18 @@ contract NonNativeToken {
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
         pending_shields.insert_from_public(context, &mut note);
-
-        context.finish()
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
     // in the private context.
+    #[aztec(private)]
     fn redeemShield(
-        inputs: PrivateContextInputs,
         amount: Field,
         secret: Field,
         owner: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
         let pending_shields = storage.pending_shields;
-
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, secret, owner
-        ]));
 
         let public_note = TransparentNote::new_from_secret(amount, secret);
 
@@ -295,20 +237,15 @@ contract NonNativeToken {
         // Mint the tokens
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, amount, owner);
-
-        context.finish()
     }
 
+    #[aztec(private)]
     fn unshieldTokens(
-        inputs: PrivateContextInputs,
         amount: Field,
         owner: Field,
         recipient: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, owner, recipient
-        ]));
 
         // Remove user balance
         let sender_balance = storage.balances.at(owner);
@@ -321,25 +258,19 @@ contract NonNativeToken {
         // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
         let _callStackItem1 = context.call_public_function(thisAddress, pubEntryPointSelector, [amount, recipient]);
-
-        context.finish()
     }
 
+    #[aztec(public)]
     open fn addUnshieldedBalance(
-        inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
-
+    ) {
         let storage = Storage::init();
 
         let recipient_balance = storage.public_balances.at(recipient);
         let current_balance = recipient_balance.read();
         let new_balance = current_balance + amount;
         recipient_balance.write(new_balance);
-
-        context.finish()
     }
 
     unconstrained fn getBalance(

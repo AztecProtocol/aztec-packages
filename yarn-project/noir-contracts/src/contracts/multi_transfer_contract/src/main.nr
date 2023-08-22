@@ -18,11 +18,8 @@ contract MultiTransfer {
         utils as note_utils,
     };
 
-    fn constructor(
-        inputs: PrivateContextInputs
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        PrivateContext::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 
     // Transfers 12 amounts to 12 recipients.
     // multiTransfer() => 4 calls to batchTransfer() on the private airdrop contract.

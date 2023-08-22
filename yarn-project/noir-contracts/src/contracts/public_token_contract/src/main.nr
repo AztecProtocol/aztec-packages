@@ -12,20 +12,15 @@ contract PublicToken {
     use crate::storage::Storage;
 
     // Constructs the contract.
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateContext::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 
     // Mints `amount` of tokens to a `recipient`.
+    #[aztec(public)]
     open fn mint(
-        inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
+    ) {
 
         let storage = Storage::init();
         let recipient_balance = storage.balances.at(recipient);
@@ -35,18 +30,14 @@ contract PublicToken {
         recipient_balance.write(new_amount);
 
         context.return_values.push(new_amount);
-
-        context.finish()
     }
 
     // Transfers `amount` of tokens from `msg_sender` to `recipient`.
+    #[aztec(public)]
     open fn transfer(
-        inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
-
+    ) {
         let storage = Storage::init();
         let sender = context.msg_sender();
 
@@ -71,8 +62,6 @@ contract PublicToken {
             return_value = current_recipient_balance;
         }
         context.return_values.push(return_value);
-
-        context.finish()
     }
 
     unconstrained fn publicBalanceOf(

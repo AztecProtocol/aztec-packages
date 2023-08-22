@@ -21,52 +21,43 @@ contract Test {
         rand::rand,
     };
 
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateContext::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 
+    #[aztec(private)]
     fn getPublicKey(
-        inputs: PrivateContextInputs,
         address: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    )  {
         let mut context = PrivateContext::new(inputs, abi::hash_args([address]));
         let pub_key = get_public_key(address);
         context.return_values.push_array([pub_key.x, pub_key.y]);
-        context.finish()
     }
 
     // Get the portal contract address through an oracle call
+    #[aztec(private)]
     fn getPortalContractAddress(
-        inputs: PrivateContextInputs,
         aztec_address: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    )  {
         let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let portal_address = get_portal_address(aztec_address);
         context.return_values.push_array([portal_address]);
-        context.finish()
+        
     }
 
     // Get the address of the l1 portal for this contract (taken from the input context)
-    fn getThisPortalAddress(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    #[aztec(private)]
+    fn getThisPortalAddress()  {
         let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let this_portal_address = context.this_portal_address();
         context.return_values.push_array([this_portal_address]);
-        context.finish()
     }
 
     // Get the address of this contract (taken from the input context)
-    fn getThisAddress(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    #[aztec(private)]
+    fn getThisAddress()  {
         let mut context = PrivateContext::new(inputs, abi::hash_args([]));
         let this_address = context.this_address();
         context.return_values.push_array([this_address]);
-        context.finish()
     }
 
     // Test codegen for noir interfaces
@@ -76,7 +67,7 @@ contract Test {
         aField: Field,
         aBool: bool,
         aNumber: u32,
-        anArray: [Field; 2],
+        anArray: [Field; 2], // TODO: manage casting of arrays of arbitrary length as inputs
         aStruct: DummyNote,
         aDeepStruct: DeepStruct,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -102,36 +93,29 @@ contract Test {
     }
 
     // Purely exists for testing
+    #[aztec(public)]
     open fn createL2ToL1MessagePublic(
-        inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
+    ) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_l2_to_l1_message(note.get_commitment());
-
-        context.finish()
     }
 
     // Purely exists for testing
+    #[aztec(public)]
     open fn createNullifierPublic(
-        inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
-    
+    ) {
         // Create a commitment to the amount
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
         create_nullifier(note.get_commitment());
-        
-        context.finish()
     }
 
     // Purely exists for testing

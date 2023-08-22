@@ -30,7 +30,7 @@ contract EcdsaAccount {
 
     // All calls made by this account will be routed through this entrypoint
     fn entrypoint(  
-        inputs: pub PrivateContextInputs,
+        inputs: pub PrivateContextInputs, // TODO: support structs as inputs for abstraction
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64],
     ) -> distinct pub abi::PrivateCircuitPublicInputs {

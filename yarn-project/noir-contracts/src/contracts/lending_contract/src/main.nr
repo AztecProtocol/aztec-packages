@@ -24,18 +24,12 @@ contract Lending {
     }
 
     // Constructs the contract.
+    #[aztec(private)]
     fn constructor(
-        inputs: PrivateContextInputs
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateContext::new(inputs, 0).finish()
-    }
+    ) {}
 
-    open fn init(
-        inputs: PublicContextInputs
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([]));
-
+    #[aztec(public)]
+    open fn init() {
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
@@ -51,15 +45,12 @@ contract Lending {
         });
 
         context.return_values.push(1);
-        context.finish()
     }
 
     // Create a position.
 
-    open fn update_tot(
-        inputs: PublicContextInputs
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([]));
+    #[aztec(public)]
+    open fn update_tot() {
         let storage = Storage::init();
 
         let asset = storage.assets.at(0);
@@ -80,22 +71,15 @@ contract Lending {
         asset.write(tot);
 
         context.return_values.push(1);
-        context.finish()
     }
 
     // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
+    #[aztec(private)]
     fn deposit_private(
-        inputs: PrivateContextInputs,
         secret: Field,
         owner: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            secret,
-            owner,
-            amount
-        ]));
-
+    ) {
         assert (!((secret == 0) as bool & (owner == 0) as bool));
         let mut account = owner;
         let me = context.msg_sender();
@@ -112,31 +96,25 @@ contract Lending {
             3009041984,
             [account, amount]
         );
-
-        context.finish()
     }
 
+    #[aztec(public)]
     open fn deposit_public(
-        inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) {
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
         let return_values = context.call_public_function(context.this_address(), 3009041984, [owner, amount]);
 
         context.return_values.push(return_values[0]);
-        context.finish()
     }
 
+    #[aztec(public)]
     open internal fn _deposit(
-        inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-
+    ) {
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
@@ -147,19 +125,13 @@ contract Lending {
         coll_loc.write(collateral + amount);
 
         context.return_values.push(1);
-        context.finish()
     }
 
+    #[aztec(private)]
     fn withdraw_private(
-        inputs: PrivateContextInputs,
         secret: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            secret,
-            amount
-        ]));
-
+    ) {
         let me = context.msg_sender();
         let account = Account::new(me, secret).key();
         let _callStackItem = context.call_public_function(
@@ -167,33 +139,26 @@ contract Lending {
             1065861440,
             [account, amount]
         );
-
-        context.finish()
     }
 
 
+    #[aztec(public)]
     open fn withdraw_public(
-        inputs: PublicContextInputs,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
+    ) {
         // @todo @LHerskind Transfer tokens into this contract. We can't do it now because too few writes.
     
         let return_values = context.call_public_function(context.this_address(), 1065861440, [context.msg_sender(), amount]);
 
         context.return_values.push(return_values[0]);
-        context.finish()
     }
 
+    #[aztec(public)]
      open internal fn _withdraw(
-        inputs: PublicContextInputs,
         owner: Field,
         // recipient: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        // Access control.
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
-
+    ) {
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
@@ -211,19 +176,13 @@ contract Lending {
 
         // Transfer tokens to recipient (could be with shielding or without, for now, can't to either).
         context.return_values.push(1);
-        context.finish()
     }
 
+    #[aztec(private)]
     fn borrow_private(
-        inputs: PrivateContextInputs,
         secret: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            secret,
-            amount
-        ]));
-
+    ) {
         let me = context.msg_sender();
         let account = Account::new(me, secret).key();
 
@@ -232,27 +191,22 @@ contract Lending {
             1462609836,
             [account, amount]
         );
-
-        context.finish()
     }
 
+    #[aztec(public)]
     open fn borrow_public(
-        inputs: PublicContextInputs,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount]));
+    ) {
         let return_values = context.call_public_function(context.this_address(), 1462609836, [context.msg_sender(), amount]);
 
         context.return_values.push(return_values[0]);
-        context.finish()
     }
 
+    #[aztec(public)]
     open internal fn _borrow(
-        inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) {
         // Access control.
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
@@ -271,22 +225,15 @@ contract Lending {
         // @todo @LHerskind Transferring funds to the recipient.
 
         context.return_values.push(1);
-        context.finish()
     }
 
-    // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
+    // This doesn't need to be on behalf of self. We should be able to repay on behalf of someone else.
+    #[aztec(private)]
     fn repay_private(
-        inputs: PrivateContextInputs,
         secret: Field,
         owner: Field,
         amount: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            secret,
-            owner,
-            amount
-        ]));
-
+    ) {
         assert (!((secret == 0) as bool & (owner == 0) as bool));
         let mut account = owner;
         let me = context.msg_sender();
@@ -302,29 +249,24 @@ contract Lending {
             3985016136,
             [account, amount]
         );
-
-        context.finish()
     }
 
+    #[aztec(public)]
     open fn repay_public(
-        inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) {
         // @todo @LHerskind Transfer tokens from msg.sender to this contract.
         let return_values = context.call_public_function(context.this_address(), 3985016136, [owner, amount]);
 
         context.return_values.push(return_values[0]);
-        context.finish()
     }
 
+    #[aztec(public)]
     open internal fn _repay(
-        inputs: PublicContextInputs,
         owner: Field,
         amount: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([owner, amount]));
+    ) {
         let _void = context.call_public_function_no_args(context.this_address(), 1259373467)[0];
 
         let storage = Storage::init();
@@ -342,7 +284,6 @@ contract Lending {
         debt_loc.write(static_debt - amount);
         
         context.return_values.push(1);
-        context.finish()
     }
 
     unconstrained fn getTot(
