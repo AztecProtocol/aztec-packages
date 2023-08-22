@@ -1,3 +1,4 @@
+import { FunctionDebugMetadata } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,8 +11,6 @@ import {
   WitnessMap,
   executeCircuitWithBlackBoxSolver,
 } from 'acvm_js';
-
-import { FunctionDebugMetadata } from '../index.js';
 
 /**
  * The format for fields on the ACVM.

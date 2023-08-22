@@ -230,3 +230,36 @@ export interface ContractAbi {
    */
   debug?: DebugMetadata;
 }
+
+/**
+ * Debug metadata for a function.
+ */
+export interface FunctionDebugMetadata {
+  /**
+   * Maps opcodes to source code pointers
+   */
+  debugSymbols: DebugInfo;
+  /**
+   * Maps the file IDs to the file contents to resolve pointers
+   */
+  files: DebugFileMap;
+}
+
+/**
+ * Gets the debug metadata of a given function from the contract abi
+ * @param abi - The contract abi
+ * @param functionName - The name of the function
+ * @returns The debug metadata of the function
+ */
+export function getFunctionDebugMetadata(abi: ContractAbi, functionName: string): FunctionDebugMetadata | undefined {
+  const functionIndex = abi.functions.findIndex(f => f.name === functionName);
+  if (abi.debug && functionIndex !== -1) {
+    const debugSymbols = abi.debug.debugSymbols[functionIndex];
+    const files = abi.debug.fileMap;
+    return {
+      debugSymbols,
+      files,
+    };
+  }
+  return undefined;
+}

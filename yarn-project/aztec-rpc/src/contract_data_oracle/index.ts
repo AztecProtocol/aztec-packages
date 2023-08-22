@@ -1,5 +1,5 @@
-import { FunctionDebugMetadata } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { FunctionDebugMetadata, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { ContractCommitmentProvider, ContractDatabase } from '@aztec/types';
 
 import { ContractTree } from '../contract_tree/index.js';
@@ -58,18 +58,13 @@ export class ContractDataOracle {
     functionSelector: Buffer,
   ): Promise<FunctionDebugMetadata | undefined> {
     const contract = await this.db.getContract(contractAddress);
-    if (contract && contract.debug) {
-      const functionIndex = contract.functions.findIndex(f => f.selector.equals(functionSelector));
-      const locations = contract.debug.debugSymbols[functionIndex];
-      const fileMap = contract.debug.fileMap;
+    const functionAbi = contract?.functions.find(f => f.selector.equals(functionSelector));
 
-      return {
-        debugSymbols: locations,
-        files: fileMap,
-      };
+    if (!contract || !functionAbi) {
+      return undefined;
     }
 
-    return undefined;
+    return getFunctionDebugMetadata(contract, functionAbi.name);
   }
 
   /**

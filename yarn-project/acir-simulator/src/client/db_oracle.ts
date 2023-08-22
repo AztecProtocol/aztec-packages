@@ -1,5 +1,5 @@
 import { CompleteAddress, HistoricBlockData, PrivateKey, PublicKey } from '@aztec/circuits.js';
-import { DebugFileMap, DebugInfo, FunctionAbi } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionDebugMetadata } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -65,20 +65,6 @@ export interface CommitmentDataOracleInputs {
    * The index of the message commitment in the merkle tree.
    */
   index: bigint;
-}
-
-/**
- * Debug metadata for a function.
- */
-export interface FunctionDebugMetadata {
-  /**
-   * Maps opcodes to source code pointers
-   */
-  debugSymbols: DebugInfo;
-  /**
-   * Maps the file IDs to the file contents to resolve pointers
-   */
-  files: DebugFileMap;
 }
 
 /**
