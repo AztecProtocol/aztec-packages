@@ -206,6 +206,7 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     // and e = relaxation_term (or are we happy with beta and e?)
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
+
     // Produced by the FoldingProver and FoldingVerifier, respectively, in the previous folding stage.
     // If this is the first folding stage, we take k+1 CircuitBuilders and we initialise
     // acc_proving_key and acc_verification_key from the first CircuitBuilder.
@@ -218,6 +219,7 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     ProvingKey[] inst_proving_keys[];
     VerificationKey[] inst_verification_keys;
 
+    FoldingComposer();
     // We will use this to create a FoldingComposer after we have folded at least once
     FoldingComposer(ProvingKey pk, VerificationKey vk);
 
@@ -275,9 +277,40 @@ template <FoldingFlavor Flavor> class FoldingComposer {
         }
     }
 }
-```
-How does this change the way things are done in the circuits library?
 
-``` C++ 
-TODO
+// It would be nice to have only a DeciderFlavor and instantiate the UltraConmposer with 
+// that but the CircuitBuilder is very ingrained in the UltraComposer and we only have a
+// ProvingKey and VerificationKey at this stage
+template <DeciderFlavor Flavor> class DeciderComposer {
+    // A DeciderFlavor will not have a CircuitBuilder! but only the ProvingKey and VerificationKey obtained from the FoldingProver and FoldingVerifier
+    using ProvingKey = typename Flavor::ProvingKey;
+    using VerificationKey = typename Flavor::VerificationKey;
+    // The PCS appears in the Decider because we run a full Honk proof
+    using PCS = typename Flavor::PCS;
+    using CommitmentKey = typename Flavor::CommitmentKey;
+    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+
+    // We should probably have no empty constructor for the DeciderComposer
+    DeciderComposer(ProvingKey pk, VerificationKey vk);
+
+    // Is a DeciderProver and DeciderVerifier overkill?
+    // Potentially yes because we could instantiate an UltraProver and UltraVerifier with a DeciderFlavor
+    bool decide() {
+        compute_commitment_key(...)
+        UltraProver_<Flavor> prover(proving_key, verification_key);
+        auto proof = prover.construct_proof();
+        UltraVerifier_<Flavor> verifier(verification_key);
+        return verifier.verify_proof(proof);
+    }
+}
+```
+How does this change the way things are done in the circuits library
+
+Currently, after `stdlib::recursion::verify_proof` has been called once (this is responsible for recursive verification), an `AggregationObject` is constructed, whose `aggregate` method incrementally verifies proofs
+
+```c++
+// the AggregationObject needs to only aggregate k CircuitBuilders somehow
+FoldingComposer composer = FoldingComposer();
+composer.
+
 ```
