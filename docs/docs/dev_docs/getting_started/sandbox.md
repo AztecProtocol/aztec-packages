@@ -173,11 +173,11 @@ yarn add @aztec/aztec.js @aztec/noir-contracts
 
 7. Create an `index.ts` file in the `src` directory and add the following imports:
 
-#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code imports /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 and the following setup code:
 
-#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code setup /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 8. Finally, run the package:
 
@@ -202,7 +202,7 @@ The next step is to create some accounts. An in-depth explaining about accounts 
 
 Continue with adding the following to the `index.ts` file in our example:
 
-#include_code Accounts /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Accounts /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Running `yarn start` should now output:
 
@@ -228,7 +228,7 @@ If you were looking at your terminal that is running the Sandbox you should hope
 
 Now that we have our accounts setup, let's move on to deploy our private token contract. Add this to `index.ts`:
 
-#include_code Deployment /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Deployment /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 `yarn start` will now give the following output:
 
@@ -256,7 +256,7 @@ The Private Token Contract emits an unencrypted log message during construction:
 
 We can retrieve this emitted log using the `getUnencryptedLogs()` api:
 
-#include_code Logs /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Logs /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Our output will now be:
 
@@ -282,7 +282,7 @@ A token contract wouldn't be very useful if you aren't able to query the balance
 
 Call this function using the following code:
 
-#include_code Balance /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Balance /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Running now should yield output:
 
@@ -316,7 +316,7 @@ Now lets transfer some funds from Alice to Bob by calling the `transfer` functio
 
 We will again view the unencrypted logs emitted by the function and check the balances after the transfer:
 
-#include_code Transfer /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Transfer /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Our output should now look like this:
 
@@ -350,7 +350,7 @@ Finally, the contract has a `mint` function that can be used to generate new tok
 
 Let's mint some tokens to Bob's account:
 
-#include_code Mint /yarn-project/end-to-end/src/e2e_sandbox_example.ts typescript
+#include_code Mint /yarn-project/end-to-end/src/e2e_sandbox_example.test.ts typescript
 
 Our complete output should now be:
 
