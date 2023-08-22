@@ -145,10 +145,10 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   }
 
   /**
-   * Checks and processes new blocks
+   * Checks for the availability of new blocks and processes them.
    */
   private async collectAndProcessBlocks() {
-    // This request for blocks will timeout after 1 second
+    // This request for blocks will timeout after 1 second if no blocks are received
     const blocks = await this.l2BlockDownloader.getL2Blocks(1);
     await this.handleL2Blocks(blocks);
   }
