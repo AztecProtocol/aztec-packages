@@ -1,6 +1,7 @@
 #!/bin/bash
 
-echo "NodeJS Version: $(node --version)"
+echo "node --version"
+node --version
 
 node ./test.js
 
@@ -9,5 +10,5 @@ if [ $? -eq 0 ]; then
   exit 0
 else
   echo "Tests failed."
-  exit 1
+  exit $?
 fi
