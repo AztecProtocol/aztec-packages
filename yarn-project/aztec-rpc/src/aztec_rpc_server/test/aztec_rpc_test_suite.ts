@@ -24,7 +24,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
         Fr.random(),
       );
 
-      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
 
       // Check that the account is correctly registered using the getAccounts and getRecipients methods
       const accounts = await rpc.getAccounts();
@@ -64,10 +64,10 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
         Fr.random(),
       );
 
-      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
-      await expect(async () => rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
-        `Complete address corresponding to ${completeAddress.address} already exists`,
-      );
+      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+      await expect(async () =>
+        rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress),
+      ).rejects.toThrow(`Complete address corresponding to ${completeAddress.address} already exists`);
     });
 
     it('cannot register the same recipient twice', async () => {
