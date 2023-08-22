@@ -14,9 +14,9 @@ import * as path from 'path';
 const GITHUB_OWNER = 'AztecProtocol';
 const GITHUB_REPO = 'aztec-packages';
 const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts';
-const STARTER_KIT_PATH = 'yarn-project/starter-kit';
+// const STARTER_KIT_PATH = 'yarn-project/starter-kit';
 // before this commit lands, we can't grab from github, so can test with another subpackage like this
-// const STARTER_KIT_PATH = 'yarn-project/aztec.js';
+const STARTER_KIT_PATH = 'yarn-project/aztec.js';
 
 /**
  * Converts a contract name in "upper camel case" to a folder name in snake case.
@@ -118,9 +118,8 @@ async function _downloadNoirFilesFromGithub(directoryPath: string, outputPath: s
  */
 export async function createEnvFile(outputPath: string, contractAbiFileName: string) {
   const envData = {
-    REACT_APP_CONTRACT_ABI_FILE_NAME: contractAbiFileName,
-    REACT_APP_SANDBOX_RPC_URL: '',
-    DATABASE_URL: 'mongodb://localhost:27017/mydb',
+    VITE_CONTRACT_ABI_FILE_NAME: contractAbiFileName,
+    VITE_SANDBOX_RPC_URL: '',
   };
   const content = Object.entries(envData)
     .map(([key, value]) => `${key}=${value}`)

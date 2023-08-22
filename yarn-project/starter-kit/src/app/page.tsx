@@ -1,5 +1,6 @@
-import { ContractAbi } from '@aztec/foundation/abi';
 import '../App.css';
+
+import { useEffect, useState } from 'react';
 
 import aztecLogo from '../assets/aztec_logo.svg';
 import Banner from './banner';
@@ -12,10 +13,23 @@ import DynamicContractForm from './contractForm';
  * @param ContractAbiData - a contract ABI, generate frontend based on this
  * @returns 
  */
-export default function Home({ ContractAbiData}: {/**
- * ContractAbiData - a contract ABI, generate frontend based on this
- */
-ContractAbiData: ContractAbi}) {
+export default function Home() {
+    const [data, setData] = useState(null);
+
+  const contractAbiPath = `../artifacts/${import.meta.env.VITE_CONTRACT_ABI_FILE_NAME}`;
+
+  useEffect(() => {
+    import(contractAbiPath)
+      .then(json => {
+        setData(json.default);
+      })
+      .catch(err => {
+        console.error("Failed to load JSON:", err);
+      });
+  }, [contractAbiPath]);
+
+  if (!data) return <div>Loading contract ABI JSON...</div>;
+
   return (
 
     <main className="flex min-h-screen flex-col items-center justify-between px-16">
@@ -32,7 +46,7 @@ ContractAbiData: ContractAbi}) {
             <div>
 
 
-      <DynamicContractForm contractAbi={ContractAbiData}/>
+      <DynamicContractForm contractAbi={data}/>
 </div>
     </div>
 
