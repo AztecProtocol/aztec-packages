@@ -372,7 +372,7 @@ export class AztecNodeService implements AztecNode {
       // Attempt to sync the world state if necessary
       await this.syncWorldState();
     } catch (err) {
-      this.log(err);
+      this.log.error(`Error getting world state: ${err}`);
     }
     return this.worldStateSynchroniser.getCommitted();
   }
