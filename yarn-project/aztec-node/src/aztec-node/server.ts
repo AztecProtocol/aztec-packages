@@ -378,16 +378,14 @@ export class AztecNodeService implements AztecNode {
    */
   private async syncWorldState() {
     while (true) {
-      const [blockSourceHeight, worldStateStatus] = await Promise.all([
+      const [blockSourceHeight, worldStateBlock] = await Promise.all([
         this.blockSource.getBlockHeight(),
-        this.worldStateSynchroniser.status(),
+        this.worldStateSynchroniser.status().then(x => x.syncedToL2Block),
       ]);
-      if (blockSourceHeight <= worldStateStatus.syncedToL2Block) {
+      if (blockSourceHeight <= worldStateBlock) {
         break;
       }
-      this.log(
-        `World State at block ${worldStateStatus.syncedToL2Block}, block source at block ${blockSourceHeight} forcing sync...`,
-      );
+      this.log(`World State at block ${worldStateBlock}, block source at block ${blockSourceHeight} forcing sync...`);
       await this.worldStateSynchroniser.syncImmediate();
     }
   }
