@@ -218,14 +218,14 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     ProvingKey[] inst_proving_keys[];
     VerificationKey[] inst_verification_keys;
 
-    // We will use tp create a FoldingComposer after we have folded at least once
+    // We will use this to create a FoldingComposer after we have folded at least once
     FoldingComposer(ProvingKey pk, VerificationKey vk);
 
     ...
 
     FoldingProver<Flavor> create_prover (CircuitBuilder[] builders) {
         // if this is the first time we fold i.e acc_proving_key is null, need to initialise the acc_proving_key with the first Circuit_Builder
-        // is this extra if clause too expensive to have?
+        // is this extra if clause ok to have?
 
         // Finalise the k Circuit Builders - this is needed to be able to 
         // build the polynomials. Also, in brute force recursion, we would finalise each
@@ -241,7 +241,7 @@ template <FoldingFlavor Flavor> class FoldingComposer {
 
     FoldingVerifier<Flavor> create_verifier(CircuitBuilder[] builders) {
         // if this is the first time we fold i.e. acc_verifier_key is null, need to initialise the acc_verification_key with the first Circuit_Builder
-        // is this extra if clause too expensive to have?
+        // is this extra if clause ok to have?
 
         // Compute the k verification keys
 
