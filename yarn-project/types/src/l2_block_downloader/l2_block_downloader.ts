@@ -40,12 +40,8 @@ export class L2BlockDownloader {
     const fn = async () => {
       while (this.running) {
         try {
-          const numBlocks = await this.jobQueue.put(() => this.collectBlocks());
-
-          if (!numBlocks) {
-            await this.interruptableSleep.sleep(this.pollIntervalMS);
-            continue;
-          }
+          await this.jobQueue.put(() => this.collectBlocks());
+          await this.interruptableSleep.sleep(this.pollIntervalMS);
         } catch (err) {
           log.error(err);
           await this.interruptableSleep.sleep(this.pollIntervalMS);
