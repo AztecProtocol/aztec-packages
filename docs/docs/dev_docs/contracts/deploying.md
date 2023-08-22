@@ -3,7 +3,7 @@
 Once you have [compiled](./compiling.md) your contracts you can proceed to deploying them using the aztec-cli or using aztec.js which is a Typescript client to interact with the sandbox.
 
 ## Prerequisites
-- aztec-cli installed (go to [CLI main section](./main.md) for installation instructions)
+- aztec-cli installed (go to [CLI main section](../cli/main.md) for installation instructions)
 - contract artifacts ready (go to [Compiling contracts section](../contracts/compiling.md) for instructions on how to compile contracts)
 - aztec-sandbox running (go to [Sandbox section](../sandbox/main.md) for instructions on how to install and run the sandbox)
 
@@ -25,18 +25,24 @@ aztec-cli deploy /path/to/contract/abi.json
 </TabItem>
 <TabItem value="js" label="Aztec.js">
 
-Pre-requisite - Generate type-safe typescript classes for your contract when compiling:
-```bash
-aztec-cli compile /path/to/example_contract -ts /path/to/your/ts/files
+Pre-requisite - Generate type-safe typescript classes for your contract when compiling using the `@aztec/noir-compiler` package. You can install the package by running `npm install @aztec/noir-compiler`.
+
+```ts
+import { readFileSync, writeFileSync } from 'fs';
+import { compileUsingNargo, generateTypescriptContractInterface} from '@aztec/noir-compiler';
+
+const compiled: ContractAbi[] = await compileUsingNargo(projectPathToContractFolder);
+const abiImportPath = "../target/Example.json";
+writeFileSync(tsInterfaceDestFilePath, generateTypescriptContractInterface(compiled[0], abiImportPath));
 ```
 This would create a typescript file like `Example.ts` in the path specified. More details in the [compiling page](./compiling.md)
 
-Now you can import to easily deploy and use the class.
+Now you can import it to easily deploy and interact with the contract.
 ```ts
 import { ExampleContract } from './Example.js';
 
 const tx = ExampleContract.deploy(aztecRpc).send();
-await tx.isMined({ interval: 0.5 });
+await tx.wait({ interval: 0.5 });
 const receipt = await tx.getReceipt();
 const exampleContract = await ExampleContract.at(receipt.contractAddress!, myWallet);
 ```
@@ -98,6 +104,11 @@ aztec-cli register-recipient --address 0x147392a39e593189902458f4303bc6e0a39128c
 <TabItem value="js" label="Aztec.js">
 
 ```ts
+const aztecAddress = AztecAddress.fromString("0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529");
+const publicKey = Point.fromString("0x26e193aef4f83c70651485b5526c6d01a36d763223ab24efd1f9ff91b394ac0c20ad99d0ef669dc0dde8d5f5996c63105de8e15c2c87d8260b9e6f02f72af622");
+const partialAddress = Fr.fromString("0x200e9a6c2d2e8352012e51c6637659713d336405c29386c7c4ac56779ab54fa7");
+
+const completeAddress = CompleteAddress.create(aztecAddress, publicKey, partialKey); 
 await aztecRpc.registerRecipient(completeAddress);
 ```
 
@@ -127,7 +138,7 @@ aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f43
 // PrivateTokenContract is the TS interface that is automatically generated when compiling the contract with the `-ts` flag.
 const initialBalance = 1000n;
 const owner = AztecAddress.from("0x147392a39e593189902458f4303bc6e0a39128c5a1c1612f76527a162d36d529");
-contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
+const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
 logger(`Contract deployed at ${contract.address}`);
 ```
 
@@ -135,7 +146,7 @@ logger(`Contract deployed at ${contract.address}`);
 </Tabs>
 
 If everything went as expected you should see the following output (with a different address):
-> Contract deployed at 0x151de6120ae6628129ee852c5fc7bcbc8531055f76d4347cdc86003bbea96906
+> Contract deployed at `0x151de6120ae6628129ee852c5fc7bcbc8531055f76d4347cdc86003bbea96906`
 
 If we pass the salt as an argument:
 
@@ -150,7 +161,7 @@ aztec-cli deploy PrivateTokenContractAbi --args 1000 0x147392a39e593189902458f43
 <TabItem value="js" label="Aztec.js">
 
 ```ts
-contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send({ contractAddressSalt: Fr.fromString("0x123") }).deployed();
+const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send({ contractAddressSalt: Fr.fromString("0x123") }).deployed();
 ```
 
 </TabItem>
