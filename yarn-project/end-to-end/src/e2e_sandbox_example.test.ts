@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+
 /* eslint-disable import/no-duplicates */
 // docs:start:imports
 import {
@@ -10,14 +11,14 @@ import {
   getSchnorrAccount,
   mustSucceedFetch,
 } from '@aztec/aztec.js';
-import { PrivateTokenContract } from '@aztec/noir-contracts/types';
-
 // docs:end:imports
 
 /* eslint-enable @typescript-eslint/no-unused-vars */
 // Note: this is a hack to make the docs use http://localhost:8080 and CI to use the SANDBOX_URL
 import { createAztecRpcClient as createAztecRpcClient2 } from '@aztec/aztec.js';
 import { defaultFetch } from '@aztec/foundation/json-rpc/client';
+import { PrivateTokenContract } from '@aztec/noir-contracts/types';
+
 import { expectUnencryptedLogsFromLastBlockToBe } from './fixtures/utils.js';
 
 const { SANDBOX_URL } = process.env;
@@ -105,9 +106,11 @@ describe('e2e_sandbox_example', () => {
       aztecRpc,
       initialSupply, // the initial supply
       alice, // the owner of the initial supply
-    ).send().deployed();
+    )
+      .send()
+      .deployed();
 
-      logger(`Contract successfully deployed at address ${contract.address!.toShortString()}`);
+    logger(`Contract successfully deployed at address ${contract.address!.toShortString()}`);
     // docs:end:Deployment
 
     // ensure that private token contract is registered in the rpc
@@ -199,6 +202,6 @@ describe('e2e_sandbox_example', () => {
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
 
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpc, ["Coins minted"]);
+    await expectUnencryptedLogsFromLastBlockToBe(aztecRpc, ['Coins minted']);
   }, 60_000);
 });
