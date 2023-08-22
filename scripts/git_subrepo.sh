@@ -33,13 +33,12 @@ run_subrepo() {
     local exit_code="${PIPESTATUS[0]}"  # Capture the exit status of git-subrepo command
 
     if [ $exit_code -ne 0 ]; then
-        # Check for the specific error message
+        # Check for the specific error message and maybe recover
         if grep -q "doesn't contain upstream HEAD" /tmp/subrepo_output.log; then
             "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
             echo "Rerunning..."
             "$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@"
         else
-            echo "An unknown error occurred."
             exit $exit_code
         fi
     fi
