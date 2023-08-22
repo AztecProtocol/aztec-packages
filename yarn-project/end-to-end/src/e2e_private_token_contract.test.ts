@@ -51,7 +51,7 @@ describe('e2e_private_token_contract', () => {
    * Milestone 1.3.
    * https://hackmd.io/AG5rb9DyTRu3y7mBptWauA
    */
-  it.only('1.3 should deploy private token contract with initial token minted to the account', async () => {
+  it('1.3 should deploy private token contract with initial token minted to the account', async () => {
     const initialBalance = 987n;
     await deployContract(initialBalance, owner);
     await expectBalance(owner, initialBalance);
