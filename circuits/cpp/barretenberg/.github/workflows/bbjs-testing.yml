@@ -1,0 +1,66 @@
+name: Test bb.js
+
+on:
+  push:
+    branches:
+      - jb/bbjs-testing
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install bleeding edge cmake
+        run: |
+          sudo apt -y remove --purge cmake
+          sudo snap install cmake --classic
+
+      - name: Create Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install ninja-build yarn
+
+      - name: Install Clang16
+        run: |
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.0/clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          tar -xvf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          sudo cp clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/bin/* /usr/local/bin/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/include/* /usr/local/include/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
+
+      - name: Install yarn
+        run: |
+          curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+          echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+          sudo apt -y update && sudo apt -y install yarn
+      - name: Compile Barretenberg
+        run: |
+          cd cpp
+
+          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
+          cmake --build --preset default --target bb
+
+      - name: Install WASI-SDK
+        run: |
+          cd cpp
+          ./scripts/install-wasi-sdk.sh
+
+      - name: Compile Typescript
+        run: |
+          cd ts
+          yarn install && yarn && yarn build
+
+      - name: Output result
+        run: |
+          cd ts/dest
+          ls -R
