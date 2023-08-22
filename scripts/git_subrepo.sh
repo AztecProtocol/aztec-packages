@@ -23,21 +23,20 @@ if [ -d "$SUBREPO_PATH" ] ; then
     parent_commit=$(awk -F'= ' '/parent =/{print $2}' $SUBREPO_PATH/.gitrepo)
     # Check if the parent commit exists in this branch
     if ! git branch --contains $parent_commit | grep -q '\*'; then
-        echo "Auto-fixing squashed parent in $SUBREPO_PATH/.gitrepo."
-
-        # Get the commit that last wrote to .gitrepo
-        last_commit=$(git log -1 --pretty=format:%H -- "$SUBREPO_PATH/.gitrepo")
-        # Get parent of the last commit
-        new_parent=$(git log --pretty=%P -n 1 $last_commit)
-
-        # Update parent in .gitrepo file
-	git config --file="$SUBREPO_PATH/.gitrepo" subrepo.parent $new_parent
-
-        # Commit this change
-        git add "$SUBREPO_PATH/.gitrepo"
-        # This commit should only go into squashed PRs
-        git commit -m "git_subrepo.sh: Fix parent in .gitrepo file."
+	"$SCRIPT_DIR"/fix_subrepo_edge_case.sh "$SUBREPO_PATH"
     fi
 fi
-"$SCRIPT_DIR"/git-subrepo/lib/git-subrepo $@
 
+# Try our first pass
+# Capture both stdout and stderr to a variable
+output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1)
+
+# Check for the specific error message
+if echo "$output" | grep -q "doesn't contain upstream HEAD"; then
+    "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
+    echo "Rerunning 
+    #"$SCRIPT_DIR"/git-subrepo/lib/git-subrepo $@
+else
+    # Forward the output (both stdout and stderr)
+    echo "$output"
+fi
