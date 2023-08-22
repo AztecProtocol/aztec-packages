@@ -22,7 +22,7 @@ describe('e2e_lending_contract', () => {
   const WAD = 10n ** 18n;
   const BASE = 10n ** 9n;
 
-  const deployContract = async (owner: AztecAddress) => {
+  const deployContracts = async (owner: AztecAddress) => {
     let lendingContract: LendingContract;
     let priceFeedContract: PriceFeedContract;
 
@@ -91,14 +91,12 @@ describe('e2e_lending_contract', () => {
     lendingContract: LendingContract,
     collateralAsset: NativeTokenContract,
     stableCoin: NativeTokenContract,
-    aztecNode: AztecRPC,
     account: Account,
   ) => {
     // @todo This is horrible.
     await sleep(5000);
 
     logger('Fetching storage snapshot 📸 ');
-    const storageValues: { [key: string]: Fr } = {};
     const accountKey = await account.key();
 
     const tot = await lendingContract.methods.get_asset(0).view();
@@ -106,6 +104,22 @@ describe('e2e_lending_contract', () => {
     const publicPos = await lendingContract.methods.get_position(account.address.toField()).view();
     const totalCollateral = await collateralAsset.methods.public_balance_of(lendingContract.address).view();
 
+    return {
+      interestAccumulator: new Fr(tot['interest_accumulator']),
+      lastUpdatedTs: new Fr(tot['last_updated_ts']),
+      privateCollateral: new Fr(privatePos['collateral']),
+      privateStaticDebt: new Fr(privatePos['static_debt']),
+      privateDebt: new Fr(privatePos['debt']),
+      publicCollateral: new Fr(publicPos['collateral']),
+      publicStaticDebt: new Fr(publicPos['static_debt']),
+      publicDebt: new Fr(publicPos['debt']),
+      totalCollateral: new Fr(totalCollateral),
+      stableCoinLending: new Fr(await stableCoin.methods.public_balance_of(lendingContract.address).view()),
+      stableCoinPublic: new Fr(await stableCoin.methods.public_balance_of(account.address).view()),
+      stableCoinPrivate: new Fr(await stableCoin.methods.balance_of(account.address).view()),
+      stableCoinSupply: new Fr(await stableCoin.methods.total_supply().view()),
+    };
+    /*
     storageValues['interest_accumulator'] = new Fr(tot['interest_accumulator']);
     storageValues['last_updated_ts'] = new Fr(tot['last_updated_ts']);
     storageValues['private_collateral'] = new Fr(privatePos['collateral']);
@@ -128,7 +142,7 @@ describe('e2e_lending_contract', () => {
 
     storageValues['stable_coin_supply'] = new Fr(await stableCoin.methods.total_supply().view());
 
-    return storageValues;
+    return storageValues;*/
   };
 
   // Convenience struct to hold an account's address and secret that can easily be passed around.
@@ -179,7 +193,7 @@ describe('e2e_lending_contract', () => {
     return BASE + offset;
   };
 
-  class Skibbidy {
+  class LendingSimulator {
     public accumulator: bigint = BASE;
     public time: number = 0;
 
@@ -192,44 +206,44 @@ describe('e2e_lending_contract', () => {
 
     constructor(private cc: CheatCodes, private account: Account, private rate: bigint) {}
 
-    prepare = async () => {
+    async prepare() {
       this.key = await this.account.key();
       const ts = await this.cc.eth.timestamp();
       this.time = ts + 10 + (ts % 10);
       await this.cc.aztec.warp(this.time);
-    };
+    }
 
-    progressTime = async (diff: number) => {
+    async progressTime(diff: number) {
       this.time = this.time + diff;
       await this.cc.aztec.warp(this.time);
       this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(diff)), BASE);
-    };
+    }
 
-    mintStable = (to: Fr, amount: bigint) => {
+    mintStable(to: Fr, amount: bigint) {
       const balance = this.stableBalance[to.toString()] ?? Fr.ZERO;
       this.stableBalance[to.toString()] = new Fr(balance.value + amount);
-    };
+    }
 
-    deposit = (onBehalfOf: Fr, amount: bigint) => {
+    deposit(onBehalfOf: Fr, amount: bigint) {
       const coll = this.collateral[onBehalfOf.toString()] ?? Fr.ZERO;
       this.collateral[onBehalfOf.toString()] = new Fr(coll.value + amount);
-    };
+    }
 
-    withdraw = (owner: Fr, amount: bigint) => {
+    withdraw(owner: Fr, amount: bigint) {
       const coll = this.collateral[owner.toString()] ?? Fr.ZERO;
       this.collateral[owner.toString()] = new Fr(coll.value - amount);
-    };
+    }
 
-    borrow = (owner: Fr, recipient: Fr, amount: bigint) => {
+    borrow(owner: Fr, recipient: Fr, amount: bigint) {
       const staticDebtBal = this.staticDebt[owner.toString()] ?? Fr.ZERO;
       const increase = muldivUp(amount, BASE, this.accumulator);
       this.staticDebt[owner.toString()] = new Fr(staticDebtBal.value + increase);
 
       const balance = this.stableBalance[recipient.toString()] ?? Fr.ZERO;
       this.stableBalance[recipient.toString()] = new Fr(balance.value + amount);
-    };
+    }
 
-    repay = (owner: Fr, onBehalfOf: Fr, amount: bigint) => {
+    repay(owner: Fr, onBehalfOf: Fr, amount: bigint) {
       const staticDebtBal = this.staticDebt[onBehalfOf.toString()] ?? Fr.ZERO;
       const decrease = muldivDown(amount, BASE, this.accumulator);
       this.staticDebt[onBehalfOf.toString()] = new Fr(staticDebtBal.value - decrease);
@@ -237,48 +251,48 @@ describe('e2e_lending_contract', () => {
       const balance = this.stableBalance[owner.toString()] ?? Fr.ZERO;
       this.stableBalance[owner.toString()] = new Fr(balance.value - amount);
       this.repaid += amount;
-    };
+    }
 
-    check = (storage: { [key: string]: Fr }) => {
-      expect(storage['interest_accumulator']).toEqual(new Fr(this.accumulator));
-      expect(storage['last_updated_ts']).toEqual(new Fr(this.time));
+    check(storage: { [key: string]: Fr }) {
+      expect(storage['interestAccumulator']).toEqual(new Fr(this.accumulator));
+      expect(storage['lastUpdatedTs']).toEqual(new Fr(this.time));
 
       // Private values
       const keyPriv = this.key.toString();
-      expect(storage['private_collateral']).toEqual(this.collateral[keyPriv] ?? Fr.ZERO);
-      expect(storage['private_static_debt']).toEqual(this.staticDebt[keyPriv] ?? Fr.ZERO);
-      expect(storage['private_debt'].value).toEqual(
+      expect(storage['privateCollateral']).toEqual(this.collateral[keyPriv] ?? Fr.ZERO);
+      expect(storage['privateStaticDebt']).toEqual(this.staticDebt[keyPriv] ?? Fr.ZERO);
+      expect(storage['privateDebt'].value).toEqual(
         muldivUp((this.staticDebt[keyPriv] ?? Fr.ZERO).value, this.accumulator, BASE),
       );
 
       // Public values
       const keyPub = this.account.address.toString();
-      expect(storage['public_collateral']).toEqual(this.collateral[keyPub] ?? Fr.ZERO);
-      expect(storage['public_static_debt']).toEqual(this.staticDebt[keyPub] ?? Fr.ZERO);
-      expect(storage['public_debt'].value).toEqual(
+      expect(storage['publicCollateral']).toEqual(this.collateral[keyPub] ?? Fr.ZERO);
+      expect(storage['publicStaticDebt']).toEqual(this.staticDebt[keyPub] ?? Fr.ZERO);
+      expect(storage['publicDebt'].value).toEqual(
         muldivUp((this.staticDebt[keyPub] ?? Fr.ZERO).value, this.accumulator, BASE),
       );
 
       const totalCollateral = Object.values(this.collateral).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
-      expect(storage['total_collateral']).toEqual(totalCollateral);
+      expect(storage['totalCollateral']).toEqual(totalCollateral);
 
-      expect(storage['stable_coin_lending'].value).toEqual(this.repaid);
-      expect(storage['stable_coin_public']).toEqual(this.stableBalance[keyPub] ?? Fr.ZERO);
+      expect(storage['stableCoinLending'].value).toEqual(this.repaid);
+      expect(storage['stableCoinPublic']).toEqual(this.stableBalance[keyPub] ?? Fr.ZERO);
 
       // Abusing notation and using the `keyPriv` as if an address for private holdings of stable_coin while it has the same owner in reality.
-      expect(storage['stable_coin_private']).toEqual(this.stableBalance[keyPriv] ?? Fr.ZERO);
+      expect(storage['stableCoinPrivate']).toEqual(this.stableBalance[keyPriv] ?? Fr.ZERO);
 
       const totalStableSupply = Object.values(this.stableBalance).reduce((a, b) => new Fr(a.value + b.value), Fr.ZERO);
       // @todo @lherskind To be updated such that we burn assets on repay instead.
-      expect(storage['stable_coin_supply'].value).toEqual(totalStableSupply.value + this.repaid);
-    };
+      expect(storage['stableCoinSupply'].value).toEqual(totalStableSupply.value + this.repaid);
+    }
   }
 
   it('Full lending run-through', async () => {
     const recipientIdx = 0;
 
     const recipient = accounts[recipientIdx].address;
-    const { lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContract(recipient);
+    const { lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts(recipient);
 
     const account = new Account(recipient, new Fr(42));
 
@@ -325,11 +339,12 @@ describe('e2e_lending_contract', () => {
       expect(receipt5.status).toBe(TxStatus.MINED);
     }
 
+    // Also specified in `noir-contracts/src/contracts/lending_contract/src/main.nr`
     const rate = 1268391679n;
-    const guy = new Skibbidy(cc, account, rate);
-    await guy.prepare();
+    const lendingSim = new LendingSimulator(cc, account, rate);
+    await lendingSim.prepare();
     // To handle initial mint (we use these funds to refund privately without shielding first).
-    guy.mintStable(await account.key(), 10000n);
+    lendingSim.mintStable(await account.key(), 10000n);
 
     {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
@@ -340,21 +355,15 @@ describe('e2e_lending_contract', () => {
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();
       expect(receipt.status).toBe(TxStatus.MINED);
-      storageSnapshots['initial'] = await getStorageSnapshot(
-        lendingContract,
-        collateralAsset,
-        stableCoin,
-        aztecRpcServer,
-        account,
-      );
+      storageSnapshots['initial'] = await getStorageSnapshot(lendingContract, collateralAsset, stableCoin, account);
 
-      guy.check(storageSnapshots['initial']);
+      lendingSim.check(storageSnapshots['initial']);
     }
 
     {
       const depositAmount = 420n;
-      await guy.progressTime(10);
-      guy.deposit(await account.key(), depositAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.deposit(await account.key(), depositAmount);
 
       // Make a private deposit of funds into own account.
       // This should:
@@ -372,17 +381,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_deposit']);
+      lendingSim.check(storageSnapshots['private_deposit']);
     }
 
     {
       const depositAmount = 420n;
-      await guy.progressTime(10);
-      guy.deposit(recipient.toField(), depositAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.deposit(recipient.toField(), depositAmount);
       // Make a private deposit of funds into another account, in this case, a public account.
       // This should:
       // - increase the interest accumulator
@@ -399,17 +407,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_deposit_on_behalf']);
+      lendingSim.check(storageSnapshots['private_deposit_on_behalf']);
     }
 
     {
       const depositAmount = 211n;
-      await guy.progressTime(10);
-      guy.deposit(recipient.toField(), depositAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.deposit(recipient.toField(), depositAmount);
 
       // Make a public deposit of funds into self.
       // This should:
@@ -428,16 +435,15 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
-      guy.check(storageSnapshots['public_deposit']);
+      lendingSim.check(storageSnapshots['public_deposit']);
     }
 
     {
       const borrowAmount = 69n;
-      await guy.progressTime(10);
-      guy.borrow(await account.key(), account.address.toField(), borrowAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.borrow(await account.key(), account.address.toField(), borrowAmount);
 
       // Make a private borrow using the private account
       // This should:
@@ -456,17 +462,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_borrow']);
+      lendingSim.check(storageSnapshots['private_borrow']);
     }
 
     {
       const borrowAmount = 69n;
-      await guy.progressTime(10);
-      guy.borrow(recipient.toField(), account.address.toField(), borrowAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.borrow(recipient.toField(), account.address.toField(), borrowAmount);
 
       // Make a public borrow using the private account
       // This should:
@@ -483,17 +488,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['public_borrow']);
+      lendingSim.check(storageSnapshots['public_borrow']);
     }
 
     {
       const repayAmount = 20n;
-      await guy.progressTime(10);
-      guy.repay(await account.key(), await account.key(), repayAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.repay(await account.key(), await account.key(), repayAmount);
 
       // Make a private repay of the debt in the private account
       // This should:
@@ -512,17 +516,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_repay']);
+      lendingSim.check(storageSnapshots['private_repay']);
     }
 
     {
       const repayAmount = 20n;
-      await guy.progressTime(10);
-      guy.repay(await account.key(), account.address.toField(), repayAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.repay(await account.key(), account.address.toField(), repayAmount);
 
       // Make a private repay of the debt in the public account
       // This should:
@@ -541,17 +544,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_repay_on_behalf']);
+      lendingSim.check(storageSnapshots['private_repay_on_behalf']);
     }
 
     {
       const repayAmount = 20n;
-      await guy.progressTime(10);
-      guy.repay(account.address.toField(), account.address.toField(), repayAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.repay(account.address.toField(), account.address.toField(), repayAmount);
 
       // Make a public repay of the debt in the public account
       // This should:
@@ -570,11 +572,10 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['public_repay']);
+      lendingSim.check(storageSnapshots['public_repay']);
     }
 
     {
@@ -588,8 +589,8 @@ describe('e2e_lending_contract', () => {
 
     {
       const withdrawAmount = 42n;
-      await guy.progressTime(10);
-      guy.withdraw(recipient.toField(), withdrawAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.withdraw(recipient.toField(), withdrawAmount);
 
       // Withdraw funds from the public account
       // This should:
@@ -606,17 +607,16 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['public_withdraw']);
+      lendingSim.check(storageSnapshots['public_withdraw']);
     }
 
     {
       const withdrawAmount = 42n;
-      await guy.progressTime(10);
-      guy.withdraw(await account.key(), withdrawAmount);
+      await lendingSim.progressTime(10);
+      lendingSim.withdraw(await account.key(), withdrawAmount);
 
       // Withdraw funds from the private account
       // This should:
@@ -635,11 +635,10 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
 
-      guy.check(storageSnapshots['private_withdraw']);
+      lendingSim.check(storageSnapshots['private_withdraw']);
     }
 
     {
@@ -659,7 +658,6 @@ describe('e2e_lending_contract', () => {
         lendingContract,
         collateralAsset,
         stableCoin,
-        aztecRpcServer,
         account,
       );
       expect(storageSnapshots['private_withdraw']).toEqual(storageSnapshots['attempted_internal_deposit']);

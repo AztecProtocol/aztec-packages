@@ -29,7 +29,7 @@ contract Lending {
     use crate::helpers::{covered_by_collateral, DebtReturn, debt_updates, debt_value, compute_identifier};
     use crate::interfaces::{Token, Lending, PriceFeed};
 
-    struct Pos {
+    struct Position {
         collateral: Field,
         static_debt: Field,
         debt: Field,
@@ -347,13 +347,13 @@ contract Lending {
 
     unconstrained fn get_position(
         owner: Field,
-    ) -> Pos {
+    ) -> Position {
         let storage = Storage::init();
         let collateral = storage.collateral.at(owner).read();
         let static_debt = storage.static_debt.at(owner).read();
         let asset = storage.assets.at(0).read();
         let debt = debt_value(static_debt as u120, asset.interest_accumulator as u120) as Field;
-        Pos {collateral, static_debt, debt}
+        Position {collateral, static_debt, debt}
     }
 
     unconstrained fn get_assets() -> [Field; 2] {

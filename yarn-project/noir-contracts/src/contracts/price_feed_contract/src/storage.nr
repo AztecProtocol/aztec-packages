@@ -6,7 +6,6 @@ use dep::aztec::types::type_serialisation::field_serialisation::FIELD_SERIALISED
 use dep::std::hash::pedersen;
 
 struct Asset {
-    //timestamp: u120,
     price: u120,
 }
 
@@ -14,13 +13,11 @@ global ASSET_SERIALISED_LEN: Field = 1;
 
 fn deserialiseAsset(fields: [Field; ASSET_SERIALISED_LEN]) -> Asset {
     Asset {
-        //timestamp: fields[0] as u120,
         price: fields[0] as u120,
     }
 }
 
 fn serialiseAsset(asset: Asset) -> [Field; ASSET_SERIALISED_LEN] {
-    //[asset.timestamp as Field, asset.price as Field]
     [asset.price as Field]
 }
 
