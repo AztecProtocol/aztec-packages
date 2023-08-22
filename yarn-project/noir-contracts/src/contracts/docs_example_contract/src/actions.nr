@@ -1,0 +1,176 @@
+use dep::std::option::Option;
+use dep::aztec::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+use dep::aztec::context::{
+    PrivateContext,
+};
+use dep::aztec::note::note_getter_options::NoteGetterOptions;
+use dep::aztec::state_vars::{
+    immutable_singleton::ImmutableSingleton,
+    map::Map,
+    public_state::PublicState,
+    set::Set,
+    singleton::Singleton,
+};
+use dep::aztec::types::type_serialisation::bool_serialisation::{
+    BOOL_SERIALISED_LEN,
+};
+
+use crate::storage::{
+    queen::QUEEN_SERIALISED_LEN,
+};
+use crate::types::{
+    card::{Card, CARD_LEN},
+    profile::{Profile, PROFILE_LEN},
+    queen::Queen,
+    rules::{Rules, RULES_LEN},
+};
+
+// docs:start:state_vars-PublicStateRead
+fn is_locked(state_var: PublicState<bool, BOOL_SERIALISED_LEN>) -> bool {
+    state_var.read()
+}
+// docs:end:state_vars-PublicStateRead
+
+// docs:start:state_vars-PublicStateWrite
+fn lock(state_var: PublicState<bool, BOOL_SERIALISED_LEN>) {
+    state_var.write(true);
+}
+// docs:end:state_vars-PublicStateWrite
+
+fn unlock(state_var: PublicState<bool, BOOL_SERIALISED_LEN>) {
+    state_var.write(false);
+}
+
+// docs:start:state_vars-PublicStateReadCustom
+fn get_current_queen(state_var: PublicState<Queen, QUEEN_SERIALISED_LEN>) -> Queen {
+    state_var.read()
+}
+// docs:end:state_vars-PublicStateReadCustom
+
+fn can_replace_queen(
+    state_var: PublicState<Queen, QUEEN_SERIALISED_LEN>,
+    new_queen: Queen,
+  ) -> bool {
+    let current_queen = get_current_queen(state_var);
+    new_queen.points > current_queen.points
+}
+
+// docs:start:state_vars-PublicStateWriteCustom
+fn replace_queen(
+    state_var: PublicState<Queen, QUEEN_SERIALISED_LEN>,
+    new_queen: Queen,
+) {
+    state_var.write(new_queen);
+}
+// docs:end:state_vars-PublicStateWriteCustom
+
+// docs:start:state_vars-SingletonInit
+fn init_legendary_card(
+    context: &mut PrivateContext,
+    state_var: Singleton<Card, CARD_LEN>,
+    card: &mut Card,
+) {
+    state_var.initialise(context, card);
+}
+// docs:end:state_vars-SingletonInit
+
+// docs:start:state_vars-SingletonReplace
+fn update_legendary_card(
+    context: &mut PrivateContext,
+    state_var: Singleton<Card, CARD_LEN>,
+    card: &mut Card,
+) {
+    state_var.replace(context, card);
+}
+// docs:end:state_vars-SingletonReplace
+
+// docs:start:state_vars-SingletonGet
+fn get_legendary_card(
+    context: &mut PrivateContext,
+    state_var: Singleton<Card, CARD_LEN>,
+) -> Card {
+    state_var.get_note(context)
+}
+// docs:end:state_vars-SingletonGet
+
+// docs:start:state_vars-ImmutableSingletonInit
+fn init_game_rules(
+    context: &mut PrivateContext,
+    state_var: ImmutableSingleton<Rules, RULES_LEN>,
+    rules: &mut Rules,
+) {
+    state_var.initialise(context, rules);
+}
+// docs:end:state_vars-ImmutableSingletonInit
+
+// docs:start:state_vars-ImmutableSingletonGet
+fn is_valid_card(
+    context: &mut PrivateContext,
+    state_var: ImmutableSingleton<Rules, RULES_LEN>,
+    card: Card,
+) -> bool {
+    let rules = state_var.get_note(context);
+    card.points >= rules.min_points & card.points <= rules.max_points
+}
+// docs:end:state_vars-ImmutableSingletonGet
+
+// docs:start:state_vars-SetInsert
+fn add_new_card(
+    context: &mut PrivateContext,
+    state_var: Set<Card, CARD_LEN>,
+    card: &mut Card,
+  ) {
+    state_var.insert(context, card);
+}
+// docs:end:state_vars-SetInsert
+
+// docs:start:state_vars-SetRemove
+fn remove_card(
+    context: &mut PrivateContext,
+    state_var: Set<Card, CARD_LEN>,
+    card: Card,
+) {
+    state_var.remove(context, card);
+}
+// docs:end:state_vars-SetRemove
+
+// docs:start:state_vars-SetGet
+fn get_cards<FILTER_PARAMS>(
+    context: &mut PrivateContext,
+    state_var: Set<Card, CARD_LEN>,
+    options: NoteGetterOptions<Card, CARD_LEN, FILTER_PARAMS>,
+) -> [Option<Card>; MAX_READ_REQUESTS_PER_CALL] {
+    state_var.get_notes(context, options)
+}
+// docs:end:state_vars-SetGet
+
+// docs:start:state_vars-SetContains
+fn assert_contains_card<RERUEN_LEN, FILTER_PARAMS>(
+    context: &mut PrivateContext,
+    state_var: Set<Card, CARD_LEN>,
+    card: Card,
+) {
+    state_var.assert_contains_and_remove(context, card);
+}
+// docs:end:state_vars-SetContains
+
+// docs:start:state_vars-MapAtSingletonInit
+fn add_new_profile(
+    context: &mut PrivateContext,
+    state_var: Map<Singleton<Profile, PROFILE_LEN>>,
+    account: Field,
+    profile: &mut Profile,
+) {
+    state_var.at(account).initialise(context, profile);
+}
+// docs:end:state_vars-MapAtSingletonInit
+
+// docs:start:state_vars-MapAtSingletonGet
+fn get_profile(
+    context: &mut PrivateContext,
+    state_var: Map<Singleton<Profile, PROFILE_LEN>>,
+    account: Field,
+) -> Profile {
+    state_var.at(account).get_note(context)
+}
+// docs:end:state_vars-MapAtSingletonGet

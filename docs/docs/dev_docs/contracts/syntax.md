@@ -4,15 +4,15 @@
 
 ## Aztec stdlib
 
-On top of ['Vanialla Noir's' stdlib](https://noir-lang.org/standard_library/array_methods), we provide an  [Aztec stdlib](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-libs) for writing Noir Contracts. The Aztec stdlib contains abstractions which remove the need to understand the low-level Aztec protocol. Notably, it provides:
-- Public and private [state variable types](./types.md)
+On top of ['Vanilla Noir's' stdlib](https://noir-lang.org/standard_library/array_methods), we provide an [Aztec stdlib](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-libs) for writing Noir Contracts. The Aztec stdlib contains abstractions which remove the need to understand the low-level Aztec protocol. Notably, it provides:
+
+- Public and private [state variable types](./types.md).
 - Ready-made notes.
-- Functions for [emitting](./events.md) encrypted and unencrypted logs
+- Functions for [emitting](./events.md) encrypted and unencrypted logs.
 - [Oracle functions](./functions.md#oracle-calls) for accessing:
   - private state
   - secrets
-- Functions for communicating with Ethereum L1
-
+- Functions for communicating with Ethereum L1.
 
 To import the Aztec stdlib into your Noir Contract project, simply include it as a dependency:
 

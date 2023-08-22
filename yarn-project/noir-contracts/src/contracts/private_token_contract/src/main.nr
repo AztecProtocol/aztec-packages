@@ -17,9 +17,7 @@ contract PrivateToken {
     };
     use dep::aztec::log::emit_unencrypted_log;
 
-    // docs:start:storage-import
     use crate::storage::Storage;
-    // docs:end:storage-import
 
     // docs:start:constructor
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
