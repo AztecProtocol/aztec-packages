@@ -19,7 +19,10 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
     it('registers an account and returns it as an account only and not as a recipient', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
+      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+        await keyPair.getPrivateKey(),
+        Fr.random(),
+      );
 
       await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
 
@@ -56,7 +59,10 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
     it('cannot register the same account twice', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
+      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+        await keyPair.getPrivateKey(),
+        Fr.random(),
+      );
 
       await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
       await expect(async () => rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
