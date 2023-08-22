@@ -1,15 +1,15 @@
-mod transparent_note;
-
-use crate::transparent_note::{
-    TransparentNote,
-    TransparentNoteMethods,
-    TRANSPARENT_NOTE_LEN,
-};
-
 use dep::value_note::value_note::{
     ValueNote,
     ValueNoteMethods,
     VALUE_NOTE_LEN,
+};
+
+use dep::non_native::{
+    transparent_note::{
+        TransparentNote,
+        TransparentNoteMethods,
+        TRANSPARENT_NOTE_LEN,
+    },
 };
 
 use dep::aztec::{

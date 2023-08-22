@@ -1,6 +1,4 @@
-mod hash;
 mod storage;
-mod transparent_note;
 
 // Testing token that can be bridged in and out.
 // TODOS:
@@ -15,14 +13,15 @@ contract NativeToken {
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
-    use crate::transparent_note::{
-        TransparentNote,
-        TransparentNoteMethods,
-        TRANSPARENT_NOTE_LEN,
+    use dep::non_native::{
+        hash::{get_mint_content_hash, get_withdraw_content_hash},
+        transparent_note::{
+            TransparentNote,
+            TransparentNoteMethods
+        },
     };
 
     use crate::storage::Storage;
-    use crate::hash::{get_mint_content_hash, get_withdraw_content_hash};
 
     use dep::aztec::context::{
         PrivateContext,
@@ -458,7 +457,7 @@ contract NativeToken {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner);
 
-        balance_utils::get_balance(owner_balance.storage_slot)
+        balance_utils::get_balance(owner_balance)
     }
 
     // Computes note hash and nullifier.
