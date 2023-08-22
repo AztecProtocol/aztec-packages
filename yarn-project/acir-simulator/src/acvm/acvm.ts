@@ -187,7 +187,7 @@ export async function acvm(
 
     // The ACVM only lets string errors pass through so we need to throw a string at the execution level.
     // We should probably update the ACVM to let proper errors through.
-    throw `Assertion failed: '${callStack.pop()!.assertionText}'`;
+    throw `Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`;
   });
 
   return Promise.resolve({ partialWitness });
