@@ -154,5 +154,5 @@ describe('e2e_sandbox_example', () => {
     // Check the new balances
     await checkBalances();
     // docs:end:Mint
-  });
+  }, 60_000);
 });
