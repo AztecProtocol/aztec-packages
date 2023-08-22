@@ -29,7 +29,7 @@ fi
 
 # Try our first pass
 # Capture both stdout and stderr to a variable
-output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1)
+output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1 || true)
 
 echo $output
 # Check for the specific error message
