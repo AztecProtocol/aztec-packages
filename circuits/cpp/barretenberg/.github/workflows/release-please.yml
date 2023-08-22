@@ -39,7 +39,17 @@ jobs:
       - name: Create Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get -y install clang ninja-build yarn
+          sudo apt-get -y install ninja-build yarn
+      
+      - name: Install Clang16
+        run: |
+          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.0/clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          tar -xvf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
+          sudo cp clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/bin/* /usr/local/bin/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/include/* /usr/local/include/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
+          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
+      
       - name: Install yarn
         run: |
           curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
@@ -62,24 +72,6 @@ jobs:
         run: |
           cd ts
           yarn install && yarn && yarn build
-
-      - name: Checkout destination repository
-        uses: actions/checkout@v3
-        with:
-          repository: AztecProtocol/dev-bb.js
-          path: ./dev-bb.js
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-
-      - name: Push to destination repository
-        run: |
-          cd ./dev-bb.js
-          cp -R ../ts/dest/* .
-          git config --global user.name AztecBot
-          git config --global user.email tech@aztecprotocol.com
-          git checkout -b dev || git checkout dev
-          git add .
-          git commit -m "Tracking changes"
-          git push origin dev
 
       - name: Tar and GZip barretenberg.wasm
         run: tar -cvzf barretenberg.wasm.tar.gz cpp/build-wasm/bin/barretenberg.wasm
