@@ -27,17 +27,23 @@ if [ -d "$SUBREPO_PATH" ] ; then
     fi
 fi
 
-# Try our first pass
-# Capture both stdout and stderr to a variable
-output=$("$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1 || true)
+# Function to handle subrepo actions and possible error
+run_subrepo() {
+    "$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@" 2>&1 | tee /tmp/subrepo_output.log
+    local exit_code="${PIPESTATUS[0]}"  # Capture the exit status of git-subrepo command
 
-echo $output
-# Check for the specific error message
-if echo "$output" | grep -q "doesn't contain upstream HEAD"; then
-    "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
-    echo "Rerunning"
-    #"$SCRIPT_DIR"/git-subrepo/lib/git-subrepo $@
-else
-    # Forward the output (both stdout and stderr)
-    echo "$output"
-fi
+    if [ $exit_code -ne 0 ]; then
+        # Check for the specific error message
+        if grep -q "doesn't contain upstream HEAD" /tmp/subrepo_output.log; then
+            "$SCRIPT_DIR/fix_subrepo_edge_case.sh" "$SUBREPO_PATH"
+            echo "Rerunning..."
+            "$SCRIPT_DIR/git-subrepo/lib/git-subrepo" "$@"
+        else
+            echo "An unknown error occurred."
+            exit $exit_code
+        fi
+    fi
+}
+
+
+run_subrepo "$@"
