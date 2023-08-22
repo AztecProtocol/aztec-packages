@@ -368,7 +368,12 @@ export class AztecNodeService implements AztecNode {
    * @returns An instance of a committed MerkleTreeOperations
    */
   private async getWorldState() {
-    await this.syncWorldState();
+    try {
+      // Attempt to sync the world state if necessary
+      await this.syncWorldState();
+    } catch (err) {
+      this.log(err);
+    }
     return this.worldStateSynchroniser.getCommitted();
   }
 
