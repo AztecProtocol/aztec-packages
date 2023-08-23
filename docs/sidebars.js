@@ -78,6 +78,7 @@ const sidebars = {
         "dev_docs/getting_started/noir",
         "dev_docs/getting_started/sandbox",
         "dev_docs/getting_started/cli",
+        "dev_docs/getting_started/noir_contracts",
       ],
     },
 

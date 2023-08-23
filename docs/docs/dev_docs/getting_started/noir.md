@@ -16,6 +16,8 @@ Noir is designed for accessible and flexible development of provable programs. I
 Noir is a public good for developing ZK-provable programs and is independent from building products on the existing Aztec network.
 :::
 
+Other than "Vanilla" Noir that is used to write circuits, we have built a library so that Noir can be used to write smart contracts on top of the Aztec Sandbox. 
+
 ## Who is Noir for?
 
 ### Application Developers
