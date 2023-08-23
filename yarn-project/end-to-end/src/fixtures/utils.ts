@@ -426,23 +426,13 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
+ * @param rpc - The instance of AztecRPC for retrieving the logs.
  * @param logMessages - The set of expected log messages.
  * @returns
  */
-export const expectUnencryptedLogsFromLastBlockToBe = async (
-  aztecNode: AztecNodeService | AztecRPC,
-  logMessages: string[],
-) => {
-  let l2BlockNum: number;
-  let unencryptedLogs: L2BlockL2Logs[];
-  if (aztecNode instanceof AztecNodeService) {
-    l2BlockNum = await aztecNode.getBlockHeight();
-    unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
-  } else {
-    l2BlockNum = await aztecNode.getBlockNum();
-    unencryptedLogs = await aztecNode.getUnencryptedLogs(l2BlockNum, 1);
-  }
+export const expectUnencryptedLogsFromLastBlockToBe = async (rpc: AztecRPC, logMessages: string[]) => {
+  const l2BlockNum = await rpc.getBlockNum();
+  const unencryptedLogs = await rpc.getUnencryptedLogs(l2BlockNum, 1);
   const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 
