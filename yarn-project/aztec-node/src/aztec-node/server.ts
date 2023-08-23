@@ -23,6 +23,7 @@ import {
   L2BlockL2Logs,
   L2BlockSource,
   L2LogsSource,
+  L2Tx,
   LogType,
   MerkleTreeId,
   SiblingPath,
@@ -138,11 +139,11 @@ export class AztecNodeService implements AztecNode {
   }
 
   /**
-   * Method to fetch the current block height.
-   * @returns The block height as a number.
+   * Method to fetch the current block number.
+   * @returns The block number.
    */
-  public async getBlockHeight(): Promise<number> {
-    return await this.blockSource.getBlockHeight();
+  public async getBlockNumber(): Promise<number> {
+    return await this.blockSource.getBlockNumber();
   }
 
   /**
@@ -208,6 +209,10 @@ export class AztecNodeService implements AztecNode {
   public async sendTx(tx: Tx) {
     this.log.info(`Received tx ${await tx.getTxHash()}`);
     await this.p2pClient!.sendTx(tx);
+  }
+
+  public getTx(txHash: TxHash): Promise<L2Tx | undefined> {
+    return this.blockSource.getL2Tx(txHash);
   }
 
   /**
@@ -382,7 +387,7 @@ export class AztecNodeService implements AztecNode {
    * @returns A promise that fulfils once the world state is synced
    */
   private async syncWorldState() {
-    const blockSourceHeight = await this.blockSource.getBlockHeight();
+    const blockSourceHeight = await this.blockSource.getBlockNumber();
     await this.worldStateSynchroniser.syncImmediate(blockSourceHeight);
   }
 }

@@ -56,6 +56,7 @@ export type SyncStatus = {
   notes: Record<string, number>;
 };
 
+// docs:start:rpc-interface
 /**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
@@ -81,7 +82,6 @@ export interface AztecRPC {
    *          This is because we don't have the associated private key and for this reason we can't decrypt
    *          the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    *          public key.
-   * @throws If the recipient is already registered.
    */
   registerRecipient(recipient: CompleteAddress): Promise<void>;
 
@@ -203,10 +203,10 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Get latest L2 block number.
-   * @returns The latest block number.
+   * Fetches the current block number.
+   * @returns The block number.
    */
-  getBlockNum(): Promise<number>;
+  getBlockNumber(): Promise<number>;
 
   /**
    * Returns the information about the server's node
@@ -218,7 +218,7 @@ export interface AztecRPC {
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
    * @returns True if there are no outstanding blocks to be synched.
    * @remarks This indicates that blocks and transactions are synched even if notes are not.
-   * @remarks Compares local block height with the block height from aztec node.
+   * @remarks Compares local block number with the block number from aztec node.
    */
   isGlobalStateSynchronised(): Promise<boolean>;
 
@@ -237,3 +237,4 @@ export interface AztecRPC {
    */
   getSyncStatus(): Promise<SyncStatus>;
 }
+// docs:end:rpc-interface

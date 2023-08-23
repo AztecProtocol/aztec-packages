@@ -7,6 +7,6 @@ type = "contract"
 
 [dependencies]
 # highlight-next-line:importing-aztec
-aztec = { path = "../../../../noir-libs/noir-aztec" }
-value_note = { path = "../../../../noir-libs/value-note"}
+aztec = { path = "./noir-aztec" }
+value_note = { path = "./value-note"}
 # docs:end:importing-aztec

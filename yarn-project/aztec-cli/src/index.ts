@@ -465,7 +465,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = createClient(options.rpcUrl);
-      const num = await client.getBlockNum();
+      const num = await client.getBlockNumber();
       log(`${num}\n`);
     });
 
@@ -480,16 +480,14 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('unbox')
-    .description('Unboxes an example contract from @aztec/noir-contracts')
+    .description(
+      'Unboxes an example contract from @aztec/noir-contracts.  Copies `noir-libs` dependencies and setup simple frontend for the contract based on the ABI.',
+    )
     .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
     .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
     .action(async (contractName, localDirectory) => {
-      // console.log(contractName);
       const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
       await unboxContract(contractName, unboxTo, log);
-      // TODO: add react frontend file.  read a contract ABI json file and generate frontend from that
-      // what does frontend look like?  support for "wallet" interaction with the contract?
-      // TODO: do we need a webserver ? (if so, next.js?)
     });
 
   compileContract(program, 'compile', log);

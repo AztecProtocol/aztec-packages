@@ -13,21 +13,23 @@
     "eslint": "^8.45.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
+    "node-stdlib-browser": "^1.2.0",
     "postcss": "^8.4.28",
     "tailwindcss": "^3.3.3",
     "typescript": "^5.0.2",
-    "vite": "^4.4.5"
+    "vite": "^4.4.5",
+    "vite-plugin-static-copy": "^0.13.0"
   },
   "exports": {
     "./prettier": "./.prettierrc.json"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "/bin/bash -c \"$(curl -fsSL 'https://up-dev.aztec.network')\" && vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "build:dev": "tsc -b --watch",
-    "compile": "aztec-compile compile --outdir ./src/artifacts --typescript ./src/artifacts",
+    "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "jest",
     "eject": "react-scripts eject",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -42,6 +44,14 @@
       "react-app",
       "react-app/jest"
     ]
+  },
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.ts$",
+    "rootDir": "./src"
   },
   "inherits": [
     "../package.common.json",
@@ -63,6 +73,7 @@
     "eslint": "8.47.0",
     "eslint-config-next": "13.4.19",
     "formik": "^2.4.3",
+    "jest": "^29.5.0",
     "postcss": "^8.4.28",
     "react": "18.2.0",
     "react-dom": "18.2.0",

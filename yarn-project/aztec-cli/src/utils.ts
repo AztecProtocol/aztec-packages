@@ -9,9 +9,9 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
 import {
-  contractNameToFolder,
   createEnvFile,
   downloadContractAndStarterKitFromGithub,
+  updateNargoToml,
   updatePackageJsonVersions,
 } from './unbox.js';
 
@@ -160,6 +160,7 @@ export async function prepTx(
  * and generates a UI to deploy + interact with the contract on a local aztec testnet.
  * @param contractName - name of contract from `@aztec/noir-contracts`, in a format like "PrivateToken" (rather than "private_token", as it appears in the noir-contracts repo)
  * @param log - Logger instance that will output to the CLI
+ * TODO: add the jest tests
  */
 export async function unboxContract(contractName: string, outputDirectoryName: string, log: LogFn) {
   const contracts = await import('@aztec/noir-contracts/artifacts');
@@ -173,9 +174,8 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
     );
     return;
   }
-  // downloads the selected contract's noir source code into `starter-kit`, along with the @aztec/starter-kit subpackage.
-  //  TODO: add the jest tests
-
+  // downloads the selected contract's noir source code into `${outputDirectoryName}/src/contracts`,
+  // along with the @aztec/starter-kit and @aztec/noir-libs
   const starterKitPath = path.join(process.cwd(), outputDirectoryName);
   await downloadContractAndStarterKitFromGithub(contractName, starterKitPath, log);
   log(`Downloaded 'starter-kit' and ${contractName} from @aztec/noir-contracts. to ${starterKitPath}`);
@@ -183,18 +183,15 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
   const chosenContractAbi = Object.values(contracts).filter(contract => contract.name === contractName)[0];
   const contractAbiOutputPath = path.join(starterKitPath, 'src', 'artifacts');
   fs.mkdir(contractAbiOutputPath, { recursive: true }, err => {
-    log(err);
+    log('error creating artifacts directory', err);
   });
-  // TODO: confirm naming convention will match what will be compiled when the contract is recompiled
-  // OK, the contract abi json file name is defined by Nargo.toml.  may want to overwrite it in this function.
 
-  const contractAbiFileName = `${contractNameToFolder(contractName)}_contract.json`;
+  const contractAbiFileName = `${contractName}.json`;
   fs.writeFileSync(path.join(contractAbiOutputPath, contractAbiFileName), JSON.stringify(chosenContractAbi, null, 4));
   log(`copied contract ABI to ${contractAbiOutputPath}`);
 
-  await createEnvFile(starterKitPath, contractAbiFileName);
+  await createEnvFile(starterKitPath, contractName);
 
+  await updateNargoToml(outputDirectoryName, log);
   await updatePackageJsonVersions(outputDirectoryName, log);
-  // TODO: write a .env file with the RPC url for the sandbox
-  // and also point to the contract ABI json file so frontend can read it
 }

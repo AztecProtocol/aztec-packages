@@ -2,12 +2,11 @@ import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { MerkleTreeId, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -16,7 +15,6 @@ import { TxDao } from './tx_dao.js';
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
 export class MemoryDB extends MemoryContractDatabase implements Database {
-  private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
@@ -24,24 +22,6 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
-  }
-
-  public getTx(txHash: TxHash) {
-    return Promise.resolve(this.txTable.find(tx => tx.txHash.equals(txHash)));
-  }
-
-  public addTx(tx: TxDao) {
-    const index = this.txTable.findIndex(t => t.txHash.equals(tx.txHash));
-    if (index === -1) {
-      this.txTable.push(tx);
-    } else {
-      this.txTable[index] = tx;
-    }
-    return Promise.resolve();
-  }
-
-  public async addTxs(txs: TxDao[]) {
-    await Promise.all(txs.map(tx => this.addTx(tx)));
   }
 
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
@@ -121,15 +101,19 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     });
   }
 
-  public addCompleteAddress(completeAddress: CompleteAddress): Promise<void> {
+  public addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
     const accountIndex = this.addresses.findIndex(r => r.address.equals(completeAddress.address));
     if (accountIndex !== -1) {
+      if (this.addresses[accountIndex].equals(completeAddress)) {
+        return Promise.resolve(false);
+      }
+
       throw new Error(
-        `Complete address corresponding to ${completeAddress.address.toString()} already exists in memory database`,
+        `Complete address with aztec address ${completeAddress.address.toString()} but different public key or partial key already exists in memory database`,
       );
     }
     this.addresses.push(completeAddress);
-    return Promise.resolve();
+    return Promise.resolve(true);
   }
 
   public getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {

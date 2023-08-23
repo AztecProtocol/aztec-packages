@@ -1,11 +1,14 @@
 import '../App.css';
 
+import { AztecRPC } from '@aztec/aztec.js';
 import { useEffect, useState } from 'react';
+// import * as AztecJs from '../../node_modules/@aztec/aztec.js/dest/main.js';
 
 import aztecLogo from '../assets/aztec_logo.svg';
 import Banner from './banner';
 import DynamicContractForm from './contractForm';
-// TODO: make this read a noir contract ABI and generate a simple frontend based on that input
+// import {PrivateTokenContract} from '../artifacts/PrivateToken';  // update this if using a different contract
+
 
 
 /**
@@ -14,9 +17,10 @@ import DynamicContractForm from './contractForm';
  * @returns 
  */
 export default function Home() {
-    const [data, setData] = useState(null);
+  const [data, setData] = useState(null);
 
   const contractAbiPath = `../artifacts/${import.meta.env.VITE_CONTRACT_ABI_FILE_NAME}`;
+  const client: AztecRPC = null; //= AztecJs.createAztecClient(import.meta.env.VITE_SANDOX_RPC_URL);
 
   useEffect(() => {
     import(contractAbiPath)
@@ -45,8 +49,9 @@ export default function Home() {
             </div>
             <div>
 
+{/* {import.meta.env.VITE_CONTRACT_TYPESCRIPT_FILENAME !== "PrivateToken.ts" && "Update the Typscript import name for your contract in `src/app/page.tsx`!"} */}
 
-      <DynamicContractForm contractAbi={data}/>
+      <DynamicContractForm contractAbi={data} client={client}/>
 </div>
     </div>
 
