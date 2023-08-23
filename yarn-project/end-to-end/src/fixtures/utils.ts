@@ -15,12 +15,12 @@ import {
   getL1ContractAddresses,
   getSandboxAccountsWallet,
   getUnsafeSchnorrAccount,
+  makeFetch,
 } from '@aztec/aztec.js';
 import { CompleteAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
-import { mustSucceedFetch } from '@aztec/foundation/json-rpc/client';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
@@ -80,7 +80,7 @@ const createRpcServer = async (
 ): Promise<AztecRPC> => {
   if (SANDBOX_URL) {
     logger(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createJsonRpcClient(SANDBOX_URL, mustSucceedFetch);
+    const jsonClient = createJsonRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
     await waitForRPCServer(jsonClient, logger);
     logger('JSON RPC client connected to RPC Server');
     return jsonClient;
@@ -418,7 +418,7 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
     // This means we can't perform this check if there is no node
     return;
   }
-  const l2BlockNum = await aztecNode.getBlockHeight();
+  const l2BlockNum = await aztecNode.getBlockNumber();
   const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.ENCRYPTED);
   const unrolledLogs = L2BlockL2Logs.unrollLogs(encryptedLogs);
   expect(unrolledLogs.length).toBe(numEncryptedLogs);
@@ -426,21 +426,12 @@ export const expectsNumOfEncryptedLogsInTheLastBlockToBe = async (
 
 /**
  * Checks that the last block contains the given expected unencrypted log messages.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
+ * @param rpc - The instance of AztecRPC for retrieving the logs.
  * @param logMessages - The set of expected log messages.
- * @returns
  */
-export const expectUnencryptedLogsFromLastBlockToBe = async (
-  aztecNode: AztecNodeService | undefined,
-  logMessages: string[],
-) => {
-  if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the rpc server so we have to use the node
-    // This means we can't perform this check if there is no node
-    return;
-  }
-  const l2BlockNum = await aztecNode.getBlockHeight();
-  const unencryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.UNENCRYPTED);
+export const expectUnencryptedLogsFromLastBlockToBe = async (rpc: AztecRPC, logMessages: string[]) => {
+  const l2BlockNum = await rpc.getBlockNumber();
+  const unencryptedLogs = await rpc.getUnencryptedLogs(l2BlockNum, 1);
   const unrolledLogs = L2BlockL2Logs.unrollLogs(unencryptedLogs);
   const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
 

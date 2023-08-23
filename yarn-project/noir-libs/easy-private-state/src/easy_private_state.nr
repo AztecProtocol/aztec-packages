@@ -33,7 +33,7 @@ impl EasyPrivateUint {
         }
     }
 
-    // Very similar to `send_note`.
+    // Very similar to `increase_balance`.
     fn add(
         self,
         context: &mut PrivateContext,
@@ -57,7 +57,7 @@ impl EasyPrivateUint {
         );
     }
 
-    // Very similar to `spend_note`.
+    // Very similar to `decrease_balance`.
     fn sub(
         self,
         context: &mut PrivateContext,
