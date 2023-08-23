@@ -27,6 +27,7 @@ unconstrained fn emit_encrypted_log<N>(
 #[oracle(emitUnencryptedLog)]
 fn emit_unencrypted_log_oracle<T>(_message: T)  -> Field {}
 
+// WARNING: Do not use emit_unencrypted_log in private functions to avoid leaking any information.
 unconstrained fn emit_unencrypted_log<T>(message: T) -> [Field; NUM_FIELDS_PER_SHA256] {
     // https://github.com/AztecProtocol/aztec-packages/issues/885
     [emit_unencrypted_log_oracle(message), 0]

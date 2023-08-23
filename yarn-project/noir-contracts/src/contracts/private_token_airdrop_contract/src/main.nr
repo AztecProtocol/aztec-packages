@@ -16,7 +16,6 @@ contract PrivateTokenAirdrop {
         note_header::NoteHeader,
         utils as note_utils,
     };
-    use dep::aztec::log::emit_unencrypted_log;
 
     use crate::storage::Storage;
     use crate::claim_note::{ClaimNote, ClaimNoteMethods};
@@ -38,7 +37,6 @@ contract PrivateTokenAirdrop {
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
             send_note(&mut context, owner_balance, initial_supply, owner);
-            emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -60,7 +58,6 @@ contract PrivateTokenAirdrop {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         send_note(&mut context, owner_balance, amount, owner);
-        emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -86,8 +83,6 @@ contract PrivateTokenAirdrop {
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
         send_note(&mut context, recipient_balance, amount, recipient);
-        
-        emit_unencrypted_log(&mut context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -184,12 +179,6 @@ contract PrivateTokenAirdrop {
         let recipient3_balance = storage.balances.at(recipients[2]);
 
         send_notes(&mut context, [recipient1_balance, recipient2_balance, recipient3_balance], amounts, recipients);
-
-        // Also emit an unencrypted log, eg. "Coins transferred"
-        // In this example, we emit the first output note's commitment to ensure that the unencrypted log
-        // for each call to this function is distinct. This is done to detect any issues while collecting 
-        // logs when building a transaction. See: https://github.com/AztecProtocol/aztec-packages/issues/987
-        emit_unencrypted_log(&mut context, context.new_commitments.storage[0]);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()

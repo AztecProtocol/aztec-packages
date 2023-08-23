@@ -43,6 +43,9 @@ contract PrivateToken {
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
             send_note(&mut context, owner_balance, initial_supply, owner);
+
+            // TODO(1757) Remove this for public release.
+            // Private functions must not emit unencrypted logs to avoid leaking any information.
             emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
 
@@ -70,6 +73,8 @@ contract PrivateToken {
 
         // docs:start:unencrypted
 
+        // TODO(1757) Remove this for public release.
+        // Private functions must not emit unencrypted logs to avoid leaking any information.
         emit_unencrypted_log(&mut context, "Coins minted");
 
         // docs:end:unencrypted
@@ -101,6 +106,8 @@ contract PrivateToken {
         let recipient_balance = storage.balances.at(recipient);
         send_note(&mut context, recipient_balance, amount, recipient);
         
+        // TODO(1757) Remove this for public release.
+        // Private functions must not emit unencrypted logs to avoid leaking any information.
         emit_unencrypted_log(&mut context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
