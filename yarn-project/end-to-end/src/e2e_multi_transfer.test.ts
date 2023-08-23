@@ -20,7 +20,7 @@ describe('multi-transfer payments', () => {
   let wallet: Wallet;
   let logger: DebugLogger;
   let ownerAddress: AztecAddress;
-  const recipients: AztecAddress[] = [];
+  let recipients: AztecAddress[];
   let initialBalance: bigint;
 
   let zkTokenContract: PrivateTokenAirdropContract;
@@ -30,11 +30,7 @@ describe('multi-transfer payments', () => {
     let accounts: CompleteAddress[];
     ({ aztecNode, aztecRpcServer, accounts, logger, wallet } = await setup(numberOfAccounts + 1)); // 1st being the `owner`
     ownerAddress = accounts[0].address;
-
-    for (let i = 1; i < accounts.length; i++) {
-      const account = accounts[i].address;
-      recipients.push(account);
-    }
+    recipients = accounts.slice(1).map(a => a.address);
 
     logger(`Deploying zk token contract...`);
     initialBalance = 1000n;
@@ -174,7 +170,7 @@ describe('multi-transfer payments', () => {
    * One change note (10n) will be created for the sender.
    * One note will be created for the recipient.
    */
-  it('create 12 small notes out of 1 large note', async () => {
+  it('create 12 small notes out of 1 large note and transfer to a recipient', async () => {
     // Transaction 1
     logger(`split multiTransfer()...`);
     {
