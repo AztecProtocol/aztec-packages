@@ -1,13 +1,13 @@
 ---
-title: Setting up Noir Contracts
+title: Setting up Aztec.nr Contracts
 ---
 
 ## Introduction
 
-This guide explains the necessary set up required to write your own contract using our custom language, Noir and deploy it on the sandbox
+This guide explains the necessary set up required to write your own contract using the Aztec.nr library and deploy it on the sandbox
 
 :::info Prerequisite reading
-If you haven't read [Aztec Sandbox](./sandbox.md), we recommend going there first.
+If you haven't read [Aztec Sandbox](./sandbox.md) and [Noir](./noir.md), we recommend going there first.
 :::
 
 ### Dependencies
@@ -20,7 +20,7 @@ noirup -v aztec
 
 2. [Have a running sandbox and a code repo to interact with it](./sandbox.md)
 
-## Set up for noir contracts
+## Set up for aztec.nr contracts
 1. Inside the yarn project you created from the [Sandbox](./sandbox.md) page, create a sub-folder where the contracts will reside.
 ```bash
 mkdir contracts
@@ -34,7 +34,7 @@ cd contracts
 nargo new example_contract
 ```
 
-This creates a noir project with Nargo.toml (which is the manifest file of the project). Also, you will see a file in `example_contract/src/main.nr` which is where we will write our contract. But before this we must use the aztec-noir library.
+This creates a noir project with Nargo.toml (which is the manifest file of the project). Also, you will see a file in `example_contract/src/main.nr` which is where we will write our contract. 
 
 Your folder should look like:
 ```
@@ -47,7 +47,9 @@ Your folder should look like:
 | |--index.ts
 ```
 
-3. Build the `aztec-noir` library on your machine. `aztec-noir` is a library on top of Vanilla Noir to give it smart contract syntax that enable it to interact with the Aztec network.
+But before writing the contracts, we must add the aztec.nr library that adds smart contract syntax to Noir that the aztec sandbox can understand.
+
+3. Build the aztec.nr library on your machine.
 
 For this, clone the `aztec-packages` repository (which is the monorepo where the library resides) and build it anywhere on your machine
 ```bash
@@ -61,7 +63,7 @@ cd aztec-packages
 ```
 `./boostrap.sh` is a script that builds the package.
 
-4. Add `aztec-noir` library as a dependency to your noir project. Open Nargo.toml that is in the `contracts/example_contract` folder, and add the dependency section as follows:
+4. Add aztec.nr library as a dependency to your noir project. Open Nargo.toml that is in the `contracts/example_contract` folder, and add the dependency section as follows:
 ```
 [package]
 name = "example_contract"
