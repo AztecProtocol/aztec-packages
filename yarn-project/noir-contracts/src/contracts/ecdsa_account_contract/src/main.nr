@@ -29,22 +29,22 @@ contract EcdsaAccount {
     use crate::ecdsa_public_key_note::ECDSA_PUBLIC_KEY_NOTE_LEN;
 
     // All calls made by this account will be routed through this entrypoint
+    #[aztec(private)]
     fn entrypoint(  
-        inputs: pub PrivateContextInputs, // TODO: support structs as inputs for abstraction
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64],
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         
         // Initialise context
         // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
         let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
         args.push_array(payload.serialize());
         for byte in signature { args.push(byte as Field); }
-        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
+        let mut context_ = PrivateContext::new(inputs, abi::hash_args(args.storage));
 
         // Load public key from storage
         let storage = Storage::init();
-        let public_key = storage.public_key.get_note(&mut context);
+        let public_key = storage.public_key.get_note(&mut context_);
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
@@ -55,9 +55,9 @@ contract EcdsaAccount {
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
 
-        payload.execute_calls(&mut context);
+        payload.execute_calls(&mut context_);
 
-        context.finish()
+        context_.finish()
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
