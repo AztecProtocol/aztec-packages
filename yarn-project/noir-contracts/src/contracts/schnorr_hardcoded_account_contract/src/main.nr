@@ -1,3 +1,4 @@
+// docs:start:contract
 // Account contract that uses Schnorr signatures for authentication using a hardcoded public key.
 contract SchnorrHardcodedAccount {
     global public_key_x: Field = 0x077a724f70dfb200eae8951b27aebb5c97629eb03224b397b109d09509f978a4;
@@ -5,19 +6,9 @@ contract SchnorrHardcodedAccount {
 
     use dep::std;
     use dep::aztec::{
-        entrypoint::{
-            EntrypointPayload,
-            ENTRYPOINT_PAYLOAD_SIZE
-        },
-        abi::{
-            PrivateCircuitPublicInputs,
-            PrivateContextInputs,
-            hash_args,
-        },
-        types::{
-            vec::BoundedVec,
-            point::Point,
-        },
+        entrypoint::{ EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE },
+        abi::{ PrivateCircuitPublicInputs, PrivateContextInputs, hash_args },
+        types::{ vec::BoundedVec, point::Point },
         constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
         context::PrivateContext,
     };
@@ -28,22 +19,27 @@ contract SchnorrHardcodedAccount {
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64], // schnorr signature of the payload hash
     ) -> distinct pub PrivateCircuitPublicInputs {
+        // docs:start:entrypoint-init
         // Initialize context (args len is ENTRYPOINT_PAYLOAD_SIZE + 64)
         let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
         args.push_array(payload.serialize());
         for byte in signature { args.push(byte as Field); }
         let mut context = PrivateContext::new(inputs, hash_args(args.storage));
+        // docs:end:entrypoint-init
 
+        // docs:start:entrypoint-auth
         // Verify payload signature
         let serialised_payload: [Field; ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let hashed_payload: Field = std::hash::pedersen_with_separator(serialised_payload, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
         let verification = std::schnorr::verify_signature(public_key_x, public_key_y, signature, hashed_payload.to_be_bytes(32));
         assert(verification == true);
+        // docs:end:entrypoint-auth
 
+        // docs:start:entrypoint-exec
         // Execute calls
         payload.execute_calls(&mut context);
-
         context.finish()
+        // docs:end:entrypoint-exec
     }
 
     // Constructs the contract
@@ -51,3 +47,4 @@ contract SchnorrHardcodedAccount {
         PrivateContext::new(inputs, 0).finish()
     }
 }
+// docs:end:contract

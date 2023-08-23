@@ -11,13 +11,14 @@ import {
   buildTxExecutionRequest,
   hashPayload,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, PrivateKey } from '@aztec/circuits.js';
+import { PrivateKey } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { PrivateTokenContract, SchnorrHardcodedAccountContractAbi } from '@aztec/noir-contracts/types';
 
 import { setup } from '../fixtures/utils.js';
 
+// docs:start:account-contract
 const PRIVATE_KEY = PrivateKey.fromString('0xff2b5f8212061f0e074fc8794ffe8524130434889df20a912d7329e03894ccff');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
@@ -52,7 +53,7 @@ class SchnorrHardcodedKeyAccountContract implements AccountContract {
 
         // Hash the request payload and sign it using Schnorr
         const message = await hashPayload(payload);
-        const signer = new Schnorr(await CircuitsWasm.get());
+        const signer = await Schnorr.new();
         const signature = signer.constructSignature(message, privateKey).toBuffer();
 
         // Collect the payload and its signature as arguments to the entrypoint
@@ -67,6 +68,7 @@ class SchnorrHardcodedKeyAccountContract implements AccountContract {
     });
   }
 }
+// docs:end:account-contract
 
 describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
@@ -84,21 +86,25 @@ describe('guides/writing_an_account_contract', () => {
 
   it('works', async () => {
     const { aztecRpcServer: rpc, logger } = context;
+    // docs:start:account-contract-deploy
     const encryptionPrivateKey = PrivateKey.random();
     const account = new Account(rpc, encryptionPrivateKey, new SchnorrHardcodedKeyAccountContract());
     const wallet = await account.waitDeploy();
-    const walletAddress = wallet.getCompleteAddress().address;
-    logger(`Deployed account contract at ${walletAddress}`);
+    const address = wallet.getCompleteAddress().address;
+    // docs:end:account-contract-deploy
+    logger(`Deployed account contract at ${address}`);
 
-    const token = await PrivateTokenContract.deploy(wallet, 100, walletAddress).send().deployed();
+    // docs:start:account-contract-works
+    const token = await PrivateTokenContract.deploy(wallet, 100, address).send().deployed();
     logger(`Deployed token contract at ${token.address}`);
 
-    await token.methods.mint(50, walletAddress).send().wait();
-    const balance = await token.methods.getBalance(walletAddress).view();
+    await token.methods.mint(50, address).send().wait();
+    const balance = await token.methods.getBalance(address).view();
     logger(`Balance of wallet is now ${balance}`);
-
+    // docs:end:account-contract-works
     expect(balance).toEqual(150n);
 
+    // docs:start:account-contract-fails
     const wrongKey = PrivateKey.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
     const wrongAccount = new Account(rpc, encryptionPrivateKey, wrongAccountContract, wallet.getCompleteAddress());
@@ -106,9 +112,10 @@ describe('guides/writing_an_account_contract', () => {
     const tokenWithWrongWallet = await PrivateTokenContract.at(token.address, wrongWallet);
 
     try {
-      await tokenWithWrongWallet.methods.mint(200, walletAddress).simulate();
+      await tokenWithWrongWallet.methods.mint(200, address).simulate();
     } catch (err) {
       logger(`Failed to send tx: ${err}`);
     }
+    // docs:end:account-contract-fails
   }, 60_000);
 });
