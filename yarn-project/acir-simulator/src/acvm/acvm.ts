@@ -40,7 +40,6 @@ type ORACLE_NAMES =
   | 'enqueuePublicFunctionCall'
   | 'storageRead'
   | 'storageWrite'
-  | 'createNullifier'
   | 'getCommitment'
   | 'getL1ToL2Message'
   | 'getPortalContractAddress'
