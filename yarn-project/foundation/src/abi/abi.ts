@@ -204,7 +204,7 @@ export type DebugFileMap = Record<
  */
 export interface DebugMetadata {
   /**
-   * The debug information, serialized as JSON.
+   * The debug information, serialized as JSON and compressed in gzip.
    */
   debugSymbols: string[];
   /**
