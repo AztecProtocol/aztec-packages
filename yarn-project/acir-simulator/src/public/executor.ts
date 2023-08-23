@@ -63,7 +63,6 @@ export class PublicExecutor {
 
     const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockData, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
-    const newCommitments: Fr[] = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
     const unencryptedLogs = new FunctionL2Logs([]);
@@ -115,11 +114,6 @@ export class PublicExecutor {
         }
         return newValues.map(v => toACVMField(v));
       },
-      createCommitment: async ([commitment]) => {
-        this.log('Creating commitment: ' + commitment.toString());
-        newCommitments.push(fromACVMField(commitment));
-        return await Promise.resolve(ZERO_ACVM_FIELD);
-      },
       createNullifier: async ([nullifier]) => {
         this.log('Creating nullifier: ' + nullifier.toString());
         newNullifiers.push(fromACVMField(nullifier));
@@ -155,9 +149,14 @@ export class PublicExecutor {
       },
     });
 
-    const { returnValues, newL2ToL1Msgs } = extractPublicCircuitPublicInputs(partialWitness, acir);
+    const {
+      returnValues,
+      newL2ToL1Msgs,
+      newCommitments: newCommitmentsPadded,
+    } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
     const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
+    const newCommitments = newCommitmentsPadded.filter(v => !v.isZero());
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
     this.log(

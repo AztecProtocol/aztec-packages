@@ -54,8 +54,6 @@ contract NonNativeToken {
     use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
-    use dep::aztec::oracle::create_commitment::create_commitment;
-
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
@@ -261,7 +259,7 @@ contract NonNativeToken {
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
-        pending_shields.insert_from_public(context, &mut note);
+        pending_shields.insert_from_public(&mut context, &mut note);
 
         context.finish()
     }
