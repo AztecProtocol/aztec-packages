@@ -28,7 +28,7 @@ Lets first establish that we are able to communicate with the Sandbox. Most comm
 
 To test communication with the Sandbox, let's run the command:
 
-`% aztec-cli block-height
+`% aztec-cli block-number
 1`
 
 You should see the current block number (1) printed to the screen!

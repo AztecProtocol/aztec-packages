@@ -252,7 +252,7 @@ export class AztecCheatCodes {
    * @returns The current block number
    */
   public async blockNumber(): Promise<number> {
-    return await this.aztecRpc.getBlockHeight();
+    return await this.aztecRpc.getBlockNumber();
   }
 
   /**
