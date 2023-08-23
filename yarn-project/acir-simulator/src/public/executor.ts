@@ -64,7 +64,6 @@ export class PublicExecutor {
     const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockData, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
     const newCommitments: Fr[] = [];
-    const newL2ToL1Messages: Fr[] = [];
     const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
     const unencryptedLogs = new FunctionL2Logs([]);
@@ -156,7 +155,9 @@ export class PublicExecutor {
       },
     });
 
-    const { returnValues } = extractPublicCircuitPublicInputs(partialWitness, acir);
+    const { returnValues, newL2ToL1Msgs } = extractPublicCircuitPublicInputs(partialWitness, acir);
+
+    const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
     this.log(
