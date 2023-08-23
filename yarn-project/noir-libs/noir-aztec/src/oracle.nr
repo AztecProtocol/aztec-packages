@@ -1,7 +1,6 @@
 mod arguments;
 mod call_private_function;
 mod context;
-mod create_nullifier;
 mod debug_log;
 mod get_commitment;
 mod get_l1_to_l2_message;

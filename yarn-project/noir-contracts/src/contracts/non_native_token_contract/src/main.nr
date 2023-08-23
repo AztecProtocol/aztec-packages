@@ -50,8 +50,6 @@ contract NonNativeToken {
         },
     };
 
-    // public messaging
-    use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     fn constructor(
@@ -157,7 +155,7 @@ contract NonNativeToken {
         let content_hash = get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
-        consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         // Update the public balance
         let recipient_balance = public_balances.at(owner_address);

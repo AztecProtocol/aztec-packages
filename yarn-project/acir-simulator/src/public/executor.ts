@@ -63,7 +63,6 @@ export class PublicExecutor {
 
     const initialWitness = getInitialWitness(execution.args, execution.callContext, this.blockData, globalVariables);
     const storageActions = new ContractStorageActionsCollector(this.stateDb, execution.contractAddress);
-    const newNullifiers: Fr[] = [];
     const nestedExecutions: PublicExecutionResult[] = [];
     const unencryptedLogs = new FunctionL2Logs([]);
     // Functions can request to pack arguments before calling other functions.
@@ -114,11 +113,6 @@ export class PublicExecutor {
         }
         return newValues.map(v => toACVMField(v));
       },
-      createNullifier: async ([nullifier]) => {
-        this.log('Creating nullifier: ' + nullifier.toString());
-        newNullifiers.push(fromACVMField(nullifier));
-        return await Promise.resolve(ZERO_ACVM_FIELD);
-      },
       callPublicFunction: async ([address], [functionSelector], [argsHash]) => {
         const args = packedArgs.unpack(fromACVMField(argsHash));
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
@@ -153,10 +147,12 @@ export class PublicExecutor {
       returnValues,
       newL2ToL1Msgs,
       newCommitments: newCommitmentsPadded,
+      newNullifiers: newNullifiersPadded,
     } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
     const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
     const newCommitments = newCommitmentsPadded.filter(v => !v.isZero());
+    const newNullifiers = newNullifiersPadded.filter(v => !v.isZero());
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
     this.log(
