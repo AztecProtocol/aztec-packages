@@ -1,12 +1,8 @@
 ---
-title: Sandbox
+title: Intial Sandbox Features
 ---
 
-:::info
-We're aiming for a minimal version of an Aztec Sandbox -- with the below features -- in Q3.
-:::
-
-The Aztec Sandbox Node is intended to provide developers with a lightweight & fast node, with features similar to Ethereum's Ganache or Anvil 'local node' packages.
+The Aztec Sandbox is intended to provide developers with a lightweight & fast node, with features similar to Ethereum's Ganache or Anvil 'local node' packages.
 
 Devs should be able to quickly spin up local, emulated instances of an Ethereum blockchain and an Aztec encrypted rollup, and start deploying confidential contracts and submitting confidential txs.
 

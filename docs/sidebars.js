@@ -43,7 +43,8 @@ const sidebars = {
       },
       items: [
         "about_aztec/roadmap/features_initial_ldt",
-        "about_aztec/roadmap/milestones",
+        "about_aztec/roadmap/full_roadmap",
+        "about_aztec/roadmap/engineering_roadmap",
         "about_aztec/roadmap/cryptography_roadmap",
       ],
     },
@@ -206,6 +207,7 @@ const sidebars = {
         id: "dev_docs/contracts/main",
       },
       items: [
+        "dev_docs/contracts/workflow",
         "dev_docs/contracts/syntax",
         "dev_docs/contracts/contract",
         "dev_docs/contracts/layout",
@@ -220,6 +222,7 @@ const sidebars = {
         "dev_docs/contracts/constrain",
         "dev_docs/contracts/compiling",
         "dev_docs/contracts/deploying",
+        "dev_docs/contracts/abi",
         {
           label: "Portals",
           type: "category",
@@ -320,6 +323,18 @@ const sidebars = {
     },
 
     {
+      label: "Limitations",
+      type: "doc",
+      id: "dev_docs/limitations/main",
+    },
+
+    {
+      label: "Privacy Considerations",
+      type: "doc",
+      id: "dev_docs/privacy/main",
+    },
+
+    {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
@@ -338,8 +353,6 @@ const sidebars = {
     },
 
     "misc/aztec_connect_sunset",
-
-    "embedding_github_code",
   ],
 };
 
