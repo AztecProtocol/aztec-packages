@@ -203,10 +203,10 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Get latest L2 block number.
-   * @returns The latest block number.
+   * Fetches the current block height (number of L2 blocks ever produced).
+   * @returns The block height.
    */
-  getBlockNum(): Promise<number>;
+  getBlockHeight(): Promise<number>;
 
   /**
    * Returns the information about the server's node

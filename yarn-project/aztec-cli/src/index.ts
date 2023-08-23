@@ -459,12 +459,12 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
-    .command('block-number')
-    .description('Gets the current Aztec L2 block number.')
+    .command('block-height')
+    .description('Gets the current Aztec L2 block height.')
     .option('-u, --rpcUrl <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (options: any) => {
       const client = createClient(options.rpcUrl);
-      const num = await client.getBlockNum();
+      const num = await client.getBlockHeight();
       log(`${num}\n`);
     });
 

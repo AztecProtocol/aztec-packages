@@ -241,7 +241,7 @@ export class AztecRPCServer implements AztecRPC {
     return partialReceipt;
   }
 
-  async getBlockNum(): Promise<number> {
+  async getBlockHeight(): Promise<number> {
     return await this.node.getBlockHeight();
   }
 

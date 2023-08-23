@@ -409,21 +409,21 @@ Example usage:
 aztec-cli get-logs 1000 10
 ```
 
-### block-num
+### block-height
 
-Gets the current Aztec L2 block number.
+Gets the current Aztec L2 block number/block height.
 
 Syntax:
 
 ```shell
-aztec-cli block-number
+aztec-cli block-height
 ```
 
 Options:
 
 - `-u, --rpc-url <string>`: URL of the Aztec RPC. Default: `http://localhost:8080`.
 
-This command retrieves and displays the current Aztec L2 block number.
+This command retrieves and displays the current Aztec L2 block number/block height.
 
 ### example-contracts
 
