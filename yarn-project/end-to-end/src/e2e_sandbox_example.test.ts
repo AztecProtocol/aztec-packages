@@ -127,7 +127,7 @@ describe('e2e_sandbox_example', () => {
 
     // We can view the unencrypted logs emitted by the contract...
     const viewUnencryptedLogs = async () => {
-      const lastBlock = await aztecRpc.getBlockNum();
+      const lastBlock = await aztecRpc.getBlockNumber();
       logger(`Retrieving unencrypted logs for block ${lastBlock}`);
       const logs = await aztecRpc.getUnencryptedLogs(lastBlock, 1);
       const unrolledLogs = L2BlockL2Logs.unrollLogs(logs);
