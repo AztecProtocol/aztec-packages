@@ -51,6 +51,8 @@ impl ValueNote {
         ])[0]
     }
 
+    // docs:start:nullifier
+
     fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
         let owner_nullifying_public_key = get_public_key(self.owner);
@@ -62,6 +64,8 @@ impl ValueNote {
             secret,
         ])[0]
     }
+
+    // docs:end:nullifier
 
     fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
