@@ -64,7 +64,7 @@
             {
                 "name": "(lldb) Launch Target",
                 "type": "lldb",
-                "request": "launch",
+                "request": "lch",
                 "program": "${command:cmake.launchTargetPath}",
                 "args": [],
                 "cwd": "${workspaceFolder}/cpp/build",

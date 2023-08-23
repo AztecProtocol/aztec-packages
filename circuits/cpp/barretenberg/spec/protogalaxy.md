@@ -209,6 +209,9 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
 
+
+    // From talking to Cody and Luke we should have an Instance that couples the shared functionality and then it is either FoldingInstance or NormalInstance
+
     // Produced by the FoldingProver and FoldingVerifier, respectively, in the previous folding stage.
     // If this is the first folding stage, we take k+1 CircuitBuilders and we initialise
     // acc_proving_key and acc_verification_key from the first CircuitBuilder.
@@ -286,30 +289,14 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     }
 }
 
-// It would be nice to have only a DeciderFlavor and instantiate the UltraConmposer with 
-// that but the CircuitBuilder is very ingrained in the UltraComposer and we only have a
-// ProvingKey and VerificationKey at this stage
-template <DeciderFlavor Flavor> class DeciderComposer {
-    // A DeciderFlavor will not have a CircuitBuilder! but only the ProvingKey and VerificationKey obtained from the FoldingProver and FoldingVerifier
-    using ProvingKey = typename Flavor::ProvingKey;
-    using VerificationKey = typename Flavor::VerificationKey;
-    // The PCS appears in the Decider because we run a full Honk proof
-    using PCS = typename Flavor::PCS;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
 
-    // We should probably have no empty constructor for the DeciderComposer
-    DeciderComposer(ProvingKey pk, VerificationKey vk);
+template <UltraFlavor Flavor> class Instance {
+    // contains functionality to compute proving and verification key stuff 
+}
 
-    // Is a DeciderProver and DeciderVerifier overkill?
-    // Potentially yes because we could instantiate an UltraProver and UltraVerifier with a DeciderFlavor
-    bool decide() {
-        compute_commitment_key(...)
-        UltraProver_<Flavor> prover(proving_key, verification_key);
-        auto proof = prover.construct_proof();
-        UltraVerifier_<Flavor> verifier(verification_key);
-        return verifier.verify_proof(proof);
-    }
+template <UltraFlavor Flavor> class FoldedInstance: Instance {
+   //  uses the Instance functionality
+   // deals with multiple proving and verification keys 
 }
 ```
 ___
@@ -328,15 +315,9 @@ Currently in the circuits library, after `stdlib::recursion::verify_proof` has b
     auto verifier = composer.create_folding_verifier(circuit_builders);
     auto acc_verifying_key = verifier.verify_folding_proof(folding_proof);
 
-    // in practice the FoldingVerifier will be a RecursiveVerifier
-
-    // Option 1: we want to fold again
-    FoldingComposer composer = FoldingComposer(acc_proving_key, acc_verifying_key);
-    // same thing again 
-
-    // Option 2: we want to decide
-    DeciderComposer composer = DeciderComposer(acc_proving_key, acc_verifying_key);
-    auto result = composer.decide()
+// The Decider is going to be an UltraComposer instantiated from the ProvingKey and VerificationKey of the accumulated instance resulted from folding
+    UltraComposer composer = UltraComposer(acc_proving_key, acc_verifying_key);
+    // create pover and verifier as usual
 
 ```
 
