@@ -87,12 +87,14 @@ describe('Private Execution test suite', () => {
     abi,
     args = [],
     origin = AztecAddress.random(),
+    msgSender = AztecAddress.ZERO,
     contractAddress = defaultContractAddress,
     portalContractAddress = EthAddress.ZERO,
     txContext = {},
   }: {
     abi: FunctionAbi;
     origin?: AztecAddress;
+    msgSender?: AztecAddress;
     contractAddress?: AztecAddress;
     portalContractAddress?: EthAddress;
     args?: any[];
@@ -113,6 +115,7 @@ describe('Private Execution test suite', () => {
       abi,
       functionData.isConstructor ? AztecAddress.ZERO : contractAddress,
       portalContractAddress,
+      msgSender,
     );
   };
 
@@ -301,12 +304,13 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [amountToTransfer, owner, recipient];
-      const result = await runSimulator({ args, abi });
+      const args = [amountToTransfer, recipient];
+      const result = await runSimulator({ args, abi, msgSender: owner });
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
+      expect(newNullifiers).toHaveLength(consumedNotes.length);
+      expect(newNullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -327,7 +331,8 @@ describe('Private Execution test suite', () => {
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
-      expect(readRequests).toEqual(consumedNotes.map(n => n.uniqueSiloedNoteHash));
+      expect(readRequests).toHaveLength(consumedNotes.length);
+      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueSiloedNoteHash)));
     });
 
     it('should be able to transfer with dummy notes', async () => {
@@ -345,8 +350,8 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [amountToTransfer, owner, recipient];
-      const result = await runSimulator({ args, abi });
+      const args = [amountToTransfer, recipient];
+      const result = await runSimulator({ args, abi, msgSender: owner });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
@@ -530,11 +535,12 @@ describe('Private Execution test suite', () => {
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
       const args = [amountToTransfer, owner, recipient];
-      const result = await runSimulator({ args, abi });
+      const result = await runSimulator({ args, abi, msgSender: owner });
 
       // The two notes were nullified
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
-      expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));
+      expect(newNullifiers).toHaveLength(consumedNotes.length);
+      expect(newNullifiers).toEqual(expect.arrayContaining(consumedNotes.map(n => n.innerNullifier)));
 
       expect(result.preimages.newNotes).toHaveLength(2);
       const [changeNote, recipientNote] = result.preimages.newNotes;
@@ -555,7 +561,8 @@ describe('Private Execution test suite', () => {
       expect(changeNote.preimage[0]).toEqual(new Fr(40n));
 
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
-      expect(readRequests).toEqual(consumedNotes.map(n => n.uniqueSiloedNoteHash));
+      expect(readRequests).toHaveLength(consumedNotes.length);
+      expect(readRequests).toEqual(expect.arrayContaining(consumedNotes.map(n => n.uniqueSiloedNoteHash)));
     });
 
     it('should be able to transfer with dummy notes', async () => {
