@@ -99,9 +99,7 @@ export class AztecRPCServer implements AztecRPC {
       this.synchroniser.addAccount(pubKey, this.keyStore);
       this.log.info(`Added account: ${completeAddress.toReadableString()}`);
     } else {
-      this.log.info(
-        `Skipped adding account "${completeAddress.toReadableString()}" because he/she was registered before.`,
-      );
+      this.log.info(`Account "${completeAddress.toReadableString()}" already registered.`);
     }
   }
 
@@ -125,7 +123,7 @@ export class AztecRPCServer implements AztecRPC {
     if (wasAdded) {
       this.log.info(`Added recipient: ${recipient.toReadableString()}`);
     } else {
-      this.log.info(`Skipped adding recipient "${recipient.toReadableString()}" because he/she was registered before.`);
+      this.log.info(`Recipient "${recipient.toReadableString()}" already registered.`);
     }
   }
 
