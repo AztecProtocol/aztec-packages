@@ -3,10 +3,11 @@ name: Test bb.js
 on:
   push:
     branches:
-      - jb/bbjs-testing
+      - "**"
 
 jobs:
   build:
+    timeout-minutes: 60
     runs-on: ubuntu-latest
 
     steps:
@@ -29,26 +30,11 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install ninja-build yarn
 
-      - name: Install Clang16
-        run: |
-          wget https://github.com/llvm/llvm-project/releases/download/llvmorg-16.0.0/clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-          tar -xvf clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz
-          sudo cp clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/bin/* /usr/local/bin/
-          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/include/* /usr/local/include/
-          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/lib/* /usr/local/lib/
-          sudo cp -r clang+llvm-16.0.0-x86_64-linux-gnu-ubuntu-18.04/share/* /usr/local/share/
-
       - name: Install yarn
         run: |
           curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
           echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
           sudo apt -y update && sudo apt -y install yarn
-      - name: Compile Barretenberg
-        run: |
-          cd cpp
-
-          cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
-          cmake --build --preset default --target bb
 
       - name: Install WASI-SDK
         run: |
@@ -60,7 +46,37 @@ jobs:
           cd ts
           yarn install && yarn && yarn build
 
-      - name: Output result
+      - name: Pack the library for npm
         run: |
-          cd ts/dest
-          ls -R
+          cd ts
+          npm pack
+          echo "TARBALL_NAME=$(ls *.tgz)" >> $GITHUB_ENV
+
+      - name: Checkout nextjs-bbjs-demo repository
+        uses: actions/checkout@v3
+        with:
+          repository: noir-lang/nextjs-bbjs-demo
+          ref: bbjs-tests
+          path: nextjs-bbjs-demo
+
+      - name: Update package.json to point to local tarball dependency
+        run: |
+          jq ".dependencies[\"@aztec/bb.js\"] = \"file:../ts/${TARBALL_NAME}\"" nextjs-bbjs-demo/package.json > nextjs-bbjs-demo/package.temp.json
+          mv nextjs-bbjs-demo/package.temp.json nextjs-bbjs-demo/package.json
+          cat nextjs-bbjs-demo/package.json
+
+      - name: Install dependencies in nextjs-bbjs-demo
+        run: |
+          cd nextjs-bbjs-demo
+          npm install
+
+      - name: Output bb.js package contents
+        run: |
+          cd nextjs-bbjs-demo/node_modules/@aztec/bb.js
+
+      - name: Run dev and test scripts concurrently
+        run: |
+          cd nextjs-bbjs-demo
+          npm run dev
+          sleep 30
+          npm run test
