@@ -28,7 +28,7 @@ describe('e2e_public_token_contract', () => {
 
   const expectLogsFromLastBlockToBe = async (logMessages: string[]) => {
     // docs:start:logs
-    
+
     const l2BlockNum = await aztecRpcServer.getBlockNumber();
     const unencryptedLogs = await aztecRpcServer.getUnencryptedLogs(l2BlockNum, 1);
 

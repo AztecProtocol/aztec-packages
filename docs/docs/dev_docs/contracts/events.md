@@ -1,10 +1,10 @@
 ## Events
 Events in Aztec works similarly to Ethereum events in a sense that they are a way for contracts to communicate with the outside world.
-They are emitted by contracts and stored inside AztecNode.
+They are emitted by contracts and stored inside each instance ofAztecNode.
 Aztec events are currently represented as raw data and are not ABI encoded.
 ABI encoded events are a feature that will be added in the future.
 
-Unlike on Ethereum, there are 2 types of events: encrypted and unencrypted.
+Unlike on Ethereum, there are 2 types of events supported by Aztec: encrypted and unencrypted.
 
 ### Encrypted Events
 Encrypted events can only be emitted by private functions and are encrypted using a public key of a recipient.
@@ -35,6 +35,8 @@ await aztecRpc.registerRecipient(completeAddress);
 
 </TabItem>
 </Tabs>
+
+> **NOTE**: If a note recipient is one of the accounts inside the Aztec RPC, we don't need to register it as a recipient because we already have the public key available.
 
 At this point we only allow emitting note spending info through encrypted events.
 In the future we will allow emitting arbitrary information.
@@ -95,8 +97,7 @@ If the decryption is successful, AztecRPC server will store the decrypted note i
 If the decryption fails, the specific log will be discarded.
 
 For the AztecRPC server to successfully process the decrypted note we need to compute note hash and nullifier.
-Because we want to support arbitrary ways of computing these values, we allow developers to specify a custom function for computing them inside the relevant contract.
-For this reason each contract working with encrypted events needs to implement the `compute_note_hash_and_nullifier` function.
+Because we want to support arbitrary ways of computing these values, Noir developers need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
 
 This is an example implementation inside the `PrivateTokenContract`:
 
