@@ -35,8 +35,8 @@ describe('e2e_sandbox_example', () => {
     const logger = createDebugLogger('private-token');
     const sandboxUrl = 'http://localhost:8080';
 
-    // We create AztecRPC client connected to the sandbox URL and we use fetch with 3 automatic retries and a 1s, 2s
-    // and 3s intervals between failures
+    // We create AztecRPC client connected to the sandbox URL and we use fetch with
+    // 3 automatic retries and a 1s, 2s and 3s intervals between failures.
     const aztecRpc = createAztecRpcClient(sandboxUrl, makeFetch([1, 2, 3], false));
 
     const nodeInfo = await aztecRpc.getNodeInfo();
