@@ -199,11 +199,13 @@ If k = 128 we're going to need to compute terms like $L_j(Y)L_m(Y)$ of degree 25
 
 ```c++
 // for simplicity I ommitted header/source file separation and shared_ptr mentions
+// maybe not needed, could use UltraComposer
+// FoldingFlavor - not needed
 template <FoldingFlavor Flavor> class FoldingComposer {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     // The ProvingKey and VerificationKey in the FoldingFlavor will also have beta and e (which will be update to Beta* and e* in construct_folding_proof and verify_folding_proof)
-    // what if beta = randomizer_term
-    // and e = relaxation_term (or are we happy with beta and e?)
+    // what if beta = gate_separation_challenge
+    // and e = target_total_sum
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
 
@@ -218,6 +220,8 @@ template <FoldingFlavor Flavor> class FoldingComposer {
     CircuitBuilder[] circuit_builders;
     ProvingKey[] inst_proving_keys[];
     VerificationKey[] inst_verification_keys;
+
+    // maybe they can all live in the arrays
 
     FoldingComposer();
     // We will use this to create a FoldingComposer after we have folded at least once
@@ -241,6 +245,7 @@ template <FoldingFlavor Flavor> class FoldingComposer {
         return prover;
     }
 
+    // std::vector / array or pointers?
     FoldingVerifier<Flavor> create_verifier(CircuitBuilder[] builders) {
         // if this is the first time we fold i.e. acc_verifier_key is null, need to initialise the acc_verification_key with the first Circuit_Builder
         // is this extra if clause ok to have?
@@ -259,12 +264,15 @@ template <FoldingFlavor Flavor> class FoldingComposer {
         // Coefficients of K
         std::vector<FF> combiner_quotient_coeffs;
 
+        // add proving key 
+
     }
 
     template <FoldingFlavor Flavor> class FoldingProver {
         using ProvingKey = typename Flavor::ProvingKey;
         // The FoldingProof goes to the FoldingVerifier and the ProvingKey will be used to construct the next 
         // FoldingComposer
+        // NO PAIRS, just one FoldingProof
         std::pair<FoldingProof, ProvingKey> construct_folding_proof() {
         }
 
@@ -272,7 +280,7 @@ template <FoldingFlavor Flavor> class FoldingComposer {
 
      template <FoldingFlavor Flavor> class FoldingVerifier {
         using VerificationKey = typename Flavor::VerificationKey;
-
+        // transcript
         VerificationKey verify_folding_proof(FoldingProof proof){
         }
     }
@@ -304,6 +312,7 @@ template <DeciderFlavor Flavor> class DeciderComposer {
     }
 }
 ```
+___
 ### How does this change the way things are done in the circuits library
 
 Currently in the circuits library, after `stdlib::recursion::verify_proof` has been called once (`verify_proof` is responsible for recursive verification), an `AggregationObject` is constructed, whose `aggregate` method incrementally continues to verify proofs, wtih folding this could change to something like below
@@ -330,3 +339,12 @@ Currently in the circuits library, after `stdlib::recursion::verify_proof` has b
     auto result = composer.decide()
 
 ```
+
+compute_proving_key_inner
+compute_verification_key_inner
+keep UltraComposer
+have FoldingProver and FoldingVerifier
+at first iteration \vec{beta} is all the powers of beta and e is 0
+these will be in the flavor
+
+circuits might have different sizes

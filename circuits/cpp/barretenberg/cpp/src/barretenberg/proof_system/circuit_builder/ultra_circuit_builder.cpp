@@ -47,6 +47,7 @@ template <typename FF> void UltraCircuitBuilder_<FF>::finalize_circuit()
         process_RAM_arrays();
         process_range_lists();
         circuit_finalised = true;
+        // compute dyadic and lookup stuff here?
     }
 }
 

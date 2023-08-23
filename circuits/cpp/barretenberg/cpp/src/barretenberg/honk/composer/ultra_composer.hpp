@@ -26,8 +26,11 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     static constexpr std::string_view NAME_STRING = "UltraHonk";
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
+    // I would rename this acc_proving_key and acc_verification key (or curr??)
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
+
+    // then you'd have the arrays
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
     std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
@@ -35,9 +38,11 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
 
+    // i think these could go in the proving key :-?
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
     bool computed_witness = false;
+    // some are in the circuit builder some just need to be added there
     size_t total_num_gates = 0; // num_gates + num_pub_inputs + tables + zero_row_offset (used to compute dyadic size)
     size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
     size_t lookups_size = 0;        // total number of lookup gates
@@ -63,7 +68,9 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     ~UltraComposer_() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_constructor);
+    std::shared_ptr<ProvingKey> compute_proving_key_inner(const CircuitBuilder& circuit_constructor);
     std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    std::shared_ptr<VerificationKey> compute_verification_key_inner(const CircuitBuilder& circuit_constructor);
 
     void compute_circuit_size_parameters(CircuitBuilder& circuit_constructor);
 

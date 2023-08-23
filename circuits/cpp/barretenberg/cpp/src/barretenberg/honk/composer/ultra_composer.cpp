@@ -221,13 +221,9 @@ UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const CircuitBuil
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_proving_key(
+std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_proving_key_inner(
     const CircuitBuilder& circuit_constructor)
 {
-    if (proving_key) {
-        return proving_key;
-    }
-
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
 
     construct_selector_polynomials<Flavor>(circuit_constructor, proving_key.get());
@@ -289,6 +285,17 @@ std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_pro
     return proving_key;
 }
 
+template <UltraFlavor Flavor>
+std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_proving_key(
+    const CircuitBuilder& circuit_constructor)
+{
+    if (proving_key) {
+        return proving_key;
+    }
+
+    return compute_proving_key_inner(circuit_constructor);
+}
+
 /**
  * Compute verification key consisting of selector precommitments.
  *
@@ -302,8 +309,17 @@ std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::comput
         return verification_key;
     }
 
+    return compute_verification_key_inner(circuit_constructor);
+}
+
+template <UltraFlavor Flavor>
+std::shared_ptr<typename Flavor::VerificationKey> UltraComposer_<Flavor>::compute_verification_key_inner(
+    const CircuitBuilder& circuit_constructor)
+{
+
     if (!proving_key) {
-        compute_proving_key(circuit_constructor);
+        // has to be the correct one!!!
+        compute_proving_key_inner(circuit_constructor);
     }
 
     verification_key =
