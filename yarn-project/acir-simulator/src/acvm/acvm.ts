@@ -41,7 +41,6 @@ type ORACLE_NAMES =
   | 'storageRead'
   | 'storageWrite'
   | 'createCommitment'
-  | 'createL2ToL1Message'
   | 'createNullifier'
   | 'getCommitment'
   | 'getL1ToL2Message'

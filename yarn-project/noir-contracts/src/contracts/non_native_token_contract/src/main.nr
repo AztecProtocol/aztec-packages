@@ -50,11 +50,6 @@ contract NonNativeToken {
         },
     };
 
-    // oracles
-    use dep::aztec::oracle::{
-        create_l2_to_l1_message::create_l2_to_l1_message,
-    };
-
     // public messaging
     use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
@@ -206,8 +201,7 @@ contract NonNativeToken {
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message
-        // TODO: make in the context
-        create_l2_to_l1_message(content);
+        context.message_portal(content);
 
         // Push the return value into the context
         context.finish()

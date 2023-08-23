@@ -121,11 +121,6 @@ export class PublicExecutor {
         newCommitments.push(fromACVMField(commitment));
         return await Promise.resolve(ZERO_ACVM_FIELD);
       },
-      createL2ToL1Message: async ([message]) => {
-        this.log('Creating L2 to L1 message: ' + message.toString());
-        newL2ToL1Messages.push(fromACVMField(message));
-        return await Promise.resolve(ZERO_ACVM_FIELD);
-      },
       createNullifier: async ([nullifier]) => {
         this.log('Creating nullifier: ' + nullifier.toString());
         newNullifiers.push(fromACVMField(nullifier));
