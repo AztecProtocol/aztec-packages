@@ -2,6 +2,8 @@ import { AztecAddress } from '@aztec/circuits.js';
 import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 export * from './entrypoint_collection.js';
+export * from './entrypoint_payload.js';
+export * from './entrypoint_utils.js';
 export * from './single_key_account_entrypoint.js';
 export * from './stored_key_account_entrypoint.js';
 
