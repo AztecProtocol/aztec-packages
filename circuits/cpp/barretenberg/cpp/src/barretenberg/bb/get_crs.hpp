@@ -24,7 +24,6 @@ inline std::string getTranscriptURL()
 
 inline std::vector<uint8_t> download_g1_data(size_t num_points)
 {
-
     size_t g1_start = 28;
     size_t g1_end = g1_start + num_points * 64 - 1;
 
