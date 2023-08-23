@@ -4,7 +4,7 @@ contract PrivateToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::{increase_balance, decrease_balance},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
@@ -37,7 +37,7 @@ contract PrivateToken {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            send_note(&mut context, owner_balance, initial_supply, owner);
+            increase_balance(&mut context, owner_balance, initial_supply, owner);
             emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
 
@@ -61,7 +61,7 @@ contract PrivateToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        send_note(&mut context, owner_balance, amount, owner);
+        increase_balance(&mut context, owner_balance, amount, owner);
         emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
@@ -85,11 +85,11 @@ contract PrivateToken {
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        decrease_balance(&mut context, sender_balance, amount, sender);
 
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, amount, recipient);
+        increase_balance(&mut context, recipient_balance, amount, recipient);
         
         emit_unencrypted_log(&mut context, "Coins transferred");
 

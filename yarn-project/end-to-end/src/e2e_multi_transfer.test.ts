@@ -166,29 +166,55 @@ describe('multi-transfer payments', () => {
    *
    * End state:
    * sender: [50, 50, 50, 50, 50, 50, 50, 50, 50, 400, 50, 50, 50]
+   *
+   * Transaction 2: Spend more notes than it's allowed in a single call, to transfer some amount to a recipient.
+   * It will destroy the largest note (400n) plus 8 small notes (50n * 8n).
+   * 4 notes will be destroyed first: [400n, 50n, 50n, 50n]
+   * And another 4 + 1 notes will be burnt in two function calls: [50n, 50n, 50n, 50n] and [50n]
+   * One change note (10n) will be created for the sender.
+   * One note will be created for the recipient.
    */
   it('create 12 small notes out of 1 large note', async () => {
     // Transaction 1
-    const amounts: bigint[] = [50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n];
-    const noteOffsets: bigint[] = [0n, 0n, 3n, 6n];
-    const repeatedSelfAdddress: AztecAddress[] = Array(12).fill(ownerAddress);
-
     logger(`split multiTransfer()...`);
-    const multiTransferTx = multiTransferContract.methods
-      .multiTransfer(
-        zkTokenContract.address.toField(),
-        repeatedSelfAdddress,
-        amounts,
-        ownerAddress,
-        Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
-        noteOffsets,
-      )
-      .send({ origin: ownerAddress });
-    await multiTransferTx.isMined({ timeout: 100 }); // mining timeout ≥ time needed for the test to finish.
-    const multiTransferTxReceipt = await multiTransferTx.getReceipt();
-    logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
+    {
+      const amounts: bigint[] = [50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n, 50n];
+      const noteOffsets: bigint[] = [0n, 0n, 3n, 6n];
+      const repeatedSelfAdddress: AztecAddress[] = Array(12).fill(ownerAddress);
 
-    await expectBalance(zkTokenContract, ownerAddress, initialBalance);
-    await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
+      const multiTransferTx = multiTransferContract.methods
+        .multiTransfer(
+          zkTokenContract.address.toField(),
+          repeatedSelfAdddress,
+          amounts,
+          ownerAddress,
+          Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+          noteOffsets,
+        )
+        .send({ origin: ownerAddress });
+      await multiTransferTx.isMined({ timeout: 100 }); // mining timeout ≥ time needed for the test to finish.
+      const multiTransferTxReceipt = await multiTransferTx.getReceipt();
+      logger(`Consumption Receipt status: ${multiTransferTxReceipt.status}`);
+
+      await expectBalance(zkTokenContract, ownerAddress, initialBalance);
+      await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 16);
+    }
+
+    // Transaction 2
+    logger(`transfer()`);
+    {
+      const transferAmount = 400n + 50n * 7n + 40n;
+      const recipient = recipients[0];
+      await expectBalance(zkTokenContract, recipient, 0n);
+
+      const transferTx = zkTokenContract.methods.transfer(transferAmount, recipient).send({ origin: ownerAddress });
+      await transferTx.isMined();
+      const txReceipt = await transferTx.getReceipt();
+      logger(`consumption Receipt status: ${txReceipt.status}`);
+
+      await expectBalance(zkTokenContract, ownerAddress, initialBalance - transferAmount);
+      await expectBalance(zkTokenContract, recipient, transferAmount);
+      await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
+    }
   }, 100_000);
 });
