@@ -1,5 +1,5 @@
 ## Events
-Events in Aztec works similarily to Ethereum events in a sense that they are a way for contracts to communicate with the outside world.
+Events in Aztec works similarly to Ethereum events in a sense that they are a way for contracts to communicate with the outside world.
 They are emitted by contracts and stored inside AztecNode.
 Aztec events are currently represented as raw data and are not ABI encoded.
 ABI encoded events are a feature that will be added in the future.
@@ -40,6 +40,13 @@ At this point we only allow emitting note spending info through encrypted events
 In the future we will allow emitting arbitrary information.
 (If you currently emit arbitrary information, AztecRPC server will fail to process it and it will not be queryable.)
 
+To emit encrypted logs first import the `emit_encrypted_log` utility function inside your contract:
+
+#include_code encrypted_import /yarn-project/noir-libs/value-note/src/utils.nr rust
+
+Then you can call the function:
+
+#include_code encrypted /yarn-project/noir-libs/value-note/src/utils.nr rust
 
 
 ### Unencrypted Events
@@ -63,12 +70,34 @@ aztec-cli get-logs --from 5 --limit 1
 </TabItem>
 </Tabs>
 
+To emit unencrypted logs first import the `emit_unencrypted_log` utility function inside your contract:
+
+#include_code unencrypted_import /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+
+Then you can call the function:
+
+#include_code unencrypted /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
+
 ### Costs
 
-Explain L1 cost to emit an event.
+All the event data is pushed on Ethereum by the sequencer and for this reason the cost of emitting an event is non-trivial.
 
 ## Processing events
+Both the encrypted and unencrypted events are stored in AztecNode.
+Unencrypted logs can be queried by anyone as we described above in the [Unencrypted Events](#unencrypted-events) section.
+
+Encrypted logs need to first be decrypted:
 
 ### Decrypting
+One function of AztecRPC server is constantly loading encrypted logs from AztecNode and trying to decrypt them.
+When new encrypted logs are obtained, AztecRPC server will try to decrypt them using the private encryption key of all the accounts registered inside AztecRPC server.
+If the decryption is successful, AztecRPC server will store the decrypted note inside a database.
+If the decryption fails, the specific log will be discarded.
 
-### Stev
+For the AztecRPC server to successfully process the decrypted note we need to compute note hash and nullifier.
+Because we want to support arbitrary ways of computing these values, we allow developers to specify a custom function for computing them inside the relevant contract.
+For this reason each contract working with encrypted events needs to implement the `compute_note_hash_and_nullifier` function.
+
+This is an example implementation inside the `PrivateTokenContract`:
+
+#include_code compute_note_hash_and_nullifier /yarn-project/noir-contracts/src/contracts/private_token_contract/src/main.nr rust
