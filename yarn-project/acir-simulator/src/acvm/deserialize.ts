@@ -3,7 +3,6 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
-  FunctionSelector,
   HistoricBlockData,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -16,7 +15,7 @@ import {
   NUM_FIELDS_PER_SHA256,
   PrivateCircuitPublicInputs,
   PublicCircuitPublicInputs,
-  RETURN_VALUES_LENGTH,
+  RETURN_VALUES_LENGTH
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
