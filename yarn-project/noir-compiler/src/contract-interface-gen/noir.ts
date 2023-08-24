@@ -91,7 +91,7 @@ function generateParameter(param: ABIParameter, functionData: FunctionAbi) {
 
 /**
  * Collects all parameters for a given function and flattens them according to how they should be serialised.
- * @param parameters - Paramters for a function.
+ * @param parameters - Parameters for a function.
  * @returns List of parameters flattened to basic data types.
  */
 function collectParametersForSerialisation(parameters: ABIVariable[]) {
