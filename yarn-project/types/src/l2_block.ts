@@ -28,6 +28,11 @@ export class L2Block {
   private static logger = createDebugLogger('aztec:l2_block');
 
   /**
+   * The number of L2Tx in this L2Block.
+   */
+  public numberOfTxs: number;
+
+  /**
    * Encrypted logs emitted by txs in this block.
    * @remarks `L2BlockL2Logs.txLogs` array has to match number of txs in this block and has to be in the same order
    *          (e.g. logs from the first tx on the first place...).
@@ -132,6 +137,7 @@ export class L2Block {
     public newL1ToL2Messages: Fr[] = [],
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
+    private blockHash?: Buffer,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
@@ -143,6 +149,8 @@ export class L2Block {
     if (newUnencryptedLogs) {
       this.attachLogs(newUnencryptedLogs, LogType.UNENCRYPTED);
     }
+
+    this.numberOfTxs = Math.floor(this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX);
   }
 
   /**
@@ -610,7 +618,12 @@ export class L2Block {
       ]);
       leafs.push(sha256(inputValue));
     }
-    return computeRoot(leafs);
+
+    if (!this.blockHash) {
+      this.blockHash = computeRoot(leafs);
+    }
+
+    return this.blockHash;
   }
 
   /**
@@ -630,9 +643,10 @@ export class L2Block {
    * @returns The tx.
    */
   getTx(txIndex: number) {
-    const numTxs = Math.floor(this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX);
-    if (txIndex >= numTxs) {
-      throw new Error(`Failed to get tx ${txIndex}. Block ${this.globalVariables.blockNumber} only has ${numTxs} txs.`);
+    if (txIndex >= this.numberOfTxs) {
+      throw new Error(
+        `Failed to get tx ${txIndex}. Block ${this.globalVariables.blockNumber} only has ${this.numberOfTxs} txs.`,
+      );
     }
 
     const newCommitments = this.newCommitments.slice(
@@ -660,7 +674,26 @@ export class L2Block {
       MAX_NEW_CONTRACTS_PER_TX * (txIndex + 1),
     );
 
-    return new L2Tx(newCommitments, newNullifiers, newPublicDataWrites, newL2ToL1Msgs, newContracts, newContractData);
+    return new L2Tx(
+      newCommitments,
+      newNullifiers,
+      newPublicDataWrites,
+      newL2ToL1Msgs,
+      newContracts,
+      newContractData,
+      this.getCalldataHash(),
+      this.number,
+    );
+  }
+
+  /**
+   * Get all the transaction in an L2 block.
+   * @returns The txx.
+   */
+  getTxs() {
+    return Array(this.numberOfTxs)
+      .fill(0)
+      .map((_, i) => this.getTx(i));
   }
 
   /**

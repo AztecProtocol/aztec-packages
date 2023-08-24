@@ -39,6 +39,14 @@ export class L2Tx {
      * New contract data created by the transaction.
      */
     public newContractData: ContractData[],
+    /**
+     * The unique identifier of the block containing the transaction.
+     */
+    public blockHash: Buffer,
+    /**
+     * The block number in which the transaction was included.
+     */
+    public blockNumber: number,
   ) {
     this.txHash = new TxHash(this.newNullifiers[0].toBuffer());
   }
