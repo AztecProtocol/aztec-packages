@@ -73,6 +73,9 @@ function encodeArg(arg: string, abiType: ABIType): any {
  * @returns The encoded array.
  */
 export function encodeArgs(args: any[], params: ABIParameter[]) {
+  if (args.length !== params.length) {
+    throw new Error(`Wrong number of args provided. Expected: ${params.length}, received: ${args.length}`);
+  }
   return args
     .map((arg: any, index) => {
       const paramType = params[index].type;
