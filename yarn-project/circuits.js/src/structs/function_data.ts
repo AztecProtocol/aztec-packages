@@ -42,7 +42,7 @@ export class FunctionData {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.selector.value, this.isInternal, this.isPrivate, this.isConstructor);
+    return serializeToBuffer(this.selector, this.isInternal, this.isPrivate, this.isConstructor);
   }
 
   /**
