@@ -10,5 +10,5 @@
       "path": "../foundation"
     }
   ],
-  "include": ["src", "../foundation/src/abi/function_selector.ts"]
+  "include": ["src"]
 }

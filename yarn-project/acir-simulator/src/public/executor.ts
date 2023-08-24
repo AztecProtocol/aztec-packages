@@ -18,7 +18,6 @@ import {
   convertACVMFieldToBuffer,
   extractPublicCircuitPublicInputs,
   frToAztecAddress,
-  frToSelector,
   fromACVMField,
   toACVMField,
   toACVMWitness,
@@ -118,7 +117,7 @@ export class PublicExecutor {
         this.log(`Public function call: addr=${address} selector=${functionSelector} args=${args.join(',')}`);
         const childExecutionResult = await this.callPublicFunction(
           frToAztecAddress(fromACVMField(address)),
-          frToSelector(fromACVMField(functionSelector)),
+          FunctionSelector.fromField(fromACVMField(functionSelector)),
           args,
           execution.callContext,
           globalVariables,

@@ -59,15 +59,6 @@ export function frToBoolean(fr: Fr): boolean {
 }
 
 /**
- * Converts a field to a function selector.
- * @param fr - The field to convert.
- * @returns The function selector.
- */
-export function frToSelector(fr: Fr): FunctionSelector {
-  return FunctionSelector.fromBuffer(fr.toBuffer().slice(-4));
-}
-
-/**
  * Extracts the return fields of a given partial witness.
  * @param acir - The bytecode of the function.
  * @param partialWitness - The witness to extract from.

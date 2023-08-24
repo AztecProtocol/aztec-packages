@@ -13,7 +13,7 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
-import { extractPrivateCircuitPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
+import { extractPrivateCircuitPublicInputs, frToAztecAddress } from '../acvm/deserialize.js';
 import {
   ZERO_ACVM_FIELD,
   acvm,
@@ -132,7 +132,7 @@ export class PrivateFunctionExecution {
 
           const childExecutionResult = await this.callPrivateFunction(
             frToAztecAddress(contractAddress),
-            frToSelector(functionSelector),
+            FunctionSelector.fromField(functionSelector),
             fromACVMField(acvmArgsHash),
             this.callContext,
             this.curve,
@@ -157,7 +157,7 @@ export class PrivateFunctionExecution {
         enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
           const enqueuedRequest = await this.enqueuePublicFunctionCall(
             frToAztecAddress(fromACVMField(acvmContractAddress)),
-            frToSelector(fromACVMField(acvmFunctionSelector)),
+            FunctionSelector.fromField(fromACVMField(acvmFunctionSelector)),
             this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
             this.callContext,
           );

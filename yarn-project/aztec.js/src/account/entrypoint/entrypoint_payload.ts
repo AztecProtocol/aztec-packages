@@ -52,7 +52,7 @@ export async function buildPayload(
       // eslint-disable-next-line camelcase
       flattened_args_hashes: packedArguments.map(args => args.hash),
       // eslint-disable-next-line camelcase
-      flattened_selectors: calls.map(call => Fr.fromBuffer(call.functionData.functionSelector.toBuffer())),
+      flattened_selectors: calls.map(call => call.functionData.functionSelector.toField()),
       // eslint-disable-next-line camelcase
       flattened_targets: calls.map(call => call.to.toField()),
       nonce,
