@@ -131,7 +131,7 @@ for STAGE in $STAGES; do
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
 
   echo "Pushing stage: $STAGE"
-  docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
+  docker push $STAGE_IMAGE_COMMIT_URI > /dev/null
   echo
 done
 
@@ -151,5 +151,5 @@ echo "Building image: $IMAGE_COMMIT_URI"
 docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG --build-arg ARG_COMMIT_HASH=$COMMIT_HASH . \
   | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
-docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+docker push $IMAGE_COMMIT_URI > /dev/null
 untag_remote_image $REPOSITORY tainted
