@@ -144,18 +144,6 @@ export class Sequencer {
       const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
       const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
 
-      // TODO(rahul) - fix #1614. By using the cheatcode warp to modify L2 time,
-      // txs in the new rollup would have same time as the txs in the previous rollup.
-      // We overcome this now by identifying if the last rollup time was warped (if two rollups have same time)
-      // and tell public-processor to use a different time (increment last rollup block)
-      // more details at https://github.com/AztecProtocol/aztec-packages/issues/1614
-      const isWarped =
-        !prevGlobalVariables.timestamp.equals(Fr.ZERO) &&
-        prevGlobalVariables.timestamp.equals(newGlobalVariables.timestamp);
-      if (isWarped) {
-        newGlobalVariables.timestamp = new Fr(newGlobalVariables.timestamp.value + 1n);
-      }
-
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
