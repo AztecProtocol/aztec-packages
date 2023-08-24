@@ -8,11 +8,11 @@ In this page we will cover the main responsibilities of a wallet in the Aztec ne
 
 The first step for any wallet is to let the user set up their [accounts](../../concepts/foundation/accounts/main.md). An account in Aztec is implemented by its corresponding account contract that the user must deploy to begin interacting with the network. A wallet must support at least one specific [account contract implementation](./writing_an_account_contract.md), which means being able to deploy such a contract, as well as formatting transactions for it.
 
-However, users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys) without having to interact with the network, so they can share with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialisation arguments, a deployment salt, and a privacy key. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
+However, users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialisation arguments, a deployment salt, and a privacy key. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
 
 ## Transaction lifecycle
 
-Every transaction in Aztec is broadcasted to the network as its zero-knowledge proof of correct execution, in order to preserve privacy. This means that transaction proofs are generated on the wallet and not on a remote node. This is one of the biggest differences with regard to EVM chain wallets.
+Every transaction in Aztec is broadcast to the network as a zero-knowledge proof of correct execution, in order to preserve privacy. This means that transaction proofs are generated on the wallet and not on a remote node. This is one of the biggest differences with regard to EVM chain wallets.
 
 A wallet is responsible for first **creating** an [execution request](../../concepts/foundation/accounts/main.md#execution-requests). This means going from an intent, such as _call transfer on this contract_, to an authenticated transaction formatted for the user's account contract. As an example, given an [ECDSA-based account](https://github.com/AztecProtocol/aztec-packages/blob/95d1350b23b6205ff2a7d3de41a37e0bc9ee7640/yarn-project/noir-contracts/src/contracts/ecdsa_account_contract/src/main.nr#L1), an execution request has the account contract as `origin`, calls its `entrypoint` function, and encodes the user intent as `payload`, which is signed using ECDSA with a private key managed by the wallet.
 
@@ -29,7 +29,7 @@ There are no proofs generated as of the Sandbox release. This will be included i
 :::
 ## Key management
 
-As in EVM-based chains, wallets are expected to manage user keys, or provide an interface to hardware wallets or alternate key stores. Keep in mind that in Aztec each account requires [two sets of keys](../../concepts/foundation/accounts/keys.md): privacy keys and authentication keys. Privacy keys are mandated by the protocol and used for encryption and nullification, whereas authentication keys are dependent on the account contract implementation rolled out by the wallet. Should the account contract support it, wallets must provide the user with the means to rotate or recover their authentication keys.
+As in EVM-based chains, wallets are expected to manage user keys, or provide an interface to hardware wallets or alternative key stores. Keep in mind that in Aztec each account requires [two sets of keys](../../concepts/foundation/accounts/keys.md): privacy keys and authentication keys. Privacy keys are mandated by the protocol and used for encryption and nullification, whereas authentication keys are dependent on the account contract implementation rolled out by the wallet. Should the account contract support it, wallets must provide the user with the means to rotate or recover their authentication keys.
 
 :::info
 Due to limitations in the current architecture, privacy keys need to be available in the wallet software itself and cannot be punted to an external keystore. This restriction may be lifted in a future release.
@@ -50,4 +50,4 @@ Last but not least, wallets also track the user's private state. Wallets current
 At the time of this writing, all private state is encrypted and broadcasted through the network, and eventually committed to L1. This means that a wallet can reconstruct its entire private state out of its encryption keys in the event of local data loss.
 :::
 
-Note that wallets must also scan for private state in blocks prior to their deployment, since users may have received private state before deployment.
+Note that wallets must also scan for private state in blocks prior to the deployment of a user's account contract, since users may have received private state before deployment.
