@@ -8,7 +8,7 @@ transcript in that:
    If more than 504000 points are desired at some point, it is likely we will 
    need to a small refactor so that more files are created.
 
-A full-length transcript file containing 504000 points would have
+A full-length transcript file containing 504000 points would have:
 BN254    transcript00.dat size: 322560412
 Grumpkin transcript00.dat size: 322560028
 322560028 - 322560412 = 384 =     256     +    128
