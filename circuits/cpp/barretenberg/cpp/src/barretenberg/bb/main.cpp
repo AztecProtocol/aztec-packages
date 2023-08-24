@@ -62,6 +62,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     std::cout << verified << std::endl;
     return verified;
 }
+
 /**
  * @brief Creates a proof for an ACIR circuit
  *
