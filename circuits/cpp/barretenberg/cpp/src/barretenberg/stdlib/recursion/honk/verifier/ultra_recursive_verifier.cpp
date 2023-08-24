@@ -35,7 +35,7 @@ UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(Ultr
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof, bool use_goblin)
 {
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
@@ -163,13 +163,22 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
-    auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    GroupElement batched_commitment_unshifted;
+    if (use_goblin) {
+        batched_commitment_unshifted = GroupElement::goblin_batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    } else {
+        batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    }
 
     info("Batch mul (unshifted): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
-    auto batched_commitment_to_be_shifted =
-        GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+    GroupElement batched_commitment_to_be_shifted;
+    if (use_goblin) {
+        batched_commitment_to_be_shifted = GroupElement::goblin_batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+    } else {
+        batched_commitment_to_be_shifted = GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+    }
 
     info("Batch mul (to-be-shited): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();

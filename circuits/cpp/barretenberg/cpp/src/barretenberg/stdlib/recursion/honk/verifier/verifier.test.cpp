@@ -15,12 +15,14 @@
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 
-template <typename OuterComposer> class RecursiveVerifierTest : public testing::Test {
+template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::Test {
+
+    static constexpr bool use_goblin_flag = UseGoblinFlag::value;
 
     using InnerComposer = ::proof_system::honk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
-    using OuterBuilder = typename OuterComposer::CircuitBuilder;
+    using OuterBuilder = ::proof_system::UltraCircuitBuilder;
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
     using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive>;
@@ -115,7 +117,7 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
 
         // Instantiate the recursive verifier and construct the recusive verification circuit
         RecursiveVerifier verifier(&outer_builder, verification_key);
-        auto pairing_points = verifier.verify_proof(proof_to_recursively_verify);
+        auto pairing_points = verifier.verify_proof(proof_to_recursively_verify, use_goblin_flag);
 
         // For testing purposes only, perform native verification and compare the result
         auto native_verifier = inner_composer.create_verifier(inner_circuit);
@@ -220,9 +222,11 @@ template <typename OuterComposer> class RecursiveVerifierTest : public testing::
     }
 };
 
-using OuterCircuitTypes = testing::Types<::proof_system::honk::UltraComposer>;
+// Run the recursive verifier tests twice, once without using a goblin style arithmetization of group operations and
+// once with.
+using UseGoblinFlag = testing::Types<std::false_type, std::true_type>;
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, OuterCircuitTypes);
+TYPED_TEST_SUITE(RecursiveVerifierTest, UseGoblinFlag);
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
 {

@@ -338,6 +338,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(composer);
     }
 
+    // WORKTODO: add a test for goblin_batch_mul
+
     static void test_batch_mul()
     {
         const size_t num_points = 5;
