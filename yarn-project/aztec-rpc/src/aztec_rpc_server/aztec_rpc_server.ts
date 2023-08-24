@@ -227,13 +227,6 @@ export class AztecRPCServer implements AztecRPC {
       return new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
-    // https://github.com/AztecProtocol/aztec-packages/issues/1547
-    // Pending txs are managed by p2pClient, and settled txs are managed by archiver.
-    // Becasue they operate independently,
-    // there's a slight chance that a tx that has been removed from the pending txs pool by p2pClient
-    // hasn't been added as a settled tx by archiver.
-    // In that situation, the tx will be incorrectly marked as DROPPED.
-
     return new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
   }
 
