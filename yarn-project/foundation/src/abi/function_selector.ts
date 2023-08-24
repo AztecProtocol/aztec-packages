@@ -9,7 +9,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
  */
 export class FunctionSelector {
   /**
-   * The size of the hash in bytes.
+   * The size of the function selector in bytes.
    */
   public static SIZE = 4;
 
