@@ -1,4 +1,5 @@
-import { FunctionSelector } from '../../../foundation/src/abi/function_selector.js';
+import { FunctionSelector } from '@aztec/foundation/abi';
+
 import { expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { FunctionData } from './function_data.js';
 

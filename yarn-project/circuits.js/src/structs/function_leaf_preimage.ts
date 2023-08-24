@@ -1,7 +1,7 @@
+import { FunctionSelector } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { FunctionSelector } from '../../../foundation/src/abi/function_selector.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 
 /**
