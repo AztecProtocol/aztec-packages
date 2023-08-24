@@ -54,7 +54,12 @@ Then you can call the function:
 ### Unencrypted Events
 Unencrypted events are events which can be read by anyone.
 They can be emitted by both public and private functions.
-It's important for a developer to consider whether it's acceptable for the unencrypted event to be emitted from private functions as it might pose a significant privacy leak.
+
+:::danger
+
+Emitting unencrypted events from private function is a significant privacy leak and it should be considered by the developer whether it is acceptable.
+
+:::
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 <Tabs groupId="events">
