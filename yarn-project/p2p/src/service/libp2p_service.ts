@@ -374,7 +374,7 @@ export class LibP2PService implements P2PService {
   private async sendRawMessageToPeer(message: Uint8Array, peer: PeerId) {
     const stream = await this.node.dialProtocol(peer, this.protocolId);
     await pipe([message], stream);
-    stream.close();
+    await stream.close();
   }
 
   private getTxPeers() {
