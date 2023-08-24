@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 
+import { FunctionSelector } from '../../../foundation/src/abi/function_selector.js';
 import { expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { FunctionLeafPreimage } from './function_leaf_preimage.js';
-import { FunctionSelector } from './function_selector.js';
 
 describe('basic FunctionLeafPreimage serialization', () => {
   it(`serializes a trivial Function Leaf Preimage and prints it`, async () => {

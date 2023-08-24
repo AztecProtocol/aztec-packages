@@ -1,4 +1,5 @@
 import { FunctionAbi } from '@aztec/foundation/abi';
+
 import { FunctionSelector } from '../index.js';
 
 /**

@@ -1,4 +1,4 @@
-import { FUNCTION_SELECTOR_NUM_BYTES } from '@aztec/circuits.js';
+import { FUNCTION_SELECTOR_NUM_BYTES, FunctionSelector } from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -48,7 +48,10 @@ export interface ContractDataSource {
    * @param functionSelector - The function's selector.
    * @returns The function's data.
    */
-  getPublicFunction(address: AztecAddress, functionSelector: Buffer): Promise<EncodedContractFunction | undefined>;
+  getPublicFunction(
+    address: AztecAddress,
+    functionSelector: FunctionSelector,
+  ): Promise<EncodedContractFunction | undefined>;
 }
 
 /**
@@ -59,7 +62,7 @@ export class EncodedContractFunction {
     /**
      * The function selector.
      */
-    public functionSelector: Buffer,
+    public functionSelector: FunctionSelector,
     /**
      * Whether the function is internal.
      */
@@ -86,7 +89,7 @@ export class EncodedContractFunction {
    */
   static fromBuffer(buffer: Buffer | BufferReader): EncodedContractFunction {
     const reader = BufferReader.asReader(buffer);
-    const fnSelector = reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES);
+    const fnSelector = FunctionSelector.fromBuffer(reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES));
     const isInternal = reader.readBoolean();
     return new EncodedContractFunction(fnSelector, isInternal, reader.readBuffer());
   }
@@ -96,7 +99,7 @@ export class EncodedContractFunction {
    * @returns A random contract function.
    */
   static random(): EncodedContractFunction {
-    return new EncodedContractFunction(randomBytes(4), false, randomBytes(64));
+    return new EncodedContractFunction(FunctionSelector.fromBuffer(randomBytes(4)), false, randomBytes(64));
   }
 }
 
@@ -131,7 +134,7 @@ export class ContractDataAndBytecode {
    * @param functionSelector - The function selector of the function to fetch.
    * @returns The public function data (if found).
    */
-  public getPublicFunction(functionSelector: Buffer): EncodedContractFunction | undefined {
+  public getPublicFunction(functionSelector: FunctionSelector): EncodedContractFunction | undefined {
     return this.publicFunctions.find(fn => fn.functionSelector.equals(functionSelector));
   }
 

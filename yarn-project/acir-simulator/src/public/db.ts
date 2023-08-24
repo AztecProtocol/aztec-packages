@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/circuits.js';
+import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -36,7 +36,7 @@ export interface PublicContractsDB {
    * @param functionSelector - The selector for the function.
    * @returns The bytecode or undefined if not found.
    */
-  getBytecode(address: AztecAddress, functionSelector: Buffer): Promise<Buffer | undefined>;
+  getBytecode(address: AztecAddress, functionSelector: FunctionSelector): Promise<Buffer | undefined>;
 
   /**
    * Returns whether a function is internal or not.
@@ -44,7 +44,7 @@ export interface PublicContractsDB {
    * @param functionSelector - The selector for the function.
    * @returns The `isInternal` flag found, undefined if not found.
    */
-  getIsInternal(address: AztecAddress, functionSelector: Buffer): Promise<boolean | undefined>;
+  getIsInternal(address: AztecAddress, functionSelector: FunctionSelector): Promise<boolean | undefined>;
 
   /**
    * Returns the portal contract address for an L2 address.

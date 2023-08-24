@@ -7,7 +7,15 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 
-import { CircuitsWasm, CompleteAddress, DeploymentInfo, Fr, FunctionData, FunctionSelector, PublicKey } from '../index.js';
+import {
+  CircuitsWasm,
+  CompleteAddress,
+  DeploymentInfo,
+  Fr,
+  FunctionData,
+  FunctionSelector,
+  PublicKey,
+} from '../index.js';
 import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 
 /**

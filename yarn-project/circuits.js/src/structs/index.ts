@@ -24,7 +24,7 @@ export * from './tx_request.js';
 export * from './tx_context.js';
 export * from './verification_key.js';
 export * from './function_leaf_preimage.js';
-export * from './function_selector.js';
+export * from '../../../foundation/src/abi/function_selector.js';
 export * from './aggregation_object.js';
 export * from './membership_witness.js';
 export * from './read_request_membership_witness.js';

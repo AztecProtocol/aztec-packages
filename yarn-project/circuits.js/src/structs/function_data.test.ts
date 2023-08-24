@@ -1,6 +1,6 @@
+import { FunctionSelector } from '../../../foundation/src/abi/function_selector.js';
 import { expectSerializeToMatchSnapshot } from '../tests/expectSerialize.js';
 import { FunctionData } from './function_data.js';
-import { FunctionSelector } from './function_selector.js';
 
 describe('basic FunctionData serialization', () => {
   it(`serializes a trivial FunctionData and prints it`, async () => {

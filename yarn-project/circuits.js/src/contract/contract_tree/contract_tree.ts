@@ -1,4 +1,11 @@
-import { CircuitsWasm, ContractFunctionDao, Fr, FunctionData, FunctionLeafPreimage, FunctionSelector } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  ContractFunctionDao,
+  Fr,
+  FunctionData,
+  FunctionLeafPreimage,
+  FunctionSelector,
+} from '@aztec/circuits.js';
 import { computeFunctionLeaf, hashVK } from '@aztec/circuits.js/abis';
 import { FunctionType } from '@aztec/foundation/abi';
 

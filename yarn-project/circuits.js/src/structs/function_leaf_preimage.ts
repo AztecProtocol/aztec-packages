@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
+import { FunctionSelector } from '../../../foundation/src/abi/function_selector.js';
 import { serializeToBuffer } from '../utils/serialize.js';
-import { FunctionSelector } from './function_selector.js';
 
 /**
  * A class representing the "preimage" of a function tree leaf.
@@ -30,8 +30,7 @@ export class FunctionLeafPreimage {
      * Hash of the ACIR of the function.
      */
     public acirHash: Fr,
-  ) {
-  }
+  ) {}
 
   /**
    * Serialize this as a buffer.

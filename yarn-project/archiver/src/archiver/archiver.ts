@@ -1,3 +1,4 @@
+import { FunctionSelector } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -332,7 +333,7 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    */
   public async getPublicFunction(
     contractAddress: AztecAddress,
-    functionSelector: Buffer,
+    functionSelector: FunctionSelector,
   ): Promise<EncodedContractFunction | undefined> {
     const contractData = await this.getContractDataAndBytecode(contractAddress);
     return contractData?.getPublicFunction(functionSelector);

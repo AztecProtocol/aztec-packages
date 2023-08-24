@@ -125,7 +125,7 @@ describe('multi-transfer payments', () => {
         recipients,
         amounts,
         ownerAddress,
-        Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+        zkTokenContract.methods.batchTransfer.selector.toField(),
         noteOffsets,
       )
       .send({ origin: ownerAddress });
@@ -180,7 +180,7 @@ describe('multi-transfer payments', () => {
         repeatedSelfAdddress,
         amounts,
         ownerAddress,
-        Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+        zkTokenContract.methods.batchTransfer.selector.toField(),
         noteOffsets,
       )
       .send({ origin: ownerAddress });

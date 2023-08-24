@@ -3,9 +3,9 @@ import {
   ABIVariable,
   ContractAbi,
   FunctionAbi,
+  FunctionSelector,
   FunctionType,
   StructType,
-  generateFunctionSelector,
 } from '@aztec/foundation/abi';
 
 import camelCase from 'lodash.camelcase';
@@ -28,10 +28,10 @@ function isPrivateCall(functionType: FunctionType) {
  * @param functionType - Type of the function.
  * @returns A code string.
  */
-function generateCallStatement(selector: string, functionType: FunctionType) {
+function generateCallStatement(selector: FunctionSelector, functionType: FunctionType) {
   const callMethod = isPrivateCall(functionType) ? 'call_private_function' : 'call_public_function';
   return `
-    context.${callMethod}(self.address, ${selector}, serialised_args)`;
+    context.${callMethod}(self.address, ${selector.toString()}, serialised_args)`;
 }
 
 /**
@@ -139,7 +139,7 @@ function generateSerialisation(parameters: ABIParameter[]) {
  */
 function generateFunctionInterface(functionData: FunctionAbi) {
   const { name, parameters } = functionData;
-  const selector = '0x' + generateFunctionSelector(name, parameters).toString('hex');
+  const selector = FunctionSelector.fromNameAndParameters(name, parameters);
   const serialisation = generateSerialisation(parameters);
   const callStatement = generateCallStatement(selector, functionData.functionType);
   const allParams = [

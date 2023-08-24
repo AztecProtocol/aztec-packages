@@ -3,6 +3,7 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FunctionSelector,
   HistoricBlockData,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
@@ -62,8 +63,8 @@ export function frToBoolean(fr: Fr): boolean {
  * @param fr - The field to convert.
  * @returns The function selector.
  */
-export function frToSelector(fr: Fr): Buffer {
-  return fr.toBuffer().slice(-4);
+export function frToSelector(fr: Fr): FunctionSelector {
+  return FunctionSelector.fromBuffer(fr.toBuffer().slice(-4));
 }
 
 /**

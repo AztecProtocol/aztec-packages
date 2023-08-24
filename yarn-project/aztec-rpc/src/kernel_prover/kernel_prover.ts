@@ -186,7 +186,7 @@ export class KernelProver {
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.functionSelectorBuffer,
+      functionData.functionSelector,
     );
 
     // TODO(#262): Use real acir hash

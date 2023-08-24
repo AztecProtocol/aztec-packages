@@ -1,9 +1,9 @@
 import { ABIParameter } from '@aztec/foundation/abi';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { FUNCTION_SELECTOR_NUM_BYTES } from '../cbind/constants.gen.js';
-import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '../fields/fields.js';
 
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
@@ -12,10 +12,10 @@ export class FunctionSelector {
   /**
    * The size of the hash in bytes.
    */
-  public static SIZE = FUNCTION_SELECTOR_NUM_BYTES;
+  public static SIZE = 4;
 
   constructor(/** number representing the function selector */ public value: number) {
-    if (value > (2 ** (FunctionSelector.SIZE * 8 ) - 1)) {
+    if (value > 2 ** (FunctionSelector.SIZE * 8) - 1) {
       throw new Error(`Function selector must fit in ${FunctionSelector.SIZE} bytes.`);
     }
   }
@@ -37,6 +37,23 @@ export class FunctionSelector {
   }
 
   /**
+   * Serialize as a hex string.
+   * @returns The string.
+   */
+  toString(): string {
+    return this.toBuffer().toString('hex');
+  }
+
+  /**
+   * Checks if this function selector is equal to another.
+   * @param other - The other function selector.
+   * @returns True if the function selectors are equal.
+   */
+  equals(other: FunctionSelector): boolean {
+    return this.value === other.value;
+  }
+
+  /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.
    * @returns The FunctionSelector.
@@ -45,6 +62,24 @@ export class FunctionSelector {
     const reader = BufferReader.asReader(buffer);
     const value = Number(toBigIntBE(reader.readBytes(FunctionSelector.SIZE)));
     return new FunctionSelector(value);
+  }
+
+  /**
+   * Returns a new field with the same contents as this EthAddress.
+   *
+   * @returns An Fr instance.
+   */
+  public toField() {
+    return new Fr(this.value);
+  }
+
+  /**
+   * Converts a field to function selector.
+   * @param fr - The field to convert.
+   * @returns The function selector.
+   */
+  static fromField(fr: Fr): FunctionSelector {
+    return new FunctionSelector(Number(fr.value));
   }
 
   /**
