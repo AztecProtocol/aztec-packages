@@ -31,7 +31,13 @@ contract SchnorrHardcodedAccount {
         // Verify payload signature
         let serialised_payload: [Field; ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let hashed_payload: Field = std::hash::pedersen_with_separator(serialised_payload, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        let verification = std::schnorr::verify_signature(public_key_x, public_key_y, signature, hashed_payload.to_be_bytes(32));
+
+        // TODO: Workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = hashed_payload.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 { message_bytes[i] = message_bytes_slice[i]; }
+
+        let verification = std::schnorr::verify_signature(public_key_x, public_key_y, signature, message_bytes);
         assert(verification == true);
         // docs:end:entrypoint-auth
 
