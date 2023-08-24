@@ -240,18 +240,18 @@ $$
 L_i(k+1) = \prod_{j\in\{0,\ldots, k\}\setminus\{i\}}\frac{k+1-j}{i-j}
 = \frac{\prod_{j\in\{0,\ldots, k\}\setminus\{i\}}k+1-j}
        {\prod_{j\in\{0,\ldots, k\}\setminus\{i\}} i-j}
-= \frac{(k+1)!}{d_i\cdot (k+1-i) \cdot 0!},
+= \frac{(k+1)!}{d_i\cdot (k+1-i) \cdot 1},
 $$
 $$
 L_i(k+2) = \prod_{j\in\{0,\ldots, k\}\setminus\{i\}}\frac{k+2-j}{i-j}
 % = \frac{\prod_{j\in\{0,\ldots, k\}\setminus\{i\}}k+2-j}
 %        {\prod_{j\in\{0,\ldots, k\}\setminus\{i\}} i-j}
 = \frac{(k+2)!}{d_i\cdot (k+2-i) \cdot 1!}
-= \frac{(k+2)(k+1-i)}{(k+2-i)1!} L_i(k+1),
+= \frac{(k+2)(k+1-i)}{(k+2-i) \cdot 2} L_i(k+1),
 $$
 and in general, 
 $$
-L_i(k+s+1) = \frac{(k+s+1)(k+s-i)}{(k+s+1-i)s!} L_i(k+s).
+L_i(k+s+1) = \frac{(k+s+1)(k+s-i)}{(k+s+1-i)(s+1)} L_i(k+s).
 $$
 Hence we can compute the extension to an additional $N$ values more efficiently.
 
