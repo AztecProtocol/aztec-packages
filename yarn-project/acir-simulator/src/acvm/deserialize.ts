@@ -15,7 +15,7 @@ import {
   NUM_FIELDS_PER_SHA256,
   PrivateCircuitPublicInputs,
   PublicCircuitPublicInputs,
-  RETURN_VALUES_LENGTH
+  RETURN_VALUES_LENGTH,
 } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';

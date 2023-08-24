@@ -1,9 +1,8 @@
 import { ABIParameter } from '@aztec/foundation/abi';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
-
-import { Fr } from '../fields/fields.js';
 
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
