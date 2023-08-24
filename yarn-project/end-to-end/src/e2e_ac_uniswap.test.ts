@@ -217,6 +217,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     expect(userBalanceAfter).toEqual(wethAmountToBridge + initialBalance - transferValue - depositAmount);
     expect(contractBalanceAfter).toEqual(depositAmount);
+    const swap = await uniswapL2Contract.methods
+      .get_swap(wethCrossChainHarness.l2Contract.address, daiCrossChainHarness.l2Contract.address, 1)
+      .view();
+    expect(swap['input_amount']).toEqual(depositAmount);
+    expect(swap['output_amount']).toEqual(0n);
+    expect(swap['is_pending']).toEqual(true);
   }, 100_000);
 
   it('user 2 deposit into aggregate swap', async () => {
@@ -241,6 +247,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     expect(userBalanceAfter).toEqual(transferValue - depositAmount);
     expect(contractBalanceAfter).toEqual(depositAmount * 2n);
+    const swap = await uniswapL2Contract.methods
+      .get_swap(wethCrossChainHarness.l2Contract.address, daiCrossChainHarness.l2Contract.address, 1)
+      .view();
+    expect(swap['input_amount']).toEqual(depositAmount * 2n);
+    expect(swap['output_amount']).toEqual(0n);
+    expect(swap['is_pending']).toEqual(true);
   }, 100_000);
 
   let timestamp: bigint = 0n;
@@ -253,20 +265,13 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     expect(daiContractBalanceBefore).toEqual(0n);
 
     const swapTx = uniswapL2Contract.methods
-      .swap(
-        wethCrossChainHarness.l2Contract.address.toField(),
-        depositAmount * 2n,
-        daiCrossChainHarness.l2Contract.address.toField(),
-      )
+      .swap(wethCrossChainHarness.l2Contract.address.toField(), daiCrossChainHarness.l2Contract.address.toField(), 1)
       .send({ origin: user1 });
     const receipt = await swapTx.wait();
     expect(receipt.status).toBe(TxStatus.MINED);
 
     const block = await aztecNode?.getBlock(receipt.blockNumber!);
-    console.log(block?.newL2ToL1Msgs);
-    if (!block) {
-      throw new Error('Block not found');
-    }
+    if (!block) throw new Error('Block not found');
     timestamp = block?.globalVariables.timestamp.value;
 
     const wethContractBalanceAfter = await wethCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
@@ -274,6 +279,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     expect(wethContractBalanceAfter).toEqual(0n);
     expect(daiContractBalanceAfter).toEqual(0n);
+    const swap = await uniswapL2Contract.methods
+      .get_swap(wethCrossChainHarness.l2Contract.address, daiCrossChainHarness.l2Contract.address, 1)
+      .view();
+    expect(swap['input_amount']).toEqual(depositAmount * 2n);
+    expect(swap['output_amount']).toEqual(0n);
+    expect(swap['is_pending']).toEqual(false);
   }, 100_000);
 
   it('perform the swap on L1 and finalise', async () => {
@@ -288,8 +299,6 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const aztecRecipient = uniswapL2Contract.address.toString();
     const canceller = uniswapPortalAddress.toString();
     const amount = depositAmount * 2n;
-
-    console.log(`Content should be from: ${amount}, ${aztecRecipient}, ${canceller}`);
 
     const daiBalanceOfPortalBefore = await daiCrossChainHarness.getL1BalanceOf(daiCrossChainHarness.tokenPortalAddress);
     const swapArgs = [
@@ -325,8 +334,8 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const finaliseTx = uniswapL2Contract.methods
       .finalise_swap(
         wethCrossChainHarness.l2Contract.address,
-        depositAmount * 2n,
         daiCrossChainHarness.l2Contract.address,
+        1,
         daiDeposited,
         depositDaiMessageKey,
       )
@@ -339,6 +348,13 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
     expect(wethContractBalanceAfter).toEqual(0n);
     expect(daiContractBalanceAfter).toEqual(daiDeposited);
+
+    const swap = await uniswapL2Contract.methods
+      .get_swap(wethCrossChainHarness.l2Contract.address, daiCrossChainHarness.l2Contract.address, 1)
+      .view();
+    expect(swap['input_amount']).toEqual(depositAmount * 2n);
+    expect(swap['output_amount']).toEqual(daiDeposited);
+    expect(swap['is_pending']).toEqual(false);
   }, 100_000);
 
   it('user 1 claims their share of the dai', async () => {});

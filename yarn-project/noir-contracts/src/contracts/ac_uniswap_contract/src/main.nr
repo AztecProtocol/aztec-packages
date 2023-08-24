@@ -1,5 +1,6 @@
 mod non_native_token_interface;
 mod hash;
+mod storage;
 
 // Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
 contract AcUniswap {
@@ -16,6 +17,7 @@ contract AcUniswap {
     use dep::aztec::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 
     use crate::non_native_token_interface::NonNativeTokenContractInterface;
+    use crate::storage::{Storage, Swap};
 
     fn constructor(
         inputs: PrivateContextInputs,
@@ -41,7 +43,6 @@ contract AcUniswap {
         // - Need to create a note that we can later use to get the funds back
         // - Need to specify some values for the swap, fee and all the jazz
 
-        // This interfaces makes me want to puke. I'm sorry.
         let _void = NonNativeTokenContractInterface::at(input_asset).unshieldTokens(
             &mut context,
             input_amount,
@@ -50,6 +51,42 @@ contract AcUniswap {
         );
 
         context.return_values.push_array([1]);
+
+        let _void2 = context.call_public_function(
+            context.this_address(),
+            0x960c4f8d,
+            [input_asset, input_amount, output_asset],
+        );
+
+        context.finish()
+    }
+
+    // uint256(keccak256("_participate_in_swap(field,field,field)")) >> 224 -> 0x960c4f8d
+    open internal fn _participate_in_swap(
+        inputs: PublicContextInputs,
+        input_asset: Field,
+        input_amount: Field,
+        output_asset: Field,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([
+            input_asset,
+            input_amount,
+            output_asset,
+        ]));
+
+        let storage = Storage::init();
+
+        let mut count = storage.swap_count.at(input_asset).at(output_asset).read();
+        let mut swap = storage.swaps.at(input_asset).at(output_asset).at(count).read();
+
+        if !swap.is_pending {
+            count = count + 1;
+            storage.swap_count.at(input_asset).at(output_asset).write(count);
+            swap = Swap { input_amount: 0, output_amount: 0, is_pending: true };
+        }
+
+        swap.input_amount = swap.input_amount + input_amount;
+        storage.swaps.at(input_asset).at(output_asset).at(count).write(swap);
 
         context.finish()
     }
@@ -66,20 +103,22 @@ contract AcUniswap {
     open fn swap(
         inputs: PublicContextInputs,
         input_asset: Field, 
-        input_amount: Field,
         output_asset: Field,
+        index: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         // Todo:
-        // - Match against state values. Need to keep track of what we can actually execute in here.
-        // - We will be using a hash of the values since we might not have enough storage otherwise...
         // - Fix matching price 
         let mut context = PublicContext::new(inputs, abi::hash_args([
             input_asset,
-            input_amount,
             output_asset,
+            index,
         ]));
 
-        // We should read the input_amount from storage!
+        let storage = Storage::init();
+        let mut swap = storage.swaps.at(input_asset).at(output_asset).at(index).read();
+        assert(swap.is_pending);
+        swap.is_pending = false;
+        storage.swaps.at(input_asset).at(output_asset).at(index).write(swap);
 
         // We allow anyone to perform the call that insersts money into this contract again.
         // Makes sense since it is multi-user case and we are going from public anyway :shrug:
@@ -105,14 +144,14 @@ contract AcUniswap {
 
         let _success = NonNativeTokenContractInterface::at(input_asset).withdrawPublic(
             context,
-            input_amount,
+            swap.input_amount,
             my_portal,
             my_portal,
         );
         
         let content_hash = crate::hash::compute_swap_content_hash(
            input_asset_portal_address,
-           input_amount,
+           swap.input_amount,
            uniswap_fee_tier,
            output_asset_portal_address,
            minimum_output_amount,
@@ -131,23 +170,27 @@ contract AcUniswap {
     open fn finalise_swap(
         inputs: PublicContextInputs,
         input_asset: Field, 
-        input_amount: Field,
         output_asset: Field,
+        index: Field,
         output_amount: Field,
         msg_key: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([
             input_asset,
-            input_amount,
             output_asset,
+            index,
             output_amount,
             msg_key,
         ]));
-        
-        // TODO:
-        // - Check against the values in storage 
-        // - Update some value in storage to mark that we have gotten the funds.
-        // - Get that dough
+
+        let storage = Storage::init();
+        let mut swap = storage.swaps.at(input_asset).at(output_asset).at(index).read();
+
+        assert(!swap.is_pending);
+        assert(swap.output_amount == 0);
+
+        swap.output_amount = output_amount;
+        storage.swaps.at(input_asset).at(output_asset).at(index).write(swap);
 
         let me = context.this_address();
         let canceller = context.this_portal_address();
@@ -163,6 +206,11 @@ contract AcUniswap {
         );
         
         context.finish()
+    }
+
+    unconstrained fn get_swap(input_asset: Field, output_asset: Field, index: Field) -> Swap {
+        let storage = Storage::init();
+        storage.swaps.at(input_asset).at(output_asset).at(index).read()
     }
 
 }
