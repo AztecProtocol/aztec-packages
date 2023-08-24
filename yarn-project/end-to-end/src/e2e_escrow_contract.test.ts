@@ -29,7 +29,7 @@ describe('e2e_escrow_contract', () => {
     // Validate transfer selector. If this fails, then make sure to change it in the escrow contract.
     const transferAbi = PrivateTokenContractAbi.functions.find(f => f.name === 'transfer')!;
     const transferSelector = FunctionSelector.fromNameAndParameters(transferAbi.name, transferAbi.parameters);
-    expect(transferSelector).toEqual(toBufferBE(0xdcd4c318n, 4));
+    expect(transferSelector.toBuffer()).toEqual(toBufferBE(0xdcd4c318n, 4));
   });
 
   beforeEach(async () => {
