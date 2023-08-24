@@ -8,7 +8,7 @@ Unlike on Ethereum, there are 2 types of events supported by Aztec: encrypted an
 
 ### Encrypted Events
 Encrypted events can only be emitted by private functions and are encrypted using a public key of a recipient.
-For this reason it is necessary to register a recipient in the AztecRPC server before encrypting the events for them.
+For this reason it is necessary to register a recipient in the Aztec RPC Server before encrypting the events for them.
 Recipients can be registered using the Aztec CLI or Aztec.js:
 
 import Tabs from '@theme/Tabs';
@@ -40,7 +40,7 @@ await aztecRpc.registerRecipient(completeAddress);
 
 > At this point the Sandbox only enables the emitting of encrypted note preimages through encrypted events.
 > In the future we will allow emitting arbitrary information.
-> (If you currently emit arbitrary information, AztecRPC server will fail to decrypt, process and store this data, so it will not be queryable).
+> (If you currently emit arbitrary information, Aztec RPC Server will fail to decrypt, process and store this data, so it will not be queryable).
 
 To emit encrypted logs first import the `emit_encrypted_log` utility function inside your contract:
 
@@ -97,12 +97,12 @@ Unencrypted logs can be queried by anyone as we described above in the [Unencryp
 Encrypted logs need to first be decrypted:
 
 ### Decrypting
-One function of AztecRPC server is constantly loading encrypted logs from AztecNode and trying to decrypt them.
-When new encrypted logs are obtained, the AztecRPC server will try to decrypt them using the private encryption key of all the accounts registered inside AztecRPC server.
-If the decryption is successful, the AztecRPC server will store the decrypted note inside a database.
+One function of Aztec RPC Server is constantly loading encrypted logs from AztecNode and trying to decrypt them.
+When new encrypted logs are obtained, the Aztec RPC Server will try to decrypt them using the private encryption key of all the accounts registered inside Aztec RPC Server.
+If the decryption is successful, the Aztec RPC Server will store the decrypted note inside a database.
 If the decryption fails, the specific log will be discarded.
 
-For the AztecRPC server to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
+For the Aztec RPC Server to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
 Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customise how a note's note hash and nullifier should be computed. Because of this customisability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an Aztec RPR Server needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. Therefore, developers will need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
 Every time a new note is successfully decrypted, the Aztec RPC Server will expect the existence of a `compute_note_hash_and_nullifier` function, which must teach it how to correctly process the new note.
 
