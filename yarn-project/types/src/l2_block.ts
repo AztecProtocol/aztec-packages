@@ -27,8 +27,6 @@ export class L2Block {
   /* Having logger static to avoid issues with comparing 2 block */
   private static logger = createDebugLogger('aztec:l2_block');
 
-  private blockHash?: Buffer;
-
   /**
    * The number of L2Tx in this L2Block.
    */
@@ -139,6 +137,7 @@ export class L2Block {
     public newL1ToL2Messages: Fr[] = [],
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
+    private blockHash?: Buffer,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
@@ -212,102 +211,106 @@ export class L2Block {
   /**
    * Constructs a new instance from named fields.
    * @param fields - Fields to pass to the constructor.
+   * @param blockHash - Hash of the block.
    * @returns A new instance.
    */
-  static fromFields(fields: {
-    /**
-     * The number of the L2 block.
-     */
-    number: number;
-    /**
-     * The global variables of the L2 block.
-     */
-    globalVariables: GlobalVariables;
-    /**
-     * The tree snapshot of the private data tree at the start of the rollup.
-     */
-    startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the nullifier tree at the start of the rollup.
-     */
-    startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the contract tree at the start of the rollup.
-     */
-    startContractTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree root of the public data tree at the start of the rollup.
-     */
-    startPublicDataTreeRoot: Fr;
-    /**
-     * The tree snapshot of the L2 message tree at the start of the rollup.
-     */
-    startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic blocks tree at the start of the rollup.
-     */
-    startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the private data tree at the end of the rollup.
-     */
-    endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the nullifier tree at the end of the rollup.
-     */
-    endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the contract tree at the end of the rollup.
-     */
-    endContractTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree root of the public data tree at the end of the rollup.
-     */
-    endPublicDataTreeRoot: Fr;
-    /**
-     * The tree snapshot of the L2 message tree at the end of the rollup.
-     */
-    endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The tree snapshot of the historic blocks tree at the end of the rollup.
-     */
-    endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
-    /**
-     * The commitments to be inserted into the private data tree.
-     */
-    newCommitments: Fr[];
-    /**
-     * The nullifiers to be inserted into the nullifier tree.
-     */
-    newNullifiers: Fr[];
-    /**
-     * The public data writes to be inserted into the public data tree.
-     */
-    newPublicDataWrites: PublicDataWrite[];
-    /**
-     * The L2 to L1 messages to be inserted into the messagebox on L1.
-     */
-    newL2ToL1Msgs: Fr[];
-    /**
-     * The contracts leafs to be inserted into the contract tree.
-     */
-    newContracts: Fr[];
-    /**
-     * The aztec address and ethereum address for the deployed contract and its portal contract.
-     */
-    newContractData: ContractData[];
-    /**
-     * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
-     */
-    newL1ToL2Messages: Fr[];
-    /**
-     * Encrypted logs emitted by txs in a block.
-     */
-    newEncryptedLogs?: L2BlockL2Logs;
-    /**
-     * Unencrypted logs emitted by txs in a block.
-     */
-    newUnencryptedLogs?: L2BlockL2Logs;
-  }) {
+  static fromFields(
+    fields: {
+      /**
+       * The number of the L2 block.
+       */
+      number: number;
+      /**
+       * The global variables of the L2 block.
+       */
+      globalVariables: GlobalVariables;
+      /**
+       * The tree snapshot of the private data tree at the start of the rollup.
+       */
+      startPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the nullifier tree at the start of the rollup.
+       */
+      startNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the contract tree at the start of the rollup.
+       */
+      startContractTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree root of the public data tree at the start of the rollup.
+       */
+      startPublicDataTreeRoot: Fr;
+      /**
+       * The tree snapshot of the L2 message tree at the start of the rollup.
+       */
+      startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the historic blocks tree at the start of the rollup.
+       */
+      startHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the private data tree at the end of the rollup.
+       */
+      endPrivateDataTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the nullifier tree at the end of the rollup.
+       */
+      endNullifierTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the contract tree at the end of the rollup.
+       */
+      endContractTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree root of the public data tree at the end of the rollup.
+       */
+      endPublicDataTreeRoot: Fr;
+      /**
+       * The tree snapshot of the L2 message tree at the end of the rollup.
+       */
+      endL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The tree snapshot of the historic blocks tree at the end of the rollup.
+       */
+      endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
+      /**
+       * The commitments to be inserted into the private data tree.
+       */
+      newCommitments: Fr[];
+      /**
+       * The nullifiers to be inserted into the nullifier tree.
+       */
+      newNullifiers: Fr[];
+      /**
+       * The public data writes to be inserted into the public data tree.
+       */
+      newPublicDataWrites: PublicDataWrite[];
+      /**
+       * The L2 to L1 messages to be inserted into the messagebox on L1.
+       */
+      newL2ToL1Msgs: Fr[];
+      /**
+       * The contracts leafs to be inserted into the contract tree.
+       */
+      newContracts: Fr[];
+      /**
+       * The aztec address and ethereum address for the deployed contract and its portal contract.
+       */
+      newContractData: ContractData[];
+      /**
+       * The L1 to L2 messages to be inserted into the L2 toL2 message tree.
+       */
+      newL1ToL2Messages: Fr[];
+      /**
+       * Encrypted logs emitted by txs in a block.
+       */
+      newEncryptedLogs?: L2BlockL2Logs;
+      /**
+       * Unencrypted logs emitted by txs in a block.
+       */
+      newUnencryptedLogs?: L2BlockL2Logs;
+    },
+    blockHash?: Buffer,
+  ) {
     return new this(
       fields.number,
       fields.globalVariables,
@@ -332,6 +335,7 @@ export class L2Block {
       fields.newL1ToL2Messages,
       fields.newEncryptedLogs,
       fields.newUnencryptedLogs,
+      blockHash,
     );
   }
 
