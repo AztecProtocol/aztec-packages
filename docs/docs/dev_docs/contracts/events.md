@@ -1,8 +1,8 @@
 ## Events
-Events in Aztec works similarly to Ethereum events in a sense that they are a way for contracts to communicate with the outside world.
-They are emitted by contracts and stored inside each instance ofAztecNode.
-Aztec events are currently represented as raw data and are not ABI encoded.
-ABI encoded events are a feature that will be added in the future.
+Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.
+They are emitted by contracts and stored inside each instance of an AztecNode.
+> Aztec events are currently represented as raw data and are not ABI encoded.
+> ABI encoded events are a feature that will be added in the future.
 
 Unlike on Ethereum, there are 2 types of events supported by Aztec: encrypted and unencrypted.
 
@@ -36,11 +36,11 @@ await aztecRpc.registerRecipient(completeAddress);
 </TabItem>
 </Tabs>
 
-> **NOTE**: If a note recipient is one of the accounts inside the Aztec RPC, we don't need to register it as a recipient because we already have the public key available.
+> **NOTE**: If a note recipient is one of the accounts inside the Aztec RPC Server, we don't need to register it as a recipient because we already have the public key available.
 
-At this point we only allow emitting note spending info through encrypted events.
-In the future we will allow emitting arbitrary information.
-(If you currently emit arbitrary information, AztecRPC server will fail to process it and it will not be queryable.)
+> At this point the Sandbox only enables the emitting of encrypted note preimages through encrypted events.
+> In the future we will allow emitting arbitrary information.
+> (If you currently emit arbitrary information, AztecRPC server will fail to decrypt, process and store this data, so it will not be queryable).
 
 To emit encrypted logs first import the `emit_encrypted_log` utility function inside your contract:
 
@@ -82,7 +82,13 @@ Then you can call the function:
 
 ### Costs
 
-All the event data is pushed on Ethereum by the sequencer and for this reason the cost of emitting an event is non-trivial.
+All event data is pushed to Ethereum as calldata by the sequencer and for this reason the cost of emitting an event is non-trivial.
+
+> Note: the cost of submitting calldata to Ethereum is currently 4 gas per byte. Currently, in the Sandbox, an encypted note has a fixed overhead of 4 field elements (to broadcast an ephemeral public key, a contract address, and a storage slot); plus a variable number of field elements depending on the type of note being emitted.
+> A `ValueNote`, for example, currently uses 3 fields elements (plus the fixed overhead of 4). That's roughly `7 * 32 = 224` bytes of information, costing roughly 896 gas.
+
+> There are plans to compress encrypted note data further.
+> There are plans to adopt EIP-4844 blobs to reduce the cost of data submission further.
 
 ## Processing events
 Both the encrypted and unencrypted events are stored in AztecNode.
@@ -92,12 +98,13 @@ Encrypted logs need to first be decrypted:
 
 ### Decrypting
 One function of AztecRPC server is constantly loading encrypted logs from AztecNode and trying to decrypt them.
-When new encrypted logs are obtained, AztecRPC server will try to decrypt them using the private encryption key of all the accounts registered inside AztecRPC server.
-If the decryption is successful, AztecRPC server will store the decrypted note inside a database.
+When new encrypted logs are obtained, the AztecRPC server will try to decrypt them using the private encryption key of all the accounts registered inside AztecRPC server.
+If the decryption is successful, the AztecRPC server will store the decrypted note inside a database.
 If the decryption fails, the specific log will be discarded.
 
-For the AztecRPC server to successfully process the decrypted note we need to compute note hash and nullifier.
-Because we want to support arbitrary ways of computing these values, Noir developers need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
+For the AztecRPC server to successfully process the decrypted note we need to compute the note's 'note hash' and 'nullifier'.
+Aztec.nr enables smart contract developers to design custom notes, meaning developers can also customise how a note's note hash and nullifier should be computed. Because of this customisability, and because there will be a potentially-unlimited number of smart contracts deployed to Aztec, an Aztec RPR Server needs to be 'taught' how to compute the custom note hashes and nullifiers for a particular contract. Therefore, developers will need to implement a `compute_note_hash_and_nullifier` function inside their contracts.
+Every time a new note is successfully decrypted, the Aztec RPC Server will expect the existence of a `compute_note_hash_and_nullifier` function, which must teach it how to correctly process the new note.
 
 This is an example implementation inside the `PrivateTokenContract`:
 
