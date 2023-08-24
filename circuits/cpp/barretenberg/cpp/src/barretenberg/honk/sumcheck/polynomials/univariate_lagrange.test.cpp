@@ -25,8 +25,9 @@ TYPED_TEST(UnivariateLagrangeTest, Constructors)
 {
     ALIASES
     constexpr size_t domain_size = 8;
+    constexpr size_t num_evals = 16;
     constexpr size_t center_idx = 1;
-    auto lagrange = LagrangeMultiple<FF, domain_size, center_idx>();
+    auto lagrange = LagrangeMultiple<FF, domain_size, center_idx, num_evals>();
 
     const auto compute_lagrange_naive = [&](FF new_point) {
         FF result = 1;
@@ -43,14 +44,8 @@ TYPED_TEST(UnivariateLagrangeTest, Constructors)
         return result;
     };
 
-    EXPECT_EQ(lagrange.evaluations[0], compute_lagrange_naive(0));
-    EXPECT_EQ(lagrange.evaluations[1], compute_lagrange_naive(1));
-    EXPECT_EQ(lagrange.evaluations[7], compute_lagrange_naive(7));
-
-    auto extended = lagrange.template extend<16>();
-
     for (size_t idx = 0; idx < 16; idx++) {
-        EXPECT_EQ(extended.evaluations[idx], compute_lagrange_naive(idx));
+        EXPECT_EQ(lagrange.evaluations[idx], compute_lagrange_naive(idx));
     }
 }
 
