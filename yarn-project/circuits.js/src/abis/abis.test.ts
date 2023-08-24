@@ -44,7 +44,7 @@ describe('abis wasm bindings', () => {
   });
 
   it('computes a function leaf', () => {
-    const leaf = new FunctionLeafPreimage(new FunctionSelector(Buffer.from([0, 0, 0, 123])), false, true, Fr.ZERO, Fr.ZERO);
+    const leaf = new FunctionLeafPreimage(new FunctionSelector(7837), false, true, Fr.ZERO, Fr.ZERO);
     const res = computeFunctionLeaf(wasm, leaf);
     expect(res).toMatchSnapshot();
   });

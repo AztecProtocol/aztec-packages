@@ -136,9 +136,7 @@ export function makeConstantData(seed = 1): CombinedConstantData {
  * @returns A selector.
  */
 export function makeSelector(seed: number): FunctionSelector {
-  const buffer = Buffer.alloc(FunctionSelector.SIZE);
-  buffer.writeUInt32BE(seed, 0);
-  return new FunctionSelector(buffer);
+  return new FunctionSelector(seed);
 }
 
 /**

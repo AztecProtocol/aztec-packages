@@ -1,5 +1,5 @@
 import { FunctionAbi, FunctionType } from '@aztec/foundation/abi';
-import { BufferReader, deserializeUInt32 } from '@aztec/foundation/serialize';
+import { BufferReader } from '@aztec/foundation/serialize';
 
 import { ContractFunctionDao } from '../index.js';
 import { serializeToBuffer } from '../utils/serialize.js';
@@ -13,9 +13,8 @@ export class FunctionData {
   constructor(
     /**
      * Function selector of the function being called.
-     * TODO: rename to functionSelector once the functionSelector getter is removed
      */
-    private _functionSelector: FunctionSelector,
+    public functionSelector: FunctionSelector,
     /**
      * Indicates whether the function is only callable by self or not.
      */
@@ -39,18 +38,12 @@ export class FunctionData {
     );
   }
 
-  // For serialization, must match function_selector name in C++ and return as number
-  // TODO(AD) somehow remove this cruft, probably by using a buffer selector in C++
-  get functionSelector(): number {
-    return deserializeUInt32(this._functionSelector.value).elem;
-  }
-
   /**
    * Serialize this as a buffer.
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this._functionSelector.value, this.isInternal, this.isPrivate, this.isConstructor);
+    return serializeToBuffer(this.functionSelector.value, this.isInternal, this.isPrivate, this.isConstructor);
   }
 
   /**
@@ -58,7 +51,7 @@ export class FunctionData {
    * @returns True if the function selector is zero.
    */
   isEmpty() {
-    return this._functionSelector.isEmpty();
+    return this.functionSelector.isEmpty();
   }
 
   /**

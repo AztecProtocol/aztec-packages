@@ -28,6 +28,7 @@ export {
   G1AffineElement,
   NewContractData,
   FunctionData,
+  FunctionSelector,
   OptionallyRevealedData,
   PublicDataRead,
   PublicDataUpdateRequest,

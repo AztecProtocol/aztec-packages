@@ -160,7 +160,7 @@ ${callStatement}
 }
 
 /**
- * Generates static impots.
+ * Generates static imports.
  * @returns A string of code which will be needed in every contract interface, regardless of the contract.
  */
 function generateStaticImports() {

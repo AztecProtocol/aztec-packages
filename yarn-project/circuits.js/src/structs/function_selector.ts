@@ -3,6 +3,7 @@ import { keccak } from '@aztec/foundation/crypto';
 import { BufferReader } from '@aztec/foundation/serialize';
 
 import { FUNCTION_SELECTOR_NUM_BYTES } from '../cbind/constants.gen.js';
+import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
@@ -13,9 +14,9 @@ export class FunctionSelector {
    */
   public static SIZE = FUNCTION_SELECTOR_NUM_BYTES;
 
-  constructor(/** buffer containing the function selector */ public value: Buffer) {
-    if (value.length !== FunctionSelector.SIZE) {
-      throw new Error(`Function selector must be ${FunctionSelector.SIZE} bytes long, got ${value.length} bytes.`);
+  constructor(/** number representing the function selector */ public value: number) {
+    if (value > (2 ** (FunctionSelector.SIZE * 8 ) - 1)) {
+      throw new Error(`Function selector must fit in ${FunctionSelector.SIZE} bytes.`);
     }
   }
 
@@ -24,7 +25,7 @@ export class FunctionSelector {
    * @returns True if the function selector is empty (all bytes are 0).
    */
   public isEmpty(): boolean {
-    return this.value.equals(Buffer.alloc(FunctionSelector.SIZE));
+    return this.value === 0;
   }
 
   /**
@@ -32,7 +33,7 @@ export class FunctionSelector {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return this.value;
+    return toBufferBE(BigInt(this.value), FunctionSelector.SIZE);
   }
 
   /**
@@ -42,7 +43,8 @@ export class FunctionSelector {
    */
   static fromBuffer(buffer: Buffer | BufferReader): FunctionSelector {
     const reader = BufferReader.asReader(buffer);
-    return new FunctionSelector(reader.readBytes(FunctionSelector.SIZE));
+    const value = Number(toBigIntBE(reader.readBytes(FunctionSelector.SIZE)));
+    return new FunctionSelector(value);
   }
 
   /**
@@ -51,7 +53,7 @@ export class FunctionSelector {
    * @returns Function selector.
    */
   static fromSignature(signature: string): FunctionSelector {
-    return new FunctionSelector(keccak(Buffer.from(signature)).subarray(0, FunctionSelector.SIZE));
+    return FunctionSelector.fromBuffer(keccak(Buffer.from(signature)).subarray(0, FunctionSelector.SIZE));
   }
 
   /**
@@ -70,6 +72,6 @@ export class FunctionSelector {
    * @returns An empty function selector.
    */
   static empty(): FunctionSelector {
-    return new FunctionSelector(Buffer.alloc(FunctionSelector.SIZE));
+    return new FunctionSelector(0);
   }
 }
