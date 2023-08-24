@@ -35,4 +35,12 @@ jobs:
           # Just a bit of test at the top of the 'Release PR'
           pull-request-header: ":robot: I have created a new Aztec Packages release"
           # The sections into which changes are grouped on the github release notes
-          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"chore","section":"Miscellaneous","hidden":false},{"type":"test","section":"Miscellaneous","hidden":false},{"type":"refactor","section":"Miscellaneous","hidden":false},{"type":"docs","section":"Documentation","hidden":false}]'
+          changelog-types: >
+            [
+              {"type":"feat","section":"Features","hidden":false},
+              {"type":"fix","section":"Bug Fixes","hidden":false},
+              {"type":"chore","section":"Miscellaneous","hidden":false},
+              {"type":"test","section":"Miscellaneous","hidden":false},
+              {"type":"refactor","section":"Miscellaneous","hidden":false},
+              {"type":"docs","section":"Documentation","hidden":false}
+            ]
