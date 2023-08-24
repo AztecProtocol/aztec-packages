@@ -534,7 +534,7 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [amountToTransfer, owner, recipient];
+      const args = [amountToTransfer, recipient];
       const result = await runSimulator({ args, abi, msgSender: owner });
 
       // The two notes were nullified
@@ -580,8 +580,8 @@ describe('Private Execution test suite', () => {
       );
       await insertLeaves(consumedNotes.map(n => n.siloedNoteHash));
 
-      const args = [amountToTransfer, owner, recipient];
-      const result = await runSimulator({ args, abi });
+      const args = [amountToTransfer, recipient];
+      const result = await runSimulator({ args, abi, msgSender: owner });
 
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toEqual(consumedNotes.map(n => n.innerNullifier));

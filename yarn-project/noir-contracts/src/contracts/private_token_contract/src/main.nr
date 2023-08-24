@@ -70,18 +70,18 @@ contract PrivateToken {
     // docs:end:mint
 
     // docs:start:transfer
-    // Transfers `amount` of tokens from `sender` to a `recipient`.
+    // Transfers `amount` of tokens from msg_sender to a `recipient`.
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field, 
-        sender: Field, 
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, sender, recipient]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
+        let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);

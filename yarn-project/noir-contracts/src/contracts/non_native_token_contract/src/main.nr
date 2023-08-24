@@ -113,7 +113,7 @@ contract NonNativeToken {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        sender: Field,
+        sender: Field, // TODO: Should verify sender.
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -212,13 +212,11 @@ contract NonNativeToken {
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field,
-        sender: Field,
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, sender, recipient
-        ]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
+        let sender = context.msg_sender();
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(sender);
@@ -292,13 +290,11 @@ contract NonNativeToken {
     fn unshieldTokens(
         inputs: PrivateContextInputs,
         amount: Field,
-        owner: Field,
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            amount, owner, recipient
-        ]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
+        let owner = context.msg_sender();
 
         // Remove user balance
         let sender_balance = storage.balances.at(owner);
