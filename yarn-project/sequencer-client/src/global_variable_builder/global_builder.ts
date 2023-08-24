@@ -47,10 +47,11 @@ export interface GlobalVariableBuilder {
 }
 
 /**
- * Simple implementation of a builder that uses the minimum time possible for the global variables.
+ * Simple test implementation of a builder that uses the minimum time possible for the global variables.
+ * Also uses a "hack" to make use of the warp cheatcode that manipulates time on Aztec.
  */
-export class SimpleGlobalVariableBuilder implements GlobalVariableBuilder {
-  private log = createDebugLogger('aztec:sequencer:simple_global_variable_builder');
+export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
+  private log = createDebugLogger('aztec:sequencer:simple_test_global_variable_builder');
   constructor(private readonly reader: L1GlobalReader) {}
 
   /**
