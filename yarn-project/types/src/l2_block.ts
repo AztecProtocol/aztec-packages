@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { makeAppendOnlyTreeSnapshot, makeGlobalVariables } from '@aztec/circuits.js/factories';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
-import { sha256, sha256ToField } from '@aztec/foundation/crypto';
+import { keccak, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -26,6 +26,8 @@ import { L2BlockL2Logs } from './logs/l2_block_l2_logs.js';
 export class L2Block {
   /* Having logger static to avoid issues with comparing 2 block */
   private static logger = createDebugLogger('aztec:l2_block');
+
+  private blockHash?: Buffer;
 
   /**
    * The number of L2Tx in this L2Block.
@@ -137,7 +139,6 @@ export class L2Block {
     public newL1ToL2Messages: Fr[] = [],
     newEncryptedLogs?: L2BlockL2Logs,
     newUnencryptedLogs?: L2BlockL2Logs,
-    private blockHash?: Buffer,
   ) {
     if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
       throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
@@ -475,6 +476,17 @@ export class L2Block {
   }
 
   /**
+   * Returns the block's hash.
+   * @returns The block's hash.
+   */
+  public getBlockHash(): Buffer {
+    if (!this.blockHash) {
+      this.blockHash = keccak(this.encode());
+    }
+    return this.blockHash;
+  }
+
+  /**
    * Computes the public inputs hash for the L2 block.
    * The same output as the hash of RootRollupPublicInputs.
    * @returns The public input hash for the L2 block as a field element.
@@ -619,11 +631,7 @@ export class L2Block {
       leafs.push(sha256(inputValue));
     }
 
-    if (!this.blockHash) {
-      this.blockHash = computeRoot(leafs);
-    }
-
-    return this.blockHash;
+    return computeRoot(leafs);
   }
 
   /**
@@ -681,7 +689,7 @@ export class L2Block {
       newL2ToL1Msgs,
       newContracts,
       newContractData,
-      this.getCalldataHash(),
+      this.getBlockHash(),
       this.number,
     );
   }
