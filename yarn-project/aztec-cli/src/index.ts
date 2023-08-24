@@ -129,7 +129,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async options => {
       const client = createClient(options.rpcUrl);
       const privateKey = options.privateKey
-        ? new PrivateKey(Buffer.from(stripLeadingHex(options.privateKey), 'hex'))
+        ? PrivateKey.fromString(stripLeadingHex(options.privateKey))
         : PrivateKey.random();
 
       const account = getSchnorrAccount(client, privateKey, privateKey, accountCreationSalt);
@@ -379,7 +379,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
         );
       }
 
-      const privateKey = new PrivateKey(Buffer.from(stripLeadingHex(options.privateKey), 'hex'));
+      const privateKey = PrivateKey.fromString(stripLeadingHex(options.privateKey));
 
       const client = createClient(options.rpcUrl);
       const wallet = await getAccountWallets(
