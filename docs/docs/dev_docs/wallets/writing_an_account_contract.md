@@ -2,11 +2,15 @@
 
 This tutorial will take you through the process of writing your own account contract in Noir, along with the Typescript glue code required for using it within a [wallet](./main.md).
 
-Writing your own account contract allows you to define the rules by which user transactions are authorised and paid for, as well as how their keys are managed and can be potentially rotated or recovered. In other words, lets you make the most out of [account abstraction](../../concepts/foundation/accounts/main.md#what-is-account-abstraction) in the Aztec network.
+Writing your own account contract allows you to define the rules by which user transactions are authorised and paid for, as well as how user keys are managed (including key rotation and recovery). In other words, writing an account contract lets you make the most out of [account abstraction](../../concepts/foundation/accounts/main.md#what-is-account-abstraction) in the Aztec network.
 
 It is highly recommended that you understand how an [account](../../concepts/foundation/accounts/main.md) is defined in Aztec, as well as the differences between privacy and authentication [keys](../../concepts/foundation/accounts/keys.md). You will also need to know how to write a [contract in Noir](../contracts/main.md), as well as some basic [Typescript](https://www.typescriptlang.org/).
 
-For this tutorial, we will write an account contract that uses Schnorr signatures for authenticating transaction requests. For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../concepts/foundation/accounts/keys.md#using-a-private-note), [in an immutable note](../../concepts/foundation/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../concepts/foundation/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
+For this tutorial, we will write an account contract that uses Schnorr signatures for authenticating transaction requests.
+
+> That is, every time a transaction payload is passed to this account contract's 'entrypoint' function, the account contract will demand a valid Schnorr signature, whose signed message matches the transaction payload, and whose signer matches the account contract owner's public key. If the signature fails, the transaction will fail.
+
+For the sake of simplicity, we will hardcode the signing public key into the contract, but you could store it [in a private note](../../concepts/foundation/accounts/keys.md#using-a-private-note), [in an immutable note](../../concepts/foundation/accounts/keys.md#using-an-immutable-private-note), or [on a separate keystore](../../concepts/foundation/accounts/keys.md#using-a-separate-keystore), to mention a few examples.
 
 ## The account contract
 
@@ -29,7 +33,7 @@ The important part of this contract is the `entrypoint` function, which will be 
 #include_code entrypoint-struct yarn-project/noir-libs/noir-aztec/src/entrypoint.nr rust
 
 :::info
-Using the `EntrypointPayload`` struct is not mandatory. You can package the instructions to be carried out by your account contract however you want. However, the entrypoint payload already provides a set of helper functions, both in Noir and Typescript, that can save you a lot of time when writing a new account contract.
+Using the `EntrypointPayload` struct is not mandatory. You can package the instructions to be carried out by your account contract however you want. However, the entrypoint payload already provides a set of helper functions, both in Noir and Typescript, that can save you a lot of time when writing a new account contract.
 :::
 
 Let's go step by step into what the `entrypoint` function is doing:
