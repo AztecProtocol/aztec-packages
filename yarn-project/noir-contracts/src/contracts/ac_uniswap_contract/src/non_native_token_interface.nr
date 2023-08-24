@@ -87,19 +87,6 @@ impl NonNativeTokenContractInterface {
   }
   
 
-  fn shield(
-    self,
-    context: &mut PrivateContext,
-    amount: Field,
-    secretHash: Field
-  ) {
-    let mut serialised_args = [0; 2];
-    serialised_args[0] = amount;
-    serialised_args[1] = secretHash;
-
-    context.call_public_function(self.address, 0x3263f38f, serialised_args)
-  }
-  
 
   fn transfer(
     self,
@@ -151,6 +138,21 @@ impl NonNativeTokenContractInterface {
   }
   
 
+  fn shield(
+    self,
+    context: PublicContext,
+    amount: Field,
+    secretHash: Field
+  ) -> Field {
+    let mut serialised_args = [0; 2];
+    serialised_args[0] = amount;
+    serialised_args[1] = secretHash;
+
+    let _void = context.call_public_function(self.address, 0x3263f38f, serialised_args);
+
+    1
+  }
+  
   fn withdrawPublic(
     self,
     context: PublicContext,

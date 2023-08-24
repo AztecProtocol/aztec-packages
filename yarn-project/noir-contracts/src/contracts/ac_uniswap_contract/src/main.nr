@@ -2,7 +2,8 @@ mod non_native_token_interface;
 mod hash;
 mod storage;
 
-// Demonstrates how to send a message to a portal contract on L1. We use Uniswap here as it's the most typical example.
+// TODO:
+// - Add events
 contract AcUniswap {
     use dep::aztec::abi;
     use dep::aztec::abi::{PrivateContextInputs, PublicContextInputs};
@@ -16,13 +17,13 @@ contract AcUniswap {
     use dep::aztec::types::point::Point;
     use dep::aztec::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 
+    use dep::safe_math::SafeU120;
     use crate::non_native_token_interface::NonNativeTokenContractInterface;
-    use crate::storage::{Storage, Swap};
+    use crate::storage::{Storage, Swap, SwapClaimNote};
 
     fn constructor(
         inputs: PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         PrivateContext::new(inputs, 0).finish()
     }
 
@@ -31,16 +32,17 @@ contract AcUniswap {
         input_asset: Field,
         input_amount: Field,
         output_asset: Field,
+        secret: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let mut context = PrivateContext::new(inputs, abi::hash_args([
             input_asset,
             input_amount,
             output_asset,
+            secret,
         ]));
         // Right now. FULL Yolo, no minimums. We are just flying without safety checks.
 
         // Todo: 
-        // - Need to create a note that we can later use to get the funds back
         // - Need to specify some values for the swap, fee and all the jazz
 
         let _void = NonNativeTokenContractInterface::at(input_asset).unshieldTokens(
@@ -50,28 +52,31 @@ contract AcUniswap {
             context.this_address(),
         );
 
-        context.return_values.push_array([1]);
+        let secret_hash = dep::std::hash::pedersen_with_separator([secret], GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET)[0];
 
         let _void2 = context.call_public_function(
             context.this_address(),
-            0x960c4f8d,
-            [input_asset, input_amount, output_asset],
+            0xc196dec5,
+            [input_asset, input_amount, output_asset, secret_hash],
         );
 
+        context.return_values.push_array([1]);
         context.finish()
     }
 
-    // uint256(keccak256("_participate_in_swap(field,field,field)")) >> 224 -> 0x960c4f8d
+    // uint256(keccak256("_participate_in_swap(field,field,field,field)")) >> 224 -> 0xc196dec5
     open internal fn _participate_in_swap(
         inputs: PublicContextInputs,
         input_asset: Field,
         input_amount: Field,
         output_asset: Field,
+        secret_hash: Field,
     ) -> pub abi::PublicCircuitPublicInputs {
         let mut context = PublicContext::new(inputs, abi::hash_args([
             input_asset,
             input_amount,
             output_asset,
+            secret_hash,
         ]));
 
         let storage = Storage::init();
@@ -88,17 +93,20 @@ contract AcUniswap {
         swap.input_amount = swap.input_amount + input_amount;
         storage.swaps.at(input_asset).at(output_asset).at(count).write(swap);
 
+         let swap_claim_note = SwapClaimNote {
+            input_asset,
+            input_amount,
+            output_asset,
+            index: count,
+            secret_hash,
+        };
+
+        let note_hash = swap_claim_note.compute_note_hash();
+        assert(storage.swap_notes.at(note_hash).read() == 0);
+        storage.swap_notes.at(note_hash).write(1);
+
         context.finish()
     }
-
-
-    // What we need to make this nicer:
-    // 1. A way to access other (and my own) contract's portal addresses (we need many additional args for no good reason now)
-    // 2. don't pass all args manually to initial context
-    // 3. Variable length arrays for input arguments (8 not enough)
-    // 4. Should have storage for fixed values.
-    // 5. account abstraction using its own "custom" constants instead of using shared constants...
-    // 6. currently have to manually set the args array for calling other contracts which is inconvenient when using structs etc.
 
     open fn swap(
         inputs: PublicContextInputs,
@@ -208,9 +216,82 @@ contract AcUniswap {
         context.finish()
     }
 
-    unconstrained fn get_swap(input_asset: Field, output_asset: Field, index: Field) -> Swap {
+    // Note that this can be called by anyone! 
+    // The user will still need to `redeemShield` himself.
+    open fn claim(
+        inputs: PublicContextInputs,
+        input_asset: Field,
+        input_amount: Field,
+        output_asset: Field,
+        index: Field,
+        secret_hash: Field,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([
+            input_asset,
+            input_amount,
+            output_asset,
+            index,
+            secret_hash,
+        ]));
+        let storage = Storage::init();
+
+        let swap_claim_note = SwapClaimNote {
+            input_asset,
+            input_amount,
+            output_asset,
+            index,
+            secret_hash,
+        };
+
+        let note_hash = swap_claim_note.compute_note_hash();
+
+        assert(storage.swap_notes.at(note_hash).read() == 1);
+        storage.swap_notes.at(note_hash).write(0);
+
+        let swap = storage.swaps.at(input_asset).at(output_asset).at(index).read();
+
+        let total_input = SafeU120 { value: swap.input_amount as u120 };
+        let total_output = SafeU120 { value: swap.output_amount as u120 };
+        let input_amount = SafeU120 { value: input_amount as u120 };
+
+        // TODO: Compute my share of the output amount. Overflowing currently because of 1e18 precision of both tokens.
+        let output_amount = 1;//input_amount.mul_div(total_output, total_input).value;
+
+        let _success = NonNativeTokenContractInterface::at(output_asset).shield(
+            context,
+            output_amount as Field,
+            secret_hash,
+        );
+
+        context.finish()
+    }
+
+    unconstrained fn get_swap(
+        input_asset: Field, 
+        output_asset: Field, 
+        index: Field
+    ) -> Swap {
         let storage = Storage::init();
         storage.swaps.at(input_asset).at(output_asset).at(index).read()
     }
 
+    unconstrained fn note_exists(
+        input_asset: Field, 
+        input_amount: Field,
+        output_asset: Field, 
+        index: Field, 
+        secret_hash: Field
+    ) -> bool {
+        let storage = Storage::init();
+        let swap_claim_note = SwapClaimNote {
+            input_asset,
+            input_amount,
+            output_asset,
+            index,
+            secret_hash,
+        };
+
+        let note_hash = swap_claim_note.compute_note_hash();
+        storage.swap_notes.at(note_hash).read() == 1
+    }
 }

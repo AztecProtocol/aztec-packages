@@ -128,7 +128,7 @@ export class CrossChainTestHarness {
     expect(await this.underlyingERC20.read.balanceOf([this.ethAccount.toString()])).toBe(amount);
   }
 
-  async getL1BalanceOf(address: EthAddress) {
+  async getL1BalanceOf(address: EthAddress): Promise<bigint> {
     return await this.underlyingERC20.read.balanceOf([address.toString()]);
   }
 

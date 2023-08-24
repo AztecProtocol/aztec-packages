@@ -55,6 +55,12 @@ describe('uniswap_trade_on_l1_from_l2', () => {
 
   let walletClient: any;
 
+  const secrets = {
+    user1: new Fr(6),
+    user2: new Fr(7),
+  };
+  let swapOutputAmount = 0n;
+
   beforeAll(async () => {
     let deployL1ContractsValues: DeployL1Contracts;
     ({ aztecNode, aztecRpcServer, deployL1ContractsValues, accounts, logger, wallet, cheatCodes } = await setup(
@@ -80,7 +86,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
       walletClient,
       publicClient,
       deployL1ContractsValues!.registryAddress,
-      initialBalance,
+      0n,
       user1,
       DAI_ADDRESS,
     );
@@ -207,6 +213,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         wethCrossChainHarness.l2Contract.address,
         depositAmount,
         daiCrossChainHarness.l2Contract.address,
+        secrets['user1'],
       )
       .send({ origin: user1 });
     const receipt = await depositTx.wait();
@@ -223,6 +230,16 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     expect(swap['input_amount']).toEqual(depositAmount);
     expect(swap['output_amount']).toEqual(0n);
     expect(swap['is_pending']).toEqual(true);
+    const noteExists = await uniswapL2Contract.methods
+      .note_exists(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user1']),
+      )
+      .view();
+    expect(noteExists).toEqual(true);
   }, 100_000);
 
   it('user 2 deposit into aggregate swap', async () => {
@@ -237,6 +254,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         wethCrossChainHarness.l2Contract.address.toField(),
         depositAmount,
         daiCrossChainHarness.l2Contract.address.toField(),
+        secrets['user2'],
       )
       .send({ origin: user2 });
     const receipt = await depositTx.wait();
@@ -253,6 +271,16 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     expect(swap['input_amount']).toEqual(depositAmount * 2n);
     expect(swap['output_amount']).toEqual(0n);
     expect(swap['is_pending']).toEqual(true);
+    const noteExists = await uniswapL2Contract.methods
+      .note_exists(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user2']),
+      )
+      .view();
+    expect(noteExists).toEqual(true);
   }, 100_000);
 
   let timestamp: bigint = 0n;
@@ -321,7 +349,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const daiBalanceOfPortalAfter = await daiCrossChainHarness.getL1BalanceOf(daiCrossChainHarness.tokenPortalAddress);
 
     const depositDaiMessageKey = Fr.fromString(depositDaiMessageKeyHex);
-    const daiDeposited = daiBalanceOfPortalAfter - daiBalanceOfPortalBefore;
+    swapOutputAmount = daiBalanceOfPortalAfter - daiBalanceOfPortalBefore;
 
     {
       // Wait for the archiver to process the message
@@ -336,7 +364,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         wethCrossChainHarness.l2Contract.address,
         daiCrossChainHarness.l2Contract.address,
         1,
-        daiDeposited,
+        swapOutputAmount,
         depositDaiMessageKey,
       )
       .send({ origin: user1 });
@@ -347,16 +375,66 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const daiContractBalanceAfter = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
 
     expect(wethContractBalanceAfter).toEqual(0n);
-    expect(daiContractBalanceAfter).toEqual(daiDeposited);
+    expect(daiContractBalanceAfter).toEqual(swapOutputAmount);
 
     const swap = await uniswapL2Contract.methods
       .get_swap(wethCrossChainHarness.l2Contract.address, daiCrossChainHarness.l2Contract.address, 1)
       .view();
     expect(swap['input_amount']).toEqual(depositAmount * 2n);
-    expect(swap['output_amount']).toEqual(daiDeposited);
+    expect(swap['output_amount']).toEqual(swapOutputAmount);
     expect(swap['is_pending']).toEqual(false);
   }, 100_000);
 
-  it('user 1 claims their share of the dai', async () => {});
+  it('user 1 claims their share of the dai', async () => {
+    const userBalanceBefore = await daiCrossChainHarness.getL2BalanceOf(user1);
+    const contractBalanceBefore = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    expect(userBalanceBefore).toEqual(0n);
+    expect(contractBalanceBefore).toEqual(swapOutputAmount);
+
+    const claimTx = uniswapL2Contract.methods
+      .claim(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user1']),
+      )
+      .send({ origin: user1 });
+    const receipt = await claimTx.wait();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    const userBalanceMid = await daiCrossChainHarness.getL2BalanceOf(user1);
+    const contractBalanceMid = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    const expectedSwapAmount = 1n; // (depositAmount * swapOutputAmount) / (depositAmount * 2n);
+
+    expect(userBalanceMid).toEqual(0n);
+    expect(contractBalanceMid).toEqual(swapOutputAmount - expectedSwapAmount);
+
+    const noteExists = await uniswapL2Contract.methods
+      .note_exists(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user1']),
+      )
+      .view();
+    expect(noteExists).toEqual(false);
+
+    const redeemTx = daiCrossChainHarness.l2Contract.methods
+      .redeemShield(expectedSwapAmount, secrets['user1'], user1)
+      .send({ origin: user1 });
+    const redeemReceipt = await redeemTx.wait();
+    expect(redeemReceipt.status).toBe(TxStatus.MINED);
+
+    const userBalanceAfter = await daiCrossChainHarness.getL2BalanceOf(user1);
+    const contractBalanceAfter = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    expect(userBalanceAfter).toEqual(expectedSwapAmount);
+    expect(contractBalanceAfter).toEqual(swapOutputAmount - expectedSwapAmount);
+  });
+
   it('user 2 claims their share of the dai', async () => {});
 });
