@@ -23,8 +23,8 @@ struct BenchParams {
     static constexpr size_t MAX_NUM_ITERATIONS = 10;
 
     // Log num gates; for simple circuits only, e.g. standard arithmetic circuit
-    static constexpr size_t MIN_LOG_NUM_GATES = 16;
-    static constexpr size_t MAX_LOG_NUM_GATES = 16;
+    static constexpr size_t MIN_LOG_NUM_GATES = 10;
+    static constexpr size_t MAX_LOG_NUM_GATES = 22;
 
     static constexpr size_t NUM_REPETITIONS = 1;
 };
@@ -42,7 +42,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     proof_system::plonk::stdlib::field_t b(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t c(&builder);
-    for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
+    for (size_t i = 0; i < (num_gates / 4) - 30; ++i) {
         c = a + b;
         c = a * c;
         a = b * b;
