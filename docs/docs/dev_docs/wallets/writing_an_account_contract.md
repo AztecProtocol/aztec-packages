@@ -22,7 +22,9 @@ Let's start with the account contract itself in Noir. Create [a new Noir contrac
 You can use [the Aztec CLI](../cli/main.md) to generate a new keypair if you want to use a different one:
 ```bash
 $ aztec-cli generate-private-key
+```
 
+```bash
 Private Key: 0xc06461a031058f116f087bc0161b11c039648eb47e03bad3eab089709bf9b8ae
 Public Key:  0x0ede151adaef1cfcc1b3e152ea39f00c5cda3f3857cef00decb049d283672dc713c0e184340407e796411f74b7383252f1406272b58fccad6fee203f8a6db474
 ```
