@@ -188,12 +188,9 @@ contract NonNativeToken {
 
         let current_sender_balance: Field = sender_balance.read();
 
-        if (current_sender_balance as u120) > (amount as u120) {
-            // User has sufficient balance so we decrement it by `amount`
-            let _void1 = sender_balance.write(current_sender_balance - amount);
-        }
-        // TODO: Revert if there is not enough balance
-
+        assert(current_sender_balance as u120 >= amount as u120);
+        sender_balance.write(current_sender_balance - amount);
+    
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message

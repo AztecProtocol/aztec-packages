@@ -1,0 +1,9 @@
+[package]
+name = "ac_uniswap_contract"
+authors = [""]
+compiler_version = "0.1"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../noir-libs/noir-aztec" }
+non_native = {path = "../non_native_token_contract"}

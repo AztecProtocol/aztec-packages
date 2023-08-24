@@ -200,8 +200,12 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
+  async getL2PublicBalanceOf(owner: AztecAddress) {
+    return await this.l2Contract.methods.publicBalanceOf(owner.toField()).view({ from: owner });
+  }
+
   async expectPublicBalanceOnL2(owner: AztecAddress, expectedBalance: bigint) {
-    const balance = await this.l2Contract.methods.publicBalanceOf(owner.toField()).view({ from: owner });
+    const balance = await this.getL2PublicBalanceOf(owner);
     expect(balance).toBe(expectedBalance);
   }
 
