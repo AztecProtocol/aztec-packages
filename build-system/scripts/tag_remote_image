@@ -31,5 +31,5 @@ if [ "$EXISTING_TAG_MANIFEST" != "$NEW_TAG_MANIFEST" ]; then
     --region $REGION \
     --repository-name $REPOSITORY \
     --image-tag $NEW_TAG \
-    --image-manifest "$EXISTING_TAG_MANIFEST" > /dev/null 2>&1
+    --image-manifest "$EXISTING_TAG_MANIFEST" > /dev/null
 fi
