@@ -41,7 +41,6 @@ contract PrivateTokenAirdrop {
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
             increase_balance(&mut context, owner_balance, initial_supply, owner);
-            emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -63,7 +62,6 @@ contract PrivateTokenAirdrop {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         increase_balance(&mut context, owner_balance, amount, owner);
-        emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
