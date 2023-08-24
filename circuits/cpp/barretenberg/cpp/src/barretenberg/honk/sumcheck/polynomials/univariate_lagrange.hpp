@@ -1,13 +1,16 @@
 #include "barycentric_data.hpp"
+#include "univariate.hpp"
 
 /**
  * @brief A container for a
  *
  */
 namespace proof_system::honk::sumcheck {
-template <class Fr, size_t domain_size, size_t center_idx, size_t num_evals> class LagrangeMultiple {
+template <class Fr, size_t domain_size, size_t center_idx, size_t num_evals>
+class LagrangeMultiple : public Univariate<Fr, num_evals> {
   public:
-    static constexpr std::array<Fr, num_evals> construct_data()
+    // WORKTODO: model for successive extensions, including with scalar multiples
+    static constexpr std::array<Fr, num_evals> construct_evaluations()
     {
         std::array<Fr, num_evals> result;
         std::fill(result.begin(), result.end(), 0);
@@ -48,14 +51,7 @@ template <class Fr, size_t domain_size, size_t center_idx, size_t num_evals> cla
         return result;
     }
 
-    // WORKTODO: faster with std::valarray?
-    static constexpr std::array<Fr, num_evals> evaluations = construct_data();
+    consteval LagrangeMultiple() { this->evaluations = construct_evaluations(); };
 
-    // WORKTODO: model for successive extension
-    Univariate<Fr, num_evals> operator*=(Fr scalar){
-        auto result = Univariate<Fr, num_evals>(evaluations);
-        result *= scalar;
-        return result;
-    }
 };
 } // namespace proof_system::honk::sumcheck

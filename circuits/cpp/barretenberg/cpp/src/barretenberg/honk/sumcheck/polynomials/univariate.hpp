@@ -14,6 +14,7 @@ template <class Fr, size_t _length> class Univariate {
   public:
     static constexpr size_t LENGTH = _length;
 
+    // WORKTODO: try out std::valarray?
     std::array<Fr, _length> evaluations;
 
     Univariate() = default;
