@@ -54,7 +54,7 @@ export class PublicExecutor {
    * @returns The result of the run plus all nested runs.
    */
   public async execute(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
-    const selector = execution.functionData.functionSelector;
+    const selector = execution.functionData.selector;
     this.log(`Executing public external function ${execution.contractAddress.toString()}:${selector}`);
 
     const acir = await this.contractsDb.getBytecode(execution.contractAddress, selector);

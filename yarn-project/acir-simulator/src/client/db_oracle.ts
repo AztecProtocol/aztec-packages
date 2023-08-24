@@ -116,13 +116,10 @@ export interface DBOracle extends CommitmentsDB {
    * The function is identified by its selector, which is a unique identifier generated from the function signature.
    *
    * @param contractAddress - The contract address.
-   * @param functionSelector - The corresponding function selector.
+   * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionAbi object containing the ABI information of the target function.
    */
-  getFunctionABI(
-    contractAddress: AztecAddress,
-    functionSelector: FunctionSelector,
-  ): Promise<FunctionAbiWithDebugMetadata>;
+  getFunctionABI(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionAbiWithDebugMetadata>;
 
   /**
    * Retrieves the portal contract address associated with the given contract address.

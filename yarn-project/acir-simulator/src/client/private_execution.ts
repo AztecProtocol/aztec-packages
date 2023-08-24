@@ -55,7 +55,7 @@ export class PrivateFunctionExecution {
    * @returns The execution result.
    */
   public async run(): Promise<ExecutionResult> {
-    const selector = this.functionData.functionSelector.toString();
+    const selector = this.functionData.selector.toString();
     this.log(`Executing external function ${this.contractAddress.toString()}:${selector}`);
 
     const acir = Buffer.from(this.abi.bytecode, 'base64');

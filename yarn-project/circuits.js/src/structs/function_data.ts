@@ -13,7 +13,7 @@ export class FunctionData {
     /**
      * Function selector of the function being called.
      */
-    public functionSelector: FunctionSelector,
+    public selector: FunctionSelector,
     /**
      * Indicates whether the function is only callable by self or not.
      */
@@ -42,7 +42,7 @@ export class FunctionData {
    * @returns The buffer.
    */
   toBuffer(): Buffer {
-    return serializeToBuffer(this.functionSelector.value, this.isInternal, this.isPrivate, this.isConstructor);
+    return serializeToBuffer(this.selector.value, this.isInternal, this.isPrivate, this.isConstructor);
   }
 
   /**
@@ -50,7 +50,7 @@ export class FunctionData {
    * @returns True if the function selector is zero.
    */
   isEmpty() {
-    return this.functionSelector.isEmpty();
+    return this.selector.isEmpty();
   }
 
   /**

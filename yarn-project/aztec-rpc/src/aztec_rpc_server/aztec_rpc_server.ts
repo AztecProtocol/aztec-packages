@@ -326,14 +326,8 @@ export class AztecRPCServer implements AztecRPC {
     contractDataOracle: ContractDataOracle,
   ) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await contractDataOracle.getFunctionAbi(
-      contractAddress,
-      execRequest.functionData.functionSelector,
-    );
-    const debug = await contractDataOracle.getFunctionDebugMetadata(
-      contractAddress,
-      execRequest.functionData.functionSelector,
-    );
+    const functionAbi = await contractDataOracle.getFunctionAbi(contractAddress, execRequest.functionData.selector);
+    const debug = await contractDataOracle.getFunctionDebugMetadata(contractAddress, execRequest.functionData.selector);
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {

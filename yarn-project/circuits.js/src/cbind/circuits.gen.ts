@@ -311,7 +311,7 @@ export function toFunctionData(o: MsgpackFunctionData): FunctionData {
 }
 
 export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.functionSelector === undefined) {
+  if (o.selector === undefined) {
     throw new Error('Expected functionSelector in FunctionData serialization');
   }
   if (o.isInternal === undefined) {
@@ -324,7 +324,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
     throw new Error('Expected isConstructor in FunctionData serialization');
   }
   return {
-    function_selector: fromFunctionSelector(o.functionSelector),
+    function_selector: fromFunctionSelector(o.selector),
     is_internal: o.isInternal,
     is_private: o.isPrivate,
     is_constructor: o.isConstructor,

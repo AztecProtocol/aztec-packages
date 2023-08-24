@@ -36,11 +36,11 @@ export function getPublicExecutor(
  */
 class ContractsDataSourcePublicDB implements PublicContractsDB {
   constructor(private db: ContractDataSource) {}
-  async getBytecode(address: AztecAddress, functionSelector: FunctionSelector): Promise<Buffer | undefined> {
-    return (await this.db.getPublicFunction(address, functionSelector))?.bytecode;
+  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+    return (await this.db.getPublicFunction(address, selector))?.bytecode;
   }
-  async getIsInternal(address: AztecAddress, functionSelector: FunctionSelector): Promise<boolean | undefined> {
-    return (await this.db.getPublicFunction(address, functionSelector))?.isInternal;
+  async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
+    return (await this.db.getPublicFunction(address, selector))?.isInternal;
   }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
     return (await this.db.getContractData(address))?.portalContractAddress;
