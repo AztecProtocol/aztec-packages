@@ -1,57 +1,54 @@
-/**
- * Builds the web version of the worker, and outputs it to the dest directory.
- */
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
-import CopyWebpackPlugin from 'copy-webpack-plugin';
-import HtmlWebpackPlugin from 'html-webpack-plugin';
 import webpack from 'webpack';
-// import { createRequire } from 'module';
-
-// const require = createRequire(import.meta.url);
 
 export default {
   target: 'web',
-  mode: 'production',
-  entry: {
-    barretenberg_wasm: './src/barretenberg_wasm/browser/worker.ts',
-    simple_test: './src/examples/simple.rawtest.ts',
-  },
+  mode: 'development',
+  devtool: false,
+  entry: './src/index.ts',
   module: {
     rules: [
       {
+        test: /\.wasm$/,
+        type: 'asset/inline',
+      },
+      {
+        test: /\.worker\.ts$/,
+        loader: 'worker-loader',
+        options: { inline: 'no-fallback' },
+      },
+      {
         test: /\.tsx?$/,
-        use: [{ loader: 'ts-loader', options: { transpileOnly: true, onlyCompileBundledFiles: true } }],
+        use: [
+          {
+            loader: 'ts-loader',
+            options: { configFile: 'tsconfig.browser.json', onlyCompileBundledFiles: true },
+          },
+        ],
       },
     ],
   },
   output: {
-    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest'),
-    filename: '[name].js',
+    path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
+    filename: 'index.js',
+    module: true,
+    library: {
+      type: 'module',
+    },
+  },
+  experiments: {
+    outputModule: true,
   },
   plugins: [
-    new HtmlWebpackPlugin({ inject: false, template: './src/index.html' }),
     new webpack.DefinePlugin({ 'process.env.NODE_DEBUG': false }),
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
-    new CopyWebpackPlugin({
-      patterns: [
-        {
-          // Point directly to the built file, not the symlink, else copy-on-change doesn't work...
-          from: `../cpp/build-wasm/bin/barretenberg.wasm`,
-          to: 'barretenberg.wasm',
-        },
-        {
-          from: `../cpp/build-wasm-threads/bin/barretenberg.wasm`,
-          to: 'barretenberg-threads.wasm',
-        },
-      ],
+    new webpack.NormalModuleReplacementPlugin(/\/node\/(.*)\.js$/, function (resource) {
+      resource.request = resource.request.replace('/node/', '/browser/');
     }),
   ],
   resolve: {
-    alias: {
-      './node/index.js': './browser/index.js',
-    },
     plugins: [new ResolveTypeScriptPlugin()],
   },
   devServer: {

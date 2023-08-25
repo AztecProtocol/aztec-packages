@@ -1,4 +1,4 @@
-import { BarretenbergWasm, BarretenbergWasmWorker } from '../barretenberg_wasm/barretenberg_wasm.js';
+import { BarretenbergWasm, BarretenbergWasmWorker } from '../barretenberg_wasm/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 import { Bufferable, OutputType } from '../serialize/index.js';
 import { asyncMap } from '../async_map/index.js';

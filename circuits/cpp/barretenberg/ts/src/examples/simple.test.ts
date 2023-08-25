@@ -1,4 +1,4 @@
-import { Crs } from '../index.js';
+import { Crs } from '../crs/index.js';
 import { BarretenbergApiAsync, newBarretenbergApiAsync } from '../factory/index.js';
 import { RawBuffer } from '../types/index.js';
 

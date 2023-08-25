@@ -1,15 +1,17 @@
 {
   "name": "@aztec/bb.js",
-  "version": "0.4.3",
-  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/circuits/cpp/barretenberg/ts",
+  "version": "0.3.3",
   "license": "MIT",
   "type": "module",
-  "typedoc": {
-    "entryPoint": "./src/index.ts",
-    "displayName": "bb.js",
-    "tsconfig": "./tsconfig.json"
+  "types": "./cjs-entry/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./cjs-entry/index.cjs",
+      "browser": "./dest/browser/index.js",
+      "default": "./dest/node/index.js"
+    }
   },
-  "bin": "./dest/main.js",
+  "bin": "./dest/node/main.js",
   "files": [
     "src/",
     "dest/",
@@ -20,7 +22,7 @@
     "build": "yarn clean && yarn build:wasm && yarn build:ts",
     "build:dev": "tsc -b --watch",
     "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm",
-    "build:ts": "tsc -b && webpack && chmod +x ./dest/main.js",
+    "build:ts": "tsc -b && cp ./src/barretenberg-threads.wasm ./dest/node && webpack && chmod +x ./dest/node/main.js",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "serve": "webpack serve",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
@@ -79,6 +81,7 @@
     "typescript": "^5.0.4",
     "webpack": "^5.82.1",
     "webpack-cli": "^5.1.1",
-    "webpack-dev-server": "^4.15.0"
+    "webpack-dev-server": "^4.15.0",
+    "worker-loader": "^3.0.8"
   }
 }

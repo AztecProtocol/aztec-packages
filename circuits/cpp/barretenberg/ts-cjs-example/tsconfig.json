@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true, // Allows default imports from modules with no default export
+    "allowSyntheticDefaultImports": true, // Allow default imports from modules with no default export
+    "strict": true, // Enable all strict type-checking options
+    "skipLibCheck": true, // Skip type checking of declaration files
+    "forceConsistentCasingInFileNames": true, // Disallow inconsistently-cased references to the same file
+    "outDir": "./dist", // Where to put the compiled JavaScript
+    "rootDir": "./src", // Where the source TypeScript files are
+    "declaration": true, // Generate corresponding .d.ts file (useful if you're building a library)
+    "sourceMap": true, // Generate corresponding .map file for debugging
+    "noImplicitAny": true
+  }
+}

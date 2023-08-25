@@ -13,7 +13,7 @@
     "importHelpers": true,
     "resolveJsonModule": true,
     "composite": true,
-    "outDir": "dest/node",
+    "outDir": "dest",
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo"
   },

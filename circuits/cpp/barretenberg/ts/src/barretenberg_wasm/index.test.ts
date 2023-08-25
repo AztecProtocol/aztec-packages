@@ -1,5 +1,5 @@
 import { type Worker } from 'worker_threads';
-import { BarretenbergWasm, BarretenbergWasmWorker } from './barretenberg_wasm.js';
+import { BarretenbergWasm, BarretenbergWasmWorker } from './index.js';
 
 describe('barretenberg wasm', () => {
   let wasm!: BarretenbergWasm;

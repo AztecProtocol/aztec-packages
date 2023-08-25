@@ -1,0 +1,8 @@
+{
+  "extends": ".",
+  "compilerOptions": {
+    "outDir": "dest/browser",
+    "tsBuildInfoFile": ".tsbuildinfo.browser"
+  },
+  "include": ["src", "src/barretenberg_wasm/barretenberg_wasm_thread/factory/browser/thread.worker.ts"]
+}

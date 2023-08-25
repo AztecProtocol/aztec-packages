@@ -1,5 +1,5 @@
 import { Bufferable, serializeBufferable, OutputType } from '../serialize/index.js';
-import { BarretenbergWasm } from '../barretenberg_wasm/barretenberg_wasm.js';
+import { BarretenbergWasm } from '../barretenberg_wasm/index.js';
 
 /**
  * Keeps track of heap allocations so they can be easily freed.

@@ -1,25 +1,20 @@
 import { Worker } from 'worker_threads';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { readFile } from 'fs/promises';
 import os from 'os';
-import { type BarretenbergWasm, type BarretenbergWasmWorker } from '../barretenberg_wasm.js';
 import { wrap } from 'comlink';
 import { nodeEndpoint } from './node_endpoint.js';
 import { writeSync } from 'fs';
 
-export async function fetchCode(name: string) {
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  return await readFile(__dirname + '/../../' + name);
+export function getSharedMemoryAvailable() {
+  return true;
 }
 
-export function createWorker() {
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  return new Worker(__dirname + `/worker.js`);
-}
-
-export function getRemoteBarretenbergWasm(worker: Worker): BarretenbergWasmWorker {
-  return wrap<BarretenbergWasm>(nodeEndpoint(worker)) as BarretenbergWasmWorker;
+/**
+ * Comlink allows you to produce a Proxy to the worker, enabling you to call methods as if it were a normal class.
+ * Note we give it the type information it needs so the returned Proxy object looks like that type.
+ * Node has a different implementation, needing this nodeEndpoint wrapper, hence this function exists here.
+ */
+export function getRemoteBarretenbergWasm<T>(worker: Worker): T {
+  return wrap(nodeEndpoint(worker)) as T;
 }
 
 export function getNumCpu() {

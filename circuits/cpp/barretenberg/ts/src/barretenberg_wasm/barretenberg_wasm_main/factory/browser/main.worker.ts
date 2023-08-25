@@ -1,5 +1,5 @@
 import { expose } from 'comlink';
-import { BarretenbergWasm } from '../index.js';
+import { BarretenbergWasmMain } from '../../index.js';
 import debug from 'debug';
 
 self.onmessage = function (e) {
@@ -8,6 +8,8 @@ self.onmessage = function (e) {
   }
 };
 
-expose(new BarretenbergWasm());
+expose(new BarretenbergWasmMain());
 
 self.postMessage({ ready: true });
+
+export default null as any;
