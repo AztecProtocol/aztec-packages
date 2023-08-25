@@ -597,51 +597,55 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
  * scalars See `bn254_endo_batch_mul` for description of algorithm
  **/
 template <typename C, class Fq, class Fr, class G>
+template <bool use_goblin>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
                                                        const std::vector<Fr>& scalars,
                                                        const size_t max_num_bits)
 {
+    if constexpr (use_goblin) {
+        return goblin_batch_mul(points, scalars);
+    } else {
+        const size_t num_points = points.size();
+        ASSERT(scalars.size() == num_points);
+        batch_lookup_table point_table(points);
+        const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
-    const size_t num_points = points.size();
-    ASSERT(scalars.size() == num_points);
-    batch_lookup_table point_table(points);
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    std::vector<std::vector<bool_t<C>>> naf_entries;
-    for (size_t i = 0; i < num_points; ++i) {
-        naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
-    }
-    const auto offset_generators = compute_offset_generators(num_rounds);
-    element accumulator =
-        element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
-
-    constexpr size_t num_rounds_per_iteration = 4;
-    size_t num_iterations = num_rounds / num_rounds_per_iteration;
-    num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
-    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-    for (size_t i = 0; i < num_iterations; ++i) {
-
-        std::vector<bool_t<C>> nafs(num_points);
-        std::vector<element::chain_add_accumulator> to_add;
-        const size_t inner_num_rounds =
-            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-        for (size_t j = 0; j < inner_num_rounds; ++j) {
-            for (size_t k = 0; k < num_points; ++k) {
-                nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
-            }
-            to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+        std::vector<std::vector<bool_t<C>>> naf_entries;
+        for (size_t i = 0; i < num_points; ++i) {
+            naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
         }
-        accumulator = accumulator.multiple_montgomery_ladder(to_add);
-    }
-    for (size_t i = 0; i < num_points; ++i) {
-        element skew = accumulator - points[i];
-        Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-        Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-        accumulator = element(out_x, out_y);
-    }
-    accumulator = accumulator - offset_generators.second;
+        const auto offset_generators = compute_offset_generators(num_rounds);
+        element accumulator =
+            element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
 
-    return accumulator;
+        constexpr size_t num_rounds_per_iteration = 4;
+        size_t num_iterations = num_rounds / num_rounds_per_iteration;
+        num_iterations += ((num_iterations * num_rounds_per_iteration) == num_rounds) ? 0 : 1;
+        const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+        for (size_t i = 0; i < num_iterations; ++i) {
+
+            std::vector<bool_t<C>> nafs(num_points);
+            std::vector<element::chain_add_accumulator> to_add;
+            const size_t inner_num_rounds =
+                (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+            for (size_t j = 0; j < inner_num_rounds; ++j) {
+                for (size_t k = 0; k < num_points; ++k) {
+                    nafs[k] = (naf_entries[k][i * num_rounds_per_iteration + j + 1]);
+                }
+                to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+            }
+            accumulator = accumulator.multiple_montgomery_ladder(to_add);
+        }
+        for (size_t i = 0; i < num_points; ++i) {
+            element skew = accumulator - points[i];
+            Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
+            Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
+            accumulator = element(out_x, out_y);
+        }
+        accumulator = accumulator - offset_generators.second;
+
+        return accumulator;
+    }
 }
 
 /**

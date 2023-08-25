@@ -7,43 +7,26 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 
 namespace proof_system::plonk::stdlib::recursion::honk {
-template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                         std::shared_ptr<typename Flavor::VerificationKey> verifier_key)
+
+template <typename Flavor, bool goblin_flag>
+UltraRecursiveVerifier_<Flavor, goblin_flag>::UltraRecursiveVerifier_(Builder* builder,
+                                                                      std::shared_ptr<VerificationKey> verifier_key)
     : key(verifier_key)
     , builder(builder)
 {}
-
-template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(UltraRecursiveVerifier_&& other) noexcept
-    : key(std::move(other.key))
-    , pcs_verification_key(std::move(other.pcs_verification_key))
-{}
-
-template <typename Flavor>
-UltraRecursiveVerifier_<Flavor>& UltraRecursiveVerifier_<Flavor>::operator=(UltraRecursiveVerifier_&& other) noexcept
-{
-    key = other.key;
-    pcs_verification_key = (std::move(other.pcs_verification_key));
-    commitments.clear();
-    pcs_fr_elements.clear();
-    return *this;
-}
 
 /**
  * @brief This function constructs a recursive verifier circuit for an Ultra Honk proof of a given flavor.
  *
  */
-template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof, bool use_goblin)
+template <typename Flavor, bool goblin_flag>
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, goblin_flag>::verify_proof(
+    const plonk::proof& proof)
 {
-    using FF = typename Flavor::FF;
-    using GroupElement = typename Flavor::GroupElement;
-    using Commitment = typename Flavor::Commitment;
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
-    using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve>;
+    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve, goblin_flag>;
+    using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve, goblin_flag>;
     using PCS = typename Flavor::PCS; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -163,22 +146,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
-    GroupElement batched_commitment_unshifted;
-    if (use_goblin) {
-        batched_commitment_unshifted = GroupElement::goblin_batch_mul(commitments.get_unshifted(), scalars_unshifted);
-    } else {
-        batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
-    }
+    auto batched_commitment_unshifted =
+        GroupElement::template batch_mul<goblin_flag>(commitments.get_unshifted(), scalars_unshifted);
 
     info("Batch mul (unshifted): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
-    GroupElement batched_commitment_to_be_shifted;
-    if (use_goblin) {
-        batched_commitment_to_be_shifted = GroupElement::goblin_batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
-    } else {
-        batched_commitment_to_be_shifted = GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
-    }
+    auto batched_commitment_to_be_shifted =
+        GroupElement::template batch_mul<goblin_flag>(commitments.get_to_be_shifted(), scalars_to_be_shifted);
 
     info("Batch mul (to-be-shited): num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
@@ -201,14 +176,18 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     info("Shplonk: num gates = ", builder->get_num_gates() - prev_num_gates);
     prev_num_gates = builder->get_num_gates();
 
-    info("Total: num gates = ", builder->get_num_gates());
-
     // Constuct the inputs to the final KZG pairing check
     auto pairing_points = PCS::compute_pairing_points(shplonk_claim, transcript);
+
+    info("KZG: num gates = ", builder->get_num_gates() - prev_num_gates);
+
+    info("Total: num gates = ", builder->get_num_gates());
 
     return pairing_points;
 }
 
-template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;
+using UltraRecursiveFlavor = proof_system::honk::flavor::UltraRecursive;
+template class UltraRecursiveVerifier_<UltraRecursiveFlavor, /*goblin_flag*/ false>;
+template class UltraRecursiveVerifier_<UltraRecursiveFlavor, /*goblin_flag*/ true>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

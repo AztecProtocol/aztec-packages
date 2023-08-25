@@ -17,7 +17,7 @@ namespace proof_system::plonk::stdlib::recursion::honk {
 
 template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::Test {
 
-    static constexpr bool use_goblin_flag = UseGoblinFlag::value;
+    static constexpr bool goblin_flag = UseGoblinFlag::value;
 
     using InnerComposer = ::proof_system::honk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
@@ -25,7 +25,7 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
     using OuterBuilder = ::proof_system::UltraCircuitBuilder;
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
-    using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive>;
+    using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive, goblin_flag>;
     using VerificationKey = ::proof_system::honk::flavor::UltraRecursive::VerificationKey;
 
     using inner_curve = bn254<InnerBuilder>;
@@ -117,7 +117,7 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
 
         // Instantiate the recursive verifier and construct the recusive verification circuit
         RecursiveVerifier verifier(&outer_builder, verification_key);
-        auto pairing_points = verifier.verify_proof(proof_to_recursively_verify, use_goblin_flag);
+        auto pairing_points = verifier.verify_proof(proof_to_recursively_verify);
 
         // For testing purposes only, perform native verification and compare the result
         auto native_verifier = inner_composer.create_verifier(inner_circuit);

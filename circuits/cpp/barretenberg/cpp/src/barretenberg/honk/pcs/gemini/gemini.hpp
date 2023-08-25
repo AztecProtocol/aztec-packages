@@ -111,7 +111,7 @@ template <typename Curve> class GeminiProver_ {
                                                                    const Fr& r_challenge);
 }; // namespace proof_system::honk::pcs::gemini
 
-template <typename Curve> class GeminiVerifier_ {
+template <typename Curve, bool goblin_flag = false> class GeminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -242,8 +242,8 @@ template <typename Curve> class GeminiVerifier_ {
             std::vector<GroupElement> commitments = {batched_f, batched_g};
             auto one = Fr::from_witness(r.get_context(), 1);
             // Note: these batch muls are not optimal since we are performing a mul by 1.
-            C0_r_pos = GroupElement::batch_mul(commitments, {one, r_inv});
-            C0_r_neg = GroupElement::batch_mul(commitments, {one, -r_inv});
+            C0_r_pos = GroupElement::template batch_mul<goblin_flag>(commitments, {one, r_inv});
+            C0_r_neg = GroupElement::template batch_mul<goblin_flag>(commitments, {one, -r_inv});
         } else {
             C0_r_pos = batched_f;
             C0_r_neg = batched_f;
