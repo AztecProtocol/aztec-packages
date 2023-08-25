@@ -1,1 +1,1 @@
-export * from 'dynamic/random';
+export * from './node/index.js';
