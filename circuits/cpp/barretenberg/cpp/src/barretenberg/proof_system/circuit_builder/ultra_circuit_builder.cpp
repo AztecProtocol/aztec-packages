@@ -527,7 +527,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g
  */
 template <typename FF>
 ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g1::affine_element& point,
-                                                               const barretenberg::fr& scalar)
+                                                           const barretenberg::fr& scalar)
 {
     // Add raw op to op queue
     op_queue.mul_accumulate(point, scalar);

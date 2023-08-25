@@ -27,13 +27,14 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, gob
     using Curve = typename Flavor::Curve;
     using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve, goblin_flag>;
     using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve, goblin_flag>;
-    using PCS = typename Flavor::PCS; // note: This can only be KZG
+    using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve, goblin_flag>; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::proof_system::honk::sumcheck::RelationParameters<FF>;
 
     RelationParams relation_parameters;
 
+    info("Initial: num gates = ", builder->get_num_gates());
     size_t prev_num_gates = builder->get_num_gates();
 
     transcript = Transcript<Builder>{ builder, proof.proof_data };
@@ -177,7 +178,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, gob
     prev_num_gates = builder->get_num_gates();
 
     // Constuct the inputs to the final KZG pairing check
-    auto pairing_points = PCS::compute_pairing_points(shplonk_claim, transcript);
+    auto pairing_points = KZG::compute_pairing_points(shplonk_claim, transcript);
 
     info("KZG: num gates = ", builder->get_num_gates() - prev_num_gates);
 

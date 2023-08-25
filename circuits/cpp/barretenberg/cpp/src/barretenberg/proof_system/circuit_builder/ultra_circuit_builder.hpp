@@ -705,12 +705,11 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     /**
      * ** Goblin Methods ** (methods for add ecc op queue gates)
+     * TODO(#705): Consider isolating/modularizing the goblin builder functionality
      **/
-    // WORKTODO: could we turn this into a class somehow? maybe it has a pointer to variables or something? maybe not
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
     ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const fr& scalar);
     ecc_op_tuple queue_ecc_eq();
-
 
   private:
     void populate_ecc_op_wires(const ecc_op_tuple& in);
