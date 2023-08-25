@@ -407,7 +407,15 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const userBalanceMid = await daiCrossChainHarness.getL2BalanceOf(user1);
     const contractBalanceMid = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
 
-    const expectedSwapAmount = 1n; // (depositAmount * swapOutputAmount) / (depositAmount * 2n);
+    const depositReducedPrecision = depositAmount / 10n ** 9n;
+    const expectedFullPrecisionSwapAmount = (depositAmount * swapOutputAmount) / (depositAmount * 2n);
+    const expectedSwapAmount = (depositReducedPrecision * swapOutputAmount) / (depositReducedPrecision * 2n);
+
+    if (expectedSwapAmount !== expectedFullPrecisionSwapAmount) {
+      logger(
+        `WARNING: The uniswap noir implementation have precision loss compared. Full: ${expectedFullPrecisionSwapAmount} != Reduced: ${expectedSwapAmount}`,
+      );
+    }
 
     expect(userBalanceMid).toEqual(0n);
     expect(contractBalanceMid).toEqual(swapOutputAmount - expectedSwapAmount);
@@ -436,5 +444,62 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     expect(contractBalanceAfter).toEqual(swapOutputAmount - expectedSwapAmount);
   });
 
-  it('user 2 claims their share of the dai', async () => {});
+  it('user 2 claims their share of the dai', async () => {
+    const userBalanceBefore = await daiCrossChainHarness.getL2BalanceOf(user2);
+    const contractBalanceBefore = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    const depositReducedPrecision = depositAmount / 10n ** 9n;
+    const expectedFullPrecisionSwapAmount = (depositAmount * swapOutputAmount) / (depositAmount * 2n);
+    const expectedSwapAmount = (depositReducedPrecision * swapOutputAmount) / (depositReducedPrecision * 2n);
+
+    expect(userBalanceBefore).toEqual(0n);
+    expect(contractBalanceBefore).toEqual(swapOutputAmount - expectedSwapAmount);
+
+    const claimTx = uniswapL2Contract.methods
+      .claim(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user2']),
+      )
+      .send({ origin: user2 });
+    const receipt = await claimTx.wait();
+    expect(receipt.status).toBe(TxStatus.MINED);
+
+    const userBalanceMid = await daiCrossChainHarness.getL2BalanceOf(user2);
+    const contractBalanceMid = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    if (expectedSwapAmount !== expectedFullPrecisionSwapAmount) {
+      logger(
+        `WARNING: The uniswap noir implementation have precision loss compared. Full: ${expectedFullPrecisionSwapAmount} != Reduced: ${expectedSwapAmount}`,
+      );
+    }
+
+    expect(userBalanceMid).toEqual(0n);
+    expect(contractBalanceMid).toEqual(swapOutputAmount - expectedSwapAmount * 2n);
+
+    const noteExists = await uniswapL2Contract.methods
+      .note_exists(
+        wethCrossChainHarness.l2Contract.address,
+        depositAmount,
+        daiCrossChainHarness.l2Contract.address,
+        1,
+        await computeMessageSecretHash(secrets['user2']),
+      )
+      .view();
+    expect(noteExists).toEqual(false);
+
+    const redeemTx = daiCrossChainHarness.l2Contract.methods
+      .redeemShield(expectedSwapAmount, secrets['user2'], user2)
+      .send({ origin: user2 });
+    const redeemReceipt = await redeemTx.wait();
+    expect(redeemReceipt.status).toBe(TxStatus.MINED);
+
+    const userBalanceAfter = await daiCrossChainHarness.getL2BalanceOf(user2);
+    const contractBalanceAfter = await daiCrossChainHarness.getL2PublicBalanceOf(uniswapL2Contract.address);
+
+    expect(userBalanceAfter).toEqual(expectedSwapAmount);
+    expect(contractBalanceAfter).toEqual(swapOutputAmount - expectedSwapAmount * 2n);
+  });
 });

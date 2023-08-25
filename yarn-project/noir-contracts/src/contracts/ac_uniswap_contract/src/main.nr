@@ -250,12 +250,13 @@ contract AcUniswap {
 
         let swap = storage.swaps.at(input_asset).at(output_asset).at(index).read();
 
-        let total_input = SafeU120 { value: swap.input_amount as u120 };
+        // Reduce some precision to avoid overflow :sob:
+        let reduction = SafeU120 { value: 1000000000 as u120 };
+        let total_input = SafeU120 { value: swap.input_amount as u120 }.div(reduction);
         let total_output = SafeU120 { value: swap.output_amount as u120 };
-        let input_amount = SafeU120 { value: input_amount as u120 };
+        let input_amount = SafeU120 { value: input_amount as u120 }.div(reduction);
 
-        // TODO: Compute my share of the output amount. Overflowing currently because of 1e18 precision of both tokens.
-        let output_amount = 1;//input_amount.mul_div(total_output, total_input).value;
+        let output_amount = input_amount.mul_div(total_output, total_input).value;
 
         let _success = NonNativeTokenContractInterface::at(output_asset).shield(
             context,
