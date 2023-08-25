@@ -1,4 +1,4 @@
-import { AztecAddress, EthAddress, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, Proof } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, MAX_NEW_CONTRACTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PartialAddress, Point, Proof, PublicKey } from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -7,6 +7,7 @@ import times from 'lodash.times';
 
 import { DeployedContract, EncodedContractFunction, FunctionL2Logs, TxL2Logs } from './index.js';
 import { Tx } from './tx/index.js';
+import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -24,6 +25,8 @@ export const mockTx = (seed = 1) => {
     TxL2Logs.random(11, 2), // 8 priv + 3 pub function invocations creating 2 unencrypted logs each
     times(3, EncodedContractFunction.random),
     times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
+    times(MAX_NEW_CONTRACTS_PER_TX, Fr.random) as Tuple<PartialAddress, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    times(MAX_NEW_CONTRACTS_PER_TX, Point.random) as Tuple<PublicKey, typeof MAX_NEW_CONTRACTS_PER_TX>,
   );
 };
 

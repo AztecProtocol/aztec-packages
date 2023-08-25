@@ -1,15 +1,17 @@
 import {
-  AztecAddress,
   Fr,
   KernelCircuitPublicInputs,
+  MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
+  Point,
   Proof,
   PublicCallRequest,
+  PublicKey,
 } from '@aztec/circuits.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
-import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
 import { EncodedContractFunction } from '../contract_data.js';
 import { TxL2Logs } from '../logs/tx_l2_logs.js';
@@ -45,6 +47,10 @@ export class Tx {
      * Preimages of the public call stack entries from the private kernel circuit output.
      */
     public readonly enqueuedPublicFunctionCalls: PublicCallRequest[],
+    /** Partial addresses of new contracts. */
+    public readonly partialAddresses: Tuple<PartialAddress, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    /** Public keys of new contracts. */
+    public readonly publicKeys: Tuple<PublicKey, typeof MAX_NEW_CONTRACTS_PER_TX>,
   ) {
     if (this.unencryptedLogs.functionLogs.length < this.encryptedLogs.functionLogs.length) {
       // This check is present because each private function invocation creates encrypted FunctionL2Logs object and
@@ -80,6 +86,8 @@ export class Tx {
       reader.readObject(TxL2Logs),
       reader.readArray(reader.readNumber(), EncodedContractFunction),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
+      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, Point),
     );
   }
 
@@ -97,6 +105,8 @@ export class Tx {
       numToUInt32BE(this.newContractPublicFunctions.length),
       this.newContractPublicFunctions,
       this.enqueuedPublicFunctionCalls,
+      this.partialAddresses,
+      this.publicKeys,
     ]);
   }
 
@@ -112,6 +122,8 @@ export class Tx {
       proof: this.proof.toBuffer().toString('hex'),
       newContractPublicFunctions: this.newContractPublicFunctions.map(f => f.toBuffer().toString('hex')) ?? [],
       enqueuedPublicFunctions: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
+      partialAddresses: this.partialAddresses.map(f => f.toBuffer().toString('hex')),
+      publicKeys: this.publicKeys.map(f => f.toBuffer().toString('hex')),
     };
   }
 
@@ -131,6 +143,8 @@ export class Tx {
     const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
       ? obj.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
       : [];
+    const partialAddresses = obj.partialAddresses.map((x: string) => Fr.fromBuffer(Buffer.from(x, 'hex')));
+    const publicKeys = obj.publicKeys.map((x: string) => Point.fromBuffer(Buffer.from(x, 'hex')));
     return new Tx(
       publicInputs,
       Proof.fromBuffer(proof),
@@ -138,6 +152,8 @@ export class Tx {
       unencryptedLogs,
       newContractPublicFunctions,
       enqueuedPublicFunctions,
+      partialAddresses,
+      publicKeys,
     );
   }
 
@@ -177,6 +193,23 @@ export class Tx {
     const enqueuedPublicFunctions = tx.enqueuedPublicFunctionCalls.map(x => {
       return PublicCallRequest.fromBuffer(x.toBuffer());
     });
-    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, publicFunctions, enqueuedPublicFunctions);
+    const partialAddresses = tx.partialAddresses.map(x => Fr.fromBuffer(x.toBuffer())) as Tuple<
+      PartialAddress,
+      typeof MAX_NEW_CONTRACTS_PER_TX
+    >;
+    const publicKeys = tx.publicKeys.map(x => Point.fromBuffer(x.toBuffer())) as Tuple<
+      PublicKey,
+      typeof MAX_NEW_CONTRACTS_PER_TX
+    >;
+    return new Tx(
+      publicInputs,
+      proof,
+      encryptedLogs,
+      unencryptedLogs,
+      publicFunctions,
+      enqueuedPublicFunctions,
+      partialAddresses,
+      publicKeys,
+    );
   }
 }
