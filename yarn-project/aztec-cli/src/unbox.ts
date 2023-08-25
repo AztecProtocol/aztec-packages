@@ -52,7 +52,6 @@ export async function downloadContractAndStarterKitFromGithub(
  * @param data - in memory unzipped clone of a github repo
  * @param repositoryFolderPath - folder to copy from github repo
  * @param localOutputPath - local path to copy to
- * @param log
  */
 async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, localOutputPath: string, log: LogFn) {
   const repositoryDirectories = Object.values(data.files).filter(file => {
@@ -165,8 +164,7 @@ export async function createEnvFile(outputPath: string, contractName: string) {
 /**
  * quick hack to adjust the copied contract Nargo.toml file to point to the location
  * of noir-libs in the newly created/copied starter-kit directory
- * @param outputPath
- * @param log
+ * @param outputPath - relative path where we are copying everything
  */
 export async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
