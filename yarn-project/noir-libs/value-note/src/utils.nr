@@ -20,8 +20,8 @@ fn create_note_getter_options_for_decreasing_balance(amount: Field) -> NoteGette
 }
 
 // Creates a new note for the recipient.
-// Inserts it to the recipient's balance.
-fn increase_balance(
+// Inserts it to the recipient's set of notes.
+fn increment(
     context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     amount: Field,
@@ -36,22 +36,29 @@ fn increase_balance(
     // }
 }
 
-// Find some notes that add up to the amount.
-// Removes those note from owner's balance.
+// Find some of the `owner`'s notes whose values add up to the `amount`.
+// Remove those notes.
+// If the value of the removed notes exceeds the requested `amount`, create a new note containing the excess value, so that exactly `amount` is removed.
 // Fail if the sum of the selected notes is less than the amount.
-fn decrease_balance(
+fn decrement(
     context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     amount: Field,
     owner: Field,
 ) {
-    let sum = decrease_balance_max_amount(context, balance, amount, owner);
+    let sum = decrement_by_at_most(context, balance, amount, owner);
     assert(sum == amount);
 }
 
-// Similar to `decrease_balance`, except that it doesn't fail if the subtracted amount is less than max_amount.
-// It returns the subtracted value, which should be less than or equal to max_amount.
-fn decrease_balance_max_amount(
+// Similar to `decrement`, except that it doesn't fail if the decremented amount is less than max_amount.
+// The motivation behind this function is that there is an upper-bound on the number of notes a function may
+// read and nullify. The requested decrementation `amount` might be spread across too many of the `owner`'s
+// notes to 'fit' within this upper-bound, so we might have to remove an amount less than `amount`. A common
+// pattern is to repeatedly call this function across many function calls, until enough notes have been nullified to
+// equal `amount`.
+//
+// It returns the decremented amount, which should be less than or equal to max_amount.
+fn decrement_by_at_most(
     context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     max_amount: Field,
@@ -60,22 +67,22 @@ fn decrease_balance_max_amount(
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
     let opt_notes = balance.get_notes(context, options);
 
-    let mut subtracted = 0;
+    let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            subtracted += destroy_note(context, balance, owner, opt_notes[i].unwrap_unchecked());
+            decremented += destroy_note(context, balance, owner, opt_notes[i].unwrap_unchecked());
         }
     }
 
     // Add the change value back to the owner's balance.
     let mut change_value = 0;
-    if subtracted as u120 > max_amount as u120 {
-        change_value = subtracted - max_amount;
-        subtracted -= change_value;
+    if decremented as u120 > max_amount as u120 {
+        change_value = decremented - max_amount;
+        decremented -= change_value;
     }
-    increase_balance(context, balance, change_value, owner);
+    increment(context, balance, change_value, owner);
 
-    subtracted
+    decremented
 }
 
 fn create_note(

@@ -6,7 +6,7 @@ contract PrivateTokenAirdrop {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{increase_balance, decrease_balance, decrease_balance_max_amount},
+        utils::{increment, decrement, decrement_by_at_most},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
@@ -40,7 +40,7 @@ contract PrivateTokenAirdrop {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            increase_balance(&mut context, owner_balance, initial_supply, owner);
+            increment(&mut context, owner_balance, initial_supply, owner);
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -61,13 +61,14 @@ contract PrivateTokenAirdrop {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        increase_balance(&mut context, owner_balance, amount, owner);
+        increment(&mut context, owner_balance, amount, owner);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
     }
 
     // Burn `amount` of tokens from `owner`'s balance.
+    // This is an example of a recursive function. It calls itself until enough notes have been burned to burn the `amount`.
     fn burn(
         //*********************************/
         // Should eventually be hidden:
@@ -88,7 +89,7 @@ contract PrivateTokenAirdrop {
         }
 
         let balance = storage.balances.at(owner);
-        let sum = decrease_balance_max_amount(&mut context, balance, amount, owner);
+        let sum = decrement_by_at_most(&mut context, balance, amount, owner);
 
         // If sum is 0, there are no notes to be burned.
         assert(sum != 0);
@@ -119,7 +120,7 @@ contract PrivateTokenAirdrop {
         let sender = context.msg_sender();
         let sender_balance = storage.balances.at(sender);
 
-        let sum = decrease_balance_max_amount(&mut context, sender_balance, amount, sender);
+        let sum = decrement_by_at_most(&mut context, sender_balance, amount, sender);
 
         // If sum is 0, there are no notes to be used.
         assert(sum != 0);
@@ -127,7 +128,7 @@ contract PrivateTokenAirdrop {
         if sum != amount {
             // The destroyed notes' sum is not enough for the transfer.
             // Burn the remaining amount.
-            // We only call burn() when decrease_balance_max_amount() didn't destroy enough notes.
+            // We only call burn() when decrement_by_at_most() didn't destroy enough notes.
             let amount_to_burn = amount - sum;
             let this_address = context.this_address();
             let this = PrivateTokenAirdropContractInterface::at(this_address);
@@ -136,7 +137,7 @@ contract PrivateTokenAirdrop {
 
         // Create a new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        increase_balance(&mut context, recipient_balance, amount, recipient);
+        increment(&mut context, recipient_balance, amount, recipient);
         
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -157,7 +158,7 @@ contract PrivateTokenAirdrop {
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
         let total = amounts[0] + amounts[1];
-        decrease_balance(&mut context, sender_balance, total, sender);
+        decrement(&mut context, sender_balance, total, sender);
 
         // Create claim notes.
         let claims = storage.claims;
@@ -190,7 +191,7 @@ contract PrivateTokenAirdrop {
 
         // Send the value note.
         let balance = storage.balances.at(owner);
-        increase_balance(&mut context, balance, amount, owner);
+        increment(&mut context, balance, amount, owner);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -241,12 +242,12 @@ contract PrivateTokenAirdrop {
 
         // Add the change value back to the owner's balance.
         let change_value = note.value - total;
-        increase_balance(&mut context, sender_balance, change_value, sender);
+        increment(&mut context, sender_balance, change_value, sender);
 
         // Creates new note for the recipient.
         for i in 0..3 {
             let recipient_balance = storage.balances.at(recipients[i]);
-            increase_balance(&mut context, recipient_balance, amounts[i], recipients[i]);
+            increment(&mut context, recipient_balance, amounts[i], recipients[i]);
         }
 
         // Also emit an unencrypted log, eg. "Coins transferred"

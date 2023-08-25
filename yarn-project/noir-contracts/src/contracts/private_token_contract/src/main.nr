@@ -4,7 +4,7 @@ contract PrivateToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{increase_balance, decrease_balance},
+        utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
@@ -36,7 +36,7 @@ contract PrivateToken {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            increase_balance(&mut context, owner_balance, initial_supply, owner);
+            increment(&mut context, owner_balance, initial_supply, owner);
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -59,7 +59,7 @@ contract PrivateToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        increase_balance(&mut context, owner_balance, amount, owner);
+        increment(&mut context, owner_balance, amount, owner);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -82,11 +82,11 @@ contract PrivateToken {
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
-        decrease_balance(&mut context, sender_balance, amount, sender);
+        decrement(&mut context, sender_balance, amount, sender);
 
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        increase_balance(&mut context, recipient_balance, amount, recipient);
+        increment(&mut context, recipient_balance, amount, recipient);
         
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
