@@ -73,7 +73,6 @@ export class SimpleTestGlobalVariableBuilder implements GlobalVariableBuilder {
     const currTimestamp = await this.reader.getL1CurrentTime();
     const rollupWarpTime = await this.reader.getLastWarpedBlockTs();
     const isLastBlockWarped = rollupWarpTime === currTimestamp;
-    this.log('isLastBlockWarped, ', isLastBlockWarped, rollupWarpTime, currTimestamp, lastTimestamp);
     if (isLastBlockWarped) {
       lastTimestamp = new Fr(lastTimestamp.value + 1n);
     }
