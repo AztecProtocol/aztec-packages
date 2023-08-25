@@ -27,7 +27,7 @@ export abstract class ContractBase {
 
   protected constructor(
     /**
-     * The deployed contract's address.
+     * The deployed contract's complete address.
      */
     public readonly completeAddress: CompleteAddress,
     /**
