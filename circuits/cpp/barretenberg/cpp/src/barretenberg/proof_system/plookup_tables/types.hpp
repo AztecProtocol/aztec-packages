@@ -3,10 +3,12 @@
 #include <array>
 #include <vector>
 
+// #include "./new_pedersen_experiment.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-
 namespace plookup {
-
+static constexpr size_t NUM_PEDERSEN_TABLES_LO = 15; // FIXFIXFIX
+static constexpr size_t NUM_PEDERSEN_TABLES_HI = 14; // FIXFIXFIX
+static constexpr size_t NUM_PEDERSEN_TABLES = 29;    // FIXFIXFIX
 enum BasicTableId {
     XOR,
     AND,
@@ -52,7 +54,11 @@ enum BasicTableId {
     BLAKE_XOR_ROTATE1,
     BLAKE_XOR_ROTATE2,
     BLAKE_XOR_ROTATE4,
-    PEDERSEN_29_SMALL,
+    PEDERSEN_0_0,
+    PEDERSEN_1_0 = PEDERSEN_0_0 + NUM_PEDERSEN_TABLES_LO,
+    PEDERSEN_2_0 = PEDERSEN_1_0 + NUM_PEDERSEN_TABLES_HI,
+    PEDERSEN_3_0 = PEDERSEN_2_0 + NUM_PEDERSEN_TABLES_LO,
+    PEDERSEN_29_SMALL = PEDERSEN_3_0 + NUM_PEDERSEN_TABLES_HI,
     PEDERSEN_28,
     PEDERSEN_27,
     PEDERSEN_26,
@@ -115,6 +121,12 @@ enum MultiTableId {
     PEDERSEN_LEFT_LO,
     PEDERSEN_RIGHT_HI,
     PEDERSEN_RIGHT_LO,
+    NEW_PEDERSEN_LEFT,
+    NEW_PEDERSEN_RIGHT,
+    NEW_PEDERSEN_LEFT_HI,
+    NEW_PEDERSEN_LEFT_LO,
+    NEW_PEDERSEN_RIGHT_HI,
+    NEW_PEDERSEN_RIGHT_LO,
     UINT32_XOR,
     UINT32_AND,
     BN254_XLO,

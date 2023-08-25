@@ -1,5 +1,6 @@
 #pragma once
 
+#include "element.hpp"
 namespace barretenberg {
 namespace group_elements {
 template <class Fq, class Fr, class T>

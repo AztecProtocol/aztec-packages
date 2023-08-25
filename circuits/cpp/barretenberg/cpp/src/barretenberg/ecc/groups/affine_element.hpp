@@ -68,6 +68,8 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
 
     constexpr bool on_curve() const noexcept;
 
+    static constexpr std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
+
     /**
      * @brief Samples a random point on the curve.
      *
@@ -81,6 +83,7 @@ template <typename Fq, typename Fr, typename Params> class alignas(64) affine_el
      * @return A point on the curve corresponding to the given seed
      */
     static affine_element hash_to_curve(const uint64_t seed) noexcept;
+    static affine_element hash_to_curve(const std::vector<uint8_t>& seed) noexcept;
 
     constexpr bool operator==(const affine_element& other) const noexcept;
 

@@ -91,9 +91,17 @@ void init_multi_tables()
         keccak_tables::Chi::get_chi_output_table(MultiTableId::KECCAK_CHI_OUTPUT);
     MULTI_TABLES[MultiTableId::KECCAK_FORMAT_OUTPUT] =
         keccak_tables::KeccakOutput::get_keccak_output_table(MultiTableId::KECCAK_FORMAT_OUTPUT);
+    MULTI_TABLES[MultiTableId::NEW_PEDERSEN_LEFT_LO] =
+        new_pedersen::table::get_pedersen_table<0, 128>(MultiTableId::NEW_PEDERSEN_LEFT_LO);
+    MULTI_TABLES[MultiTableId::NEW_PEDERSEN_LEFT_HI] =
+        new_pedersen::table::get_pedersen_table<1, 126>(MultiTableId::NEW_PEDERSEN_LEFT_LO);
+    MULTI_TABLES[MultiTableId::NEW_PEDERSEN_RIGHT_LO] =
+        new_pedersen::table::get_pedersen_table<2, 128>(MultiTableId::NEW_PEDERSEN_RIGHT_LO);
+    MULTI_TABLES[MultiTableId::NEW_PEDERSEN_RIGHT_HI] =
+        new_pedersen::table::get_pedersen_table<3, 126>(MultiTableId::NEW_PEDERSEN_RIGHT_HI);
 
     barretenberg::constexpr_for<0, 25, 1>([&]<size_t i>() {
-        MULTI_TABLES[(size_t)MultiTableId::KECCAK_NORMALIZE_AND_ROTATE + i] =
+        MULTI_TABLES[static_cast<size_t>(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE) + i] =
             keccak_tables::Rho<8, i>::get_rho_output_table(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE);
     });
     MULTI_TABLES[MultiTableId::HONK_DUMMY_MULTI] = dummy_tables::get_honk_dummy_multitable();
@@ -115,17 +123,27 @@ ReadData<barretenberg::fr> get_lookup_accumulators(const MultiTableId id,
                                                    const bool is_2_to_1_lookup)
 {
     // return multi-table, populating global array of all multi-tables if need be
+    std::cout << "z0" << std::endl;
     const auto& multi_table = create_table(id);
+    std::cout << "z1" << std::endl;
     const size_t num_lookups = multi_table.lookup_ids.size();
+    std::cout << "z2" << std::endl;
 
     ReadData<barretenberg::fr> lookup;
-
+    std::cout << "z3" << std::endl;
+    std::cout << "slice sizes = " << multi_table.slice_sizes[0] << std::endl;
+    std::cout << "key a = " << uint256_t(key_a) << std::endl;
+    std::cout << "key a msb = " << uint256_t(key_a).get_msb() << std::endl;
+    std::cout << "num slices = " << multi_table.slice_sizes.size() << std::endl;
+    std::cout << "multitableid = " << id << std::endl;
     const auto key_a_slices = numeric::slice_input_using_variable_bases(key_a, multi_table.slice_sizes);
     const auto key_b_slices = numeric::slice_input_using_variable_bases(key_b, multi_table.slice_sizes);
+    std::cout << "z4" << std::endl;
 
     std::vector<fr> column_1_raw_values;
     std::vector<fr> column_2_raw_values;
     std::vector<fr> column_3_raw_values;
+    std::cout << "z5" << std::endl;
 
     for (size_t i = 0; i < num_lookups; ++i) {
         // get i-th table query function and then submit query
@@ -139,9 +157,12 @@ ReadData<barretenberg::fr> get_lookup_accumulators(const MultiTableId id,
         const BasicTable::KeyEntry key_entry{ { key_a_slices[i], key_b_slices[i] }, values };
         lookup.key_entries.emplace_back(key_entry);
     }
+    std::cout << "z6" << std::endl;
+
     lookup[ColumnIdx::C1].resize(num_lookups);
     lookup[ColumnIdx::C2].resize(num_lookups);
     lookup[ColumnIdx::C3].resize(num_lookups);
+    std::cout << "z7" << std::endl;
 
     /**
      * A multi-table consists of multiple basic tables (say L = 6).

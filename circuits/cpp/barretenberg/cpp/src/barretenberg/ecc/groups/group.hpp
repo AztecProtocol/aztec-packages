@@ -4,6 +4,7 @@
 #include "./affine_element.hpp"
 #include "./element.hpp"
 #include "./wnaf.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include <array>
 #include <cinttypes>
@@ -30,10 +31,10 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
     // hoist coordinate_field, subgroup_field into the public namespace
     using coordinate_field = _coordinate_field;
     using subgroup_field = _subgroup_field;
-    typedef group_elements::element<coordinate_field, subgroup_field, GroupParams> element;
-    typedef group_elements::affine_element<coordinate_field, subgroup_field, GroupParams> affine_element;
-    typedef coordinate_field Fq;
-    typedef subgroup_field Fr;
+    using element = group_elements::element<coordinate_field, subgroup_field, GroupParams>;
+    using affine_element = group_elements::affine_element<coordinate_field, subgroup_field, GroupParams>;
+    using Fq = coordinate_field;
+    using Fr = subgroup_field;
     static constexpr bool USE_ENDOMORPHISM = GroupParams::USE_ENDOMORPHISM;
     static constexpr bool has_a = GroupParams::has_a;
 
@@ -92,8 +93,8 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * @param domain_separator
      * @return std::vector<affine_element>
      */
-    static std::vector<affine_element> derive_generators_secure(size_t num_generators,
-                                                                const std::string& domain_separator)
+    static std::vector<affine_element> derive_generators_secure(const std::vector<uint8_t>& domain_separator,
+                                                                const size_t num_generators)
     {
         std::vector<affine_element> result;
         std::array<uint8_t, 32> domain_hash = sha256::sha256(domain_separator);
@@ -105,13 +106,11 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         }
         for (size_t i = 0; i < num_generators; ++i) {
             auto generator_index = static_cast<uint32_t>(i);
-            {
-                uint32_t mask = 0xff;
-                generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
-                generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
-                generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
-                generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
-            }
+            uint32_t mask = 0xff;
+            generator_preimage[32] = static_cast<uint8_t>(generator_index >> 24);
+            generator_preimage[33] = static_cast<uint8_t>((generator_index >> 16) & mask);
+            generator_preimage[34] = static_cast<uint8_t>((generator_index >> 8) & mask);
+            generator_preimage[35] = static_cast<uint8_t>(generator_index & mask);
             result.push_back(affine_element::hash_to_curve(generator_preimage));
         }
         return result;
@@ -132,7 +131,10 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         generator_preimage[33] = static_cast<uint8_t>((gen_idx >> 16) & mask);
         generator_preimage[34] = static_cast<uint8_t>((gen_idx >> 8) & mask);
         generator_preimage[35] = static_cast<uint8_t>(gen_idx & mask);
-        return affine_element::hash_to_curve(generator_preimage);
+        auto result = affine_element::hash_to_curve(generator_preimage);
+        ASSERT(result.x != 0);
+        ASSERT(result.y != 0);
+        return result;
     }
 
     BBERG_INLINE static void conditional_negate_affine(const affine_element* src,

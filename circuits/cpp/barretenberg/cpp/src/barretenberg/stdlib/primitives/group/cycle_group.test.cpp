@@ -1,3 +1,4 @@
+#include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
@@ -463,6 +464,43 @@ TYPED_TEST(CycleGroupTest, ProfileVariableBaseBatcMul)
     }
 
     std::cout << "composer gates = " << composer.get_num_gates() << std::endl;
+    bool proof_result = composer.check_circuit();
+    EXPECT_EQ(proof_result, true);
+}
+
+TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
+{
+    STDLIB_TYPE_ALIASES;
+    //   using witness_ct = stdlib::witness_t<Composer>;
+    auto composer = Composer();
+
+    const size_t num_muls = 1;
+
+    element expected = G1::point_at_infinity;
+
+    // case 1, general MSM with inputs that are combinations of constant and witnesses
+    {
+        std::vector<affine_element> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+        for (size_t i = 0; i < num_muls; ++i) {
+            auto element = crypto::pedersen_hash::generator_info::get_lhs_generator();
+            typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
+
+            // 2: add entry where point is constant, scalar is witness
+            expected += (element * scalar);
+            points.emplace_back((element));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+
+            // // 4: add entry where point is constant, scalar is constant
+            // expected += (element * scalar);
+            // points.emplace_back((element));
+            // scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+        }
+        auto result = cycle_group_ct::fixed_base_batch_mul(scalars, points);
+        EXPECT_EQ(result.get_value(), affine_element(expected));
+    }
+
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);
 }

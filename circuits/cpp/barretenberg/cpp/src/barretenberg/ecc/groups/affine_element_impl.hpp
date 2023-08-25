@@ -1,9 +1,9 @@
 #pragma once
 #include "./element.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
+#include "barretenberg/crypto/sha256/sha256.hpp"
 
-namespace barretenberg {
-namespace group_elements {
+namespace barretenberg::group_elements {
 template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T>::affine_element(const Fq& a, const Fq& b) noexcept
     : x(a)
@@ -83,6 +83,9 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::operator+(
 template <class Fq, class Fr, class T>
 constexpr affine_element<Fq, Fr, T>& affine_element<Fq, Fr, T>::operator=(const affine_element& other) noexcept
 {
+    if (this == &other) {
+        return *this;
+    }
     x = other.x;
     y = other.y;
     return *this;
@@ -183,25 +186,46 @@ constexpr bool affine_element<Fq, Fr, T>::operator>(const affine_element& other)
     // We are setting point at infinity to always be the lowest element
     if (is_point_at_infinity()) {
         return false;
-    } else if (other.is_point_at_infinity()) {
+    }
+    if (other.is_point_at_infinity()) {
         return true;
     }
 
     if (x > other.x) {
         return true;
-    } else if (x == other.x && y > other.y) {
+    }
+    if (x == other.x && y > other.y) {
         return true;
     }
     return false;
 }
 
 template <class Fq, class Fr, class T>
-affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const uint64_t seed) noexcept
+constexpr std::optional<affine_element<Fq, Fr, T>> affine_element<Fq, Fr, T>::derive_from_x_coordinate(
+    const Fq& x, bool sign_bit) noexcept
 {
-    static_assert(T::can_hash_to_curve == true);
+    auto yy = x.sqr() * x + T::b;
+    if constexpr (T::has_a) {
+        yy += (x * T::a);
+    }
+    auto [found_root, y] = yy.sqrt();
+
+    if (found_root) {
+        if (uint256_t(y).get_bit(0) != sign_bit) {
+            y = -y;
+        }
+        return affine_element(x, y);
+    }
+    return std::nullopt;
+}
+
+template <class Fq, class Fr, class T>
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(uint64_t seed) noexcept
+{
+    static_assert(static_cast<bool>(T::can_hash_to_curve));
 
     Fq input(seed, 0, 0, 0);
-    keccak256 c = hash_field_element((uint64_t*)&input.data[0]);
+    keccak256 c = hash_field_element(&input.data[0]);
     uint256_t hash{ c.word64s[0], c.word64s[1], c.word64s[2], c.word64s[3] };
 
     uint256_t x_coordinate = hash;
@@ -212,22 +236,57 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const uint64_
 
     bool y_bit = hash.get_bit(255);
 
-    Fq x_out = Fq(x_coordinate);
-    Fq y_out = (x_out.sqr() * x_out + T::b);
-    if constexpr (T::has_a) {
-        y_out += (x_out * T::a);
-    }
+    std::optional<affine_element> result = derive_from_x_coordinate(x_coordinate, y_bit);
 
-    // When the sqrt of y_out doesn't exist, return 0.
-    auto [is_quadratic_remainder, y_out_] = y_out.sqrt();
-    if (!is_quadratic_remainder) {
-        return affine_element(Fq::zero(), Fq::zero());
+    if (result.has_value()) {
+        return result.value();
     }
-    if (uint256_t(y_out_).get_bit(0) != y_bit) {
-        y_out_ = -y_out_;
-    }
+    return affine_element(0, 0);
+}
 
-    return affine_element<Fq, Fr, T>(x_out, y_out_);
+template <class Fq, class Fr, class T>
+affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::hash_to_curve(const std::vector<uint8_t>& seed) noexcept
+{
+    std::vector<uint8_t> target_seed(seed);
+
+    // expand by 33 bytes to cover incremental hash attempts
+    const size_t seed_size = seed.size();
+    for (size_t i = 0; i < 33; ++i) {
+        target_seed.emplace_back(0);
+    }
+    uint16_t attempt_counter = 0;
+
+    while (true) {
+        auto hi = static_cast<uint8_t>(attempt_counter >> static_cast<uint16_t>(8));
+        auto lo = static_cast<uint8_t>(attempt_counter & static_cast<uint16_t>(0xff));
+        target_seed[seed_size] = hi;
+        target_seed[seed_size + 1] = lo;
+        target_seed[target_seed.size() - 1] = 0;
+        std::array<uint8_t, 32> hash_hi = sha256::sha256(target_seed);
+        target_seed[target_seed.size() - 1] = 1;
+        std::array<uint8_t, 32> hash_lo = sha256::sha256(target_seed);
+        std::vector<uint8_t> gg(hash_hi.begin(), hash_hi.end());
+        std::vector<uint8_t> ff(hash_lo.begin(), hash_lo.end());
+        uint256_t x_lo = 0;
+        uint256_t x_hi = 0;
+        // uint8_t* f = &hash_lo[0];
+        // uint8_t* g = &hash_hi[0];
+        read(ff, x_lo);
+        read(gg, x_hi);
+        // numeric::read(*f, x_lo);
+        // numeric::read(*g, x_hi);
+        uint512_t x_full(x_lo, x_hi);
+        Fq x(x_full);
+        bool sign_bit = false;
+        sign_bit = x_hi.get_bit(0);
+        std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
+
+        if (result.has_value()) {
+            return result.value();
+        }
+        attempt_counter++;
+    }
+    return affine_element(0, 0);
 }
 
 template <typename Fq, typename Fr, typename T>
@@ -237,30 +296,22 @@ affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::random_element(numeric::ran
         engine = &numeric::random::get_engine();
     }
 
-    bool found_one = false;
     Fq yy;
     Fq x;
     Fq y;
-    while (!found_one) {
+    while (true) {
         // Sample a random x-coordinate and check if it satisfies curve equation.
         x = Fq::random_element(engine);
-        yy = x.sqr() * x + T::b;
-        if constexpr (T::has_a) {
-            yy += (x * T::a);
-        }
-        auto [found_root, y1] = yy.sqrt();
-        y = y1;
-
         // Negate the y-coordinate based on a randomly sampled bit.
-        bool random_bit = (engine->get_random_uint8() & 1);
-        if (random_bit) {
-            y = -y;
-        }
+        bool sign_bit = (engine->get_random_uint8() & 1) != 0;
 
-        found_one = found_root;
+        std::optional<affine_element> result = derive_from_x_coordinate(x, sign_bit);
+
+        if (result.has_value()) {
+            return result.value();
+        }
     }
     return affine_element<Fq, Fr, T>(x, y);
 }
 
-} // namespace group_elements
-} // namespace barretenberg
+} // namespace barretenberg::group_elements

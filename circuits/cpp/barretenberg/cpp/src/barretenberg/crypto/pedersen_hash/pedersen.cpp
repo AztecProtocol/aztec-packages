@@ -4,10 +4,18 @@
 #include <omp.h>
 #endif
 
-namespace crypto {
-namespace pedersen_hash {
+namespace crypto::pedersen_hash {
 
 using namespace generators;
+
+grumpkin::g1::affine_element generator_info::get_lhs_generator()
+{
+    return lhs_generator;
+}
+grumpkin::g1::affine_element generator_info::get_rhs_generator()
+{
+    return rhs_generator;
+}
 
 grumpkin::g1::element hash_single(const barretenberg::fr& in, generator_index_t const& index)
 {
@@ -21,7 +29,7 @@ grumpkin::g1::element hash_single(const barretenberg::fr& in, generator_index_t 
 
     const fixed_base_ladder* ladder = gen_data.get_hash_ladder(num_bits);
 
-    uint64_t wnaf_entries[num_quads + 2] = { 0 };
+    std::array<uint64_t, num_quads + 2> wnaf_entries = { 0 };
     bool skew = false;
     barretenberg::wnaf::fixed_wnaf<num_wnaf_bits, 1, 2>(&scalar_multiplier.data[0], &wnaf_entries[0], skew, 0);
 
@@ -64,9 +72,11 @@ grumpkin::fq hash_multiple(const std::vector<grumpkin::fq>& inputs, const size_t
         r = out[i] + r;
     }
     grumpkin::g1::affine_element result =
-        r.is_point_at_infinity() ? grumpkin::g1::affine_element(0, 0) : grumpkin::g1::affine_element(r);
+        r.is_point_at_infinity() ? grumpkin::g1::affine_element(0, 0) : static_cast<grumpkin::g1::affine_element>(r);
     return result.x;
 }
 
-} // namespace pedersen_hash
-} // namespace crypto
+struct foo;
+struct generator_info;
+// class grumpkin::g1::affine_element generator_info::get_rhs_generator();
+} // namespace crypto::pedersen_hash

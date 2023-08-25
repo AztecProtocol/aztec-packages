@@ -6,6 +6,8 @@
 #include "../../hash/pedersen/pedersen_gates.hpp"
 
 #include "./cycle_group.hpp"
+#include "barretenberg/proof_system/plookup_tables/types.hpp"
+#include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
 namespace proof_system::plonk::stdlib {
 
 template <typename Composer> Composer* cycle_group<Composer>::get_context(const cycle_group& other) const
@@ -607,7 +609,7 @@ cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::
     cycle_group accumulator = generators.generators[0];
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
-
+            // NOTE: IN FIXED BASE MODE WE CAN DOUBLE THE TABLES INSTEAD OF THE POINTS (if not using plookup)
             for (size_t j = 0; j < table_bits; ++j) {
                 accumulator = accumulator.dbl();
                 offset_generator_accumulator = offset_generator_accumulator.dbl();
@@ -636,6 +638,263 @@ cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::
 
     return accumulator;
 }
+
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
+    const std::vector<cycle_scalar>& _scalars,
+    const std::vector<affine_element>& _base_points) requires SupportsLookupTables<Composer>
+{
+    ASSERT(_scalars.size() == _base_points.size());
+
+    Composer* context = nullptr;
+    for (auto& scalar : _scalars) {
+        if (scalar.get_context() != nullptr) {
+            context = scalar.get_context();
+            break;
+        }
+    }
+
+    std::vector<cycle_scalar> scalars;
+    std::vector<affine_element> base_points;
+    bool has_constant_component = false;
+    bool has_non_constant_component = false;
+    element constant_component = G1::point_at_infinity;
+    for (size_t i = 0; i < _scalars.size(); ++i) {
+        if (_scalars[i].is_constant()) {
+            has_constant_component = true;
+            constant_component += _base_points[i] * _scalars[i].get_value();
+        } else {
+            has_non_constant_component = true;
+            scalars.emplace_back(_scalars[i]);
+            base_points.emplace_back(_base_points[i]);
+        }
+    }
+    if (!has_non_constant_component) {
+        return cycle_group(constant_component);
+    }
+
+    const size_t num_points = base_points.size();
+    using MultiTableId = plookup::MultiTableId;
+    using ColumnIdx = plookup::ColumnIdx;
+
+    std::vector<MultiTableId> plookup_table_ids;
+    std::vector<affine_element> plookup_base_points;
+    std::vector<field_t> plookup_scalars;
+    std::vector<cycle_scalar> leftover_scalars;
+    std::vector<affine_element> leftover_base_points;
+
+    for (size_t i = 0; i < num_points; ++i) {
+        std::optional<std::array<MultiTableId, 2>> table_id =
+            plookup::new_pedersen::table::get_lookup_table_ids_for_point(base_points[i]);
+        if (table_id.has_value()) {
+            plookup_table_ids.emplace_back(table_id.value()[0]);
+            plookup_table_ids.emplace_back(table_id.value()[1]);
+            plookup_base_points.emplace_back(base_points[i]);
+            plookup_base_points.emplace_back(element(base_points[i]) * (uint256_t(1) << 128));
+            plookup_scalars.emplace_back(scalars[i].lo);
+            plookup_scalars.emplace_back(scalars[i].hi);
+
+        } else {
+            leftover_base_points.emplace_back(base_points[i]);
+            leftover_scalars.emplace_back(scalars[i]);
+        }
+        ASSERT(table_id.has_value());
+    }
+
+    std::vector<cycle_group> lookup_points;
+    element offset_generator_accumulator = G1::point_at_infinity;
+    for (size_t i = 0; i < plookup_scalars.size(); ++i) {
+        std::cout << "i = " << i << std::endl;
+        plookup::ReadData<field_t> lookup_data =
+            plookup_read<Composer>::get_lookup_accumulators(plookup_table_ids[i], plookup_scalars[i]);
+        std::cout << "t0" << std::endl;
+        for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
+            const auto x = lookup_data[ColumnIdx::C2][j];
+            const auto y = lookup_data[ColumnIdx::C3][j];
+            std::cout << "x/y = " << x << " : " << y << std::endl;
+            lookup_points.emplace_back(cycle_group(context, x, y, false));
+        }
+
+        std::optional<affine_element> offset_1 =
+            plookup::new_pedersen::table::get_generator_offset_for_table_id(plookup_table_ids[i]);
+
+        ASSERT(offset_1.has_value());
+        // ASSERT(offset_2.has_value());
+        offset_generator_accumulator += offset_1.value();
+        // offset_generator_accumulator += offset_2.value();
+    }
+    std::cout << "mark" << std::endl;
+    cycle_group accumulator;
+    const size_t leftover_points = leftover_scalars.size();
+    if (leftover_points > 0) {
+
+        auto generators = offset_generators(leftover_points);
+        std::vector<straus_scalar_slice> scalar_slices;
+        std::vector<straus_lookup_table> point_tables;
+        for (size_t i = 0; i < leftover_points; ++i) {
+            scalar_slices.emplace_back(straus_scalar_slice(context, leftover_scalars[i], table_bits));
+            point_tables.emplace_back(straus_lookup_table(
+                context, cycle_group(leftover_base_points[i]), generators.generators[i + 1], table_bits));
+        }
+
+        element debug_acc = G1::point_at_infinity;
+        uint256_t debug_scalar =
+            uint256_t(leftover_scalars[0].lo.get_value()) +
+            (uint256_t(leftover_scalars[0].hi.get_value()) * (uint256_t(1) << (cycle_scalar::LO_BITS)));
+
+        offset_generator_accumulator += generators.generators[0];
+        accumulator = generators.generators[0];
+        for (size_t i = 0; i < num_rounds; ++i) {
+            if (i != 0) {
+
+                for (size_t j = 0; j < table_bits; ++j) {
+                    accumulator = accumulator.dbl();
+                    offset_generator_accumulator = offset_generator_accumulator.dbl();
+                    debug_acc = debug_acc.dbl();
+                }
+            }
+
+            for (size_t j = 0; j < leftover_points; ++j) {
+                const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+                const cycle_group point = point_tables[j].read(scalar_slice);
+                accumulator = accumulator.constrained_unconditional_add(point);
+                offset_generator_accumulator = offset_generator_accumulator + element(generators.generators[j + 1]);
+            }
+        }
+    }
+    std::cout << "mark 2" << std::endl;
+    // cycle_group accumulator = lookup_points[0];
+    for (size_t i = 0; i < lookup_points.size(); ++i) {
+        std::cout << "i = " << i << std::endl;
+        if (i == 0) {
+            std::cout << "leftover empty? " << leftover_scalars.empty() << " : " << leftover_scalars.size()
+                      << std::endl;
+            if (leftover_scalars.empty()) {
+                accumulator = lookup_points[i];
+            } else {
+                accumulator = accumulator.unconditional_add(lookup_points[i]);
+            }
+        } else {
+            std::cout << "acc vs pt " << accumulator << " : " << lookup_points[i] << std::endl;
+            accumulator = accumulator.unconditional_add(lookup_points[i]);
+        }
+    }
+    std::cout << "mark 3" << std::endl;
+
+    if (has_constant_component) {
+        // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
+        offset_generator_accumulator -= constant_component;
+    }
+    std::cout << "mark 4" << std::endl;
+    cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
+    accumulator = accumulator.unconditional_add(offset_generator_delta);
+    return accumulator;
+}
+
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
+    const std::vector<cycle_scalar>& _scalars,
+    const std::vector<affine_element>& _base_points) requires DoesNotSupportLookupTables<Composer>
+
+{
+    ASSERT(_scalars.size() == _base_points.size());
+    static constexpr size_t FIXED_BASE_TABLE_BITS = 1;
+
+    Composer* context = nullptr;
+    for (auto& scalar : _scalars) {
+        if (scalar.get_context() != nullptr) {
+            context = scalar.get_context();
+            break;
+        }
+    }
+
+    std::vector<cycle_scalar> scalars;
+    std::vector<affine_element> base_points;
+    bool has_constant_component = false;
+    bool has_non_constant_component = false;
+    element constant_component = G1::point_at_infinity;
+    for (size_t i = 0; i < _scalars.size(); ++i) {
+        if (_scalars[i].is_constant()) {
+            has_constant_component = true;
+            constant_component += _base_points[i] * _scalars[i].get_value();
+        } else {
+            has_non_constant_component = true;
+            scalars.emplace_back(_scalars[i]);
+            base_points.emplace_back(_base_points[i]);
+        }
+    }
+    if (!has_non_constant_component) {
+        return cycle_group(constant_component);
+    }
+    // core algorithm
+    // define a `table_bits` size lookup table
+    const size_t num_points = scalars.size();
+
+    auto generators = offset_generators(num_points);
+    std::vector<straus_scalar_slice> scalar_slices;
+    // std::vector<straus_lookup_table> point_tables;
+
+    using straus_round_tables = std::vector<straus_lookup_table>;
+    std::vector<straus_round_tables> point_tables(num_points);
+    // for (size_t i = 0; i < num_points; ++i) {
+    //     scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], table_bits));
+    //     point_tables.emplace_back(
+    //         straus_lookup_table(context, cycle_group(base_points[i]), generators.generators[i + 1], table_bits));
+    // }
+
+    // creating these point tables should cost 0 constraints if base points are constant
+    for (size_t i = 0; i < num_points; ++i) {
+        std::vector<element> round_points(num_rounds);
+        std::vector<element> round_offset_generators(num_rounds);
+        round_points[0] = base_points[i];
+        round_offset_generators[0] = generators.generators[i + 1];
+        for (size_t j = 1; j < num_rounds; ++j) {
+            round_points[j] = round_points[j - 1].dbl();
+            round_offset_generators[j] = round_offset_generators[j - 1].dbl();
+        }
+        element::batch_normalize(&round_points[0], num_rounds);
+        element::batch_normalize(&round_offset_generators[0], num_rounds);
+        point_tables[i].resize(num_rounds);
+        for (size_t j = 0; j < num_rounds; ++j) {
+            point_tables[i][num_rounds - j - 1] = straus_lookup_table(
+                context, cycle_group(round_points[j]), cycle_group(round_offset_generators[j]), FIXED_BASE_TABLE_BITS);
+        }
+    }
+
+    for (size_t i = 0; i < num_points; ++i) {
+        scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], FIXED_BASE_TABLE_BITS));
+    }
+
+    element offset_generator_accumulator = generators.generators[0];
+    cycle_group accumulator = cycle_group(element(generators.generators[0]) * (uint256_t(1) << 253));
+    for (size_t i = 0; i < num_rounds; ++i) {
+
+        if (i > 0) {
+            offset_generator_accumulator = offset_generator_accumulator.dbl();
+        }
+        for (size_t j = 0; j < num_points; ++j) {
+            auto& point_table = point_tables[j][i];
+
+            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+
+            const cycle_group point = point_table.read(scalar_slice);
+            accumulator = accumulator.unconditional_add(point);
+            offset_generator_accumulator = offset_generator_accumulator + element(generators.generators[j + 1]);
+        }
+    }
+
+    if (has_constant_component) {
+        // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
+        offset_generator_accumulator -= constant_component;
+    }
+    cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
+    // use a full conditional add here in case we end with a point at infinity or a point doubling.
+    // e.g. x[P] + x[P], or x[P] + -x[P]
+    accumulator = accumulator + offset_generator_delta;
+
+    return accumulator;
+}
+
 INSTANTIATE_STDLIB_TYPE(cycle_group);
 
 } // namespace proof_system::plonk::stdlib

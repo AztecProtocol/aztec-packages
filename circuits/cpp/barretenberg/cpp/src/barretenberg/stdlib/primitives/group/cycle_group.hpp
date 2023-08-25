@@ -13,6 +13,10 @@ namespace proof_system::plonk::stdlib {
 using namespace barretenberg;
 using namespace crypto::generators;
 
+template <typename Composer> concept SupportsLookupTables = (Composer::CIRCUIT_TYPE == CircuitType::ULTRA);
+
+template <typename Composer> concept DoesNotSupportLookupTables = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
+
 /**
  * @brief cycle_group represents a group element of the proving system's embedded curve
  *        i.e. a curve with a cofactor 1 defined over a field equal to the circuit's native field Composer::FF
@@ -142,6 +146,8 @@ template <typename Composer> class cycle_group {
         ScalarField get_value() const;
         field_t lo;
         field_t hi;
+
+        Composer* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
     };
     class straus_scalar_slice {
       public:
@@ -152,6 +158,7 @@ template <typename Composer> class cycle_group {
     };
     class straus_lookup_table {
       public:
+        straus_lookup_table() = default;
         straus_lookup_table(Composer* context,
                             const cycle_group& base_point,
                             const cycle_group& generator_point,
@@ -163,8 +170,18 @@ template <typename Composer> class cycle_group {
         size_t rom_id = 0;
     };
 
-    static cycle_group fixed_base_batch_mul(const std::vector<cycle_scalar>& scalars,
-                                            const std::vector<size_t>& generator_indices);
+    static cycle_group<Composer> fixed_base_batch_mul(
+        const std::vector<cycle_scalar>& _scalars,
+        const std::vector<affine_element>& _base_points) requires SupportsLookupTables<Composer>;
+
+    static cycle_group<Composer> fixed_base_batch_mul(
+        const std::vector<cycle_scalar>& _scalars,
+        const std::vector<affine_element>& _base_points) requires DoesNotSupportLookupTables<Composer>;
+
+    // static cycle_group fixed_base_batch_mul(const std::vector<cycle_scalar>& scalars,
+    //                                         const std::vector<affine_element>& base_points)
+    //     requires(!cycle_group<Composer>::IS_ULTRA);
+
     static cycle_group variable_base_batch_mul(const std::vector<cycle_scalar>& scalars,
                                                const std::vector<cycle_group>& base_points);
 
@@ -174,6 +191,16 @@ template <typename Composer> class cycle_group {
     bool_t is_infinity;
     bool _is_constant;
 };
+
+// template <typename Composer>
+//     requires(cycle_group<Composer>::IS_ULTRA)
+// class cycle_group_upper : public cycle_group<Composer> {
+//     using cycle_scalar = typename cycle_group<Composer>::cycle_scalar;
+//     using affine_element = typename cycle_group<Composer>::affine_element;
+
+//     static cycle_group<Composer> fixed_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
+//                                                       const std::vector<affine_element>& _base_points);
+// };
 
 template <typename ComposerContext>
 inline std::ostream& operator<<(std::ostream& os, cycle_group<ComposerContext> const& v)

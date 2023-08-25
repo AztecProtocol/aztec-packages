@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/common/throw_or_abort.hpp"
 
+#include "./new_pedersen_experiment.hpp"
 #include "aes128.hpp"
 #include "blake2s.hpp"
 #include "dummy.hpp"
@@ -18,15 +19,37 @@
 
 namespace plookup {
 
-const MultiTable& create_table(const MultiTableId id);
+const MultiTable& create_table(MultiTableId id);
 
-ReadData<barretenberg::fr> get_lookup_accumulators(const MultiTableId id,
+ReadData<barretenberg::fr> get_lookup_accumulators(MultiTableId id,
                                                    const barretenberg::fr& key_a,
                                                    const barretenberg::fr& key_b = 0,
-                                                   const bool is_2_to_1_map = false);
+                                                   bool is_2_to_1_lookup = false);
 
 inline BasicTable create_basic_table(const BasicTableId id, const size_t index)
 {
+    // TODO(@zac-williamson) improve
+    auto id_var = static_cast<size_t>(id);
+    if (id_var >= static_cast<size_t>(PEDERSEN_0_0) &&
+        id_var < static_cast<size_t>(PEDERSEN_0_0) + NUM_PEDERSEN_TABLES_LO) {
+        return new_pedersen::table::generate_basic_pedersen_table<0>(
+            id, index, id_var - static_cast<size_t>(PEDERSEN_0_0));
+    }
+    if (id_var >= static_cast<size_t>(PEDERSEN_1_0) &&
+        id_var < static_cast<size_t>(PEDERSEN_1_0) + NUM_PEDERSEN_TABLES_HI) {
+        return new_pedersen::table::generate_basic_pedersen_table<1>(
+            id, index, id_var - static_cast<size_t>(PEDERSEN_1_0));
+    }
+    if (id_var >= static_cast<size_t>(PEDERSEN_2_0) &&
+        id_var < static_cast<size_t>(PEDERSEN_2_0) + NUM_PEDERSEN_TABLES_LO) {
+        return new_pedersen::table::generate_basic_pedersen_table<2>(
+            id, index, id_var - static_cast<size_t>(PEDERSEN_2_0));
+    }
+    if (id_var >= static_cast<size_t>(PEDERSEN_3_0) &&
+        id_var < static_cast<size_t>(PEDERSEN_3_0) + NUM_PEDERSEN_TABLES_HI) {
+        return new_pedersen::table::generate_basic_pedersen_table<3>(
+            id, index, id_var - static_cast<size_t>(PEDERSEN_3_0));
+    }
     switch (id) {
     case AES_SPARSE_MAP: {
         return sparse_tables::generate_sparse_table_with_rotation<9, 8, 0>(AES_SPARSE_MAP, index);
