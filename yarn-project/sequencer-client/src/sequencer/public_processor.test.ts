@@ -180,7 +180,11 @@ describe('public_processor', () => {
       const callStackHash = computeCallStackItemHash(wasm, callStackItem);
 
       const kernelOutput = makeKernelPublicInputs(0x10);
-      kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
+      kernelOutput.end.kernelOutput.end.publicCallStack = padArrayEnd(
+        [callStackHash],
+        Fr.ZERO,
+        MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+      );
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
       const tx = new Tx(kernelOutput, proof, TxL2Logs.random(2, 3), TxL2Logs.random(3, 2), [], [callRequest]);

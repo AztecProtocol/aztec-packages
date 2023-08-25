@@ -56,6 +56,10 @@ export abstract class ContractBase {
     });
   }
 
+  get address() {
+    return this.completeAddress.address;
+  }
+
   /**
    * Attach the current contract instance to a portal contract and optionally add its dependencies.
    * The function will return a promise that resolves when all contracts have been added to the AztecRPCClient.

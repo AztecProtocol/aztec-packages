@@ -86,7 +86,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
     });
 
     it('successfully adds a contract', async () => {
-      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
+      const contracts: DeployedContract[] = [await randomDeployedContract(), await randomDeployedContract()];
       await rpc.addContracts(contracts);
 
       const expectedContractAddresses = contracts.map(contract => contract.completeAddress);
