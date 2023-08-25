@@ -232,21 +232,26 @@ template <typename Curve> class GeminiVerifier_ {
                                                                                Fr r)
     {
         // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
-        GroupElement C0_r_pos = batched_f;
+        GroupElement C0_r_pos;
         // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
-        GroupElement C0_r_neg = batched_f;
-        Fr r_inv = r.invert();
+        GroupElement C0_r_neg;
+        Fr r_inv = r.invert(); // r⁻¹
 
-        // TODO(luke): reinstate some kind of !batched_g.is_point_at_infinity() check for stdlib types? This is mostly
-        // relevant for Gemini unit tests since in practice batched_g != zero (i.e. we will always have shifted polys).
-        bool batched_g_is_point_at_infinity = false;
-        if constexpr (!Curve::is_stdlib_type) { // Note: required for Gemini tests with no shifts
-            batched_g_is_point_at_infinity = batched_g.is_point_at_infinity();
-        }
-        if (!batched_g_is_point_at_infinity) {
-            batched_g = batched_g * r_inv;
-            C0_r_pos += batched_g;
-            C0_r_neg -= batched_g;
+        // If in a recursive setting, perform a batch mul. Otherwise, accumulate directly.
+        if constexpr (Curve::is_stdlib_type) {
+            std::vector<GroupElement> commitments = {batched_f, batched_g};
+            auto one = Fr::from_witness(r.get_context(), 1);
+            // Note: these batch muls are not optimal since we are performing a mul by 1.
+            C0_r_pos = GroupElement::batch_mul(commitments, {one, r_inv});
+            C0_r_neg = GroupElement::batch_mul(commitments, {one, -r_inv});
+        } else {
+            C0_r_pos = batched_f;
+            C0_r_neg = batched_f;
+            if (!batched_g.is_point_at_infinity()) {
+                batched_g = batched_g * r_inv;
+                C0_r_pos += batched_g;
+                C0_r_neg -= batched_g;
+            }
         }
 
         return { C0_r_pos, C0_r_neg };
