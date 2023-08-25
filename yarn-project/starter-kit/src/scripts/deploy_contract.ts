@@ -8,7 +8,7 @@ import { AztecRPC } from '@aztec/types';
 // TODO: connect the "constructor" method in the frontend to this function
 export async function deployContract(
   contractAbi: ContractAbi,
-  args: any, // key: value object where parameter name is the key
+  args: any, // key: value object where parameter name is the key.  make function generic to pass in
   salt: Fr,
   client: AztecRPC,
 ): Promise<AztecAddress> {
@@ -17,7 +17,7 @@ export async function deployContract(
     throw new Error('No constructor found in contract ABI');
   }
   console.log(args, salt, client);
-  const deployer = new ContractDeployer(contractAbi, client);
+  const deployer = new ContractDeployer(contractAbi, client, undefined);
 
   // formik stores the values in an object with the parameter name as the key
   // so we need to convert that to an array of values in the same order as the constructor parameters
