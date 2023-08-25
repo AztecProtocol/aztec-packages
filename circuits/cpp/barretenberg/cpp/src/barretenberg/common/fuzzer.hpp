@@ -522,7 +522,8 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
     static std::vector<typename T::Instruction> parseDataIntoInstructions(const uint8_t* Data, size_t Size)
     {
         std::vector<typename T::Instruction> fuzzingInstructions;
-        const auto* pData = Data;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        auto* pData = const_cast<uint8_t*>(Data);
         size_t size_left = Size;
         while (size_left != 0) {
             uint8_t chosen_operation = *pData;
