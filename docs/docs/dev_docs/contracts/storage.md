@@ -10,7 +10,7 @@ We could define any kinds of state variables in the Storage struct:
 
 See [State Variables](./state_variables.md) for how to initialise them.
 
-Using Storage in a contract is like using any other variables. First, import them to the `main.nr` file:
+Using Storage in a contract is like using any other struct in Noir. First, import the struct into the contract's `main.nr` file:
 
 #include_code storage-import /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 

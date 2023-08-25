@@ -4,7 +4,7 @@ use dep::aztec::note::note_getter_options::{NoteGetterOptions, Sort, SortOrder};
 use crate::types::card::{Card, CARD_LEN};
 
 // docs:start:state_vars-NoteGetterOptionsSelectSortOffset
-fn create_get_account_cards_options(
+fn create_account_card_getter_options(
     account_address: Field,
     offset: u32,
 ) -> NoteGetterOptions<Card, CARD_LEN, Field> {
@@ -16,7 +16,7 @@ fn create_get_account_cards_options(
 // docs:end:state_vars-NoteGetterOptionsSelectSortOffset
 
 // docs:start:state_vars-NoteGetterOptionsMultiSelects
-fn create_get_exact_card_options(
+fn create_exact_card_getter_options(
     points: u8,
     secret: Field,
     account_address: Field,
@@ -46,7 +46,7 @@ fn filter_min_points(
 // docs:end:state_vars-OptionFilter
 
 // docs:start:state_vars-NoteGetterOptionsFilter
-fn create_get_account_cards_with_min_points_options(
+fn create_account_cards_with_min_points_getter_options(
     account_address: Field,
     min_points: u8,
 ) -> NoteGetterOptions<Card, CARD_LEN, u8> {
@@ -57,7 +57,7 @@ fn create_get_account_cards_with_min_points_options(
 // docs:end:state_vars-NoteGetterOptionsFilter
 
 // docs:start:state_vars-NoteGetterOptionsPickOne
-fn create_get_account_largest_card_options(account_address: Field) -> NoteGetterOptions<Card, CARD_LEN, Field> {
+fn create_largest_account_card_getter_options(account_address: Field) -> NoteGetterOptions<Card, CARD_LEN, Field> {
     NoteGetterOptions::new()
         .select(2, account_address)
         .sort(0, SortOrder.DESC)

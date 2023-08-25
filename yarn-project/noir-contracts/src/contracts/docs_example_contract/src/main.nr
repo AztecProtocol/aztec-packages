@@ -13,7 +13,7 @@ contract DocsExample {
     };
 
     use crate::actions;
-    use crate::options::{create_get_account_cards_options, create_get_account_largest_card_options};
+    use crate::options::{create_account_card_getter_options, create_get_account_largest_card_options};
     // docs:start:storage-import
     use crate::storage::Storage;
     // docs:end:storage-import
@@ -156,7 +156,7 @@ contract DocsExample {
         let storage = Storage::init();
 
         let mut total_points = 0;
-        let options = create_get_account_cards_options(account, offset);
+        let options = create_account_card_getter_options(account, offset);
         let cards = actions::get_cards(&mut context, storage.cards, options);
         for i in 0..MAX_READ_REQUESTS_PER_CALL {
             if (cards[i].is_some()) {
