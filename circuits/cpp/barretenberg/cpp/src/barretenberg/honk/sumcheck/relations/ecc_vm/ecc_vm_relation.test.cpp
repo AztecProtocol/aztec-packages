@@ -272,9 +272,9 @@ TYPED_TEST(ECCVMSumcheckTests, ECCVMFullRelationProver)
 
         auto verifier_transcript = honk::VerifierTranscript<FF>::init_empty(prover_transcript);
 
-        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n, verifier_transcript);
+        auto sumcheck_verifier = SumcheckVerifier<Flavor>(multivariate_n);
 
-        std::optional verifier_output = sumcheck_verifier.verify(relation_params);
+        std::optional verifier_output = sumcheck_verifier.verify(relation_params, verifier_transcript);
 
         ASSERT_TRUE(verifier_output.has_value());
         ASSERT_EQ(prover_output, *verifier_output);

@@ -116,8 +116,8 @@ void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * If the current row is the last mul instruction in a multiscalar multiplication, msm_transition = 1.
      * i.e. if q_mul == 1 and q_mul_shift == 0, msm_transition = 1, else is 0
      */
-    auto msm_transition = q_mul * (-q_mul_shift + 1);
-    std::get<4>(accumulator) += (msm_transition - msm_transition) * scaling_factor;
+    auto msm_transition_check = q_mul * (-q_mul_shift + 1);
+    std::get<4>(accumulator) += (msm_transition - msm_transition_check) * scaling_factor;
 
     /**
      * @brief Validate `msm_count` resets when we end a multiscalar multiplication.

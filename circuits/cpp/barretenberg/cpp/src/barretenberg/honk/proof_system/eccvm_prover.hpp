@@ -15,13 +15,13 @@ namespace proof_system::honk {
 template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     using FF = typename Flavor::FF;
-    using PCSParams = typename Flavor::PCSParams;
     using PCS = typename Flavor::PCS;
-    using PCSCommitmentKey = typename Flavor::PCSParams::CommitmentKey;
+    using PCSCommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
     using Polynomial = typename Flavor::Polynomial;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
+    using Curve = typename Flavor::Curve;
 
   public:
     explicit ECCVMProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<PCSCommitmentKey> commitment_key);
@@ -63,15 +63,15 @@ template <ECCVMFlavor Flavor> class ECCVMProver_ {
 
     Polynomial quotient_W;
 
-    work_queue<PCSParams> queue;
+    work_queue<Curve> queue;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    pcs::gemini::ProverOutput<PCSParams> gemini_output;
-    pcs::shplonk::ProverOutput<PCSParams> shplonk_output;
+    pcs::gemini::ProverOutput<Curve> gemini_output;
+    pcs::shplonk::ProverOutput<Curve> shplonk_output;
     std::shared_ptr<PCSCommitmentKey> pcs_commitment_key;
 
-    using Gemini = pcs::gemini::GeminiProver_<PCSParams>;
-    using Shplonk = pcs::shplonk::ShplonkProver_<PCSParams>;
+    using Gemini = pcs::gemini::GeminiProver_<Curve>;
+    using Shplonk = pcs::shplonk::ShplonkProver_<Curve>;
 
   private:
     plonk::proof proof;

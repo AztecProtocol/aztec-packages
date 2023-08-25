@@ -1,6 +1,8 @@
 #pragma once
 #include "../sumcheck/relations/relation_definitions_fwd.hpp"
 #include "../sumcheck/relations/relation_types.hpp"
+#include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/ipa/ipa.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
@@ -24,15 +26,13 @@
 namespace proof_system::honk {
 namespace flavor {
 
-template <typename CycleGroup_T, typename G1_T, typename PCSParams_T, template <typename> typename PCS_T>
-class ECCVMBase {
+template <typename CycleGroup_T, typename Curve_T, template <typename> typename PCS_T> class ECCVMBase {
   public:
-    using CycleGroup = CycleGroup_T;
     // forward template params into the ECCVMBase namespace
-    using G1 = G1_T;
-    using PCSParams = PCSParams_T;
-    using PCS = PCS_T<PCSParams>;
-    using Curve = typename PCSParams::Curve;
+    using CycleGroup = CycleGroup_T;
+    using Curve = Curve_T;
+    using G1 = typename Curve::Group;
+    using PCS = PCS_T<Curve>;
 
     using FF = typename G1::subgroup_field;
     using Polynomial = barretenberg::Polynomial<FF>;
@@ -40,6 +40,8 @@ class ECCVMBase {
     using GroupElement = typename G1::element;
     using Commitment = typename G1::affine_element;
     using CommitmentHandle = typename G1::affine_element;
+    using CommitmentKey = pcs::CommitmentKey<Curve>;
+    using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = 74;
 
@@ -822,8 +824,8 @@ class ECCVMBase {
     };
 };
 
-class ECCVM : public ECCVMBase<grumpkin::g1, barretenberg::g1, pcs::kzg::Params, pcs::kzg::KZG> {};
-class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, grumpkin::g1, pcs::ipa::Params, pcs::ipa::IPA> {};
+class ECCVM : public ECCVMBase<grumpkin::g1, curve::BN254, pcs::kzg::KZG> {};
+class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 

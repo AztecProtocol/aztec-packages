@@ -2,6 +2,7 @@
 #include "barretenberg/common/wasm_export.hpp"
 #include <string>
 #include <utility>
+
 // CBIND forward declarations for msgback default bind format (encode as tuple of args and return value as msgpack
 // string)
 
