@@ -355,8 +355,8 @@ constexpr uint256_t uint256_t::operator>>(const uint256_t& other) const
     }
     uint256_t result(0);
 
-    for (uint64_t i = 0; i < 4 - num_shifted_limbs; ++i) {
-        result.data[i] = shifted_limbs[i + num_shifted_limbs];
+    for (size_t i = 0; i < 4 - num_shifted_limbs; ++i) {
+        result.data[i] = shifted_limbs[static_cast<size_t>(i + num_shifted_limbs)];
     }
 
     return result;
@@ -402,8 +402,8 @@ constexpr uint256_t uint256_t::operator<<(const uint256_t& other) const
     }
     uint256_t result(0);
 
-    for (uint64_t i = 0; i < 4 - num_shifted_limbs; ++i) {
-        result.data[i + num_shifted_limbs] = shifted_limbs[i];
+    for (size_t i = 0; i < 4 - num_shifted_limbs; ++i) {
+        result.data[static_cast<size_t>(i + num_shifted_limbs)] = shifted_limbs[i];
     }
 
     return result;

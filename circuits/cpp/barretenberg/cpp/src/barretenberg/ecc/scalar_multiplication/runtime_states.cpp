@@ -20,7 +20,7 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(const size_t num_initial
     : num_points(num_initial_points * 2)
     , num_buckets(static_cast<size_t>(1ULL << barretenberg::scalar_multiplication::get_optimal_bucket_width(
                                           static_cast<size_t>(num_initial_points))))
-    , num_rounds(get_num_pippenger_rounds(num_points))
+    , num_rounds(get_num_pippenger_rounds(static_cast<size_t>(num_points)))
     , num_threads(get_num_cpus_pow2())
     , prefetch_overflow(num_threads * 16)
     , point_schedule_ptr(

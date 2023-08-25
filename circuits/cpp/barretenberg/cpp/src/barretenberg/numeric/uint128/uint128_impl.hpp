@@ -356,8 +356,8 @@ constexpr uint128_t uint128_t::operator>>(const uint128_t& other) const
     }
     uint128_t result(0);
 
-    for (uint32_t i = 0; i < 4 - num_shifted_limbs; ++i) {
-        result.data[i] = shifted_limbs[i + num_shifted_limbs];
+    for (size_t i = 0; i < 4 - num_shifted_limbs; ++i) {
+        result.data[i] = shifted_limbs[static_cast<size_t>(i + num_shifted_limbs)];
     }
 
     return result;
@@ -403,8 +403,8 @@ constexpr uint128_t uint128_t::operator<<(const uint128_t& other) const
     }
     uint128_t result(0);
 
-    for (uint32_t i = 0; i < 4 - num_shifted_limbs; ++i) {
-        result.data[i + num_shifted_limbs] = shifted_limbs[i];
+    for (size_t i = 0; i < 4 - num_shifted_limbs; ++i) {
+        result.data[static_cast<size_t>(i + num_shifted_limbs)] = shifted_limbs[i];
     }
 
     return result;
