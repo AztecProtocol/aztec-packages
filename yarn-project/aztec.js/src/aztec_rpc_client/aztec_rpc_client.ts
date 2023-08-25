@@ -4,7 +4,6 @@ import {
   AztecRPC,
   ContractData,
   ContractDataAndBytecode,
-  ContractDeploymentTx,
   L2BlockL2Logs,
   Tx,
   TxExecutionRequest,
@@ -29,7 +28,7 @@ export const createAztecRpcClient = (url: string, fetch = defaultFetch): AztecRP
       PrivateKey,
       Fr,
     },
-    { Tx, ContractDeploymentTx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs },
     false,
     fetch,
   );
