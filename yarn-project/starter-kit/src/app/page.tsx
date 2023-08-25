@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 
 import aztecLogo from '../assets/aztec_logo.svg';
 import Banner from './banner';
-import DynamicContractForm from './contractForm';
+import DynamicContractForm from './Contract';
 // import {PrivateTokenContract} from '../artifacts/PrivateToken';  // update this if using a different contract
 
 
