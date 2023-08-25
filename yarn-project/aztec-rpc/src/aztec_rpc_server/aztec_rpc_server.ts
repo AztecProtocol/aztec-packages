@@ -97,9 +97,10 @@ export class AztecRPCServer implements AztecRPC {
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
       this.synchroniser.addAccount(pubKey, this.keyStore);
-      this.log.info(`Added account: ${completeAddress.toReadableString()}`);
+      this.log.info(`Registered account ${completeAddress.address.toString()}`);
+      this.log.debug(`Registered ${completeAddress.toReadableString()}`);
     } else {
-      this.log.info(`Account "${completeAddress.toReadableString()}" already registered.`);
+      this.log.info(`Account "${completeAddress.address.toString()}" already registered.`);
     }
   }
 
@@ -326,14 +327,8 @@ export class AztecRPCServer implements AztecRPC {
     contractDataOracle: ContractDataOracle,
   ) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await contractDataOracle.getFunctionAbi(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
-    const debug = await contractDataOracle.getFunctionDebugMetadata(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
+    const functionAbi = await contractDataOracle.getFunctionAbi(contractAddress, execRequest.functionData.selector);
+    const debug = await contractDataOracle.getFunctionDebugMetadata(contractAddress, execRequest.functionData.selector);
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {

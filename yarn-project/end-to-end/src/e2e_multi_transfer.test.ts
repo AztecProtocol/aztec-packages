@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
+import { AztecAddress, Contract, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { MultiTransferContract, PrivateTokenAirdropContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, CompleteAddress } from '@aztec/types';
@@ -121,7 +121,7 @@ describe('multi-transfer payments', () => {
         recipients,
         amounts,
         ownerAddress,
-        Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+        zkTokenContract.methods.batchTransfer.selector.toField(),
         noteOffsets,
       )
       .send({ origin: ownerAddress });
@@ -184,7 +184,7 @@ describe('multi-transfer payments', () => {
           repeatedSelfAdddress,
           amounts,
           ownerAddress,
-          Fr.fromBuffer(zkTokenContract.methods.batchTransfer.selector),
+          zkTokenContract.methods.batchTransfer.selector.toField(),
           noteOffsets,
         )
         .send({ origin: ownerAddress });
