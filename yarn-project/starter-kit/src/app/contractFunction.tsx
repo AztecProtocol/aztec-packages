@@ -1,12 +1,14 @@
 import {
     AztecAddress,
-    CompleteAddress, ContractBase, Fr, PrivateKey, createAztecRpcClient,
+    CompleteAddress, ContractBase, Fr, PrivateKey,
     getAccountWallets, isContractDeployed
 } from "@aztec/aztec.js";
-import { FunctionAbi } from "@aztec/foundation/abi";
+import { ContractAbi, FunctionAbi } from "@aztec/foundation/abi";
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
+import { AztecRPC } from '@aztec/types';
 // TODO: consider removing dependency on this?  then we can just read the contract ABI
 import { PrivateTokenContract } from '../artifacts/PrivateToken';
+import { deployContract } from '../scripts/deploy_contract';
 
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -31,21 +33,21 @@ const accountCreationSalt = Fr.ZERO;
 
 
 async function executeFunction(contractAddress: string, functionName: string, functionArgs: any,
+    rpcClient: AztecRPC
     ) {
+
     // const fnAbi: FunctionAbi = getAbiFunction(contractAbi, functionName);
     // console.log('privateKey2 is', privateKey2.toString('hex'));
     console.log('privateKey is', privateKey.toString('hex'));
-    console.log(`Creating JSON RPC client to remote host ${SANDBOX_URL}`);
-    const jsonClient = createAztecRpcClient(SANDBOX_URL);//, makeFetch([1, 2, 3], false))
 
     console.log('creating wallet with ', SchnorrSingleKeyAccountContractAbi, privateKey, accountCreationSalt, 1);
     // const wallet: Wallet = await createAccounts(jsonClient, SchnorrSingleKeyAccountContractAbi, 
         //  privateKey,  accountCreationSalt, 2);
-    const accounts: CompleteAddress[] = await jsonClient.getAccounts();
+    const accounts: CompleteAddress[] = await rpcClient.getAccounts();
     // const wallet: CompleteAddress = accounts[0];
 
     // console.log(wallet, wallet.toReadableString());  // not a wallet!  it' san account
-    const wallet = await getAccountWallets(jsonClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
+    const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
     console.log(wallet);
 
     // console.log('getting wallet'); // next line is erroring out with 404
@@ -53,7 +55,7 @@ async function executeFunction(contractAddress: string, functionName: string, fu
     // undefined when we ask for bytecode
     // console.log(_contract);
     // const _contract = await jsonClient.getContractDataAndBytecode(contractAddress);
-    const isDeployed = await isContractDeployed(jsonClient, contractAddress);
+    const isDeployed = await isContractDeployed(rpcClient, contractAddress);
     console.log(isDeployed);
     const contract: ContractBase = await PrivateTokenContract.at(contractAddress, wallet);
     console.log(contract);
@@ -68,7 +70,6 @@ async function executeFunction(contractAddress: string, functionName: string, fu
 
     return receipt;
 
-    console.log('jsonClient is', jsonClient);
     // this next line is erroring with reading "length" from an undefined object
 
     // const wallet = await getaccountwallets(
@@ -118,7 +119,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
 }
 
 // todo: pass in the client. right now just instantiate in the function execution for testing
-export default function ContractFunctionForm(functionAbi: FunctionAbi, client: AztecRpcClient=null) {
+export default function ContractFunctionForm(contractAbi: ContractAbi, functionAbi: FunctionAbi, rpcClient: AztecRPC) {
     const functionName: string = functionAbi.name;
 
     const {validationSchema, initialValues} = generateYupSchema(functionAbi);
@@ -128,10 +129,17 @@ export default function ContractFunctionForm(functionAbi: FunctionAbi, client: A
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onSubmit: async (values: any) => {
                         // eslint-disable-next-line no-console
-                        console.log(`Function ${functionName} called with:`, values);
-                        console.log(`Contract address: ${contractAddress}`);
-                        return await executeFunction(contractAddress, functionName, values);
-                    },
+                        console.log(`Function ${functionName} calling with:`, values);
+                        if (functionName === 'constructor') {
+                            console.log('deploying contract');
+                            await deployContract(contractAbi, values, 
+                                // publickey is in the wrong format
+                                '0x0d557417a3ce7d7b356a8f15d79a868fd8da2af9c5f4981feb9bcf0b614bd17e',
+                                 Fr.ZERO, rpcClient);
+                        } else{
+                        console.log(`querying Contract address: ${contractAddress}`);
+                        return await executeFunction(contractAddress, functionName, values, rpcClient);
+                    }},
                 });
     return (                   
         <div key={functionName} className="bg-black">
