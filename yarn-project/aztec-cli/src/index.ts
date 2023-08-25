@@ -31,6 +31,7 @@ import {
   getExampleContractArtifacts,
   getTxSender,
   prepTx,
+  unboxContract,
 } from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
@@ -475,6 +476,18 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const abisList = await getExampleContractArtifacts();
       const names = Object.keys(abisList);
       names.forEach(name => log(name));
+    });
+
+  program
+    .command('unbox')
+    .description(
+      'Unboxes an example contract from @aztec/noir-contracts.  Copies `noir-libs` dependencies and setup simple frontend for the contract based on the ABI.',
+    )
+    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
+    .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
+    .action(async (contractName, localDirectory) => {
+      const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
+      await unboxContract(contractName, unboxTo, log);
     });
 
   compileContract(program, 'compile', log);
