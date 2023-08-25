@@ -23,9 +23,6 @@ describe('cli', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let existingAccounts: CompleteAddress[];
-  let ownerAddress: CompleteAddress;
-  let receiverAddress: CompleteAddress;
-  let privateKey: PrivateKey;
   let contractAddress: AztecAddress;
   let log: (...args: any[]) => void;
 
@@ -46,6 +43,11 @@ describe('cli', () => {
     };
   });
 
+  // in order to run the same command twice, we need to create a new CLI instance
+  const resetCli = () => {
+    cli = getProgram(log, debug);
+  };
+
   afterAll(async () => {
     http.close();
     await aztecNode?.stop();
@@ -54,7 +56,7 @@ describe('cli', () => {
 
   beforeEach(() => {
     logs.splice(0);
-    cli = getProgram(log, debug);
+    resetCli();
   });
 
   // Run a command on the CLI
@@ -74,56 +76,109 @@ describe('cli', () => {
     }
   };
 
-  it('creates a private key', async () => {
+  const findMultipleInLogs = (regex: RegExp) => {
+    const matches = [];
+    for (const log of logs) {
+      const match = regex.exec(log);
+      if (match) matches.push(match);
+    }
+    return matches;
+  };
+
+  const clearLogs = () => {
+    logs.splice(0);
+  };
+
+  it('creates & retrieves an account', async () => {
+    existingAccounts = await aztecRpcServer.getAccounts();
+    debug('Create an account');
+    await run(`create-account`);
+    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundAddress).toBeDefined();
+    const newAddress = AztecAddress.fromString(foundAddress!);
+
+    const accountsAfter = await aztecRpcServer.getAccounts();
+    const expectedAccounts = [...existingAccounts.map(a => a.address), newAddress];
+    expect(accountsAfter.map(a => a.address)).toEqual(expectedAccounts);
+    const newCompleteAddress = accountsAfter[accountsAfter.length - 1];
+
+    // Test get-accounts
+    debug('Check that account was added to the list of accs in RPC');
+    await run('get-accounts');
+    const fetchedAddresses = findMultipleInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/);
+    const foundFetchedAddress = fetchedAddresses.find(match => match.groups?.address === newAddress.toString());
+    expect(foundFetchedAddress).toBeDefined();
+
+    // Test get-account
+    debug('Check we can retrieve the specific account');
+    clearLogs();
+    await run(`get-account ${newAddress.toString()}`);
+    const fetchedAddress = findInLogs(/Public Key:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(fetchedAddress).toEqual(newCompleteAddress.publicKey.toString());
+  });
+
+  it('deploys a contract & sends transactions', async () => {
+    // generate a private key
+    debug('Create an account using a private key');
     await run('generate-private-key', false);
     const privKey = findInLogs(/Private\sKey:\s+(?<privKey>[a-fA-F0-9]+)/)?.groups?.privKey;
     expect(privKey).toHaveLength(64);
-    privateKey = PrivateKey.fromString(privKey!);
-  });
+    await run(`create-account --private-key ${privKey}`);
+    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundAddress).toBeDefined();
+    const ownerAddress = AztecAddress.fromString(foundAddress!);
 
-  it('creates an account', async () => {
-    existingAccounts = await aztecRpcServer.getAccounts();
-    await run(`create-account --private-key ${privateKey.toString()}`);
-    const newAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
-    expect(newAddress).toBeDefined();
-
-    const accountsAfter = await aztecRpcServer.getAccounts();
-    const expectedAccounts = [...existingAccounts.map(a => a.address), AztecAddress.fromString(newAddress!)];
-    expect(accountsAfter.map(a => a.address)).toEqual(expectedAccounts);
-    ownerAddress = accountsAfter[accountsAfter.length - 1];
-    receiverAddress = accountsAfter[0];
-  });
-
-  it('deploys a contract', async () => {
-    await run(`deploy PrivateTokenContractAbi --args ${INITIAL_BALANCE} ${ownerAddress.address} --salt 0`);
+    debug('Deploy Private Token Contract using created account.');
+    await run(`deploy PrivateTokenContractAbi --args ${INITIAL_BALANCE} ${ownerAddress} --salt 0`);
     const loggedAddress = findInLogs(/Contract\sdeployed\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
     expect(loggedAddress).toBeDefined();
     contractAddress = AztecAddress.fromString(loggedAddress!);
 
     const deployedContract = await aztecRpcServer.getContractData(contractAddress);
     expect(deployedContract?.contractAddress).toEqual(contractAddress);
-  });
 
-  it('checks contract owner balance', async () => {
-    await run(
-      `call getBalance --args ${
-        ownerAddress.address
-      } --contract-abi PrivateTokenContractAbi --contract-address ${contractAddress.toString()}`,
-    );
-    const result = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    expect(result!).toEqual(`${BigInt(INITIAL_BALANCE).toString()}n`);
-  });
+    debug('Check contract can be found in returned address');
+    await run(`check-deploy -ca ${loggedAddress}`);
+    const checkResult = findInLogs(/Contract\sfound\sat\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(checkResult).toEqual(deployedContract?.contractAddress.toString());
 
-  it('transfers some tokens & checks receiver balance', async () => {
+    // clear logs
+    clearLogs();
+    await run(`get-contract-data ${loggedAddress}`);
+    const contractDataAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(contractDataAddress).toEqual(deployedContract?.contractAddress.toString());
+
+    debug("Check owner's balance");
     await run(
-      `send transfer --args ${TRANSFER_BALANCE} ${ownerAddress.address} ${
-        receiverAddress.address
-      } --contract-address ${contractAddress.toString()} --contract-abi PrivateTokenContractAbi --private-key ${privateKey.toString()}`,
+      `call getBalance --args ${ownerAddress} --contract-abi PrivateTokenContractAbi --contract-address ${contractAddress.toString()}`,
     );
+    const balance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(balance!).toEqual(`${BigInt(INITIAL_BALANCE).toString()}n`);
+
+    debug('Transfer some tokens');
+    const existingAccounts = await aztecRpcServer.getAccounts();
+    // ensure we pick a different acc
+    const receiver = existingAccounts.find(acc => acc.address.toString() !== ownerAddress.toString());
+
     await run(
-      `call getBalance --args ${receiverAddress.address.toString()} --contract-abi PrivateTokenContractAbi --contract-address ${contractAddress.toString()}`,
+      `send transfer --args ${TRANSFER_BALANCE} ${ownerAddress.toString()} ${receiver?.address.toString()} --contract-address ${contractAddress.toString()} --contract-abi PrivateTokenContractAbi --private-key ${privKey}`,
     );
-    const result = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    expect(result).toEqual(`${BigInt(TRANSFER_BALANCE).toString()}n`);
+    const txHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
+
+    debug('Check the transfer receipt');
+    await run(`get-tx-receipt ${txHash}`);
+    const txResult = findInLogs(/Transaction receipt:\s*(?<txHash>[\s\S]*?\})/)?.groups?.txHash;
+    const parsedResult = JSON.parse(txResult!);
+    expect(parsedResult.txHash).toEqual(txHash);
+    expect(parsedResult.status).toEqual('mined');
+    debug("Check Receiver's balance");
+    // Reset CLI as we're calling getBalance again
+    resetCli();
+    clearLogs();
+    await run(
+      `call getBalance --args ${receiver?.address.toString()} --contract-abi PrivateTokenContractAbi --contract-address ${contractAddress.toString()}`,
+    );
+    const receiverBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(receiverBalance).toEqual(`${BigInt(TRANSFER_BALANCE).toString()}n`);
   });
 });

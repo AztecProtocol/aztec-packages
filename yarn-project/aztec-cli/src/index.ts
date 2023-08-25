@@ -198,8 +198,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('get-tx-receipt')
-    .argument('<txHash>', 'A transaction hash to get the receipt for.')
     .description('Gets the receipt for the specified transaction hash.')
+    .argument('<txHash>', 'A transaction hash to get the receipt for.')
     .option('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
     .action(async (_txHash, options) => {
       const client = createClient(options.rpcUrl);
