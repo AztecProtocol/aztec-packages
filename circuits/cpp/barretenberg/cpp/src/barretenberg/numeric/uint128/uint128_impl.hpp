@@ -26,7 +26,7 @@ constexpr std::pair<uint32_t, uint32_t> uint128_t::mul_wide(const uint32_t a, co
 constexpr std::pair<uint32_t, uint32_t> uint128_t::addc(const uint32_t a, const uint32_t b, const uint32_t carry_in)
 {
     const uint32_t sum = a + b;
-    auto carry_temp = static_cast<const uint32_t>(sum < a);
+    const auto carry_temp = static_cast<uint32_t>(sum < a);
     const uint32_t r = sum + carry_in;
     const uint32_t carry_out = carry_temp + static_cast<unsigned int>(r < carry_in);
     return { r, carry_out };
@@ -40,9 +40,9 @@ constexpr uint32_t uint128_t::addc_discard_hi(const uint32_t a, const uint32_t b
 constexpr std::pair<uint32_t, uint32_t> uint128_t::sbb(const uint32_t a, const uint32_t b, const uint32_t borrow_in)
 {
     const uint32_t t_1 = a - (borrow_in >> 31ULL);
-    auto borrow_temp_1 = static_cast<const uint32_t>(t_1 > a);
+    const auto borrow_temp_1 = static_cast<uint32_t>(t_1 > a);
     const uint32_t t_2 = t_1 - b;
-    auto borrow_temp_2 = static_cast<const uint32_t>(t_2 > t_1);
+    const auto borrow_temp_2 = static_cast<uint32_t>(t_2 > t_1);
 
     return { t_2, 0ULL - (borrow_temp_1 | borrow_temp_2) };
 }
@@ -60,9 +60,9 @@ constexpr std::pair<uint32_t, uint32_t> uint128_t::mac(const uint32_t a,
 {
     std::pair<uint32_t, uint32_t> result = mul_wide(b, c);
     result.first += a;
-    auto overflow_c = static_cast<const uint32_t>(result.first < a);
+    const auto overflow_c = static_cast<uint32_t>(result.first < a);
     result.first += carry_in;
-    auto overflow_carry = static_cast<const uint32_t>(result.first < carry_in);
+    const auto overflow_carry = static_cast<uint32_t>(result.first < carry_in);
     result.second += (overflow_c + overflow_carry);
     return result;
 }

@@ -25,7 +25,7 @@ constexpr std::pair<uint64_t, uint64_t> uint256_t::mul_wide(const uint64_t a, co
 constexpr std::pair<uint64_t, uint64_t> uint256_t::addc(const uint64_t a, const uint64_t b, const uint64_t carry_in)
 {
     const uint64_t sum = a + b;
-    auto carry_temp = static_cast<const uint64_t>(sum < a);
+    const auto carry_temp = static_cast<uint64_t>(sum < a);
     const uint64_t r = sum + carry_in;
     const uint64_t carry_out = carry_temp + static_cast<uint64_t>(r < carry_in);
     return { r, carry_out };
@@ -39,9 +39,9 @@ constexpr uint64_t uint256_t::addc_discard_hi(const uint64_t a, const uint64_t b
 constexpr std::pair<uint64_t, uint64_t> uint256_t::sbb(const uint64_t a, const uint64_t b, const uint64_t borrow_in)
 {
     const uint64_t t_1 = a - (borrow_in >> 63ULL);
-    auto borrow_temp_1 = static_cast<const uint64_t>(t_1 > a);
+    const auto borrow_temp_1 = static_cast<uint64_t>(t_1 > a);
     const uint64_t t_2 = t_1 - b;
-    auto borrow_temp_2 = static_cast<const uint64_t>(t_2 > t_1);
+    const auto borrow_temp_2 = static_cast<uint64_t>(t_2 > t_1);
 
     return { t_2, 0ULL - (borrow_temp_1 | borrow_temp_2) };
 }
@@ -59,9 +59,9 @@ constexpr std::pair<uint64_t, uint64_t> uint256_t::mac(const uint64_t a,
 {
     std::pair<uint64_t, uint64_t> result = mul_wide(b, c);
     result.first += a;
-    auto overflow_c = static_cast<const uint64_t>(result.first < a);
+    const auto overflow_c = static_cast<uint64_t>(result.first < a);
     result.first += carry_in;
-    auto overflow_carry = static_cast<const uint64_t>(result.first < carry_in);
+    const auto overflow_carry = static_cast<uint64_t>(result.first < carry_in);
     result.second += (overflow_c + overflow_carry);
     return result;
 }

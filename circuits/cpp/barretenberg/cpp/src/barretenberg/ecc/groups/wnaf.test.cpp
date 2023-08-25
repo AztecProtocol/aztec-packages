@@ -99,7 +99,7 @@ TEST(wnaf, WnafTwoBitWindow)
         }
         four_power >>= 2;
     }
-    recovered -= static_cast<const uint64_t>(skew);
+    recovered -= static_cast<uint64_t>(skew);
     EXPECT_EQ(recovered, input);
 }
 
