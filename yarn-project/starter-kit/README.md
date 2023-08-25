@@ -66,12 +66,18 @@ The `src/artifacts` folder can be generated from the command line with
 
 ```bash
 aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts
-# TODO: replace with yarn compile
+# TODO: see why the package.json `yarn compile` command doesn't seem to get picked up
 ```
 
 This will generate a [Contract ABI](https://www.alchemy.com/overviews/what-is-an-abi-of-a-smart-contract-examples-and-usage) and TypeScript class for the Aztec smart contract in `src/contracts/main.nr`, which the frontend uses to generate the UI.
 
-TODO: why the package.json `yarn compile` command doesn't seem to get picked up?
+Note: the `compile` command seems to generate a Typescript file which needs a single change -
+
+```
+import PrivateTokenContractAbiJson from 'PrivateToken.json' assert { type: 'json' };
+// need to update the relative import to
+import PrivateTokenContractAbiJson from './PrivateToken.json' assert { type: 'json' };
+```
 
 After compiling, you can deploy the noir smart contract with
 
@@ -81,9 +87,9 @@ aztec-cli deploy src/artifacts/PrivateToken.json  --args 1000000 $ALICE --salt 0
 ```
 
 The command should succeed and return the address of the deployed contract. This will need
-to be updated in the `.env` file's `VITE_CONTRACT_ADDRESS` value if you are using a different contract or have changed the deploy command.
+to be updated in the `.env` file's `VITE_CONTRACT_ADDRESS` value if you are using a different contract or have changed the deploy command (for example, choosing a different salt).
 
-Lastly, launch the frontend:
+Lastly, we can launch the frontend:
 
 ```bash
 
