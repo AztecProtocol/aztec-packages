@@ -1,7 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ContractDataAndBytecode } from '@aztec/types';
+import { CompleteAddress, ContractDataAndBytecode, PartialAddress, PublicKey } from '@aztec/types';
 
 import {
   GetContractReturnType,
@@ -135,6 +135,9 @@ export class ViemTxSender implements L1PublisherTxSender {
         contractDataAndBytecode.contractData.contractAddress.toString() as Hex,
         contractDataAndBytecode.contractData.portalContractAddress.toString() as Hex,
         `0x${l2BlockHash.toString('hex')}`,
+        contractDataAndBytecode.partialAddress.toString(true),
+        contractDataAndBytecode.publicKey.x.toString(true),
+        contractDataAndBytecode.publicKey.y.toString(true),
         `0x${contractDataAndBytecode.bytecode.toString('hex')}`,
       ] as const;
 

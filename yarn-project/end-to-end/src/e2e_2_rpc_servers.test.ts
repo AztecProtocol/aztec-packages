@@ -98,7 +98,7 @@ describe('e2e_2_rpc_servers', () => {
     await aztecRpcServerB.addContracts([
       {
         abi: PrivateTokenContract.abi,
-        address: tokenAddress,
+        completeAddress: tokenAddress,
         portalContract: EthAddress.ZERO,
       },
     ]);
@@ -167,7 +167,7 @@ describe('e2e_2_rpc_servers', () => {
     await aztecRpcServerB.addContracts([
       {
         abi: ChildContract.abi,
-        address: childAddress,
+        completeAddress: childAddress,
         portalContract: EthAddress.ZERO,
       },
     ]);

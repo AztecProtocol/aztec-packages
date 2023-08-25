@@ -119,7 +119,7 @@ async function deployAllContracts(
   await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
-    [l1ContractsAddresses!.registry.toString(), uniswapL2Contract.address.toString()],
+    [l1ContractsAddresses!.registry.toString(), uniswapL2Contract.completeAddress.toString()],
     {} as any,
   );
 
@@ -268,10 +268,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const withdrawTx = uniswapL2Contract.methods
       .swap(
         selector,
-        wethL2Contract.address.toField(),
+        wethL2Contract.completeAddress.toField(),
         wethAmountToBridge,
         new Fr(3000),
-        daiL2Contract.address.toField(),
+        daiL2Contract.completeAddress.toField(),
         new Fr(minimumOutputAmount),
         owner,
         owner,

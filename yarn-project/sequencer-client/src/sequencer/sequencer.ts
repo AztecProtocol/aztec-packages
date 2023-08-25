@@ -197,6 +197,8 @@ export class Sequencer {
           return new ContractDataAndBytecode(
             new ContractData(newContract.contractAddress, newContract.portalContractAddress),
             tx.newContractPublicFunctions,
+            tx.partialAddresses[0],
+            tx.publicKeys[0],
           );
         }
       })

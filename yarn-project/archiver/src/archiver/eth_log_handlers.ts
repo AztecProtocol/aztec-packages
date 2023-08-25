@@ -1,6 +1,6 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
   BufferReader,
@@ -179,9 +179,17 @@ export function processContractDeploymentLogs(
       continue;
     }
     const publicFnsReader = BufferReader.asReader(Buffer.from(log.args.acir.slice(2), 'hex'));
+    const partialAddress = Fr.fromBuffer(Buffer.from(hexToBytes(log.args.partialAddress)));
+    const publicKey = new Point(
+      Fr.fromBuffer(Buffer.from(hexToBytes(log.args.pubKeyX))),
+      Fr.fromBuffer(Buffer.from(hexToBytes(log.args.pubKeyY))),
+    );
+
     const contractData = new ContractDataAndBytecode(
       new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
       publicFnsReader.readVector(EncodedContractFunction),
+      partialAddress,
+      publicKey,
     );
     if (contractDataAndBytecode[i]) {
       contractDataAndBytecode[i][0].push(contractData);

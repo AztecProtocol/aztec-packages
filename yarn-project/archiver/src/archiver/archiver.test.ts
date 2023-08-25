@@ -155,20 +155,14 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
  * @returns An ContractDeployment event.
  */
 function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
-  // const contractData = ContractData.random();
-  const aztecAddress = AztecAddress.random();
-  const portalAddress = EthAddress.random();
-  const contractData = new ContractDataAndBytecode(new ContractData(aztecAddress, portalAddress), [
-    EncodedContractFunction.random(),
-    EncodedContractFunction.random(),
-  ]);
-  const acir = contractData.bytecode?.toString('hex');
+  const contractDataAndBytecode = ContractDataAndBytecode.random();
+  const acir = contractDataAndBytecode.bytecode?.toString('hex');
   return {
     blockNumber: l1BlockNum,
     args: {
       l2BlockNum: BigInt(l2Block.number),
-      aztecAddress: aztecAddress.toString(),
-      portalAddress: portalAddress.toString(),
+      aztecAddress: contractDataAndBytecode.contractData.contractAddress.toString(),
+      portalAddress: contractDataAndBytecode.contractData.portalContractAddress.toString(),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
       acir: '0x' + acir,
     },

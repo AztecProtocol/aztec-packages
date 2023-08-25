@@ -1,13 +1,24 @@
-import { AztecAddress, EthAddress, Fr, MAX_NEW_CONTRACTS_PER_TX, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PartialAddress, Point, Proof, PublicKey } from '@aztec/circuits.js';
+import {
+  AztecAddress,
+  CompleteAddress,
+  EthAddress,
+  Fr,
+  MAX_NEW_CONTRACTS_PER_TX,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  PartialAddress,
+  Point,
+  Proof,
+  PublicKey,
+} from '@aztec/circuits.js';
 import { makeKernelPublicInputs, makePublicCallRequest } from '@aztec/circuits.js/factories';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { randomBytes } from '@aztec/foundation/crypto';
+import { Tuple } from '@aztec/foundation/serialize';
 
 import times from 'lodash.times';
 
 import { DeployedContract, EncodedContractFunction, FunctionL2Logs, TxL2Logs } from './index.js';
 import { Tx } from './tx/index.js';
-import { Tuple } from '@aztec/foundation/serialize';
 
 /**
  * Testing utility to create empty logs composed from a single empty log.
@@ -35,8 +46,8 @@ export const randomContractAbi = (): ContractAbi => ({
   functions: [],
 });
 
-export const randomDeployedContract = (): DeployedContract => ({
+export const randomDeployedContract = async (): Promise<DeployedContract> => ({
   abi: randomContractAbi(),
-  address: AztecAddress.random(),
+  completeAddress: await CompleteAddress.random(),
   portalContract: EthAddress.random(),
 });

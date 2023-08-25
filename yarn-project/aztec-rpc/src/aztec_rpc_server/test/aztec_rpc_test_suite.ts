@@ -89,7 +89,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
       await rpc.addContracts(contracts);
 
-      const expectedContractAddresses = contracts.map(contract => contract.address);
+      const expectedContractAddresses = contracts.map(contract => contract.completeAddress);
       const contractAddresses = await rpc.getContracts();
 
       // check if all the contracts were returned

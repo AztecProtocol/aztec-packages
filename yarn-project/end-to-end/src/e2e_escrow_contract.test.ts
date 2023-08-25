@@ -41,11 +41,13 @@ describe('e2e_escrow_contract', () => {
     escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
       .send({ contractAddressSalt: salt })
       .deployed();
-    logger(`Escrow contract deployed at ${escrowContract.address}`);
+    logger(`Escrow contract deployed at ${escrowContract.completeAddress}`);
 
     // Deploy Private Token contract and mint funds for the escrow contract
-    privateTokenContract = await PrivateTokenContract.deploy(wallet, 100n, escrowContract.address).send().deployed();
-    logger(`Token contract deployed at ${privateTokenContract.address}`);
+    privateTokenContract = await PrivateTokenContract.deploy(wallet, 100n, escrowContract.completeAddress)
+      .send()
+      .deployed();
+    logger(`Token contract deployed at ${privateTokenContract.completeAddress}`);
   }, 100_000);
 
   afterEach(async () => {
@@ -62,19 +64,21 @@ describe('e2e_escrow_contract', () => {
   it('withdraws funds from the escrow contract', async () => {
     await expectBalance(owner, 0n);
     await expectBalance(recipient, 0n);
-    await expectBalance(escrowContract.address, 100n);
+    await expectBalance(escrowContract.completeAddress, 100n);
 
     logger(`Withdrawing funds from token contract to ${recipient}`);
-    await escrowContract.methods.withdraw(privateTokenContract.address, 30, recipient).send().wait();
+    await escrowContract.methods.withdraw(privateTokenContract.completeAddress, 30, recipient).send().wait();
 
     await expectBalance(owner, 0n);
     await expectBalance(recipient, 30n);
-    await expectBalance(escrowContract.address, 70n);
+    await expectBalance(escrowContract.completeAddress, 70n);
   }, 60_000);
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.methods.withdraw(privateTokenContract.address, 30, recipient).simulate({ origin: recipient }),
+      escrowContract.methods
+        .withdraw(privateTokenContract.completeAddress, 30, recipient)
+        .simulate({ origin: recipient }),
     ).rejects.toThrowError();
   }, 60_000);
 
@@ -85,7 +89,7 @@ describe('e2e_escrow_contract', () => {
 
     const actions = [
       privateTokenContract.methods.transfer(10, recipient).request(),
-      escrowContract.methods.withdraw(privateTokenContract.address, 20, recipient).request(),
+      escrowContract.methods.withdraw(privateTokenContract.completeAddress, 20, recipient).request(),
     ];
 
     await new BatchCall(wallet, actions).send().wait();

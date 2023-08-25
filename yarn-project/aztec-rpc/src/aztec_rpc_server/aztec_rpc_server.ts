@@ -16,7 +16,7 @@ import {
 } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
@@ -148,17 +148,17 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.abi, c.address, c.portalContract));
+    const contractDaos = contracts.map(c => toContractDao(c.abi, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.address}${portalInfo}`);
+      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
     }
   }
 
   public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.address);
+    return (await this.db.getContracts()).map(c => c.completeAddress.address);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
@@ -395,6 +395,8 @@ export class AztecRPCServer implements AztecRPC {
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+    const partialAddress = newContract?.completeAddress.partialAddress ?? Fr.ZERO;
+    const publicKey = newContract?.completeAddress.publicKey ?? Point.ZERO;
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
@@ -407,6 +409,8 @@ export class AztecRPCServer implements AztecRPC {
       unencryptedLogs,
       newContractPublicFunctions,
       enqueuedPublicFunctions,
+      [partialAddress],
+      [publicKey],
     );
   }
 

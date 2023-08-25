@@ -139,8 +139,8 @@ describe('Contract Class', () => {
   });
 
   it('should add contract and dependencies to aztec rpc', async () => {
-    const entry = randomDeployedContract();
-    const contract = await Contract.at(entry.address, entry.abi, wallet);
+    const entry = await randomDeployedContract();
+    const contract = await Contract.at(entry.completeAddress.address, entry.abi, wallet);
 
     {
       await contract.attach(entry.portalContract);
@@ -150,7 +150,7 @@ describe('Contract Class', () => {
     }
 
     {
-      const dependencies = [randomDeployedContract(), randomDeployedContract()];
+      const dependencies = [await randomDeployedContract(), await randomDeployedContract()];
       await contract.attach(entry.portalContract, dependencies);
       expect(wallet.addContracts).toHaveBeenCalledTimes(1);
       expect(wallet.addContracts).toHaveBeenCalledWith([entry, ...dependencies]);

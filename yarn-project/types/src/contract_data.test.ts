@@ -1,17 +1,14 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-import { ContractData, ContractDataAndBytecode, EncodedContractFunction } from './contract_data.js';
+import { ContractData, ContractDataAndBytecode } from './contract_data.js';
 
 describe('ContractData', () => {
   const aztecAddress = AztecAddress.random();
   const portalAddress = EthAddress.random();
 
   it('serializes / deserializes correctly', () => {
-    const contractDataAndBytecode = new ContractDataAndBytecode(new ContractData(aztecAddress, portalAddress), [
-      EncodedContractFunction.random(),
-      EncodedContractFunction.random(),
-    ]);
+    const contractDataAndBytecode = ContractDataAndBytecode.random();
     const buf = contractDataAndBytecode.toBuffer();
     const serContractData = ContractDataAndBytecode.fromBuffer(buf);
     expect(

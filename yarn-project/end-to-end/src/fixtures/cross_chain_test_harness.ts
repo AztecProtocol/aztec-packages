@@ -207,7 +207,7 @@ export class CrossChainTestHarness {
 
   async checkEntryIsNotInOutbox(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
     this.logger('Ensure that the entry is not in outbox yet');
-    const contractData = await this.aztecRpcServer.getContractData(this.l2Contract.address);
+    const contractData = await this.aztecRpcServer.getContractData(this.l2Contract.completeAddress);
     // 0xb460af94, selector for "withdraw(uint256,address,address)"
     const content = sha256ToField(
       Buffer.concat([
@@ -219,7 +219,7 @@ export class CrossChainTestHarness {
     );
     const entryKey = sha256ToField(
       Buffer.concat([
-        this.l2Contract.address.toBuffer(),
+        this.l2Contract.completeAddress.toBuffer(),
         new Fr(1).toBuffer(), // aztec version
         contractData?.portalContractAddress.toBuffer32() ?? Buffer.alloc(32, 0),
         new Fr(this.publicClient.chain.id).toBuffer(), // chain id

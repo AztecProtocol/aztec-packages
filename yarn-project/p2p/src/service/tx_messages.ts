@@ -1,5 +1,14 @@
-import { KernelCircuitPublicInputs, Proof, PublicCallRequest } from '@aztec/circuits.js';
-import { numToUInt32BE } from '@aztec/foundation/serialize';
+import {
+  Fr,
+  KernelCircuitPublicInputs,
+  MAX_NEW_CONTRACTS_PER_TX,
+  PartialAddress,
+  Point,
+  Proof,
+  PublicCallRequest,
+  PublicKey,
+} from '@aztec/circuits.js';
+import { Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
 import { EncodedContractFunction, Tx, TxHash, TxL2Logs } from '@aztec/types';
 
 /**
@@ -147,6 +156,8 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.unencryptedLogs),
     createMessageComponents(tx.newContractPublicFunctions),
     createMessageComponents(tx.enqueuedPublicFunctionCalls),
+    createMessageComponents(tx.partialAddresses),
+    createMessageComponents(tx.publicKeys),
   ]);
   const messageLength = numToUInt32BE(messageBuffer.length);
   return Buffer.concat([messageLength, messageBuffer]);
@@ -200,6 +211,8 @@ export function fromTxMessage(buffer: Buffer): Tx {
 
   const functions = toObjectArray(unencryptedLogs.remainingData, EncodedContractFunction);
   const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
+  const partialAddresses = toObjectArray(publicCalls.remainingData, Fr);
+  const publicKeys = toObjectArray(partialAddresses.remainingData, Point);
   return new Tx(
     publicInputs.obj!,
     proof.obj!,
@@ -207,5 +220,7 @@ export function fromTxMessage(buffer: Buffer): Tx {
     unencryptedLogs.obj,
     functions.objects,
     publicCalls.objects,
+    partialAddresses.objects as Tuple<PartialAddress, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    publicKeys.objects as Tuple<PublicKey, typeof MAX_NEW_CONTRACTS_PER_TX>,
   );
 }

@@ -21,9 +21,9 @@ export interface DeployedContract {
    */
   abi: ContractAbi;
   /**
-   * The address representing the contract on L2.
+   * The complete address representing the contract on L2.
    */
-  address: AztecAddress;
+  completeAddress: CompleteAddress;
   /**
    * The Ethereum address of the L1 portal contract.
    */

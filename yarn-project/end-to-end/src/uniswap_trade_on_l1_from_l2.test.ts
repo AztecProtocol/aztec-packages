@@ -145,7 +145,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     await uniswapL2Contract.attach(uniswapPortalAddress);
 
     await uniswapPortal.write.initialize(
-      [deployL1ContractsValues!.registryAddress.toString(), uniswapL2Contract.address.toString()],
+      [deployL1ContractsValues!.registryAddress.toString(), uniswapL2Contract.completeAddress.toString()],
       {} as any,
     );
 
@@ -195,10 +195,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     const withdrawTx = uniswapL2Contract.methods
       .swap(
         selector,
-        wethCrossChainHarness.l2Contract.address.toField(),
+        wethCrossChainHarness.l2Contract.completeAddress.toField(),
         wethAmountToBridge,
         new Fr(3000),
-        daiCrossChainHarness.l2Contract.address.toField(),
+        daiCrossChainHarness.l2Contract.completeAddress.toField(),
         new Fr(minimumOutputAmount),
         owner,
         owner,
