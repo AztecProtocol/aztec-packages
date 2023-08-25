@@ -104,6 +104,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
           initialValues[param.name] = 100;
           break;
         case 'array':
+          // eslint-disable-next-line no-case-declarations
           const arrayLength = param.type.length;
           parameterSchema[param.name] = Yup.array().of(Yup.number()).min(arrayLength).max(arrayLength);
           initialValues[param.name] = Array(arrayLength).fill(200);
@@ -131,10 +132,9 @@ export default function ContractFunctionForm(contractAbi: ContractAbi, functionA
                         // eslint-disable-next-line no-console
                         console.log(`Function ${functionName} calling with:`, values);
                         if (functionName === 'constructor') {
-                            console.log('deploying contract');
+                            console.log('deploying contract with null pubkey');
                             await deployContract(contractAbi, values, 
-                                // publickey is in the wrong format
-                                '0x0d557417a3ce7d7b356a8f15d79a868fd8da2af9c5f4981feb9bcf0b614bd17e',
+                                // TODO: let them pick a salt
                                  Fr.ZERO, rpcClient);
                         } else{
                         console.log(`querying Contract address: ${contractAddress}`);

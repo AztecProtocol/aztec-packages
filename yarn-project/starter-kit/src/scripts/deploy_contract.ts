@@ -1,4 +1,4 @@
-import { AztecAddress, ContractDeployer, Fr, PublicKey } from '@aztec/aztec.js';
+import { AztecAddress, ContractDeployer, Fr } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { AztecRPC } from '@aztec/types';
 
@@ -9,7 +9,6 @@ import { AztecRPC } from '@aztec/types';
 export async function deployContract(
   contractAbi: ContractAbi,
   args: any, // key: value object where parameter name is the key
-  publicKey: PublicKey,
   salt: Fr,
   client: AztecRPC,
 ): Promise<AztecAddress> {
@@ -17,8 +16,8 @@ export async function deployContract(
   if (!constructorAbi) {
     throw new Error('No constructor found in contract ABI');
   }
-  console.log(args, publicKey, salt, client);
-  const deployer = new ContractDeployer(contractAbi, client, publicKey);
+  console.log(args, salt, client);
+  const deployer = new ContractDeployer(contractAbi, client);
 
   // formik stores the values in an object with the parameter name as the key
   // so we need to convert that to an array of values in the same order as the constructor parameters

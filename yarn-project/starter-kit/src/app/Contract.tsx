@@ -21,7 +21,6 @@ interface Props {
 // eslint-disable-next-line jsdoc/require-jsdoc
 const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
 {
-    console.log('dynamiccontractform client is ', rpcClient);
     return (
         <div>
             <h1>
