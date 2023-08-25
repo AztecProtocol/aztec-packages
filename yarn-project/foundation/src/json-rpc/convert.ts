@@ -76,8 +76,8 @@ export function convertFromJsonObj(cc: ClassConverter, obj: any): any {
     return newObj;
   }
   // Throw if this is a non-primitive class that was not registered
-  if (typeof obj === 'object' && obj.constructor !== Object) {
-    throw new Error(`Object ${obj.constructor.name} not registered for deserialisation`);
+  if (typeof obj === 'object' && Object.getPrototypeOf(obj) === Object.getPrototypeOf({})) {
+    throw new Error(`Class ${obj.constructor.name} not registered for deserialisation`);
   }
   // Leave alone, assume JSON primitive
   return obj;
@@ -122,7 +122,7 @@ export function convertToJsonObj(cc: ClassConverter, obj: any): any {
     return newObj;
   }
   // Throw if this is a non-primitive class that was not registered
-  if (typeof obj === 'object' && obj.constructor !== Object) {
+  if (typeof obj === 'object' && Object.getPrototypeOf(obj) === Object.getPrototypeOf({})) {
     throw new Error(`Object ${obj.constructor.name} not registered for serialisation`);
   }
   // Leave alone, assume JSON primitive
