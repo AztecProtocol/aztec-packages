@@ -42,6 +42,8 @@ It returns the type the public state was declared with. The above example return
 
 #include_code state_vars-PublicStateReadCustom /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
+Every public state can be read before its value is written. The default value is 0, or { 0, 0, ... } if it's a struct.
+
 ### `.write`
 
 The currently-stored value of a private state variable can be overwritten with `.write()`.
@@ -53,12 +55,20 @@ We can pass the associated type directly to the `write()` method:
 #include_code state_vars-PublicStateWrite /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 #include_code state_vars-PublicStateWriteCustom /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
+#### Read and write
+
+A common pattern is reading a public state, changing the value, and then writing the new value back to the public state. Remember to always call `.write` to update the value. The value of a public state won't be changed by modifying the return value of `.read`.
+
+#include_code state_vars-PublicStateReadWriteCustom /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
+
 #### Writing before calling
 
 **Important note:**
 Before making a call to an external function, it is important to remember to `.write` state variables that have been edited, so as to persist their new values. This is particularly important if the call to the external function might result in re-entrancy into your contract, later in the transaction. If state variables aren't written before making such an external call, then upon re-entrancy, the 'current values' of your state variables will equal the values as at the start of the original function call.
 
-E.g.
+For example, the following function calls the account contract before it updates the public state. This allows the account contract, which can have arbitrary logic defined by the account itself, to call back to this function within its `send_rewards` function. And because this function hasn't updated the public state, the conditions are still true. This means `send_rewards` will be triggered again and again.
+
+#include_code state_vars-PublicStateWriteBeforeCall /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 ## Private State Variables
 

@@ -1,9 +1,12 @@
 use dep::std::option::Option;
-use dep::aztec::constants_gen::MAX_READ_REQUESTS_PER_CALL;
+use dep::aztec::constants_gen::{MAX_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE};
 use dep::aztec::context::{
     PrivateContext,
 };
-use dep::aztec::note::note_getter_options::NoteGetterOptions;
+use dep::aztec::note::{
+    note_getter_options::NoteGetterOptions,
+    note_viewer_options::NoteViewerOptions,
+};
 use dep::aztec::state_vars::{
     immutable_singleton::ImmutableSingleton,
     map::Map,
@@ -63,6 +66,17 @@ fn replace_queen(
     state_var.write(new_queen);
 }
 // docs:end:state_vars-PublicStateWriteCustom
+
+// docs:start:state_vars-PublicStateReadWriteCustom
+fn add_points_to_queen(
+    state_var: PublicState<Queen, QUEEN_SERIALISED_LEN>,
+    new_points: u8,
+) {
+    let mut queen = state_var.read();
+    queen.points += new_points;
+    state_var.write(queen);
+}
+// docs:end:state_vars-PublicStateReadWriteCustom
 
 // docs:start:state_vars-SingletonInit
 fn init_legendary_card(
@@ -143,6 +157,30 @@ fn get_cards<FILTER_PARAMS>(
     state_var.get_notes(context, options)
 }
 // docs:end:state_vars-SetGet
+
+// docs:start:state_vars-SetView
+unconstrained fn view_cards(
+    state_var: Set<Card, CARD_LEN>,
+    options: NoteViewerOptions<Card, CARD_LEN>,
+) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    state_var.view_notes(options)
+}
+// docs:end:state_vars-SetView
+
+unconstrained fn get_total_points(state_var: Set<Card, CARD_LEN>, account: Field, offset: u32) -> u8 {
+    let options = NoteViewerOptions::new().select(2, account).set_offset(offset);
+    let mut total_points = 0;
+    let notes = view_cards(state_var, options);
+    for i in 0..notes.len() {
+        if notes[i].is_some() {
+            total_points += notes[i].unwrap_unchecked().points;
+        }
+    }
+    if notes[notes.len() - 1].is_some() {
+        total_points += get_total_points(state_var, account, offset + notes.len() as u32);
+    }
+    total_points
+}
 
 // docs:start:state_vars-SetContains
 fn assert_contains_card<RERUEN_LEN, FILTER_PARAMS>(

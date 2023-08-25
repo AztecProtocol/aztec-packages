@@ -1,3 +1,4 @@
+mod account_contract_interface;
 mod actions;
 mod options;
 mod storage;
@@ -12,8 +13,9 @@ contract DocsExample {
         PublicContext,
     };
 
+    use crate::account_contract_interface::AccountContractInterface;
     use crate::actions;
-    use crate::options::{create_account_card_getter_options, create_get_account_largest_card_options};
+    use crate::options::{create_account_card_getter_options, create_largest_account_card_getter_options};
     // docs:start:storage-import
     use crate::storage::Storage;
     // docs:end:storage-import
@@ -88,6 +90,29 @@ contract DocsExample {
 
         context.finish()
     }
+
+    // docs:start:state_vars-PublicStateWriteBeforeCall
+    open fn replace_queen_unsafe(
+        inputs: PublicContextInputs,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let context = PublicContext::new(inputs, 0);
+        let storage = Storage::init();
+
+        let account = context.msg_sender();
+        let points = actions::get_total_points(storage.cards, account, 0);
+
+        let current_queen = storage.queen.read();
+        assert(account != current_queen.account);
+        assert(points > current_queen.points);
+
+        AccountContractInterface::at(account).send_rewards(current_queen.points);
+        
+        let new_queen = Queen { account, points };
+        storage.queen.write(new_queen);
+
+        context.finish()
+    }
+    // docs:end:state_vars-PublicStateWriteBeforeCall
 
     // docs:start:functions-SecretFunction
     fn add_common_cards(
@@ -179,7 +204,7 @@ contract DocsExample {
         let storage = Storage::init();
 
         let account = context.msg_sender();
-        let options = create_get_account_largest_card_options(account);
+        let options = create_largest_account_card_getter_options(account);
         let card = actions::get_cards(&mut context, storage.cards, options)[0].unwrap_unchecked();
         // highlight-next-line:state_vars-check_return_notes
         assert(card.owner == account);
@@ -192,8 +217,8 @@ contract DocsExample {
 
     // docs:start:functions-UncontrainedFunction
     unconstrained fn get_total_points(account: Field) -> u8 {
-        // 
-        0
+        let storage = Storage::init();
+        actions::get_total_points(storage.cards, account, 0)
     }
     // docs:end:functions-UncontrainedFunction
 }
