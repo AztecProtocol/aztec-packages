@@ -14,7 +14,7 @@
 namespace {
 using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::TxRequest;
 using aztec3::circuits::abis::private_kernel::PrivateCallData;
@@ -67,13 +67,13 @@ WASM_EXPORT uint8_t* private_kernel__sim_init(uint8_t const* tx_request_buf,
                                               size_t* private_kernel_public_inputs_size_out,
                                               uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_init");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_init");
 
     PrivateCallData<NT> private_call_data;
-    read(private_call_buf, private_call_data);
+    serialize::read(private_call_buf, private_call_data);
 
     TxRequest<NT> tx_request;
-    read(tx_request_buf, tx_request);
+    serialize::read(tx_request_buf, tx_request);
 
     PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
         .tx_request = tx_request,
@@ -98,9 +98,9 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
                                                size_t* private_kernel_public_inputs_size_out,
                                                uint8_t const** private_kernel_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_inner");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_inner");
     PrivateCallData<NT> private_call_data;
-    read(private_call_buf, private_call_data);
+    serialize::read(private_call_buf, private_call_data);
 
     PreviousKernelData<NT> previous_kernel;
     serialize::read(previous_kernel_buf, previous_kernel);
@@ -124,7 +124,7 @@ WASM_EXPORT uint8_t* private_kernel__sim_inner(uint8_t const* previous_kernel_bu
 }
 
 CBIND(private_kernel__sim_ordering, [](PreviousKernelData<NT> previous_kernel) {
-    DummyBuilder builder = DummyBuilder("private_kernel__sim_ordering");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_ordering");
     auto const& public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
     return builder.result_or_error(public_inputs);
 });

@@ -1,7 +1,8 @@
-import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { AztecNode, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType } from '@aztec/types';
 
 import { Database, TxDao } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
@@ -18,9 +19,10 @@ export class Synchroniser {
   private noteProcessors: NoteProcessor[] = [];
   private interruptableSleep = new InterruptableSleep();
   private running = false;
-  private initialSyncBlockHeight = 0;
+  private initialSyncBlockNumber = 0;
   private synchedToBlock = 0;
   private log: DebugLogger;
+  private noteProcessorsToCatchUp: NoteProcessor[] = [];
 
   constructor(private node: AztecNode, private db: Database, logSuffix = '') {
     this.log = createDebugLogger(
@@ -37,15 +39,26 @@ export class Synchroniser {
    * @param limit - The maximum number of encrypted, unencrypted logs and blocks to fetch in each iteration.
    * @param retryInterval - The time interval (in ms) to wait before retrying if no data is available.
    */
-  public async start(from = 1, limit = 1, retryInterval = 1000) {
+  public async start(from = INITIAL_L2_BLOCK_NUM, limit = 1, retryInterval = 1000) {
     if (this.running) return;
     this.running = true;
+
+    if (from < this.synchedToBlock + 1) {
+      throw new Error(`From block ${from} is smaller than the currently synched block ${this.synchedToBlock}`);
+    }
+    this.synchedToBlock = from - 1;
 
     await this.initialSync();
 
     const run = async () => {
       while (this.running) {
-        from = await this.work(from, limit, retryInterval);
+        if (this.noteProcessorsToCatchUp.length > 0) {
+          // There is a note processor that needs to catch up. We hijack the main loop to catch up the note processor.
+          await this.workNoteProcessorCatchUp(limit, retryInterval);
+        } else {
+          // No note processor needs to catch up. We continue with the normal flow.
+          await this.work(limit, retryInterval);
+        }
       }
     };
 
@@ -54,34 +67,35 @@ export class Synchroniser {
   }
 
   protected async initialSync() {
-    const [blockNumber, treeRoots] = await Promise.all([
-      this.node.getBlockHeight(),
-      Promise.resolve(this.node.getTreeRoots()),
+    const [blockNumber, historicBlockData] = await Promise.all([
+      this.node.getBlockNumber(),
+      this.node.getHistoricBlockData(),
     ]);
-    this.initialSyncBlockHeight = blockNumber;
-    this.synchedToBlock = this.initialSyncBlockHeight;
-    await this.db.setTreeRoots(treeRoots);
+    this.initialSyncBlockNumber = blockNumber;
+    this.synchedToBlock = this.initialSyncBlockNumber;
+    await this.db.setHistoricBlockData(historicBlockData);
   }
 
-  protected async work(from = 1, limit = 1, retryInterval = 1000): Promise<number> {
+  protected async work(limit = 1, retryInterval = 1000): Promise<void> {
+    const from = this.synchedToBlock + 1;
     try {
       let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
       if (!encryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       let unencryptedLogs = await this.node.getLogs(from, limit, LogType.UNENCRYPTED);
       if (!unencryptedLogs.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
       const blocks = await this.node.getBlocks(from, encryptedLogs.length);
       if (!blocks.length) {
         await this.interruptableSleep.sleep(retryInterval);
-        return from;
+        return;
       }
 
       if (blocks.length !== encryptedLogs.length) {
@@ -105,7 +119,7 @@ export class Synchroniser {
 
       // Update latest tree roots from the most recent block
       const latestBlock = blockContexts[blockContexts.length - 1];
-      await this.setTreeRootsFromBlock(latestBlock);
+      await this.setBlockDataFromBlock(latestBlock);
 
       this.log(
         `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
@@ -116,32 +130,85 @@ export class Synchroniser {
 
       await this.updateBlockInfoInBlockTxs(blockContexts);
 
-      from += encryptedLogs.length;
       this.synchedToBlock = latestBlock.block.number;
-      return from;
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
-      return from;
     }
   }
 
-  private async setTreeRootsFromBlock(latestBlock: L2BlockContext) {
-    const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockHeight) return;
+  protected async workNoteProcessorCatchUp(limit = 1, retryInterval = 1000): Promise<void> {
+    const noteProcessor = this.noteProcessorsToCatchUp[0];
+    if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
+      // Note processor already synched, nothing to do
+      this.noteProcessorsToCatchUp.shift();
+      this.noteProcessors.push(noteProcessor);
+      return;
+    }
 
-    const roots: Record<MerkleTreeId, Fr> = {
-      [MerkleTreeId.CONTRACT_TREE]: block.endContractTreeSnapshot.root,
-      [MerkleTreeId.PRIVATE_DATA_TREE]: block.endPrivateDataTreeSnapshot.root,
-      [MerkleTreeId.NULLIFIER_TREE]: block.endNullifierTreeSnapshot.root,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: block.endPublicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: block.endL1ToL2MessageTreeSnapshot.root,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: block.endTreeOfHistoricContractTreeRootsSnapshot.root,
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
-      [MerkleTreeId.BLOCKS_TREE]: Fr.ZERO, // Mocked for this pr - see #1162
-    };
-    await this.db.setTreeRoots(roots);
+    const from = noteProcessor.status.syncedToBlock + 1;
+    // Ensuring that the note processor does not sync further than the main sync.
+    limit = Math.min(limit, this.synchedToBlock - from + 1);
+
+    if (limit < 1) {
+      throw new Error(`Unexpected limit ${limit} for note processor catch up`);
+    }
+
+    try {
+      let encryptedLogs = await this.node.getLogs(from, limit, LogType.ENCRYPTED);
+      if (!encryptedLogs.length) {
+        // This should never happen because this function should only be called when the note processor is lagging
+        // behind main sync.
+        throw new Error('No encrypted logs in processor catch up mode');
+      }
+
+      // Note: If less than `limit` encrypted logs is returned, then we fetch only that number of blocks.
+      const blocks = await this.node.getBlocks(from, encryptedLogs.length);
+      if (!blocks.length) {
+        // This should never happen because this function should only be called when the note processor is lagging
+        // behind main sync.
+        throw new Error('No blocks in processor catch up mode');
+      }
+
+      if (blocks.length !== encryptedLogs.length) {
+        // "Trim" the encrypted logs to match the number of blocks.
+        encryptedLogs = encryptedLogs.slice(0, blocks.length);
+      }
+
+      const blockContexts = blocks.map(block => new L2BlockContext(block));
+
+      this.log(`Forwarding ${encryptedLogs.length} encrypted logs and blocks to note processor in catch up mode`);
+      await noteProcessor.process(blockContexts, encryptedLogs);
+
+      if (noteProcessor.status.syncedToBlock === this.synchedToBlock) {
+        // Note processor caught up, move it to `noteProcessors` from `noteProcessorsToCatchUp`.
+        this.noteProcessorsToCatchUp.shift();
+        this.noteProcessors.push(noteProcessor);
+      }
+    } catch (err) {
+      this.log.error(err);
+      await this.interruptableSleep.sleep(retryInterval);
+    }
+  }
+
+  private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
+    const { block } = latestBlock;
+    if (block.number < this.initialSyncBlockNumber) return;
+
+    const wasm = await CircuitsWasm.get();
+    const globalsHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
+    const blockData = new HistoricBlockData(
+      block.endPrivateDataTreeSnapshot.root,
+      block.endNullifierTreeSnapshot.root,
+      block.endContractTreeSnapshot.root,
+      block.endL1ToL2MessageTreeSnapshot.root,
+      block.endHistoricBlocksTreeSnapshot.root,
+      Fr.ZERO, // todo: private kernel vk tree root
+      block.endPublicDataTreeRoot,
+      globalsHash,
+    );
+
+    await this.db.setHistoricBlockData(blockData);
   }
 
   /**
@@ -172,21 +239,23 @@ export class Synchroniser {
     if (processor) {
       return;
     }
-    this.noteProcessors.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
+
+    this.noteProcessorsToCatchUp.push(new NoteProcessor(publicKey, keyStore, this.db, this.node));
   }
 
   /**
-   * Returns true if the account specified by the given address is synched to the latest block
-   * @param account - The aztec address for which to query the sync status
-   * @returns True if the account is fully synched, false otherwise
+   * Checks if the specified account is synchronised.
+   * @param account - The aztec address for which to query the sync status.
+   * @returns True if the account is fully synched, false otherwise.
+   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
+   *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
-  public async isAccountSynchronised(account: AztecAddress) {
-    const result = await this.db.getPublicKeyAndPartialAddress(account);
-    if (!result) {
+  public async isAccountStateSynchronised(account: AztecAddress) {
+    const completeAddress = await this.db.getCompleteAddress(account);
+    if (!completeAddress) {
       return false;
     }
-    const publicKey = result[0];
-    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(completeAddress.publicKey));
     if (!processor) {
       return false;
     }
@@ -194,13 +263,25 @@ export class Synchroniser {
   }
 
   /**
-   * Return true if the top level block synchronisation is up to date
-   * This indicates that blocks and transactions are synched even if notes are not
-   * @returns True if there are no outstanding blocks to be synched
+   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
+   * @returns True if there are no outstanding blocks to be synched.
+   * @remarks This indicates that blocks and transactions are synched even if notes are not.
+   * @remarks Compares local block number with the block number from aztec node.
    */
-  public async isSynchronised() {
-    const latest = await this.node.getBlockHeight();
+  public async isGlobalStateSynchronised() {
+    const latest = await this.node.getBlockNumber();
     return latest <= this.synchedToBlock;
+  }
+
+  /**
+   * Returns the latest block that has been synchronised by the synchronizer and each account.
+   * @returns The latest block synchronised for blocks, and the latest block synched for notes for each public key being tracked.
+   */
+  public getSyncStatus() {
+    return {
+      blocks: this.synchedToBlock,
+      notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
+    };
   }
 
   /**

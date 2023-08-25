@@ -2,19 +2,42 @@
 #include "init.hpp"
 
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
-#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
+#include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_init.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 
+
+namespace {
+using NT = aztec3::utils::types::NativeTypes;
+
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
+using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsInit;
 using aztec3::utils::array_push;
+using aztec3::utils::CircuitErrorCode;
+using aztec3::utils::DummyCircuitBuilder;
 using aztec3::utils::is_array_empty;
-using CircuitErrorCode = aztec3::utils::CircuitErrorCode;
+
+
+void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
+                           KernelCircuitPublicInputs<NT>& public_inputs)
+{
+    // Define the constants data.
+    auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
+    auto const constants = CombinedConstantData<NT>{
+        .block_data = private_call_public_inputs.historic_block_data,
+        // TODO(dbanks12): remove historic root from app circuit public inputs and
+        // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
+        // Then use this:
+        // .private_data_tree_root = private_inputs.private_call.historic_private_data_tree_root,
+        .tx_context = private_inputs.tx_request.tx_context,
+    };
+
+    // Set the constants in public_inputs.
+    public_inputs.constants = constants;
+}
+}  // namespace
 
 namespace aztec3::circuits::kernel::private_kernel {
 
@@ -40,34 +63,7 @@ namespace aztec3::circuits::kernel::private_kernel {
 //     return aggregation_object;
 // }
 
-void initialise_end_values(PrivateKernelInputsInit<NT> const& private_inputs,
-                           KernelCircuitPublicInputs<NT>& public_inputs)
-{
-    // Define the constants data.
-    auto const& private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
-    auto const constants = CombinedConstantData<NT>{
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{
-                .private_historic_tree_roots =
-                    PrivateHistoricTreeRoots<NT>{
-                        // TODO(dbanks12): remove historic root from app circuit public inputs and
-                        // add it to PrivateCallData: https://github.com/AztecProtocol/aztec-packages/issues/778
-                        // Then use this:
-                        // .private_data_tree_root = private_inputs.private_call.historic_private_data_tree_root,
-                        .private_data_tree_root = private_call_public_inputs.historic_private_data_tree_root,
-                        .nullifier_tree_root = private_call_public_inputs.historic_nullifier_tree_root,
-                        .contract_tree_root = private_call_public_inputs.historic_contract_tree_root,
-                        .l1_to_l2_messages_tree_root = private_call_public_inputs.historic_l1_to_l2_messages_tree_root,
-                    },
-            },
-        .tx_context = private_inputs.tx_request.tx_context,
-    };
-
-    // Set the constants in public_inputs.
-    public_inputs.constants = constants;
-}
-
-void validate_this_private_call_against_tx_request(DummyBuilder& builder,
+void validate_this_private_call_against_tx_request(DummyCircuitBuilder& builder,
                                                    PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // TODO(mike): this logic might need to change to accommodate the weird edge 3 initial txs (the 'main' tx, the 'fee'
@@ -94,7 +90,7 @@ void validate_this_private_call_against_tx_request(DummyBuilder& builder,
         CircuitErrorCode::PRIVATE_KERNEL__USER_INTENT_MISMATCH_BETWEEN_TX_REQUEST_AND_CALL_STACK_ITEM);
 };
 
-void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
+void validate_inputs(DummyCircuitBuilder& builder, PrivateKernelInputsInit<NT> const& private_inputs)
 {
     const auto& this_call_stack_item = private_inputs.private_call.call_stack_item;
 
@@ -124,14 +120,20 @@ void validate_inputs(DummyBuilder& builder, PrivateKernelInputsInit<NT> const& p
                       CircuitErrorCode::PRIVATE_KERNEL__CONTRACT_ADDRESS_MISMATCH);
 }
 
-void update_end_values(DummyBuilder& builder,
+void update_end_values(DummyCircuitBuilder& builder,
                        PrivateKernelInputsInit<NT> const& private_inputs,
                        KernelCircuitPublicInputs<NT>& public_inputs)
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
+    builder.do_assert(is_array_empty(public_inputs.end.new_commitments),
+                      "public_inputs.end.new_commitments must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
                       "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
+                      CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
+    builder.do_assert(is_array_empty(public_inputs.end.nullified_commitments),
+                      "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.encrypted_logs_hash),
                       "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration",
@@ -146,10 +148,10 @@ void update_end_values(DummyBuilder& builder,
         is_array_empty(public_inputs.end.read_request_membership_witnesses),
         "public_inputs.end.read_request_membership_witnesses must start as empty in initial kernel iteration",
         CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == fr(0),
+    builder.do_assert(public_inputs.end.encrypted_log_preimages_length == NT::fr(0),
                       "public_inputs.end.encrypted_log_preimages_length must start as 0 in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == fr(0),
+    builder.do_assert(public_inputs.end.unencrypted_log_preimages_length == NT::fr(0),
                       "public_inputs.end.unencrypted_log_preimages_length must start as 0 in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
 
@@ -157,6 +159,13 @@ void update_end_values(DummyBuilder& builder,
     array_push(builder,
                public_inputs.end.new_nullifiers,
                private_inputs.tx_request.hash(),
+               format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
+                      "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
+    // Push an empty nullified commitment too since each nullifier must
+    // be paired with a nonzero (real or "empty") nullified commitment
+    array_push(builder,
+               public_inputs.end.nullified_commitments,
+               NT::fr(EMPTY_NULLIFIED_COMMITMENT),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 
@@ -169,7 +178,7 @@ void update_end_values(DummyBuilder& builder,
 // NOTE: THIS IS A VERY UNFINISHED WORK IN PROGRESS.
 // TODO(mike): is there a way to identify whether an input has not been used by ths circuit? This would help us
 // more-safely ensure we're constraining everything.
-KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder& builder,
+KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyCircuitBuilder& builder,
                                                                     PrivateKernelInputsInit<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
@@ -182,16 +191,11 @@ KernelCircuitPublicInputs<NT> native_private_kernel_circuit_initial(DummyBuilder
 
     validate_this_private_call_against_tx_request(builder, private_inputs);
 
-    // TODO(rahul) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/499
-    // Noir doesn't have hash index so it can't hash private call stack item correctly
-    // TODO(dbanks12): may need to comment out hash check in here according to TODO above
-    // TODO(jeanmon) FIXME - https://github.com/AztecProtocol/aztec-packages/issues/671
-    // common_validate_call_stack(builder, private_inputs.private_call);
+    common_validate_call_stack(builder, private_inputs.private_call);
 
     common_validate_read_requests(
         builder,
-        private_inputs.private_call.call_stack_item.public_inputs.call_context.storage_contract_address,
-        public_inputs.constants.historic_tree_roots.private_historic_tree_roots.private_data_tree_root,
+        public_inputs.constants.block_data.private_data_tree_root,
         private_inputs.private_call.call_stack_item.public_inputs.read_requests,  // read requests from private call
         private_inputs.private_call.read_request_membership_witnesses);
 

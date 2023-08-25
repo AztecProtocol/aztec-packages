@@ -23,6 +23,11 @@ using aztec3::utils::array_length;
 using aztec3::utils::CircuitErrorCode;
 
 
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): test expected kernel failures if transient reads
+// (or their hints) don't match
+// TODO(https://github.com/AztecProtocol/aztec-packages/issues/836): test expected kernel failures if nullifiers (or
+// their hints) don't match
+
 /**************************************************************
  * MULTI ITERATION UNIT TESTS FOR NATIVE PRIVATE KERNEL CIRCUIT
  **************************************************************/
@@ -45,11 +50,8 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
-    auto first_nullifier = private_inputs_init.tx_request.hash();
-
     private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(12);
-    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] =
-        compute_unique_commitment<NT>(compute_commitment_nonce<NT>(first_nullifier, 1), fr(23));
+    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_accumulate_transient_read_requests");
@@ -64,9 +66,13 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] =
-        compute_unique_commitment<NT>(compute_commitment_nonce<NT>(first_nullifier, 0), fr(12));
+    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
+
+    // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
+    // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+        private_inputs_inner.private_call.call_stack_item.hash();
 
     // The original call is not multi-iterative (call stack depth == 1) and we re-feed the same private call stack
     public_inputs.end.private_call_stack = private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack;
@@ -101,11 +107,8 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
 {
     auto private_inputs_init = do_private_call_get_kernel_inputs_init(false, deposit, standard_test_args());
 
-    auto first_nullifier = private_inputs_init.tx_request.hash();
-
     private_inputs_init.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(10);
-    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] =
-        compute_unique_commitment<NT>(compute_commitment_nonce<NT>(first_nullifier, 1), fr(23));
+    private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_transient_read_requests_no_match");
@@ -120,9 +123,13 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
     private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] =
-        compute_unique_commitment<NT>(compute_commitment_nonce<NT>(first_nullifier, 0), fr(12));
+    private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
+
+    // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
+    // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+        private_inputs_inner.private_call.call_stack_item.hash();
 
     // The original call is not multi-iterative (call stack depth == 1) and we re-feed the same private call stack
     public_inputs.end.private_call_stack = private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack;
@@ -149,6 +156,55 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     // can be removed from final public inputs
     ASSERT_TRUE(array_length(public_inputs.end.read_requests) == 0);
     ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 0);
+}
+
+// Testing that the special value EMPTY_NULLIFIED_COMMITMENT keeps new_nullifiers aligned with nullified_commitments.
+TEST_F(native_private_kernel_tests, native_empty_nullified_commitment_respected)
+{
+    auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[0] = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_commitments[1] = fr(33);
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[0] = fr(11);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.new_nullifiers[1] = fr(18);
+
+    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[0] =
+        fr(EMPTY_NULLIFIED_COMMITMENT);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(23);
+
+    // update the private call stack contents to reflect the above changes which affect the item hash
+    private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
+        private_inputs_inner.private_call.call_stack_item.hash();
+
+    DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_empty_nullified_commitment_respected");
+
+    auto public_inputs = native_private_kernel_circuit_inner(builder, private_inputs_inner);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
+                                   << " with code: " << builder.get_first_failure().code;
+
+    // EMPTY nullified commitment should keep new_nullifiers aligned with nullified_commitments
+    ASSERT_TRUE(public_inputs.end.nullified_commitments[0] == fr(EMPTY_NULLIFIED_COMMITMENT));
+    ASSERT_TRUE(public_inputs.end.nullified_commitments[1] != fr(0) &&
+                public_inputs.end.nullified_commitments[1] != fr(EMPTY_NULLIFIED_COMMITMENT));
+
+    // Nothing squashed yet (until ordering circuit)
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 2);
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 2);
+    // explicitly EMPTY commitment respected in array
+    ASSERT_TRUE(array_length(public_inputs.end.nullified_commitments) == 2);
+
+    auto& previous_kernel = private_inputs_inner.previous_kernel;
+    previous_kernel.public_inputs = public_inputs;
+
+    public_inputs = native_private_kernel_circuit_ordering(builder, previous_kernel);
+
+    ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
+                                   << " with code: " << builder.get_first_failure().code;
+
+    ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);  // 1/2 commitment squashed
+    ASSERT_TRUE(array_length(public_inputs.end.new_nullifiers) == 1);   // 1/2 nullifier squashed
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

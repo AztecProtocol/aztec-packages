@@ -1,12 +1,20 @@
-use dep::aztec::state_vars::map::Map;
-use dep::aztec::state_vars::public_state::PublicState;
-use dep::aztec::state_vars::type_serialisation::field_serialisation::FieldSerialisationMethods;
-use dep::aztec::state_vars::type_serialisation::field_serialisation::FIELD_SERIALISED_LEN;
+// docs:start:PublicState
+use dep::aztec::state_vars::{
+    map::Map,
+    // highlight-start:PublicState
+    public_state::PublicState,  
+    // highlight-end:PublicState
+};
+
+use dep::aztec::types::type_serialisation::field_serialisation::{
+    FieldSerialisationMethods,
+    FIELD_SERIALISED_LEN,
+};
 
 struct Storage {
+    // highlight-next-line:PublicState
     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 }
-
 
 impl Storage {
     fn init() -> Self {
@@ -15,3 +23,4 @@ impl Storage {
         }
     }
 }
+// docs:end:PublicState

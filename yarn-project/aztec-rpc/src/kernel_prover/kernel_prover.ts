@@ -132,7 +132,8 @@ export class KernelProver {
       if (firstIteration) {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/778): remove historic root
         // from app circuit public inputs and add it to PrivateCallData
-        privateCallData.callStackItem.publicInputs.historicPrivateDataTreeRoot = await this.oracle.getPrivateDataRoot();
+        privateCallData.callStackItem.publicInputs.historicBlockData.privateDataTreeRoot =
+          await this.oracle.getPrivateDataRoot();
 
         output = await this.proofCreator.createProofInit(txRequest, privateCallData);
       } else {
@@ -162,10 +163,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    // TODO(jeanmon): Temporary milestone where we only feed new commitments of the output
-    // of ordering circuit into the final output. Longer-term goal is to output the ordering circuit output.
-    const orderedOutput = await this.proofCreator.createProofOrdering(previousKernelData);
-    output.publicInputs.end.newCommitments = orderedOutput.publicInputs.end.newCommitments;
+    output = await this.proofCreator.createProofOrdering(previousKernelData);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = output.publicInputs.end.newCommitments;
@@ -188,11 +186,10 @@ export class KernelProver {
 
     const functionLeafMembershipWitness = await this.oracle.getFunctionMembershipWitness(
       contractAddress,
-      functionData.functionSelectorBuffer,
+      functionData.selector,
     );
 
-    // TODO
-    // FIXME: https://github.com/AztecProtocol/aztec3-packages/issues/262
+    // TODO(#262): Use real acir hash
     // const acirHash = keccak(Buffer.from(bytecode, 'hex'));
     const acirHash = Fr.fromBuffer(Buffer.alloc(32, 0));
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include <concepts>
@@ -84,80 +85,83 @@ class FastRandom {
  *
  * @tparam T
  */
-template <typename T>
-concept SimpleRng = requires(T a) {
-                        {
-                            a.next()
-                            } -> std::convertible_to<uint32_t>;
-                    };
+template <typename T> concept SimpleRng = requires(T a)
+{
+    {
+        a.next()
+    }
+    ->std::convertible_to<uint32_t>;
+};
 /**
  * @brief Concept for forcing ArgumentSizes to be size_t
  *
  * @tparam T
  */
-template <typename T>
-concept InstructionArgumentSizes = requires {
-                                       {
-                                           std::make_tuple(T::CONSTANT,
-                                                           T::WITNESS,
-                                                           T::CONSTANT_WITNESS,
-                                                           T::ADD,
-                                                           T::SUBTRACT,
-                                                           T::MULTIPLY,
-                                                           T::DIVIDE,
-                                                           T::ADD_TWO,
-                                                           T::MADD,
-                                                           T::MULT_MADD,
-                                                           T::MSUB_DIV,
-                                                           T::SQR,
-                                                           T::SQR_ADD,
-                                                           T::SUBTRACT_WITH_CONSTRAINT,
-                                                           T::DIVIDE_WITH_CONSTRAINTS,
-                                                           T::SLICE,
-                                                           T::ASSERT_ZERO,
-                                                           T::ASSERT_NOT_ZERO)
-                                           } -> std::same_as<std::tuple<size_t>>;
-                                   };
+template <typename T> concept InstructionArgumentSizes = requires
+{
+    {
+        std::make_tuple(T::CONSTANT,
+                        T::WITNESS,
+                        T::CONSTANT_WITNESS,
+                        T::ADD,
+                        T::SUBTRACT,
+                        T::MULTIPLY,
+                        T::DIVIDE,
+                        T::ADD_TWO,
+                        T::MADD,
+                        T::MULT_MADD,
+                        T::MSUB_DIV,
+                        T::SQR,
+                        T::SQR_ADD,
+                        T::SUBTRACT_WITH_CONSTRAINT,
+                        T::DIVIDE_WITH_CONSTRAINTS,
+                        T::SLICE,
+                        T::ASSERT_ZERO,
+                        T::ASSERT_NOT_ZERO)
+    }
+    ->std::same_as<std::tuple<size_t>>;
+};
 
 /**
  * @brief Concept for Havoc Configurations
  *
  * @tparam T
  */
-template <typename T>
-concept HavocConfigConstraint =
-    requires {
-        {
-            std::make_tuple(T::GEN_MUTATION_COUNT_LOG, T::GEN_STRUCTURAL_MUTATION_PROBABILITY)
-            } -> std::same_as<std::tuple<size_t>>;
-        T::GEN_MUTATION_COUNT_LOG <= 7;
-    };
+template <typename T> concept HavocConfigConstraint = requires
+{
+    {
+        std::make_tuple(T::GEN_MUTATION_COUNT_LOG, T::GEN_STRUCTURAL_MUTATION_PROBABILITY)
+    }
+    ->std::same_as<std::tuple<size_t>>;
+    T::GEN_MUTATION_COUNT_LOG <= 7;
+};
 /**
  * @brief Concept specifying the class used by the fuzzer
  *
  * @tparam T
  */
-template <typename T>
-concept ArithmeticFuzzHelperConstraint = requires {
-                                             typename T::ArgSizes;
-                                             typename T::Instruction;
-                                             typename T::ExecutionState;
-                                             typename T::ExecutionHandler;
-                                             InstructionArgumentSizes<typename T::ArgSizes>;
-                                             // HavocConfigConstraint<typename T::HavocConfig>;
-                                         };
+template <typename T> concept ArithmeticFuzzHelperConstraint = requires
+{
+    typename T::ArgSizes;
+    typename T::Instruction;
+    typename T::ExecutionState;
+    typename T::ExecutionHandler;
+    InstructionArgumentSizes<typename T::ArgSizes>;
+    // HavocConfigConstraint<typename T::HavocConfig>;
+};
 
 /**
  * @brief Fuzzer uses only composers with check_circuit function
  *
  * @tparam T
  */
-template <typename T>
-concept CheckableComposer = requires(T a) {
-                                {
-                                    a.check_circuit()
-                                    } -> std::same_as<bool>;
-                            };
+template <typename T> concept CheckableComposer = requires(T a)
+{
+    {
+        a.check_circuit()
+    }
+    ->std::same_as<bool>;
+};
 
 /**
  * @brief The fuzzer can use a postprocessing function that is specific to the type being fuzzed
@@ -167,11 +171,13 @@ concept CheckableComposer = requires(T a) {
  * @tparam Context The class containing the full context
  */
 template <typename T, typename Composer, typename Context>
-concept PostProcessingEnabled = requires(Composer composer, Context context) {
-                                    {
-                                        T::postProcess(&composer, context)
-                                        } -> std::same_as<bool>;
-                                };
+concept PostProcessingEnabled = requires(Composer composer, Context context)
+{
+    {
+        T::postProcess(&composer, context)
+    }
+    ->std::same_as<bool>;
+};
 
 /**
  * @brief This concept is used when we want to limit the number of executions of certain instructions (for example,
@@ -179,19 +185,111 @@ concept PostProcessingEnabled = requires(Composer composer, Context context) {
  *
  * @tparam T
  */
-template <typename T>
-concept InstructionWeightsEnabled = requires {
-                                        typename T::InstructionWeights;
-                                        T::InstructionWeights::_LIMIT;
-                                    };
+template <typename T> concept InstructionWeightsEnabled = requires
+{
+    typename T::InstructionWeights;
+    T::InstructionWeights::_LIMIT;
+};
+
+/**
+ * @brief Mutate the value of a field element
+ *
+ * @tparam T PRNG class
+ * @param e Initial element value
+ * @param rng PRNG
+ * @param havoc_config Mutation configuration
+ * @return Mutated element
+ */
+template <typename T, typename FF> inline static FF mutateFieldElement(FF e, T& rng) requires SimpleRng<T>
+{
+    // With a certain probability, we apply changes to the Montgomery form, rather than the plain form. This
+    // has merit, since the computation is performed in montgomery form and comparisons are often performed
+    // in it, too. Libfuzzer comparison tracing logic can then be enabled in Montgomery form
+    bool convert_to_montgomery = (rng.next() & 1);
+    uint256_t value_data;
+    // Conversion at the start
+#define MONT_CONVERSION_LOCAL                                                                                          \
+    if (convert_to_montgomery) {                                                                                       \
+        value_data = uint256_t(e.to_montgomery_form());                                                                \
+    } else {                                                                                                           \
+        value_data = uint256_t(e);                                                                                     \
+    }
+    // Inverse conversion at the end
+#define INV_MONT_CONVERSION_LOCAL                                                                                      \
+    if (convert_to_montgomery) {                                                                                       \
+        e = FF(value_data).from_montgomery_form();                                                                     \
+    } else {                                                                                                           \
+        e = FF(value_data);                                                                                            \
+    }
+
+    // Pick the last value from the mutation distrivution vector
+    // Choose mutation
+    const size_t choice = rng.next() % 4;
+    // 50% probability to use standard mutation
+    if (choice < 2) {
+        // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
+        MONT_CONVERSION_LOCAL
+        LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
+        INV_MONT_CONVERSION_LOCAL
+    } else if (choice < 3) { // 25% to use small additions
+
+        // Small addition/subtraction
+        if (convert_to_montgomery) {
+            e = e.to_montgomery_form();
+        }
+        if (rng.next() & 1) {
+            value_data = e + FF(rng.next() & 0xff);
+        } else {
+            value_data = e - FF(rng.next() & 0xff);
+        }
+        if (convert_to_montgomery) {
+            e = e.from_montgomery_form();
+        }
+    } else { // 25% to use special values
+
+        // Substitute field element with a special value
+        MONT_CONVERSION_LOCAL
+        switch (rng.next() % 8) {
+        case 0:
+            e = FF::zero();
+            break;
+        case 1:
+            e = FF::one();
+            break;
+        case 2:
+            e = -FF::one();
+            break;
+        case 3:
+            e = FF::one().sqrt().second;
+            break;
+        case 4:
+            e = FF::one().sqrt().second.invert();
+            break;
+        case 5:
+            e = FF::get_root_of_unity(8);
+            break;
+        case 6:
+            e = FF(2);
+            break;
+        case 7:
+            e = FF((FF::modulus - 1) / 2);
+            break;
+        default:
+            abort();
+            break;
+        }
+        INV_MONT_CONVERSION_LOCAL
+    }
+    // Return instruction
+    return e;
+}
+
 /**
  * @brief A templated class containing most of the fuzzing logic for a generic Arithmetic class
  *
  * @tparam T
  */
-template <typename T>
-    requires ArithmeticFuzzHelperConstraint<T>
-class ArithmeticFuzzHelper {
+template <typename T> requires ArithmeticFuzzHelperConstraint<T> class ArithmeticFuzzHelper {
   private:
     /**
      * @brief Mutator swapping two instructions together
@@ -494,8 +592,8 @@ class ArithmeticFuzzHelper {
      * @param instructions
      */
     template <typename Composer>
-    inline static void executeInstructions(std::vector<typename T::Instruction>& instructions)
-        requires CheckableComposer<Composer>
+    inline static void executeInstructions(
+        std::vector<typename T::Instruction>& instructions) requires CheckableComposer<Composer>
     {
         typename T::ExecutionState state;
         Composer composer = Composer();

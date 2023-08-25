@@ -25,7 +25,7 @@ import {
   L1Publisher,
   SoloBlockBuilder,
   WasmRollupCircuitSimulator,
-  getCombinedHistoricTreeRoots,
+  getHistoricBlockData,
   getL1Publisher,
   getVerificationKeys,
   makeEmptyProcessedTx as makeEmptyProcessedTxFromHistoricTreeRoots,
@@ -50,7 +50,7 @@ import {
 } from 'viem';
 import { PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
-import { localAnvil } from './fixtures.js';
+import { localAnvil } from './fixtures/fixtures.js';
 
 // Accounts 4 and 5 of Anvil default startup with mnemonic: 'test test test test test test test test test test test junk'
 const sequencerPK = '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a';
@@ -86,6 +86,9 @@ describe('L1Publisher integration', () => {
 
   let builder: SoloBlockBuilder;
   let builderDb: MerkleTreeOperations;
+
+  // The global variables of the last rollup
+  let prevGlobals: GlobalVariables;
 
   beforeEach(async () => {
     deployerAccount = privateKeyToAccount(deployerPK);
@@ -147,10 +150,12 @@ describe('L1Publisher integration', () => {
       publisherPrivateKey: PrivateKey.fromString(sequencerPK),
       l1BlockPublishRetryIntervalMS: 100,
     });
+
+    prevGlobals = GlobalVariables.empty();
   }, 100_000);
 
   const makeEmptyProcessedTx = async () => {
-    const historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    const historicTreeRoots = await getHistoricBlockData(builderDb, prevGlobals);
     const tx = await makeEmptyProcessedTxFromHistoricTreeRoots(
       historicTreeRoots,
       new Fr(config.chainId),
@@ -164,7 +169,7 @@ describe('L1Publisher integration', () => {
     const kernelOutput = KernelCircuitPublicInputs.empty();
     kernelOutput.constants.txContext.chainId = fr(config.chainId);
     kernelOutput.constants.txContext.version = fr(config.version);
-    kernelOutput.constants.historicTreeRoots = await getCombinedHistoricTreeRoots(builderDb);
+    kernelOutput.constants.blockData = await getHistoricBlockData(builderDb, prevGlobals);
     kernelOutput.end.publicDataUpdateRequests = makeTuple(
       MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
       i => new PublicDataUpdateRequest(fr(i), fr(0), fr(i + 10)),
@@ -276,6 +281,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      prevGlobals = globalVariables;
 
       // check that values are in the inbox
       for (let j = 0; j < l1ToL2Messages.length; j++) {
@@ -367,6 +373,7 @@ describe('L1Publisher integration', () => {
         new Fr(await rollup.read.lastBlockTs()),
       );
       const [block] = await builder.buildL2Block(globalVariables, txs, l1ToL2Messages);
+      prevGlobals = globalVariables;
 
       await publisher.processL2Block(block);
 

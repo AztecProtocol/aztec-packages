@@ -10,7 +10,7 @@ use crate::constants_gen::{
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
     MAX_PUBLIC_DATA_READS_PER_CALL,
     GENERATOR_INDEX__FUNCTION_ARGS,
-    COMMITMENT_TREES_ROOTS_LENGTH,
+    HISTORIC_BLOCK_DATA_LENGTH,
     CONTRACT_DEPLOYMENT_DATA_LENGTH,
     CALL_CONTEXT_LENGTH,
     PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
@@ -32,10 +32,59 @@ use crate::oracle::debug_log;
 use crate::types::vec::BoundedVec;
 use crate::types::point::Point;
 
+struct PrivateGlobalVariables {
+    chain_id: Field,
+    version: Field,
+}
+
+impl PrivateGlobalVariables {
+    fn serialize(self) -> [Field; 2] {
+        [self.chain_id, self.version]
+    }
+}
+
+struct PublicGlobalVariables {
+    chain_id: Field,
+    version: Field,
+    block_number: Field,
+    timestamp: Field,
+}
+
+impl PublicGlobalVariables {
+    fn serialize(self) -> [Field; 4] {
+        [self.chain_id, self.version, self.block_number, self.timestamp]
+    }
+}
+
+struct ContractDeploymentData {
+    deployer_public_key: Point,
+    constructor_vk_hash : Field,
+    function_tree_root : Field,
+    contract_address_salt : Field,
+    portal_contract_address : Field,
+}
+
+impl ContractDeploymentData {
+    fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
+        [
+            self.deployer_public_key.x,
+            self.deployer_public_key.y,
+            self.constructor_vk_hash,
+            self.function_tree_root,
+            self.contract_address_salt,
+            self.portal_contract_address,
+        ]
+    }
+
+    fn hash(self) -> Field {
+        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
+    }
+}
+
 // PrivateContextInputs are expected to be provided to each private function
 struct PrivateContextInputs {
     call_context : CallContext,
-    roots: CommitmentTreesRoots,
+    block_data: HistoricBlockData,
 
     contract_deployment_data: ContractDeploymentData,
 
@@ -45,7 +94,7 @@ struct PrivateContextInputs {
 // PublicContextInputs are expected to be provided to each public function
 struct PublicContextInputs {
     call_context: CallContext,
-    roots: CommitmentTreesRoots,
+    block_data: HistoricBlockData,
 
     public_global_variables: PublicGlobalVariables,
 }
@@ -77,77 +126,32 @@ impl CallContext {
     }
 }
 
-struct CommitmentTreesRoots {
+struct HistoricBlockData {
     private_data_tree_root : Field,
     nullifier_tree_root : Field,
     contract_tree_root : Field,
     l1_to_l2_messages_tree_root : Field,
     blocks_tree_root: Field,
+    public_data_tree_root: Field,
+    global_variables_hash: Field,
 }
 
-impl CommitmentTreesRoots {
+impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
-    fn serialize(self) -> [Field; COMMITMENT_TREES_ROOTS_LENGTH] {
+    fn serialize(self) -> [Field; HISTORIC_BLOCK_DATA_LENGTH] {
         [
             self.private_data_tree_root,
             self.nullifier_tree_root,
             self.contract_tree_root,
             self.l1_to_l2_messages_tree_root,
             self.blocks_tree_root,
-        ]
-    }
-}
-
-fn empty_commitment_trees_roots() -> CommitmentTreesRoots {
-    CommitmentTreesRoots{ private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0 }
-}
-
-struct ContractDeploymentData {
-    deployer_public_key: Point,
-    constructor_vk_hash : Field,
-    function_tree_root : Field,
-    contract_address_salt : Field,
-    portal_contract_address : Field,
-}
-
-impl ContractDeploymentData {
-    fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
-        [
-            self.deployer_public_key.x,
-            self.deployer_public_key.y,
-            self.constructor_vk_hash,
-            self.function_tree_root,
-            self.contract_address_salt,
-            self.portal_contract_address,
+            self.public_data_tree_root,
+            self.global_variables_hash,
         ]
     }
 
-    fn hash(self) -> Field {
-        dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__CONTRACT_DEPLOYMENT_DATA)[0]
-    }
-}
-
-struct PrivateGlobalVariables {
-    chain_id: Field,
-    version: Field,
-}
-
-impl PrivateGlobalVariables {
-    fn serialize(self) -> [Field; 2] {
-        [self.chain_id, self.version]
-    }
-}
-
-struct PublicGlobalVariables {
-    chain_id: Field,
-    version: Field,
-    block_number: Field,
-    timestamp: Field,
-}
-
-impl PublicGlobalVariables {
-    fn serialize(self) -> [Field; 4] {
-        [self.chain_id, self.version, self.block_number, self.timestamp]
+    fn empty() -> Self {
+        Self { private_data_tree_root: 0, nullifier_tree_root: 0, contract_tree_root: 0, l1_to_l2_messages_tree_root: 0, blocks_tree_root: 0, public_data_tree_root: 0, global_variables_hash: 0 }
     }
 }
 
@@ -186,7 +190,7 @@ struct PrivateCircuitPublicInputs {
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     encrypted_log_preimages_length: Field,
     unencrypted_log_preimages_length: Field,
-    commitment_trees_roots: CommitmentTreesRoots,
+    block_data: HistoricBlockData,
     contract_deployment_data: ContractDeploymentData,
     chain_id: Field,
     version: Field,
@@ -209,7 +213,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.commitment_trees_roots.serialize());
+        fields.push_array(self.block_data.serialize());
         fields.push(self.contract_deployment_data.hash());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -232,7 +236,7 @@ impl PrivateCircuitPublicInputs {
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.encrypted_log_preimages_length);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.commitment_trees_roots.serialize());
+        fields.push_array(self.block_data.serialize());
         fields.push_array(self.contract_deployment_data.serialize());
         fields.push(self.chain_id);
         fields.push(self.version);
@@ -245,10 +249,6 @@ struct ContractStorageRead {
     value: Field,
 }
 
-fn empty_contract_storage_read() -> ContractStorageRead {
-    ContractStorageRead { storage_slot: 0, value: 0 }
-}
-
 impl ContractStorageRead {
     fn serialize(self) -> [Field; CONTRACT_STORAGE_READ_LENGTH] {
         [self.storage_slot, self.value]
@@ -256,6 +256,10 @@ impl ContractStorageRead {
 
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_READ)[0]
+    }
+
+    fn empty() -> Self {
+        Self { storage_slot: 0, value: 0 }
     }
 }
 
@@ -273,10 +277,10 @@ impl ContractStorageUpdateRequest {
     fn hash(self) -> Field {
         dep::std::hash::pedersen_with_separator(self.serialize(), GENERATOR_INDEX__PUBLIC_DATA_UPDATE_REQUEST)[0]
     }
-}
 
-fn empty_contract_storage_update_request() -> ContractStorageUpdateRequest {
-    ContractStorageUpdateRequest { storage_slot: 0, old_value: 0, new_value: 0 }
+    fn empty() -> Self {
+        Self { storage_slot: 0, old_value: 0, new_value: 0 }
+    }
 }
 
 
@@ -292,9 +296,11 @@ struct PublicCircuitPublicInputs {
     new_l2_to_l1_msgs: [Field; crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
     unencrypted_logs_hash: [Field; NUM_FIELDS_PER_SHA256],
     unencrypted_log_preimages_length: Field,
-    commitment_trees_roots: CommitmentTreesRoots, // TODO: This is not present in cpp or ts, do we need to include it?
-    historic_public_data_tree_root: Field,
+    block_data: HistoricBlockData,
     prover_address: Field,
+
+    // TODO: include globals in here and check them elsewhere
+    // https://github.com/AztecProtocol/aztec-packages/issues/1567
 }
 
 impl PublicCircuitPublicInputs {
@@ -315,12 +321,11 @@ impl PublicCircuitPublicInputs {
         inputs.push_array(self.new_nullifiers);
         inputs.push_array(self.new_l2_to_l1_msgs);
 
-        // We do not include commitment_trees_roots since it's not in the cpp hash
-        // inputs.push(self.commitment_trees_roots.hash());
+        // We do not include block_data since it's not in the cpp hash
 
         inputs.push_array(self.unencrypted_logs_hash);
         inputs.push(self.unencrypted_log_preimages_length);
-        inputs.push(self.historic_public_data_tree_root);
+        inputs.push_array(self.block_data.serialize()); // see https://github.com/AztecProtocol/aztec-packages/issues/1473
         inputs.push(self.prover_address);
 
         dep::std::hash::pedersen_with_separator(inputs.storage, GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS)[0]
@@ -343,8 +348,7 @@ impl PublicCircuitPublicInputs {
         fields.push_array(self.new_l2_to_l1_msgs);
         fields.push_array(self.unencrypted_logs_hash);
         fields.push(self.unencrypted_log_preimages_length);
-        fields.push_array(self.commitment_trees_roots.serialize());
-        fields.push(self.historic_public_data_tree_root);
+        fields.push_array(self.block_data.serialize());
         fields.push(self.prover_address);
         fields.storage
     }
@@ -354,21 +358,25 @@ global ARGS_HASH_CHUNK_LENGTH: u32 = 32;
 global ARGS_HASH_CHUNK_COUNT: u32 = 16;
 
 fn hash_args<N>(args: [Field; N]) -> Field {
-    let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
-    for i in 0..ARGS_HASH_CHUNK_COUNT {
-        let mut chunk_hash = 0;
-        let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
-        if start_chunk_index < (args.len() as u32) {
-            let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
-            for j in 0..ARGS_HASH_CHUNK_LENGTH {
-                let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
-                if item_index < (args.len() as u32) {
-                    chunk_args[j] = args[item_index];
+    if args.len() == 0 {
+        0
+    } else {
+        let mut chunks_hashes = [0; ARGS_HASH_CHUNK_COUNT];
+        for i in 0..ARGS_HASH_CHUNK_COUNT {
+            let mut chunk_hash = 0;
+            let start_chunk_index = i * ARGS_HASH_CHUNK_LENGTH;
+            if start_chunk_index < (args.len() as u32) {
+                let mut chunk_args = [0; ARGS_HASH_CHUNK_LENGTH];
+                for j in 0..ARGS_HASH_CHUNK_LENGTH {
+                    let item_index = i * ARGS_HASH_CHUNK_LENGTH + j;
+                    if item_index < (args.len() as u32) {
+                        chunk_args[j] = args[item_index];
+                    }
                 }
+                chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
             }
-            chunk_hash = dep::std::hash::pedersen_with_separator(chunk_args, GENERATOR_INDEX__FUNCTION_ARGS)[0];
+            chunks_hashes[i] = chunk_hash;
         }
-        chunks_hashes[i] = chunk_hash;
+        dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
     }
-    dep::std::hash::pedersen_with_separator(chunks_hashes, GENERATOR_INDEX__FUNCTION_ARGS)[0]
 }

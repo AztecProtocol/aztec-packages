@@ -59,7 +59,9 @@ void copy_polynomial(const Fr* src, Fr* dest, size_t num_src_coefficients, size_
 }
 
 template <typename Fr>
-void fft_inner_serial(std::vector<Fr*> coeffs, const size_t domain_size, const std::vector<Fr*>& root_table)
+requires SupportsFFT<Fr> void fft_inner_serial(std::vector<Fr*> coeffs,
+                                               const size_t domain_size,
+                                               const std::vector<Fr*>& root_table)
 {
     // Assert that the number of polynomials is a power of two.
     const size_t num_polys = coeffs.size();
@@ -145,9 +147,9 @@ void scale_by_generator(Fr* coeffs,
  * @param subgroup_roots Pointer to the array for saving subgroup members.
  * */
 template <typename Fr>
-void compute_multiplicative_subgroup(const size_t log2_subgroup_size,
-                                     const EvaluationDomain<Fr>& src_domain,
-                                     Fr* subgroup_roots)
+requires SupportsFFT<Fr> void compute_multiplicative_subgroup(const size_t log2_subgroup_size,
+                                                              const EvaluationDomain<Fr>& src_domain,
+                                                              Fr* subgroup_roots)
 {
     size_t subgroup_size = 1UL << log2_subgroup_size;
     // Step 1: get primitive 4th root of unity
@@ -167,10 +169,10 @@ void compute_multiplicative_subgroup(const size_t log2_subgroup_size,
 }
 
 template <typename Fr>
-void fft_inner_parallel(std::vector<Fr*> coeffs,
-                        const EvaluationDomain<Fr>& domain,
-                        const Fr&,
-                        const std::vector<Fr*>& root_table)
+requires SupportsFFT<Fr> void fft_inner_parallel(std::vector<Fr*> coeffs,
+                                                 const EvaluationDomain<Fr>& domain,
+                                                 const Fr&,
+                                                 const std::vector<Fr*>& root_table)
 {
     auto scratch_space_ptr = get_scratch_space<Fr>(domain.size);
     auto scratch_space = scratch_space_ptr.get();
@@ -294,7 +296,7 @@ void fft_inner_parallel(std::vector<Fr*> coeffs,
 }
 
 template <typename Fr>
-void fft_inner_parallel(
+requires SupportsFFT<Fr> void fft_inner_parallel(
     Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain, const Fr&, const std::vector<Fr*>& root_table)
 {
     parallel_for(domain.num_threads, [&](size_t j) {
@@ -388,10 +390,10 @@ void fft_inner_parallel(
 }
 
 template <typename Fr>
-void partial_fft_serial_inner(Fr* coeffs,
-                              Fr* target,
-                              const EvaluationDomain<Fr>& domain,
-                              const std::vector<Fr*>& root_table)
+requires SupportsFFT<Fr> void partial_fft_serial_inner(Fr* coeffs,
+                                                       Fr* target,
+                                                       const EvaluationDomain<Fr>& domain,
+                                                       const std::vector<Fr*>& root_table)
 {
     // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
     // We need a 2-round modified FFT for commiting to the 4n-sized quotient polynomial for
@@ -430,7 +432,7 @@ void partial_fft_serial_inner(Fr* coeffs,
 }
 
 template <typename Fr>
-void partial_fft_parellel_inner(
+requires SupportsFFT<Fr> void partial_fft_parellel_inner(
     Fr* coeffs, const EvaluationDomain<Fr>& domain, const std::vector<Fr*>& root_table, Fr constant, bool is_coset)
 {
     // We wish to compute a partial modified FFT of 2 rounds from given coefficients.
@@ -500,32 +502,34 @@ void partial_fft_parellel_inner(
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void partial_fft_serial(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
+template <typename Fr>
+requires SupportsFFT<Fr> void partial_fft_serial(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     partial_fft_serial_inner(coeffs, target, domain, domain.get_round_roots());
 }
 
-template <typename Fr> void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
+template <typename Fr>
+requires SupportsFFT<Fr> void partial_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain, Fr constant, bool is_coset)
 {
     partial_fft_parellel_inner(coeffs, domain, domain.get_round_roots(), constant, is_coset);
 }
 
-template <typename Fr> void fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
 }
 
-template <typename Fr> void fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel(coeffs, target, domain, domain.root, domain.get_round_roots());
 }
 
-template <typename Fr> void fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel<Fr>(coeffs, domain.size, domain.root, domain.get_round_roots());
 }
 
-template <typename Fr> void ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root_inverse, domain.get_inverse_round_roots());
     ITERATE_OVER_DOMAIN_START(domain);
@@ -533,7 +537,7 @@ template <typename Fr> void ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel(coeffs, target, domain, domain.root_inverse, domain.get_inverse_round_roots());
     ITERATE_OVER_DOMAIN_START(domain);
@@ -541,7 +545,7 @@ template <typename Fr> void ifft(Fr* coeffs, Fr* target, const EvaluationDomain<
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
     fft_inner_parallel(coeffs, domain, domain.root_inverse, domain.get_inverse_round_roots());
 
@@ -557,7 +561,8 @@ template <typename Fr> void ifft(std::vector<Fr*> coeffs, const EvaluationDomain
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
+template <typename Fr>
+requires SupportsFFT<Fr> void fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root, domain.get_round_roots());
     ITERATE_OVER_DOMAIN_START(domain);
@@ -565,19 +570,21 @@ template <typename Fr> void fft_with_constant(Fr* coeffs, const EvaluationDomain
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void coset_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void coset_fft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     scale_by_generator(coeffs, coeffs, domain, Fr::one(), domain.generator, domain.generator_size);
     fft(coeffs, domain);
 }
 
-template <typename Fr> void coset_fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
+template <typename Fr>
+requires SupportsFFT<Fr> void coset_fft(Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain)
 {
     scale_by_generator(coeffs, target, domain, Fr::one(), domain.generator, domain.generator_size);
     fft(coeffs, target, domain);
 }
 
-template <typename Fr> void coset_fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr>
+requires SupportsFFT<Fr> void coset_fft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
     const size_t num_polys = coeffs.size();
     ASSERT(is_power_of_two(num_polys));
@@ -593,10 +600,10 @@ template <typename Fr> void coset_fft(std::vector<Fr*> coeffs, const EvaluationD
 }
 
 template <typename Fr>
-void coset_fft(Fr* coeffs,
-               const EvaluationDomain<Fr>& domain,
-               const EvaluationDomain<Fr>&,
-               const size_t domain_extension)
+requires SupportsFFT<Fr> void coset_fft(Fr* coeffs,
+                                        const EvaluationDomain<Fr>& domain,
+                                        const EvaluationDomain<Fr>&,
+                                        const size_t domain_extension)
 {
     const size_t log2_domain_extension = static_cast<size_t>(numeric::get_msb(domain_extension));
     Fr primitive_root = Fr::get_root_of_unity(domain.log2_size + log2_domain_extension);
@@ -652,7 +659,10 @@ void coset_fft(Fr* coeffs,
     }
 }
 
-template <typename Fr> void coset_fft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant)
+template <typename Fr>
+requires SupportsFFT<Fr> void coset_fft_with_constant(Fr* coeffs,
+                                                      const EvaluationDomain<Fr>& domain,
+                                                      const Fr& constant)
 {
     Fr start = constant;
     scale_by_generator(coeffs, coeffs, domain, start, domain.generator, domain.generator_size);
@@ -660,13 +670,16 @@ template <typename Fr> void coset_fft_with_constant(Fr* coeffs, const Evaluation
 }
 
 template <typename Fr>
-void coset_fft_with_generator_shift(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& constant)
+requires SupportsFFT<Fr> void coset_fft_with_generator_shift(Fr* coeffs,
+                                                             const EvaluationDomain<Fr>& domain,
+                                                             const Fr& constant)
 {
     scale_by_generator(coeffs, coeffs, domain, Fr::one(), domain.generator * constant, domain.generator_size);
     fft(coeffs, domain);
 }
 
-template <typename Fr> void ifft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
+template <typename Fr>
+requires SupportsFFT<Fr> void ifft_with_constant(Fr* coeffs, const EvaluationDomain<Fr>& domain, const Fr& value)
 {
     fft_inner_parallel({ coeffs }, domain, domain.root_inverse, domain.get_inverse_round_roots());
     Fr T0 = domain.domain_inverse * value;
@@ -675,13 +688,14 @@ template <typename Fr> void ifft_with_constant(Fr* coeffs, const EvaluationDomai
     ITERATE_OVER_DOMAIN_END;
 }
 
-template <typename Fr> void coset_ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr> requires SupportsFFT<Fr> void coset_ifft(Fr* coeffs, const EvaluationDomain<Fr>& domain)
 {
     ifft(coeffs, domain);
     scale_by_generator(coeffs, coeffs, domain, Fr::one(), domain.generator_inverse, domain.size);
 }
 
-template <typename Fr> void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
+template <typename Fr>
+requires SupportsFFT<Fr> void coset_ifft(std::vector<Fr*> coeffs, const EvaluationDomain<Fr>& domain)
 {
     ifft(coeffs, domain);
 
@@ -812,9 +826,9 @@ template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, c
  * L_i(X), we perform a (k*i)-left-shift of this vector.
  */
 template <typename Fr>
-void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
-                                     const EvaluationDomain<Fr>& src_domain,
-                                     const EvaluationDomain<Fr>& target_domain)
+requires SupportsFFT<Fr> void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
+                                                              const EvaluationDomain<Fr>& src_domain,
+                                                              const EvaluationDomain<Fr>& target_domain)
 {
     // Step 1: Compute the 1/denominator for each evaluation: 1 / (X_i - 1)
     Fr multiplicand = target_domain.root; // kn'th root of unity w'
@@ -858,10 +872,11 @@ void compute_lagrange_polynomial_fft(Fr* l_1_coefficients,
 }
 
 template <typename Fr>
-void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
-                                           const EvaluationDomain<Fr>& src_domain,
-                                           const EvaluationDomain<Fr>& target_domain,
-                                           const size_t num_roots_cut_out_of_vanishing_polynomial)
+requires SupportsFFT<Fr> void divide_by_pseudo_vanishing_polynomial(
+    std::vector<Fr*> coeffs,
+    const EvaluationDomain<Fr>& src_domain,
+    const EvaluationDomain<Fr>& target_domain,
+    const size_t num_roots_cut_out_of_vanishing_polynomial)
 {
     // Older version:
     // the PLONK divisor polynomial is equal to the vanishing polynomial divided by the vanishing polynomial for the
@@ -966,7 +981,8 @@ void divide_by_pseudo_vanishing_polynomial(std::vector<Fr*> coeffs,
     delete[] subgroup_roots;
 }
 
-template <typename Fr> Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n)
+template <typename Fr>
+requires SupportsFFT<Fr> Fr compute_kate_opening_coefficients(const Fr* src, Fr* dest, const Fr& z, const size_t n)
 {
     // if `coeffs` represents F(X), we want to compute W(X)
     // where W(X) = F(X) - F(z) / (X - z)
@@ -995,7 +1011,7 @@ template <typename Fr> Fr compute_kate_opening_coefficients(const Fr* src, Fr* d
  * @param zeta - the name given (in our code) to the evaluation challenge ʓ from the Plonk paper.
  */
 template <typename Fr>
-barretenberg::polynomial_arithmetic::LagrangeEvaluations<Fr> get_lagrange_evaluations(
+requires SupportsFFT<Fr> barretenberg::polynomial_arithmetic::LagrangeEvaluations<Fr> get_lagrange_evaluations(
     const Fr& zeta, const EvaluationDomain<Fr>& domain, const size_t num_roots_cut_out_of_vanishing_polynomial)
 {
     // Compute Z_H*(ʓ), l_start(ʓ), l_{end}(ʓ)
@@ -1076,10 +1092,10 @@ barretenberg::polynomial_arithmetic::LagrangeEvaluations<Fr> get_lagrange_evalua
 //                           n.(ʓ.ω^{1-i)} - 1)
 //
 template <typename Fr>
-Fr compute_barycentric_evaluation(const Fr* coeffs,
-                                  const size_t num_coeffs,
-                                  const Fr& z,
-                                  const EvaluationDomain<Fr>& domain)
+requires SupportsFFT<Fr> Fr compute_barycentric_evaluation(const Fr* coeffs,
+                                                           const size_t num_coeffs,
+                                                           const Fr& z,
+                                                           const EvaluationDomain<Fr>& domain)
 {
     Fr* denominators = static_cast<Fr*>(aligned_alloc(64, sizeof(Fr) * num_coeffs));
 
@@ -1120,7 +1136,8 @@ Fr compute_barycentric_evaluation(const Fr* coeffs,
 }
 
 // Convert an fft with `current_size` point evaluations, to one with `current_size >> compress_factor` point evaluations
-template <typename Fr> void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t compress_factor)
+template <typename Fr>
+requires SupportsFFT<Fr> void compress_fft(const Fr* src, Fr* dest, const size_t cur_size, const size_t compress_factor)
 {
     // iterate from top to bottom, allows `dest` to overlap with `src`
     size_t log2_compress_factor = (size_t)numeric::get_msb(compress_factor);
@@ -1132,10 +1149,10 @@ template <typename Fr> void compress_fft(const Fr* src, Fr* dest, const size_t c
 }
 
 template <typename Fr>
-Fr evaluate_from_fft(const Fr* poly_coset_fft,
-                     const EvaluationDomain<Fr>& large_domain,
-                     const Fr& z,
-                     const EvaluationDomain<Fr>& small_domain)
+requires SupportsFFT<Fr> Fr evaluate_from_fft(const Fr* poly_coset_fft,
+                                              const EvaluationDomain<Fr>& large_domain,
+                                              const Fr& z,
+                                              const EvaluationDomain<Fr>& small_domain)
 {
     size_t n = small_domain.size;
     Fr* small_poly_coset_fft = static_cast<Fr*>(aligned_alloc(64, sizeof(Fr) * n));
@@ -1193,7 +1210,7 @@ template <typename Fr> Fr compute_linear_polynomial_product_evaluation(const Fr*
 }
 
 template <typename Fr>
-void fft_linear_polynomial_product(
+requires SupportsFFT<Fr> void fft_linear_polynomial_product(
     const Fr* roots, Fr* dest, const size_t n, const EvaluationDomain<Fr>& domain, const bool is_coset)
 {
     size_t m = domain.size >> 1;
@@ -1365,48 +1382,6 @@ template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, con
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
 template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template void copy_polynomial<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, size_t, size_t);
-template void fft_inner_serial<grumpkin::fr>(std::vector<grumpkin::fr*>,
-                                             const size_t,
-                                             const std::vector<grumpkin::fr*>&);
-template void fft_inner_parallel<grumpkin::fr>(std::vector<grumpkin::fr*>,
-                                               const EvaluationDomain<grumpkin::fr>&,
-                                               const grumpkin::fr&,
-                                               const std::vector<grumpkin::fr*>&);
-template void fft<grumpkin::fr>(grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void fft<grumpkin::fr>(grumpkin::fr*, grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void fft<grumpkin::fr>(std::vector<grumpkin::fr*>, const EvaluationDomain<grumpkin::fr>&);
-template void fft_with_constant<grumpkin::fr>(grumpkin::fr*,
-                                              const EvaluationDomain<grumpkin::fr>&,
-                                              const grumpkin::fr&);
-template void coset_fft<grumpkin::fr>(grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void coset_fft<grumpkin::fr>(grumpkin::fr*, grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void coset_fft<grumpkin::fr>(std::vector<grumpkin::fr*>, const EvaluationDomain<grumpkin::fr>&);
-template void coset_fft<grumpkin::fr>(grumpkin::fr*,
-                                      const EvaluationDomain<grumpkin::fr>&,
-                                      const EvaluationDomain<grumpkin::fr>&,
-                                      const size_t);
-template void coset_fft_with_constant<grumpkin::fr>(grumpkin::fr*,
-                                                    const EvaluationDomain<grumpkin::fr>&,
-                                                    const grumpkin::fr&);
-template void coset_fft_with_generator_shift<grumpkin::fr>(grumpkin::fr*,
-                                                           const EvaluationDomain<grumpkin::fr>&,
-                                                           const grumpkin::fr&);
-template void ifft<grumpkin::fr>(grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void ifft<grumpkin::fr>(grumpkin::fr*, grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void ifft<grumpkin::fr>(std::vector<grumpkin::fr*>, const EvaluationDomain<grumpkin::fr>&);
-template void ifft_with_constant<grumpkin::fr>(grumpkin::fr*,
-                                               const EvaluationDomain<grumpkin::fr>&,
-                                               const grumpkin::fr&);
-template void coset_ifft<grumpkin::fr>(grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void coset_ifft<grumpkin::fr>(std::vector<grumpkin::fr*>, const EvaluationDomain<grumpkin::fr>&);
-template void partial_fft_serial_inner<grumpkin::fr>(grumpkin::fr*,
-                                                     grumpkin::fr*,
-                                                     const EvaluationDomain<grumpkin::fr>&,
-                                                     const std::vector<grumpkin::fr*>&);
-template void partial_fft_parellel_inner<grumpkin::fr>(
-    grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&, const std::vector<grumpkin::fr*>&, grumpkin::fr, bool);
-template void partial_fft_serial<grumpkin::fr>(grumpkin::fr*, grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&);
-template void partial_fft<grumpkin::fr>(grumpkin::fr*, const EvaluationDomain<grumpkin::fr>&, grumpkin::fr, bool);
 template void add<grumpkin::fr>(const grumpkin::fr*,
                                 const grumpkin::fr*,
                                 grumpkin::fr*,
@@ -1419,36 +1394,11 @@ template void mul<grumpkin::fr>(const grumpkin::fr*,
                                 const grumpkin::fr*,
                                 grumpkin::fr*,
                                 const EvaluationDomain<grumpkin::fr>&);
-template void compute_lagrange_polynomial_fft<grumpkin::fr>(grumpkin::fr*,
-                                                            const EvaluationDomain<grumpkin::fr>&,
-                                                            const EvaluationDomain<grumpkin::fr>&);
-template void divide_by_pseudo_vanishing_polynomial<grumpkin::fr>(std::vector<grumpkin::fr*>,
-                                                                  const EvaluationDomain<grumpkin::fr>&,
-                                                                  const EvaluationDomain<grumpkin::fr>&,
-                                                                  const size_t);
-template grumpkin::fr compute_kate_opening_coefficients<grumpkin::fr>(const grumpkin::fr*,
-                                                                      grumpkin::fr*,
-                                                                      const grumpkin::fr&,
-                                                                      const size_t);
-template LagrangeEvaluations<grumpkin::fr> get_lagrange_evaluations<grumpkin::fr>(const grumpkin::fr&,
-                                                                                  const EvaluationDomain<grumpkin::fr>&,
-                                                                                  const size_t);
-template grumpkin::fr compute_barycentric_evaluation<grumpkin::fr>(const grumpkin::fr*,
-                                                                   const size_t,
-                                                                   const grumpkin::fr&,
-                                                                   const EvaluationDomain<grumpkin::fr>&);
-template void compress_fft<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t, const size_t);
-template grumpkin::fr evaluate_from_fft<grumpkin::fr>(const grumpkin::fr*,
-                                                      const EvaluationDomain<grumpkin::fr>&,
-                                                      const grumpkin::fr&,
-                                                      const EvaluationDomain<grumpkin::fr>&);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template grumpkin::fr compute_linear_polynomial_product_evaluation<grumpkin::fr>(const grumpkin::fr*,
                                                                                  const grumpkin::fr,
                                                                                  const size_t);
-template void fft_linear_polynomial_product<grumpkin::fr>(
-    const grumpkin::fr* roots, grumpkin::fr*, const size_t n, const EvaluationDomain<grumpkin::fr>&, const bool);
 template void compute_interpolation<grumpkin::fr>(const grumpkin::fr*,
                                                   grumpkin::fr*,
                                                   const grumpkin::fr*,

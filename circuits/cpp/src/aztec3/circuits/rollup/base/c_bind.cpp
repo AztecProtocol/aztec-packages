@@ -13,7 +13,7 @@
 namespace {
 using Builder = UltraCircuitBuilder;
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::BaseRollupInputs;
 using aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit;
@@ -51,7 +51,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
                                       size_t* base_rollup_public_inputs_size_out,
                                       uint8_t const** base_or_merge_rollup_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("base_rollup__sim");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup__sim");
     // TODO accept proving key and use that to initialize builders
     // this info is just to prevent error for unused pk_buf
     // TODO do we want to accept it or just get it from our factory?
@@ -64,7 +64,7 @@ WASM_EXPORT uint8_t* base_rollup__sim(uint8_t const* base_rollup_inputs_buf,
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
+    serialize::write(public_inputs_vec, public_inputs);
     // copy public inputs to output buffer
     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());

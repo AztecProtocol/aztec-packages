@@ -11,11 +11,9 @@ import { ContractDeployer } from '@aztec/aztec.js';
 
 const deployer = new ContractDeployer(contractAbi, aztecRpcServer);
 const tx = deployer.deploy(constructorArgs[0], constructorArgs[1]).send();
-await tx.isMined();
-console.log('Contract deployed!');
-
-const receipt = await tx.getReceipt();
-console.log(`Contract address: ${receipt.contractAddress}`);
+// wait for tx to be mined
+const receipt = await tx.wait();
+console.log(`Contract deployed at ${receipt.contractAddress}`);
 ```
 
 #### Send a transaction
@@ -23,11 +21,13 @@ console.log(`Contract address: ${receipt.contractAddress}`);
 ```typescript
 import { Contract } from '@aztec/aztec.js';
 
-const contract = await Contract.create(contractAddress, contractAbi, aztecRpcServer);
+const contract = await Contract.at(contractAddress, contractAbi, aztecRpcServer);
 const tx = contract.methods
-    .transfer(amount, recipientAddress))
+    .transfer(amount, recipientAddress)
     .send({ origin: senderAddress });
-await tx.isMined();
+
+// wait for tx to be mined
+await tx.wait();
 console.log(`Transferred ${amount} to ${recipientAddress}!`);
 ```
 
@@ -36,8 +36,8 @@ console.log(`Transferred ${amount} to ${recipientAddress}!`);
 ```typescript
 import { Contract } from '@aztec/aztec.js';
 
-const contract = await Contract.create(contractAddress, contractAbi, aztecRpcServer);
-const [balance] = contract.methods
+const contract = await Contract.at(contractAddress, contractAbi, aztecRpcServer);
+const balance = contract.methods
     .getBalance(accountPublicKey))
     .view({ from: accountAddress });
 console.log(`Account balance: ${balance}.`);

@@ -4,7 +4,7 @@
   "type": "module",
   "main": "./dest/index.js",
   "bin": {
-    "aztec-cli": "./dest/index.js"
+    "aztec-cli": "./dest/bin/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -22,7 +22,7 @@
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T prettier -w ./src",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --passWithNoTests",
-    "start": "node --no-warnings ./dest/index.js"
+    "start": "node --no-warnings ./dest/bin/index.js"
   },
   "inherits": [
     "../package.common.json"
@@ -39,6 +39,7 @@
     "@aztec/aztec.js": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/noir-compiler": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "commander": "^9.0.0",

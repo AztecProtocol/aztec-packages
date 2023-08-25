@@ -1,7 +1,9 @@
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  EthAddress,
   Fr,
+  HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
 } from '@aztec/circuits.js';
@@ -9,7 +11,7 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   L1ToL2Message,
   L1ToL2MessageAndIndex,
   L2Block,
@@ -44,6 +46,19 @@ export class HttpNode implements AztecNode {
   }
 
   /**
+   * Method to request a block at the provided block number.
+   * @param number - The block number to request.
+   * @returns The block requested. Or undefined if it does not exist.
+   */
+  async getBlock(number: number): Promise<L2Block | undefined> {
+    const url = new URL(`${this.baseUrl}/get-block`);
+    url.searchParams.append('number', number.toString());
+    const response = await (await fetch(url.toString())).json();
+    const { block } = response;
+    return Promise.resolve(block ? L2Block.decode(Buffer.from(block, 'hex')) : block);
+  }
+
+  /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
    * @param limit - Maximum number of blocks to obtain.
@@ -64,14 +79,14 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Method to fetch the current block height.
-   * @returns The block height as a number.
+   * Method to fetch the current block number.
+   * @returns The current block number.
    */
-  async getBlockHeight(): Promise<number> {
-    const url = new URL(`${this.baseUrl}/get-block-height`);
+  async getBlockNumber(): Promise<number> {
+    const url = new URL(`${this.baseUrl}/get-block-number`);
     const response = await fetch(url.toString());
     const respJson = await response.json();
-    return respJson.blockHeight;
+    return respJson.blockNumber;
   }
 
   /**
@@ -83,6 +98,13 @@ export class HttpNode implements AztecNode {
     const response = await fetch(url.toString());
     const respJson = await response.json();
     return respJson.version;
+  }
+
+  public async getRollupAddress(): Promise<EthAddress> {
+    const url = new URL(`${this.baseUrl}/get-rollup-address`);
+    const response = await fetch(url.toString());
+    const respJson = await response.json();
+    return EthAddress.fromString(respJson.rollupAddress);
   }
 
   /**
@@ -97,20 +119,20 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the L2 contract data for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address and bytecode.
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
-    const url = new URL(`${this.baseUrl}/contract-data`);
+  async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    const url = new URL(`${this.baseUrl}/contract-data-and-bytecode`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
     if (!response || !response.contractData) {
       return undefined;
     }
     const contract = response.contractData as string;
-    return Promise.resolve(ContractPublicData.fromBuffer(Buffer.from(contract, 'hex')));
+    return Promise.resolve(ContractDataAndBytecode.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**
@@ -137,19 +159,19 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the contract data for this contract.
    * Contains the ethereum portal address.
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    const url = new URL(`${this.baseUrl}/contract-info`);
+  async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
+    const url = new URL(`${this.baseUrl}/contract-data`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
-    if (!response || !response.contractInfo) {
+    if (!response || !response.contractData) {
       return undefined;
     }
-    const contract = response.contractInfo as string;
+    const contract = response.contractData as string;
     return Promise.resolve(ContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
@@ -316,10 +338,17 @@ export class HttpNode implements AztecNode {
       [MerkleTreeId.NULLIFIER_TREE]: extractRoot(MerkleTreeId.NULLIFIER_TREE),
       [MerkleTreeId.PUBLIC_DATA_TREE]: extractRoot(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: extractRoot(MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE),
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.CONTRACT_TREE_ROOTS_TREE),
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: extractRoot(MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE),
       [MerkleTreeId.BLOCKS_TREE]: extractRoot(MerkleTreeId.BLOCKS_TREE),
     };
+  }
+
+  /**
+   * Returns the currently committed historic block data.
+   * @returns The current committed block data.
+   */
+  public async getHistoricBlockData(): Promise<HistoricBlockData> {
+    const url = new URL(`${this.baseUrl}/historic-block-data`);
+    const response = await (await fetch(url.toString())).json();
+    return response.blockData;
   }
 }

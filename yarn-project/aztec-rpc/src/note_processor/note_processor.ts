@@ -49,15 +49,22 @@ export class NoteProcessor {
   ) {}
 
   /**
-   * Check if the NoteProcessor is synchronised with the remote block height.
-   * The function queries the remote block height from the AztecNode and compares it with the syncedToBlock value in the NoteProcessor.
+   * Check if the NoteProcessor is synchronised with the remote block number.
+   * The function queries the remote block number from the AztecNode and compares it with the syncedToBlock value in the NoteProcessor.
    * If the values are equal, then the NoteProcessor is considered to be synchronised, otherwise not.
    *
-   * @returns A boolean indicating whether the NoteProcessor is synchronised with the remote block height or not.
+   * @returns A boolean indicating whether the NoteProcessor is synchronised with the remote block number or not.
    */
   public async isSynchronised() {
-    const remoteBlockHeight = await this.node.getBlockHeight();
-    return this.syncedToBlock === remoteBlockHeight;
+    const remoteBlockNumber = await this.node.getBlockNumber();
+    return this.syncedToBlock === remoteBlockNumber;
+  }
+
+  /**
+   * Returns synchronisation status (ie up to which block has been synced ) for this note processor.
+   */
+  public get status() {
+    return { syncedToBlock: this.syncedToBlock };
   }
 
   /**
@@ -102,6 +109,10 @@ export class NoteProcessor {
           indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
           (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
         );
+        const newNullifiers = block.newNullifiers.slice(
+          indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
+          (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
+        );
         // Note: Each tx generates a `TxL2Logs` object and for this reason we can rely on its index corresponding
         //       to the index of a tx in a block.
         const txFunctionLogs = txLogs[indexOfTxInABlock].functionLogs;
@@ -110,24 +121,24 @@ export class NoteProcessor {
             const noteSpendingInfo = NoteSpendingInfo.fromEncryptedBuffer(logs, privateKey, curve);
             if (noteSpendingInfo) {
               // We have successfully decrypted the data.
-              const newNullifiers = block.newNullifiers.slice(
-                indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
-                (indexOfTxInABlock + 1) * MAX_NEW_NULLIFIERS_PER_TX,
-              );
-              userPertainingTxIndices.add(indexOfTxInABlock);
-              const { index, nonce, nullifier } = await this.findNoteIndexAndNullifier(
-                dataStartIndexForTx,
-                newCommitments,
-                newNullifiers[0],
-                noteSpendingInfo,
-              );
-              noteSpendingInfoDaos.push({
-                ...noteSpendingInfo,
-                index,
-                nonce,
-                nullifier,
-                publicKey: this.publicKey,
-              });
+              try {
+                const { index, nonce, siloedNullifier } = await this.findNoteIndexAndNullifier(
+                  dataStartIndexForTx,
+                  newCommitments,
+                  newNullifiers[0],
+                  noteSpendingInfo,
+                );
+                noteSpendingInfoDaos.push({
+                  ...noteSpendingInfo,
+                  nonce,
+                  siloedNullifier,
+                  index,
+                  publicKey: this.publicKey,
+                });
+                userPertainingTxIndices.add(indexOfTxInABlock);
+              } catch (e) {
+                this.log.warn(`Could not process note because of "${e}". Skipping note...`);
+              }
             }
           }
         }
@@ -168,33 +179,64 @@ export class NoteProcessor {
     const wasm = await CircuitsWasm.get();
     let commitmentIndex = 0;
     let nonce: Fr | undefined;
+    let innerNoteHash: Fr | undefined;
+    let siloedNoteHash: Fr | undefined;
+    let uniqueSiloedNoteHash: Fr | undefined;
     let innerNullifier: Fr | undefined;
     for (; commitmentIndex < commitments.length; ++commitmentIndex) {
       const commitment = commitments[commitmentIndex];
       if (commitment.equals(Fr.ZERO)) break;
 
       const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
-      const { siloedNoteHash, nullifier } = await this.simulator.computeNoteHashAndNullifier(
+      const {
+        innerNoteHash: innerNoteHashTmp,
+        siloedNoteHash: siloedNoteHashTmp,
+        uniqueSiloedNoteHash: uniqueSiloedNoteHashTmp,
+        innerNullifier: innerNullifierTmp,
+      } = await this.simulator.computeNoteHashAndNullifier(
         contractAddress,
         expectedNonce,
         storageSlot,
         notePreimage.items,
       );
-      if (commitment.equals(siloedNoteHash)) {
+      siloedNoteHash = siloedNoteHashTmp;
+      if (commitment.equals(uniqueSiloedNoteHashTmp)) {
         nonce = expectedNonce;
-        innerNullifier = nullifier;
+        innerNoteHash = innerNoteHashTmp;
+        uniqueSiloedNoteHash = uniqueSiloedNoteHashTmp;
+        innerNullifier = innerNullifierTmp;
         break;
       }
     }
 
     if (!nonce) {
-      throw new Error('Cannot find a matching commitment for the note.');
+      let errorString;
+      if (siloedNoteHash == undefined) {
+        errorString = 'Cannot find a matching commitment for the note.';
+      } else {
+        errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
+This might be because the note was nullified in the same tx which created it.
+In that case, everything is fine. To check whether this is the case, look back through
+the logs for a notification
+'important: chopped commitment for siloed inner hash note
+${siloedNoteHash.toString()}'.
+If you can see that notification. Everything's fine.
+If that's not the case, and you can't find such a notification, something has gone wrong.
+There could be a problem with the way you've defined a custom note, or with the way you're
+serialising / deserialising / hashing / encrypting / decrypting that note.
+Please see the following github issue to track an improvement that we're working on:
+https://github.com/AztecProtocol/aztec-packages/issues/1641`;
+      }
+
+      throw new Error(errorString);
     }
 
     return {
       index: BigInt(dataStartIndex + commitmentIndex),
       nonce,
-      nullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
+      innerNoteHash: innerNoteHash!,
+      uniqueSiloedNoteHash: uniqueSiloedNoteHash!,
+      siloedNullifier: siloNullifier(wasm, contractAddress, innerNullifier!),
     };
   }
 
@@ -227,7 +269,7 @@ export class NoteProcessor {
           txHash,
           blockHash: blockContext.getBlockHash(),
           blockNumber: blockContext.block.number,
-          origin: noteSpendingInfo.ownerAddress,
+          origin: undefined,
           contractAddress,
           error: '',
         });
@@ -242,7 +284,7 @@ export class NoteProcessor {
         this.log(
           `Added note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
             noteSpendingInfo.storageSlot
-          } with nullifier ${noteSpendingInfo.nullifier.toString()}`,
+          } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
         );
       });
     }
@@ -252,7 +294,7 @@ export class NoteProcessor {
       this.log(
         `Removed note spending info for contract ${noteSpendingInfo.contractAddress} at slot ${
           noteSpendingInfo.storageSlot
-        } with nullifier ${noteSpendingInfo.nullifier.toString()}`,
+        } with nullifier ${noteSpendingInfo.siloedNullifier.toString()}`,
       );
     });
   }

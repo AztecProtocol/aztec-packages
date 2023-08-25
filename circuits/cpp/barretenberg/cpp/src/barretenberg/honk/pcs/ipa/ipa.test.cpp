@@ -3,21 +3,22 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fq12.hpp"
 #include "barretenberg/ecc/curves/types.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/commitment_key.test.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "ipa.hpp"
 #include <gtest/gtest.h>
 using namespace barretenberg;
-namespace proof_system::honk::pcs::ipa {
+namespace proof_system::honk::pcs::ipa::test {
 
-class IPATest : public CommitmentTest<Params> {
+using Curve = curve::Grumpkin;
+
+class IPATest : public CommitmentTest<Curve> {
   public:
-    using Fr = typename Params::Fr;
-    using GroupElement = typename Params::GroupElement;
-    using CK = typename Params::CommitmentKey;
-    using VK = typename Params::VerificationKey;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using CK = CommitmentKey<Curve>;
+    using VK = VerifierCommitmentKey<Curve>;
     using Polynomial = barretenberg::Polynomial<Fr>;
 };
 
@@ -59,14 +60,14 @@ TEST_F(IPATest, Commit)
 
 TEST_F(IPATest, Open)
 {
-    using IPA = IPA<Params>;
+    using IPA = IPA<Curve>;
     // generate a random polynomial, degree needs to be a power of two
     size_t n = 128;
     auto poly = this->random_polynomial(n);
     auto [x, eval] = this->random_eval(poly);
     auto commitment = this->commit(poly);
-    const OpeningPair<Params> opening_pair = { x, eval };
-    const OpeningClaim<Params> opening_claim{ opening_pair, commitment };
+    const OpeningPair<Curve> opening_pair = { x, eval };
+    const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
 
     // initialize empty prover transcript
     ProverTranscript<Fr> prover_transcript;
@@ -83,11 +84,11 @@ TEST_F(IPATest, Open)
 
 TEST_F(IPATest, GeminiShplonkIPAWithShift)
 {
-    using IPA = IPA<Params>;
-    using ShplonkProver = shplonk::ShplonkProver_<Params>;
-    using ShplonkVerifier = shplonk::ShplonkVerifier_<Params>;
-    using GeminiProver = gemini::GeminiProver_<Params>;
-    using GeminiVerifier = gemini::GeminiVerifier_<Params>;
+    using IPA = IPA<Curve>;
+    using ShplonkProver = shplonk::ShplonkProver_<Curve>;
+    using ShplonkVerifier = shplonk::ShplonkVerifier_<Curve>;
+    using GeminiProver = gemini::GeminiProver_<Curve>;
+    using GeminiVerifier = gemini::GeminiVerifier_<Curve>;
 
     const size_t n = 8;
     const size_t log_n = 3;
@@ -151,7 +152,8 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     }
 
     const Fr nu_challenge = prover_transcript.get_challenge("Shplonk:nu");
-    auto batched_quotient_Q = ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
+    auto batched_quotient_Q =
+        ShplonkProver::compute_batched_quotient(gemini_opening_pairs, gemini_witnesses, nu_challenge);
     prover_transcript.send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript.get_challenge("Shplonk:z");
@@ -163,14 +165,15 @@ TEST_F(IPATest, GeminiShplonkIPAWithShift)
     auto verifier_transcript = VerifierTranscript<Fr>::init_empty(prover_transcript);
 
     auto gemini_verifier_claim = GeminiVerifier::reduce_verification(mle_opening_point,
-                                                       batched_evaluation,
-                                                       batched_commitment_unshifted,
-                                                       batched_commitment_to_be_shifted,
-                                                       verifier_transcript);
+                                                                     batched_evaluation,
+                                                                     batched_commitment_unshifted,
+                                                                     batched_commitment_to_be_shifted,
+                                                                     verifier_transcript);
 
-    const auto shplonk_verifier_claim = ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
+    const auto shplonk_verifier_claim =
+        ShplonkVerifier::reduce_verification(this->vk(), gemini_verifier_claim, verifier_transcript);
     bool verified = IPA::verify(this->vk(), shplonk_verifier_claim, verifier_transcript);
 
     EXPECT_EQ(verified, true);
 }
-} // namespace proof_system::honk::pcs::ipa
+} // namespace proof_system::honk::pcs::ipa::test

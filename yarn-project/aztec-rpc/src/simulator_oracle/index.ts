@@ -1,17 +1,22 @@
-import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import {
+  CommitmentDataOracleInputs,
+  DBOracle,
+  FunctionAbiWithDebugMetadata,
+  MessageLoadOracleInputs,
+} from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CircuitsWasm,
+  CompleteAddress,
   EthAddress,
   Fr,
-  PartialContractAddress,
-  PrivateHistoricTreeRoots,
+  FunctionSelector,
+  HistoricBlockData,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
-import { FunctionAbi } from '@aztec/foundation/abi';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider, MerkleTreeId } from '@aztec/types';
+import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -32,30 +37,38 @@ export class SimulatorOracle implements DBOracle {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
-  async getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result)
+  async getCompleteAddress(address: AztecAddress): Promise<CompleteAddress> {
+    const completeAddress = await this.db.getCompleteAddress(address);
+    if (!completeAddress)
       throw new Error(
-        `Unknown public key for address ${address.toString()}. Add public key to Aztec RPC server by calling server.addPublicKeyAndPartialAddress(...)`,
+        `Unknown complete address for address ${address.toString()}. Add the information to Aztec RPC server by calling server.registerRecipient(...) or server.registerAccount(...)`,
       );
-    return result;
+    return completeAddress;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, nullifier, index }) => ({
+    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, siloedNullifier, index }) => ({
       contractAddress,
       storageSlot,
       nonce,
       preimage: notePreimage.items,
-      nullifier,
+      siloedNullifier,
       // RPC Client can use this index to get full MembershipWitness
       index,
     }));
   }
 
-  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
-    return await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
+  async getFunctionABI(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionAbiWithDebugMetadata> {
+    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
+    return {
+      ...abi,
+      debug,
+    };
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
@@ -85,14 +98,14 @@ export class SimulatorOracle implements DBOracle {
   /**
    * Retrieves the noir oracle data required to prove existence of a given commitment.
    * @param contractAddress - The contract Address.
-   * @param commitment - The key of the message being fetched.
+   * @param innerCommitment - The key of the message being fetched.
    * @returns - A promise that resolves to the commitment data, a sibling path and the
    *            index of the message in the private data tree.
    */
-  async getCommitmentOracle(contractAddress: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, commitment);
+  async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
+    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
     const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
-    if (!index) throw new Error('Commitment not found');
+    if (!index) throw new Error(`Commitment not found ${siloedCommitment.toString()}`);
 
     const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
     return await Promise.resolve({
@@ -102,16 +115,13 @@ export class SimulatorOracle implements DBOracle {
     });
   }
 
-  getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getTreeRoots();
-
-    return PrivateHistoricTreeRoots.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      privateDataTreeRoot: roots[MerkleTreeId.PRIVATE_DATA_TREE],
-      contractTreeRoot: roots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: roots[MerkleTreeId.NULLIFIER_TREE],
-      l1ToL2MessagesTreeRoot: roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: roots[MerkleTreeId.BLOCKS_TREE],
-    });
+  /**
+   * Retrieve the databases view of the Historic Block Data object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   *
+   * @returns A Promise that resolves to a HistoricBlockData object.
+   */
+  getHistoricBlockData(): Promise<HistoricBlockData> {
+    return Promise.resolve(this.db.getHistoricBlockData());
   }
 }

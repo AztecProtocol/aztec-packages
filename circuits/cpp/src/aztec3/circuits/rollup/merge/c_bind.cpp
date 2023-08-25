@@ -8,7 +8,7 @@
 
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
-using DummyBuilder = aztec3::utils::DummyCircuitBuilder;
+using DummyCircuitBuilder = aztec3::utils::DummyCircuitBuilder;
 using aztec3::circuits::abis::BaseOrMergeRollupPublicInputs;
 using aztec3::circuits::abis::MergeRollupInputs;
 using aztec3::circuits::rollup::merge::merge_rollup_circuit;
@@ -21,15 +21,15 @@ WASM_EXPORT uint8_t* merge_rollup__sim(uint8_t const* merge_rollup_inputs_buf,
                                        size_t* merge_rollup_public_inputs_size_out,
                                        uint8_t const** merge_rollup_public_inputs_buf)
 {
-    DummyBuilder builder = DummyBuilder("merge_rollup__sim");
+    DummyCircuitBuilder builder = DummyCircuitBuilder("merge_rollup__sim");
     MergeRollupInputs<NT> merge_rollup_inputs;
-    read(merge_rollup_inputs_buf, merge_rollup_inputs);
+    serialize::read(merge_rollup_inputs_buf, merge_rollup_inputs);
 
     BaseOrMergeRollupPublicInputs const public_inputs = merge_rollup_circuit(builder, merge_rollup_inputs);
 
     // serialize public inputs to bytes vec
     std::vector<uint8_t> public_inputs_vec;
-    write(public_inputs_vec, public_inputs);
+    serialize::write(public_inputs_vec, public_inputs);
     // copy public inputs to output buffer
     auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
     memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());

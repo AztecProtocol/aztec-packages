@@ -1,5 +1,5 @@
-import { PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
-import { FunctionAbi } from '@aztec/foundation/abi';
+import { CompleteAddress, HistoricBlockData, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { FunctionAbi, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -19,7 +19,7 @@ export interface NoteData {
   /** The preimage of the note */
   preimage: Fr[];
   /** The corresponding nullifier of the note */
-  nullifier?: Fr;
+  siloedNullifier?: Fr;
   /** The note's leaf index in the private data tree. Undefined for pending notes. */
   index?: bigint;
 }
@@ -68,15 +68,25 @@ export interface CommitmentDataOracleInputs {
 }
 
 /**
+ * A function ABI with optional debug metadata
+ */
+export interface FunctionAbiWithDebugMetadata extends FunctionAbi {
+  /**
+   * Debug metadata for the function.
+   */
+  debug?: FunctionDebugMetadata;
+}
+
+/**
  * The database oracle interface.
  */
 export interface DBOracle extends CommitmentsDB {
   /**
-   * Retrieve the public key associated to a given address.
+   * Retrieve the complete address associated to a given address.
    * @param address - Address to fetch the pubkey for.
-   * @returns A public key and the corresponding partial contract address, such that the hash of the two resolves to the input address.
+   * @returns A complete address associated with the input address.
    */
-  getPublicKey(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
   /**
    * Retrieve the secret key associated with a specific public key.
@@ -106,10 +116,10 @@ export interface DBOracle extends CommitmentsDB {
    * The function is identified by its selector, which is a unique identifier generated from the function signature.
    *
    * @param contractAddress - The contract address.
-   * @param functionSelector - The Buffer containing the function selector bytes.
+   * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionAbi object containing the ABI information of the target function.
    */
-  getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi>;
+  getFunctionABI(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionAbiWithDebugMetadata>;
 
   /**
    * Retrieves the portal contract address associated with the given contract address.
@@ -119,4 +129,12 @@ export interface DBOracle extends CommitmentsDB {
    * @returns A Promise that resolves to an EthAddress instance, representing the portal contract address.
    */
   getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress>;
+
+  /**
+   * Retrieve the databases view of the Historic Block Data object.
+   * This structure is fed into the circuits simulator and is used to prove against certain historic roots.
+   *
+   * @returns A Promise that resolves to a HistoricBlockData object.
+   */
+  getHistoricBlockData(): Promise<HistoricBlockData>;
 }

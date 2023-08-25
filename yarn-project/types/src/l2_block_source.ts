@@ -1,3 +1,5 @@
+import { EthAddress } from '@aztec/circuits.js';
+
 import { L2Block } from './l2_block.js';
 
 /**
@@ -5,10 +7,23 @@ import { L2Block } from './l2_block.js';
  */
 export interface L2BlockSource {
   /**
+   * Method to fetch the rollup contract address at the base-layer.
+   * @returns The rollup address.
+   */
+  getRollupAddress(): Promise<EthAddress>;
+
+  /**
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  getBlockHeight(): Promise<number>;
+  getBlockNumber(): Promise<number>;
+
+  /**
+   * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
+   * @param number - The block number to return (inclusive).
+   * @returns The requested L2 block.
+   */
+  getL2Block(number: number): Promise<L2Block | undefined>;
 
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.

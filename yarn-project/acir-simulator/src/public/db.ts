@@ -1,4 +1,4 @@
-import { EthAddress, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -33,18 +33,18 @@ export interface PublicContractsDB {
   /**
    * Returns the brillig (public bytecode) of a function.
    * @param address - The contract address that owns this function.
-   * @param functionSelector - The selector for the function.
+   * @param selector - The selector for the function.
    * @returns The bytecode or undefined if not found.
    */
-  getBytecode(address: AztecAddress, functionSelector: Buffer): Promise<Buffer | undefined>;
+  getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined>;
 
   /**
    * Returns whether a function is internal or not.
    * @param address - The contract address that owns this function.
-   * @param functionSelector - The selector for the function.
+   * @param selector - The selector for the function.
    * @returns The `isInternal` flag found, undefined if not found.
    */
-  getIsInternal(address: AztecAddress, functionSelector: Buffer): Promise<boolean | undefined>;
+  getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined>;
 
   /**
    * Returns the portal contract address for an L2 address.
@@ -71,10 +71,4 @@ export interface CommitmentsDB {
    * @returns - The Commitment data oracle object
    */
   getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs>;
-
-  /**
-   * Gets the current tree roots from the merkle db.
-   * @returns current tree roots.
-   */
-  getTreeRoots(): PrivateHistoricTreeRoots;
 }

@@ -1,6 +1,6 @@
 // Account contract that uses Schnorr signatures for authentication. The signing key is the same as the
 // encryption key, and as such is not stored in the contract but part of the address preimage, so it can
-// be verified by passing in the partial contract address.
+// be verified by passing in the partial address.
 contract SchnorrSingleKeyAccount {
     use dep::std;
     use dep::aztec::entrypoint;
@@ -10,10 +10,11 @@ contract SchnorrSingleKeyAccount {
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::context::Context;
+    use dep::aztec::context::PrivateContext;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
     use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
+    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
     fn entrypoint(
         inputs: pub PrivateContextInputs,
@@ -29,12 +30,17 @@ contract SchnorrSingleKeyAccount {
         for byte in owner { args.push(byte as Field); }
         for byte in signature { args.push(byte as Field); }
         args.push(partial_address);
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
+        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
 
         // Verify payload signature
-        // TODO: Use pedersen to make the payload hash cheaper to compute
-        let payload_bytes: [u8; entrypoint::ENTRYPOINT_PAYLOAD_SIZE_IN_BYTES] = payload.to_be_bytes();
-        let payload_hash: [u8; 32] = std::hash::sha256(payload_bytes);
+        let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
+        let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
+        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = message_field.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 {
+          message_bytes[i] = message_bytes_slice[i];
+        }
 
         // Convert owner pubkey into fields
         let mut x: Field = 0;
@@ -49,13 +55,12 @@ contract SchnorrSingleKeyAccount {
         }
         
         // Verify signature of the payload hash
-        // TODO: Find out why this signature verification never fails
-        let verification = std::schnorr::verify_signature(x, y, signature, payload_hash);
+        let verification = std::schnorr::verify_signature(x, y, signature, message_bytes);
         assert(verification == true);
 
         // Verify public key against address
         let reproduced_address = dep::std::hash::pedersen_with_separator([x, y, partial_address], GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
-        assert(reproduced_address == inputs.call_context.storage_contract_address);
+        assert(reproduced_address == context.this_address());
 
         // Execute calls
         payload.execute_calls(&mut context);
@@ -68,6 +73,6 @@ contract SchnorrSingleKeyAccount {
         inputs: pub PrivateContextInputs,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
+        PrivateContext::new(inputs, 0).finish()
     }
 }

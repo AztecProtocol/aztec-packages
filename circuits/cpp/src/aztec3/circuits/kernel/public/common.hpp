@@ -180,7 +180,7 @@ void common_validate_inputs(DummyBuilder& builder, KernelInput const& public_ker
     builder.do_assert(this_call_stack_item.contract_address != 0,
                       "Contract address must be non-zero",
                       CircuitErrorCode::PUBLIC_KERNEL__CONTRACT_ADDRESS_INVALID);
-    builder.do_assert(this_call_stack_item.function_data.function_selector != 0,
+    builder.do_assert(this_call_stack_item.function_data.function_selector.value != 0,
                       "Function signature must be non-zero",
                       CircuitErrorCode::PUBLIC_KERNEL__FUNCTION_SIGNATURE_INVALID);
     builder.do_assert(this_call_stack_item.function_data.is_constructor == false,
@@ -224,7 +224,7 @@ void perform_static_call_checks(Builder& builder, KernelInput const& public_kern
 }
 
 /**
- * @brief Proagates valid (i.e. non-empty) update requests from this iteration to the circuit output
+ * @brief Propagates valid (i.e. non-empty) update requests from this iteration to the circuit output
  * @tparam The type of kernel input
  * @param public_kernel_inputs The inputs to this iteration of the kernel circuit
  * @param circuit_outputs The circuit outputs to be populated

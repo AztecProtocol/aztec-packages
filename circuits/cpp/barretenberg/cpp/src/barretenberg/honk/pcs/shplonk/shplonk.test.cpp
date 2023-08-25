@@ -13,15 +13,15 @@
 namespace proof_system::honk::pcs::shplonk {
 template <class Params> class ShplonkTest : public CommitmentTest<Params> {};
 
-using ParamsTypes = ::testing::Types<kzg::Params, ipa::Params>;
-TYPED_TEST_SUITE(ShplonkTest, ParamsTypes);
+using CurveTypes = ::testing::Types<curve::BN254, curve::Grumpkin>;
+TYPED_TEST_SUITE(ShplonkTest, CurveTypes);
 
 // Test of Shplonk prover/verifier for two polynomials of different size, each opened at a single (different) point
 TYPED_TEST(ShplonkTest, ShplonkSimple)
 {
     using ShplonkProver = ShplonkProver_<TypeParam>;
     using ShplonkVerifier = ShplonkVerifier_<TypeParam>;
-    using Fr = typename TypeParam::Fr;
+    using Fr = typename TypeParam::ScalarField;
     using Polynomial = typename barretenberg::Polynomial<Fr>;
     using OpeningPair = OpeningPair<TypeParam>;
     using OpeningClaim = OpeningClaim<TypeParam>;
@@ -52,8 +52,9 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
     prover_transcript.send_to_verifier("Shplonk:Q", this->ck()->commit(batched_quotient_Q));
 
     const Fr z_challenge = prover_transcript.get_challenge("Shplonk:z");
-    const auto [prover_opening_pair, shplonk_prover_witness] = ShplonkProver::compute_partially_evaluated_batched_quotient(
-        opening_pairs, polynomials, std::move(batched_quotient_Q), nu_challenge, z_challenge);
+    const auto [prover_opening_pair, shplonk_prover_witness] =
+        ShplonkProver::compute_partially_evaluated_batched_quotient(
+            opening_pairs, polynomials, std::move(batched_quotient_Q), nu_challenge, z_challenge);
 
     // An intermediate check to confirm the opening of the shplonk prover witness Q
     this->verify_opening_pair(prover_opening_pair, shplonk_prover_witness);

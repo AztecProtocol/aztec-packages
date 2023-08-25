@@ -35,37 +35,4 @@ if [ ! -f ~/.nvm/nvm.sh ]; then
 fi
 
 circuits/cpp/bootstrap.sh
-l1-contracts/bootstrap.sh
-
-if [ "$(uname)" = "Darwin" ]; then
-  # works around https://github.com/AztecProtocol/aztec3-packages/issues/158
-  echo "Note: not sourcing nvm on Mac, see github #158"
-else
-  \. ~/.nvm/nvm.sh
-fi
-nvm install
-
-cd yarn-project
-yarn install --immutable
-
-# Build the necessary dependencies for noir contracts typegen.
-for DIR in foundation noir-compiler; do
-  echo "Building $DIR..."
-  cd $DIR
-  yarn build
-  cd ..
-done
-
-cd noir-contracts && ./bootstrap.sh
-
-# Until we push .yarn/cache, we still need to install.
-cd ../
-yarn
-# We do not need to build individual packages, yarn build will build the root tsconfig.json
-yarn build
-yarn --cwd circuits.js remake-bindings
-yarn --cwd circuits.js remake-constants
-cd ..
-
-echo
-echo "Success! You could now run e.g.: ./scripts/tmux-splits e2e_deploy_contract"
+yarn-project/bootstrap.sh

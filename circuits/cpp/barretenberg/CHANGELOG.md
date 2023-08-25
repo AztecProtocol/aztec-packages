@@ -1,5 +1,90 @@
 # Changelog
 
+## [0.4.3](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.4.2...barretenberg-v0.4.3) (2023-08-23)
+
+
+### Features
+
+* **bb:** Use an environment variable to set the transcript URL ([#1750](https://github.com/AztecProtocol/barretenberg/issues/1750)) ([41d362e](https://github.com/AztecProtocol/barretenberg/commit/41d362e9c9ffeb763cd56ca8a9f8c4512b86c80c))
+
+
+### Bug Fixes
+
+* Clang version in README and subrepo edge case ([#1730](https://github.com/AztecProtocol/barretenberg/issues/1730)) ([74158c4](https://github.com/AztecProtocol/barretenberg/commit/74158c4e467d4b6ab90e7d5aeb9a28f04adc1d66))
+* Download SRS using one canonical URL across the codebase ([#1748](https://github.com/AztecProtocol/barretenberg/issues/1748)) ([5c91de7](https://github.com/AztecProtocol/barretenberg/commit/5c91de7296e054f6d5ac3dca94ca85e06d496048))
+* Proving fails when circuit has size &gt; ~500K ([#1739](https://github.com/AztecProtocol/barretenberg/issues/1739)) ([6d32383](https://github.com/AztecProtocol/barretenberg/commit/6d323838a525190618d608598357ee4608c46699))
+* Revert clang check bootstrap.sh ([#1734](https://github.com/AztecProtocol/barretenberg/issues/1734)) ([65a38bc](https://github.com/AztecProtocol/barretenberg/commit/65a38bc045c66c5f64e87ba8c6e446945f2f0a24))
+* Update barretenberg bootstrap.sh for mac ([#1732](https://github.com/AztecProtocol/barretenberg/issues/1732)) ([f21ac3e](https://github.com/AztecProtocol/barretenberg/commit/f21ac3e893b5d30f7a4ba8ca10e6fd70f5c617b4))
+
+## [0.4.2](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.4.1...barretenberg-v0.4.2) (2023-08-21)
+
+
+### Bug Fixes
+
+* Remove automatic update to `AztecProtocol/dev-bb.js` ([#1712](https://github.com/AztecProtocol/barretenberg/issues/1712)) ([d883900](https://github.com/AztecProtocol/barretenberg/commit/d883900f9b297f659d14583ac93eede5160f9aae))
+
+## [0.4.1](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.4.0...barretenberg-v0.4.1) (2023-08-21)
+
+
+### Bug Fixes
+
+* **bb:** Fix Typo ([#1709](https://github.com/AztecProtocol/barretenberg/issues/1709)) ([286d64e](https://github.com/AztecProtocol/barretenberg/commit/286d64e6036336314114f1d2a25273f4dabe36f4))
+
+## [0.4.0](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.3.6...barretenberg-v0.4.0) (2023-08-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* Barretenberg binaries now take in the encoded circuit instead of a json file ([#1618](https://github.com/AztecProtocol/barretenberg/issues/1618))
+
+### Features
+
+* Add msgpack defs to remaining circuit types ([#1538](https://github.com/AztecProtocol/barretenberg/issues/1538)) ([e560e39](https://github.com/AztecProtocol/barretenberg/commit/e560e3955d039a93e2ed157c684ea36abd178d4b))
+* Add workflow to output to dev-bb.js ([#1299](https://github.com/AztecProtocol/barretenberg/issues/1299)) ([25a54f1](https://github.com/AztecProtocol/barretenberg/commit/25a54f123e6f98dafef4cd882839106eadf6ab8d))
+* Celer benchmark ([#1369](https://github.com/AztecProtocol/barretenberg/issues/1369)) ([8fd364a](https://github.com/AztecProtocol/barretenberg/commit/8fd364a3ff6e7b5f377ef5ec37649b47fe0a3e44))
+* Honk recursive verifier Pt. 1 ([#1488](https://github.com/AztecProtocol/barretenberg/issues/1488)) ([030dace](https://github.com/AztecProtocol/barretenberg/commit/030dacebd9831ed938b546133373cad63e17ecd8))
+* New stdlib Transcript  ([#1219](https://github.com/AztecProtocol/barretenberg/issues/1219)) ([1b9e077](https://github.com/AztecProtocol/barretenberg/commit/1b9e0770e7e470f2708eb6f96cd5ee831b84f4f4))
+
+
+### Bug Fixes
+
+* **acir:** When retrying failed ACIR tests it should not use the default CLI argument ([#1673](https://github.com/AztecProtocol/barretenberg/issues/1673)) ([ea4792d](https://github.com/AztecProtocol/barretenberg/commit/ea4792ddc9c23f7390f47cf78d4939cce6458a46))
+* Align bbmalloc implementations ([#1513](https://github.com/AztecProtocol/barretenberg/issues/1513)) ([b92338d](https://github.com/AztecProtocol/barretenberg/commit/b92338d3c9de9d21a6933747a3f1479266d16f9e))
+* Barretenberg binaries now take in the encoded circuit instead of a json file ([#1618](https://github.com/AztecProtocol/barretenberg/issues/1618)) ([180cdc9](https://github.com/AztecProtocol/barretenberg/commit/180cdc9ac7cf9aa793d9774dc866ceb4e6ec3fbc))
+* Bb sync take 2 ([#1669](https://github.com/AztecProtocol/barretenberg/issues/1669)) ([d3eebe4](https://github.com/AztecProtocol/barretenberg/commit/d3eebe46e5b702801c866d7dd073a0eeb9f475b7))
+* Bin reference when installing package ([#678](https://github.com/AztecProtocol/barretenberg/issues/678)) ([c734295](https://github.com/AztecProtocol/barretenberg/commit/c734295a10d2c40ede773519664170880f28b2b7))
+* Fix paths in `barretenberg` bootstrap.sh script ([#1662](https://github.com/AztecProtocol/barretenberg/issues/1662)) ([c8917cd](https://github.com/AztecProtocol/barretenberg/commit/c8917cd8ec415dafe5309ec0e90aba28184d8294))
+* Fixed a failing test and added a small fuzzer ([#1384](https://github.com/AztecProtocol/barretenberg/issues/1384)) ([441e972](https://github.com/AztecProtocol/barretenberg/commit/441e972c88c5c314b4958e158f977f60a8c9e32d))
+* Sync aztec master ([#680](https://github.com/AztecProtocol/barretenberg/issues/680)) ([3afc243](https://github.com/AztecProtocol/barretenberg/commit/3afc2438053f530e49fbebbdbadd8db8a630bb8c))
+
+## [0.3.6](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.3.5...barretenberg-v0.3.6) (2023-08-08)
+
+
+### Features
+
+* Update release-please.yml ([#651](https://github.com/AztecProtocol/barretenberg/issues/651)) ([2795df6](https://github.com/AztecProtocol/barretenberg/commit/2795df6b705175a32fe2a6f18b3c572e297e277e))
+
+## [0.3.5](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.3.4...barretenberg-v0.3.5) (2023-08-07)
+
+
+### Features
+
+* Celer benchmark ([#1369](https://github.com/AztecProtocol/barretenberg/issues/1369)) ([d4ade2a](https://github.com/AztecProtocol/barretenberg/commit/d4ade2a5f06a3abf3c9c2635946d7121cc2f64b4))
+* Goblin Honk Composer/Prover/Verifier ([#1220](https://github.com/AztecProtocol/barretenberg/issues/1220)) ([970bb07](https://github.com/AztecProtocol/barretenberg/commit/970bb073763cc59552cd05dccf7f8fc63f58cef9))
+* Goblin translator prototype ([#1249](https://github.com/AztecProtocol/barretenberg/issues/1249)) ([7738d74](https://github.com/AztecProtocol/barretenberg/commit/7738d74791acc0fa8b1b1d8bb2a77783ca900123))
+* Internal keyword + lending contract and tests ([#978](https://github.com/AztecProtocol/barretenberg/issues/978)) ([e58ca4b](https://github.com/AztecProtocol/barretenberg/commit/e58ca4b332272fc57b2a5358bb5003bac79a8f5a))
+* Minimal barretenberg .circleci ([#1352](https://github.com/AztecProtocol/barretenberg/issues/1352)) ([708e2e2](https://github.com/AztecProtocol/barretenberg/commit/708e2e2786de5dce5bfc770c54734e5862a436e5))
+
+
+### Bug Fixes
+
+* Bootstrap.sh git hook for monorepo ([#1256](https://github.com/AztecProtocol/barretenberg/issues/1256)) ([b22b8d5](https://github.com/AztecProtocol/barretenberg/commit/b22b8d5f42ddfae140068c3ce8b3053d4c8d1874))
+* Build-system spot request cancellation ([#1339](https://github.com/AztecProtocol/barretenberg/issues/1339)) ([fc1d96a](https://github.com/AztecProtocol/barretenberg/commit/fc1d96a744a8d5a6cae06c408546c3638408551d))
+* Fixing external benchmarks ([#1250](https://github.com/AztecProtocol/barretenberg/issues/1250)) ([0ea6a39](https://github.com/AztecProtocol/barretenberg/commit/0ea6a39950e8cd5ff7765031457c162d03ebae06))
+* Fixing fuzzing build after composer splitting ([#1317](https://github.com/AztecProtocol/barretenberg/issues/1317)) ([946c23c](https://github.com/AztecProtocol/barretenberg/commit/946c23c52d45ddce973e453c40c048734e7f6937))
+* Reinstate barretenberg-benchmark-aggregator ([#1330](https://github.com/AztecProtocol/barretenberg/issues/1330)) ([407a915](https://github.com/AztecProtocol/barretenberg/commit/407a915a94c7d83dec9e14a11ad0e3461fd2906d))
+* Retry git submodule fetch ([#1371](https://github.com/AztecProtocol/barretenberg/issues/1371)) ([037dda3](https://github.com/AztecProtocol/barretenberg/commit/037dda3d254d56a20292d2bed5a9582d36c08427))
+
 ## [0.3.4](https://github.com/AztecProtocol/barretenberg/compare/barretenberg-v0.3.3...barretenberg-v0.3.4) (2023-07-25)
 
 

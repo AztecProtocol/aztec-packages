@@ -1,6 +1,6 @@
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts as noir
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
 
 FROM node:18-alpine AS builder_
 RUN apk update && apk add --no-cache build-base git python3 curl bash jq sed
@@ -23,6 +23,7 @@ COPY aztec-node/package.json aztec-node/package.json
 COPY aztec-sandbox/package.json aztec-sandbox/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY aztec.js/package.local.json aztec.js/package.local.json
+COPY canary/package.json canary/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum/package.json ethereum/package.json
@@ -55,7 +56,7 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
 # https://github.com/yarnpkg/berry/issues/1789
 #
-# To work around this, we construct a global cache from the local cache using hard links (requires a hacky rename).
+# To work around this, we will construct a global cache from the local cache using hard links (requires a hacky rename).
 # When we build an upstream docker image, we:
 # - Do the build.
 # - Erase the local cache with a `yarn cache clean`. Files remain in global cache due to hard link.
@@ -82,6 +83,7 @@ COPY aztec-rpc/tsconfig.json aztec-rpc/tsconfig.json
 COPY aztec-node/tsconfig.json aztec-node/tsconfig.json
 COPY aztec-sandbox/tsconfig.json aztec-sandbox/tsconfig.json
 COPY aztec.js/tsconfig.json aztec.js/tsconfig.json
+COPY canary/tsconfig.json canary/tsconfig.json
 COPY end-to-end/tsconfig.json end-to-end/tsconfig.json
 COPY ethereum/tsconfig.json ethereum/tsconfig.json
 COPY foundation/tsconfig.json foundation/tsconfig.json
@@ -116,8 +118,11 @@ COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
 WORKDIR /usr/src/yarn-project/noir-contracts
 
+# Run yarn build to have the json ABIs available for the types generator
 RUN yarn build
 RUN ./scripts/types_ci.sh
+# Run yarn build again to build the types
+RUN yarn build
 
 # Take noir contract artifacts into the final build image
 FROM builder_ as final

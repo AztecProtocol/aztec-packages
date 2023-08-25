@@ -24,12 +24,19 @@ contract NonNativeToken {
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
-    use crate::transparent_note::TransparentNote;
+    use crate::transparent_note::{
+        TransparentNote,
+        TransparentNoteMethods,
+        TRANSPARENT_NOTE_LEN,
+    };
 
     use crate::storage::Storage;
     use crate::hash::{get_mint_content_hash, get_withdraw_content_hash};
 
-    use dep::aztec::context::Context;
+    use dep::aztec::context::{
+        PrivateContext,
+        PublicContext,
+    };
     use dep::aztec::types::point::Point;
     use dep::aztec::{
         abi,
@@ -43,28 +50,19 @@ contract NonNativeToken {
         },
     };
 
-    // oracles
-    use dep::aztec::oracle::{
-        create_l2_to_l1_message::create_l2_to_l1_message,
-    };
-
-    // public messaging
-    use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-
-    use dep::aztec::oracle::create_commitment::create_commitment;
 
     fn constructor(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        initial_supply: Field, 
+        initial_supply: Field,
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
 
-        let mut context = Context::new(inputs, abi::hash_args([initial_supply, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, owner]));
 
         let balance = storage.balances.at(owner);
         send_note(&mut context, balance, initial_supply, owner);
@@ -74,14 +72,14 @@ contract NonNativeToken {
     }
 
     // Mint Private Function
-    // This mint function differs to the typical token mint function as it only allows minting 
+    // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
     fn mint(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
+        amount: Field,
         owner: Field,
         // This field should be hidden
         msg_key: Field,
@@ -90,7 +88,7 @@ contract NonNativeToken {
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
 
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             amount, owner, msg_key, secret, canceller
         ]));
 
@@ -114,13 +112,13 @@ contract NonNativeToken {
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
-        sender: Field, 
+        amount: Field,
+        sender: Field,
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             amount, sender, recipient, callerOnL1
         ]));
 
@@ -135,33 +133,38 @@ contract NonNativeToken {
     }
 
     // Mint Public Function
-    // This mint function differs to the typical token mint function as it only allows minting 
+    // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
     open fn mintPublic(
         //*********************************/
         // Should eventually be hidden:
         inputs: PublicContextInputs,
         //*********************************/
-        amount: Field, 
+        amount: Field,
         owner_address: Field,
         // This field should be hidden
         msg_key: Field,
         secret: Field,
         canceller: Field,
-    ) -> pub Field {
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, owner_address, msg_key, secret, canceller]));
+
         let storage = Storage::init();
         let public_balances = storage.public_balances;
 
         let content_hash = get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
-        consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         // Update the public balance
         let recipient_balance = public_balances.at(owner_address);
         let new_balance = recipient_balance.read() + amount;
         recipient_balance.write(new_balance);
-        new_balance
+
+        // Push the return value into the context
+        context.return_values.push(new_balance);
+        context.finish()
     }
 
 
@@ -174,11 +177,13 @@ contract NonNativeToken {
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-    ) {
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient, callerOnL1]));
+
         let storage = Storage::init();
         let public_balances = storage.public_balances;
-        
-        let sender = inputs.call_context.msg_sender;
+
+        let sender = context.msg_sender();
         let sender_balance = public_balances.at(sender);
 
         let current_sender_balance: Field = sender_balance.read();
@@ -186,29 +191,32 @@ contract NonNativeToken {
         if (current_sender_balance as u120) > (amount as u120) {
             // User has sufficient balance so we decrement it by `amount`
             let _void1 = sender_balance.write(current_sender_balance - amount);
-        }  
+        }
         // TODO: Revert if there is not enough balance
 
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message
-        create_l2_to_l1_message(content);
+        context.message_portal(content);
+
+        // Push the return value into the context
+        context.finish()
     }
 
 
     // Transfers `amount` of tokens from `sender`'s private balance to a `recipient`.
-    // Note: Copied from ZkToken
+    // Note: Copied from PrivateToken
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
-        amount: Field, 
-        sender: Field, 
+        amount: Field,
+        sender: Field,
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             amount, sender, recipient
         ]));
 
@@ -228,12 +236,15 @@ contract NonNativeToken {
         inputs: PublicContextInputs,
         amount: Field,
         secretHash: Field,
-    ) {
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, secretHash]));
+
         let storage = Storage::init();
         let public_balances = storage.public_balances;
+        let pending_shields = storage.pending_shields;
 
         // Decrease user's balance.
-        let sender = inputs.call_context.msg_sender;
+        let sender = context.msg_sender();
         let sender_balance = public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
 
@@ -241,16 +252,18 @@ contract NonNativeToken {
 
         // User has sufficient balance so we decrement it by `amount`
         let _void1 = sender_balance.write(current_sender_balance - amount);
-        
-        // Create a commitment to the amount
-        let note = TransparentNote::new(amount, secretHash);
-        
-        // Public oracle call to emit new commitment.
-        create_commitment(note.get_commitment());
+
+        // Create a commitment to the "amount" using the "secretHash"
+        // and insert it into the set of "pending_shields" and therefore
+        // (eventually) the private data tree.
+        let mut note = TransparentNote::new(amount, secretHash);
+        pending_shields.insert_from_public(&mut context, &mut note);
+
+        context.finish()
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
-    // in the private context. 
+    // in the private context.
     fn redeemShield(
         inputs: PrivateContextInputs,
         amount: Field,
@@ -258,14 +271,16 @@ contract NonNativeToken {
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
+        let pending_shields = storage.pending_shields;
 
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             amount, secret, owner
         ]));
 
-        // Assert that the note exists within the tree
         let public_note = TransparentNote::new_from_secret(amount, secret);
-        public_note.consume_in_secret(&mut context, inputs.roots.private_data_tree_root, secret);
+
+        // Ensure that the note exists in the tree and remove it.
+        pending_shields.assert_contains_and_remove(&mut context, public_note);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);
@@ -281,7 +296,7 @@ contract NonNativeToken {
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = Context::new(inputs, abi::hash_args([
+        let mut context = PrivateContext::new(inputs, abi::hash_args([
             amount, owner, recipient
         ]));
 
@@ -290,8 +305,8 @@ contract NonNativeToken {
         spend_notes(&mut context, sender_balance, amount, owner);
 
         // enqueue a public function to perform the public state update.
-        let thisAddress = inputs.call_context.storage_contract_address;
-        
+        let thisAddress = context.this_address();
+
         // addUnshieldedBalance selector (in decimal)
         // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
         let pubEntryPointSelector = 753269941;
@@ -301,16 +316,20 @@ contract NonNativeToken {
     }
 
     open fn addUnshieldedBalance(
-        _inputs: PublicContextInputs,
+        inputs: PublicContextInputs,
         amount: Field,
         recipient: Field,
-    ) {
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
+
         let storage = Storage::init();
 
         let recipient_balance = storage.public_balances.at(recipient);
         let current_balance = recipient_balance.read();
         let new_balance = current_balance + amount;
         recipient_balance.write(new_balance);
+
+        context.finish()
     }
 
     unconstrained fn getBalance(
@@ -318,8 +337,8 @@ contract NonNativeToken {
     ) -> Field {
         let storage = Storage::init();
         let owner_balance = storage.balances.at(owner);
-        
-        balance_utils::get_balance(owner_balance.storage_slot)
+
+        balance_utils::get_balance(owner_balance)
     }
 
     // Computes note hash and nullifier.
@@ -327,6 +346,17 @@ contract NonNativeToken {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        if (storage_slot == 2) {
+            note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
+        } else {
+            note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
+        }
+    }
+
+    unconstrained fn publicBalanceOf(
+        owner: Field,
+    ) -> Field {
+        let storage = Storage::init();
+        storage.public_balances.at(owner).read()
     }
 }

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../claim.hpp"
-#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
@@ -56,20 +55,20 @@ namespace proof_system::honk::pcs::gemini {
  *   ...
  *   Aₘ₋₁(X) = (1-uₘ₋₂)⋅even(Aₘ₋₂)(X) + uₘ₋₂⋅odd(Aₘ₋₂)(X)
  * ]
- * @tparam Params CommitmentScheme parameters
+ * @tparam Curve CommitmentScheme parameters
  */
-template <typename Params> struct ProverOutput {
-    std::vector<OpeningPair<Params>> opening_pairs;
-    std::vector<barretenberg::Polynomial<typename Params::Fr>> witnesses;
+template <typename Curve> struct ProverOutput {
+    std::vector<OpeningPair<Curve>> opening_pairs;
+    std::vector<barretenberg::Polynomial<typename Curve::ScalarField>> witnesses;
 };
 
 /**
  * @brief Compute powers of challenge ρ
- * 
- * @tparam Fr 
- * @param rho 
- * @param num_powers 
- * @return std::vector<Fr> 
+ *
+ * @tparam Fr
+ * @param rho
+ * @param num_powers
+ * @return std::vector<Fr>
  */
 template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const size_t num_powers)
 {
@@ -84,10 +83,9 @@ template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr rho, const siz
 /**
  * @brief Compute squares of folding challenge r
  *
- * @tparam Params
  * @param r
  * @param num_squares The number of foldings
- * @return std::vector<typename Params::Fr>
+ * @return std::vector<typename Curve::ScalarField>
  */
 template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t num_squares)
 {
@@ -99,8 +97,8 @@ template <class Fr> inline std::vector<Fr> squares_of_r(const Fr r, const size_t
     return squares;
 };
 
-template <typename Params> class GeminiProver_ {
-    using Fr = typename Params::Fr;
+template <typename Curve> class GeminiProver_ {
+    using Fr = typename Curve::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
   public:
@@ -108,37 +106,154 @@ template <typename Params> class GeminiProver_ {
                                                             Polynomial&& batched_unshifted,
                                                             Polynomial&& batched_to_be_shifted);
 
-    static ProverOutput<Params> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
-                                                                    std::vector<Polynomial>&& fold_polynomials,
-                                                                    const Fr& r_challenge);
+    static ProverOutput<Curve> compute_fold_polynomial_evaluations(std::span<const Fr> mle_opening_point,
+                                                                   std::vector<Polynomial>&& fold_polynomials,
+                                                                   const Fr& r_challenge);
 }; // namespace proof_system::honk::pcs::gemini
 
-template <typename Params> class GeminiVerifier_ {
-    using Fr = typename Params::Fr;
-    using GroupElement = typename Params::GroupElement;
-    using Commitment = typename Params::Commitment;
+template <typename Curve> class GeminiVerifier_ {
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
 
   public:
-    static std::vector<OpeningClaim<Params>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
-                                                           const Fr batched_evaluation,           /* all */
-                                                           GroupElement& batched_f,               /* unshifted */
-                                                           GroupElement& batched_g,               /* to-be-shifted */
-                                                           VerifierTranscript<Fr>& transcript);
+    /**
+     * @brief Returns univariate opening claims for the Fold polynomials to be checked later
+     *
+     * @param mle_opening_point the MLE evaluation point u
+     * @param batched_evaluation batched evaluation from multivariate evals at the point u
+     * @param batched_f batched commitment to unshifted polynomials
+     * @param batched_g batched commitment to to-be-shifted polynomials
+     * @param proof commitments to the m-1 folded polynomials, and alleged evaluations.
+     * @param transcript
+     * @return Fold polynomial opening claims: (r, A₀(r), C₀₊), (-r, A₀(-r), C₀₋), and
+     * (Cⱼ, Aⱼ(-r^{2ʲ}), -r^{2}), j = [1, ..., m-1]
+     */
+    static std::vector<OpeningClaim<Curve>> reduce_verification(std::span<const Fr> mle_opening_point, /* u */
+                                                                const Fr batched_evaluation,           /* all */
+                                                                GroupElement& batched_f,               /* unshifted */
+                                                                GroupElement& batched_g, /* to-be-shifted */
+                                                                auto& transcript)
+    {
+        const size_t num_variables = mle_opening_point.size();
+
+        // Get polynomials Fold_i, i = 1,...,m-1 from transcript
+        std::vector<Commitment> commitments;
+        commitments.reserve(num_variables - 1);
+        for (size_t i = 0; i < num_variables - 1; ++i) {
+            auto commitment =
+                transcript.template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
+            commitments.emplace_back(commitment);
+        }
+
+        // compute vector of powers of random evaluation point r
+        const Fr r = transcript.get_challenge("Gemini:r");
+        std::vector<Fr> r_squares = squares_of_r(r, num_variables);
+
+        // Get evaluations a_i, i = 0,...,m-1 from transcript
+        std::vector<Fr> evaluations;
+        evaluations.reserve(num_variables);
+        for (size_t i = 0; i < num_variables; ++i) {
+            auto eval = transcript.template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
+            evaluations.emplace_back(eval);
+        }
+
+        // Compute evaluation A₀(r)
+        auto a_0_pos = compute_eval_pos(batched_evaluation, mle_opening_point, r_squares, evaluations);
+
+        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
+        // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ]
+        auto [c0_r_pos, c0_r_neg] = compute_simulated_commitments(batched_f, batched_g, r);
+
+        std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
+        fold_polynomial_opening_claims.reserve(num_variables + 1);
+
+        // ( [A₀₊], r, A₀(r) )
+        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, a_0_pos }, c0_r_pos });
+        // ( [A₀₋], -r, A₀(-r) )
+        fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, c0_r_neg });
+        for (size_t l = 0; l < num_variables - 1; ++l) {
+            // ([A₀₋], −r^{2ˡ}, Aₗ(−r^{2ˡ}) )
+            fold_polynomial_opening_claims.emplace_back(
+                OpeningClaim<Curve>{ { -r_squares[l + 1], evaluations[l + 1] }, commitments[l] });
+        }
+
+        return fold_polynomial_opening_claims;
+    }
 
   private:
+    /**
+     * @brief Compute the expected evaluation of the univariate commitment to the batched polynomial.
+     *
+     * @param batched_mle_eval The evaluation of the folded polynomials
+     * @param mle_vars MLE opening point u
+     * @param r_squares squares of r, r², ..., r^{2ᵐ⁻¹}
+     * @param fold_polynomial_evals series of Aᵢ₋₁(−r^{2ⁱ⁻¹})
+     * @return evaluation A₀(r)
+     */
     static Fr compute_eval_pos(const Fr batched_mle_eval,
                                std::span<const Fr> mle_vars,
                                std::span<const Fr> r_squares,
-                               std::span<const Fr> fold_polynomial_evals);
+                               std::span<const Fr> fold_polynomial_evals)
+    {
+        const size_t num_variables = mle_vars.size();
 
+        const auto& evals = fold_polynomial_evals;
+
+        // Initialize eval_pos with batched MLE eval v = ∑ⱼ ρʲ vⱼ + ∑ⱼ ρᵏ⁺ʲ v↺ⱼ
+        Fr eval_pos = batched_mle_eval;
+        for (size_t l = num_variables; l != 0; --l) {
+            const Fr r = r_squares[l - 1];    // = rₗ₋₁ = r^{2ˡ⁻¹}
+            const Fr eval_neg = evals[l - 1]; // = Aₗ₋₁(−r^{2ˡ⁻¹})
+            const Fr u = mle_vars[l - 1];     // = uₗ₋₁
+
+            // The folding property ensures that
+            //                     Aₗ₋₁(r^{2ˡ⁻¹}) + Aₗ₋₁(−r^{2ˡ⁻¹})      Aₗ₋₁(r^{2ˡ⁻¹}) - Aₗ₋₁(−r^{2ˡ⁻¹})
+            // Aₗ(r^{2ˡ}) = (1-uₗ₋₁) ----------------------------- + uₗ₋₁ -----------------------------
+            //                                   2                                2r^{2ˡ⁻¹}
+            // We solve the above equation in Aₗ₋₁(r^{2ˡ⁻¹}), using the previously computed Aₗ(r^{2ˡ}) in eval_pos
+            // and using Aₗ₋₁(−r^{2ˡ⁻¹}) sent by the prover in the proof.
+            eval_pos = ((r * eval_pos * 2) - eval_neg * (r * (Fr(1) - u) - u)) / (r * (Fr(1) - u) + u);
+        }
+
+        return eval_pos; // return A₀(r)
+    }
+
+    /**
+     * @brief Computes two commitments to A₀ partially evaluated in r and -r.
+     *
+     * @param batched_f batched commitment to non-shifted polynomials
+     * @param batched_g batched commitment to to-be-shifted polynomials
+     * @param r evaluation point at which we have partially evaluated A₀ at r and -r.
+     * @return std::pair<Commitment, Commitment>  c0_r_pos, c0_r_neg
+     */
     static std::pair<GroupElement, GroupElement> compute_simulated_commitments(GroupElement& batched_f,
                                                                                GroupElement& batched_g,
-                                                                               Fr r);
+                                                                               Fr r)
+    {
+        // C₀ᵣ₊ = [F] + r⁻¹⋅[G]
+        GroupElement C0_r_pos = batched_f;
+        // C₀ᵣ₋ = [F] - r⁻¹⋅[G]
+        GroupElement C0_r_neg = batched_f;
+        Fr r_inv = r.invert();
+
+        // TODO(luke): reinstate some kind of !batched_g.is_point_at_infinity() check for stdlib types? This is mostly
+        // relevant for Gemini unit tests since in practice batched_g != zero (i.e. we will always have shifted polys).
+        bool batched_g_is_point_at_infinity = false;
+        if constexpr (!Curve::is_stdlib_type) { // Note: required for Gemini tests with no shifts
+            batched_g_is_point_at_infinity = batched_g.is_point_at_infinity();
+        }
+        if (!batched_g_is_point_at_infinity) {
+            batched_g = batched_g * r_inv;
+            C0_r_pos += batched_g;
+            C0_r_neg -= batched_g;
+        }
+
+        return { C0_r_pos, C0_r_neg };
+    }
+
 }; // namespace proof_system::honk::pcs::gemini
 
-extern template class GeminiProver_<kzg::Params>;
-extern template class GeminiProver_<ipa::Params>;
-extern template class GeminiVerifier_<kzg::Params>;
-extern template class GeminiVerifier_<ipa::Params>;
-
+extern template class GeminiProver_<curve::BN254>;
+extern template class GeminiProver_<curve::Grumpkin>;
 } // namespace proof_system::honk::pcs::gemini

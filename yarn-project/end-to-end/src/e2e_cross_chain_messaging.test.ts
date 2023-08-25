@@ -6,8 +6,8 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { CrossChainTestHarness } from './cross_chain/test_harness.js';
-import { delay, setup } from './utils.js';
+import { CrossChainTestHarness } from './fixtures/cross_chain_test_harness.js';
+import { delay, setup } from './fixtures/utils.js';
 
 describe('e2e_cross_chain_messaging', () => {
   let aztecNode: AztecNodeService;
@@ -33,6 +33,7 @@ describe('e2e_cross_chain_messaging', () => {
       accounts,
       wallet,
       logger: logger_,
+      cheatCodes,
     } = await setup(2);
     crossChainTestHarness = await CrossChainTestHarness.new(
       initialBalance,
@@ -42,6 +43,7 @@ describe('e2e_cross_chain_messaging', () => {
       accounts,
       wallet,
       logger_,
+      cheatCodes,
     );
 
     l2Contract = crossChainTestHarness.l2Contract;
@@ -64,7 +66,7 @@ describe('e2e_cross_chain_messaging', () => {
   });
 
   const expectBalance = async (owner: AztecAddress, expectedBalance: bigint) => {
-    const [balance] = await l2Contract.methods.getBalance(owner).view({ from: owner });
+    const balance = await l2Contract.methods.getBalance(owner).view({ from: owner });
     logger(`Account ${owner} balance: ${balance}`);
     expect(balance).toBe(expectedBalance);
   };
@@ -75,7 +77,7 @@ describe('e2e_cross_chain_messaging', () => {
       .withdraw(withdrawAmount, ownerAddress, ethAccount, EthAddress.ZERO.toField())
       .send({ origin: ownerAddress });
 
-    await withdrawTx.isMined(0, 0.1);
+    await withdrawTx.isMined({ interval: 0.1 });
     const withdrawReceipt = await withdrawTx.getReceipt();
 
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
