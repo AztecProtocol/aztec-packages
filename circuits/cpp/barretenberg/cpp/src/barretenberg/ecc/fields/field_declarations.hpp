@@ -201,6 +201,9 @@ template <class Params_> struct alignas(32) field {
     BBERG_INLINE constexpr field operator-=(const field& other) noexcept;
     constexpr field operator/=(const field& other) noexcept;
 
+    // NOTE: comparison operators exist so that `field` is comparible with stl methods that require them.
+    //       (e.g. std::sort)
+    //       Finite fields do not have an explicit ordering, these should *NEVER* be used in algebraic algorithms.
     BBERG_INLINE constexpr bool operator>(const field& other) const noexcept;
     BBERG_INLINE constexpr bool operator<(const field& other) const noexcept;
     BBERG_INLINE constexpr bool operator==(const field& other) const noexcept;
@@ -299,8 +302,6 @@ template <class Params_> struct alignas(32) field {
             return;
         }
         field input = k.reduce_once();
-        // uint64_t lambda_reduction[4] = { 0 };
-        // __to_montgomery_form(lambda, lambda_reduction);
 
         constexpr field endo_g1 = { Params::endo_g1_lo, Params::endo_g1_mid, Params::endo_g1_hi, 0 };
 
@@ -416,8 +417,6 @@ template <class Params_> struct alignas(32) field {
     static field random_element(numeric::random::Engine* engine = nullptr) noexcept;
 
     static constexpr field multiplicative_generator() noexcept;
-
-    // BBERG_INLINE sstatic constexpr void butterfly(field& left, field& right) noexcept;
 
     // For serialization
     void msgpack_pack(auto& packer) const;
@@ -565,26 +564,3 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 }
 
 } // namespace barretenberg
-
-// namespace serlialize {
-
-// template <typename B, typename Params> void read(B& it, barretenberg::field<Params>& value)
-// {
-//     using serialize::read;
-//     barretenberg::field<Params> result{ 0, 0, 0, 0 };
-//     read(it, result.data[3]);
-//     read(it, result.data[2]);
-//     read(it, result.data[1]);
-//     read(it, result.data[0]);
-//     value = result.to_montgomery_form();
-// }
-// template <typename B, typename Params> void write(B& buf, barretenberg::field<Params> const& value)
-// {
-//     using serialize::write;
-//     const barretenberg::field<Params> input = value.from_montgomery_form();
-//     write(buf, input.data[3]);
-//     write(buf, input.data[2]);
-//     write(buf, input.data[1]);
-//     write(buf, input.data[0]);
-// }
-// } // namespace serlialize

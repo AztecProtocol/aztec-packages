@@ -150,7 +150,6 @@ template <typename T> concept ArithmeticFuzzHelperConstraint = requires
     typename T::ExecutionState;
     typename T::ExecutionHandler;
     InstructionArgumentSizes<typename T::ArgSizes>;
-    // HavocConfigConstraint<typename T::HavocConfig>;
 };
 
 /**
@@ -597,7 +596,7 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
      * @param instructions
      */
     template <typename Composer>
-    // TODO(@Rumata888)(from Zac: maybe try to fix? I'm not comfortable refactoring this myself!)
+    // TODO(@Rumata888)(from Zac: maybe try to fix? not comfortable refactoring this myself. Issue #1807)
     // NOLINTNEXTLINE(readability-function-size, google-readability-function-size)
     inline static void executeInstructions(
         std::vector<typename T::Instruction>& instructions) requires CheckableComposer<Composer>

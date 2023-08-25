@@ -4,8 +4,10 @@
 
 using namespace barretenberg;
 
-// used to ensure variables are evaluated at runtime and not compile time
-void crude_copy(const fq& in, fq& out)
+// Used to ensure variables are evaluated at runtime and not compile time.
+// If EXPECT_EQ macro params are evaluated at compile-time, compiler can optimise them away.
+// This triggers compiler errors due to the gtest suite expecting at least one test statement in a TEST macro
+void shallow_copy(const fq& in, fq& out)
 {
     out.data[0] = in.data[0];
     out.data[1] = in.data[1];
@@ -39,12 +41,12 @@ TEST(fq, Eq)
     fq e_var;
     fq f_var;
 
-    crude_copy(a, a_var);
-    crude_copy(b, b_var);
-    crude_copy(c, c_var);
-    crude_copy(d, d_var);
-    crude_copy(e, e_var);
-    crude_copy(f, f_var);
+    shallow_copy(a, a_var);
+    shallow_copy(b, b_var);
+    shallow_copy(c, c_var);
+    shallow_copy(d, d_var);
+    shallow_copy(e, e_var);
+    shallow_copy(f, f_var);
 
     EXPECT_EQ(a_var == a_var, true);
     EXPECT_EQ(a_var == b_var, true);
@@ -99,8 +101,8 @@ TEST(fq, MulCheckAgainstConstants)
 
     fq c;
     fq d;
-    crude_copy(a, c);
-    crude_copy(b, d);
+    shallow_copy(a, c);
+    shallow_copy(b, d);
     EXPECT_EQ(c * d, const_expected);
 }
 
@@ -115,8 +117,8 @@ TEST(fq, MulShortIntegers)
 
     fq c;
     fq d;
-    crude_copy(a, c);
-    crude_copy(b, d);
+    shallow_copy(a, c);
+    shallow_copy(b, d);
     EXPECT_EQ(c * d, const_expected);
 }
 
@@ -145,7 +147,7 @@ TEST(fq, SqrCheckAgainstConstants)
     static_assert(result == expected);
 
     fq b;
-    crude_copy(a, b);
+    shallow_copy(a, b);
 
     fq c = b.sqr();
     EXPECT_EQ(result, c);
@@ -161,8 +163,8 @@ TEST(fq, AddCheckAgainstConstants)
 
     fq c;
     fq d;
-    crude_copy(a, c);
-    crude_copy(b, d);
+    shallow_copy(a, c);
+    shallow_copy(b, d);
     EXPECT_EQ(c + d, const_expected);
 }
 
@@ -176,8 +178,8 @@ TEST(fq, SubCheckAgainstConstants)
 
     fq c;
     fq d;
-    crude_copy(a, c);
-    crude_copy(b, d);
+    shallow_copy(a, c);
+    shallow_copy(b, d);
     EXPECT_EQ(c - d, const_expected);
 }
 

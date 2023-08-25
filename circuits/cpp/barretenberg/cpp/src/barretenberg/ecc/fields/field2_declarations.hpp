@@ -84,8 +84,6 @@ template <class base_field, class Params> struct alignas(32) field2 {
         return r;
     }
 
-    // constexpr bool operator>(const field& other) const noexcept;
-    // constexpr bool operator<(const field& other) const noexcept;
     constexpr bool operator==(const field2& other) const noexcept;
     constexpr bool operator!=(const field2& other) const noexcept { return !(*this == other); }
     constexpr field2 sqr() const noexcept;

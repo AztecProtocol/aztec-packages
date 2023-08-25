@@ -219,8 +219,16 @@ template <class T> constexpr void field<T>::self_conditional_negate(const uint64
 }
 
 /**
- * Comparison operators
- **/
+ * @brief Greater-than operator
+ * @details comparison operators exist so that `field` is comparible with stl methods that require them.
+ *          (e.g. std::sort)
+ *          Finite fields do not have an explicit ordering, these should *NEVER* be used in algebraic algorithms.
+ *
+ * @tparam T
+ * @param other
+ * @return true
+ * @return false
+ */
 template <class T> constexpr bool field<T>::operator>(const field& other) const noexcept
 {
     const field left = reduce_once();
@@ -234,6 +242,17 @@ template <class T> constexpr bool field<T>::operator>(const field& other) const 
     return (t0 || t1 || t2 || t3);
 }
 
+/**
+ * @brief Less-than operator
+ * @details comparison operators exist so that `field` is comparible with stl methods that require them.
+ *          (e.g. std::sort)
+ *          Finite fields do not have an explicit ordering, these should *NEVER* be used in algebraic algorithms.
+ *
+ * @tparam T
+ * @param other
+ * @return true
+ * @return false
+ */
 template <class T> constexpr bool field<T>::operator<(const field& other) const noexcept
 {
     return (other > *this);
