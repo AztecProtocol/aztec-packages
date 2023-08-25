@@ -10,6 +10,7 @@ import {
   FunctionData,
   KernelCircuitPublicInputs,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  PartialAddress,
   PrivateKey,
   PublicCallRequest,
 } from '@aztec/circuits.js';
@@ -90,14 +91,17 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async registerAccount(privKey: PrivateKey, account: CompleteAddress) {
-    const pubKey = this.keyStore.addAccount(privKey);
-    // TODO: Re-enable this check once https://github.com/AztecProtocol/aztec-packages/issues/1556 is solved
-    // if (!pubKey.equals(account.publicKey)) {
-    //   throw new Error(`Public key mismatch: ${pubKey.toString()} != ${account.publicKey.toString()}`);
-    // }
-    await this.db.addCompleteAddress(account);
-    this.synchroniser.addAccount(pubKey, this.keyStore);
+  public async registerAccount(privKey: PrivateKey, partialAddress: PartialAddress) {
+    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
+    const wasAdded = await this.db.addCompleteAddress(completeAddress);
+    if (wasAdded) {
+      const pubKey = this.keyStore.addAccount(privKey);
+      this.synchroniser.addAccount(pubKey, this.keyStore);
+      this.log.info(`Registered account ${completeAddress.address.toString()}`);
+      this.log.debug(`Registered ${completeAddress.toReadableString()}`);
+    } else {
+      this.log.info(`Account "${completeAddress.address.toString()}" already registered.`);
+    }
   }
 
   public async getAccounts(): Promise<CompleteAddress[]> {
@@ -116,8 +120,12 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async registerRecipient(recipient: CompleteAddress): Promise<void> {
-    await this.db.addCompleteAddress(recipient);
-    this.log.info(`Added recipient: ${recipient.toString()}`);
+    const wasAdded = await this.db.addCompleteAddress(recipient);
+    if (wasAdded) {
+      this.log.info(`Added recipient: ${recipient.toReadableString()}`);
+    } else {
+      this.log.info(`Recipient "${recipient.toReadableString()}" already registered.`);
+    }
   }
 
   public async getRecipients(): Promise<CompleteAddress[]> {
@@ -157,9 +165,9 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    // If a negative block number is provided the current block height is fetched.
+    // If a negative block number is provided the current block number is fetched.
     if (blockNumber < 0) {
-      blockNumber = await this.node.getBlockHeight();
+      blockNumber = await this.node.getBlockNumber();
     }
     return await this.node.getBlock(blockNumber);
   }
@@ -243,8 +251,8 @@ export class AztecRPCServer implements AztecRPC {
     return partialReceipt;
   }
 
-  async getBlockNum(): Promise<number> {
-    return await this.node.getBlockHeight();
+  async getBlockNumber(): Promise<number> {
+    return await this.node.getBlockNumber();
   }
 
   public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
@@ -319,15 +327,16 @@ export class AztecRPCServer implements AztecRPC {
     contractDataOracle: ContractDataOracle,
   ) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await contractDataOracle.getFunctionAbi(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
+    const functionAbi = await contractDataOracle.getFunctionAbi(contractAddress, execRequest.functionData.selector);
+    const debug = await contractDataOracle.getFunctionDebugMetadata(contractAddress, execRequest.functionData.selector);
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {
       contractAddress,
-      functionAbi,
+      functionAbi: {
+        ...functionAbi,
+        debug,
+      },
       portalContract,
     };
   }
@@ -345,15 +354,11 @@ export class AztecRPCServer implements AztecRPC {
 
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
-    try {
-      this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
-      this.log('Simulation completed!');
+    this.log('Executing simulator...');
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+    this.log('Simulation completed!');
 
-      return result;
-    } catch (err: any) {
-      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
-    }
+    return result;
   }
 
   /**
@@ -421,6 +426,7 @@ export class AztecRPCServer implements AztecRPC {
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
     // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
     return new Tx(
@@ -433,12 +439,13 @@ export class AztecRPCServer implements AztecRPC {
     );
   }
 
-  // This is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel cannot
-  // keep track of side effects that happen after or before a nested call, we override the public call stack
+  // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel
+  // cannot keep track of side effects that happen after or before a nested call, we override the public call stack
   // it emits with whatever we got from the simulator collected enqueued calls. As a sanity check, we at least verify
   // that the elements are the same, so we are only tweaking their ordering.
   // See yarn-project/end-to-end/src/e2e_ordering.test.ts
   // See https://github.com/AztecProtocol/aztec-packages/issues/1615
+  // TODO(#757): Enforce proper ordering of enqueued public calls
   private async patchPublicCallStackOrdering(
     publicInputs: KernelCircuitPublicInputs,
     enqueuedPublicCalls: PublicCallRequest[],

@@ -34,6 +34,8 @@ function writeToProject(abi: any) {
       const toWrite = {
         ...abi,
         functions: abi.functions.map((f: any) => omit(f, projectContract.exclude)),
+        // If we maintain debug symbols they will get commited to git.
+        debug: undefined,
       };
       const targetFilename = pathJoin(projectContract.target, `${snakeCase(abi.name)}_contract.json`);
       writeFileSync(targetFilename, JSON.stringify(toWrite, null, 2) + '\n');
@@ -50,11 +52,26 @@ const main = () => {
   const projectDirPath = `src/contracts/${projectName}`;
 
   const contractName = upperFirst(camelCase(name));
-  const buildJsonFilePath = `${projectDirPath}/target/${projectName}-${contractName}.json`;
+  const artifactFile = `${projectName}-${contractName}.json`;
+
+  const buildJsonFilePath = `${projectDirPath}/target/${artifactFile}`;
   const buildJson = JSON.parse(readFileSync(buildJsonFilePath).toString());
 
+  const debugArtifactFile = `debug_${artifactFile}`;
+  let debug = undefined;
+
+  try {
+    const debugJsonFilePath = `${projectDirPath}/target/${debugArtifactFile}`;
+    const debugJson = JSON.parse(readFileSync(debugJsonFilePath).toString());
+    if (debugJson) {
+      debug = debugJson;
+    }
+  } catch (err) {
+    // Ignore
+  }
+
   // Remove extraneous information from the buildJson (which was output by Nargo) to hone in on the function data we actually care about:
-  const artifactJson: ContractAbi = generateAztecAbi(buildJson);
+  const artifactJson: ContractAbi = generateAztecAbi({ contract: buildJson, debug });
 
   // Write the artifact:
   const artifactsDir = 'src/artifacts';

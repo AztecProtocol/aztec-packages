@@ -15,12 +15,12 @@ contract PrivateToken {
         note_header::NoteHeader,
         utils as note_utils,
     };
-    use dep::aztec::log::emit_unencrypted_log;
 
     // docs:start:storage-import
     use crate::storage::Storage;
     // docs:end:storage-import
 
+    // docs:start:constructor
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
     fn constructor(
         //*********************************/
@@ -37,13 +37,14 @@ contract PrivateToken {
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
             send_note(&mut context, owner_balance, initial_supply, owner);
-            emit_unencrypted_log(&mut context, "Balance set in constructor");
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
     }
+    // docs:end:constructor
 
+    // docs:start:mint
     // Mints `amount` of tokens to `owner`.
     fn mint(
         //*********************************/
@@ -59,12 +60,13 @@ contract PrivateToken {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         send_note(&mut context, owner_balance, amount, owner);
-        emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
     }
+    // docs:end:mint
 
+    // docs:start:transfer
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     fn transfer(
         //*********************************/
@@ -85,13 +87,13 @@ contract PrivateToken {
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
         send_note(&mut context, recipient_balance, amount, recipient);
-        
-        emit_unencrypted_log(&mut context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
     }
+    // docs:end:transfer
 
+    // docs:start:getBalance
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     unconstrained fn getBalance(
         owner: Field,
@@ -102,14 +104,17 @@ contract PrivateToken {
         let owner_balance = storage.balances.at(owner);
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(owner_balance.storage_slot)
+        balance_utils::get_balance(owner_balance)
     }
+    // docs:end:getBalance
 
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    // docs:start:compute_note_hash_and_nullifier
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
+    // docs:end:compute_note_hash_and_nullifier
 }

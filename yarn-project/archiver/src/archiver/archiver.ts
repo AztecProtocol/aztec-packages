@@ -1,3 +1,4 @@
+import { FunctionSelector } from '@aztec/circuits.js';
 import { createEthereumChain } from '@aztec/ethereum';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -327,15 +328,15 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   /**
    * Gets the public function data for a contract.
    * @param contractAddress - The contract address containing the function to fetch.
-   * @param functionSelector - The function selector of the function to fetch.
+   * @param selector - The function selector of the function to fetch.
    * @returns The public function data (if found).
    */
   public async getPublicFunction(
     contractAddress: AztecAddress,
-    functionSelector: Buffer,
+    selector: FunctionSelector,
   ): Promise<EncodedContractFunction | undefined> {
     const contractData = await this.getContractDataAndBytecode(contractAddress);
-    return contractData?.getPublicFunction(functionSelector);
+    return contractData?.getPublicFunction(selector);
   }
 
   /**
@@ -353,8 +354,8 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  public getBlockHeight(): Promise<number> {
-    return this.store.getBlockHeight();
+  public getBlockNumber(): Promise<number> {
+    return this.store.getBlockNumber();
   }
 
   /**

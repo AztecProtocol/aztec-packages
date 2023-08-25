@@ -1,11 +1,15 @@
 use dep::aztec::context::PrivateContext;
+// docs:start:encrypted_import
+
 use dep::aztec::log::emit_encrypted_log;
+
+// docs:end:encrypted_import
 use dep::aztec::note::note_getter_options::NoteGetterOptions;
 use dep::aztec::oracle::get_public_key::get_public_key;
 use dep::aztec::state_vars::set::Set;
 use dep::aztec::types::point::Point;
 use crate::{
-    filter::{get_1_note, filter_notes_min_sum},
+    filter::filter_notes_min_sum,
     value_note::{ValueNote, VALUE_NOTE_LEN},
 };
 
@@ -71,7 +75,7 @@ fn spend_one_note(
     owner: Field,
     spend_note_offset: u32,
 ) {
-    let options = NoteGetterOptions::with_filter_and_offset(get_1_note, 0, spend_note_offset);
+    let options = NoteGetterOptions::new().set_limit(1).set_offset(spend_note_offset);
     let opt_notes = balance.get_notes(context, options);
 
     // The note should always exist.
@@ -125,14 +129,22 @@ fn send_note(
     balance.insert(context, &mut note);
 
     // Emit the newly created encrypted note preimages via oracle calls.
+    // docs:start:encrypted
+
+    let application_contract_address = (*context).this_address();
+    let note_storage_slot = balance.storage_slot;
     let encryption_pub_key = get_public_key(recipient);
+    let encrypted_data = note.serialise();
+
     emit_encrypted_log(
         context,
-        (*context).this_address(),
-        balance.storage_slot,
+        application_contract_address,
+        note_storage_slot,
         encryption_pub_key,
-        note.serialise(),
+        encrypted_data,
     );
+
+    // docs:end:encrypted
 }
 
 /*
