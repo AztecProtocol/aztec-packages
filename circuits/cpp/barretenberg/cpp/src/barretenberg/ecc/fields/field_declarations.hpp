@@ -196,10 +196,10 @@ template <class Params_> struct alignas(32) field {
     // NOLINTNEXTLINE
     BBERG_INLINE constexpr field operator++(int) noexcept;
 
-    BBERG_INLINE constexpr field operator*=(const field& other) noexcept;
-    BBERG_INLINE constexpr field operator+=(const field& other) noexcept;
-    BBERG_INLINE constexpr field operator-=(const field& other) noexcept;
-    constexpr field operator/=(const field& other) noexcept;
+    BBERG_INLINE constexpr field& operator*=(const field& other) noexcept;
+    BBERG_INLINE constexpr field& operator+=(const field& other) noexcept;
+    BBERG_INLINE constexpr field& operator-=(const field& other) noexcept;
+    constexpr field& operator/=(const field& other) noexcept;
 
     // NOTE: comparison operators exist so that `field` is comparible with stl methods that require them.
     //       (e.g. std::sort)

@@ -37,7 +37,7 @@ template <class T> constexpr field<T> field<T>::operator*(const field& other) co
     }
 }
 
-template <class T> constexpr field<T> field<T>::operator*=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator*=(const field& other) noexcept
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -103,7 +103,7 @@ template <class T> constexpr field<T> field<T>::operator+(const field& other) co
     }
 }
 
-template <class T> constexpr field<T> field<T>::operator+=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator+=(const field& other) noexcept
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -177,7 +177,7 @@ template <class T> constexpr field<T> field<T>::operator-() const noexcept
     return (p - *this).reduce_once(); // modulus - *this;
 }
 
-template <class T> constexpr field<T> field<T>::operator-=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator-=(const field& other) noexcept
 {
     if constexpr (BBERG_NO_ASM || (T::modulus_3 >= 0x4000000000000000ULL) ||
                   (T::modulus_1 == 0 && T::modulus_2 == 0 && T::modulus_3 == 0)) {
@@ -525,7 +525,7 @@ template <class T> constexpr field<T> field<T>::operator/(const field& other) co
     return operator*(other.invert());
 }
 
-template <class T> constexpr field<T> field<T>::operator/=(const field& other) noexcept
+template <class T> constexpr field<T>& field<T>::operator/=(const field& other) noexcept
 {
     *this = operator/(other);
     return *this;
