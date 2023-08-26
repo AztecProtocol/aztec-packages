@@ -5,7 +5,8 @@ contract Test {
         types::vec::BoundedVec,
         abi::{
             PublicContextInputs,
-            PrivateContextInputs
+            PrivateContextInputs,
+            Hasher
         }
     };
     use dep::aztec::context::{

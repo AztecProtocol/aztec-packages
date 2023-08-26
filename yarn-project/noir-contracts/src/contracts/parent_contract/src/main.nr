@@ -1,6 +1,7 @@
 // A contract used along with `Child` contract to test nested calls.
 contract Parent {
     use dep::aztec::abi;
+    use dep::aztec::abi::Hasher;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
     use dep::aztec::context::{

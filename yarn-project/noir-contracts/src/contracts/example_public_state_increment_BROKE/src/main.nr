@@ -2,6 +2,7 @@ mod storage;
 
 contract ExamplePublicStateIncrement {
     use dep::aztec::abi;
+    use dep::aztec::abi::Hasher;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::PublicContextInputs;
     use dep::aztec::context::{

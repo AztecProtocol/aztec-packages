@@ -6,6 +6,7 @@ contract SchnorrSingleKeyAccount {
     use dep::aztec::entrypoint;
     use dep::aztec::entrypoint::EntrypointPayload;
     use dep::aztec::abi;
+    use dep::aztec::abi::Hasher;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;

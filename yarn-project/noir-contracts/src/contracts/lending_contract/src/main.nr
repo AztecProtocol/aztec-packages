@@ -4,8 +4,11 @@ mod storage;
 contract Lending {
     use dep::aztec::{
         abi,
-        abi::PrivateContextInputs,
-        abi::PublicContextInputs
+        abi::{
+            PrivateContextInputs,
+            PublicContextInputs,
+            Hasher
+        }
     };
     use dep::aztec::context::{
         PrivateContext,

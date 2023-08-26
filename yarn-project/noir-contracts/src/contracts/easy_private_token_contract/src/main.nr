@@ -2,6 +2,7 @@
 mod storage;
 
 contract EasyPrivateToken {
+    use dep::aztec::abi::Hasher;
     use dep::value_note::{
             balance_utils,
             value_note::{

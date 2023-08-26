@@ -43,6 +43,7 @@ contract NonNativeToken {
         abi::{
             PublicContextInputs,
             PrivateContextInputs,
+            Hasher
         },
         note::{
             note_header::NoteHeader,
