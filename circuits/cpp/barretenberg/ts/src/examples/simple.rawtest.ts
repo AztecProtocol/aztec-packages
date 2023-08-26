@@ -1,6 +1,6 @@
 import { Crs } from '../crs/index.js';
 import createDebug from 'debug';
-import { newBarretenbergApiAsync } from '../factory/index.js';
+import { Barretenberg } from '../barretenberg/index.js';
 import { RawBuffer } from '../types/index.js';
 
 createDebug.enable('*');
@@ -10,7 +10,7 @@ async function main() {
   const CIRCUIT_SIZE = 2 ** 19;
 
   debug('starting test...');
-  const api = await newBarretenbergApiAsync();
+  const api = await Barretenberg.new();
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
   await api.commonInitSlabAllocator(CIRCUIT_SIZE);

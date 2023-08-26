@@ -11,7 +11,9 @@
       "default": "./dest/node/index.js"
     }
   },
-  "bin": "./dest/node/main.js",
+  "bin": {
+    "bb.js": "./dest/node/main.js"
+  },
   "files": [
     "src/",
     "dest/",
@@ -21,7 +23,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "build": "yarn clean && yarn build:wasm && yarn build:ts",
     "build:dev": "tsc -b --watch",
-    "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm",
+    "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm && ./scripts/strip-wasm.sh",
     "build:ts": "tsc -b && cp ./src/barretenberg-threads.wasm ./dest/node && webpack && chmod +x ./dest/node/main.js",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
     "serve": "webpack serve",

@@ -13,6 +13,8 @@
 # commit them, so that the most important build path remains fast and simple.
 
 PROJECTS=(
+  bb:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
+  bb.js:circuits/cpp/barretenberg/ts:.Dockerfile:bb.js
   circuits:circuits/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:circuits-wasm-linux-clang
   l1-contracts:l1-contracts
   noir-contracts:yarn-project:DockerFile.build:noir-contracts-build

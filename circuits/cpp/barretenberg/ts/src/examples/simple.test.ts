@@ -1,12 +1,12 @@
 import { Crs } from '../crs/index.js';
-import { BarretenbergApiAsync, newBarretenbergApiAsync } from '../factory/index.js';
+import { Barretenberg } from '../barretenberg/index.js';
 import { RawBuffer } from '../types/index.js';
 
 describe('simple', () => {
-  let api: BarretenbergApiAsync;
+  let api: Barretenberg;
 
   beforeAll(async () => {
-    api = await newBarretenbergApiAsync();
+    api = await Barretenberg.new();
 
     // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
     const CIRCUIT_SIZE = 2 ** 19;

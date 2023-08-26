@@ -9,11 +9,13 @@
     "serve": "webpack serve"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.8",
     "@aztec/bb.js": "../ts",
+    "@types/debug": "^4.1.8",
+    "@types/pako": "^2.0.0",
     "copy-webpack-plugin": "^11.0.0",
     "debug": "^4.3.4",
     "html-webpack-plugin": "^5.5.3",
+    "pako": "^2.1.0",
     "resolve-typescript-plugin": "^2.0.1",
     "ts-loader": "^9.4.4",
     "typescript": "^5.1.6",

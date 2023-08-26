@@ -5,11 +5,11 @@ const debug = createDebug("simple_test");
 
 async function main() {
   const { loadModule } = await import("@aztec/bb.js");
-  const { newBarretenbergApiAsync, RawBuffer, Crs } = await loadModule();
+  const { Barretenberg, RawBuffer, Crs } = await loadModule();
   const CIRCUIT_SIZE = 2 ** 19;
 
   debug("starting test...");
-  const api = await newBarretenbergApiAsync();
+  const api = await Barretenberg.new();
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
   await api.commonInitSlabAllocator(CIRCUIT_SIZE);

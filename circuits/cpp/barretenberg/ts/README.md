@@ -35,7 +35,7 @@ To install the package globally for running as a terminal application:
 npm install -g @aztec/bb.js
 ```
 
-Then should alias `$(npm root -g)/@aztec/bb.js/dest/node/main.js` as `bb.js` (or use that full string).
+Assuming `$(npm prefix -g)/bin` is in your `PATH`, you can now run the command `bb.js`.
 
 ### Usage
 
@@ -82,7 +82,7 @@ yarn add @aztec/bb.js
 To create a multithreaded version of the API:
 
 ```typescript
-const api = await newBarretenbergApiAsync(/* num_threads */);
+const api = await Barretenberg.new(/* num_threads */);
 // Use.
 const input = Buffer.from('hello world!');
 const result = await api.blake2s(input);
@@ -91,18 +91,6 @@ await api.destroy();
 
 All methods are asynchronous. If no threads are specified, will default to number of cores with a maximum of 16.
 If `1` is specified, fallback to non multi-threaded wasm that doesn't need shared memory.
-
-You can also create a synchronous version of the api that also has no multi-threading. This is only useful in the
-browser if you don't call any multi-threaded functions. It's probably best to just always use async version of the api
-unless you're really trying to avoid the small overhead of worker communication.
-
-```typescript
-const api = await newBarretenbergApiSync();
-// Use.
-const input = Buffer.from('hello world!');
-const result = api.blake2s(input);
-await api.destroy();
-```
 
 See `src/main.ts` for one example of how to use.
 
@@ -118,4 +106,3 @@ To run the tests run `yarn test`.
 To run a continuous "stress test" run `yarn simple_test` to do 10 full pk/proof/vk iterations.
 
 To run the same test in the browser run `yarn serve`, navigate to appropriate URL and open the console.
-
