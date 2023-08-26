@@ -71,7 +71,8 @@ jobs:
           yarn install && yarn && yarn build
 
       - name: Tar and GZip barretenberg.wasm
-        run: tar -cvzf barretenberg.wasm.tar.gz cpp/build-wasm/bin/barretenberg.wasm
+        working-directory: cpp/build-wasm/bin
+        run: tar -cvzf barretenberg.wasm.tar.gz barretenberg.wasm
 
       - name: Setup Node.js
         uses: actions/setup-node@v2
@@ -87,15 +88,16 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
       - name: Tar and GZip bb Binary (Ubuntu)
-        run: tar -cvzf barretenberg-x86_64-linux-gnu.tar.gz cpp/build/bin/bb
+        working-directory: cpp/build/bin
+        run: tar -cvzf barretenberg-x86_64-linux-gnu.tar.gz bb
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
           name: release-linux-wasm
           path: |
-            barretenberg.wasm.tar.gz
-            barretenberg-x86_64-linux-gnu.tar.gz
+            ./cpp/build-wasm/bin/barretenberg.wasm
+            ./cpp/build/bin/barretenberg-x86_64-linux-gnu.tar.gz
 
   build-mac:
     name: Build on Mac (${{ matrix.target }})
