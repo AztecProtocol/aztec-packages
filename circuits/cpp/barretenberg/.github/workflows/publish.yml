@@ -98,43 +98,45 @@ jobs:
             bb-ubuntu.tar.gz
 
   build-mac:
-    name: Build on Mac
+    name: Build on Mac (${{ matrix.target }})
     runs-on: macos-13
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           ref: ${{ inputs.tag || env.GITHUB_REF }}
-
-      #         We need clang 14.0.3 or higher, as lower versions do not seem
-      #         to be spec conformant. In particular std::span does not seem
-      #         to follow the specifications.
+      # We need clang 14.0.3 or higher, as lower versions do not seem
+      # to be spec conformant. In particular std::span does not seem
+      # to follow the specifications.
+      # We need clang 15 because barretenberg uses concepts.
+      # clang 15 is the similar to Apple clang 14.
       - name: Select Xcode version
-        run: |
-          sudo xcode-select -switch /Applications/Xcode_14.3.1.app
+        run: sudo xcode-select -switch /Applications/Xcode_14.3.1.app
 
       - name: Create Mac Build Environment
-        run: |
-          brew install cmake ninja
+        run: brew install cmake ninja
 
       - name: Compile Barretenberg
         working-directory: cpp
         run: |
           cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
           cmake --build --preset default --target bb
-          
+
       - name: Package barretenberg artifact
         working-directory: cpp/build/bin
         run: |
           mkdir dist
           cp ./bb ./dist/bb
-          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-x86_64-apple-darwin.tar.gz
+          7z a -ttar -so -an ./dist/* | 7z a -si ./barretenberg-${{ matrix.target }}.tar.gz
 
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: barretenberg-x86_64-apple-darwin
-          path: ./cpp/build/bin/barretenberg-x86_64-apple-darwin.tar.gz
+          name: barretenberg-${{ matrix.target }}
+          path: ./cpp/build/bin/barretenberg-${{ matrix.target }}.tar.gz
           retention-days: 3
 
   release:
@@ -147,10 +149,15 @@ jobs:
         with:
           name: release-linux-wasm
 
-      - name: Download files from Mac Runner
+      - name: Download files from x86_64 Mac Runner
         uses: actions/download-artifact@v2
         with:
           name: barretenberg-x86_64-apple-darwin
+
+      - name: Download files from aarch64 Mac Runner
+        uses: actions/download-artifact@v2
+        with:
+          name: barretenberg-aarch64-apple-darwin
 
       - name: Publish to GitHub
         uses: softprops/action-gh-release@v1
@@ -162,3 +169,4 @@ jobs:
             barretenberg.wasm.tar.gz
             bb-ubuntu.tar.gz
             barretenberg-x86_64-apple-darwin.tar.gz
+            barretenberg-aarch64-apple-darwin.tar.gz
