@@ -25,12 +25,16 @@ const witness = inflate(
   )
 );
 
-async function runTest(bytecode: Uint8Array, witness: Uint8Array) {
+async function runTest(
+  bytecode: Uint8Array,
+  witness: Uint8Array,
+  threads?: number
+) {
   const { Barretenberg, RawBuffer, Crs } = await import("@aztec/bb.js");
   const CIRCUIT_SIZE = 2 ** 19;
 
   debug("starting test...");
-  const api = await Barretenberg.new();
+  const api = await Barretenberg.new(threads);
 
   // Important to init slab allocator as first thing, to ensure maximum memory efficiency.
   await api.commonInitSlabAllocator(CIRCUIT_SIZE);
@@ -66,3 +70,5 @@ document.addEventListener("DOMContentLoaded", function () {
   button.addEventListener("click", () => runTest(acir, witness));
   document.body.appendChild(button);
 });
+
+(window as any).runTest = runTest;

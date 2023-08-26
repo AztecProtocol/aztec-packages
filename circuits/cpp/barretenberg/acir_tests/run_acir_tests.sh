@@ -9,6 +9,7 @@ BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
+VERBOSE=$VERBOSE
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
