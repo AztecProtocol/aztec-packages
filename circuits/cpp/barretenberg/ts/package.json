@@ -26,7 +26,6 @@
     "build:wasm": "cd ../cpp && cmake --preset wasm-threads && cmake --build --preset wasm-threads && cmake --preset wasm && cmake --build --preset wasm && ./scripts/strip-wasm.sh",
     "build:ts": "tsc -b && cp ./src/barretenberg-threads.wasm ./dest/node && webpack && chmod +x ./dest/node/main.js",
     "build:bindings": "cd .. && ./scripts/bindgen.sh",
-    "serve": "webpack serve",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "yarn test:jest && yarn test:bin",

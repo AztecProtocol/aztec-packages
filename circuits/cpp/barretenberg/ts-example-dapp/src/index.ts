@@ -57,6 +57,7 @@ async function runTest(bytecode: Uint8Array, witness: Uint8Array) {
   await api.destroy();
 
   debug("test complete.");
+  return verified;
 }
 
 document.addEventListener("DOMContentLoaded", function () {

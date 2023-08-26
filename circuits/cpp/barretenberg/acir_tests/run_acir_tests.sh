@@ -1,13 +1,25 @@
 #!/bin/bash
 # Env var overrides:
-#   BB: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
+#   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 
 set -e
 
-BB=$PWD/${BB:-../cpp/build/bin/bb}
+BIN=${BIN:-../cpp/build/bin/bb}
+BIN=$(which $BIN)
+FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
+
+FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
+
+if [[ -f $BIN ]]; then
+    BIN=$(realpath $BIN)
+else
+    BIN=$(realpath $(which $BIN))
+fi
+
+export BIN CRS_PATH VERBOSE
 
 # Pull down the test vectors from the noir repo, if we don't have the folder already.
 if [ ! -d acir_tests ]; then
@@ -48,11 +60,7 @@ function test() {
   cd $1
 
   set +e
-  if [ -n "$VERBOSE" ]; then
-    $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
-  else
-    $BB prove_and_verify -c $CRS_PATH -b ./target/$dir_name.bytecode > /dev/null 2>&1
-  fi
+  $FLOW_SCRIPT
   result=$?
   set -e
 
@@ -60,8 +68,6 @@ function test() {
     echo -e "\033[32mPASSED\033[0m"
   else
     echo -e "\033[31mFAILED\033[0m"
-    # Run again verbose.
-    $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
     exit 1
   fi
 
