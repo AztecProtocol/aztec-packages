@@ -18,13 +18,10 @@ use dep::aztec::types::type_serialisation::bool_serialisation::{
     BOOL_SERIALISED_LEN,
 };
 
-use crate::storage::{
-    queen::QUEEN_SERIALISED_LEN,
-};
 use crate::types::{
     card::{Card, CARD_LEN},
     profile::{Profile, PROFILE_LEN},
-    queen::Queen,
+    queen::{Queen, QUEEN_SERIALISED_LEN},
     rules::{Rules, RULES_LEN},
 };
 

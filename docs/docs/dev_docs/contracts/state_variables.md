@@ -8,11 +8,9 @@ Public state is persistent state that is _publicly visible_ to anyone in the wor
 
 For developers coming from other blockchain ecosystems (such as Ethereum), this will be a familiar concept, because there, _all_ state is _publicly visible_.
 
-Aztec public state follows an account-based model. That is, each state occupies a leaf in an account-based merkle tree: the _public state tree_ (LINK). See here (LINK) for more of the technical details.
+Aztec public state follows an account-based model. That is, each state occupies a leaf in an account-based merkle tree: the [_public state tree_](INSERT_LINK_HERE). See [here] (INSERT_LINK_HERE) for more of the technical details.
 
 The `PublicState<T, T_SERIALISED_LEN>` struct serves as a wrapper around conventional Noir types `T`, allowing these types to be written to and read from the public state tree.
-
-The Aztec stdlib provides serialization methods for some common types. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-libs/noir-aztec/src/types/type_serialisation) for the complete list.
 
 ### `::new`
 
@@ -20,17 +18,35 @@ To declare a type `T` as a persistent, public state variable, use the `PublicSta
 
 In the following example, we define a public state with a boolean type:
 
-#include_code state_vars-PublicState /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/locked.nr rust
+#include_code state_vars-PublicState /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
+
+The BoolSerialisationMethods is part of the Aztec stdlib:
+
+#include_code state_vars-PublicStateBoolImport /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
+
+It contains methods that instruct its PublicState wrapper how to serialise and deserialise a boolean to and from a Field, which is the data type being saved in the public state tree.
+
+The Aztec stdlib provides serialization methods for various common types. Check [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/noir-libs/noir-aztec/src/types/type_serialisation) for the complete list.
 
 ### Custom types
 
-It's possible to create a public state for any types. For example, to create a public state for the following struct:
+It's possible to create a public state for any types. Simply define methods that guide the PublicState wrapper in serialising the custom type to field(s) to store in the public state tree, and deserialising the field(s) retrieved from the tree back to the custom type.
+
+The methods should be implemented in a struct that conforms to the following interface:
+
+#include_code TypeSerialisationInterface /yarn-project/noir-libs/noir-aztec/src/types/type_serialisation.nr rust
+
+For example, to create a public state for the following type:
 
 #include_code state_vars-CustomStruct /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/types/queen.nr rust
 
-First, define how to serialise and deserialise the struct. And then initialise the PublicState with it:
+First, define how to serialise and deserialise the custom type:
 
-#include_code state_vars-PublicStateCustomStruct /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/queen.nr rust
+#include_code state_vars-PublicStateCustomStruct /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/types/queen.nr rust
+
+And then initialise the PublicState with it:
+
+#include_code state_vars-PublicStateCustomStruct /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
 ### `.read`
 
@@ -115,21 +131,21 @@ The interplay between a private state variable and its notes can be confusing. H
 
 ## `Singleton<NoteType>`
 
-Singleton is a private state variable that is unique in a way. When a singleton is initialised, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
+Singleton is a private state variable that is unique in a way. When a Singleton is initialised, a note is created to represent its value. And the way to update the value is to destroy the current note, and create a new one with the updated value.
 
 ### `::new`
 
-Here we define a singleton for storing a Card note:
+Here we define a Singleton for storing a Card note:
 
-#include_code state_vars-Singleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/legendary_card.nr rust
+#include_code state_vars-Singleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
 ### `.initialise`
 
-The initial value of a singleton is set via calling `initialise`:
+The initial value of a Singleton is set via calling `initialise`:
 
 #include_code state_vars-SingletonInit /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
-When this function is called, a nullifier of the storage slot is created, preventing this singleton from being initialised again.
+When this function is called, a nullifier of the storage slot is created, preventing this Singleton from being initialised again.
 
 Unlike public states, which have a default initial value of `0` (or many zeros, in the case of a struct, array or map), a private state (of type `Singleton`, `ImmutableSingleton` or `Set`) does not have a default initial value. The `initialise` method (or `insert`, in the case of a `Set`) must be called.
 
@@ -137,15 +153,15 @@ Unlike public states, which have a default initial value of `0` (or many zeros, 
 
 The 'current value' of a `Singleton` state variable may be overwritten via the `.replace` method.
 
-To modify the 'current value' of a singleton, we may create a new note (a Card in the following example) containing some new data, and replace the current note with it:
+To modify the 'current value' of a Singleton, we may create a new note (a Card in the following example) containing some new data, and replace the current note with it:
 
 #include_code state_vars-SingletonReplace /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
-This function will destroy the old note under the hood. If two people are trying to modify the singleton at the same time, only one will succeed. Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
+This function will destroy the old note under the hood. If two people are trying to modify the Singleton at the same time, only one will succeed. Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
 ### `.get_note`
 
-This function allows us to get the note of a singleton:
+This function allows us to get the note of a Singleton:
 
 #include_code state_vars-SingletonGet /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
@@ -153,21 +169,31 @@ However, it's possible that at the time this function is called, the system hasn
 
 ## `ImmutableSingleton<NoteType>`
 
-Immutable singleton is unique and, as the name suggests, immutable. Once it has been initialised, its value can't be changed anymore.
+ImmutableSingleton represents a unique private state variable that, as the name suggests, is immutable. Once initialized, its value cannot be altered.
 
 ### `::new`
 
-#include_code state_vars-ImmutableSingleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/game_rules.nr rust
+In the following example, we define an ImmutableSingleton that utilises the `RulesMethods` struct as its underlying note type:
+
+#include_code state_vars-ImmutableSingleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
 ### `.initialise`
 
+Set the initial value of an ImmutableSingleton by calling the `initialise` method:
+
 #include_code state_vars-ImmutableSingletonInit /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
+
+Once initialized, an ImmutableSingleton's value remains unchangeable. This method can only be called once.
 
 ### `.get_note`
 
+Use this method to retrieve the value of an initialized ImmutableSingleton:
+
 #include_code state_vars-ImmutableSingletonGet /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
-Unlike a [`singleton`](#get_note-1), when you call the `get_note` function on an immutable singleton to read the value, the current note is not destroyed in the background. This means that multiple accounts can call this function simultaneously.
+Unlike a [`singleton`](#get_note-1), the `get_note` function for an ImmutableSingleton doesn't destroy the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
+
+This function will throw if the ImmutableSingleton hasn't been initialised.
 
 ## `Set<NoteType>`
 
@@ -175,9 +201,11 @@ Set is used for managing a collection of notes. All notes in a set are of the sa
 
 ### `::new`
 
-In the following example, we define a set of cards:
+The `new` method creates a Set that employs a specific note type. When a new Set is created, it initially contains no notes.
 
-#include_code state_vars-Set /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/cards.nr rust
+In the following example, we define a set whose underlying note type is `Card`:
+
+#include_code state_vars-Set /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
 ### `.insert`
 
@@ -259,7 +287,7 @@ The process of applying the options to get the final notes is not constrained. I
 
 The following declares a mapping from a `Field` to a `Singleton`:
 
-#include_code state_vars-MapSingleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage/profiles.nr rust
+#include_code state_vars-MapSingleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
 The second argument `|slot| Singleton::new(slot, ProfileMethods)` is a Noir closure function. It teaches this instance of `Map` how to create a new instance of a `Singleton` whenever the `.at` method is called to access a state variable at a particular mapping key. The `slot` argument will be derived when `.at` is called, based on the lookup key provided.
 
@@ -271,4 +299,4 @@ The only api of a map is `.at`. It returns the underlying type that occupies a s
 
 #include_code state_vars-MapAtSingletonGet /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
-In both code snippets, `state_var.at(account)` returns a singleton that is linked to the requested account.
+In both code snippets, `state_var.at(account)` returns a Singleton that is linked to the requested account.
