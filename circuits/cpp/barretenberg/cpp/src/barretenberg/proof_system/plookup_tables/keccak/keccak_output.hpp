@@ -7,8 +7,7 @@
 #include "../sparse.hpp"
 #include "../types.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace plookup::keccak_tables {
 
 /**
  * @brief Converts a base-11 sparse integer representation into a regular base-2 binary integer.
@@ -25,6 +24,9 @@ class KeccakOutput {
     static constexpr uint64_t EFFECTIVE_BASE = 2;
     static constexpr size_t TABLE_BITS = 8;
 
+    // We're doing some degenerate compile-time work with this C-array that can't be done with std::array,
+    // We pass it as a uint64_t* template parameter, no easy way to do that with std::array
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     static constexpr uint64_t OUTPUT_NORMALIZATION_TABLE[2]{ 0, 1 };
 
     /**
@@ -107,7 +109,7 @@ class KeccakOutput {
         table.get_values_from_key = &sparse_tables::get_sparse_normalization_values<BASE, OUTPUT_NORMALIZATION_TABLE>;
 
         table.column_1_step_size = barretenberg::fr(numeric::pow64(static_cast<size_t>(BASE), TABLE_BITS));
-        table.column_2_step_size = barretenberg::fr(((uint64_t)1 << TABLE_BITS));
+        table.column_2_step_size = barretenberg::fr((static_cast<uint64_t>(1) << TABLE_BITS));
         table.column_3_step_size = 0;
         return table;
     }
@@ -171,5 +173,4 @@ class KeccakOutput {
     }
 };
 
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace plookup::keccak_tables

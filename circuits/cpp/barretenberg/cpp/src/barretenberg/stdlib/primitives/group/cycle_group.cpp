@@ -685,7 +685,7 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
 
     for (size_t i = 0; i < num_points; ++i) {
         std::optional<std::array<MultiTableId, 2>> table_id =
-            plookup::new_pedersen::table::get_lookup_table_ids_for_point(base_points[i]);
+            plookup::fixed_base::table::get_lookup_table_ids_for_point(base_points[i]);
         if (table_id.has_value()) {
             plookup_table_ids.emplace_back(table_id.value()[0]);
             plookup_table_ids.emplace_back(table_id.value()[1]);
@@ -704,26 +704,20 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
     std::vector<cycle_group> lookup_points;
     element offset_generator_accumulator = G1::point_at_infinity;
     for (size_t i = 0; i < plookup_scalars.size(); ++i) {
-        std::cout << "i = " << i << std::endl;
         plookup::ReadData<field_t> lookup_data =
             plookup_read<Composer>::get_lookup_accumulators(plookup_table_ids[i], plookup_scalars[i]);
-        std::cout << "t0" << std::endl;
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const auto x = lookup_data[ColumnIdx::C2][j];
             const auto y = lookup_data[ColumnIdx::C3][j];
-            std::cout << "x/y = " << x << " : " << y << std::endl;
             lookup_points.emplace_back(cycle_group(context, x, y, false));
         }
 
         std::optional<affine_element> offset_1 =
-            plookup::new_pedersen::table::get_generator_offset_for_table_id(plookup_table_ids[i]);
+            plookup::fixed_base::table::get_generator_offset_for_table_id(plookup_table_ids[i]);
 
         ASSERT(offset_1.has_value());
-        // ASSERT(offset_2.has_value());
         offset_generator_accumulator += offset_1.value();
-        // offset_generator_accumulator += offset_2.value();
     }
-    std::cout << "mark" << std::endl;
     cycle_group accumulator;
     const size_t leftover_points = leftover_scalars.size();
     if (leftover_points > 0) {
@@ -762,30 +756,23 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
             }
         }
     }
-    std::cout << "mark 2" << std::endl;
     // cycle_group accumulator = lookup_points[0];
     for (size_t i = 0; i < lookup_points.size(); ++i) {
-        std::cout << "i = " << i << std::endl;
         if (i == 0) {
-            std::cout << "leftover empty? " << leftover_scalars.empty() << " : " << leftover_scalars.size()
-                      << std::endl;
             if (leftover_scalars.empty()) {
                 accumulator = lookup_points[i];
             } else {
                 accumulator = accumulator.unconditional_add(lookup_points[i]);
             }
         } else {
-            std::cout << "acc vs pt " << accumulator << " : " << lookup_points[i] << std::endl;
             accumulator = accumulator.unconditional_add(lookup_points[i]);
         }
     }
-    std::cout << "mark 3" << std::endl;
 
     if (has_constant_component) {
         // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
         offset_generator_accumulator -= constant_component;
     }
-    std::cout << "mark 4" << std::endl;
     cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
     accumulator = accumulator.unconditional_add(offset_generator_delta);
     return accumulator;

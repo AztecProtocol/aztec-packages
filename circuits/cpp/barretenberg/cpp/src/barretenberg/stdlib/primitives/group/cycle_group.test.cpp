@@ -487,15 +487,15 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
             auto element = crypto::pedersen_hash::generator_info::get_lhs_generator();
             typename G1::subgroup_field scalar = G1::subgroup_field::random_element();
 
-            // 2: add entry where point is constant, scalar is witness
+            // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
             points.emplace_back((element));
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
 
-            // // 4: add entry where point is constant, scalar is constant
-            // expected += (element * scalar);
-            // points.emplace_back((element));
-            // scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+            // 2: add entry where point is constant, scalar is constant
+            expected += (element * scalar);
+            points.emplace_back((element));
+            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
         auto result = cycle_group_ct::fixed_base_batch_mul(scalars, points);
         EXPECT_EQ(result.get_value(), affine_element(expected));

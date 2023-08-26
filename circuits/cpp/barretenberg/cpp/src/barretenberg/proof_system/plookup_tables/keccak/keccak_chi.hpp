@@ -4,8 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace plookup::keccak_tables {
 
 /**
  * @brief Generates plookup tables required for CHI round of Keccak hash function
@@ -59,7 +58,7 @@ namespace keccak_tables {
 class Chi {
   public:
     // 1 + 2a - b + c => a xor (~b & c)
-    static constexpr uint64_t CHI_NORMALIZATION_TABLE[5]{
+    static constexpr std::array<uint64_t, 5> CHI_NORMALIZATION_TABLE{
         0, 0, 1, 1, 0,
     };
 
@@ -249,5 +248,4 @@ class Chi {
         return table;
     }
 };
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace plookup::keccak_tables

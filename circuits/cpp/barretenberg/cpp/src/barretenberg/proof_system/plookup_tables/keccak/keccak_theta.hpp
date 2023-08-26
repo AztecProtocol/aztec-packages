@@ -4,8 +4,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/numeric/bitop/pow.hpp"
 
-namespace plookup {
-namespace keccak_tables {
+namespace plookup::keccak_tables {
 
 /**
  * @brief Generates plookup tables required for THETA round of Keccak hash function
@@ -55,7 +54,7 @@ class Theta {
     static constexpr size_t TABLE_BITS = 4;
     static constexpr uint64_t BASE = 11;
 
-    static constexpr uint64_t THETA_NORMALIZATION_TABLE[11]{
+    static constexpr std::array<uint64_t, 11> THETA_NORMALIZATION_TABLE{
         0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,
     };
 
@@ -251,5 +250,4 @@ class Theta {
         return table;
     }
 };
-} // namespace keccak_tables
-} // namespace plookup
+} // namespace plookup::keccak_tables

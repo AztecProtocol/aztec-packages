@@ -1,7 +1,7 @@
 #pragma once
 #include "barretenberg/common/throw_or_abort.hpp"
 
-#include "./new_pedersen_experiment.hpp"
+#include "./fixed_base/fixed_base.hpp"
 #include "aes128.hpp"
 #include "blake2s.hpp"
 #include "dummy.hpp"
@@ -28,27 +28,23 @@ ReadData<barretenberg::fr> get_lookup_accumulators(MultiTableId id,
 
 inline BasicTable create_basic_table(const BasicTableId id, const size_t index)
 {
-    // TODO(@zac-williamson) improve
+    // we have >50 basic fixed base tables so we match with some logic instead of a switch statement
     auto id_var = static_cast<size_t>(id);
-    if (id_var >= static_cast<size_t>(PEDERSEN_0_0) &&
-        id_var < static_cast<size_t>(PEDERSEN_0_0) + NUM_PEDERSEN_TABLES_LO) {
-        return new_pedersen::table::generate_basic_pedersen_table<0>(
-            id, index, id_var - static_cast<size_t>(PEDERSEN_0_0));
+    if (id_var >= static_cast<size_t>(FIXED_BASE_0_0) && id_var < static_cast<size_t>(FIXED_BASE_1_0)) {
+        return fixed_base::table::generate_basic_fixed_base_table<0>(
+            id, index, id_var - static_cast<size_t>(FIXED_BASE_0_0));
     }
-    if (id_var >= static_cast<size_t>(PEDERSEN_1_0) &&
-        id_var < static_cast<size_t>(PEDERSEN_1_0) + NUM_PEDERSEN_TABLES_HI) {
-        return new_pedersen::table::generate_basic_pedersen_table<1>(
-            id, index, id_var - static_cast<size_t>(PEDERSEN_1_0));
+    if (id_var >= static_cast<size_t>(FIXED_BASE_1_0) && id_var < static_cast<size_t>(FIXED_BASE_2_0)) {
+        return fixed_base::table::generate_basic_fixed_base_table<1>(
+            id, index, id_var - static_cast<size_t>(FIXED_BASE_1_0));
     }
-    if (id_var >= static_cast<size_t>(PEDERSEN_2_0) &&
-        id_var < static_cast<size_t>(PEDERSEN_2_0) + NUM_PEDERSEN_TABLES_LO) {
-        return new_pedersen::table::generate_basic_pedersen_table<2>(
-            id, index, id_var - static_cast<size_t>(PEDERSEN_2_0));
+    if (id_var >= static_cast<size_t>(FIXED_BASE_2_0) && id_var < static_cast<size_t>(FIXED_BASE_3_0)) {
+        return fixed_base::table::generate_basic_fixed_base_table<2>(
+            id, index, id_var - static_cast<size_t>(FIXED_BASE_2_0));
     }
-    if (id_var >= static_cast<size_t>(PEDERSEN_3_0) &&
-        id_var < static_cast<size_t>(PEDERSEN_3_0) + NUM_PEDERSEN_TABLES_HI) {
-        return new_pedersen::table::generate_basic_pedersen_table<3>(
-            id, index, id_var - static_cast<size_t>(PEDERSEN_3_0));
+    if (id_var >= static_cast<size_t>(FIXED_BASE_3_0) && id_var < static_cast<size_t>(PEDERSEN_29_SMALL)) {
+        return fixed_base::table::generate_basic_fixed_base_table<3>(
+            id, index, id_var - static_cast<size_t>(FIXED_BASE_3_0));
     }
     switch (id) {
     case AES_SPARSE_MAP: {

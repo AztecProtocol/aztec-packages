@@ -7,8 +7,7 @@
 #include "barretenberg/numeric/bitop/rotate.hpp"
 #include "barretenberg/numeric/bitop/sparse_form.hpp"
 
-namespace plookup {
-namespace sparse_tables {
+namespace plookup::sparse_tables {
 
 template <uint64_t base, uint64_t num_rotated_bits>
 inline std::array<barretenberg::fr, 2> get_sparse_table_with_rotation_values(const std::array<uint64_t, 2> key)
@@ -16,7 +15,7 @@ inline std::array<barretenberg::fr, 2> get_sparse_table_with_rotation_values(con
     const auto t0 = numeric::map_into_sparse_form<base>(key[0]);
     barretenberg::fr t1;
     if constexpr (num_rotated_bits > 0) {
-        t1 = numeric::map_into_sparse_form<base>(numeric::rotate32((uint32_t)key[0], num_rotated_bits));
+        t1 = numeric::map_into_sparse_form<base>(numeric::rotate32(static_cast<uint32_t>(key[0]), num_rotated_bits));
     } else {
         t1 = t0;
     }
@@ -35,12 +34,12 @@ inline BasicTable generate_sparse_table_with_rotation(BasicTableId id, const siz
     for (uint64_t i = 0; i < table.size; ++i) {
         const uint64_t source = i;
         const auto target = numeric::map_into_sparse_form<base>(source);
-        table.column_1.emplace_back(barretenberg::fr(source));
+        table.column_1.emplace_back(source);
         table.column_2.emplace_back(barretenberg::fr(target));
 
         if constexpr (num_rotated_bits > 0) {
             const auto rotated =
-                numeric::map_into_sparse_form<base>(numeric::rotate32((uint32_t)source, num_rotated_bits));
+                numeric::map_into_sparse_form<base>(numeric::rotate32(static_cast<uint32_t>(source), num_rotated_bits));
             table.column_3.emplace_back(barretenberg::fr(rotated));
         } else {
             table.column_3.emplace_back(barretenberg::fr(target));
@@ -98,22 +97,21 @@ inline BasicTable generate_sparse_normalization_table(BasicTableId id, const siz
         const auto& limbs = accumulator.get_limbs();
         uint64_t key = 0;
         for (size_t j = 0; j < num_bits; ++j) {
-            const size_t table_idx = static_cast<size_t>(limbs[j]);
+            const auto table_idx = static_cast<size_t>(limbs[j]);
             key += ((base_table[table_idx]) << static_cast<uint64_t>(j));
         }
 
         table.column_1.emplace_back(accumulator.get_sparse_value());
         table.column_2.emplace_back(key);
-        table.column_3.emplace_back(barretenberg::fr(0));
+        table.column_3.emplace_back(0);
         accumulator += to_add;
     }
 
     table.get_values_from_key = &get_sparse_normalization_values<base, base_table>;
 
     table.column_1_step_size = barretenberg::fr(table.size);
-    table.column_2_step_size = barretenberg::fr(((uint64_t)1 << num_bits));
+    table.column_2_step_size = barretenberg::fr{ (static_cast<uint64_t>(1) << num_bits) };
     table.column_3_step_size = barretenberg::fr(0);
     return table;
 }
-} // namespace sparse_tables
-} // namespace plookup
+} // namespace plookup::sparse_tables

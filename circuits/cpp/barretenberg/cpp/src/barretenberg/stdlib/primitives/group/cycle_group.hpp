@@ -14,7 +14,6 @@ using namespace barretenberg;
 using namespace crypto::generators;
 
 template <typename Composer> concept SupportsLookupTables = (Composer::CIRCUIT_TYPE == CircuitType::ULTRA);
-
 template <typename Composer> concept DoesNotSupportLookupTables = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
 
 /**

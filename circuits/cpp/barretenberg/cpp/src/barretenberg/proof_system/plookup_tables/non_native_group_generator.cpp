@@ -1,7 +1,6 @@
 #include "non_native_group_generator.hpp"
 
-namespace plookup {
-namespace ecc_generator_tables {
+namespace plookup::ecc_generator_tables {
 
 /**
  * Init 8-bit generator lookup tables
@@ -31,9 +30,9 @@ template <typename G1> void ecc_generator_table<G1>::init_generator_tables()
 
     auto beta = G1::Fq::cube_root_of_unity();
     for (size_t i = 0; i < 256; ++i) {
-        uint256_t endo_x = static_cast<uint256_t>(point_table[i].x * beta);
-        uint256_t x = static_cast<uint256_t>(point_table[i].x);
-        uint256_t y = static_cast<uint256_t>(point_table[i].y);
+        auto endo_x = static_cast<uint256_t>(point_table[i].x * beta);
+        auto x = static_cast<uint256_t>(point_table[i].x);
+        auto y = static_cast<uint256_t>(point_table[i].y);
 
         const uint256_t SHIFT = uint256_t(1) << 68;
         const uint256_t MASK = SHIFT - 1;
@@ -60,18 +59,16 @@ template <typename G1> void ecc_generator_table<G1>::init_generator_tables()
         uint256_t y2 = y & MASK;
         y = y >> 68;
         uint256_t y3 = y & MASK;
-        ecc_generator_table<G1>::generator_xlo_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(x0, x1);
-        ecc_generator_table<G1>::generator_xhi_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(x2, x3);
-        ecc_generator_table<G1>::generator_endo_xlo_table[i] =
-            std::make_pair<barretenberg::fr, barretenberg::fr>(endox0, endox1);
-        ecc_generator_table<G1>::generator_endo_xhi_table[i] =
-            std::make_pair<barretenberg::fr, barretenberg::fr>(endox2, endox3);
-        ecc_generator_table<G1>::generator_ylo_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(y0, y1);
-        ecc_generator_table<G1>::generator_yhi_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(y2, y3);
-        ecc_generator_table<G1>::generator_xyprime_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(
-            barretenberg::fr(uint256_t(point_table[i].x)), barretenberg::fr(uint256_t(point_table[i].y)));
-        ecc_generator_table<G1>::generator_endo_xyprime_table[i] = std::make_pair<barretenberg::fr, barretenberg::fr>(
-            barretenberg::fr(uint256_t(point_table[i].x * beta)), barretenberg::fr(uint256_t(point_table[i].y)));
+        ecc_generator_table<G1>::generator_xlo_table[i] = std::make_pair(x0, x1);
+        ecc_generator_table<G1>::generator_xhi_table[i] = std::make_pair(x2, x3);
+        ecc_generator_table<G1>::generator_endo_xlo_table[i] = std::make_pair(endox0, endox1);
+        ecc_generator_table<G1>::generator_endo_xhi_table[i] = std::make_pair(endox2, endox3);
+        ecc_generator_table<G1>::generator_ylo_table[i] = std::make_pair(y0, y1);
+        ecc_generator_table<G1>::generator_yhi_table[i] = std::make_pair(y2, y3);
+        ecc_generator_table<G1>::generator_xyprime_table[i] = std::make_pair(
+            barretenberg::fr{ uint256_t(point_table[i].x) }, barretenberg::fr{ uint256_t(point_table[i].y) });
+        ecc_generator_table<G1>::generator_endo_xyprime_table[i] = std::make_pair(
+            barretenberg::fr{ uint256_t(point_table[i].x * beta) }, barretenberg::fr{ uint256_t(point_table[i].y) });
     }
     init = true;
 }
@@ -95,7 +92,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xlo_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_xlo_table[index].first,
              ecc_generator_table<G1>::generator_xlo_table[index].second };
 }
@@ -107,7 +104,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xhi_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_xhi_table[index].first,
              ecc_generator_table<G1>::generator_xhi_table[index].second };
 }
@@ -119,7 +116,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xlo_endo_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_endo_xlo_table[index].first,
              ecc_generator_table<G1>::generator_endo_xlo_table[index].second };
 }
@@ -131,7 +128,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xhi_endo_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_endo_xhi_table[index].first,
              ecc_generator_table<G1>::generator_endo_xhi_table[index].second };
 }
@@ -143,7 +140,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_ylo_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_ylo_table[index].first,
              ecc_generator_table<G1>::generator_ylo_table[index].second };
 }
@@ -155,7 +152,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_yhi_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_yhi_table[index].first,
              ecc_generator_table<G1>::generator_yhi_table[index].second };
 }
@@ -167,7 +164,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xyprime_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_xyprime_table[index].second };
 }
@@ -179,7 +176,7 @@ template <typename G1>
 std::array<barretenberg::fr, 2> ecc_generator_table<G1>::get_xyprime_endo_values(const std::array<uint64_t, 2> key)
 {
     init_generator_tables();
-    const size_t index = static_cast<size_t>(key[0]);
+    const auto index = static_cast<size_t>(key[0]);
     return { ecc_generator_table<G1>::generator_endo_xyprime_table[index].first,
              ecc_generator_table<G1>::generator_endo_xyprime_table[index].second };
 }
@@ -494,5 +491,4 @@ MultiTable ecc_generator_table<G1>::get_xyprime_endo_table(const MultiTableId id
 template class ecc_generator_table<barretenberg::g1>;
 template class ecc_generator_table<secp256k1::g1>;
 
-} // namespace ecc_generator_tables
-} // namespace plookup
+} // namespace plookup::ecc_generator_tables

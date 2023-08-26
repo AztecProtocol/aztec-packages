@@ -1,14 +1,13 @@
 #pragma once
 
 #include <array>
+#include <utility>
 #include <vector>
 
-// #include "./new_pedersen_experiment.hpp"
+#include "./fixed_base/fixed_base_params.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 namespace plookup {
-static constexpr size_t NUM_PEDERSEN_TABLES_LO = 15; // FIXFIXFIX
-static constexpr size_t NUM_PEDERSEN_TABLES_HI = 14; // FIXFIXFIX
-static constexpr size_t NUM_PEDERSEN_TABLES = 29;    // FIXFIXFIX
+
 enum BasicTableId {
     XOR,
     AND,
@@ -54,11 +53,11 @@ enum BasicTableId {
     BLAKE_XOR_ROTATE1,
     BLAKE_XOR_ROTATE2,
     BLAKE_XOR_ROTATE4,
-    PEDERSEN_0_0,
-    PEDERSEN_1_0 = PEDERSEN_0_0 + NUM_PEDERSEN_TABLES_LO,
-    PEDERSEN_2_0 = PEDERSEN_1_0 + NUM_PEDERSEN_TABLES_HI,
-    PEDERSEN_3_0 = PEDERSEN_2_0 + NUM_PEDERSEN_TABLES_LO,
-    PEDERSEN_29_SMALL = PEDERSEN_3_0 + NUM_PEDERSEN_TABLES_HI,
+    FIXED_BASE_0_0,
+    FIXED_BASE_1_0 = FIXED_BASE_0_0 + FixedBaseParams::NUM_TABLES_PER_LO_MULTITABLE,
+    FIXED_BASE_2_0 = FIXED_BASE_1_0 + FixedBaseParams::NUM_TABLES_PER_HI_MULTITABLE,
+    FIXED_BASE_3_0 = FIXED_BASE_2_0 + FixedBaseParams::NUM_TABLES_PER_LO_MULTITABLE,
+    PEDERSEN_29_SMALL = FIXED_BASE_3_0 + FixedBaseParams::NUM_TABLES_PER_HI_MULTITABLE,
     PEDERSEN_28,
     PEDERSEN_27,
     PEDERSEN_26,
@@ -121,12 +120,10 @@ enum MultiTableId {
     PEDERSEN_LEFT_LO,
     PEDERSEN_RIGHT_HI,
     PEDERSEN_RIGHT_LO,
-    NEW_PEDERSEN_LEFT,
-    NEW_PEDERSEN_RIGHT,
-    NEW_PEDERSEN_LEFT_HI,
-    NEW_PEDERSEN_LEFT_LO,
-    NEW_PEDERSEN_RIGHT_HI,
-    NEW_PEDERSEN_RIGHT_LO,
+    FIXED_BASE_LEFT_LO,
+    FIXED_BASE_LEFT_HI,
+    FIXED_BASE_RIGHT_LO,
+    FIXED_BASE_RIGHT_HI,
     UINT32_XOR,
     UINT32_AND,
     BN254_XLO,
@@ -160,6 +157,7 @@ enum MultiTableId {
 };
 
 struct MultiTable {
+    ~MultiTable() = default;
     // Coefficients are accumulated products of corresponding step sizes until that point
     std::vector<barretenberg::fr> column_1_coefficients;
     std::vector<barretenberg::fr> column_2_coefficients;
@@ -170,17 +168,17 @@ struct MultiTable {
     std::vector<barretenberg::fr> column_1_step_sizes;
     std::vector<barretenberg::fr> column_2_step_sizes;
     std::vector<barretenberg::fr> column_3_step_sizes;
-    typedef std::array<barretenberg::fr, 2> table_out;
-    typedef std::array<uint64_t, 2> table_in;
+    using table_out = std::array<barretenberg::fr, 2>;
+    using table_in = std::array<uint64_t, 2>;
     std::vector<table_out (*)(table_in)> get_table_values;
 
   private:
     void init_step_sizes()
     {
         const size_t num_lookups = column_1_coefficients.size();
-        column_1_step_sizes.emplace_back(barretenberg::fr(1));
-        column_2_step_sizes.emplace_back(barretenberg::fr(1));
-        column_3_step_sizes.emplace_back(barretenberg::fr(1));
+        column_1_step_sizes.emplace_back(1);
+        column_2_step_sizes.emplace_back(1);
+        column_3_step_sizes.emplace_back(1);
 
         std::vector<barretenberg::fr> coefficient_inverses(column_1_coefficients.begin(), column_1_coefficients.end());
         std::copy(column_2_coefficients.begin(), column_2_coefficients.end(), std::back_inserter(coefficient_inverses));
@@ -212,17 +210,17 @@ struct MultiTable {
         }
         init_step_sizes();
     }
-    MultiTable(const std::vector<barretenberg::fr>& col_1_coeffs,
-               const std::vector<barretenberg::fr>& col_2_coeffs,
-               const std::vector<barretenberg::fr>& col_3_coeffs)
-        : column_1_coefficients(col_1_coeffs)
-        , column_2_coefficients(col_2_coeffs)
-        , column_3_coefficients(col_3_coeffs)
+    MultiTable(std::vector<barretenberg::fr> col_1_coeffs,
+               std::vector<barretenberg::fr> col_2_coeffs,
+               std::vector<barretenberg::fr> col_3_coeffs)
+        : column_1_coefficients(std::move(col_1_coeffs))
+        , column_2_coefficients(std::move(col_2_coeffs))
+        , column_3_coefficients(std::move(col_3_coeffs))
     {
         init_step_sizes();
     }
 
-    MultiTable(){};
+    MultiTable() = default;
     MultiTable(const MultiTable& other) = default;
     MultiTable(MultiTable&& other) = default;
 
@@ -307,7 +305,7 @@ struct BasicTable {
             return key[0] < other.key[0] || ((key[0] == other.key[0]) && key[1] < other.key[1]);
         }
 
-        std::array<barretenberg::fr, 3> to_sorted_list_components(const bool use_two_keys) const
+        [[nodiscard]] std::array<barretenberg::fr, 3> to_sorted_list_components(const bool use_two_keys) const
         {
             return {
                 barretenberg::fr(key[0]),
