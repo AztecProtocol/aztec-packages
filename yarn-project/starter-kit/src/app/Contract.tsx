@@ -28,7 +28,7 @@ const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
             </h1>
             <div>
             {contractAbi.functions.map((functionAbi: FunctionAbi) => {
-                return ContractFunctionForm(contractAbi, functionAbi, rpcClient);
+                return <ContractFunctionForm key={functionAbi.name} contractAbi={contractAbi} functionAbi={functionAbi} rpcClient={rpcClient}/>;
             })}
             </div>
         </div>

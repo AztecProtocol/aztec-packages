@@ -19,9 +19,6 @@ import * as Yup from 'yup';
 const contractAddress = AztecAddress.fromString(import.meta.env.VITE_CONTRACT_ADDRESS);
 // const walletAddress: AztecAddress = import.meta.env.VITE_WALLET_ADDRESS;
 // const privateKey: PrivateKey = import.meta.env.VITE_PRIVATE_KEY;
-// const client = createAztecRpcClient(import.meta.env.VITE_SANDOX_RPC_URL);
-const SANDBOX_URL = import.meta.env.VITE_SANDBOX_RPC_URL; 
-// console.log('client is', client);
 // Address 0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360
 // const privateKey2 = PrivateKey.fromString('b2803ec899f76f6b2ac011480d24028f1a29587f8a3a92f7ee9d48d8c085c284');
 // Address 0x0d557417a3ce7d7b356a8f15d79a868fd8da2af9c5f4981feb9bcf0b614bd17e
@@ -119,8 +116,39 @@ function generateYupSchema(functionAbi: FunctionAbi) {
     return {validationSchema: Yup.object().shape(parameterSchema), initialValues};
 }
 
-// todo: pass in the client. right now just instantiate in the function execution for testing
-export default function ContractFunctionForm(contractAbi: ContractAbi, functionAbi: FunctionAbi, rpcClient: AztecRPC) {
+
+async function viewTx(contractAddress: string, functionName: string, functionArgs: any) {
+    console.log(`viewing Contract address: ${contractAddress} function ${functionName} with args ${functionArgs}`);
+    console.log('IMPLEMENT HERE');
+    return;
+}
+
+async function handleFunctionCall(functionType: string, contractAbi: ContractAbi, contractAddress: string, functionName: string, functionArgs: any,
+    rpcClient: AztecRPC){
+       if (functionType === 'unconstrained') {
+              return await viewTx(contractAddress, functionName, functionArgs);
+       } else if (functionName === 'constructor') {
+        // eslint-disable-next-line no-console
+        console.log(`Function ${functionName} calling with:`, functionArgs);
+            console.log('deploying contract with null pubkey');
+            await deployContract(contractAbi, functionArgs, 
+                // TODO: let them pick a salt
+                    Fr.ZERO, rpcClient);
+        } else {
+        console.log(`querying Contract address: ${contractAddress}`);
+        return await executeFunction(contractAddress, functionName, functionArgs, rpcClient);
+        }
+}
+
+import React from 'react';
+// Make sure to import any other dependencies and types you might need
+
+interface ContractFunctionFormProps {
+    contractAbi: ContractAbi;
+    functionAbi: FunctionAbi;
+    rpcClient: AztecRPC;
+}
+const ContractFunctionForm: React.FC<ContractFunctionFormProps> = ({ contractAbi, functionAbi, rpcClient }) => {
     const functionName: string = functionAbi.name;
 
     const {validationSchema, initialValues} = generateYupSchema(functionAbi);
@@ -129,17 +157,8 @@ export default function ContractFunctionForm(contractAbi: ContractAbi, functionA
                     validationSchema: validationSchema,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onSubmit: async (values: any) => {
-                        // eslint-disable-next-line no-console
-                        console.log(`Function ${functionName} calling with:`, values);
-                        if (functionName === 'constructor') {
-                            console.log('deploying contract with null pubkey');
-                            await deployContract(contractAbi, values, 
-                                // TODO: let them pick a salt
-                                 Fr.ZERO, rpcClient);
-                        } else{
-                        console.log(`querying Contract address: ${contractAddress}`);
-                        return await executeFunction(contractAddress, functionName, values, rpcClient);
-                    }},
+                        return await handleFunctionCall(functionAbi.functionType, contractAbi, contractAddress, functionName, values, rpcClient);
+                    },
                 });
     return (                   
         <div key={functionName} className="bg-black">
@@ -172,3 +191,4 @@ export default function ContractFunctionForm(contractAbi: ContractAbi, functionA
         </div>
                     );
                                     }
+export default ContractFunctionForm;
