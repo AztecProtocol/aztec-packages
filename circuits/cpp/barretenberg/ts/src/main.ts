@@ -12,7 +12,7 @@ const debug = createDebug('bb.js');
 // This is because both node and browser use barretenberg.wasm.
 //
 // This is not a restriction in the bb binary and one should be
-// aware of this discrepancy, when creating proofs in bb versus 
+// aware of this discrepancy, when creating proofs in bb versus
 // creating the same proofs in the node CLI.
 const MAX_CIRCUIT_SIZE = 2 ** 19;
 
