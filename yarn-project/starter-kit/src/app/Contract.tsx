@@ -29,7 +29,7 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
             onSelectChange(fetchedOptions[0]);
         };
         loadOptions();
-    }, [onSelectChange, rpcClient]); 
+    }, []); 
     // Empty dependency array ensures this useEffect runs once when the component mounts.
 
     return (
@@ -56,13 +56,12 @@ const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
     // TODO: can we make these actually wallets, not complete addresses
     const handleSelectWallet = (wallet: CompleteAddress) => {
         setSelectedWallet(wallet);
-        console.log('set wallet to ', wallet);
     };
 
     return (
         <div>
             <div>
-                {"Wallet: " + `${selectedWallet ? selectedWallet: ' none'}`}
+                {"Wallet (not hooked in yet): " + `${selectedWallet ? selectedWallet: ' none'}`}
                 <WalletDropdown onSelectChange={handleSelectWallet} rpcClient={rpcClient} />
             </div>
             <h1>
