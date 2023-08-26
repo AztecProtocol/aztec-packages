@@ -5,8 +5,8 @@ import webpack from 'webpack';
 
 export default {
   target: 'web',
-  mode: 'development',
-  devtool: false,
+  mode: 'production',
+  // devtool: false,
   entry: './src/index.ts',
   module: {
     rules: [

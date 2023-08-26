@@ -6,7 +6,6 @@
 set -e
 
 BIN=${BIN:-../cpp/build/bin/bb}
-BIN=$(which $BIN)
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=master
