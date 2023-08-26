@@ -1,6 +1,6 @@
 import {
     AztecAddress,
-    CompleteAddress, ContractBase, Fr, PrivateKey,
+    ContractBase, Fr, PrivateKey,
     getAccountWallets, isContractDeployed
 } from "@aztec/aztec.js";
 import { ContractAbi, FunctionAbi } from "@aztec/foundation/abi";
@@ -32,22 +32,10 @@ const accountCreationSalt = Fr.ZERO;
 async function executeFunction(contractAddress: string, functionName: string, functionArgs: any,
     rpcClient: AztecRPC
     ) {
-
-    // const fnAbi: FunctionAbi = getAbiFunction(contractAbi, functionName);
-    // console.log('privateKey2 is', privateKey2.toString('hex'));
-    console.log('privateKey is', privateKey.toString('hex'));
-
-    console.log('creating wallet with ', SchnorrSingleKeyAccountContractAbi, privateKey, accountCreationSalt, 1);
-    // const wallet: Wallet = await createAccounts(jsonClient, SchnorrSingleKeyAccountContractAbi, 
-        //  privateKey,  accountCreationSalt, 2);
-    const accounts: CompleteAddress[] = await rpcClient.getAccounts();
-    // const wallet: CompleteAddress = accounts[0];
-
-    // console.log(wallet, wallet.toReadableString());  // not a wallet!  it' san account
     const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
     console.log(wallet);
 
-    // console.log('getting wallet'); // next line is erroring out with 404
+    // next line is erroring out with 404
     // const _contract = await jsonClient.getContractData(contractAddress);
     // undefined when we ask for bytecode
     // console.log(_contract);

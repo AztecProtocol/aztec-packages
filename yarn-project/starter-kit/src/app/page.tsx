@@ -2,7 +2,6 @@ import '../App.css';
 
 import { createAztecRpcClient } from '@aztec/aztec.js';
 import { useEffect, useState } from 'react';
-// import * as AztecJs from '../../node_modules/@aztec/aztec.js/dest/main.js';
 
 import aztecLogo from '../assets/aztec_logo.svg';
 import Banner from './banner';
@@ -10,11 +9,9 @@ import DynamicContractForm from './Contract';
 // import {PrivateTokenContract} from '../artifacts/PrivateToken';  // update this if using a different contract
 
 
-
 const SANDBOX_URL = import.meta.env.VITE_SANDBOX_RPC_URL; 
 
 /**
- * 
  * @param ContractAbiData - a contract ABI, generate frontend based on this
  * @returns 
  */
@@ -34,7 +31,7 @@ export default function Home() {
       });
   }, [contractAbiPath]);
 
-  if (!data) return <div>Loading contract ABI JSON...</div>;
+  if (!data) {return <div>{'Loading contract ABI JSON...'}</div>;}
 
   const rpcClient = createAztecRpcClient(SANDBOX_URL);
 

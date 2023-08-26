@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 // import { CircuitsWasm } from '@aztec/aztec-rpc';
-import { ContractAbi, FunctionAbi } from "@aztec/foundation/abi";
+import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import {AztecRPC} from '@aztec/types';
-import {Wallet} from '@aztec/aztec.js';
-// TODO: can we do a normal import of AztecJs?
+import {CompleteAddress } from '@aztec/aztec.js';
 // import * as AztecJs from '../../node_modules/@aztec/aztec.js/dest/main.js';
 // import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 
@@ -21,7 +20,7 @@ interface WalletDropdownProps {
 
 // TODO: use the wallet selected inside the contract component
 function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
-        const [wallets, setOptions] = useState<string[]>([]);
+        const [wallets, setOptions] = useState<CompleteAddress[]>([]);
 
         useEffect(() => {
         const loadOptions = async () => {
@@ -29,35 +28,33 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
             setOptions(fetchedOptions);
             onSelectChange(fetchedOptions[0]);
         };
-
         loadOptions();
-    }, []); // Empty dependency array ensures this useEffect runs once when the component mounts.
+    }, [onSelectChange, rpcClient]); 
+    // Empty dependency array ensures this useEffect runs once when the component mounts.
 
     return (
         <select 
             className="min-w-64 border rounded px-3 py-2" 
  onChange={(e) => onSelectChange(e.target.value)}>
-            {wallets.map((wallet: Wallet)=> {return (
+            {wallets.map((wallet: CompleteAddress)=> {return (
                 <option key={wallet.publicKey} value={wallet}>
                     {wallet.name}
                 </option>
             );})}
         </select>
     );
-            }
+}
 
 /**
- * Not working...
  * @param contractAbi - contract ABI JSON, parsed as a ContractAbi object
  * @returns a formik form for interacting with the contract
  */
-// eslint-disable-next-line jsdoc/require-jsdoc
 const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
 {
-    const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
+    const [selectedWallet, setSelectedWallet] = useState<CompleteAddress | null>(null);
 
-    // make these actually wallets, not complete addresses
-    const handleSelectWallet = (wallet: Wallet) => {
+    // TODO: can we make these actually wallets, not complete addresses
+    const handleSelectWallet = (wallet: CompleteAddress) => {
         setSelectedWallet(wallet);
         console.log('set wallet to ', wallet);
     };

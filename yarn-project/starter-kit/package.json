@@ -23,6 +23,7 @@
   "exports": {
     "./prettier": "./.prettierrc.json"
   },
+  "prettier": "@aztec/foundation/prettier",
   "scripts": {
     "dev": "/bin/bash -c \"$(curl -fsSL 'https://up-dev.aztec.network')\" && vite",
     "build": "tsc && vite build",
