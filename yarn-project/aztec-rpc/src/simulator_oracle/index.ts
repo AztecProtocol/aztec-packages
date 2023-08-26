@@ -10,6 +10,7 @@ import {
   CompleteAddress,
   EthAddress,
   Fr,
+  FunctionSelector,
   HistoricBlockData,
   PrivateKey,
   PublicKey,
@@ -58,9 +59,12 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbiWithDebugMetadata> {
-    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
-    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, functionSelector);
+  async getFunctionABI(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionAbiWithDebugMetadata> {
+    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
     return {
       ...abi,
       debug,
@@ -101,7 +105,7 @@ export class SimulatorOracle implements DBOracle {
   async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
     const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
     const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
-    if (!index) throw new Error('Commitment not found');
+    if (!index) throw new Error(`Commitment not found ${siloedCommitment.toString()}`);
 
     const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
     return await Promise.resolve({

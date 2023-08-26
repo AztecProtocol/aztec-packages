@@ -143,10 +143,9 @@ describe('e2e_p2p_network', () => {
         expect.objectContaining({
           status: TxStatus.PENDING,
           error: '',
-          contractAddress: origin,
         }),
       );
-      logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
+      logger(`Receipt received and expecting contract deployment at ${origin}`);
       txs.push(tx);
     }
     return txs;
@@ -161,8 +160,11 @@ describe('e2e_p2p_network', () => {
     const aztecRpcServer = await createAztecRPCServer(node, rpcConfig, {}, true);
 
     const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-    const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
-    await aztecRpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+      await keyPair.getPrivateKey(),
+      Fr.random(),
+    );
+    await aztecRpcServer.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
 
     const txs = await submitTxsTo(aztecRpcServer, completeAddress.address, numTxs, completeAddress.publicKey);
     return {

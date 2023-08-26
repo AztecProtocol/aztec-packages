@@ -15,8 +15,6 @@ contract Test {
     };
 
     use dep::aztec::oracle::{
-        create_l2_to_l1_message::create_l2_to_l1_message,
-        create_nullifier::create_nullifier,
         get_public_key::get_public_key,
         context::get_portal_address,
         rand::rand,
@@ -103,7 +101,7 @@ contract Test {
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
-        create_l2_to_l1_message(note.get_commitment());
+        context.message_portal(note.get_commitment());
     }
 
     // Purely exists for testing
@@ -116,7 +114,19 @@ contract Test {
         let note = DummyNote::new(amount, secretHash);
         
         // Public oracle call to emit new commitment.
-        create_nullifier(note.get_commitment());
+        context.push_new_nullifier(note.get_commitment(), 0);
+    }
+
+    open fn isTimeEqual(
+        input: PublicContextInputs,
+        time: Field,
+    ) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(input, abi::hash_args([time]));
+
+        assert(context.timestamp() == time);
+
+        context.return_values.push(time);
+        context.finish()
     }
 
     // Purely exists for testing

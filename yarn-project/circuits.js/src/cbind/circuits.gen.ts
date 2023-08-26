@@ -19,6 +19,7 @@ import {
   Fq,
   Fr,
   FunctionData,
+  FunctionSelector,
   G1AffineElement,
   GlobalVariables,
   HistoricBlockData,
@@ -266,16 +267,36 @@ export function fromNewContractData(o: NewContractData): MsgpackNewContractData 
   };
 }
 
+interface MsgpackFunctionSelector {
+  value: number;
+}
+
+export function toFunctionSelector(o: MsgpackFunctionSelector): FunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector deserialization');
+  }
+  return new FunctionSelector(o.value);
+}
+
+export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector serialization');
+  }
+  return {
+    value: o.value,
+  };
+}
+
 interface MsgpackFunctionData {
-  function_selector: number;
+  selector: MsgpackFunctionSelector;
   is_internal: boolean;
   is_private: boolean;
   is_constructor: boolean;
 }
 
 export function toFunctionData(o: MsgpackFunctionData): FunctionData {
-  if (o.function_selector === undefined) {
-    throw new Error('Expected function_selector in FunctionData deserialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData deserialization');
   }
   if (o.is_internal === undefined) {
     throw new Error('Expected is_internal in FunctionData deserialization');
@@ -286,12 +307,12 @@ export function toFunctionData(o: MsgpackFunctionData): FunctionData {
   if (o.is_constructor === undefined) {
     throw new Error('Expected is_constructor in FunctionData deserialization');
   }
-  return new FunctionData(o.function_selector, o.is_internal, o.is_private, o.is_constructor);
+  return new FunctionData(toFunctionSelector(o.selector), o.is_internal, o.is_private, o.is_constructor);
 }
 
 export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.functionSelector === undefined) {
-    throw new Error('Expected functionSelector in FunctionData serialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData serialization');
   }
   if (o.isInternal === undefined) {
     throw new Error('Expected isInternal in FunctionData serialization');
@@ -303,7 +324,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
     throw new Error('Expected isConstructor in FunctionData serialization');
   }
   return {
-    function_selector: o.functionSelector,
+    selector: fromFunctionSelector(o.selector),
     is_internal: o.isInternal,
     is_private: o.isPrivate,
     is_constructor: o.isConstructor,
@@ -479,8 +500,8 @@ interface MsgpackCombinedAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 8>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 8>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -1235,8 +1256,8 @@ interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 8>;
-  contract_storage_reads: Tuple<MsgpackContractStorageRead, 8>;
+  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
+  contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
   public_call_stack: Tuple<Buffer, 4>;
   new_commitments: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;

@@ -15,7 +15,6 @@ contract EasyPrivateToken {
         abi,
         abi::PrivateContextInputs,
         context::PrivateContext,
-        log::emit_unencrypted_log,
         note::{
             note_header::NoteHeader,
             utils as note_utils,
@@ -36,7 +35,6 @@ contract EasyPrivateToken {
         let balances = storage.balances;
 
         balances.at(owner).add(&mut context, initial_supply, owner);
-        emit_unencrypted_log(&mut context, "Balance set in constructor");
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -49,8 +47,6 @@ contract EasyPrivateToken {
         let balances = storage.balances;
 
         balances.at(owner).add(&mut context, amount, owner);
-
-        emit_unencrypted_log(&mut context, "Coins minted");
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -64,10 +60,7 @@ contract EasyPrivateToken {
         let balances = storage.balances;
 
         balances.at(sender).sub(&mut context, amount, sender);
-
         balances.at(recipient).add(&mut context, amount, recipient);
-        
-        emit_unencrypted_log(&mut context, "Coins transferred");
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).

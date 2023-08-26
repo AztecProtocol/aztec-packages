@@ -34,9 +34,7 @@ export class UnconstrainedFunctionExecution {
    */
   public async run(aztecNode?: AztecNode): Promise<DecodedReturn> {
     this.log(
-      `Executing unconstrained function ${this.contractAddress.toShortString()}:${this.functionData.functionSelectorBuffer.toString(
-        'hex',
-      )}`,
+      `Executing unconstrained function ${this.contractAddress.toShortString()}:${this.functionData.selector.toString()}`,
     );
 
     const acir = Buffer.from(this.abi.bytecode, 'base64');
@@ -81,7 +79,7 @@ export class UnconstrainedFunctionExecution {
           }
 
           const makeLogMsg = (slot: bigint, value: string) =>
-            `Oracle storage read: slot=${slot.toString()} value=${value}`;
+            `Oracle storage read: slot=${slot.toString(16)} value=${value}`;
 
           const startStorageSlot = fromACVMField(slot);
           const values = [];

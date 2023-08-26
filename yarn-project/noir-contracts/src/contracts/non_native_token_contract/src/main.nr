@@ -20,7 +20,7 @@ contract NonNativeToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
@@ -51,16 +51,7 @@ contract NonNativeToken {
         },
     };
 
-    // oracles
-    use dep::aztec::oracle::{
-        create_l2_to_l1_message::create_l2_to_l1_message,
-    };
-
-    // public messaging
-    use dep::aztec::messaging::consume_l1_to_l2_message_public;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-
-    use dep::aztec::oracle::create_commitment::create_commitment;
 
     #[aztec(private)]
     fn constructor(
@@ -70,7 +61,7 @@ contract NonNativeToken {
         let storage = Storage::init();
 
         let balance = storage.balances.at(owner);
-        send_note(&mut context, balance, initial_supply, owner);
+        increment(&mut context, balance, initial_supply, owner);
     }
 
     // Mint Private Function
@@ -93,7 +84,7 @@ contract NonNativeToken {
         context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
 
         let balance = storage.balances.at(owner);
-        send_note(&mut context, balance, amount, owner);
+        increment(&mut context, balance, amount, owner);
     }
 
     // Withdraws using user's private balance.
@@ -102,14 +93,14 @@ contract NonNativeToken {
     #[aztec(private)]
     fn withdraw(
         amount: Field,
-        sender: Field,
+        sender: Field, // TODO: Should verify sender.
         recipient: Field, // ethereum address in the field
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
     ) {
         let storage = Storage::init();
 
         let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        decrement(&mut context, sender_balance, amount, sender);
 
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
         context.message_portal(content);
@@ -133,7 +124,7 @@ contract NonNativeToken {
         let content_hash = get_mint_content_hash(amount, owner_address, canceller);
 
         // Consume message and emit nullifier
-        consume_l1_to_l2_message_public(inputs, msg_key, content_hash, secret);
+        context.consume_l1_to_l2_message(msg_key, content_hash, secret);
 
         // Update the public balance
         let recipient_balance = public_balances.at(owner_address);
@@ -169,8 +160,7 @@ contract NonNativeToken {
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message
-        // TODO: make in the context
-        create_l2_to_l1_message(content);
+        context.message_portal(content);
     }
 
 
@@ -179,17 +169,18 @@ contract NonNativeToken {
     #[aztec(private)]
     fn transfer(
         amount: Field,
-        sender: Field,
         recipient: Field,
     ) {
         let storage = Storage::init();
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
+        let sender = context.msg_sender();
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        decrement(&mut context, sender_balance, amount, sender);
 
         let balance = storage.balances.at(recipient);
-        send_note(&mut context, balance, amount, recipient);
+        increment(&mut context, balance, amount, recipient);
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
@@ -216,7 +207,7 @@ contract NonNativeToken {
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
-        pending_shields.insert_from_public(context, &mut note);
+        pending_shields.insert_from_public(&mut context, &mut note);
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
@@ -237,20 +228,20 @@ contract NonNativeToken {
 
         // Mint the tokens
         let balance = storage.balances.at(owner);
-        send_note(&mut context, balance, amount, owner);
+        increment(&mut context, balance, amount, owner);
     }
 
     #[aztec(private)]
     fn unshieldTokens(
         amount: Field,
-        owner: Field,
         recipient: Field,
     ) {
         let storage = Storage::init();
+        let owner = context.msg_sender();
 
         // Remove user balance
         let sender_balance = storage.balances.at(owner);
-        spend_notes(&mut context, sender_balance, amount, owner);
+        decrement(&mut context, sender_balance, amount, owner);
 
         // enqueue a public function to perform the public state update.
         let thisAddress = context.this_address();

@@ -5,7 +5,7 @@ contract PokeableToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::increment,
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods, ValueNote},
     };
     use dep::aztec::abi;
@@ -40,7 +40,7 @@ contract PokeableToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
-        send_note(&mut context, sender_balance, initial_supply, sender);
+        increment(&mut context, sender_balance, initial_supply, sender);
     }
 
     // Transfers full balance of tokens from `sender` to a `recipient`.
@@ -80,7 +80,7 @@ contract PokeableToken {
 
         // Create new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, note_sum, recipient);
+        increment(&mut context, recipient_balance, note_sum, recipient);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
