@@ -87,7 +87,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
       - name: Tar and GZip bb Binary (Ubuntu)
-        run: tar -cvzf bb-ubuntu.tar.gz cpp/build/bin/bb
+        run: tar -cvzf barretenberg-x86_64-linux-gnu.tar.gz cpp/build/bin/bb
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
@@ -95,7 +95,7 @@ jobs:
           name: release-linux-wasm
           path: |
             barretenberg.wasm.tar.gz
-            bb-ubuntu.tar.gz
+            barretenberg-x86_64-linux-gnu.tar.gz
 
   build-mac:
     name: Build on Mac (${{ matrix.target }})
@@ -167,6 +167,6 @@ jobs:
           prerelease: true
           files: |
             barretenberg.wasm.tar.gz
-            bb-ubuntu.tar.gz
+            barretenberg-x86_64-linux-gnu.tar.gz
             barretenberg-x86_64-apple-darwin.tar.gz
             barretenberg-aarch64-apple-darwin.tar.gz
