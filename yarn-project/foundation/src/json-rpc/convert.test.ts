@@ -38,6 +38,8 @@ test('converts a registered class', () => {
 });
 
 test('converts a class by name in the event of duplicate modules being loaded', () => {
+  expect(ToStringClassA.prototype.constructor.name).toEqual('ToStringClass');
+  expect(ToStringClassB.prototype.constructor.name).toEqual('ToStringClass');
   const cc = new ClassConverter({ ToStringClass: ToStringClassA });
   const obj = { content: new ToStringClassB('a', 'b') };
   const serialised = convertToJsonObj(cc, obj);
@@ -55,4 +57,21 @@ test('converts a class by constructor instead of name in the event of minified b
   expect(deserialised.content).toBeInstanceOf(ToStringClassA);
   expect(deserialised.content.x).toEqual('a');
   expect(deserialised.content.y).toEqual('b');
+});
+
+test('converts a plain object', () => {
+  const obj = { a: 10, b: [20, 30], c: 'foo' };
+  const cc = new ClassConverter();
+  expect(convertFromJsonObj(cc, convertToJsonObj(cc, obj))).toEqual(obj);
+});
+
+test('refuses to convert to json an unknown class', () => {
+  const cc = new ClassConverter();
+  expect(() => convertToJsonObj(cc, { content: new ToStringClassA('a', 'b') })).toThrowError(/not registered/);
+});
+
+test('refuses to convert from json an unknown class', () => {
+  const cc = new ClassConverter({ ToStringClass: ToStringClassA });
+  const serialised = convertToJsonObj(cc, { content: new ToStringClassA('a', 'b') });
+  expect(() => convertFromJsonObj(new ClassConverter(), serialised)).toThrowError(/not registered/);
 });
