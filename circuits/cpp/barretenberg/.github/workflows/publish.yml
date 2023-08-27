@@ -96,7 +96,7 @@ jobs:
         with:
           name: release-linux-wasm
           path: |
-            ./cpp/build-wasm/bin/barretenberg.wasm
+            ./cpp/build-wasm/bin/barretenberg.wasm.tar.gz
             ./cpp/build/bin/barretenberg-x86_64-linux-gnu.tar.gz
 
   build-mac:
