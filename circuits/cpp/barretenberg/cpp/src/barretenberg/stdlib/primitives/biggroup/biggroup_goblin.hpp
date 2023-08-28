@@ -5,13 +5,14 @@ namespace stdlib {
 
 /**
  * @brief Goblin style batch multiplication
- * @note (Luke): The approach of having a distinct interface for goblin style group operations is limited/flawed. The
- * natural alternative is to abstract the details away from the circuit writer and to simply allow the strategy to be
- * determined by the type of circuit constructor (i.e. Goblin or not) from within biggroup. Currently, the goblin-style
- * circuit builder functionality has been incorporated directly into the UltraCircuitBuilder, thus there is no
- * means for distinction. If we decide it is preferable to support fully flexible goblin-style group operations via the
- * existing biggroup API, we will need to make an independent GoblinUltraCircuitBuilder class (plausibly via inheritance
- * from UltraCircuitBuilder) and implement Goblin-style strategies for each of the operations in biggroup.
+ *
+ * @details In goblin-style arithmetization, the operands (points/scalars) for each mul-accumulate operation are
+ * decomposed into smaller components and written to an operation queue via the builder. The components are also added
+ * as witness variables. This function adds constraints demonstrating the fidelity of the point/scalar decompositions
+ * given the indices of the components in the variables array. The actual mul-accumulate operations are performed
+ * natively (without constraints) under the hood, and the final result is obtained by queueing an equality operation via
+ * the builder. The components of the result are returned as indices into the variables array from which the resulting
+ * accumulator point is re-constructed.
  *
  * @tparam C CircuitBuilder
  * @tparam Fq Base field
@@ -41,7 +42,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         // Populate the goblin-style ecc op gates for the given mul inputs
         auto op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
 
-        // Constrain decomposition of point coordinates to reconstruct original values.
+        // Adds constraints demonstrating proper decomposition of point coordinates.
         // Note: may need to do point.x.assert_is_in_field() prior to the assert_eq() according to Kesha.
         auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
@@ -54,7 +55,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         point.x.assert_equal(point_x);
         point.y.assert_equal(point_y);
 
-        // Constrain endomorphism scalars to reconstruct scalar
+        // Add constraints demonstrating proper decomposition of scalar into endomorphism scalars
         auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
         auto z_2 = Fr::from_witness_index(builder, op_tuple.z_2);
         auto beta = G::subgroup_field::cube_root_of_unity();
@@ -64,7 +65,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
     // Populate equality gates based on the internal accumulator point
     auto op_tuple = builder->queue_ecc_eq();
 
-    // Reconstruct the result of the batch mul
+    // Reconstruct the result of the batch mul using indices into the variables array
     auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
     auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
     auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
