@@ -40,7 +40,6 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
 {
     // Convert the uint64_t to a vector of bytes, since std::cout.put
     // only accepts a single byte.
-    // This is in little endian format
     std::vector<uint8_t> bytes;
     bytes.reserve(sizeof(uint64_t));
 
