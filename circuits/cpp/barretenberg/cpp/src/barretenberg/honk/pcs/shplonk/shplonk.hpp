@@ -1,6 +1,7 @@
 #pragma once
 #include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
+#include "barretenberg/honk/pcs/verification_key.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 
 /**
@@ -22,28 +23,28 @@ namespace proof_system::honk::pcs::shplonk {
 /**
  * @brief Polynomial G(X) = Q(X) - ∑ₖ ẑₖ(r)⋅( Bₖ(X) − Tₖ(z) ), where Q(X) = ∑ₖ ( Bₖ(X) − Tₖ(X) ) / zₖ(X)
  *
- * @tparam Params CommitmentScheme parameters
+ * @tparam Curve EC parameters
  */
-template <typename Params> using OutputWitness = barretenberg::Polynomial<typename Params::Fr>;
+template <typename Curve> using OutputWitness = barretenberg::Polynomial<typename Curve::ScalarField>;
 
 /**
  * @brief Prover output (claim=([G], r, 0), witness = G(X), proof = [Q])
  * that can be passed on to a univariate opening protocol.
  *
- * @tparam Params CommitmentScheme parameters
+ * @tparam Curve EC parameters
  */
-template <typename Params> struct ProverOutput {
-    OpeningPair<Params> opening_pair; // single opening pair (challenge, evaluation)
-    OutputWitness<Params> witness;    // single polynomial G(X)
+template <typename Curve> struct ProverOutput {
+    OpeningPair<Curve> opening_pair; // single opening pair (challenge, evaluation)
+    OutputWitness<Curve> witness;    // single polynomial G(X)
 };
 
 /**
  * @brief Shplonk Prover
  *
- * @tparam Params for the given commitment scheme
+ * @tparam Curve EC parameters
  */
-template <typename Params> class ShplonkProver_ {
-    using Fr = typename Params::Fr;
+template <typename Curve> class ShplonkProver_ {
+    using Fr = typename Curve::ScalarField;
     using Polynomial = barretenberg::Polynomial<Fr>;
 
   public:
@@ -55,7 +56,7 @@ template <typename Params> class ShplonkProver_ {
      * @param nu
      * @return Polynomial Q(X)
      */
-    static Polynomial compute_batched_quotient(std::span<const OpeningPair<Params>> opening_pairs,
+    static Polynomial compute_batched_quotient(std::span<const OpeningPair<Curve>> opening_pairs,
                                                std::span<const Polynomial> witness_polynomials,
                                                const Fr& nu)
     {
@@ -96,8 +97,8 @@ template <typename Params> class ShplonkProver_ {
      * @param z_challenge
      * @return Output{OpeningPair, Polynomial}
      */
-    static ProverOutput<Params> compute_partially_evaluated_batched_quotient(
-        std::span<const OpeningPair<Params>> opening_pairs,
+    static ProverOutput<Curve> compute_partially_evaluated_batched_quotient(
+        std::span<const OpeningPair<Curve>> opening_pairs,
         std::span<const Polynomial> witness_polynomials,
         Polynomial&& batched_quotient_Q,
         const Fr& nu_challenge,
@@ -144,11 +145,11 @@ template <typename Params> class ShplonkProver_ {
  * @brief Shplonk Verifier
  *
  */
-template <typename Params> class ShplonkVerifier_ {
-    using Fr = typename Params::Fr;
-    using GroupElement = typename Params::GroupElement;
-    using Commitment = typename Params::Commitment;
-    using VK = typename Params::VerificationKey;
+template <typename Curve> class ShplonkVerifier_ {
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using VK = VerifierCommitmentKey<Curve>;
 
   public:
     /**
@@ -160,10 +161,11 @@ template <typename Params> class ShplonkVerifier_ {
      * @param transcript
      * @return OpeningClaim
      */
-    static OpeningClaim<Params> reduce_verification(std::shared_ptr<VK> vk,
-                                              std::span<const OpeningClaim<Params>> claims,
-                                              VerifierTranscript<Fr>& transcript)
+    static OpeningClaim<Curve> reduce_verification(std::shared_ptr<VK> vk,
+                                                   std::span<const OpeningClaim<Curve>> claims,
+                                                   auto& transcript)
     {
+
         const size_t num_claims = claims.size();
 
         const Fr nu = transcript.get_challenge("Shplonk:nu");
@@ -178,21 +180,35 @@ template <typename Params> class ShplonkVerifier_ {
         //      = [Q] - ∑ⱼ (1/zⱼ(r))[Bⱼ]  +                    G₀ [1]
 
         // G₀ = ∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ )
-        Fr G_commitment_constant{ Fr::zero() };
+        auto G_commitment_constant = Fr(0);
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
         GroupElement G_commitment = Q_commitment;
 
-        // {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
-        std::vector<Fr> inverse_vanishing_evals;
-        inverse_vanishing_evals.reserve(num_claims);
+        // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
+        std::vector<Fr> vanishing_evals;
+        vanishing_evals.reserve(num_claims);
         for (const auto& claim : claims) {
-            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+            vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
-        Fr::batch_invert(inverse_vanishing_evals);
+        // If recursion, invert elements individually, otherwise batch invert. (Inversion is cheap in circuits since we
+        // need only prove the correctness of a known inverse, we do not emulate its computation. Hence no need for
+        // batch inversion).
+        std::vector<Fr> inverse_vanishing_evals;
+        if constexpr (Curve::is_stdlib_type) {
+            for (const auto& val : vanishing_evals) {
+                inverse_vanishing_evals.emplace_back(val.invert());
+            }
+        } else {
+            Fr::batch_invert(vanishing_evals);
+            inverse_vanishing_evals = vanishing_evals;
+        }
 
-        Fr current_nu{ Fr::one() };
+        auto current_nu = Fr(1);
+        // Note: commitments and scalars vectors used only in recursion setting for batch mul
+        std::vector<Commitment> commitments;
+        std::vector<Fr> scalars;
         for (size_t j = 0; j < num_claims; ++j) {
             // (Cⱼ, xⱼ, vⱼ)
             const auto& [opening_pair, commitment] = claims[j];
@@ -201,18 +217,41 @@ template <typename Params> class ShplonkVerifier_ {
 
             // G₀ += ρʲ / ( r − xⱼ ) ⋅ vⱼ
             G_commitment_constant += scaling_factor * opening_pair.evaluation;
-            // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
-            G_commitment -= commitment * scaling_factor;
+
+            // If recursion, store MSM inputs for batch mul, otherwise accumulate directly
+            if constexpr (Curve::is_stdlib_type) {
+                commitments.emplace_back(commitment);
+                scalars.emplace_back(scaling_factor);
+            } else {
+                // [G] -= ρʲ / ( r − xⱼ )⋅[fⱼ]
+                G_commitment -= commitment * scaling_factor;
+            }
 
             current_nu *= nu;
         }
-        // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
 
-        //  GroupElement sort_of_one{ x, y };
-        G_commitment += vk->srs->get_first_g1() * G_commitment_constant;
+        // If recursion, do batch mul to compute [G] -= ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ]
+        if constexpr (Curve::is_stdlib_type) {
+            G_commitment -= GroupElement::batch_mul(commitments, scalars);
+        }
+
+        // [G] += G₀⋅[1] = [G] + (∑ⱼ ρʲ ⋅ vⱼ / ( r − xⱼ ))⋅[1]
+        Fr evaluation_zero;     // 0 \in Fr
+        GroupElement group_one; // [1]
+        if constexpr (Curve::is_stdlib_type) {
+            auto ctx = transcript.builder;
+            evaluation_zero = Fr::from_witness(ctx, 0);
+            group_one = GroupElement::one(ctx);
+        } else {
+            //  GroupElement sort_of_one{ x, y };
+            evaluation_zero = Fr(0);
+            group_one = vk->srs->get_first_g1();
+        }
+
+        G_commitment += group_one * G_commitment_constant;
 
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, Fr::zero() }, G_commitment };
+        return { { z_challenge, evaluation_zero }, G_commitment };
     };
 };
 } // namespace proof_system::honk::pcs::shplonk

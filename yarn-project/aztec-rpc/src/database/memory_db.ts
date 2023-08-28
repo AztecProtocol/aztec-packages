@@ -1,13 +1,12 @@
-import { PartialContractAddress } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { MerkleTreeId, PublicKey } from '@aztec/types';
 
 import { MemoryContractDatabase } from '../contract_database/index.js';
 import { Database } from './database.js';
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
 
 /**
  * The MemoryDB class provides an in-memory implementation of a database to manage transactions and auxiliary data.
@@ -16,35 +15,13 @@ import { TxDao } from './tx_dao.js';
  * As an in-memory database, the stored data will not persist beyond the life of the application instance.
  */
 export class MemoryDB extends MemoryContractDatabase implements Database {
-  private txTable: TxDao[] = [];
   private noteSpendingInfoTable: NoteSpendingInfoDao[] = [];
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
-  private publicKeys: Map<bigint, [PublicKey, PartialContractAddress]> = new Map();
+  private globalVariablesHash: Fr | undefined;
+  private addresses: CompleteAddress[] = [];
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
-  }
-
-  public getTx(txHash: TxHash) {
-    return Promise.resolve(this.txTable.find(tx => tx.txHash.equals(txHash)));
-  }
-
-  public getTxsByAddress(origin: AztecAddress) {
-    return Promise.resolve(this.txTable.filter(tx => tx.origin.equals(origin)));
-  }
-
-  public addTx(tx: TxDao) {
-    const index = this.txTable.findIndex(t => t.txHash.equals(tx.txHash));
-    if (index === -1) {
-      this.txTable.push(tx);
-    } else {
-      this.txTable[index] = tx;
-    }
-    return Promise.resolve();
-  }
-
-  public async addTxs(txs: TxDao[]) {
-    await Promise.all(txs.map(tx => this.addTx(tx)));
   }
 
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
@@ -97,24 +74,54 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
     return Promise.resolve();
   }
 
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
-  ): Promise<void> {
-    if (this.publicKeys.has(address.toBigInt())) {
-      throw new Error(`Account ${address} already exists`);
+  public getHistoricBlockData(): HistoricBlockData {
+    const roots = this.getTreeRoots();
+    if (!this.globalVariablesHash) throw new Error(`Global variables hash not set in memory database`);
+    return new HistoricBlockData(
+      roots[MerkleTreeId.PRIVATE_DATA_TREE],
+      roots[MerkleTreeId.NULLIFIER_TREE],
+      roots[MerkleTreeId.CONTRACT_TREE],
+      roots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
+      roots[MerkleTreeId.BLOCKS_TREE],
+      Fr.ZERO, // todo: private kernel vk tree root
+      roots[MerkleTreeId.PUBLIC_DATA_TREE],
+      this.globalVariablesHash,
+    );
+  }
+
+  public async setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void> {
+    this.globalVariablesHash = historicBlockData.globalVariablesHash;
+    await this.setTreeRoots({
+      [MerkleTreeId.PRIVATE_DATA_TREE]: historicBlockData.privateDataTreeRoot,
+      [MerkleTreeId.NULLIFIER_TREE]: historicBlockData.nullifierTreeRoot,
+      [MerkleTreeId.CONTRACT_TREE]: historicBlockData.contractTreeRoot,
+      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: historicBlockData.l1ToL2MessagesTreeRoot,
+      [MerkleTreeId.BLOCKS_TREE]: historicBlockData.blocksTreeRoot,
+      [MerkleTreeId.PUBLIC_DATA_TREE]: historicBlockData.publicDataTreeRoot,
+    });
+  }
+
+  public addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+    const accountIndex = this.addresses.findIndex(r => r.address.equals(completeAddress.address));
+    if (accountIndex !== -1) {
+      if (this.addresses[accountIndex].equals(completeAddress)) {
+        return Promise.resolve(false);
+      }
+
+      throw new Error(
+        `Complete address with aztec address ${completeAddress.address.toString()} but different public key or partial key already exists in memory database`,
+      );
     }
-    this.publicKeys.set(address.toBigInt(), [publicKey, partialAddress]);
-    return Promise.resolve();
+    this.addresses.push(completeAddress);
+    return Promise.resolve(true);
   }
 
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, Fr] | undefined> {
-    return Promise.resolve(this.publicKeys.get(address.toBigInt()));
+  public getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const recipient = this.addresses.find(r => r.address.equals(address));
+    return Promise.resolve(recipient);
   }
 
-  getAccounts(): Promise<AztecAddress[]> {
-    const addresses = Array.from(this.publicKeys.keys());
-    return Promise.resolve(addresses.map(AztecAddress.fromBigInt));
+  public getCompleteAddresses(): Promise<CompleteAddress[]> {
+    return Promise.resolve(this.addresses);
   }
 }

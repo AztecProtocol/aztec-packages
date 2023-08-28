@@ -7,11 +7,10 @@
 #include "aztec3/circuits/abis/call_stack_item.hpp"
 #include "aztec3/circuits/abis/combined_accumulated_data.hpp"
 #include "aztec3/circuits/abis/combined_constant_data.hpp"
-#include "aztec3/circuits/abis/combined_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/contract_deployment_data.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
+#include "aztec3/circuits/abis/historic_block_data.hpp"
 #include "aztec3/circuits/abis/private_circuit_public_inputs.hpp"
-#include "aztec3/circuits/abis/private_historic_tree_roots.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/tx_context.hpp"
 #include "aztec3/circuits/abis/tx_request.hpp"
@@ -32,11 +31,10 @@ using aztec3::circuits::abis::CallContext;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::CombinedAccumulatedData;
 using aztec3::circuits::abis::CombinedConstantData;
-using aztec3::circuits::abis::CombinedHistoricTreeRoots;
 using aztec3::circuits::abis::ContractDeploymentData;
 using aztec3::circuits::abis::FunctionData;
+using aztec3::circuits::abis::HistoricBlockData;
 using aztec3::circuits::abis::PrivateCircuitPublicInputs;
-using aztec3::circuits::abis::PrivateHistoricTreeRoots;
 using aztec3::circuits::abis::PrivateTypes;
 using aztec3::circuits::abis::TxContext;
 using aztec3::circuits::abis::TxRequest;
@@ -158,7 +156,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
     const Point<NT> msg_sender_pub_key = { .x = 123456789, .y = 123456789 };
 
     FunctionData<NT> const function_data{
-        .function_selector = 1,  // TODO(suyash): deduce this from the contract, somehow.
+        .selector =
+            {
+                .value = 1,  // TODO: deduce this from the contract, somehow.
+            },
         .is_private = true,
         .is_constructor = is_constructor,
     };
@@ -202,7 +203,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // push to array/vector
         // use variation of `compute_root_partial_left_tree` to compute the root from leaves
         // const auto& function_leaf_preimage = FunctionLeafPreimage<NT>{
-        //    .function_selector = function_data.function_selector,
+        //    .selector = function_data.selector,
         //    .is_private = function_data.is_private,
         //    .vk_hash = private_circuit_vk_hash,
         //    .acir_hash = acir_hash,
@@ -229,7 +230,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         // update the contract address in the call context now that it is known
         call_context.storage_contract_address = contract_address;
     } else {
-        const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.function_selector,
+        const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.selector,
                                                                                 function_data.is_internal,
                                                                                 function_data.is_private,
                                                                                 private_circuit_vk_hash,
@@ -278,7 +279,7 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         OptionalPrivateCircuitPublicInputs<NT> const opt_private_circuit_public_inputs = func(ctx, args_vec);
         private_circuit_public_inputs = opt_private_circuit_public_inputs.remove_optionality();
         // TODO(suyash): this should likely be handled as part of the DB/Oracle/Context infrastructure
-        private_circuit_public_inputs.historic_contract_tree_root = contract_tree_root;
+        private_circuit_public_inputs.historic_block_data.contract_tree_root = contract_tree_root;
 
         private_circuit_public_inputs.encrypted_logs_hash = encrypted_logs_hash;
         private_circuit_public_inputs.unencrypted_logs_hash = unencrypted_logs_hash;
@@ -289,19 +290,16 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .call_context = call_context,
             .args_hash = args_hash,
             .return_values = {},
-            .new_commitments = { NT::fr::random_element() },        // One random commitment
-            .new_nullifiers = { NT::fr::random_element() },         // One random nullifier
-            .nullified_commitments = { NT::fr::random_element() },  // One random commitment that was nullified
+            .new_commitments = { NT::fr::random_element() },  // One random commitment
+            .new_nullifiers = { NT::fr::random_element() },   // One random nullifier
+            .nullified_commitments = {},
             .private_call_stack = {},
             .new_l2_to_l1_msgs = {},
             .encrypted_logs_hash = encrypted_logs_hash,
             .unencrypted_logs_hash = unencrypted_logs_hash,
             .encrypted_log_preimages_length = encrypted_log_preimages_length,
             .unencrypted_log_preimages_length = unencrypted_log_preimages_length,
-            .historic_private_data_tree_root = 0,
-            .historic_nullifier_tree_root = 0,
-            .historic_contract_tree_root = contract_tree_root,
-            .historic_l1_to_l2_messages_tree_root = 0,
+            .historic_block_data = HistoricBlockData<NT>{ .contract_tree_root = contract_tree_root },
             .contract_deployment_data = contract_deployment_data,
         };
     }
@@ -485,13 +483,10 @@ PrivateKernelInputsInner<NT> do_private_call_get_kernel_inputs_inner(
     // Fill in some important fields in public inputs
     mock_previous_kernel.public_inputs.end.private_call_stack = initial_kernel_private_call_stack;
     mock_previous_kernel.public_inputs.constants = CombinedConstantData<NT>{
-        .historic_tree_roots =
-            CombinedHistoricTreeRoots<NT>{
-                .private_historic_tree_roots =
-                    PrivateHistoricTreeRoots<NT>{
-                        .private_data_tree_root = private_circuit_public_inputs.historic_private_data_tree_root,
-                        .contract_tree_root = private_circuit_public_inputs.historic_contract_tree_root,
-                    },
+        .block_data =
+            HistoricBlockData<NT>{
+                .private_data_tree_root = private_circuit_public_inputs.historic_block_data.private_data_tree_root,
+                .contract_tree_root = private_circuit_public_inputs.historic_block_data.contract_tree_root,
             },
         .tx_context = tx_context,
     };

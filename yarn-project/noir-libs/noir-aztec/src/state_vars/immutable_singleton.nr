@@ -1,8 +1,11 @@
 use dep::std::hash::pedersen_with_separator;
-use crate::context::Context;
-use crate::note::lifecycle::create_note;
-use crate::note::note_getter::get_note;
-use crate::note::note_interface::NoteInterface;
+use crate::context::PrivateContext;
+use crate::note::{
+    lifecycle::create_note,
+    note_getter::{get_note, view_notes},
+    note_interface::NoteInterface,
+    note_viewer_options::NoteViewerOptions,
+};
 use crate::oracle;
 use crate::constants_gen::{
     GENERATOR_INDEX__INITIALISATION_NULLIFIER,
@@ -24,7 +27,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         oracle::notes::is_nullifier_emitted(nullifier)
     }
 
-    fn initialise(self, context: &mut Context, note: &mut Note) {
+    fn initialise(self, context: &mut PrivateContext, note: &mut Note) {
         // Nullify the storage slot.
         let nullifier = self.compute_initialisation_nullifier();
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
@@ -36,8 +39,13 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         pedersen_with_separator([self.storage_slot], GENERATOR_INDEX__INITIALISATION_NULLIFIER)[0]
     }
     
-    fn get_note(self, context: &mut Context) -> Note {
+    fn get_note(self, context: &mut PrivateContext) -> Note {
         let storage_slot = self.storage_slot;
         get_note(context, storage_slot, self.note_interface)
+    }
+
+    unconstrained fn view_note(self) -> Note {
+        let options = NoteViewerOptions::new().set_limit(1);
+        view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
     }
 }

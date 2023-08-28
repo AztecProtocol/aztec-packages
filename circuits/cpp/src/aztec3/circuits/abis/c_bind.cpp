@@ -32,7 +32,7 @@ namespace {
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
-using aztec3::circuits::compute_partial_contract_address;
+using aztec3::circuits::compute_partial_address;
 using aztec3::circuits::abis::CallStackItem;
 using aztec3::circuits::abis::ConstantsPacker;
 using aztec3::circuits::abis::FunctionData;
@@ -77,14 +77,6 @@ template <size_t TREE_HEIGHT> void rightfill_with_zeroleaves(std::vector<NT::fr>
 
 }  // namespace
 
-// Note: We don't have a simple way of calling the barretenberg c-bind.
-// Mimic bbmalloc behaviour.
-static void* bbmalloc(size_t size)
-{
-    auto* ptr = aligned_alloc(64, size);
-    return ptr;
-}
-
 /** Copy this string to a bbmalloc'd buffer */
 static const char* bbmalloc_copy_string(const char* data, size_t len)
 {
@@ -113,9 +105,9 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
 {
     using serialize::read;
     T obj;
-    read(input_buf, obj);
+    serialize::read(input_buf, obj);
     std::vector<uint8_t> stream;
-    write(stream, obj);
+    serialize::write(stream, obj);
     *size = static_cast<uint32_t>(stream.size());
     return bbmalloc_copy_string(reinterpret_cast<char*>(stream.data()), *size);
 }
@@ -128,14 +120,14 @@ template <typename T> static const char* as_serialized_output(uint8_t const* inp
  * read it into a `TxRequest` object, hash it to a `fr`,
  * and serialize it to a `uint8_t*` output buffer
  *
- * @param tx_request_buf buffer of bytes containing all data needed to construct a TX request via `read()`
+ * @param tx_request_buf buffer of bytes containing all data needed to construct a TX request via `serialize::read()`
  * @param output buffer that will contain the output which will be the hashed `TxRequest`
  */
 WASM_EXPORT void abis__hash_tx_request(uint8_t const* tx_request_buf, uint8_t* output)
 {
     TxRequest<NT> tx_request;
-    read(tx_request_buf, tx_request);
-    // TODO(dbanks12) consider using write() and read() instead of
+    serialize::read(tx_request_buf, tx_request);
+    // TODO(dbanks12) consider using write() and serialize::read() instead of
     // serialize to/from everywhere here and in test
     NT::fr::serialize_to_buffer(tx_request.hash(), output);
 }
@@ -182,7 +174,7 @@ WASM_EXPORT void abis__compute_function_selector(char const* func_sig_cstr, uint
 WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 {
     NT::VKData vk_data;
-    read(vk_data_buf, vk_data);
+    serialize::read(vk_data_buf, vk_data);
 
     NT::fr::serialize_to_buffer(vk_data.compress_native(aztec3::GeneratorIndex::VK), output);
 }
@@ -202,7 +194,7 @@ WASM_EXPORT void abis__hash_vk(uint8_t const* vk_data_buf, uint8_t* output)
 WASM_EXPORT void abis__compute_function_leaf(uint8_t const* function_leaf_preimage_buf, uint8_t* output)
 {
     FunctionLeafPreimage<NT> leaf_preimage;
-    read(function_leaf_preimage_buf, leaf_preimage);
+    serialize::read(function_leaf_preimage_buf, leaf_preimage);
     leaf_preimage.hash();
     NT::fr::serialize_to_buffer(leaf_preimage.hash(), output);
 }
@@ -330,14 +322,14 @@ WASM_EXPORT void abis__compute_contract_address(uint8_t const* point_data_buf,
 }
 
 /**
- * @brief Compute a contract address from its partial contract address
+ * @brief Compute a contract address from deployer public key and partial address.
  * This is a WASM-export that can be called from Typescript.
  *
  * @details Computes a contract address by hashing the deployers public key along with the previously computed partial
  * address Return the serialized results in the `output` buffer.
  *
  * @param point_data_buf point data struct as a buffer of bytes
- * @param partial_address_data_buf partial contract address
+ * @param partial_address_data_buf partial address
  * @param output buffer that will contain the output. The serialized contract address.
  */
 WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* point_data_buf,
@@ -357,21 +349,23 @@ WASM_EXPORT void abis__compute_contract_address_from_partial(uint8_t const* poin
 }
 
 /**
- * @brief Compute a partial contract address
+ * @brief Compute a partial address
  * This is a WASM-export that can be called from Typescript.
  *
- * @details Computes a partial contract address by hashing the salt, functio tree root and constructor hash
+ * @details Computes a partial address by hashing the salt, function tree root and constructor hash
  * Return the serialized results in the `output` buffer.
  *
  * @param contract_address_salt_buf salt value for the contract address
  * @param function_tree_root_buf root value of the contract's function tree
  * @param constructor_hash_buf the hash of the contract constructor's verification key
  * @param output buffer that will contain the output. The serialized contract address.
+ * See the link bellow for more details:
+ * https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
  */
-WASM_EXPORT void abis__compute_partial_contract_address(uint8_t const* contract_address_salt_buf,
-                                                        uint8_t const* function_tree_root_buf,
-                                                        uint8_t const* constructor_hash_buf,
-                                                        uint8_t* output)
+WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_salt_buf,
+                                               uint8_t const* function_tree_root_buf,
+                                               uint8_t const* constructor_hash_buf,
+                                               uint8_t* output)
 {
     NT::fr contract_address_salt;
     NT::fr function_tree_root;
@@ -381,7 +375,7 @@ WASM_EXPORT void abis__compute_partial_contract_address(uint8_t const* contract_
     read(function_tree_root_buf, function_tree_root);
     read(constructor_hash_buf, constructor_hash);
     NT::fr const partial_address =
-        compute_partial_contract_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
+        compute_partial_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
 
     NT::fr::serialize_to_buffer(partial_address, output);
 }
@@ -443,8 +437,30 @@ CBIND(abis__silo_nullifier, aztec3::circuits::silo_nullifier<NT>);
 
 /**
  * @brief Computes the block hash from the block information.
+ * Globals is provided as a hash in this instance.
  */
 CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash<NT>);
+
+/**
+ * @brief Computes the block hash from the block information.
+ * The entire globals object is provided in this instance, rather than a hash as in above.
+ */
+CBIND(abis__compute_block_hash_with_globals, aztec3::circuits::compute_block_hash_with_globals<NT>);
+
+/**
+ * @brief Computes the hash of the global variables
+ */
+CBIND(abis__compute_globals_hash, aztec3::circuits::compute_globals_hash<NT>);
+
+/**
+ * @brief Compute the value to be inserted into the public data tree
+ */
+CBIND(abis__compute_public_data_tree_value, aztec3::circuits::compute_public_data_tree_value<NT>);
+
+/**
+ * @brief Compute the index for inserting a value into the public data tree
+ */
+CBIND(abis__compute_public_data_tree_index, aztec3::circuits::compute_public_data_tree_index<NT>);
 
 /**
  * @brief Generates a signed tx request hash from it's pre-image
@@ -460,7 +476,7 @@ CBIND(abis__compute_block_hash, aztec3::circuits::compute_block_hash<NT>);
 WASM_EXPORT void abis__compute_transaction_hash(uint8_t const* tx_request_buf, uint8_t* output)
 {
     TxRequest<NT> tx_request_preimage;
-    read(tx_request_buf, tx_request_preimage);
+    serialize::read(tx_request_buf, tx_request_preimage);
     auto to_write = tx_request_preimage.hash();
     NT::fr::serialize_to_buffer(to_write, output);
 }
@@ -516,6 +532,13 @@ WASM_EXPORT const char* abis__test_roundtrip_serialize_private_circuit_public_in
 {
     return as_string_output<aztec3::circuits::abis::PrivateCircuitPublicInputs<NT>>(private_circuits_public_inputs_buf,
                                                                                     size);
+}
+
+WASM_EXPORT const char* abis__test_roundtrip_serialize_public_circuit_public_inputs(
+    uint8_t const* public_circuits_public_inputs_buf, uint32_t* size)
+{
+    return as_string_output<aztec3::circuits::abis::PublicCircuitPublicInputs<NT>>(public_circuits_public_inputs_buf,
+                                                                                   size);
 }
 
 WASM_EXPORT const char* abis__test_roundtrip_serialize_function_data(uint8_t const* function_data_buf, uint32_t* size)

@@ -58,9 +58,9 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     using FF = typename Flavor::FF;
     using GroupElement = typename Flavor::GroupElement;
     using Commitment = typename Flavor::Commitment;
-    using PCSParams = typename Flavor::PCSParams;
-    using Gemini = pcs::gemini::GeminiVerifier_<PCSParams>;
-    using Shplonk = pcs::shplonk::ShplonkVerifier_<PCSParams>;
+    using Curve = typename Flavor::Curve;
+    using Gemini = pcs::gemini::GeminiVerifier_<Curve>;
+    using Shplonk = pcs::shplonk::ShplonkVerifier_<Curve>;
     using PCS = typename Flavor::PCS;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
@@ -107,8 +107,8 @@ template <typename Flavor> bool StandardVerifier_<Flavor>::verify_proof(const pl
     commitments.z_perm = transcript.template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size, transcript);
-    std::optional sumcheck_output = sumcheck.verify(relation_parameters);
+    auto sumcheck = SumcheckVerifier<Flavor>(circuit_size);
+    std::optional sumcheck_output = sumcheck.verify(relation_parameters, transcript);
 
     // If Sumcheck does not return an output, sumcheck verification has failed
     if (!sumcheck_output.has_value()) {

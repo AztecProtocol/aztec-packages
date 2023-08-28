@@ -1,4 +1,5 @@
 #include "c_bind.h"
+
 #include "function_leaf_preimage.hpp"
 #include "tx_request.hpp"
 
@@ -49,13 +50,12 @@ template <size_t NUM_BYTES> std::string bytes_to_hex_str(std::array<uint8_t, NUM
 
 namespace aztec3::circuits::abis {
 
-TEST(abi_tests, compute_partial_contract_address)
+TEST(abi_tests, compute_partial_address)
 {
     auto const contract_address_salt = NT::fr(3);
     auto const function_tree_root = NT::fr(4);
     auto const constructor_hash = NT::fr(5);
-    NT::fr const expected =
-        compute_partial_contract_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
+    NT::fr const expected = compute_partial_address<NT>(contract_address_salt, function_tree_root, constructor_hash);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     std::vector<uint8_t> salt_buf;
@@ -64,7 +64,7 @@ TEST(abi_tests, compute_partial_contract_address)
     write(salt_buf, contract_address_salt);
     write(function_tree_root_buf, function_tree_root);
     write(constructor_hash_buf, constructor_hash);
-    abis__compute_partial_contract_address(
+    abis__compute_partial_address(
         salt_buf.data(), function_tree_root_buf.data(), constructor_hash_buf.data(), output.data());
 
     // Convert buffer to `fr` for comparison to in-test calculated hash
@@ -112,7 +112,7 @@ TEST(abi_tests, hash_tx_request)
 
     // Write the tx request to a buffer and
     std::vector<uint8_t> buf;
-    write(buf, tx_request);
+    serialize::write(buf, tx_request);
 
     // create an output buffer for cbind hash results
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
@@ -126,7 +126,7 @@ TEST(abi_tests, hash_tx_request)
     EXPECT_EQ(got_hash, tx_request.hash());
 }
 
-TEST(abi_tests, compute_function_selector_transfer)
+TEST(abi_tests, compute_selector_transfer)
 {
     const char* function_signature = "transfer(address,uint256)";
 
@@ -170,7 +170,7 @@ TEST(abi_tests, hash_vk)
     vk_data.commitments["foo2"] = g1::element::random_element();
     // Write the vk data to a bytes vector
     std::vector<uint8_t> vk_data_vec;
-    write(vk_data_vec, vk_data);
+    serialize::write(vk_data_vec, vk_data);
 
     // create an output buffer for cbind hash results
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
@@ -192,7 +192,10 @@ TEST(abi_tests, compute_function_leaf)
 {
     // Construct FunctionLeafPreimage with some randomized fields
     auto const preimage = FunctionLeafPreimage<NT>{
-        .function_selector = engine.get_random_uint32(),
+        .selector =
+            {
+                .value = engine.get_random_uint32(),
+            },
         .is_private = static_cast<bool>(engine.get_random_uint8() & 1),
         .vk_hash = NT::fr::random_element(),
         .acir_hash = NT::fr::random_element(),
@@ -200,7 +203,7 @@ TEST(abi_tests, compute_function_leaf)
 
     // Write the leaf preimage to a buffer
     std::vector<uint8_t> preimage_buf;
-    write(preimage_buf, preimage);
+    serialize::write(preimage_buf, preimage);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     abis__compute_function_leaf(preimage_buf.data(), output.data());
@@ -280,7 +283,12 @@ TEST(abi_tests, compute_function_tree)
 TEST(abi_tests, hash_constructor)
 {
     // Randomize required values
-    auto const func_data = FunctionData<NT>{ .function_selector = 10, .is_private = true, .is_constructor = false };
+    auto const func_data = FunctionData<NT>{ .selector =
+                                                 {
+                                                     .value = 10,
+                                                 },
+                                             .is_private = true,
+                                             .is_constructor = false };
 
     NT::fr const args_hash = NT::fr::random_element();
     NT::fr const constructor_vk_hash = NT::fr::random_element();
@@ -367,7 +375,7 @@ TEST(abi_tests, compute_transaction_hash)
 
     // Write the leaf preimage to a buffer
     std::vector<uint8_t> preimage_buf;
-    write(preimage_buf, tx_request);
+    serialize::write(preimage_buf, tx_request);
 
     std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
     abis__compute_transaction_hash(preimage_buf.data(), output.data());

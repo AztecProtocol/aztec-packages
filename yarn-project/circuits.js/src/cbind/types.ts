@@ -33,8 +33,7 @@ export {
   PublicDataUpdateRequest,
   ReadRequestMembershipWitness,
   CombinedAccumulatedData,
-  PrivateHistoricTreeRoots,
-  CombinedHistoricTreeRoots,
+  HistoricBlockData,
   ContractDeploymentData,
   TxContext,
   CombinedConstantData,
@@ -53,6 +52,7 @@ export {
   Coordinate,
   GlobalVariables,
 } from '../structs/index.js';
+export { FunctionSelector } from '@aztec/foundation/abi';
 
 /**
  * A pointer to a Prover object in WebAssembly memory.

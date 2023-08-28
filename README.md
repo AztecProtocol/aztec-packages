@@ -18,6 +18,8 @@ To build the C++ code, follow the [instructions in the circuits subdirectory](./
 
 To build Typescript code, make sure to have [`nvm`](https://github.com/nvm-sh/nvm) (node version manager) installed.
 
+To build noir code, make sure that you are using the `aztec` tagged version of nargo. This is the latest pin version the team works on to ensure local and ci environments are in sync. This should be installed through `noir-contracts/bootstrap.sh` and the regular `bootstrap.sh` script. However if you find yourself wanting to update to the latest `aztec` tag outside of these channels, you can run `noirup -v aztec` to manually download the latest binaries.
+
 ## Continuous Integration
 
 This repository uses CircleCI for continuous integration. Build steps are managed using [`build-system`](https://github.com/AztecProtocol/build-system). Small packages are built and tested as part of a docker build operation, while larger ones and end-to-end tests spin up a large AWS spot instance. Each successful build step creates a new docker image that gets tagged with the package name and commit.
@@ -28,6 +30,9 @@ All packages need to be included in the [build manifest](`build_manifest.json`),
 
 Logging goes through the [`info` and `debug`](circuits/cpp/barretenberg/cpp/src/barretenberg/common/log.hpp) functions in C++, and through the [DebugLogger](yarn-project/foundation/src/log/debug.ts) module in Typescript. To see the log output, set a `DEBUG` environment variable to the name of the module you want to debug, to `aztec:*`, or to `*` to see all logs.
 
+## Releases
+
+Releases are driven by [release-please](https://github.com/googleapis/release-please), which maintains a 'Release PR' containing an updated CHANGELOG.md since the last release. Triggering a new release is simply a case of merging this PR to master. A [github workflow](./.github/workflows/release_please.yml) will create the tagged release triggering CircleCI to build and deploy the version at that tag.
 
 ## Contribute
 

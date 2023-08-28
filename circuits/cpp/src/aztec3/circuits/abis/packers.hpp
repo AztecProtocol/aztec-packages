@@ -15,7 +15,7 @@ struct ConstantsPacker {
             msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_pack(packer);
         };
 
-        // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
+        // Note: NVP macro can handle up to 30 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(ARGS_LENGTH,
                  RETURN_VALUES_LENGTH,
@@ -48,19 +48,16 @@ struct ConstantsPacker {
                  PUBLIC_DATA_TREE_HEIGHT,
                  NULLIFIER_TREE_HEIGHT,
                  L1_TO_L2_MSG_TREE_HEIGHT,
-                 PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
-                 CONTRACT_TREE_ROOTS_TREE_HEIGHT,
-                 L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
                  ROLLUP_VK_TREE_HEIGHT,
                  CONTRACT_SUBTREE_HEIGHT,
                  CONTRACT_SUBTREE_SIBLING_PATH_LENGTH,
                  PRIVATE_DATA_SUBTREE_HEIGHT,
                  PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH,
-                 NULLIFIER_SUBTREE_HEIGHT),
-             NVP(HISTORIC_BLOCKS_TREE_HEIGHT,
+                 NULLIFIER_SUBTREE_HEIGHT,
+                 HISTORIC_BLOCKS_TREE_HEIGHT,
                  NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
-                 L1_TO_L2_MSG_SUBTREE_HEIGHT,
-                 L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
+                 L1_TO_L2_MSG_SUBTREE_HEIGHT),
+             NVP(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
                  FUNCTION_SELECTOR_NUM_BYTES,
                  MAPPING_SLOT_PEDERSEN_SEPARATOR,
                  NUM_FIELDS_PER_SHA256,
@@ -71,16 +68,16 @@ struct ConstantsPacker {
                  MAX_NOTES_PER_PAGE,
                  VIEW_NOTE_ORACLE_RETURN_LENGTH,
                  CALL_CONTEXT_LENGTH,
-                 COMMITMENT_TREES_ROOTS_LENGTH,
+                 HISTORIC_BLOCK_DATA_LENGTH,
                  FUNCTION_DATA_LENGTH,
                  CONTRACT_DEPLOYMENT_DATA_LENGTH,
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH,
-                 CONTRACT_STORAGE_READ_LENGTH),
-             NVP(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
+                 CONTRACT_STORAGE_READ_LENGTH,
+                 PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  GET_NOTES_ORACLE_RETURN_LENGTH,
-                 EMPTY_NULLIFIED_COMMITMENT,
-                 CALL_PRIVATE_FUNCTION_RETURN_SIZE,
+                 EMPTY_NULLIFIED_COMMITMENT),
+             NVP(CALL_PRIVATE_FUNCTION_RETURN_SIZE,
                  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
                  KERNELS_PER_BASE_ROLLUP,
@@ -128,7 +125,7 @@ struct GeneratorIndexPacker {
         int PUBLIC_DATA_LEAF = GeneratorIndex::PUBLIC_DATA_LEAF;
         int SIGNED_TX_REQUEST = GeneratorIndex::SIGNED_TX_REQUEST;
         int GLOBAL_VARIABLES = GeneratorIndex::GLOBAL_VARIABLES;
-        int PARTIAL_CONTRACT_ADDRESS = GeneratorIndex::PARTIAL_CONTRACT_ADDRESS;
+        int PARTIAL_ADDRESS = GeneratorIndex::PARTIAL_ADDRESS;
         int TX_REQUEST = GeneratorIndex::TX_REQUEST;
         int SIGNATURE_PAYLOAD = GeneratorIndex::SIGNATURE_PAYLOAD;
         int VK = GeneratorIndex::VK;
@@ -165,7 +162,7 @@ struct GeneratorIndexPacker {
                  PUBLIC_DATA_LEAF,
                  SIGNED_TX_REQUEST,
                  GLOBAL_VARIABLES,
-                 PARTIAL_CONTRACT_ADDRESS,
+                 PARTIAL_ADDRESS,
                  TX_REQUEST,
                  SIGNATURE_PAYLOAD,
                  VK,

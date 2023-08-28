@@ -1,54 +1,15 @@
-import { PartialContractAddress } from '@aztec/circuits.js';
+import { CompleteAddress, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { ContractDatabase, MerkleTreeId, PublicKey, TxHash } from '@aztec/types';
+import { ContractDatabase, MerkleTreeId, PublicKey } from '@aztec/types';
 
 import { NoteSpendingInfoDao } from './note_spending_info_dao.js';
-import { TxDao } from './tx_dao.js';
 
 /**
  * A database interface that provides methods for retrieving, adding, and removing transactional data related to Aztec
  * addresses, storage slots, and nullifiers.
  */
 export interface Database extends ContractDatabase {
-  /**
-   * Retrieve a transaction from the MemoryDB using its transaction hash.
-   * The function searches for the transaction with the given hash in the txTable and returns it as a Promise.
-   * Returns 'undefined' if the transaction is not found in the database.
-   *
-   * @param txHash - The TxHash of the transaction to be retrieved.
-   * @returns A Promise that resolves to the found TxDao instance, or undefined if not found.
-   */
-  getTx(txHash: TxHash): Promise<TxDao | undefined>;
-
-  /**
-   * Retrieve all transactions associated with a given AztecAddress.
-   *
-   * @param origin - The sender's address.
-   * @returns A Promise resolving to an array of TxDao objects associated with the sender.
-   */
-  getTxsByAddress(origin: AztecAddress): Promise<TxDao[]>;
-
-  /**
-   * Adds a TxDao instance to the transaction table.
-   * If a transaction with the same hash already exists in the table, it replaces the existing one.
-   * Otherwise, it pushes the new transaction to the table.
-   *
-   * @param tx - The TxDao instance representing the transaction to be added.
-   * @returns A Promise that resolves when the transaction is successfully added/updated in the table.
-   */
-  addTx(tx: TxDao): Promise<void>;
-
-  /**
-   * Add an array of transaction data objects.
-   * If a transaction with the same hash already exists in the database, it will be updated
-   * with the new transaction data. Otherwise, the new transaction will be added to the database.
-   *
-   * @param txs - An array of TxDao instances representing the transactions to be added to the database.
-   * @returns A Promise that resolves when all the transactions have been added or updated.
-   */
-  addTxs(txs: TxDao[]): Promise<void>;
-
   /**
    * Get auxiliary transaction data based on contract address and storage slot.
    * It searches for matching NoteSpendingInfoDao objects in the MemoryDB's noteSpendingInfoTable
@@ -113,32 +74,44 @@ export interface Database extends ContractDatabase {
   setTreeRoots(roots: Record<MerkleTreeId, Fr>): Promise<void>;
 
   /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
+   * Retrieve the stored Historic Block Data from the database.
+   * The function returns a Promise that resolves to the Historic Block Data.
+   * This data is required to reproduce block attestations.
+   * Throws an error if the historic block data is not available within the database.
+   *
+   * note: this data is a combination of the tree roots and the global variables hash.
    */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
-  ): Promise<void>;
+  getHistoricBlockData(): HistoricBlockData;
 
   /**
-   * Retrieve the public key and partial contract address associated with an address.
-   * Throws an error if the account is not found in the key store.
+   * Set the latest Historic Block Data.
+   * This function updates the 'global variables hash' and `tree roots` property of the instance
+   * Note that this will overwrite any existing hash or roots in the database.
    *
-   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
+   * @param historicBlockData - An object containing the most recent historic block data.
+   * @returns A Promise that resolves when the hash has been successfully updated in the database.
    */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress] | undefined>;
+  setHistoricBlockData(historicBlockData: HistoricBlockData): Promise<void>;
 
   /**
-   * Retrieves the list of Aztec addresses added to this database
-   * The addresses are returned as a promise that resolves to an array of AztecAddress objects.
-   *
+   * Adds complete address to the database.
+   * @param address - The complete address to add.
+   * @returns A promise resolving to true if the address was added, false if it already exists.
+   * @throws If we try to add a CompleteAddress with the same AztecAddress but different public key or partial
+   * address.
+   */
+  addCompleteAddress(address: CompleteAddress): Promise<boolean>;
+
+  /**
+   * Retrieves the complete address corresponding to the provided aztec address.
+   * @param address - The aztec address of the complete address contract.
+   * @returns A promise that resolves to a CompleteAddress instance if the address is found, or undefined if not found.
+   */
+  getCompleteAddress(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the list of complete address added to this database
    * @returns A promise that resolves to an array of AztecAddress instances.
    */
-  getAccounts(): Promise<AztecAddress[]>;
+  getCompleteAddresses(): Promise<CompleteAddress[]>;
 }

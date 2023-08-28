@@ -38,7 +38,7 @@ build() {
   rm -f target/*
 
   # If the compilation fails, rerun the compilation with 'nargo' and show the compiler output.
-  nargo compile --contracts;
+  nargo compile --output-debug;
 }
 
 echo "Using $(nargo --version)"

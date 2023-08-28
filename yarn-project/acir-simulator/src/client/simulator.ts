@@ -1,16 +1,18 @@
-import { CallContext, CircuitsWasm, FunctionData, PrivateHistoricTreeRoots, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { ArrayType, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
+import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
+
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
-import { DBOracle } from './db_oracle.js';
+import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
 import { ExecutionResult } from './execution_result.js';
 import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
@@ -20,10 +22,29 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
+  private static solver: WasmBlackBoxFunctionSolver; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
     this.log = createDebugLogger('aztec:simulator');
+  }
+
+  /**
+   * Gets or initializes the ACVM WasmBlackBoxFunctionSolver.
+   *
+   * @remarks
+   *
+   * Occurs only once across all instances of AcirSimulator.
+   * Speeds up execution by only performing setup tasks (like pedersen
+   * generator initialization) one time.
+   * TODO(https://github.com/AztecProtocol/aztec-packages/issues/1627):
+   * determine whether this requires a lock
+   *
+   * @returns ACVM WasmBlackBoxFunctionSolver
+   */
+  public static async getSolver(): Promise<WasmBlackBoxFunctionSolver> {
+    if (!this.solver) this.solver = await createBlackBoxSolver();
+    return this.solver;
   }
 
   /**
@@ -32,30 +53,29 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicRoots - The historic roots.
-   * @param curve - The curve instance for elliptic curve operations.
-   * @param packedArguments - The entrypoint packed arguments
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
   public async run(
     request: TxExecutionRequest,
-    entryPointABI: FunctionAbi,
+    entryPointABI: FunctionAbiWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    historicRoots: PrivateHistoricTreeRoots,
+    msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
     }
 
     if (request.origin !== contractAddress) {
-      this.log(`WARN: Request origin does not match contract address in simulation`);
+      this.log.warn('Request origin does not match contract address in simulation');
     }
 
     const curve = await Grumpkin.new();
 
+    const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
-      AztecAddress.ZERO,
+      msgSender,
       contractAddress,
       portalContractAddress,
       false,
@@ -70,7 +90,7 @@ export class AcirSimulator {
         this.db,
         txNullifier,
         request.txContext,
-        historicRoots,
+        historicBlockData,
         await PackedArgsCache.create(request.packedArguments),
       ),
       entryPointABI,
@@ -91,22 +111,22 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract.
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicRoots - The historic roots.
+   * @param historicBlockData - Block data containing historic roots.
    * @param aztecNode - The AztecNode instance.
-   * @returns The return values of the function.
    */
   public async runUnconstrained(
     request: FunctionCall,
     origin: AztecAddress,
-    entryPointABI: FunctionAbi,
+    entryPointABI: FunctionAbiWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
-    historicRoots: PrivateHistoricTreeRoots,
     aztecNode?: AztecNode,
   ) {
     if (entryPointABI.functionType !== FunctionType.UNCONSTRAINED) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as constrained`);
     }
+
+    const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
       origin,
       contractAddress,
@@ -121,7 +141,7 @@ export class AcirSimulator {
         this.db,
         Fr.ZERO,
         TxContext.empty(),
-        historicRoots,
+        historicBlockData,
         await PackedArgsCache.create([]),
       ),
       entryPointABI,
@@ -160,14 +180,13 @@ export class AcirSimulator {
         args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
       };
 
-      const [[innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier]] = await this.runUnconstrained(
+      const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
         execRequest,
         AztecAddress.ZERO,
         abi,
         AztecAddress.ZERO,
         EthAddress.ZERO,
-        PrivateHistoricTreeRoots.empty(),
-      );
+      )) as bigint[];
 
       return {
         innerNoteHash: new Fr(innerNoteHash),

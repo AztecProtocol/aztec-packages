@@ -13,22 +13,22 @@ import {
   CircuitError,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedHistoricTreeRoots,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fq,
   Fr,
   FunctionData,
+  FunctionSelector,
   G1AffineElement,
   GlobalVariables,
+  HistoricBlockData,
   KernelCircuitPublicInputs,
   NativeAggregationState,
   NewContractData,
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
-  PrivateHistoricTreeRoots,
   Proof,
   PublicCallData,
   PublicCallStackItem,
@@ -267,16 +267,36 @@ export function fromNewContractData(o: NewContractData): MsgpackNewContractData 
   };
 }
 
+interface MsgpackFunctionSelector {
+  value: number;
+}
+
+export function toFunctionSelector(o: MsgpackFunctionSelector): FunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector deserialization');
+  }
+  return new FunctionSelector(o.value);
+}
+
+export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector serialization');
+  }
+  return {
+    value: o.value,
+  };
+}
+
 interface MsgpackFunctionData {
-  function_selector: number;
+  selector: MsgpackFunctionSelector;
   is_internal: boolean;
   is_private: boolean;
   is_constructor: boolean;
 }
 
 export function toFunctionData(o: MsgpackFunctionData): FunctionData {
-  if (o.function_selector === undefined) {
-    throw new Error('Expected function_selector in FunctionData deserialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData deserialization');
   }
   if (o.is_internal === undefined) {
     throw new Error('Expected is_internal in FunctionData deserialization');
@@ -287,12 +307,12 @@ export function toFunctionData(o: MsgpackFunctionData): FunctionData {
   if (o.is_constructor === undefined) {
     throw new Error('Expected is_constructor in FunctionData deserialization');
   }
-  return new FunctionData(o.function_selector, o.is_internal, o.is_private, o.is_constructor);
+  return new FunctionData(toFunctionSelector(o.selector), o.is_internal, o.is_private, o.is_constructor);
 }
 
 export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.functionSelector === undefined) {
-    throw new Error('Expected functionSelector in FunctionData serialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData serialization');
   }
   if (o.isInternal === undefined) {
     throw new Error('Expected isInternal in FunctionData serialization');
@@ -304,7 +324,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
     throw new Error('Expected isConstructor in FunctionData serialization');
   }
   return {
-    function_selector: o.functionSelector,
+    selector: fromFunctionSelector(o.selector),
     is_internal: o.isInternal,
     is_private: o.isPrivate,
     is_constructor: o.isConstructor,
@@ -470,6 +490,7 @@ interface MsgpackCombinedAccumulatedData {
   read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 16>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
+  nullified_commitments: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -479,8 +500,8 @@ interface MsgpackCombinedAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 8>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 8>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -498,6 +519,9 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in CombinedAccumulatedData deserialization');
+  }
+  if (o.nullified_commitments === undefined) {
+    throw new Error('Expected nullified_commitments in CombinedAccumulatedData deserialization');
   }
   if (o.private_call_stack === undefined) {
     throw new Error('Expected private_call_stack in CombinedAccumulatedData deserialization');
@@ -540,6 +564,7 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
     ),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
@@ -569,6 +594,9 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in CombinedAccumulatedData serialization');
+  }
+  if (o.nullifiedCommitments === undefined) {
+    throw new Error('Expected nullifiedCommitments in CombinedAccumulatedData serialization');
   }
   if (o.privateCallStack === undefined) {
     throw new Error('Expected privateCallStack in CombinedAccumulatedData serialization');
@@ -611,6 +639,7 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
     ),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
@@ -629,62 +658,78 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   };
 }
 
-interface MsgpackPrivateHistoricTreeRoots {
+interface MsgpackHistoricBlockData {
   private_data_tree_root: Buffer;
   nullifier_tree_root: Buffer;
   contract_tree_root: Buffer;
   l1_to_l2_messages_tree_root: Buffer;
   blocks_tree_root: Buffer;
   private_kernel_vk_tree_root: Buffer;
+  public_data_tree_root: Buffer;
+  global_variables_hash: Buffer;
 }
 
-export function toPrivateHistoricTreeRoots(o: MsgpackPrivateHistoricTreeRoots): PrivateHistoricTreeRoots {
+export function toHistoricBlockData(o: MsgpackHistoricBlockData): HistoricBlockData {
   if (o.private_data_tree_root === undefined) {
-    throw new Error('Expected private_data_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected private_data_tree_root in HistoricBlockData deserialization');
   }
   if (o.nullifier_tree_root === undefined) {
-    throw new Error('Expected nullifier_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected nullifier_tree_root in HistoricBlockData deserialization');
   }
   if (o.contract_tree_root === undefined) {
-    throw new Error('Expected contract_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected contract_tree_root in HistoricBlockData deserialization');
   }
   if (o.l1_to_l2_messages_tree_root === undefined) {
-    throw new Error('Expected l1_to_l2_messages_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected l1_to_l2_messages_tree_root in HistoricBlockData deserialization');
   }
   if (o.blocks_tree_root === undefined) {
-    throw new Error('Expected blocks_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected blocks_tree_root in HistoricBlockData deserialization');
   }
   if (o.private_kernel_vk_tree_root === undefined) {
-    throw new Error('Expected private_kernel_vk_tree_root in PrivateHistoricTreeRoots deserialization');
+    throw new Error('Expected private_kernel_vk_tree_root in HistoricBlockData deserialization');
   }
-  return new PrivateHistoricTreeRoots(
+  if (o.public_data_tree_root === undefined) {
+    throw new Error('Expected public_data_tree_root in HistoricBlockData deserialization');
+  }
+  if (o.global_variables_hash === undefined) {
+    throw new Error('Expected global_variables_hash in HistoricBlockData deserialization');
+  }
+  return new HistoricBlockData(
     Fr.fromBuffer(o.private_data_tree_root),
     Fr.fromBuffer(o.nullifier_tree_root),
     Fr.fromBuffer(o.contract_tree_root),
     Fr.fromBuffer(o.l1_to_l2_messages_tree_root),
     Fr.fromBuffer(o.blocks_tree_root),
     Fr.fromBuffer(o.private_kernel_vk_tree_root),
+    Fr.fromBuffer(o.public_data_tree_root),
+    Fr.fromBuffer(o.global_variables_hash),
   );
 }
 
-export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): MsgpackPrivateHistoricTreeRoots {
+export function fromHistoricBlockData(o: HistoricBlockData): MsgpackHistoricBlockData {
   if (o.privateDataTreeRoot === undefined) {
-    throw new Error('Expected privateDataTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected privateDataTreeRoot in HistoricBlockData serialization');
   }
   if (o.nullifierTreeRoot === undefined) {
-    throw new Error('Expected nullifierTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected nullifierTreeRoot in HistoricBlockData serialization');
   }
   if (o.contractTreeRoot === undefined) {
-    throw new Error('Expected contractTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected contractTreeRoot in HistoricBlockData serialization');
   }
   if (o.l1ToL2MessagesTreeRoot === undefined) {
-    throw new Error('Expected l1ToL2MessagesTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected l1ToL2MessagesTreeRoot in HistoricBlockData serialization');
   }
   if (o.blocksTreeRoot === undefined) {
-    throw new Error('Expected blocksTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected blocksTreeRoot in HistoricBlockData serialization');
   }
   if (o.privateKernelVkTreeRoot === undefined) {
-    throw new Error('Expected privateKernelVkTreeRoot in PrivateHistoricTreeRoots serialization');
+    throw new Error('Expected privateKernelVkTreeRoot in HistoricBlockData serialization');
+  }
+  if (o.publicDataTreeRoot === undefined) {
+    throw new Error('Expected publicDataTreeRoot in HistoricBlockData serialization');
+  }
+  if (o.globalVariablesHash === undefined) {
+    throw new Error('Expected globalVariablesHash in HistoricBlockData serialization');
   }
   return {
     private_data_tree_root: toBuffer(o.privateDataTreeRoot),
@@ -693,26 +738,8 @@ export function fromPrivateHistoricTreeRoots(o: PrivateHistoricTreeRoots): Msgpa
     l1_to_l2_messages_tree_root: toBuffer(o.l1ToL2MessagesTreeRoot),
     blocks_tree_root: toBuffer(o.blocksTreeRoot),
     private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
-  };
-}
-
-interface MsgpackCombinedHistoricTreeRoots {
-  private_historic_tree_roots: MsgpackPrivateHistoricTreeRoots;
-}
-
-export function toCombinedHistoricTreeRoots(o: MsgpackCombinedHistoricTreeRoots): CombinedHistoricTreeRoots {
-  if (o.private_historic_tree_roots === undefined) {
-    throw new Error('Expected private_historic_tree_roots in CombinedHistoricTreeRoots deserialization');
-  }
-  return new CombinedHistoricTreeRoots(toPrivateHistoricTreeRoots(o.private_historic_tree_roots));
-}
-
-export function fromCombinedHistoricTreeRoots(o: CombinedHistoricTreeRoots): MsgpackCombinedHistoricTreeRoots {
-  if (o.privateHistoricTreeRoots === undefined) {
-    throw new Error('Expected privateHistoricTreeRoots in CombinedHistoricTreeRoots serialization');
-  }
-  return {
-    private_historic_tree_roots: fromPrivateHistoricTreeRoots(o.privateHistoricTreeRoots),
+    public_data_tree_root: toBuffer(o.publicDataTreeRoot),
+    global_variables_hash: toBuffer(o.globalVariablesHash),
   };
 }
 
@@ -870,29 +897,29 @@ export function fromTxContext(o: TxContext): MsgpackTxContext {
 }
 
 interface MsgpackCombinedConstantData {
-  historic_tree_roots: MsgpackCombinedHistoricTreeRoots;
+  block_data: MsgpackHistoricBlockData;
   tx_context: MsgpackTxContext;
 }
 
 export function toCombinedConstantData(o: MsgpackCombinedConstantData): CombinedConstantData {
-  if (o.historic_tree_roots === undefined) {
-    throw new Error('Expected historic_tree_roots in CombinedConstantData deserialization');
+  if (o.block_data === undefined) {
+    throw new Error('Expected block_data in CombinedConstantData deserialization');
   }
   if (o.tx_context === undefined) {
     throw new Error('Expected tx_context in CombinedConstantData deserialization');
   }
-  return new CombinedConstantData(toCombinedHistoricTreeRoots(o.historic_tree_roots), toTxContext(o.tx_context));
+  return new CombinedConstantData(toHistoricBlockData(o.block_data), toTxContext(o.tx_context));
 }
 
 export function fromCombinedConstantData(o: CombinedConstantData): MsgpackCombinedConstantData {
-  if (o.historicTreeRoots === undefined) {
-    throw new Error('Expected historicTreeRoots in CombinedConstantData serialization');
+  if (o.blockData === undefined) {
+    throw new Error('Expected blockData in CombinedConstantData serialization');
   }
   if (o.txContext === undefined) {
     throw new Error('Expected txContext in CombinedConstantData serialization');
   }
   return {
-    historic_tree_roots: fromCombinedHistoricTreeRoots(o.historicTreeRoots),
+    block_data: fromHistoricBlockData(o.blockData),
     tx_context: fromTxContext(o.txContext),
   };
 }
@@ -1229,15 +1256,15 @@ interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 8>;
-  contract_storage_reads: Tuple<MsgpackContractStorageRead, 8>;
+  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
+  contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
   public_call_stack: Tuple<Buffer, 4>;
   new_commitments: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_log_preimages_length: Buffer;
-  historic_public_data_tree_root: Buffer;
+  historic_block_data: MsgpackHistoricBlockData;
   prover_address: Buffer;
 }
 
@@ -1275,8 +1302,8 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
   if (o.unencrypted_log_preimages_length === undefined) {
     throw new Error('Expected unencrypted_log_preimages_length in PublicCircuitPublicInputs deserialization');
   }
-  if (o.historic_public_data_tree_root === undefined) {
-    throw new Error('Expected historic_public_data_tree_root in PublicCircuitPublicInputs deserialization');
+  if (o.historic_block_data === undefined) {
+    throw new Error('Expected historic_block_data in PublicCircuitPublicInputs deserialization');
   }
   if (o.prover_address === undefined) {
     throw new Error('Expected prover_address in PublicCircuitPublicInputs deserialization');
@@ -1295,7 +1322,7 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
-    Fr.fromBuffer(o.historic_public_data_tree_root),
+    toHistoricBlockData(o.historic_block_data),
     Address.fromBuffer(o.prover_address),
   );
 }
@@ -1334,8 +1361,8 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   if (o.unencryptedLogPreimagesLength === undefined) {
     throw new Error('Expected unencryptedLogPreimagesLength in PublicCircuitPublicInputs serialization');
   }
-  if (o.historicPublicDataTreeRoot === undefined) {
-    throw new Error('Expected historicPublicDataTreeRoot in PublicCircuitPublicInputs serialization');
+  if (o.historicBlockData === undefined) {
+    throw new Error('Expected historicBlockData in PublicCircuitPublicInputs serialization');
   }
   if (o.proverAddress === undefined) {
     throw new Error('Expected proverAddress in PublicCircuitPublicInputs serialization');
@@ -1354,7 +1381,7 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
     unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
-    historic_public_data_tree_root: toBuffer(o.historicPublicDataTreeRoot),
+    historic_block_data: fromHistoricBlockData(o.historicBlockData),
     prover_address: toBuffer(o.proverAddress),
   };
 }
@@ -1510,7 +1537,7 @@ export function abisSiloNullifier(wasm: IWasmModule, arg0: Address, arg1: Fr): F
 }
 export function abisComputeBlockHash(
   wasm: IWasmModule,
-  arg0: GlobalVariables,
+  arg0: Fr,
   arg1: Fr,
   arg2: Fr,
   arg3: Fr,
@@ -1519,6 +1546,26 @@ export function abisComputeBlockHash(
 ): Fr {
   return Fr.fromBuffer(
     callCbind(wasm, 'abis__compute_block_hash', [
+      toBuffer(arg0),
+      toBuffer(arg1),
+      toBuffer(arg2),
+      toBuffer(arg3),
+      toBuffer(arg4),
+      toBuffer(arg5),
+    ]),
+  );
+}
+export function abisComputeBlockHashWithGlobals(
+  wasm: IWasmModule,
+  arg0: GlobalVariables,
+  arg1: Fr,
+  arg2: Fr,
+  arg3: Fr,
+  arg4: Fr,
+  arg5: Fr,
+): Fr {
+  return Fr.fromBuffer(
+    callCbind(wasm, 'abis__compute_block_hash_with_globals', [
       fromGlobalVariables(arg0),
       toBuffer(arg1),
       toBuffer(arg2),
@@ -1527,6 +1574,15 @@ export function abisComputeBlockHash(
       toBuffer(arg5),
     ]),
   );
+}
+export function abisComputeGlobalsHash(wasm: IWasmModule, arg0: GlobalVariables): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_globals_hash', [fromGlobalVariables(arg0)]));
+}
+export function abisComputePublicDataTreeValue(wasm: IWasmModule, arg0: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_public_data_tree_value', [toBuffer(arg0)]));
+}
+export function abisComputePublicDataTreeIndex(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_public_data_tree_index', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKernelData {
   return toPreviousKernelData(callCbind(wasm, 'private_kernel__dummy_previous_kernel', []));

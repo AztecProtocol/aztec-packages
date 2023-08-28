@@ -1,13 +1,14 @@
 use dep::std::hash::pedersen_with_separator;
-use crate::context::Context;
+use crate::context::PrivateContext;
 use crate::oracle;
 use crate::note::{
     lifecycle::{
         create_note,
         destroy_note,
     },
-    note_getter::get_note,
+    note_getter::{get_note, view_notes},
     note_interface::NoteInterface,
+    note_viewer_options::NoteViewerOptions,
 };
 use crate::constants_gen::{
     GENERATOR_INDEX__INITIALISATION_NULLIFIER,
@@ -29,7 +30,7 @@ impl<Note, N> Singleton<Note, N> {
         oracle::notes::is_nullifier_emitted(nullifier)
     }
 
-    fn initialise(self, context: &mut Context, note: &mut Note) {
+    fn initialise(self, context: &mut PrivateContext, note: &mut Note) {
         // Nullify the storage slot.
         let nullifier = self.compute_initialisation_nullifier();
         context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
@@ -41,7 +42,7 @@ impl<Note, N> Singleton<Note, N> {
         pedersen_with_separator([self.storage_slot], GENERATOR_INDEX__INITIALISATION_NULLIFIER)[0]
     }
 
-    fn replace(self, context: &mut Context, new_note: &mut Note) {
+    fn replace(self, context: &mut PrivateContext, new_note: &mut Note) {
         let prev_note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify previous note.
@@ -51,7 +52,7 @@ impl<Note, N> Singleton<Note, N> {
         create_note(context, self.storage_slot, new_note, self.note_interface);
     }
 
-    fn get_note(self, context: &mut Context) -> Note {
+    fn get_note(self, context: &mut PrivateContext) -> Note {
         let mut note = get_note(context, self.storage_slot, self.note_interface);
 
         // Nullify current note to make sure it's reading the latest note.
@@ -62,5 +63,10 @@ impl<Note, N> Singleton<Note, N> {
         create_note(context, self.storage_slot, &mut note, self.note_interface);
 
         note
+    }
+
+    unconstrained fn view_note(self) -> Note {
+        let options = NoteViewerOptions::new().set_limit(1);
+        view_notes(self.storage_slot, self.note_interface, options)[0].unwrap()
     }
 }

@@ -6,7 +6,11 @@ import chunk from 'lodash.chunk';
 
 import {
   abisComputeBlockHash,
+  abisComputeBlockHashWithGlobals,
   abisComputeCommitmentNonce,
+  abisComputeGlobalsHash,
+  abisComputePublicDataTreeIndex,
+  abisComputePublicDataTreeValue,
   abisComputeUniqueCommitment,
   abisSiloCommitment,
   abisSiloNullifier,
@@ -181,7 +185,7 @@ export function hashConstructor(
  * Computes a contract address.
  * @param wasm - A module providing low-level wasm access.
  * @param deployerPubKey - The pubkey of the contract deployer.
- * @param contractAddrSalt - The salt used as 1 one of the inputs of the contract address computation.
+ * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
  * @returns The contract address.
@@ -204,14 +208,14 @@ export function computeContractAddress(
 }
 
 /**
- * Computes a partial contract address. Consists of all contract address components except the deployer public key.
+ * Computes a partial address. Consists of all contract address components except the deployer public key.
  * @param wasm - A module providing low-level wasm access.
- * @param contractAddrSalt - The salt used as 1 one of the inputs of the contract address computation.
+ * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
  * @returns The partially constructed contract address.
  */
-export function computePartialContractAddress(
+export function computePartialAddress(
   wasm: IWasmModule,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
@@ -220,7 +224,7 @@ export function computePartialContractAddress(
   wasm.call('pedersen__init');
   const result = inputBuffersToOutputBuffer(
     wasm,
-    'abis__compute_partial_contract_address',
+    'abis__compute_partial_address',
     [contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
     32,
   );
@@ -230,7 +234,7 @@ export function computePartialContractAddress(
 /**
  * Computes a contract address from its partial address and the pubkey.
  * @param wasm - A module providing low-level wasm access.
- * @param partial - The salt used as 1 one of the inputs of the contract address computation.
+ * @param partial - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
  * @returns The partially constructed contract address.
@@ -302,13 +306,16 @@ export function siloNullifier(wasm: IWasmModule, contract: AztecAddress, innerNu
 
 /**
  * Computes the block hash given the blocks globals and roots.
- * A siloed nullifier effectively namespaces a nullifier to a specific contract.
  * @param wasm - A module providing low-level wasm access.
- * @param contract - The contract address.
- * @param innerNullifier - The nullifier to silo.
- * @returns A siloed nullifier.
+ * @param globals - The global variables to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
  */
-export function computeBlockHash(
+export function computeBlockHashWithGlobals(
   wasm: IWasmModule,
   globals: GlobalVariables,
   privateDataTreeRoot: Fr,
@@ -318,7 +325,7 @@ export function computeBlockHash(
   publicDataTreeRoot: Fr,
 ): Fr {
   wasm.call('pedersen__init');
-  return abisComputeBlockHash(
+  return abisComputeBlockHashWithGlobals(
     wasm,
     globals,
     privateDataTreeRoot,
@@ -327,6 +334,74 @@ export function computeBlockHash(
     l1ToL2DataTreeRoot,
     publicDataTreeRoot,
   );
+}
+
+/**
+ * Computes the block hash given the blocks globals and roots.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globalsHash - The global variables hash to put into the block hash.
+ * @param privateDataTree - The root of the private data tree.
+ * @param nullifierTreeRoot - The root of the nullifier tree.
+ * @param contractTreeRoot - The root of the contract tree.
+ * @param l1ToL2DataTreeRoot - The root of the l1 to l2 data tree.
+ * @param publicDataTreeRoot - The root of the public data tree.
+ * @returns The block hash.
+ */
+export function computeBlockHash(
+  wasm: IWasmModule,
+  globalsHash: Fr,
+  privateDataTreeRoot: Fr,
+  nullifierTreeRoot: Fr,
+  contractTreeRoot: Fr,
+  l1ToL2DataTreeRoot: Fr,
+  publicDataTreeRoot: Fr,
+): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeBlockHash(
+    wasm,
+    globalsHash,
+    privateDataTreeRoot,
+    nullifierTreeRoot,
+    contractTreeRoot,
+    l1ToL2DataTreeRoot,
+    publicDataTreeRoot,
+  );
+}
+
+/**
+ * Computes the globals hash given the globals.
+ * @param wasm - A module providing low-level wasm access.
+ * @param globals - The global variables to put into the block hash.
+ * @returns The globals hash.
+ */
+export function computeGlobalsHash(wasm: IWasmModule, globals: GlobalVariables): Fr {
+  wasm.call('pedersen__init');
+  return abisComputeGlobalsHash(wasm, globals);
+}
+
+/**
+ * Computes a public data tree value ready for insertion.
+ * @param wasm - A module providing low-level wasm access.
+ * @param value - Raw public data tree value to hash into a tree-insertion-ready value.
+ * @returns Value hash into a tree-insertion-ready value.
+
+ */
+export function computePublicDataTreeValue(wasm: IWasmModule, value: Fr): Fr {
+  wasm.call('pedersen__init');
+  return abisComputePublicDataTreeValue(wasm, value);
+}
+
+/**
+ * Computes a public data tree index from contract address and storage slot.
+ * @param wasm - A module providing low-level wasm access.
+ * @param contractAddress - Contract where insertion is occurring.
+ * @param storageSlot - Storage slot where insertion is occuring.
+ * @returns Public data tree index computed from contract address and storage slot.
+
+ */
+export function computePublicDataTreeIndex(wasm: IWasmModule, contractAddress: Fr, storageSlot: Fr): Fr {
+  wasm.call('pedersen__init');
+  return abisComputePublicDataTreeIndex(wasm, contractAddress, storageSlot);
 }
 
 const ARGS_HASH_CHUNK_SIZE = 32;

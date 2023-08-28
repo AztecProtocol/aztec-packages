@@ -43,6 +43,7 @@ describe('rollup/rollup_wasm_wrapper', () => {
     return input;
   };
 
+  // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1586
   it.skip('calls base_rollup__sim', () => {
     const input = makeBaseRollupInputsForCircuit();
 
@@ -69,9 +70,6 @@ describe('rollup/rollup_wasm_wrapper', () => {
     expect(output.endPrivateDataTreeSnapshot).toEqual(
       input.previousRollupData[1].publicInputs.endPrivateDataTreeSnapshot,
     );
-    expect(output.constants.startTreeOfHistoricContractTreeRootsSnapshot).toEqual(
-      input.previousRollupData[0].publicInputs.constants.startTreeOfHistoricContractTreeRootsSnapshot,
-    );
   });
 
   it('calling merge_rollup__sim with different constants should fail', () => {
@@ -89,6 +87,7 @@ Refer to https://docs.aztec.network/aztec/protocol/errors for more information.`
     }
   });
 
+  // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1586
   it.skip('calls root_rollup__sim', () => {
     const input = makeRootRollupInputs();
     for (const rd of input.previousRollupData) {

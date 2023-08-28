@@ -1,7 +1,7 @@
 import {
   ContractDeploymentData,
   FunctionData,
-  PartialContractAddress,
+  PartialAddress,
   TxContext,
   getContractDeploymentInfo,
 } from '@aztec/circuits.js';
@@ -36,7 +36,7 @@ export interface DeployOptions extends SendMethodOptions {
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
   /** The partially computed contract address. Known after creation of the deployment transaction. */
-  public partialContractAddress?: PartialContractAddress = undefined;
+  public partialAddress?: PartialAddress = undefined;
 
   /** The complete contract address. */
   public completeContractAddress?: AztecAddress = undefined;
@@ -66,7 +66,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const { chainId, version } = await this.rpc.getNodeInfo();
 
-    const { address, constructorHash, functionTreeRoot, partialAddress } = await getContractDeploymentInfo(
+    const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
       this.abi,
       this.args,
       contractAddressSalt,
@@ -84,7 +84,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
     const args = encodeArguments(this.constructorAbi, this.args);
     const functionData = FunctionData.fromAbi(this.constructorAbi);
-    const execution = { args, functionData, to: address };
+    const execution = { args, functionData, to: completeAddress.address };
     const packedArguments = await PackedArguments.fromArgs(execution.args);
 
     const txRequest = TxExecutionRequest.from({
@@ -96,11 +96,11 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     });
 
     this.txRequest = txRequest;
-    this.partialContractAddress = partialAddress;
-    this.completeContractAddress = address;
+    this.partialAddress = completeAddress.partialAddress;
+    this.completeContractAddress = completeAddress.address;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    await this.rpc.addContracts([{ abi: this.abi, address, portalContract }]);
+    await this.rpc.addContracts([{ abi: this.abi, address: completeAddress.address, portalContract }]);
 
     return this.txRequest;
   }

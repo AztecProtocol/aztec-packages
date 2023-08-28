@@ -1,4 +1,5 @@
-#include <stddef.h>
+#pragma once
+#include <cstddef>
 
 namespace numeric {
 

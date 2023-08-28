@@ -11,6 +11,7 @@ export * from './kernel/private_kernel.js';
 export * from './kernel/public_kernel.js';
 export * from './kernel/combined_accumulated_data.js';
 export * from './kernel/combined_constant_data.js';
+export * from './kernel/historic_block_data.js';
 export * from './kernel/previous_kernel_data.js';
 export * from './kernel/public_inputs.js';
 export * from './private_circuit_public_inputs.js';
@@ -31,3 +32,4 @@ export * from '@aztec/foundation/eth-address';
 
 export * from '@aztec/foundation/fields';
 export * from '@aztec/foundation/aztec-address';
+export { FunctionSelector } from '@aztec/foundation/abi';

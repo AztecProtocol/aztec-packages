@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { ContractPublicData, L2Block } from '@aztec/types';
+import { ContractDataAndBytecode, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
@@ -40,7 +40,7 @@ export interface L1PublisherTxSender {
   sendEmitContractDeploymentTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    contractData: ContractPublicData[],
+    contractData: ContractDataAndBytecode[],
   ): Promise<(string | undefined)[]>;
 
   /**
@@ -139,8 +139,12 @@ export class L1Publisher implements L2BlockReceiver {
    * @param contractData - The new contract data to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processNewContractData(l2BlockNum: number, l2BlockHash: Buffer, contractData: ContractPublicData[]) {
-    let _contractData: ContractPublicData[] = [];
+  public async processNewContractData(
+    l2BlockNum: number,
+    l2BlockHash: Buffer,
+    contractData: ContractDataAndBytecode[],
+  ) {
+    let _contractData: ContractDataAndBytecode[] = [];
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);
@@ -187,12 +191,14 @@ export class L1Publisher implements L2BlockReceiver {
   }
 
   // TODO: Check fee distributor has at least 0.5 ETH.
+  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
   // eslint-disable-next-line require-await
   private async checkFeeDistributorBalance(): Promise<boolean> {
     return true;
   }
 
   // TODO: Fail if blockchainStatus.nextBlockNum > thisBlockNum.
+  // Related to https://github.com/AztecProtocol/aztec-packages/issues/1588
   private checkNextL2BlockNum(_thisBlockNum: number): Promise<boolean> {
     return Promise.resolve(true);
   }
@@ -208,12 +214,16 @@ export class L1Publisher implements L2BlockReceiver {
     }
   }
 
-  private async sendEmitNewContractDataTx(l2BlockNum: number, l2BlockHash: Buffer, contractData: ContractPublicData[]) {
+  private async sendEmitNewContractDataTx(
+    l2BlockNum: number,
+    l2BlockHash: Buffer,
+    contractData: ContractDataAndBytecode[],
+  ) {
     while (!this.interrupted) {
       try {
         return await this.txSender.sendEmitContractDeploymentTx(l2BlockNum, l2BlockHash, contractData);
       } catch (err) {
-        this.log(`Error sending contract data to L1`, err);
+        this.log.error(`Error sending contract data to L1`, err);
         await this.sleepOrInterrupted();
       }
     }
@@ -224,7 +234,7 @@ export class L1Publisher implements L2BlockReceiver {
       try {
         return await this.txSender.getTransactionReceipt(txHash);
       } catch (err) {
-        //this.log(`Error getting tx receipt`, err);
+        //this.log.error(`Error getting tx receipt`, err);
         await this.sleepOrInterrupted();
       }
     }

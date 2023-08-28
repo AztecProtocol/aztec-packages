@@ -1,17 +1,21 @@
 import {
+  ExecutionResult,
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
+  CompleteAddress,
   FunctionData,
-  PartialContractAddress,
-  PrivateHistoricTreeRoots,
+  KernelCircuitPublicInputs,
+  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+  PartialAddress,
   PrivateKey,
-  PublicKey,
+  PublicCallRequest,
 } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
@@ -19,14 +23,14 @@ import {
   AztecRPC,
   ContractDao,
   ContractData,
-  ContractPublicData,
+  ContractDataAndBytecode,
   DeployedContract,
   FunctionCall,
   INITIAL_L2_BLOCK_NUM,
   KeyStore,
+  L2Block,
   L2BlockL2Logs,
   LogType,
-  MerkleTreeId,
   NodeInfo,
   Tx,
   TxExecutionRequest,
@@ -40,7 +44,7 @@ import {
 
 import { RpcServerConfig } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database, TxDao } from '../database/index.js';
+import { Database } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -87,30 +91,56 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async addAccount(privKey: PrivateKey, address: AztecAddress, partialContractAddress: PartialContractAddress) {
-    const pubKey = this.keyStore.addAccount(privKey);
-    // TODO(#1007): ECDSA contract breaks this check, since the ecdsa public key does not match the one derived from the keystore.
-    // Once we decouple the ecdsa contract signing and encryption keys, we can re-enable this check.
-    // const wasm = await CircuitsWasm.get();
-    // const expectedAddress = computeContractAddressFromPartial(wasm, pubKey, partialContractAddress);
-    // if (!expectedAddress.equals(address)) {
-    //   throw new Error(
-    //     `Address cannot be derived from pubkey and partial address (received ${address.toString()}, derived ${expectedAddress.toString()})`,
-    //   );
-    // }
-    await this.db.addPublicKeyAndPartialAddress(address, pubKey, partialContractAddress);
-    this.synchroniser.addAccount(pubKey, this.keyStore);
-    this.log.info(`Added account ${address.toString()}`);
-    return address;
+  public async registerAccount(privKey: PrivateKey, partialAddress: PartialAddress) {
+    const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
+    const wasAdded = await this.db.addCompleteAddress(completeAddress);
+    if (wasAdded) {
+      const pubKey = this.keyStore.addAccount(privKey);
+      this.synchroniser.addAccount(pubKey, this.keyStore);
+      this.log.info(`Registered account ${completeAddress.address.toString()}`);
+      this.log.debug(`Registered ${completeAddress.toReadableString()}`);
+    } else {
+      this.log.info(`Account "${completeAddress.address.toString()}" already registered.`);
+    }
   }
 
-  public async addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
-  ): Promise<void> {
-    await this.db.addPublicKeyAndPartialAddress(address, publicKey, partialAddress);
-    this.log.info(`Added public key for ${address.toString()}`);
+  public async getAccounts(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses not corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const accounts = addresses.filter(address => accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return accounts;
+  }
+
+  public async getAccount(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const result = await this.getAccounts();
+    const account = result.find(r => r.address.equals(address));
+    return Promise.resolve(account);
+  }
+
+  public async registerRecipient(recipient: CompleteAddress): Promise<void> {
+    const wasAdded = await this.db.addCompleteAddress(recipient);
+    if (wasAdded) {
+      this.log.info(`Added recipient: ${recipient.toReadableString()}`);
+    } else {
+      this.log.info(`Recipient "${recipient.toReadableString()}" already registered.`);
+    }
+  }
+
+  public async getRecipients(): Promise<CompleteAddress[]> {
+    // Get complete addresses of both the recipients and the accounts
+    const addresses = await this.db.getCompleteAddresses();
+    // Filter out the addresses corresponding to accounts
+    const accountPubKeys = await this.keyStore.getAccounts();
+    const recipients = addresses.filter(address => !accountPubKeys.find(pubKey => pubKey.equals(address.publicKey)));
+    return recipients;
+  }
+
+  public async getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined> {
+    const result = await this.getRecipients();
+    const recipient = result.find(r => r.address.equals(address));
+    return Promise.resolve(recipient);
   }
 
   public async addContracts(contracts: DeployedContract[]) {
@@ -123,40 +153,23 @@ export class AztecRPCServer implements AztecRPC {
     }
   }
 
-  public async getAccounts(): Promise<AztecAddress[]> {
-    return await this.db.getAccounts();
-  }
-
-  public async getPublicKey(address: AztecAddress): Promise<PublicKey> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) {
-      throw new Error(`Unable to retrieve public key for address ${address.toString()}`);
-    }
-    return Promise.resolve(result[0]);
-  }
-
-  public async getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]> {
-    const result = await this.db.getPublicKeyAndPartialAddress(address);
-    if (!result) {
-      throw new Error(`Unable to get public key for address ${address.toString()}`);
-    }
-    return Promise.resolve(result);
-  }
-
-  public async getPreimagesAt(contract: AztecAddress, storageSlot: Fr) {
-    const noteSpendingInfo = await this.db.getNoteSpendingInfo(contract, storageSlot);
-    return noteSpendingInfo.map(d => d.notePreimage.items.map(item => item.value));
+  public async getContracts(): Promise<AztecAddress[]> {
+    return (await this.db.getContracts()).map(c => c.address);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
-    if (!(await this.isContractDeployed(contract))) {
+    if ((await this.getContractData(contract)) === undefined) {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
   }
 
-  public async isContractDeployed(contractAddress: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContractInfo(contractAddress));
+  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
+    // If a negative block number is provided the current block number is fetched.
+    if (blockNumber < 0) {
+      blockNumber = await this.node.getBlockNumber();
+    }
+    return await this.node.getBlock(blockNumber);
   }
 
   public async simulateTx(txRequest: TxExecutionRequest) {
@@ -173,16 +186,8 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-
-    await this.db.addTx(
-      TxDao.from({
-        txHash: await tx.getTxHash(),
-        origin: txRequest.origin,
-        contractAddress: deployedContractAddress,
-      }),
-    );
-
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
+
     return tx;
   }
 
@@ -202,52 +207,40 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    const localTx = await this.#getTxByHash(txHash);
-    const partialReceipt = new TxReceipt(
-      txHash,
-      TxStatus.PENDING,
-      '',
-      localTx?.blockHash,
-      localTx?.blockNumber,
-      localTx?.origin,
-      localTx?.contractAddress,
-    );
+    const settledTx = await this.node.getTx(txHash);
+    if (settledTx) {
+      const deployedContractAddress = settledTx.newContractData.find(
+        c => !c.contractAddress.equals(AztecAddress.ZERO),
+      )?.contractAddress;
 
-    if (localTx?.blockHash) {
-      partialReceipt.status = TxStatus.MINED;
-      return partialReceipt;
+      return new TxReceipt(
+        txHash,
+        TxStatus.MINED,
+        '',
+        settledTx.blockHash,
+        settledTx.blockNumber,
+        deployedContractAddress,
+      );
     }
 
     const pendingTx = await this.node.getPendingTxByHash(txHash);
     if (pendingTx) {
-      return partialReceipt;
+      return new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
-    // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
-    // until the synchroniser picks this up
-
-    const isSynchronised = await this.synchroniser.isSynchronised();
-    if (!isSynchronised) {
-      // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
-      return partialReceipt;
-    }
-
-    // TODO we should refactor this once the node can store transactions. At that point we should query the node and not deal with block heights.
-    partialReceipt.status = TxStatus.DROPPED;
-    partialReceipt.error = 'Tx dropped by P2P node.';
-    return partialReceipt;
+    return new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
   }
 
-  async getBlockNum(): Promise<number> {
-    return await this.node.getBlockHeight();
+  async getBlockNumber(): Promise<number> {
+    return await this.node.getBlockNumber();
   }
 
-  public async getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined> {
+  public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+    return await this.node.getContractDataAndBytecode(contractAddress);
+  }
+
+  public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     return await this.node.getContractData(contractAddress);
-  }
-
-  public async getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined> {
-    return await this.node.getContractInfo(contractAddress);
   }
 
   public async getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
@@ -273,26 +266,17 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [version, chainId] = await Promise.all([this.node.getVersion(), this.node.getChainId()]);
+    const [version, chainId, rollupAddress] = await Promise.all([
+      this.node.getVersion(),
+      this.node.getChainId(),
+      this.node.getRollupAddress(),
+    ]);
 
     return {
       version,
       chainId,
+      rollupAddress,
     };
-  }
-
-  /**
-   * Retrieve a transaction by its hash from the database.
-   *
-   * @param txHash - The hash of the transaction to be fetched.
-   * @returns A TxDao instance representing the retrieved transaction.
-   */
-  async #getTxByHash(txHash: TxHash): Promise<TxDao> {
-    const tx = await this.db.getTx(txHash);
-    if (!tx) {
-      throw new Error(`Transaction ${txHash} not found in RPC database`);
-    }
-    return tx;
   }
 
   /**
@@ -309,52 +293,38 @@ export class AztecRPCServer implements AztecRPC {
     contractDataOracle: ContractDataOracle,
   ) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await contractDataOracle.getFunctionAbi(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
+    const functionAbi = await contractDataOracle.getFunctionAbi(contractAddress, execRequest.functionData.selector);
+    const debug = await contractDataOracle.getFunctionDebugMetadata(contractAddress, execRequest.functionData.selector);
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
-
-    const currentRoots = this.db.getTreeRoots();
-    const historicRoots = PrivateHistoricTreeRoots.from({
-      contractTreeRoot: currentRoots[MerkleTreeId.CONTRACT_TREE],
-      nullifierTreeRoot: currentRoots[MerkleTreeId.NULLIFIER_TREE],
-      privateDataTreeRoot: currentRoots[MerkleTreeId.PRIVATE_DATA_TREE],
-      l1ToL2MessagesTreeRoot: currentRoots[MerkleTreeId.L1_TO_L2_MESSAGES_TREE],
-      blocksTreeRoot: currentRoots[MerkleTreeId.BLOCKS_TREE],
-      privateKernelVkTreeRoot: Fr.ZERO,
-    });
 
     return {
       contractAddress,
-      functionAbi,
+      functionAbi: {
+        ...functionAbi,
+        debug,
+      },
       portalContract,
-      historicRoots,
     };
   }
 
-  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle) {
+  async #simulate(txRequest: TxExecutionRequest, contractDataOracle?: ContractDataOracle): Promise<ExecutionResult> {
     // TODO - Pause syncing while simulating.
     if (!contractDataOracle) {
       contractDataOracle = new ContractDataOracle(this.db, this.node);
     }
 
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       txRequest,
       contractDataOracle,
     );
 
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
-    try {
-      this.log('Executing simulator...');
-      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract, historicRoots);
-      this.log('Simulation completed!');
+    this.log('Executing simulator...');
+    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+    this.log('Simulation completed!');
 
-      return result;
-    } catch (err: any) {
-      throw typeof err === 'string' ? new Error(err) : err; // Work around raw string being thrown
-    }
+    return result;
   }
 
   /**
@@ -368,7 +338,8 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #simulateUnconstrained(execRequest: FunctionCall, from?: AztecAddress) {
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-    const { contractAddress, functionAbi, portalContract, historicRoots } = await this.#getSimulationParameters(
+
+    const { contractAddress, functionAbi, portalContract } = await this.#getSimulationParameters(
       execRequest,
       contractDataOracle,
     );
@@ -382,7 +353,6 @@ export class AztecRPCServer implements AztecRPC {
       functionAbi,
       contractAddress,
       portalContract,
-      historicRoots,
       this.node,
     );
     this.log('Unconstrained simulation completed!');
@@ -406,20 +376,24 @@ export class AztecRPCServer implements AztecRPC {
     // TODO - Pause syncing while simulating.
 
     const contractDataOracle = new ContractDataOracle(this.db, this.node);
-
     const kernelOracle = new KernelOracle(contractDataOracle, this.node);
+
+    // Get values that allow us to reconstruct the block hash
     const executionResult = await this.#simulate(txExecutionRequest, contractDataOracle);
 
     const kernelProver = new KernelProver(kernelOracle);
     this.log(`Executing kernel prover...`);
     const { proof, publicInputs } = await kernelProver.prove(txExecutionRequest.toTxRequest(), executionResult);
-    this.log('Proof completed!');
 
     const newContractPublicFunctions = newContract ? getNewContractPublicFunctions(newContract) : [];
 
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
+
+    // HACK(#1639): Manually patches the ordering of the public call stack
+    // TODO(#757): Enforce proper ordering of enqueued public calls
+    await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
     return new Tx(
       publicInputs,
@@ -431,12 +405,49 @@ export class AztecRPCServer implements AztecRPC {
     );
   }
 
-  public async isSynchronised() {
-    return await this.synchroniser.isSynchronised();
+  // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel
+  // cannot keep track of side effects that happen after or before a nested call, we override the public call stack
+  // it emits with whatever we got from the simulator collected enqueued calls. As a sanity check, we at least verify
+  // that the elements are the same, so we are only tweaking their ordering.
+  // See yarn-project/end-to-end/src/e2e_ordering.test.ts
+  // See https://github.com/AztecProtocol/aztec-packages/issues/1615
+  // TODO(#757): Enforce proper ordering of enqueued public calls
+  private async patchPublicCallStackOrdering(
+    publicInputs: KernelCircuitPublicInputs,
+    enqueuedPublicCalls: PublicCallRequest[],
+  ) {
+    const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());
+    const enqueuedPublicCallsHashes = await Promise.all(enqueuedPublicCalls.map(callToHash));
+    const { publicCallStack } = publicInputs.end;
+
+    // Validate all items in enqueued public calls are in the kernel emitted stack
+    const areEqual = enqueuedPublicCallsHashes.reduce(
+      (accum, enqueued) => accum && !!publicCallStack.find(item => item.equals(enqueued)),
+      true,
+    );
+
+    if (!areEqual) {
+      throw new Error(
+        `Enqueued public function calls and public call stack do not match.\nEnqueued calls: ${enqueuedPublicCallsHashes
+          .map(h => h.toString())
+          .join(', ')}\nPublic call stack: ${publicCallStack.map(i => i.toString()).join(', ')}`,
+      );
+    }
+
+    // Override kernel output
+    publicInputs.end.publicCallStack = padArrayEnd(
+      enqueuedPublicCallsHashes,
+      Fr.ZERO,
+      MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
+    );
   }
 
-  public async isAccountSynchronised(account: AztecAddress) {
-    return await this.synchroniser.isAccountSynchronised(account);
+  public async isGlobalStateSynchronised() {
+    return await this.synchroniser.isGlobalStateSynchronised();
+  }
+
+  public async isAccountStateSynchronised(account: AztecAddress) {
+    return await this.synchroniser.isAccountStateSynchronised(account);
   }
 
   public getSyncStatus() {

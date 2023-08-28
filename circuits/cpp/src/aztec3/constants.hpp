@@ -45,8 +45,8 @@ constexpr size_t MAX_NEW_NULLIFIERS_PER_CALL = 4;
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_CALL = 2;
-constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 8;
-constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 8;
+constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 16;
+constexpr size_t MAX_PUBLIC_DATA_READS_PER_CALL = 16;
 constexpr size_t MAX_READ_REQUESTS_PER_CALL = 4;
 
 
@@ -56,8 +56,8 @@ constexpr size_t MAX_NEW_NULLIFIERS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_C
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
 constexpr size_t MAX_NEW_L2_TO_L1_MSGS_PER_TX = 2;
-constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 8;
-constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 8;
+constexpr size_t MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX = 16;
+constexpr size_t MAX_PUBLIC_DATA_READS_PER_TX = 16;
 constexpr size_t MAX_NEW_CONTRACTS_PER_TX = 1;
 constexpr size_t MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX = 4;
 constexpr size_t MAX_READ_REQUESTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_READ_REQUESTS_PER_CALL;
@@ -93,9 +93,6 @@ constexpr size_t PRIVATE_DATA_TREE_HEIGHT = 32;
 constexpr size_t PUBLIC_DATA_TREE_HEIGHT = 254;
 constexpr size_t NULLIFIER_TREE_HEIGHT = 16;
 constexpr size_t L1_TO_L2_MSG_TREE_HEIGHT = 16;
-constexpr size_t PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT = 16;
-constexpr size_t CONTRACT_TREE_ROOTS_TREE_HEIGHT = 16;
-constexpr size_t L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT = 16;
 constexpr size_t HISTORIC_BLOCKS_TREE_HEIGHT = 16;
 constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 
@@ -129,7 +126,7 @@ constexpr size_t NUM_FIELDS_PER_SHA256 = 2;
  * |-----------+-------------------------------+----------------------|
  * | LOW       | n ≤ 8                         | 0 < hash_index ≤ 32  |
  * | MID       | 8 < n ≤ 16                    | 32 < hash_index ≤ 40 |
- * | HIGH      | 16 < n ≤ 44                   | 40 < hash_index ≤ 44 |
+ * | HIGH      | 16 < n ≤ 48                   | 40 < hash_index ≤ 48 |
  * +-----------+-------------------------------+----------------------+
  *
  * Note: When modifying, modify `GeneratorIndexPacker` in packer.hpp accordingly.
@@ -164,7 +161,7 @@ enum GeneratorIndex {
     PUBLIC_DATA_LEAF,            // Size = ? (unused) // TODO what's the expected size? Assuming ≤ 8
     SIGNED_TX_REQUEST,           // Size = 7
     GLOBAL_VARIABLES,            // Size = 4
-    PARTIAL_CONTRACT_ADDRESS,    // Size = 7
+    PARTIAL_ADDRESS,             // Size = 7
     BLOCK_HASH,                  // Size = 6
     /**
      * Indices with size ≤ 16
@@ -175,7 +172,7 @@ enum GeneratorIndex {
      * Indices with size ≤ 44
      */
     VK = 41,                        // Size = 35
-    PRIVATE_CIRCUIT_PUBLIC_INPUTS,  // Size = 39
+    PRIVATE_CIRCUIT_PUBLIC_INPUTS,  // Size = 45
     PUBLIC_CIRCUIT_PUBLIC_INPUTS,   // Size = 32 (unused)
     FUNCTION_ARGS,                  // Size ≤ 40
 };
@@ -223,7 +220,8 @@ constexpr size_t MAX_NOTES_PER_PAGE = 10;
 constexpr size_t VIEW_NOTE_ORACLE_RETURN_LENGTH = MAX_NOTES_PER_PAGE * (MAX_NOTE_FIELDS_LENGTH + 1) + 2;
 
 constexpr size_t CALL_CONTEXT_LENGTH = 6;
-constexpr size_t COMMITMENT_TREES_ROOTS_LENGTH = 5;
+// Must be updated if any data is added into the block hash calculation.
+constexpr size_t HISTORIC_BLOCK_DATA_LENGTH = 7;
 constexpr size_t FUNCTION_DATA_LENGTH = 4;
 constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
 
@@ -235,14 +233,14 @@ constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
     2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
-    + COMMITMENT_TREES_ROOTS_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;              // + 2 for chain_id and version
+    + HISTORIC_BLOCK_DATA_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;                 // + 2 for chain_id and version
 
 constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     1 + 1  // call_context_hash + args_hash
     + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
     2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
-    + COMMITMENT_TREES_ROOTS_LENGTH + 3;  // + 3 for contract_deployment_data.hash(), chain_id, version
+    + HISTORIC_BLOCK_DATA_LENGTH + 3;  // + 3 for contract_deployment_data.hash(), chain_id, version
 
 constexpr size_t CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH = 3;
 constexpr size_t CONTRACT_STORAGE_READ_LENGTH = 2;
@@ -253,15 +251,15 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH +
     MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
-    NUM_FIELDS_PER_SHA256 + 1 +         // + 1 for unencrypted logs preimage length
-    COMMITMENT_TREES_ROOTS_LENGTH + 2;  // + 2 for chain_id and version
+    NUM_FIELDS_PER_SHA256 + 1 +      // + 1 for unencrypted logs preimage length
+    HISTORIC_BLOCK_DATA_LENGTH + 2;  // + 2 for chain_id and version
 
 constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     2 + RETURN_VALUES_LENGTH +  // + 1 for args_hash + 1 call_context.hash
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
-    NUM_FIELDS_PER_SHA256 +  // unencrypted_logs_hash (being represented by NUM_FIELDS_PER_SHA256)
-    3;                       // unencrypted_log_preimages_length + historic_public_data_tree_root + prover_address
+    NUM_FIELDS_PER_SHA256 +          // unencrypted_logs_hash (being represented by NUM_FIELDS_PER_SHA256)
+    HISTORIC_BLOCK_DATA_LENGTH + 2;  // unencrypted_log_preimages_length + prover_address
 
 
 // Size of the return value of a private function call,

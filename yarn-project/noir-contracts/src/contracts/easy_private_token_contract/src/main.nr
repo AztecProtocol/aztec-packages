@@ -13,8 +13,7 @@ contract EasyPrivateToken {
     use dep::aztec::{
         abi,
         abi::PrivateContextInputs,
-        context::Context,
-        log::emit_unencrypted_log,
+        context::PrivateContext,
         note::{
             note_header::NoteHeader,
             utils as note_utils,
@@ -33,13 +32,11 @@ contract EasyPrivateToken {
         initial_supply: u120, 
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([initial_supply as Field, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply as Field, owner]));
         let storage = Storage::init();
         let balances = storage.balances;
 
         balances.at(owner).add(&mut context, initial_supply, owner);
-
-        emit_unencrypted_log(&mut context, "Balance set in constructor");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -54,13 +51,11 @@ contract EasyPrivateToken {
         amount: u120, 
         owner: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount as Field, owner]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount as Field, owner]));
         let storage = Storage::init();
         let balances = storage.balances;
 
         balances.at(owner).add(&mut context, amount, owner);
-
-        emit_unencrypted_log(&mut context, "Coins minted");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -76,15 +71,13 @@ contract EasyPrivateToken {
         sender: Field, 
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = Context::new(inputs, abi::hash_args([amount as Field, sender, recipient]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount as Field, sender, recipient]));
         let storage = Storage::init();
         let balances = storage.balances;
 
         balances.at(sender).sub(&mut context, amount, sender);
 
         balances.at(recipient).add(&mut context, amount, recipient);
-        
-        emit_unencrypted_log(&mut context, "Coins transferred");
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -98,7 +91,7 @@ contract EasyPrivateToken {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(balances.at(owner).storage_slot)
+        balance_utils::get_balance(balances.at(owner).set)
     }
 
     // Computes note hash and nullifier.

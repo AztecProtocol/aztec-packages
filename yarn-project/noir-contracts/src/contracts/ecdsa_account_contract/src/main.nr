@@ -10,11 +10,9 @@ contract EcdsaAccount {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
-    use dep::aztec::context::Context;
+    use dep::aztec::context::PrivateContext;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
     use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
@@ -42,7 +40,7 @@ contract EcdsaAccount {
         let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
         args.push_array(payload.serialize());
         for byte in signature { args.push(byte as Field); }
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
+        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
 
         // Load public key from storage
         let storage = Storage::init();
@@ -52,7 +50,12 @@ contract EcdsaAccount {
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        let message_bytes = message_field.to_be_bytes(32);
+        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = message_field.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 {
+          message_bytes[i] = message_bytes_slice[i];
+        }
         let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
@@ -73,17 +76,16 @@ contract EcdsaAccount {
         let mut args: BoundedVec<Field, 64> = BoundedVec::new(0);
         for byte in signing_pub_key_x { args.push(byte as Field); }
         for byte in signing_pub_key_y { args.push(byte as Field); }
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
+        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
         
-        let this = inputs.call_context.storage_contract_address;
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, inputs.call_context.storage_contract_address);
+        let this = context.this_address();
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
         storage.public_key.initialise(&mut context, &mut pub_key_note);
         
         emit_encrypted_log(
             &mut context,
             this,
             storage.public_key.storage_slot,
-            this,
             get_public_key(this),
             pub_key_note.serialise(),
         );

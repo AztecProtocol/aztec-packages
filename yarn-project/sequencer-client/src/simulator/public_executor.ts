@@ -6,7 +6,7 @@ import {
   PublicExecutor,
   PublicStateDB,
 } from '@aztec/acir-simulator';
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, PrivateHistoricTreeRoots } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
@@ -21,11 +21,13 @@ export function getPublicExecutor(
   merkleTree: MerkleTreeOperations,
   contractDataSource: ContractDataSource,
   l1toL2MessageSource: L1ToL2MessageSource,
+  blockData: HistoricBlockData,
 ) {
   return new PublicExecutor(
     new WorldStatePublicDB(merkleTree),
     new ContractsDataSourcePublicDB(contractDataSource),
     new WorldStateDB(merkleTree, l1toL2MessageSource),
+    blockData,
   );
 }
 
@@ -34,14 +36,14 @@ export function getPublicExecutor(
  */
 class ContractsDataSourcePublicDB implements PublicContractsDB {
   constructor(private db: ContractDataSource) {}
-  async getBytecode(address: AztecAddress, functionSelector: Buffer): Promise<Buffer | undefined> {
-    return (await this.db.getPublicFunction(address, functionSelector))?.bytecode;
+  async getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined> {
+    return (await this.db.getPublicFunction(address, selector))?.bytecode;
   }
-  async getIsInternal(address: AztecAddress, functionSelector: Buffer): Promise<boolean | undefined> {
-    return (await this.db.getPublicFunction(address, functionSelector))?.isInternal;
+  async getIsInternal(address: AztecAddress, selector: FunctionSelector): Promise<boolean | undefined> {
+    return (await this.db.getPublicFunction(address, selector))?.isInternal;
   }
   async getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined> {
-    return (await this.db.getL2ContractInfo(address))?.portalContractAddress;
+    return (await this.db.getContractData(address))?.portalContractAddress;
   }
 }
 
@@ -112,18 +114,5 @@ export class WorldStateDB implements CommitmentsDB {
       siblingPath: siblingPath.toFieldArray(),
       index,
     };
-  }
-
-  public getTreeRoots(): PrivateHistoricTreeRoots {
-    const roots = this.db.getCommitmentTreeRoots();
-
-    return PrivateHistoricTreeRoots.from({
-      privateKernelVkTreeRoot: Fr.ZERO,
-      privateDataTreeRoot: Fr.fromBuffer(roots.privateDataTreeRoot),
-      contractTreeRoot: Fr.fromBuffer(roots.contractDataTreeRoot),
-      nullifierTreeRoot: Fr.fromBuffer(roots.nullifierTreeRoot),
-      l1ToL2MessagesTreeRoot: Fr.fromBuffer(roots.l1Tol2MessagesTreeRoot),
-      blocksTreeRoot: Fr.fromBuffer(roots.blocksTreeRoot),
-    });
   }
 }
