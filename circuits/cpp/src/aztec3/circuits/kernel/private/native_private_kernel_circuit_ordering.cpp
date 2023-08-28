@@ -218,8 +218,6 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(DummyC
                                previous_kernel.public_inputs.end.read_requests,
                                previous_kernel.public_inputs.end.read_request_membership_witnesses,
                                previous_kernel.public_inputs.end.new_commitments);
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1074): ideally final public_inputs
-    // shouldn't even include read_requests and read_request_membership_witnesses as they should be empty.
 
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match nullifiers (their nullified_commitments)
