@@ -49,7 +49,6 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
         value >>= 8;
     }
 
-    // Write the bytes to stdout
     writeRawBytesToStdout(bytes);
 }
 /**
