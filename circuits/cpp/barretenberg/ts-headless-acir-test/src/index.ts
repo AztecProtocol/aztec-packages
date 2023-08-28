@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import { chromium, firefox, webkit } from "playwright";
 import fs from "fs";
 import { Command } from "commander";
 import { gunzipSync } from "zlib";
@@ -65,44 +65,49 @@ const readWitnessFile = (path: string): Uint8Array => {
 };
 
 (async () => {
-  // Launch puppeteer and navigate to the desired URL
-  const browser = await puppeteer.launch({
-    headless: "new",
-    protocolTimeout: 600000,
-  });
-
-  const page = await browser.newPage();
-  if (options.verbose) {
-    page.on("console", (msg) => formatAndPrintLog(msg.text()));
-  }
-
-  await page.goto("http://localhost:8080");
-
-  // Read the required binary files
   const acir = readBytecodeFile(options.bytecode);
   const witness = readWitnessFile(options.witness);
   const threads = Math.min(os.cpus().length, 16);
 
-  // Call the desired function inside the loaded page and capture the return value
-  const result: boolean = await page.evaluate(
-    (acirData, witnessData, threads) => {
-      // Convert the input data to Uint8Arrays within the browser context
-      const acirUint8Array = new Uint8Array(acirData);
-      const witnessUint8Array = new Uint8Array(witnessData);
+  // const browsers = [chromium, firefox, webkit];
+  // const browsers = [firefox];
+  const browsers = { Chomium: chromium, Firefox: firefox, Webkit: webkit };
 
-      // Call the desired function and return the result
-      return (window as any).runTest(
-        acirUint8Array,
-        witnessUint8Array,
-        threads
-      );
-    },
-    Array.from(acir),
-    Array.from(witness),
-    threads
-  );
+  for (const [name, browserType] of Object.entries(browsers)) {
+    console.log(`Testing ${options.bytecode} in ${name}...`);
+    const browser = await browserType.launch();
 
-  await browser.close();
+    const context = await browser.newContext();
+    const page = await context.newPage();
 
-  process.exit(result ? 0 : 1);
+    if (options.verbose) {
+      page.on("console", (msg) => formatAndPrintLog(msg.text()));
+    }
+
+    await page.goto("http://localhost:8080");
+
+    const result: boolean = await page.evaluate(
+      ([acirData, witnessData, threads]) => {
+        // Convert the input data to Uint8Arrays within the browser context
+        const acirUint8Array = new Uint8Array(acirData as number[]);
+        const witnessUint8Array = new Uint8Array(witnessData as number[]);
+
+        // Call the desired function and return the result
+        return (window as any).runTest(
+          acirUint8Array,
+          witnessUint8Array,
+          threads
+        );
+      },
+      [Array.from(acir), Array.from(witness), threads]
+    );
+
+    await browser.close();
+
+    if (!result) {
+      process.exit(1); // Exit with an error if any of the browsers fail
+    }
+  }
+
+  process.exit(0);
 })();
