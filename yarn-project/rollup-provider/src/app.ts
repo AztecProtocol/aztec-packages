@@ -1,7 +1,7 @@
 import { Fr, HistoricBlockData } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecNode, MerkleTreeId, Tx, TxHash } from '@aztec/types';
+import { AztecNode, MerkleTreeId, SimulationError, Tx, TxHash } from '@aztec/types';
 
 import Koa, { Context, DefaultState } from 'koa';
 import Router from 'koa-router';
@@ -273,7 +273,17 @@ export function appFactory(node: AztecNode, prefix: string) {
     const stream = new PromiseReadable(ctx.req);
     const postData = (await stream.readAll()) as Buffer;
     const tx = Tx.fromBuffer(postData);
-    await node.simulatePublicPart(tx);
+    try {
+      await node.simulatePublicPart(tx);
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        ctx.body = {
+          simulationError: err.toJSON(),
+        };
+      } else {
+        throw err;
+      }
+    }
   });
 
   const app = new Koa();

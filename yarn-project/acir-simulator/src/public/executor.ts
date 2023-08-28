@@ -10,7 +10,7 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs } from '@aztec/types';
+import { FunctionL2Logs, SimulationError } from '@aztec/types';
 
 import {
   ZERO_ACVM_FIELD,
@@ -140,8 +140,10 @@ export class PublicExecutor {
         return Promise.resolve(toACVMField(portalContactAddress));
       },
     }).catch((err: Error) => {
-      throw new Error(
-        `Error executing public function ${execution.contractAddress.toString()}:${selector}: ${err.message}`,
+      throw new SimulationError(
+        err.message,
+        { contractAddress: execution.contractAddress, functionSelector: selector },
+        err instanceof SimulationError ? err.getCallStack() : undefined,
       );
     });
 

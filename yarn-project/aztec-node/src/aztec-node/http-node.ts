@@ -20,6 +20,7 @@ import {
   LogType,
   MerkleTreeId,
   SiblingPath,
+  SimulationError,
   Tx,
   TxHash,
 } from '@aztec/types';
@@ -380,6 +381,9 @@ export class HttpNode implements AztecNode {
     const init: RequestInit = {};
     init['method'] = 'POST';
     init['body'] = tx.toBuffer();
-    await fetch(url.toString(), init);
+    const response = await (await fetch(url.toString(), init)).json();
+    if (response.simulationError) {
+      throw SimulationError.fromJSON(response.simulationError);
+    }
   }
 }

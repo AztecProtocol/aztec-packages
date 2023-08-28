@@ -16,7 +16,7 @@ import {
   PrivateKey,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
+import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -34,6 +34,7 @@ import {
   L2BlockL2Logs,
   LogType,
   NodeInfo,
+  SimulationError,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -363,6 +364,36 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   /**
+   * Simulate the public part of a transaction.
+   * This allows to catch public execution errors before submitting the transaction.
+   * It can also be used for estimating gas in the future.
+   * @param tx - The transaction to be simulated.
+   */
+  async #simulatePublicPart(tx: Tx) {
+    try {
+      await this.node.simulatePublicPart(tx);
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        const originalFailingFunction = err.getCallStack().pop()!;
+        const contractDataOracle = new ContractDataOracle(this.db, this.node);
+        const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+          originalFailingFunction.contractAddress,
+          originalFailingFunction.functionSelector,
+        );
+        if (debugInfo) {
+          const callStack = processAcvmError(err.message, debugInfo);
+          if (callStack) {
+            this.log(printErrorStack(callStack));
+            err.message = `Assertion failed in public execution: ${callStack.pop()?.locationText ?? 'Unknown'}`;
+          }
+        }
+      }
+
+      throw err;
+    }
+  }
+
+  /**
    * Simulate a transaction, generate a kernel proof, and create a private transaction object.
    * The function takes in a transaction request and an ECDSA signature. It simulates the transaction,
    * then generates a kernel proof using the simulation result. Finally, it creates a private
@@ -406,33 +437,7 @@ export class AztecRPCServer implements AztecRPC {
       enqueuedPublicFunctions,
     );
 
-    // Simulate public part of the transaction to catch public execution errors before submitting
-    // This can be used for estimating gas in the future.
-    try {
-      await this.node.simulatePublicPart(tx);
-    } catch (err) {
-      if (err instanceof Error) {
-        const acvmErrorMatch = err.message.match(
-          /Error executing public function (?<contractAddress>0x[0-9a-f]+):(?<selector>[0-9a-f]+): (?<acvmError>.*)/,
-        );
-        if (acvmErrorMatch) {
-          const { contractAddress, selector, acvmError } = acvmErrorMatch.groups!;
-          const contractDataOracle = new ContractDataOracle(this.db, this.node);
-          const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
-            AztecAddress.fromString(contractAddress),
-            FunctionSelector.fromBuffer(Buffer.from(selector, 'hex')),
-          );
-          if (debugInfo) {
-            const callStack = processAcvmError(acvmError, debugInfo);
-            if (callStack) {
-              this.log(printErrorStack(callStack));
-              throw new Error(`Assertion failed in public execution: ${callStack.pop()?.assertionText ?? 'Unknown'}`);
-            }
-          }
-        }
-      }
-      throw err;
-    }
+    await this.#simulatePublicPart(tx);
 
     return tx;
   }

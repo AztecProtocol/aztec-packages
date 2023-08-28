@@ -96,7 +96,7 @@ interface SourceCodeLocation {
   /**
    * The source code text of the failed constraint.
    */
-  assertionText: string;
+  locationText: string;
 }
 
 /**
@@ -111,7 +111,7 @@ function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionD
 
     const { path, source } = files[fileId];
 
-    const assertionText = source.substring(span.start, span.end + 1);
+    const locationText = source.substring(span.start, span.end + 1);
     const precedingText = source.substring(0, span.start);
     const line = precedingText.split('\n').length;
 
@@ -119,7 +119,7 @@ function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionD
       filePath: path,
       line,
       fileSource: source,
-      assertionText,
+      locationText,
     };
   });
 }
@@ -133,7 +133,7 @@ export function printErrorStack(callStack: SourceCodeLocation[]): string {
   // TODO experiment with formats of reporting this for better error reporting
   return [
     'Error: Assertion failed',
-    callStack.map(call => `  at ${call.filePath}:${call.line} '${call.assertionText}'`),
+    callStack.map(call => `  at ${call.filePath}:${call.line} '${call.locationText}'`),
   ].join('\n');
 }
 
@@ -202,7 +202,7 @@ export async function acvm(
       const callStack = processAcvmError(acvmError, debug);
       if (callStack) {
         logger(printErrorStack(callStack));
-        throw new Error(`Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`);
+        throw new Error(`Assertion failed: '${callStack.pop()?.locationText ?? 'Unknown'}'`);
       }
     }
     // If we cannot find a callstack, throw the original error.
