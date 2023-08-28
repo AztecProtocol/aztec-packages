@@ -85,7 +85,7 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
 
     debug(`verifying...`);
     const verified = await api.acirVerifyProof(acirComposer, proof, isRecursive);
-    process.stdout.write(`${verified}`);
+    debug(`verified: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
@@ -107,10 +107,14 @@ export async function prove(
     const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
     debug(`done.`);
 
-    process.stdout.write(proof);
-    writeFileSync(outputPath, proof);
+    if (outputPath === '-') { 
+      process.stdout.write(proof);
+      debug(`proof written to stdout`);
+    } else {
+      writeFileSync(outputPath, proof);
+      debug(`proof written to: ${outputPath}`);
+    }
 
-    debug(`proof written to: ${outputPath}`);
   } finally {
     await api.destroy();
   }
@@ -130,8 +134,7 @@ export async function verify(proofPath: string, isRecursive: boolean, vkPath: st
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath), isRecursive);
-
-    process.stdout.write(`${verified}`);
+    debug(`verified: ${verified}`);
     return verified;
   } finally {
     await api.destroy();
@@ -144,10 +147,14 @@ export async function contract(outputPath: string, vkPath: string) {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const contract = await api.acirGetSolidityVerifier(acirComposer);
 
-    process.stdout.write(contract);
-    writeFileSync(outputPath, contract);
+    if (outputPath === '-') { 
+      process.stdout.write(contract);
+      debug(`contract written to stdout`);
+    } else {
+      writeFileSync(outputPath, contract);
+      debug(`contract written to: ${outputPath}`);
+    }
 
-    debug(`contract written to: ${outputPath}`);
   } finally {
     await api.destroy();
   }
@@ -163,10 +170,14 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
     debug('initing verification key...');
     const vk = await api.acirGetVerificationKey(acirComposer);
 
-    process.stdout.write(vk);
-    writeFileSync(outputPath, vk);
+    if (outputPath === '-') { 
+      process.stdout.write(vk);
+      debug(`vk written to stdout`);
+    } else {
+      writeFileSync(outputPath, vk);
+      debug(`vk written to: ${outputPath}`);
+    }
 
-    debug(`vk written to: ${outputPath}`);
   } finally {
     await api.destroy();
   }
@@ -184,8 +195,14 @@ export async function proofAsFields(proofPath: string, numInnerPublicInputs: num
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
-    process.stdout.write(jsonProofAsFields);
-    writeFileSync(outputPath, jsonProofAsFields);
+
+    if (outputPath === '-') { 
+      process.stdout.write(jsonProofAsFields);
+      debug(`proofAsFields written to stdout`);
+    } else {
+      writeFileSync(outputPath, jsonProofAsFields);
+      debug(`proofAsFields written to: ${outputPath}`);
+    }
 
     debug('done.');
   } finally {
@@ -203,8 +220,13 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
     const output = [vkHash, ...vkAsFields].map(f => f.toString());
     const jsonVKAsFields = JSON.stringify(output);
 
-    process.stdout.write(jsonVKAsFields);
-    writeFileSync(vkeyOutputPath, jsonVKAsFields);
+    if (vkeyOutputPath === '-') { 
+      process.stdout.write(jsonVKAsFields);
+      debug(`vkAsFields written to stdout`);
+    } else {
+      writeFileSync(vkeyOutputPath, jsonVKAsFields);
+      debug(`vkAsFields written to: ${vkeyOutputPath}`);
+    }
 
     debug('done.');
   } finally {
@@ -272,7 +294,7 @@ program
   .command('contract')
   .description('Output solidity verification key contract.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
-  .option('-o, --output-path <path>', 'Specify the path to write the contract', '-')
+  .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vk }) => {
     handleGlobalOptions();
