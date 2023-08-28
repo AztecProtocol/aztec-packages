@@ -161,10 +161,18 @@ jobs:
       - name: Create Mac Build Environment
         run: brew install cmake ninja
 
-      - name: Compile Barretenberg
+      - name: Compile Barretenberg (x86_64)
+        if: matrix.target == 'x86_64-apple-darwin'
         working-directory: cpp
         run: |
           cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
+          cmake --build --preset default --target bb
+          
+      - name: Compile Barretenberg (ARM)
+        if: matrix.target == 'aarch64-apple-darwin'
+        working-directory: cpp
+        run: |
+          cmake --toolchain ./cmake/toolchains/aarch64-darwin.cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert
           cmake --build --preset default --target bb
 
       - name: Package barretenberg artifact
