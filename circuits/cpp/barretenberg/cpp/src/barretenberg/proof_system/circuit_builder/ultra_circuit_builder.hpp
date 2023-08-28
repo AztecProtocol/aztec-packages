@@ -833,7 +833,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t ramcount = 0;
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-        return count + romcount + ramcount + rangecount + nnfcount;
+        return count + romcount + ramcount + rangecount + nnfcount + num_ecc_op_gates;
     }
 
     /**
@@ -872,9 +872,9 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
-        size_t total = count + romcount + ramcount + rangecount;
+        size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount
+                  << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates " << num_ecc_op_gates
                   << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
     // /**

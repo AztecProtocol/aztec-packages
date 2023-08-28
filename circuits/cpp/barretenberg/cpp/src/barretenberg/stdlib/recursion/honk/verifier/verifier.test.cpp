@@ -15,6 +15,13 @@
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 
+/**
+ * @brief Test suite for Ultra Honk Recursive Verifier
+ * @details Construct and check a recursive verifier circuit for an UltraHonk proof using 1) the conventional Ultra
+ * arithmetization, or 2) a Goblin-style Ultra arithmetization
+ *
+ * @tparam UseGoblinFlag whether or not to use goblin-style arithmetization for group operations
+ */
 template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::Test {
 
     static constexpr bool goblin_flag = UseGoblinFlag::value;
@@ -25,6 +32,7 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
     using OuterBuilder = ::proof_system::UltraCircuitBuilder;
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
+    // Arithmetization of group operations in recursive verifier circuit (goblin or not) is determined by goblin_flag
     using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive, goblin_flag>;
     using VerificationKey = ::proof_system::honk::flavor::UltraRecursive::VerificationKey;
 

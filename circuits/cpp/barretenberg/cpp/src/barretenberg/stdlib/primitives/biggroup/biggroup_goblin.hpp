@@ -43,15 +43,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         auto op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
 
         // Adds constraints demonstrating proper decomposition of point coordinates.
-        // Note: may need to do point.x.assert_is_in_field() prior to the assert_eq() according to Kesha.
         auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
         auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
         auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
         Fq point_x(x_lo, x_hi);
         Fq point_y(y_lo, y_hi);
-        // point.x.assert_is_in_field(); // WORKTODO: needed?
-        // point.y.assert_is_in_field();
+        // WORKTODO (discuss with Kesha): Kesha suggested that it may be necessary to do some assert_is_in_field here.
+        // All of the point coordinates being compared here have been constructed via bigfield(lo, hi) which appears to
+        // control number of bits but it's not clear whether it guarantees membership in Fq. Seems like it must,
+        // otherwise is eems we'd need to assert in field every time we construct a bigfield element from witness. Also,
+        // is assert_equal the right thing here? Any subtlety we should document?
         point.x.assert_equal(point_x);
         point.y.assert_equal(point_y);
 
