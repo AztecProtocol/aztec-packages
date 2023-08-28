@@ -1,7 +1,7 @@
 # Layout
 ## Directory structure
 
-Here's a common layout for a basic Noir Contract project:
+Here's a common layout for a basic Aztec.nr Contract project:
 
 ``` title="layout of an aztec contract project"
 ─── my_aztec_contract_project

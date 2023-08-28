@@ -79,4 +79,4 @@ impl SafeU120 {
     // todo: implement mul_div with 240 bit intermediate values.
 }
 
-// Adding test in here is pretty useless as long as noir don't support failings tests.
+// Adding tests in here is pretty useless as long as noir doesn't support failing tests.

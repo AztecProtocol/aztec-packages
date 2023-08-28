@@ -96,7 +96,7 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the noir oracle data required to prove existence of a given commitment.
+   * Retrieves the Aztec.nr oracle data required to prove existence of a given commitment.
    * @param contractAddress - The contract Address.
    * @param innerCommitment - The key of the message being fetched.
    * @returns - A promise that resolves to the commitment data, a sibling path and the

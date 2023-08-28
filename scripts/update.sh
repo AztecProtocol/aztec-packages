@@ -10,7 +10,7 @@ echo -e '\033[1mRebuild L1 contracts...\033[0m'
 echo -e '\n\033[1mUpdate npm deps...\033[0m'
 (cd yarn-project && yarn install)
 
-echo -e '\n\033[1mRebuild Noir contracts...\033[0m'
+echo -e '\n\033[1mRebuild Aztec.nr contracts...\033[0m'
 (cd yarn-project/noir-contracts && yarn noir:build:all 2> /dev/null)
 
 echo -e '\n\033[1mRebuild circuits wasm...\033[0m'

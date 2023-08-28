@@ -155,7 +155,7 @@ export class EthCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in noir contract)
+   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
@@ -232,7 +232,7 @@ export class AztecCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in noir contract)
+   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */

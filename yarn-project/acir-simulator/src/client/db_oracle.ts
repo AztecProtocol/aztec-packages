@@ -33,7 +33,7 @@ export interface PendingNoteData extends NoteData {
 }
 
 /**
- * The format that noir uses to get L1 to L2 Messages.
+ * The format that Aztec.nr uses to get L1 to L2 Messages.
  */
 export interface MessageLoadOracleInputs {
   /**
@@ -52,7 +52,7 @@ export interface MessageLoadOracleInputs {
 }
 
 /**
- * The format noir uses to get commitments.
+ * The format Aztec.nr uses to get commitments.
  */
 export interface CommitmentDataOracleInputs {
   /** The siloed commitment. */

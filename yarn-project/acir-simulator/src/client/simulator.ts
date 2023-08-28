@@ -173,7 +173,7 @@ export class AcirSimulator {
       abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
     } catch (e) {
       throw new Error(
-        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
+        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in Aztec.nr contract ${contractAddress.toString()}.`,
       );
     }
 
