@@ -44,7 +44,8 @@ acir_format::acir_format get_constraint_system(std::string const& bytecode_path)
  * @brief Proves and Verifies an ACIR circuit
  *
  * Communication:
- * - stdout: A boolean value is printed to stdout indicating whether the proof is valid
+ * - proc_exit: A boolean value is returned indicating whether the proof is valid.
+ *   an exit code of 0 will be returned for success and 1 for failure.
  *
  * @param bytecodePath Path to the file containing the serialized circuit
  * @param witnessPath Path to the file containing the serialized witness
