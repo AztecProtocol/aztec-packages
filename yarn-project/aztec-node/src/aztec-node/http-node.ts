@@ -370,4 +370,16 @@ export class HttpNode implements AztecNode {
     const response = await (await fetch(url.toString())).json();
     return response.blockData;
   }
+
+  /**
+   * Simulates the public part of a transaction with the current state.
+   * @param tx - The transaction to simulate.
+   **/
+  public async simulatePublicPart(tx: Tx) {
+    const url = new URL(`${this.baseUrl}/simulate-tx`);
+    const init: RequestInit = {};
+    init['method'] = 'POST';
+    init['body'] = tx.toBuffer();
+    await fetch(url.toString(), init);
+  }
 }

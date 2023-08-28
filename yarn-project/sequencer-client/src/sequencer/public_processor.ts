@@ -46,10 +46,9 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { getPublicExecutor } from '../simulator/public_executor.js';
+import { PublicKernelCircuitSimulator, getPublicExecutor } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
 
 /**
@@ -107,9 +106,9 @@ export class PublicProcessor {
    * @param txs - Txs to process.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
+  public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[]]> {
     const result: ProcessedTx[] = [];
-    const failed: Tx[] = [];
+    const failed: FailedTx[] = [];
 
     for (const tx of txs) {
       this.log(`Processing tx ${await tx.getTxHash()}`);
@@ -117,7 +116,10 @@ export class PublicProcessor {
         result.push(await this.processTx(tx));
       } catch (err) {
         this.log.error(`Error processing tx ${await tx.getTxHash()}: ${err}`);
-        failed.push(tx);
+        failed.push({
+          tx,
+          error: err instanceof Error ? err : new Error('Unknown error'),
+        });
       }
     }
     return [result, failed];

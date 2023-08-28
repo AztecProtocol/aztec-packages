@@ -4,6 +4,7 @@ import {
   CircuitsWasm,
   EthAddress,
   Fr,
+  GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
   PRIVATE_DATA_TREE_HEIGHT,
@@ -11,7 +12,12 @@ import {
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InMemoryTxPool, P2P, createP2PClient } from '@aztec/p2p';
-import { SequencerClient } from '@aztec/sequencer-client';
+import {
+  GlobalVariableBuilder,
+  PublicProcessorFactory,
+  SequencerClient,
+  getGlobalVariableBuilder,
+} from '@aztec/sequencer-client';
 import {
   AztecNode,
   ContractData,
@@ -61,6 +67,7 @@ export class AztecNodeService implements AztecNode {
     protected sequencer: SequencerClient,
     protected chainId: number,
     protected version: number,
+    protected globalVariableBuilder: GlobalVariableBuilder,
     private log = createDebugLogger('aztec:node'),
   ) {}
 
@@ -108,6 +115,7 @@ export class AztecNodeService implements AztecNode {
       sequencer,
       config.chainId,
       config.version,
+      getGlobalVariableBuilder(config),
     );
   }
 
@@ -366,6 +374,32 @@ export class AztecNodeService implements AztecNode {
       roots[MerkleTreeId.PUBLIC_DATA_TREE],
       globalsHash,
     );
+  }
+
+  /**
+   * Simulates the public part of a transaction with the current state.
+   * @param tx - The transaction to simulate.
+   **/
+  public async simulatePublicPart(tx: Tx) {
+    this.log.info(`Simulating tx ${await tx.getTxHash()}`);
+
+    const publicProcessorFactory = new PublicProcessorFactory(
+      this.worldStateSynchroniser.getLatest(),
+      this.contractDataSource,
+      this.l1ToL2MessageSource,
+    );
+    const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
+    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
+    const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+
+    // Process txs and drop the ones that fail processing
+    // We create a fresh processor each time to reset any cached state (eg storage writes)
+    const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+    const [, failedTxs] = await processor.process([tx]);
+    if (failedTxs.length > 0) {
+      throw failedTxs[0].error;
+    }
+    this.log.info(`Simulated tx ${await tx.getTxHash()} succeeds`);
   }
 
   /**

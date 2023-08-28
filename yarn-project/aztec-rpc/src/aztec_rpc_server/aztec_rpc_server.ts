@@ -3,6 +3,8 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
+  printErrorStack,
+  processAcvmError,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
@@ -14,7 +16,7 @@ import {
   PrivateKey,
   PublicCallRequest,
 } from '@aztec/circuits.js';
-import { encodeArguments } from '@aztec/foundation/abi';
+import { FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
@@ -395,7 +397,7 @@ export class AztecRPCServer implements AztecRPC {
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(
+    const tx = new Tx(
       publicInputs,
       proof,
       encryptedLogs,
@@ -403,6 +405,36 @@ export class AztecRPCServer implements AztecRPC {
       newContractPublicFunctions,
       enqueuedPublicFunctions,
     );
+
+    // Simulate public part of the transaction to catch public execution errors before submitting
+    // This can be used for estimating gas in the future.
+    try {
+      await this.node.simulatePublicPart(tx);
+    } catch (err) {
+      if (err instanceof Error) {
+        const acvmErrorMatch = err.message.match(
+          /Error executing public function (?<contractAddress>0x[0-9a-f]+):(?<selector>[0-9a-f]+): (?<acvmError>.*)/,
+        );
+        if (acvmErrorMatch) {
+          const { contractAddress, selector, acvmError } = acvmErrorMatch.groups!;
+          const contractDataOracle = new ContractDataOracle(this.db, this.node);
+          const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+            AztecAddress.fromString(contractAddress),
+            FunctionSelector.fromBuffer(Buffer.from(selector, 'hex')),
+          );
+          if (debugInfo) {
+            const callStack = processAcvmError(acvmError, debugInfo);
+            if (callStack) {
+              this.log(printErrorStack(callStack));
+              throw new Error(`Assertion failed in public execution: ${callStack.pop()?.assertionText ?? 'Unknown'}`);
+            }
+          }
+        }
+      }
+      throw err;
+    }
+
+    return tx;
   }
 
   // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel

@@ -269,6 +269,13 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
+  router.post('/tx-simulate', checkReady, async (ctx: Koa.Context) => {
+    const stream = new PromiseReadable(ctx.req);
+    const postData = (await stream.readAll()) as Buffer;
+    const tx = Tx.fromBuffer(postData);
+    await node.simulatePublicPart(tx);
+  });
+
   const app = new Koa();
   app.on('error', error => {
     logger.error(`KOA app-level error. ${JSON.stringify({ error })}`);

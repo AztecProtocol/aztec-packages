@@ -129,12 +129,27 @@ function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionD
  * @param callStack - The error stack
  * @returns - The formatted string
  */
-function printErrorStack(callStack: SourceCodeLocation[]): string {
+export function printErrorStack(callStack: SourceCodeLocation[]): string {
   // TODO experiment with formats of reporting this for better error reporting
   return [
     'Error: Assertion failed',
     callStack.map(call => `  at ${call.filePath}:${call.line} '${call.assertionText}'`),
   ].join('\n');
+}
+
+/**
+ * Extracts source code locations from an ACVM error if possible.
+ * @param errMessage - The ACVM error.
+ * @param debug - The debug metadata of the function.
+ * @returns The source code locations or undefined if they couldn't be extracted from the error.
+ */
+export function processAcvmError(errMessage: string, debug: FunctionDebugMetadata): SourceCodeLocation[] | undefined {
+  const opcodeLocation = extractOpcodeLocationFromError(errMessage);
+  if (!opcodeLocation) {
+    return undefined;
+  }
+
+  return getCallStackFromOpcodeLocation(opcodeLocation, debug);
 }
 
 /**
@@ -182,14 +197,16 @@ export async function acvm(
     if (oracleError) {
       throw oracleError;
     }
-    const opcodeLocation = extractOpcodeLocationFromError(acvmError);
-    if (!opcodeLocation || !debug) {
-      throw new Error(acvmError);
-    }
 
-    const callStack = getCallStackFromOpcodeLocation(opcodeLocation, debug);
-    logger(printErrorStack(callStack));
-    throw new Error(`Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`);
+    if (debug) {
+      const callStack = processAcvmError(acvmError, debug);
+      if (callStack) {
+        logger(printErrorStack(callStack));
+        throw new Error(`Assertion failed: '${callStack.pop()?.assertionText ?? 'Unknown'}'`);
+      }
+    }
+    // If we cannot find a callstack, throw the original error.
+    throw new Error(acvmError);
   });
 
   return Promise.resolve({ partialWitness });

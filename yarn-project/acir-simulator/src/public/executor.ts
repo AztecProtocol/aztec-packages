@@ -67,7 +67,6 @@ export class PublicExecutor {
     // Functions can request to pack arguments before calling other functions.
     // We use this cache to hold the packed arguments.
     const packedArgs = await PackedArgsCache.create([]);
-
     const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
       packArguments: async args => {
         return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
@@ -140,6 +139,10 @@ export class PublicExecutor {
           (await this.contractsDb.getPortalContractAddress(contractAddress)) ?? EthAddress.ZERO;
         return Promise.resolve(toACVMField(portalContactAddress));
       },
+    }).catch((err: Error) => {
+      throw new Error(
+        `Error executing public function ${execution.contractAddress.toString()}:${selector}: ${err.message}`,
+      );
     });
 
     const {
