@@ -13,7 +13,7 @@ $$
 \newcommand{\Perm}{\text{Perm}}
 \newcommand{\Lookup}{\text{Lookup}}
 \newcommand{\GenPerm}{\text{GenPerm}}
-\newcommand{\Aux}{\text{Aux}}
+\newcommand{\Aux}{\text{Aux}}e
 \newcommand{\Elliptic}{\text{Elliptic}}
 \newcommand{\ECCOpQueue}{\text{ECCOpQueue}}
 \newcommand{\perm}{\text{perm}}
@@ -278,58 +278,6 @@ $$
 + \sum_{j_1, j_2 = 0}^{k}   \Big(L_{j_1}(Y)L_{j_2}(Y)\Big)
                          q^{(j)}_{l}w^{(j)}_{l}
 $$
-
-### Comparison of cost models take 2
-
-Setting: we focus on the highest-degree ($=d$) monomial term in the PG combiner polynomial in the case where we are folding $k$ relations. Our target values we expect are $k=127$, $d=5$. 
-
-For each $\ell=1,\ldots, d$ there are $k+1$ polynomials $P_\ell^{(0)},\ldots,\, P_\ell^{(k)}$ described by $n$ evaluations over $\bB^d$. Denote by $P_{\ell, i}^{j} = P_{\ell}^{j}(\bin(i))$. We will be interested in computing the terms 
-$$
-\prod_{\ell=1}^d L_{j_\ell}(Y)P_{\ell, i}^{(j_\ell)}
-$$
-for all $i=0,\ldots, n-1$, for every typle $(j_1, \ldots, j_d)\in \{0,\ldots, k\}^d$. Here each $L_j$ is the Lagrange polynomial on $\{0,\ldots, k\}$ centered at $j$, and extended over the set $\{0,\ldots, kd\}$ (i.e., it is regarded as the vector of its $kd+1$ values over that set). For now we ignore a small optmization of using the sparseness of the $L_j$ in the first $k+1$ terms in this representation.
-
-#### Naive way
-This is the way that would let us reuse our existing relations code:
-$$
-\prod_{\ell=1}^d \left(L_{j_\ell}(Y)P_{\ell, i}^{(j_\ell)}\right)
-$$
-- Each inner term: $kd+1$ muls, so computing all of them is $d\cdot (kd+1)$
-- Multiplying the inner terms: $(d-1)(kd+1)$ muls
-- Doing this for all $i$: multiply both of these preceding counts by $n$
-- Do this for every index $j_*$: multiply both runnin counts by $(k+1)^d$.
-
-Altogether the cost to compute these $n(k+1)^d$ terms is 
-$$
-(d(kd+1)+((d-1)(kd+1)))\cdot n\cdot (k+1)^d = n(2d-1)(k+1)^{d+1}
-$$
-
-If we could tolerate $(kd+1)\times$ as much memory usage, we could hold on to the inner terms $L_{j_\ell}(Y)P_{\ell, i}^{(j_\ell)}$. Using the target values, this factor is $636$. If each circuit had size $2^17$, our storage for the polynomials $P_\ell^{(j)}$ witness is $2^{17}*636*32 = 636*2^{22}$  $636*4 = 2544$ MiB. We dream of getting the circuit size down to $2^{15}$, which brings the storage for a polynomail down to 636 MiB. And this is just for one polynomial.
-
-Alternatively, if we were to reduce $k+1$ to $32$, then then the $636$ factor becomes 156, and so we see a 75% reduction in the above numbers.
-
-#### Isolating monomial terms
-This way would require us isolating homogeneous components of the relations. We group terms as in
-$$
-\left(\prod_{\ell=1}^d L_{j_\ell}\right)\left(\prod_{\ell=1}^d P_{\ell, i}^{(j_\ell)}\right)
-$$
-- Taking the product of the Lagrange polynomials: $(d-1)(kd+1)$ muls.
-- Multiplying the polynomial values $d-1$  muls
-- Multiplying against the Lagrange term: $kd+1$  muls
-- Doing the previous two steps for all $i$: multiply the counts by $n$
-- Do this for every index $j_*$: multiply both of the preceding counts by $(k+1)^d$.
-
-Altogether the cost to compute these $n(k+1)^d$ terms is 
-$$
-\begin{align*}
-((d-1)(kd+1) + ((d-1) + (kd+1)) n) (k+1)^d \\
-= nd(k+1)^{d+1} + (d-1)(kd+1)(k+1)^d
-\end{align*}
-$$
-
-Asymptotically in $n$, this is a $\frac{d}{2d-1} = \frac{5}{9}$ reduction in costs. The total cost of storing all of the Lagrange polynomial products is $(kd+1)(k+1)^d$ field elements, which for our target values is $636\cdot 2^{7*5}$ bytes, or $636 \cdot 2^{5} = 20352$ GiB of information. If we were to reduce $k$ to $32$, then we would see $156\cdot 2^{5*5}$ bytes, or $156 \cdot 2^{5} = 4992$ MiB of information.
-
----
 
 ## Plan for interfaces
 
