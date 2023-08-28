@@ -1,6 +1,8 @@
 import {
     AztecAddress,
-    ContractBase, Fr, PrivateKey,
+    ContractBase, Fr,
+    PrivateKey,
+    PublicKey,
     getAccountWallets, isContractDeployed
 } from "@aztec/aztec.js";
 import { ContractAbi, FunctionAbi } from "@aztec/foundation/abi";
@@ -8,7 +10,6 @@ import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifa
 import { AztecRPC } from '@aztec/types';
 // TODO: consider removing dependency on this?  then we can just read the contract ABI
 import { PrivateTokenContract } from '../artifacts/PrivateToken';
-import { deployContract } from '../scripts/deploy_contract';
 
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -33,7 +34,8 @@ async function executeFunction(contractAddress: string, functionName: string, fu
     rpcClient: AztecRPC
     ) {
     const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
-    console.log(wallet);
+    console.log('wallet', wallet);
+
 
     // next line is erroring out with 404
     // const _contract = await jsonClient.getContractData(contractAddress);
@@ -42,7 +44,8 @@ async function executeFunction(contractAddress: string, functionName: string, fu
     // const _contract = await jsonClient.getContractDataAndBytecode(contractAddress);
     const isDeployed = await isContractDeployed(rpcClient, contractAddress);
     console.log(isDeployed);
-    const contract: ContractBase = await PrivateTokenContract.at(contractAddress, wallet);
+    const contractAddress2 = AztecAddress.fromString('0x070a10f77db469768cd7068a284be1dc78e9b7f80bd706b98c8e6fb9effb2468');
+    const contract: ContractBase = await PrivateTokenContract.at(contractAddress2, wallet);
     console.log(contract);
     console.log(contract.abi);
     console.log(contract.methods);  // why is this undefined?
@@ -75,7 +78,7 @@ type NoirFunctionYupSchema = {
       [key: string]: Yup.NumberSchema | Yup.ArraySchema<number[], {}> | Yup.BooleanSchema | any;
 };
 type NoirFunctionFormValues = {
-     [key: string]: number | number[] | boolean;
+     [key: string]: string| number | number[] | boolean;
 }
 
 function generateYupSchema(functionAbi: FunctionAbi) {
@@ -85,8 +88,10 @@ function generateYupSchema(functionAbi: FunctionAbi) {
         // set some super crude default values
       switch (param.type.kind) {
         case 'field':
-          parameterSchema[param.name] = Yup.number().required();
-          initialValues[param.name] = 100;
+            // todo: make these hex strings instead, because they are bigints
+            // and yup doesn't support bigint
+          parameterSchema[param.name] = Yup.string().required();
+          initialValues[param.name] = '0x64';
           break;
         case 'array':
           // eslint-disable-next-line no-case-declarations
@@ -111,17 +116,33 @@ async function viewTx(contractAddress: string, functionName: string, functionArg
     return;
 }
 
+async function deployContract(contractAbi: ContractAbi, rpcClient: AztecRPC, publicKey: PublicKey){
+          const deployer = new ContractDeployer(contractAbi, client, publicKey);
+
+}
+
 async function handleFunctionCall(functionType: string, contractAbi: ContractAbi, contractAddress: string, functionName: string, functionArgs: any,
     rpcClient: AztecRPC){
        if (functionType === 'unconstrained') {
               return await viewTx(contractAddress, functionName, functionArgs);
        } else if (functionName === 'constructor') {
         // eslint-disable-next-line no-console
+        console.log('about to get wallet', privateKey);
+
+        const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, [privateKey], [privateKey], [accountCreationSalt]);
+        console.log('got wallet', wallet);
         console.log(`Function ${functionName} calling with:`, functionArgs);
             console.log('deploying contract with null pubkey');
-            await deployContract(contractAbi, functionArgs, 
-                // TODO: let them pick a salt
-                    Fr.ZERO, rpcClient);
+            console.log("fn args", functionArgs);
+            const tx = PrivateTokenContract.deploy(wallet, BigInt(functionArgs['initial_supply']), BigInt(functionArgs['owner'])).send();
+            // const tx = PrivateTokenContract.deploy(rpcClient, BigInt(functionArgs['initial_supply']), BigInt(functionArgs['owner'])).send();
+            console.log('tx sent', tx);
+            await tx.isMined({ interval: 0.1});
+            const receipt = await tx.getReceipt();
+            console.log("sc addr", receipt.contractAddress!);
+            // await deployContract(contractAbi, functionArgs, 
+            //     // TODO: let them pick a salt
+            //         Fr.ZERO, rpcClient);
         } else {
         console.log(`querying Contract address: ${contractAddress}`);
         return await executeFunction(contractAddress, functionName, functionArgs, rpcClient);
