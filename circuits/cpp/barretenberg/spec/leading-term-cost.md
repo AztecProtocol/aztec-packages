@@ -149,7 +149,7 @@ Then, counting multiplications in the monomial products goes as follows:
 - Doing the previous two steps for all $i$: multiply the counts by $n$
 - Do this for every vector index $j$: multiply both of the preceding counts by $(k+1)^d$.
 
-Altogether, the optimistic cost is
+Altogether, the Precompute cost is (later: we see this is realistic if $k+1\leq 16$, so the word "Precompute is a misnomer")
 $$
 \begin{align*}
 ((d-1) + (kd+1)) \cdot n \cdot (k+1)^d
@@ -196,7 +196,7 @@ So possibly we can get some mileage out of storing these tables for $k+1\leq 16$
 | 63  | 900579187.99                            |
 | 127 | 58001859600.9                           |
 
-| $k$ | time on `Fr` muls (s), $n=16384$, Optimistic |
+| $k$ | time on `Fr` muls (s), $n=16384$, Precompute |
 |-----|----------------------------------------------|
 | 1   | 0.09                                         |
 | 3   | 6.04                                         |
@@ -229,7 +229,7 @@ So possibly we can get some mileage out of storing these tables for $k+1\leq 16$
 | 63  | 1801158375.97                           |
 | 127 | 116003719201.81                         |
 
-| $k$ | time on `Fr` muls (s), $n=32768$, Optimistic |
+| $k$ | time on `Fr` muls (s), $n=32768$, Precompute |
 |-----|----------------------------------------------|
 | 1   | 0.19                                         |
 | 3   | 12.08                                        |
@@ -262,7 +262,7 @@ So possibly we can get some mileage out of storing these tables for $k+1\leq 16$
 | 63  | 3602316751.94                           |
 | 127 | 232007438403.62                         |
 
-| $k$ | time on `Fr` muls (s), $n=65536$, Optimistic |
+| $k$ | time on `Fr` muls (s), $n=65536$, Precompute |
 |-----|----------------------------------------------|
 | 1   | 0.38                                         |
 | 3   | 24.16                                        |
@@ -295,7 +295,7 @@ So possibly we can get some mileage out of storing these tables for $k+1\leq 16$
 | 63  | 7204633503.89                            |
 | 127 | 464014876807.24                          |
 
-| $k$ | time on `Fr` muls (s), $n=131072$, Optimistic |
+| $k$ | time on `Fr` muls (s), $n=131072$, Precompute |
 |-----|-----------------------------------------------|
 | 1   | 0.75                                          |
 | 3   | 48.32                                         |
@@ -316,9 +316,10 @@ So possibly we can get some mileage out of storing these tables for $k+1\leq 16$
 | 127 | 258110301843.86                                |
 
 ## Conclusions
-Folding $k$ instances for large $k$ is infeasible regardless of the strategy. It seems that we should execute foldings in a binary tree. This increases the verifier MSM cost over a strategy of folding many instances at once, since the verifier will not benefit from using larger MSMs lengths. 
+Folding $k$ instances for large $k$ is infeasible regardless of the strategy. It seems that we should execute foldings in a binary tree, meaning we take $k=1$ and employ the "Precompute" strategy. Unfortunately, this increases the verifier MSM cost over a strategy of folding many instances at once, since the verifier will not benefit from using larger MSMs lengths. 
 
-From the above numbers, let's say we can fold one instance into a base instance in 8s (perhaps this is pessimistic, but recall these numbers are just for a single monomial term in a much more complex relation and don't include any additions or other Protogalaxy prover work!). Let's say we can execute 8 such operations in parallel in the client. Then we could fold 16 instances in $8*\log(16)=32$ s. We could do 32 instances at the cost of an additional $2*8$ s to deal with the base layer, and so on.
+From the above numbers, let's say we can fold one instance into a base instance in 2s (for small $n$ this seems plausible, for large $n$ it's pretty Precompute). Let's say we can execute 8 such operations in parallel in the client. Then we could fold 16 instances in $2*\log(16)=8$ s. We could do 32 instances at the cost of an additional $2*2$s to deal with the base layer. We could do 64 instances at the cost of an additional $4*2$ s (so altogehter $8 + 4 + 8 = 20$ for 64 instances).
+
 
 To move forward, we should:
  - Check my work here and incorporate realistic improvements.

@@ -7,7 +7,7 @@ d = 5
 def naive(k, n):
     return n * (2*d-1) * (k * d + 1) * (k + 1)**d
 
-def optimistic(k, n):
+def precompute(k, n):
     return (k + 1) * d * n * (k+1)**d
 
 def middle_path(k, n):
@@ -34,11 +34,11 @@ if __name__=="__main__":
             print(f"|{k}|{result}|")
 
         print()
-        print(f"| $k$  | time on `Fr` muls (s), $n={n}$, Optimistic|" )
+        print(f"| $k$  | time on `Fr` muls (s), $n={n}$, Precompute|" )
         print("| --- | -------------------------------- |" )
         for log_kplus1 in range(1, 8):
             k = 2**log_kplus1-1
-            result = round(optimistic(k, n) * muls_to_sec, 2)
+            result = round(precompute(k, n) * muls_to_sec, 2)
             print(f"|{k}|{result}|")
 
         print()
