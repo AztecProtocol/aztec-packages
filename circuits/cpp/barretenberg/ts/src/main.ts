@@ -107,14 +107,13 @@ export async function prove(
     const proof = await api.acirCreateProof(acirComposer, bytecode, witness, isRecursive);
     debug(`done.`);
 
-    if (outputPath === '-') { 
+    if (outputPath === '-') {
       process.stdout.write(proof);
       debug(`proof written to stdout`);
     } else {
       writeFileSync(outputPath, proof);
       debug(`proof written to: ${outputPath}`);
     }
-
   } finally {
     await api.destroy();
   }
@@ -147,14 +146,13 @@ export async function contract(outputPath: string, vkPath: string) {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const contract = await api.acirGetSolidityVerifier(acirComposer);
 
-    if (outputPath === '-') { 
+    if (outputPath === '-') {
       process.stdout.write(contract);
       debug(`contract written to stdout`);
     } else {
       writeFileSync(outputPath, contract);
       debug(`contract written to: ${outputPath}`);
     }
-
   } finally {
     await api.destroy();
   }
@@ -170,14 +168,13 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
     debug('initing verification key...');
     const vk = await api.acirGetVerificationKey(acirComposer);
 
-    if (outputPath === '-') { 
+    if (outputPath === '-') {
       process.stdout.write(vk);
       debug(`vk written to stdout`);
     } else {
       writeFileSync(outputPath, vk);
       debug(`vk written to: ${outputPath}`);
     }
-
   } finally {
     await api.destroy();
   }
@@ -195,8 +192,7 @@ export async function proofAsFields(proofPath: string, numInnerPublicInputs: num
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
-
-    if (outputPath === '-') { 
+    if (outputPath === '-') {
       process.stdout.write(jsonProofAsFields);
       debug(`proofAsFields written to stdout`);
     } else {
@@ -220,7 +216,7 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
     const output = [vkHash, ...vkAsFields].map(f => f.toString());
     const jsonVKAsFields = JSON.stringify(output);
 
-    if (vkeyOutputPath === '-') { 
+    if (vkeyOutputPath === '-') {
       process.stdout.write(jsonVKAsFields);
       debug(`vkAsFields written to stdout`);
     } else {
