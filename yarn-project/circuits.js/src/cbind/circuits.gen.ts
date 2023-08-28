@@ -1133,8 +1133,6 @@ interface MsgpackFinalAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
 export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAccumulatedData {
@@ -1177,12 +1175,6 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
   if (o.optionally_revealed_data === undefined) {
     throw new Error('Expected optionally_revealed_data in FinalAccumulatedData deserialization');
   }
-  if (o.public_data_update_requests === undefined) {
-    throw new Error('Expected public_data_update_requests in FinalAccumulatedData deserialization');
-  }
-  if (o.public_data_reads === undefined) {
-    throw new Error('Expected public_data_reads in FinalAccumulatedData deserialization');
-  }
   return new FinalAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1197,8 +1189,6 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
     Fr.fromBuffer(o.unencrypted_log_preimages_length),
     mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
     mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
-    mapTuple(o.public_data_update_requests, (v: MsgpackPublicDataUpdateRequest) => toPublicDataUpdateRequest(v)),
-    mapTuple(o.public_data_reads, (v: MsgpackPublicDataRead) => toPublicDataRead(v)),
   );
 }
 
@@ -1242,12 +1232,6 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
   if (o.optionallyRevealedData === undefined) {
     throw new Error('Expected optionallyRevealedData in FinalAccumulatedData serialization');
   }
-  if (o.publicDataUpdateRequests === undefined) {
-    throw new Error('Expected publicDataUpdateRequests in FinalAccumulatedData serialization');
-  }
-  if (o.publicDataReads === undefined) {
-    throw new Error('Expected publicDataReads in FinalAccumulatedData serialization');
-  }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
@@ -1264,10 +1248,6 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
     optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
       fromOptionallyRevealedData(v),
     ),
-    public_data_update_requests: mapTuple(o.publicDataUpdateRequests, (v: PublicDataUpdateRequest) =>
-      fromPublicDataUpdateRequest(v),
-    ),
-    public_data_reads: mapTuple(o.publicDataReads, (v: PublicDataRead) => fromPublicDataRead(v)),
   };
 }
 

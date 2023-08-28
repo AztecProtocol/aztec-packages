@@ -521,14 +521,6 @@ export class FinalAccumulatedData {
      * All the optionally revealed data in this transaction.
      */
     public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
-    /**
-     * All the public data update requests made in this transaction.
-     */
-    public publicDataUpdateRequests: Tuple<PublicDataUpdateRequest, typeof MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>,
-    /**
-     * All the public data reads made in this transaction.
-     */
-    public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {
     assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
@@ -540,8 +532,6 @@ export class FinalAccumulatedData {
     assertMemberLength(this, 'unencryptedLogsHash', NUM_FIELDS_PER_SHA256);
     assertMemberLength(this, 'newContracts', MAX_NEW_CONTRACTS_PER_TX);
     assertMemberLength(this, 'optionallyRevealedData', MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX);
-    assertMemberLength(this, 'publicDataUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX);
-    assertMemberLength(this, 'publicDataReads', MAX_PUBLIC_DATA_READS_PER_TX);
   }
 
   toBuffer() {
@@ -559,8 +549,6 @@ export class FinalAccumulatedData {
       this.unencryptedLogPreimagesLength,
       this.newContracts,
       this.optionallyRevealedData,
-      this.publicDataUpdateRequests,
-      this.publicDataReads,
     );
   }
 
@@ -589,8 +577,6 @@ export class FinalAccumulatedData {
       reader.readFr(),
       reader.readArray(MAX_NEW_CONTRACTS_PER_TX, NewContractData),
       reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
-      reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
-      reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
     );
   }
 
@@ -618,8 +604,6 @@ export class FinalAccumulatedData {
       Fr.zero(),
       makeTuple(MAX_NEW_CONTRACTS_PER_TX, NewContractData.empty),
       makeTuple(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData.empty),
-      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
-      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 }
