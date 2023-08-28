@@ -238,12 +238,14 @@ template <typename Curve, bool goblin_flag = false> class GeminiVerifier_ {
         Fr r_inv = r.invert(); // r⁻¹
 
         // If in a recursive setting, perform a batch mul. Otherwise, accumulate directly.
+        // TODO(#673): The following if-else represents the stldib/native code paths. Once the "native" verifier is
+        // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
         if constexpr (Curve::is_stdlib_type) {
-            std::vector<GroupElement> commitments = {batched_f, batched_g};
+            std::vector<GroupElement> commitments = { batched_f, batched_g };
             auto one = Fr::from_witness(r.get_context(), 1);
-            // Note: these batch muls are not optimal since we are performing a mul by 1.
-            C0_r_pos = GroupElement::template batch_mul<goblin_flag>(commitments, {one, r_inv});
-            C0_r_neg = GroupElement::template batch_mul<goblin_flag>(commitments, {one, -r_inv});
+            // TODO(#707): these batch muls are not optimal since we are performing an unnecessary mul by 1.
+            C0_r_pos = GroupElement::template batch_mul<goblin_flag>(commitments, { one, r_inv });
+            C0_r_neg = GroupElement::template batch_mul<goblin_flag>(commitments, { one, -r_inv });
         } else {
             C0_r_pos = batched_f;
             C0_r_neg = batched_f;
