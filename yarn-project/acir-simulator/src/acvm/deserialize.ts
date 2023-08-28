@@ -58,15 +58,6 @@ export function frToBoolean(fr: Fr): boolean {
 }
 
 /**
- * Converts a field to a function selector.
- * @param fr - The field to convert.
- * @returns The function selector.
- */
-export function frToSelector(fr: Fr): Buffer {
-  return fr.toBuffer().slice(-4);
-}
-
-/**
  * Extracts the return fields of a given partial witness.
  * @param acir - The bytecode of the function.
  * @param partialWitness - The witness to extract from.
@@ -148,13 +139,16 @@ export function extractPrivateCircuitPublicInputs(
   const encryptedLogPreimagesLength = witnessReader.readField();
   const unencryptedLogPreimagesLength = witnessReader.readField();
 
-  const privateDataTreeRoot = witnessReader.readField();
-  const nullifierTreeRoot = witnessReader.readField();
-  const contractTreeRoot = witnessReader.readField();
-  const l1Tol2TreeRoot = witnessReader.readField();
-  const blocksTreeRoot = witnessReader.readField();
-  const prevGlobalVariablesHash = witnessReader.readField();
-  const publicDataTreeRoot = witnessReader.readField();
+  const historicBlockData = new HistoricBlockData(
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    witnessReader.readField(),
+    Fr.ZERO,
+    witnessReader.readField(),
+    witnessReader.readField(),
+  );
 
   const contractDeploymentData = new ContractDeploymentData(
     new Point(witnessReader.readField(), witnessReader.readField()),
@@ -182,13 +176,7 @@ export function extractPrivateCircuitPublicInputs(
     unencryptedLogsHash,
     encryptedLogPreimagesLength,
     unencryptedLogPreimagesLength,
-    privateDataTreeRoot,
-    nullifierTreeRoot,
-    contractTreeRoot,
-    l1Tol2TreeRoot,
-    blocksTreeRoot,
-    prevGlobalVariablesHash,
-    publicDataTreeRoot,
+    historicBlockData,
     contractDeploymentData,
     chainId,
     version,

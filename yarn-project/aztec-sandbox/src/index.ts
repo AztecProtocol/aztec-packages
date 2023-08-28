@@ -62,6 +62,8 @@ async function main() {
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
+  logger.info('Setting up Aztec Sandbox, please stand by...');
+  logger.info('Deploying rollup contracts to L1...');
   const deployedL1Contracts = await waitThenDeploy(aztecNodeConfig.rpcUrl, hdAccount);
   aztecNodeConfig.publisherPrivateKey = new PrivateKey(Buffer.from(privKey!));
   aztecNodeConfig.rollupContract = deployedL1Contracts.rollupAddress;
@@ -71,11 +73,11 @@ async function main() {
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
-  logger('Deploying initial accounts...');
+  logger.info('Setting up test accounts...');
   const accounts = await deployInitialSandboxAccounts(aztecRpcServer);
 
   const shutdown = async () => {
-    logger('Shutting down...');
+    logger.info('Shutting down...');
     await aztecRpcServer.stop();
     await aztecNode.stop();
     process.exit(0);
@@ -98,7 +100,7 @@ async function main() {
       accountStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
     }
   }
-  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings));
+  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings).concat(`\nAztec Sandbox now ready for use!`));
 }
 
 main().catch(err => {

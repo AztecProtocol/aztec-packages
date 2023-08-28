@@ -94,7 +94,9 @@ portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xb03
  ]
 optionally_revealed_data: [ call_stack_item_hash: 0xc01
-function_data: function_selector: c02
+function_data: selector:
+value: c02
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -106,7 +108,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc02
-function_data: function_selector: c03
+function_data: selector:
+value: c03
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -118,7 +122,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc03
-function_data: function_selector: c04
+function_data: selector:
+value: c04
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -130,7 +136,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc04
-function_data: function_selector: c05
+function_data: selector:
+value: c05
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -166,6 +174,30 @@ new_value: 0xd09
  leaf_index: 0xd08
 old_value: 0xd09
 new_value: 0xd0a
+ leaf_index: 0xd09
+old_value: 0xd0a
+new_value: 0xd0b
+ leaf_index: 0xd0a
+old_value: 0xd0b
+new_value: 0xd0c
+ leaf_index: 0xd0b
+old_value: 0xd0c
+new_value: 0xd0d
+ leaf_index: 0xd0c
+old_value: 0xd0d
+new_value: 0xd0e
+ leaf_index: 0xd0d
+old_value: 0xd0e
+new_value: 0xd0f
+ leaf_index: 0xd0e
+old_value: 0xd0f
+new_value: 0xd10
+ leaf_index: 0xd0f
+old_value: 0xd10
+new_value: 0xd11
+ leaf_index: 0xd10
+old_value: 0xd11
+new_value: 0xd12
  ]
 public_data_reads: [ leaf_index: 0xe01
 value: 0xe02
@@ -183,6 +215,22 @@ value: 0xe07
 value: 0xe08
  leaf_index: 0xe08
 value: 0xe09
+ leaf_index: 0xe09
+value: 0xe0a
+ leaf_index: 0xe0a
+value: 0xe0b
+ leaf_index: 0xe0b
+value: 0xe0c
+ leaf_index: 0xe0c
+value: 0xe0d
+ leaf_index: 0xe0d
+value: 0xe0e
+ leaf_index: 0xe0e
+value: 0xe0f
+ leaf_index: 0xe0f
+value: 0xe10
+ leaf_index: 0xe10
+value: 0xe11
  ]
 "
 `;
@@ -285,7 +333,9 @@ portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xb03
  ]
 optionally_revealed_data: [ call_stack_item_hash: 0xc01
-function_data: function_selector: c02
+function_data: selector:
+value: c02
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -297,7 +347,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc02
-function_data: function_selector: c03
+function_data: selector:
+value: c03
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -309,7 +361,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc03
-function_data: function_selector: c04
+function_data: selector:
+value: c04
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -321,7 +375,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc04
-function_data: function_selector: c05
+function_data: selector:
+value: c05
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -357,6 +413,30 @@ new_value: 0xd09
  leaf_index: 0xd08
 old_value: 0xd09
 new_value: 0xd0a
+ leaf_index: 0xd09
+old_value: 0xd0a
+new_value: 0xd0b
+ leaf_index: 0xd0a
+old_value: 0xd0b
+new_value: 0xd0c
+ leaf_index: 0xd0b
+old_value: 0xd0c
+new_value: 0xd0d
+ leaf_index: 0xd0c
+old_value: 0xd0d
+new_value: 0xd0e
+ leaf_index: 0xd0d
+old_value: 0xd0e
+new_value: 0xd0f
+ leaf_index: 0xd0e
+old_value: 0xd0f
+new_value: 0xd10
+ leaf_index: 0xd0f
+old_value: 0xd10
+new_value: 0xd11
+ leaf_index: 0xd10
+old_value: 0xd11
+new_value: 0xd12
  ]
 public_data_reads: [ leaf_index: 0xe01
 value: 0xe02
@@ -374,6 +454,22 @@ value: 0xe07
 value: 0xe08
  leaf_index: 0xe08
 value: 0xe09
+ leaf_index: 0xe09
+value: 0xe0a
+ leaf_index: 0xe0a
+value: 0xe0b
+ leaf_index: 0xe0b
+value: 0xe0c
+ leaf_index: 0xe0c
+value: 0xe0d
+ leaf_index: 0xe0d
+value: 0xe0e
+ leaf_index: 0xe0e
+value: 0xe0f
+ leaf_index: 0xe0f
+value: 0xe10
+ leaf_index: 0xe10
+value: 0xe11
  ]
 
 constants:
@@ -424,7 +520,9 @@ vk_path: [ 0x1000 0x1001 0x1002 ]
 exports[`structs/kernel serializes and prints private_kernel_inputs_init 1`] = `
 "tx_request:
 origin: 0x1
-function_data: function_selector: 257
+function_data: selector:
+value: 257
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -450,7 +548,9 @@ version: 0x0
 private_call:
 call_stack_item:
 contract_address: 0x1001
-function_data: function_selector: 4098
+function_data: selector:
+value: 4098
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -476,21 +576,23 @@ encrypted_logs_hash: [ 0x1911 0x1912 ]
 unencrypted_logs_hash: [ 0x1a11 0x1a12 ]
 encrypted_log_preimages_length: 0x1b11
 unencrypted_log_preimages_length: 0x1c11
-historic_private_data_tree_root: 0x1e11
-historic_nullifier_tree_root: 0x1f11
-historic_contract_tree_root: 0x1d11
-historic_l1_to_l2_messages_tree_root: 0x2011
-historic_blocks_tree_root: 0x2111
-historic_public_data_tree_root: 0x2211
-historic_global_variables_hash: 0x2311
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d11
+nullifier_tree_root: 0x1d12
+contract_tree_root: 0x1d13
+l1_to_l2_messages_tree_root: 0x1d14
+blocks_tree_root: 0x1d15
+private_kernel_vk_tree_root: 0x1d16
+public_data_tree_root: 0x1d17
+global_variables_hash: 0x1d18
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e11
+y: 0x1e12
+
+constructor_vk_hash: 0x1e12
+function_tree_root: 0x1e13
+contract_address_salt: 0x1e14
+portal_contract_address: 0x1515151515151515151515151515151515151515
 
 chain_id: 0x2411
 version: 0x2511
@@ -498,7 +600,9 @@ version: 0x2511
 is_execution_request: 0
 
 private_call_stack_preimages: [ contract_address: 0x1011
-function_data: function_selector: 1012
+function_data: selector:
+value: 1012
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -524,28 +628,32 @@ encrypted_logs_hash: [ 0x1921 0x1922 ]
 unencrypted_logs_hash: [ 0x1a21 0x1a22 ]
 encrypted_log_preimages_length: 0x1b21
 unencrypted_log_preimages_length: 0x1c21
-historic_private_data_tree_root: 0x1e21
-historic_nullifier_tree_root: 0x1f21
-historic_contract_tree_root: 0x1d21
-historic_l1_to_l2_messages_tree_root: 0x2021
-historic_blocks_tree_root: 0x2121
-historic_public_data_tree_root: 0x2221
-historic_global_variables_hash: 0x2321
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d21
+nullifier_tree_root: 0x1d22
+contract_tree_root: 0x1d23
+l1_to_l2_messages_tree_root: 0x1d24
+blocks_tree_root: 0x1d25
+private_kernel_vk_tree_root: 0x1d26
+public_data_tree_root: 0x1d27
+global_variables_hash: 0x1d28
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e21
+y: 0x1e22
+
+constructor_vk_hash: 0x1e22
+function_tree_root: 0x1e23
+contract_address_salt: 0x1e24
+portal_contract_address: 0x2525252525252525252525252525252525252525
 
 chain_id: 0x2421
 version: 0x2521
 
 is_execution_request: 0
  contract_address: 0x1012
-function_data: function_selector: 1013
+function_data: selector:
+value: 1013
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -571,28 +679,32 @@ encrypted_logs_hash: [ 0x1922 0x1923 ]
 unencrypted_logs_hash: [ 0x1a22 0x1a23 ]
 encrypted_log_preimages_length: 0x1b22
 unencrypted_log_preimages_length: 0x1c22
-historic_private_data_tree_root: 0x1e22
-historic_nullifier_tree_root: 0x1f22
-historic_contract_tree_root: 0x1d22
-historic_l1_to_l2_messages_tree_root: 0x2022
-historic_blocks_tree_root: 0x2122
-historic_public_data_tree_root: 0x2222
-historic_global_variables_hash: 0x2322
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d22
+nullifier_tree_root: 0x1d23
+contract_tree_root: 0x1d24
+l1_to_l2_messages_tree_root: 0x1d25
+blocks_tree_root: 0x1d26
+private_kernel_vk_tree_root: 0x1d27
+public_data_tree_root: 0x1d28
+global_variables_hash: 0x1d29
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e22
+y: 0x1e23
+
+constructor_vk_hash: 0x1e23
+function_tree_root: 0x1e24
+contract_address_salt: 0x1e25
+portal_contract_address: 0x2626262626262626262626262626262626262626
 
 chain_id: 0x2422
 version: 0x2522
 
 is_execution_request: 0
  contract_address: 0x1013
-function_data: function_selector: 1014
+function_data: selector:
+value: 1014
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -618,28 +730,32 @@ encrypted_logs_hash: [ 0x1923 0x1924 ]
 unencrypted_logs_hash: [ 0x1a23 0x1a24 ]
 encrypted_log_preimages_length: 0x1b23
 unencrypted_log_preimages_length: 0x1c23
-historic_private_data_tree_root: 0x1e23
-historic_nullifier_tree_root: 0x1f23
-historic_contract_tree_root: 0x1d23
-historic_l1_to_l2_messages_tree_root: 0x2023
-historic_blocks_tree_root: 0x2123
-historic_public_data_tree_root: 0x2223
-historic_global_variables_hash: 0x2323
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d23
+nullifier_tree_root: 0x1d24
+contract_tree_root: 0x1d25
+l1_to_l2_messages_tree_root: 0x1d26
+blocks_tree_root: 0x1d27
+private_kernel_vk_tree_root: 0x1d28
+public_data_tree_root: 0x1d29
+global_variables_hash: 0x1d2a
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e23
+y: 0x1e24
+
+constructor_vk_hash: 0x1e24
+function_tree_root: 0x1e25
+contract_address_salt: 0x1e26
+portal_contract_address: 0x2727272727272727272727272727272727272727
 
 chain_id: 0x2423
 version: 0x2523
 
 is_execution_request: 0
  contract_address: 0x1014
-function_data: function_selector: 1015
+function_data: selector:
+value: 1015
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -665,21 +781,23 @@ encrypted_logs_hash: [ 0x1924 0x1925 ]
 unencrypted_logs_hash: [ 0x1a24 0x1a25 ]
 encrypted_log_preimages_length: 0x1b24
 unencrypted_log_preimages_length: 0x1c24
-historic_private_data_tree_root: 0x1e24
-historic_nullifier_tree_root: 0x1f24
-historic_contract_tree_root: 0x1d24
-historic_l1_to_l2_messages_tree_root: 0x2024
-historic_blocks_tree_root: 0x2124
-historic_public_data_tree_root: 0x2224
-historic_global_variables_hash: 0x2324
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d24
+nullifier_tree_root: 0x1d25
+contract_tree_root: 0x1d26
+l1_to_l2_messages_tree_root: 0x1d27
+blocks_tree_root: 0x1d28
+private_kernel_vk_tree_root: 0x1d29
+public_data_tree_root: 0x1d2a
+global_variables_hash: 0x1d2b
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e24
+y: 0x1e25
+
+constructor_vk_hash: 0x1e25
+function_tree_root: 0x1e26
+contract_address_salt: 0x1e27
+portal_contract_address: 0x2828282828282828282828282828282828282828
 
 chain_id: 0x2424
 version: 0x2524
@@ -822,7 +940,9 @@ portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xb03
  ]
 optionally_revealed_data: [ call_stack_item_hash: 0xc01
-function_data: function_selector: c02
+function_data: selector:
+value: c02
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -834,7 +954,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc02
-function_data: function_selector: c03
+function_data: selector:
+value: c03
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -846,7 +968,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc03
-function_data: function_selector: c04
+function_data: selector:
+value: c04
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -858,7 +982,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc04
-function_data: function_selector: c05
+function_data: selector:
+value: c05
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -894,6 +1020,30 @@ new_value: 0xd09
  leaf_index: 0xd08
 old_value: 0xd09
 new_value: 0xd0a
+ leaf_index: 0xd09
+old_value: 0xd0a
+new_value: 0xd0b
+ leaf_index: 0xd0a
+old_value: 0xd0b
+new_value: 0xd0c
+ leaf_index: 0xd0b
+old_value: 0xd0c
+new_value: 0xd0d
+ leaf_index: 0xd0c
+old_value: 0xd0d
+new_value: 0xd0e
+ leaf_index: 0xd0d
+old_value: 0xd0e
+new_value: 0xd0f
+ leaf_index: 0xd0e
+old_value: 0xd0f
+new_value: 0xd10
+ leaf_index: 0xd0f
+old_value: 0xd10
+new_value: 0xd11
+ leaf_index: 0xd10
+old_value: 0xd11
+new_value: 0xd12
  ]
 public_data_reads: [ leaf_index: 0xe01
 value: 0xe02
@@ -911,6 +1061,22 @@ value: 0xe07
 value: 0xe08
  leaf_index: 0xe08
 value: 0xe09
+ leaf_index: 0xe09
+value: 0xe0a
+ leaf_index: 0xe0a
+value: 0xe0b
+ leaf_index: 0xe0b
+value: 0xe0c
+ leaf_index: 0xe0c
+value: 0xe0d
+ leaf_index: 0xe0d
+value: 0xe0e
+ leaf_index: 0xe0e
+value: 0xe0f
+ leaf_index: 0xe0f
+value: 0xe10
+ leaf_index: 0xe10
+value: 0xe11
  ]
 
 constants:
@@ -959,7 +1125,9 @@ vk_path: [ 0x1000 0x1001 0x1002 ]
 private_call:
 call_stack_item:
 contract_address: 0x1001
-function_data: function_selector: 4098
+function_data: selector:
+value: 4098
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -985,21 +1153,23 @@ encrypted_logs_hash: [ 0x1911 0x1912 ]
 unencrypted_logs_hash: [ 0x1a11 0x1a12 ]
 encrypted_log_preimages_length: 0x1b11
 unencrypted_log_preimages_length: 0x1c11
-historic_private_data_tree_root: 0x1e11
-historic_nullifier_tree_root: 0x1f11
-historic_contract_tree_root: 0x1d11
-historic_l1_to_l2_messages_tree_root: 0x2011
-historic_blocks_tree_root: 0x2111
-historic_public_data_tree_root: 0x2211
-historic_global_variables_hash: 0x2311
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d11
+nullifier_tree_root: 0x1d12
+contract_tree_root: 0x1d13
+l1_to_l2_messages_tree_root: 0x1d14
+blocks_tree_root: 0x1d15
+private_kernel_vk_tree_root: 0x1d16
+public_data_tree_root: 0x1d17
+global_variables_hash: 0x1d18
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e11
+y: 0x1e12
+
+constructor_vk_hash: 0x1e12
+function_tree_root: 0x1e13
+contract_address_salt: 0x1e14
+portal_contract_address: 0x1515151515151515151515151515151515151515
 
 chain_id: 0x2411
 version: 0x2511
@@ -1007,7 +1177,9 @@ version: 0x2511
 is_execution_request: 0
 
 private_call_stack_preimages: [ contract_address: 0x1011
-function_data: function_selector: 1012
+function_data: selector:
+value: 1012
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1033,28 +1205,32 @@ encrypted_logs_hash: [ 0x1921 0x1922 ]
 unencrypted_logs_hash: [ 0x1a21 0x1a22 ]
 encrypted_log_preimages_length: 0x1b21
 unencrypted_log_preimages_length: 0x1c21
-historic_private_data_tree_root: 0x1e21
-historic_nullifier_tree_root: 0x1f21
-historic_contract_tree_root: 0x1d21
-historic_l1_to_l2_messages_tree_root: 0x2021
-historic_blocks_tree_root: 0x2121
-historic_public_data_tree_root: 0x2221
-historic_global_variables_hash: 0x2321
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d21
+nullifier_tree_root: 0x1d22
+contract_tree_root: 0x1d23
+l1_to_l2_messages_tree_root: 0x1d24
+blocks_tree_root: 0x1d25
+private_kernel_vk_tree_root: 0x1d26
+public_data_tree_root: 0x1d27
+global_variables_hash: 0x1d28
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e21
+y: 0x1e22
+
+constructor_vk_hash: 0x1e22
+function_tree_root: 0x1e23
+contract_address_salt: 0x1e24
+portal_contract_address: 0x2525252525252525252525252525252525252525
 
 chain_id: 0x2421
 version: 0x2521
 
 is_execution_request: 0
  contract_address: 0x1012
-function_data: function_selector: 1013
+function_data: selector:
+value: 1013
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1080,28 +1256,32 @@ encrypted_logs_hash: [ 0x1922 0x1923 ]
 unencrypted_logs_hash: [ 0x1a22 0x1a23 ]
 encrypted_log_preimages_length: 0x1b22
 unencrypted_log_preimages_length: 0x1c22
-historic_private_data_tree_root: 0x1e22
-historic_nullifier_tree_root: 0x1f22
-historic_contract_tree_root: 0x1d22
-historic_l1_to_l2_messages_tree_root: 0x2022
-historic_blocks_tree_root: 0x2122
-historic_public_data_tree_root: 0x2222
-historic_global_variables_hash: 0x2322
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d22
+nullifier_tree_root: 0x1d23
+contract_tree_root: 0x1d24
+l1_to_l2_messages_tree_root: 0x1d25
+blocks_tree_root: 0x1d26
+private_kernel_vk_tree_root: 0x1d27
+public_data_tree_root: 0x1d28
+global_variables_hash: 0x1d29
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e22
+y: 0x1e23
+
+constructor_vk_hash: 0x1e23
+function_tree_root: 0x1e24
+contract_address_salt: 0x1e25
+portal_contract_address: 0x2626262626262626262626262626262626262626
 
 chain_id: 0x2422
 version: 0x2522
 
 is_execution_request: 0
  contract_address: 0x1013
-function_data: function_selector: 1014
+function_data: selector:
+value: 1014
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1127,28 +1307,32 @@ encrypted_logs_hash: [ 0x1923 0x1924 ]
 unencrypted_logs_hash: [ 0x1a23 0x1a24 ]
 encrypted_log_preimages_length: 0x1b23
 unencrypted_log_preimages_length: 0x1c23
-historic_private_data_tree_root: 0x1e23
-historic_nullifier_tree_root: 0x1f23
-historic_contract_tree_root: 0x1d23
-historic_l1_to_l2_messages_tree_root: 0x2023
-historic_blocks_tree_root: 0x2123
-historic_public_data_tree_root: 0x2223
-historic_global_variables_hash: 0x2323
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d23
+nullifier_tree_root: 0x1d24
+contract_tree_root: 0x1d25
+l1_to_l2_messages_tree_root: 0x1d26
+blocks_tree_root: 0x1d27
+private_kernel_vk_tree_root: 0x1d28
+public_data_tree_root: 0x1d29
+global_variables_hash: 0x1d2a
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e23
+y: 0x1e24
+
+constructor_vk_hash: 0x1e24
+function_tree_root: 0x1e25
+contract_address_salt: 0x1e26
+portal_contract_address: 0x2727272727272727272727272727272727272727
 
 chain_id: 0x2423
 version: 0x2523
 
 is_execution_request: 0
  contract_address: 0x1014
-function_data: function_selector: 1015
+function_data: selector:
+value: 1015
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1174,21 +1358,23 @@ encrypted_logs_hash: [ 0x1924 0x1925 ]
 unencrypted_logs_hash: [ 0x1a24 0x1a25 ]
 encrypted_log_preimages_length: 0x1b24
 unencrypted_log_preimages_length: 0x1c24
-historic_private_data_tree_root: 0x1e24
-historic_nullifier_tree_root: 0x1f24
-historic_contract_tree_root: 0x1d24
-historic_l1_to_l2_messages_tree_root: 0x2024
-historic_blocks_tree_root: 0x2124
-historic_public_data_tree_root: 0x2224
-historic_global_variables_hash: 0x2324
-contract_deployment_data: deployer_public_key:
-x: 0x1
-y: 0x2
+historic_block_data: private_data_tree_root: 0x1d24
+nullifier_tree_root: 0x1d25
+contract_tree_root: 0x1d26
+l1_to_l2_messages_tree_root: 0x1d27
+blocks_tree_root: 0x1d28
+private_kernel_vk_tree_root: 0x1d29
+public_data_tree_root: 0x1d2a
+global_variables_hash: 0x1d2b
 
-constructor_vk_hash: 0x2
-function_tree_root: 0x3
-contract_address_salt: 0x4
-portal_contract_address: 0x505050505050505050505050505050505050505
+contract_deployment_data: deployer_public_key:
+x: 0x1e24
+y: 0x1e25
+
+constructor_vk_hash: 0x1e25
+function_tree_root: 0x1e26
+contract_address_salt: 0x1e27
+portal_contract_address: 0x2828282828282828282828282828282828282828
 
 chain_id: 0x2424
 version: 0x2524
@@ -1329,7 +1515,9 @@ portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xb03
  ]
 optionally_revealed_data: [ call_stack_item_hash: 0xc01
-function_data: function_selector: c02
+function_data: selector:
+value: c02
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1341,7 +1529,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc02
-function_data: function_selector: c03
+function_data: selector:
+value: c03
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1353,7 +1543,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc03
-function_data: function_selector: c04
+function_data: selector:
+value: c04
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1365,7 +1557,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc04
-function_data: function_selector: c05
+function_data: selector:
+value: c05
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1401,6 +1595,30 @@ new_value: 0xd09
  leaf_index: 0xd08
 old_value: 0xd09
 new_value: 0xd0a
+ leaf_index: 0xd09
+old_value: 0xd0a
+new_value: 0xd0b
+ leaf_index: 0xd0a
+old_value: 0xd0b
+new_value: 0xd0c
+ leaf_index: 0xd0b
+old_value: 0xd0c
+new_value: 0xd0d
+ leaf_index: 0xd0c
+old_value: 0xd0d
+new_value: 0xd0e
+ leaf_index: 0xd0d
+old_value: 0xd0e
+new_value: 0xd0f
+ leaf_index: 0xd0e
+old_value: 0xd0f
+new_value: 0xd10
+ leaf_index: 0xd0f
+old_value: 0xd10
+new_value: 0xd11
+ leaf_index: 0xd10
+old_value: 0xd11
+new_value: 0xd12
  ]
 public_data_reads: [ leaf_index: 0xe01
 value: 0xe02
@@ -1418,6 +1636,22 @@ value: 0xe07
 value: 0xe08
  leaf_index: 0xe08
 value: 0xe09
+ leaf_index: 0xe09
+value: 0xe0a
+ leaf_index: 0xe0a
+value: 0xe0b
+ leaf_index: 0xe0b
+value: 0xe0c
+ leaf_index: 0xe0c
+value: 0xe0d
+ leaf_index: 0xe0d
+value: 0xe0e
+ leaf_index: 0xe0e
+value: 0xe0f
+ leaf_index: 0xe0f
+value: 0xe10
+ leaf_index: 0xe10
+value: 0xe11
  ]
 
 constants:
@@ -1549,7 +1783,9 @@ portal_contract_address: 0x202020202020202020202020202020202020202
 function_tree_root: 0xb03
  ]
 optionally_revealed_data: [ call_stack_item_hash: 0xc01
-function_data: function_selector: c02
+function_data: selector:
+value: c02
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1561,7 +1797,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc02
-function_data: function_selector: c03
+function_data: selector:
+value: c03
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1573,7 +1811,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc03
-function_data: function_selector: c04
+function_data: selector:
+value: c04
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1585,7 +1825,9 @@ pay_fee_from_public_l2: 0
 called_from_l1: 1
 called_from_public_l2: 0
  call_stack_item_hash: 0xc04
-function_data: function_selector: c05
+function_data: selector:
+value: c05
+
 is_internal: 0
 is_private: 1
 is_constructor: 1
@@ -1621,6 +1863,30 @@ new_value: 0xd09
  leaf_index: 0xd08
 old_value: 0xd09
 new_value: 0xd0a
+ leaf_index: 0xd09
+old_value: 0xd0a
+new_value: 0xd0b
+ leaf_index: 0xd0a
+old_value: 0xd0b
+new_value: 0xd0c
+ leaf_index: 0xd0b
+old_value: 0xd0c
+new_value: 0xd0d
+ leaf_index: 0xd0c
+old_value: 0xd0d
+new_value: 0xd0e
+ leaf_index: 0xd0d
+old_value: 0xd0e
+new_value: 0xd0f
+ leaf_index: 0xd0e
+old_value: 0xd0f
+new_value: 0xd10
+ leaf_index: 0xd0f
+old_value: 0xd10
+new_value: 0xd11
+ leaf_index: 0xd10
+old_value: 0xd11
+new_value: 0xd12
  ]
 public_data_reads: [ leaf_index: 0xe01
 value: 0xe02
@@ -1638,6 +1904,22 @@ value: 0xe07
 value: 0xe08
  leaf_index: 0xe08
 value: 0xe09
+ leaf_index: 0xe09
+value: 0xe0a
+ leaf_index: 0xe0a
+value: 0xe0b
+ leaf_index: 0xe0b
+value: 0xe0c
+ leaf_index: 0xe0c
+value: 0xe0d
+ leaf_index: 0xe0d
+value: 0xe0e
+ leaf_index: 0xe0e
+value: 0xe0f
+ leaf_index: 0xe0f
+value: 0xe10
+ leaf_index: 0xe10
+value: 0xe11
  ]
 
 constants:
@@ -1686,7 +1968,9 @@ vk_path: [ 0x1000 0x1001 0x1002 ]
 public_call:
 call_stack_item:
 contract_address: 0x1001
-function_data: function_selector: 4098
+function_data: selector:
+value: 4098
+
 is_internal: 0
 is_private: 0
 is_constructor: 0
@@ -1713,6 +1997,30 @@ new_value: 0x1415
  storage_slot: 0x1414
 old_value: 0x1415
 new_value: 0x1416
+ storage_slot: 0x1415
+old_value: 0x1416
+new_value: 0x1417
+ storage_slot: 0x1416
+old_value: 0x1417
+new_value: 0x1418
+ storage_slot: 0x1417
+old_value: 0x1418
+new_value: 0x1419
+ storage_slot: 0x1418
+old_value: 0x1419
+new_value: 0x141a
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
@@ -1734,6 +2042,22 @@ current_value: 0x1513
 current_value: 0x1514
  storage_slot: 0x1514
 current_value: 0x1515
+ storage_slot: 0x1515
+current_value: 0x1516
+ storage_slot: 0x1516
+current_value: 0x1517
+ storage_slot: 0x1517
+current_value: 0x1518
+ storage_slot: 0x1518
+current_value: 0x1519
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  storage_slot: 0x0
@@ -1743,7 +2067,7 @@ current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  ]
-public_call_stack: [ 0x969e86085622075da29cdba0432a18b67fbcf164a5dda8785cba8f4bf5cdd8d 0xe8aef22899a38f44f2b48fc12f51d0f0bd3146f15aae6a4e3de529e9daccf0b 0xb87bacccf7202cd576213b03d15dd98585c697de6571d5c37e915b8a35460c1 0x2f4095e46083b42757f0f7aabedc690037044e8ad4464d02a27ebd89d2ddf464 ]
+public_call_stack: [ 0x27af4efc36aac835e983ad9260648df64542a6522d5c8e8c22c89837897ee36b 0x2b29ad02f22800007608ee029ebdec89254794651628fc2497b462ab68a9d5e7 0x259cba5b82a2126429506d138c5905de6c0854e8135f8ccf9876c12da9cbaadb 0x6034ca46f5601bb8fb9af885e4ba748e8ff38c0fa747b17d63de339d241698a ]
 new_commitments: [ 0x1711 0x1712 0x0 0x0 ]
 new_nullifiers: [ 0x1811 0x1812 0x0 0x0 ]
 new_l2_to_l1_msgs: [ 0x1911 0x0 ]
@@ -1763,7 +2087,9 @@ prover_address: 0x1b12
 is_execution_request: 0
 
 public_call_stack_preimages: [ contract_address: 0x1301
-function_data: function_selector: 1302
+function_data: selector:
+value: 1302
+
 is_internal: 0
 is_private: 0
 is_constructor: 0
@@ -1790,6 +2116,30 @@ new_value: 0x1715
  storage_slot: 0x1714
 old_value: 0x1715
 new_value: 0x1716
+ storage_slot: 0x1715
+old_value: 0x1716
+new_value: 0x1717
+ storage_slot: 0x1716
+old_value: 0x1717
+new_value: 0x1718
+ storage_slot: 0x1717
+old_value: 0x1718
+new_value: 0x1719
+ storage_slot: 0x1718
+old_value: 0x1719
+new_value: 0x171a
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
@@ -1811,6 +2161,22 @@ current_value: 0x1813
 current_value: 0x1814
  storage_slot: 0x1814
 current_value: 0x1815
+ storage_slot: 0x1815
+current_value: 0x1816
+ storage_slot: 0x1816
+current_value: 0x1817
+ storage_slot: 0x1817
+current_value: 0x1818
+ storage_slot: 0x1818
+current_value: 0x1819
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  storage_slot: 0x0
@@ -1839,7 +2205,9 @@ prover_address: 0x1e12
 
 is_execution_request: 0
  contract_address: 0x1302
-function_data: function_selector: 1303
+function_data: selector:
+value: 1303
+
 is_internal: 0
 is_private: 0
 is_constructor: 0
@@ -1866,6 +2234,30 @@ new_value: 0x1716
  storage_slot: 0x1715
 old_value: 0x1716
 new_value: 0x1717
+ storage_slot: 0x1716
+old_value: 0x1717
+new_value: 0x1718
+ storage_slot: 0x1717
+old_value: 0x1718
+new_value: 0x1719
+ storage_slot: 0x1718
+old_value: 0x1719
+new_value: 0x171a
+ storage_slot: 0x1719
+old_value: 0x171a
+new_value: 0x171b
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
@@ -1887,6 +2279,22 @@ current_value: 0x1814
 current_value: 0x1815
  storage_slot: 0x1815
 current_value: 0x1816
+ storage_slot: 0x1816
+current_value: 0x1817
+ storage_slot: 0x1817
+current_value: 0x1818
+ storage_slot: 0x1818
+current_value: 0x1819
+ storage_slot: 0x1819
+current_value: 0x181a
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  storage_slot: 0x0
@@ -1915,7 +2323,9 @@ prover_address: 0x1e13
 
 is_execution_request: 0
  contract_address: 0x1303
-function_data: function_selector: 1304
+function_data: selector:
+value: 1304
+
 is_internal: 0
 is_private: 0
 is_constructor: 0
@@ -1942,6 +2352,30 @@ new_value: 0x1717
  storage_slot: 0x1716
 old_value: 0x1717
 new_value: 0x1718
+ storage_slot: 0x1717
+old_value: 0x1718
+new_value: 0x1719
+ storage_slot: 0x1718
+old_value: 0x1719
+new_value: 0x171a
+ storage_slot: 0x1719
+old_value: 0x171a
+new_value: 0x171b
+ storage_slot: 0x171a
+old_value: 0x171b
+new_value: 0x171c
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
@@ -1963,6 +2397,22 @@ current_value: 0x1815
 current_value: 0x1816
  storage_slot: 0x1816
 current_value: 0x1817
+ storage_slot: 0x1817
+current_value: 0x1818
+ storage_slot: 0x1818
+current_value: 0x1819
+ storage_slot: 0x1819
+current_value: 0x181a
+ storage_slot: 0x181a
+current_value: 0x181b
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  storage_slot: 0x0
@@ -1991,7 +2441,9 @@ prover_address: 0x1e14
 
 is_execution_request: 0
  contract_address: 0x1304
-function_data: function_selector: 1305
+function_data: selector:
+value: 1305
+
 is_internal: 0
 is_private: 0
 is_constructor: 0
@@ -2018,6 +2470,30 @@ new_value: 0x1718
  storage_slot: 0x1717
 old_value: 0x1718
 new_value: 0x1719
+ storage_slot: 0x1718
+old_value: 0x1719
+new_value: 0x171a
+ storage_slot: 0x1719
+old_value: 0x171a
+new_value: 0x171b
+ storage_slot: 0x171a
+old_value: 0x171b
+new_value: 0x171c
+ storage_slot: 0x171b
+old_value: 0x171c
+new_value: 0x171d
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
+ storage_slot: 0x0
+old_value: 0x1
+new_value: 0x2
  storage_slot: 0x0
 old_value: 0x1
 new_value: 0x2
@@ -2039,6 +2515,22 @@ current_value: 0x1816
 current_value: 0x1817
  storage_slot: 0x1817
 current_value: 0x1818
+ storage_slot: 0x1818
+current_value: 0x1819
+ storage_slot: 0x1819
+current_value: 0x181a
+ storage_slot: 0x181a
+current_value: 0x181b
+ storage_slot: 0x181b
+current_value: 0x181c
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
+ storage_slot: 0x0
+current_value: 0x1
  storage_slot: 0x0
 current_value: 0x1
  storage_slot: 0x0

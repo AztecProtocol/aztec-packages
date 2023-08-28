@@ -125,7 +125,7 @@ TEST(abi_tests, hash_tx_request)
     EXPECT_EQ(got_hash, tx_request.hash());
 }
 
-TEST(abi_tests, compute_function_selector_transfer)
+TEST(abi_tests, compute_selector_transfer)
 {
     const char* function_signature = "transfer(address,uint256)";
 
@@ -191,7 +191,10 @@ TEST(abi_tests, compute_function_leaf)
 {
     // Construct FunctionLeafPreimage with some randomized fields
     auto const preimage = FunctionLeafPreimage<NT>{
-        .function_selector = engine.get_random_uint32(),
+        .selector =
+            {
+                .value = engine.get_random_uint32(),
+            },
         .is_private = static_cast<bool>(engine.get_random_uint8() & 1),
         .vk_hash = NT::fr::random_element(),
         .acir_hash = NT::fr::random_element(),
@@ -279,7 +282,12 @@ TEST(abi_tests, compute_function_tree)
 TEST(abi_tests, hash_constructor)
 {
     // Randomize required values
-    auto const func_data = FunctionData<NT>{ .function_selector = 10, .is_private = true, .is_constructor = false };
+    auto const func_data = FunctionData<NT>{ .selector =
+                                                 {
+                                                     .value = 10,
+                                                 },
+                                             .is_private = true,
+                                             .is_constructor = false };
 
     NT::fr const args_hash = NT::fr::random_element();
     NT::fr const constructor_vk_hash = NT::fr::random_element();

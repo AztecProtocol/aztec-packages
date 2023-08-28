@@ -1,16 +1,21 @@
-import { CommitmentDataOracleInputs, DBOracle, MessageLoadOracleInputs } from '@aztec/acir-simulator';
+import {
+  CommitmentDataOracleInputs,
+  DBOracle,
+  FunctionAbiWithDebugMetadata,
+  MessageLoadOracleInputs,
+} from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CircuitsWasm,
   CompleteAddress,
   EthAddress,
   Fr,
+  FunctionSelector,
   HistoricBlockData,
   PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
-import { FunctionAbi } from '@aztec/foundation/abi';
 import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
@@ -54,8 +59,16 @@ export class SimulatorOracle implements DBOracle {
     }));
   }
 
-  async getFunctionABI(contractAddress: AztecAddress, functionSelector: Buffer): Promise<FunctionAbi> {
-    return await this.contractDataOracle.getFunctionAbi(contractAddress, functionSelector);
+  async getFunctionABI(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionAbiWithDebugMetadata> {
+    const abi = await this.contractDataOracle.getFunctionAbi(contractAddress, selector);
+    const debug = await this.contractDataOracle.getFunctionDebugMetadata(contractAddress, selector);
+    return {
+      ...abi,
+      debug,
+    };
   }
 
   async getPortalContractAddress(contractAddress: AztecAddress): Promise<EthAddress> {
@@ -92,7 +105,7 @@ export class SimulatorOracle implements DBOracle {
   async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
     const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
     const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
-    if (!index) throw new Error('Commitment not found');
+    if (!index) throw new Error(`Commitment not found ${siloedCommitment.toString()}`);
 
     const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
     return await Promise.resolve({

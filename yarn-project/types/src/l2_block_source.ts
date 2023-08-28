@@ -1,6 +1,8 @@
 import { EthAddress } from '@aztec/circuits.js';
 
 import { L2Block } from './l2_block.js';
+import { L2Tx } from './l2_tx.js';
+import { TxHash } from './tx/index.js';
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -16,7 +18,7 @@ export interface L2BlockSource {
    * Gets the number of the latest L2 block processed by the block source implementation.
    * @returns The number of the latest L2 block processed by the block source implementation.
    */
-  getBlockHeight(): Promise<number>;
+  getBlockNumber(): Promise<number>;
 
   /**
    * Gets an l2 block. If a negative number is passed, the block returned is the most recent.
@@ -32,6 +34,13 @@ export interface L2BlockSource {
    * @returns The requested L2 blocks.
    */
   getL2Blocks(from: number, limit: number): Promise<L2Block[]>;
+
+  /**
+   * Gets an l2 tx.
+   * @param txHash - The txHash of the l2 tx.
+   * @returns The requested L2 tx.
+   */
+  getL2Tx(txHash: TxHash): Promise<L2Tx | undefined>;
 
   /**
    * Starts the L2 block source.

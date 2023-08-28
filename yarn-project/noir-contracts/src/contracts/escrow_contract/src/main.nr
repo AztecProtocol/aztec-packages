@@ -1,5 +1,6 @@
 mod address_note;
 mod storage;
+mod private_token_contract_interface;
 
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 contract Escrow {
@@ -22,10 +23,11 @@ contract Escrow {
         AddressNote,
         AddressNoteMethods,
         ADDRESS_NOTE_LEN,
-        filter::filter_by_owner_and_address,
     };
 
     use crate::storage::Storage;
+
+    use crate::private_token_contract_interface::PrivateTokenContractInterface;
 
     // Creates a new instance
     fn constructor(
@@ -62,7 +64,7 @@ contract Escrow {
         let storage = Storage::init();
         
         // We don't remove note from the owners set. If a note exists, the owner and recipient are legit.
-        let options = NoteGetterOptions::with_filter(filter_by_owner_and_address, [sender, this]);
+        let options = NoteGetterOptions::new().select(0, sender).select(1, this).set_limit(1);
         let notes = storage.owners.get_notes(&mut context, options);
         let note = notes[0].unwrap_unchecked();
         // Filter is not constrained. We still need to check if the note is what we expected.
@@ -70,8 +72,7 @@ contract Escrow {
         assert(note.owner == this);
 
         // TODO: Can we dynamically get this selector?
-        let transfer_selector = 0xdcd4c318;
-        let _callStackItem = context.call_private_function(token, transfer_selector, [amount, this, recipient]);
+        let _callStackItem = PrivateTokenContractInterface::at(token).transfer(&mut context, amount, recipient);
 
         context.finish()
     }

@@ -24,6 +24,7 @@ import {
   Fq,
   Fr,
   FunctionData,
+  FunctionSelector,
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
@@ -134,10 +135,8 @@ export function makeConstantData(seed = 1): CombinedConstantData {
  * @param seed - The seed to use for generating the selector.
  * @returns A selector.
  */
-export function makeSelector(seed: number): Buffer {
-  const buffer = Buffer.alloc(4);
-  buffer.writeUInt32BE(seed, 0);
-  return buffer;
+export function makeSelector(seed: number): FunctionSelector {
+  return new FunctionSelector(seed);
 }
 
 /**
@@ -647,14 +646,8 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    historicContractTreeRoot: fr(seed + 0xd00),
-    historicPrivateDataTreeRoot: fr(seed + 0xe00),
-    historicPrivateNullifierTreeRoot: fr(seed + 0xf00),
-    historicL1ToL2MessagesTreeRoot: fr(seed + 0x1000),
-    historicBlocksTreeRoot: fr(seed + 0x1100),
-    historicGlobalVariablesHash: fr(seed + 0x1200),
-    historicPublicDataTreeRoot: fr(seed + 0x1300),
-    contractDeploymentData: makeContractDeploymentData(),
+    historicBlockData: makeHistoricBlockData(seed + 0xd00),
+    contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
     chainId: fr(seed + 0x1400),
     version: fr(seed + 0x1500),
   });

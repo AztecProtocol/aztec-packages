@@ -5,9 +5,8 @@ contract PokeableToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::increment,
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods, ValueNote},
-        filter::get_max_notes,
     };
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
@@ -44,7 +43,7 @@ contract PokeableToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
-        send_note(&mut context, sender_balance, initial_supply, sender);
+        increment(&mut context, sender_balance, initial_supply, sender);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -71,7 +70,7 @@ contract PokeableToken {
         // Pick from the set of sender's notes.
         let sender_balance = storage.balances.at(sender);
 
-        let options = NoteGetterOptions::with_filter(get_max_notes, 0);
+        let options = NoteGetterOptions::new();
         let maybe_notes = sender_balance.get_notes(&mut context, options);
         let mut note_sum = 0;
         for i in 0..maybe_notes.len() {
@@ -91,7 +90,7 @@ contract PokeableToken {
 
         // Create new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, note_sum, recipient);
+        increment(&mut context, recipient_balance, note_sum, recipient);
         
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
         context.finish()
@@ -107,7 +106,7 @@ contract PokeableToken {
         let sender_balance = storage.balances.at(sender);
 
         // Return the sum of all notes in the set.
-        balance_utils::get_balance(sender_balance.storage_slot)
+        balance_utils::get_balance(sender_balance)
     }
 
     // Computes note hash and nullifier.

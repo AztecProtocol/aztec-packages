@@ -398,7 +398,7 @@ void common_contract_logic(DummyBuilder& builder,
 
         // The logic below ensures that the contract exists in the contracts tree
         auto const& computed_function_tree_root =
-            function_tree_root_from_siblings<NT>(private_call.call_stack_item.function_data.function_selector,
+            function_tree_root_from_siblings<NT>(private_call.call_stack_item.function_data.selector,
                                                  private_call.call_stack_item.function_data.is_internal,
                                                  true,  // is_private
                                                  private_call_vk_hash,
@@ -414,7 +414,7 @@ void common_contract_logic(DummyBuilder& builder,
                                                  private_call.contract_leaf_membership_witness.sibling_path);
 
         auto const& purported_contract_tree_root =
-            private_call.call_stack_item.public_inputs.historic_contract_tree_root;
+            private_call.call_stack_item.public_inputs.historic_block_data.contract_tree_root;
 
         builder.do_assert(
             computed_contract_tree_root == purported_contract_tree_root,
