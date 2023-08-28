@@ -30,6 +30,7 @@ import {
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
   KernelCircuitPublicInputs,
+  KernelCircuitPublicInputsFinal,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -401,6 +402,24 @@ export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs
  */
 export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
   return new KernelCircuitPublicInputs(makeAccumulatedData(seed, true), makeConstantData(seed + 0x100), true);
+}
+
+/**
+ * Creates empty final ordering kernel circuit public inputs.
+ * @param seed - The seed to use for generating the final ordering kernel circuit public inputs.
+ * @returns Empty final ordering kernel circuit public inputs.
+ */
+export function makeEmptyKernelPublicInputsFinal(seed = 1): KernelCircuitPublicInputsFinal {
+  return new KernelCircuitPublicInputsFinal(makeEmptyFinalAccumulatedData(seed), makeConstantData(seed + 0x100), true);
+}
+
+/**
+ * Creates arbitrary final ordering kernel circuit public inputs.
+ * @param seed - The seed to use for generating the final ordering kernel circuit public inputs.
+ * @returns Final ordering kernel circuit public inputs.
+ */
+export function makeKernelPublicInputsFinal(seed = 1): KernelCircuitPublicInputsFinal {
+  return new KernelCircuitPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100), true);
 }
 
 /**
