@@ -60,7 +60,7 @@ bool proveAndVerify(const std::string& bytecodePath, const std::string& witnessP
     auto proof = acir_composer->create_proof(srs::get_crs_factory(), constraint_system, witness, recursive);
     auto verified = acir_composer->verify_proof(proof, recursive);
 
-    info("verified: ", verified);
+    vinfo("verified: ", verified);
     return verified;
 }
 
@@ -88,10 +88,10 @@ void prove(const std::string& bytecodePath,
 
     if (outputPath == "-") {
         writeRawBytesToStdout(proof);
-        info("proof written to stdout");
+        vinfo("proof written to stdout");
     } else {
         write_file(outputPath, proof);
-        info("proof written to: ", outputPath);
+        vinfo("proof written to: ", outputPath);
     }
 }
 
@@ -111,7 +111,7 @@ void gateCount(const std::string& bytecodePath)
     auto gate_count = acir_composer->get_total_circuit_size();
 
     writeUint64AsRawBytesToStdout(static_cast<uint64_t>(gate_count));
-    info("gate count: ", gate_count);
+    vinfo("gate count: ", gate_count);
 }
 
 /**
@@ -137,7 +137,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
     acir_composer->load_verification_key(barretenberg::srs::get_crs_factory(), std::move(vk_data));
     auto verified = acir_composer->verify_proof(read_file(proof_path), recursive);
 
-    info("verified: ", verified);
+    vinfo("verified: ", verified);
 
     return verified;
 }
@@ -161,10 +161,10 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
     auto serialized_vk = to_buffer(*vk);
     if (outputPath == "-") {
         writeRawBytesToStdout(serialized_vk);
-        info("vk written to stdout");
+        vinfo("vk written to stdout");
     } else {
         write_file(outputPath, serialized_vk);
-        info("vk written to: ", outputPath);
+        vinfo("vk written to: ", outputPath);
     }
 }
 
@@ -190,10 +190,10 @@ void contract(const std::string& output_path, const std::string& vk_path)
 
     if (output_path == "-") {
         writeStringToStdout(contract);
-        info("contract written to stdout");
+        vinfo("contract written to stdout");
     } else {
         write_file(output_path, { contract.begin(), contract.end() });
-        info("contract written to: ", output_path);
+        vinfo("contract written to: ", output_path);
     }
 }
 
@@ -231,10 +231,10 @@ void proofAsFields(const std::string& proof_path, std::string const& vk_path, co
 
     if (output_path == "-") {
         writeStringToStdout(json);
-        info("proof as fields written to stdout");
+        vinfo("proof as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
-        info("proof as fields written to: ", output_path);
+        vinfo("proof as fields written to: ", output_path);
     }
 }
 
@@ -264,11 +264,10 @@ void vkAsFields(const std::string& vk_path, const std::string& output_path)
     auto json = format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     if (output_path == "-") {
         writeStringToStdout(json);
-        info("vk as fields written to stdout");
-
+        vinfo("vk as fields written to stdout");
     } else {
         write_file(output_path, { json.begin(), json.end() });
-        info("vk as fields written to: ", output_path);
+        vinfo("vk as fields written to: ", output_path);
     }
 }
 
