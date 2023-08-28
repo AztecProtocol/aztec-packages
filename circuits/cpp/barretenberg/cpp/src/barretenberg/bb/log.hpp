@@ -10,6 +10,7 @@ template <typename... Args> inline void vinfo(Args... args)
         info(args...);
     }
 }
+
 /**
  * @brief Writes raw bytes of the vector to stdout
  *
@@ -31,6 +32,7 @@ inline void writeRawBytesToStdout(const std::vector<uint8_t>& data)
         std::cout.put(static_cast<char>(byte));
     }
 }
+
 /**
  * @brief Writes a uint64_t to stdout in little endian format
  *
@@ -50,6 +52,7 @@ inline void writeUint64AsRawBytesToStdout(uint64_t value)
 
     writeRawBytesToStdout(bytes);
 }
+
 /**
  * @brief Writes a sting to stdout
  *
