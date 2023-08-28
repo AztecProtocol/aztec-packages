@@ -161,7 +161,7 @@ template <typename FF> class LookupRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    inline static void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulators,
+    inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
                                                   const auto& extended_edges,
                                                   const RelationParameters<FF>& relation_parameters,
                                                   const FF& scaling_factor)

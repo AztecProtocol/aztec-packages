@@ -67,10 +67,12 @@ inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorView
  * @tparam FF
  * @tparam RelationBase Base class that implements the arithmetic for a given relation (or set of sub-relations)
  */
+// WORKTODO: RelationWrapper is not a Relation(Base), so there shouldn't be inheritance here.
 template <typename FF, template <typename> typename RelationBase> class RelationWrapper : public RelationBase<FF> {
   private:
+    // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
     template <size_t... Values> struct UnivariateAccumulatorTypes {
-        using Accumulators = std::tuple<Univariate<FF, Values>...>;
+        using Accumulators = std::tuple<Univariate<FF, Values>...>; // Values extracted from relation.
         using AccumulatorViews = std::tuple<UnivariateView<FF, Values>...>;
     };
     template <size_t... Values> struct ValueAccumulatorTypes {
@@ -81,18 +83,19 @@ template <typename FF, template <typename> typename RelationBase> class Relation
   public:
     using Relation = RelationBase<FF>;
     using UnivariateAccumTypes = typename Relation::template AccumulatorTypesBase<UnivariateAccumulatorTypes>;
+    // WORKTODO: the lengths do nothing in the case of values?
     using ValueAccumTypes = typename Relation::template AccumulatorTypesBase<ValueAccumulatorTypes>;
 
     using RelationUnivariates = typename UnivariateAccumTypes::Accumulators;
     using RelationValues = typename ValueAccumTypes::Accumulators;
     static constexpr size_t RELATION_LENGTH = Relation::RELATION_LENGTH;
 
-    inline void add_edge_contribution(auto& accumulator,
+    inline void add_edge_contribution(RelationUnivariates& accumulator,
                                       const auto& input,
                                       const RelationParameters<FF>& relation_parameters,
                                       const FF& scaling_factor) const
     {
-        Relation::template add_edge_contribution_impl<UnivariateAccumTypes>(
+        Relation::template accumulate<UnivariateAccumTypes>(
             accumulator, input, relation_parameters, scaling_factor);
     }
 
@@ -101,7 +104,7 @@ template <typename FF, template <typename> typename RelationBase> class Relation
                                               const RelationParameters<FF>& relation_parameters,
                                               const FF& scaling_factor = 1) const
     {
-        Relation::template add_edge_contribution_impl<ValueAccumTypes>(
+        Relation::template accumulate<ValueAccumTypes>(
             accumulator, input, relation_parameters, scaling_factor);
     }
 

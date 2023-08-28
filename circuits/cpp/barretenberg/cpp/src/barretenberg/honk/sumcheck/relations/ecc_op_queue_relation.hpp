@@ -44,7 +44,7 @@ template <typename FF> class EccOpQueueRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    void static add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulators,
+    void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
                                            const auto& extended_edges,
                                            const RelationParameters<FF>&,
                                            const FF& scaling_factor)

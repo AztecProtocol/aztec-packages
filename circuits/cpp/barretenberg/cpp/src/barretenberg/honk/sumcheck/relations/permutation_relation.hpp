@@ -74,10 +74,10 @@ template <typename FF> class PermutationRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    inline static void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                                  const auto& input,
-                                                  const RelationParameters<FF>& relation_parameters,
-                                                  const FF& scaling_factor)
+    inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
+                                  const auto& input,
+                                  const RelationParameters<FF>& relation_parameters,
+                                  const FF& scaling_factor)
     {
         const auto& public_input_delta = relation_parameters.public_input_delta;
 
@@ -89,7 +89,7 @@ template <typename FF> class PermutationRelationBase {
             auto lagrange_last = View(input.lagrange_last);
 
             // Contribution (1)
-            std::get<0>(accumulator) +=
+            std::get<0>(accumulators) +=
                 (((z_perm + lagrange_first) *
                   compute_grand_product_numerator<AccumulatorTypes>(input, relation_parameters, 0)) -
                  ((z_perm_shift + lagrange_last * public_input_delta) *
@@ -102,7 +102,7 @@ template <typename FF> class PermutationRelationBase {
             auto lagrange_last = View(input.lagrange_last);
 
             // Contribution (2)
-            std::get<1>(accumulator) += (lagrange_last * z_perm_shift) * scaling_factor;
+            std::get<1>(accumulators) += (lagrange_last * z_perm_shift) * scaling_factor;
         }
     };
 };
@@ -176,10 +176,10 @@ template <typename FF> class UltraPermutationRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    inline static void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulators,
-                                                  const auto& extended_edges,
-                                                  const RelationParameters<FF>& relation_parameters,
-                                                  const FF& scaling_factor)
+    inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
+                                  const auto& extended_edges,
+                                  const RelationParameters<FF>& relation_parameters,
+                                  const FF& scaling_factor)
     {
         const auto& public_input_delta = relation_parameters.public_input_delta;
 
