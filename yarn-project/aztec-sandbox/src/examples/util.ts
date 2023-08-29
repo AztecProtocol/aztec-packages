@@ -53,7 +53,7 @@ export async function deployAndInitializeNonNativeL2TokenContracts(
   const receipt = await tx.getReceipt();
   const l2Contract = await NonNativeTokenContract.at(receipt.contractAddress!, wallet);
   await l2Contract.attach(tokenPortalAddress);
-  const l2TokenAddress = l2Contract.completeAddress.toString() as `0x${string}`;
+  const l2TokenAddress = l2Contract.address.toString() as `0x${string}`;
 
   // initialize portal
   await tokenPortal.write.initialize(
