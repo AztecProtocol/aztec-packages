@@ -114,9 +114,9 @@ export class UnconstrainedFunctionExecution {
     ).catch((err: Error) => {
       const failingFunction = { contractAddress: this.contractAddress, functionSelector: this.functionData.selector };
       if (err instanceof SimulationError) {
-        throw SimulationError.fromPreviousSimulationError(failingFunction, err);
+        throw SimulationError.extendPreviousSimulationError(failingFunction, err);
       }
-      throw SimulationError.new(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
+      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
     });
 
     const returnValues: ACVMField[] = extractReturnWitness(acir, partialWitness);

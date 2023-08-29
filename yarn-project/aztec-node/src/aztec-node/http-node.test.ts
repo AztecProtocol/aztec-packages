@@ -503,7 +503,7 @@ describe('HttpNode', () => {
 
     it('should fetch a simulation error', async () => {
       const tx = mockTx();
-      const simulationError = SimulationError.new('Failing function', {
+      const simulationError = new SimulationError('Failing function', {
         contractAddress: AztecAddress.ZERO,
         functionSelector: FunctionSelector.empty(),
       });

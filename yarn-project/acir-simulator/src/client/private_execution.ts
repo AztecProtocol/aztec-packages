@@ -201,9 +201,9 @@ export class PrivateFunctionExecution {
     ).catch((err: Error) => {
       const failingFunction = { contractAddress: this.contractAddress, functionSelector: selector };
       if (err instanceof SimulationError) {
-        throw SimulationError.fromPreviousSimulationError(failingFunction, err);
+        throw SimulationError.extendPreviousSimulationError(failingFunction, err);
       }
-      throw SimulationError.new(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
+      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
     });
 
     const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);

@@ -45,33 +45,28 @@ export type NoirCallStack = SourceCodeLocation[];
  * An error during the simulation of a function call.
  */
 export class SimulationError extends Error {
-  private constructor(
-    message: string,
-    private failingFunction: FailingFunction,
-    private noirErrorStack?: NoirCallStack,
-    private functionErrorStack?: FailingFunction[],
-  ) {
+  private functionErrorStack: FailingFunction[];
+
+  // We want to maintain a public constructor for proper printing.
+  constructor(message: string, failingFunction: FailingFunction, private noirErrorStack?: NoirCallStack) {
     super(message);
+    this.functionErrorStack = [failingFunction];
   }
 
-  static new(message: string, failingFunction: FailingFunction, noirErrorStack?: NoirCallStack) {
-    return new SimulationError(message, failingFunction, noirErrorStack);
+  private addCaller(failingFunction: FailingFunction) {
+    this.functionErrorStack.unshift(failingFunction);
   }
 
-  static fromPreviousSimulationError(failingFunction: FailingFunction, previousError: SimulationError) {
-    return new SimulationError(
-      previousError.message,
-      failingFunction,
-      previousError.noirErrorStack,
-      previousError.getCallStack(),
-    );
+  static extendPreviousSimulationError(failingFunction: FailingFunction, previousError: SimulationError) {
+    previousError.addCaller(failingFunction);
+    return previousError;
   }
 
   /**
    * The aztec function stack that failed during simulation.
    */
   getCallStack(): FailingFunction[] {
-    return [this.failingFunction].concat(this.functionErrorStack || []);
+    return this.functionErrorStack;
   }
 
   /**
@@ -93,13 +88,14 @@ export class SimulationError extends Error {
   toJSON() {
     return {
       message: this.message,
-      failingFunction: this.failingFunction,
+      functionErrorStack: this.functionErrorStack,
       noirErrorStack: this.noirErrorStack,
-      previousErrorStack: this.functionErrorStack,
     };
   }
 
   static fromJSON(obj: any) {
-    return new SimulationError(obj.message, obj.failingFunction, obj.noirErrorStack, obj.previousErrorStack);
+    const error = new SimulationError(obj.message, obj.functionErrorStack[0], obj.noirErrorStack);
+    error.functionErrorStack = obj.functionErrorStack;
+    return error;
   }
 }

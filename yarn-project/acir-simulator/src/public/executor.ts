@@ -143,9 +143,9 @@ export class PublicExecutor {
     }).catch((err: Error) => {
       const failingFunction = { contractAddress: execution.contractAddress, functionSelector: selector };
       if (err instanceof SimulationError) {
-        throw SimulationError.fromPreviousSimulationError(failingFunction, err);
+        throw SimulationError.extendPreviousSimulationError(failingFunction, err);
       }
-      throw SimulationError.new(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
+      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
     });
 
     const {
