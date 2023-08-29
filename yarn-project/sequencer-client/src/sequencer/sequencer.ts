@@ -4,13 +4,11 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { P2P } from '@aztec/p2p';
 import {
-  ContractData,
-  ExtendedContractData,
   L1ToL2MessageSource,
   L2Block,
   L2BlockSource,
   MerkleTreeId,
-  Tx,
+  Tx
 } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 
