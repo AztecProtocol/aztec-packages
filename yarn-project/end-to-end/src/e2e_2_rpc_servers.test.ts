@@ -73,7 +73,7 @@ describe('e2e_2_rpc_servers', () => {
 
   const deployPrivateTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying PrivateToken contract...`);
-    const contract = await PrivateTokenContract.deploy(aztecRpcServerA, initialBalance, owner).send().deployed();
+    const contract = await PrivateTokenContract.deploy(walletA, initialBalance, owner).send().deployed();
     logger('L2 contract deployed');
 
     return contract.completeAddress;
