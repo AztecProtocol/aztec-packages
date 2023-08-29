@@ -68,6 +68,18 @@ export class SimulationError extends Error {
   }
 
   /**
+   * Updates the error message. This is needed because in some engines the stack also contains the message.
+   * @param newMessage - The new message of this error.
+   */
+  updateMessage(newMessage: string) {
+    const oldMessage = this.message;
+    this.message = newMessage;
+    if (this.stack?.startsWith(`Error: ${oldMessage}`)) {
+      this.stack = this.stack?.replace(`Error: ${oldMessage}`, `Error: ${newMessage}`);
+    }
+  }
+
+  /**
    * The aztec function stack that failed during simulation.
    */
   getCallStack(): FailingFunction[] {

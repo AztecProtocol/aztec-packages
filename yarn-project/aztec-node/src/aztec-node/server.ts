@@ -68,7 +68,7 @@ export class AztecNodeService implements AztecNode {
     protected chainId: number,
     protected version: number,
     protected globalVariableBuilder: GlobalVariableBuilder,
-    protected merkleTreeDb: MerkleTrees,
+    protected merkleTreesDb: levelup.LevelUp,
     private log = createDebugLogger('aztec:node'),
   ) {}
 
@@ -89,9 +89,10 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
+    const merkleTreesDb = levelup(createMemDown());
+    const merkleTrees = await MerkleTrees.new(merkleTreesDb, await CircuitsWasm.get());
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
-    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver, worldStateConfig);
+    const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTrees, archiver, worldStateConfig);
 
     // start both and wait for them to sync from the block source
     await Promise.all([p2pClient.start(), worldStateSynchroniser.start()]);
@@ -117,7 +118,7 @@ export class AztecNodeService implements AztecNode {
       config.chainId,
       config.version,
       getGlobalVariableBuilder(config),
-      merkleTreeDB,
+      merkleTreesDb,
     );
   }
 
@@ -384,17 +385,21 @@ export class AztecNodeService implements AztecNode {
    **/
   public async simulatePublicPart(tx: Tx) {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
-    // Instantiate merkle tree db so uncommited updates by this simulation are local to it.
-    const merkleTreeDb = await this.merkleTreeDb.forTransaction();
-
-    const publicProcessorFactory = new PublicProcessorFactory(
-      merkleTreeDb.asLatest(),
-      this.contractDataSource,
-      this.l1ToL2MessageSource,
-    );
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
     const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
+
+    // Instantiate merkle trees so uncommited updates by this simulation are local to it.
+    const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
+    await merkleTrees.init(await CircuitsWasm.get(), {
+      globalVariables: prevGlobalVariables,
+    });
+
+    const publicProcessorFactory = new PublicProcessorFactory(
+      merkleTrees.asLatest(),
+      this.contractDataSource,
+      this.l1ToL2MessageSource,
+    );
     const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
     const [, failedTxs] = await processor.process([tx]);
     if (failedTxs.length) {

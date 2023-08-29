@@ -131,7 +131,7 @@ export class MerkleTrees implements MerkleTreeDb {
       await this._updateHistoricBlocksTree(initialGlobalVariablesHash, true);
       await this._commit();
     } else {
-      await this.updateLatestGlobalVariablesHash(await computeGlobalVariablesHash(fromDbOptions.globalVariables));
+      await this._updateLatestGlobalVariablesHash(await computeGlobalVariablesHash(fromDbOptions.globalVariables));
     }
   }
 
@@ -409,21 +409,6 @@ export class MerkleTrees implements MerkleTreeDb {
       throw new Error('Tree does not support `batchInsert` method');
     }
     return await this.synchronise(() => tree.batchInsert(leaves, subtreeHeight));
-  }
-
-  /**
-   * Returns a new merkle trees instance with an independent cache.
-   * @param fromDbOptions - Options to initialise the trees from the database.
-   * @param optionalWasm - WASM instance to use for hashing (if not provided PrimitivesWasm will be used).
-   * @returns A new merkle trees instance.
-   */
-  public async forTransaction(optionalWasm?: IWasmModule) {
-    const newMerkleTrees = new MerkleTrees(this.db, this.log);
-    await newMerkleTrees.init(optionalWasm, {
-      globalVariables: GlobalVariables.empty(),
-    });
-    await newMerkleTrees.updateLatestGlobalVariablesHash(this.latestGlobalVariablesHash.get());
-    return newMerkleTrees;
   }
 
   /**

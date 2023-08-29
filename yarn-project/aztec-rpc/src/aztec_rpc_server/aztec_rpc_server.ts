@@ -178,7 +178,7 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async simulateTx(txRequest: TxExecutionRequest) {
+  public async simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
@@ -192,7 +192,7 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    await this.#simulatePublicPart(tx);
+    if (simulatePublic) await this.#simulatePublicPart(tx);
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -393,19 +393,22 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       // Try to fill in the noir call stack since the RPC server may have access to the debug metadata
       if (err instanceof SimulationError) {
-        const originalFailingFunction = err.getCallStack().pop()!;
+        const callStack = err.getCallStack();
+        const originalFailingFunction = callStack[callStack.length - 1];
         const contractDataOracle = new ContractDataOracle(this.db, this.node);
         const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
           originalFailingFunction.contractAddress,
           originalFailingFunction.functionSelector,
         );
         if (debugInfo) {
-          const callStack = processAcvmError(err.message, debugInfo);
-          if (callStack) {
-            err.setNoirCallStack(callStack);
-            err.message = `Assertion failed in public execution: '${
-              callStack[callStack.length - 1]?.locationText ?? 'Unknown'
-            }'`;
+          const noirCallStack = processAcvmError(err.message, debugInfo);
+          if (noirCallStack) {
+            err.setNoirCallStack(noirCallStack);
+            err.updateMessage(
+              `Assertion failed in public execution: '${
+                noirCallStack[noirCallStack.length - 1]?.locationText ?? 'Unknown'
+              }'`,
+            );
           }
         }
         await this.#debugLogSimulationError(err);
