@@ -15,7 +15,7 @@ import {
   Proof,
   PublicCallRequest,
   makeEmptyProof,
-  makeTuple
+  makeTuple,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import {

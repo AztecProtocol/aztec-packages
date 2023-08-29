@@ -95,7 +95,8 @@ export class ContractTree {
     const vkHash = hashVKStr(constructorAbi.verificationKey, wasm);
     const argsHash = await computeVarArgsHash(wasm, args);
     const constructorHash = hashConstructor(wasm, functionData, argsHash, vkHash);
-    // TODO: create computeCompleteAddress function --> The following is wasteful as it computes partial address twice
+    // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/1873: create computeCompleteAddress
+    // function --> The following is wasteful as it computes partial address twice
     const partialAddress = computePartialAddress(wasm, contractAddressSalt, root, constructorHash);
     const address = computeContractAddress(wasm, from, contractAddressSalt, root, constructorHash);
     const completeAddress = await CompleteAddress.create(address, from, partialAddress);
