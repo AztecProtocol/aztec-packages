@@ -172,7 +172,6 @@ contract NonNativeToken {
         recipient: Field,
     ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
         let sender = context.msg_sender();
 
         // Gets the set of sender's notes and picks 2 of those.
