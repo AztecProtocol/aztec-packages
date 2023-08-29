@@ -94,7 +94,7 @@ describe('e2e_lending_contract', () => {
     const tot = await lendingContract.methods.get_asset(0).view();
     const privatePos = await lendingContract.methods.get_position(accountKey).view();
     const publicPos = await lendingContract.methods.get_position(account.address.toField()).view();
-    const totalCollateral = await collateralAsset.methods.public_balance_of(lendingContract.completeAddress).view();
+    const totalCollateral = await collateralAsset.methods.public_balance_of(lendingContract.address).view();
 
     return {
       interestAccumulator: new Fr(tot['interest_accumulator']),
@@ -106,7 +106,7 @@ describe('e2e_lending_contract', () => {
       publicStaticDebt: new Fr(publicPos['static_debt']),
       publicDebt: new Fr(publicPos['debt']),
       totalCollateral: new Fr(totalCollateral),
-      stableCoinLending: new Fr(await stableCoin.methods.public_balance_of(lendingContract.completeAddress).view()),
+      stableCoinLending: new Fr(await stableCoin.methods.public_balance_of(lendingContract.address).view()),
       stableCoinPublic: new Fr(await stableCoin.methods.public_balance_of(account.address).view()),
       stableCoinPrivate: new Fr(await stableCoin.methods.balance_of(account.address).view()),
       stableCoinSupply: new Fr(await stableCoin.methods.total_supply().view()),
@@ -281,7 +281,7 @@ describe('e2e_lending_contract', () => {
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
 
-      const tx2 = collateralAsset.methods.approve(lendingContract.completeAddress, 10000n).send({ origin: recipient });
+      const tx2 = collateralAsset.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
       const receipt2 = await tx2.wait();
       expect(receipt2.status).toBe(TxStatus.MINED);
 
@@ -297,7 +297,7 @@ describe('e2e_lending_contract', () => {
       const receipt4 = await tx4.wait();
       expect(receipt4.status).toBe(TxStatus.MINED);
 
-      const tx5 = stableCoin.methods.approve(lendingContract.completeAddress, 10000n).send({ origin: recipient });
+      const tx5 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
       const receipt5 = await tx5.wait();
       expect(receipt5.status).toBe(TxStatus.MINED);
     }
@@ -313,7 +313,7 @@ describe('e2e_lending_contract', () => {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
       logger('Initializing contract');
       const tx = lendingContract.methods
-        .init(priceFeedContract.completeAddress, 8000, collateralAsset.completeAddress, stableCoin.completeAddress)
+        .init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -334,7 +334,7 @@ describe('e2e_lending_contract', () => {
       // - increase the private collateral.
       logger('Depositing 🥸 : 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_private(account.secret, account.address, 0n, depositAmount, collateralAsset.completeAddress)
+        .deposit_private(account.secret, account.address, 0n, depositAmount, collateralAsset.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -359,7 +359,7 @@ describe('e2e_lending_contract', () => {
       // - increase the public collateral.
       logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_private(0n, account.address, recipient.toField(), depositAmount, collateralAsset.completeAddress)
+        .deposit_private(0n, account.address, recipient.toField(), depositAmount, collateralAsset.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -386,7 +386,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Depositing: 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_public(account.address, depositAmount, collateralAsset.completeAddress)
+        .deposit_public(account.address, depositAmount, collateralAsset.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -464,7 +464,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay 🥸 : 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_private(account.secret, account.address, 0n, repayAmount, stableCoin.completeAddress)
+        .repay_private(account.secret, account.address, 0n, repayAmount, stableCoin.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -491,7 +491,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_private(0n, account.address, recipient.toField(), repayAmount, stableCoin.completeAddress)
+        .repay_private(0n, account.address, recipient.toField(), repayAmount, stableCoin.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -518,7 +518,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay: 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_public(recipient.toField(), 20n, stableCoin.completeAddress)
+        .repay_public(recipient.toField(), 20n, stableCoin.address)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -600,7 +600,7 @@ describe('e2e_lending_contract', () => {
       // - fail
 
       const tx = lendingContract.methods
-        ._deposit(recipient.toField(), 42n, collateralAsset.completeAddress)
+        ._deposit(recipient.toField(), 42n, collateralAsset.address)
         .send({ origin: recipient });
       await tx.isMined({ interval: 0.1 });
       const receipt = await tx.getReceipt();

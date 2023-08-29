@@ -117,7 +117,7 @@ describe('multi-transfer payments', () => {
     logger(`multiTransfer()...`);
     const multiTransferTx = multiTransferContract.methods
       .multiTransfer(
-        zkTokenContract.completeAddress.toField(),
+        zkTokenContract.address.toField(),
         recipients,
         amounts,
         ownerAddress,

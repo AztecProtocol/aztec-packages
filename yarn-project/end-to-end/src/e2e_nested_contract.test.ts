@@ -62,7 +62,7 @@ describe('e2e_nested_contract', () => {
      */
     it('performs nested calls', async () => {
       const tx = parentContract.methods
-        .entryPoint(childContract.completeAddress, childContract.methods.value.selector.toField())
+        .entryPoint(childContract.address, childContract.methods.value.selector.toField())
         .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
@@ -73,7 +73,7 @@ describe('e2e_nested_contract', () => {
 
     it('performs public nested calls', async () => {
       const tx = parentContract.methods
-        .pubEntryPoint(childContract.completeAddress, childContract.methods.pubGetValue.selector.toField(), 42n)
+        .pubEntryPoint(childContract.address, childContract.methods.pubGetValue.selector.toField(), 42n)
         .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
@@ -84,7 +84,7 @@ describe('e2e_nested_contract', () => {
 
     it('enqueues a single public call', async () => {
       const tx = parentContract.methods
-        .enqueueCallToChild(childContract.completeAddress, childContract.methods.pubIncValue.selector.toField(), 42n)
+        .enqueueCallToChild(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
@@ -100,7 +100,7 @@ describe('e2e_nested_contract', () => {
     it.skip('enqueues multiple public calls', async () => {
       const tx = parentContract.methods
         .enqueueCallToChildTwice(
-          addressToField(childContract.completeAddress),
+          addressToField(childContract.address),
           childContract.methods.pubIncValue.selector.value,
           42n,
         )
@@ -115,11 +115,7 @@ describe('e2e_nested_contract', () => {
 
     it('enqueues a public call with nested public calls', async () => {
       const tx = parentContract.methods
-        .enqueueCallToPubEntryPoint(
-          childContract.completeAddress,
-          childContract.methods.pubIncValue.selector.toField(),
-          42n,
-        )
+        .enqueueCallToPubEntryPoint(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
@@ -134,11 +130,7 @@ describe('e2e_nested_contract', () => {
     // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1587
     it.skip('enqueues multiple public calls with nested public calls', async () => {
       const tx = parentContract.methods
-        .enqueueCallsToPubEntryPoint(
-          childContract.completeAddress,
-          childContract.methods.pubIncValue.selector.toField(),
-          42n,
-        )
+        .enqueueCallsToPubEntryPoint(childContract.address, childContract.methods.pubIncValue.selector.toField(), 42n)
         .send({ origin: sender });
 
       await tx.isMined({ interval: 0.1 });
@@ -155,7 +147,7 @@ describe('e2e_nested_contract', () => {
     it.skip('reads fresh value after write within the same tx', async () => {
       const tx = parentContract.methods
         .pubEntryPointTwice(
-          addressToField(childContract.completeAddress),
+          addressToField(childContract.address),
           childContract.methods.pubIncValue.selector.value,
           42n,
         )
@@ -182,17 +174,17 @@ describe('e2e_nested_contract', () => {
 
     it('calls a method with multiple arguments', async () => {
       logger(`Calling main on importer contract`);
-      await importerContract.methods.main(testContract.completeAddress).send().wait();
+      await importerContract.methods.main(testContract.address).send().wait();
     }, 30_000);
 
     it('calls a method no arguments', async () => {
       logger(`Calling noargs on importer contract`);
-      await importerContract.methods.callNoArgs(testContract.completeAddress).send().wait();
+      await importerContract.methods.callNoArgs(testContract.address).send().wait();
     }, 30_000);
 
     it('calls an open function', async () => {
       logger(`Calling openfn on importer contract`);
-      await importerContract.methods.callOpenFn(testContract.completeAddress).send().wait();
+      await importerContract.methods.callOpenFn(testContract.address).send().wait();
     }, 30_000);
   });
 });

@@ -49,7 +49,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
       logger('Calling public function...');
       const tx = child.methods.pubIncValue(42).send();
       expect(await tx.isMined({ interval: 0.1 })).toBeTruthy();
-      expect(toBigInt((await aztecRpcServer.getPublicStorageAt(child.completeAddress, new Fr(1)))!)).toEqual(42n);
+      expect(toBigInt((await aztecRpcServer.getPublicStorageAt(child.address, new Fr(1)))!)).toEqual(42n);
     }, 60_000);
 
     it('fails to call a function using an invalid signature', async () => {
@@ -60,7 +60,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
         getAccountContract(PrivateKey.random()),
         accountAddress,
       ).getWallet();
-      const childWithInvalidWallet = await ChildContract.at(child.completeAddress, invalidWallet);
+      const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
         /Cannot satisfy constraint.*/,
       );

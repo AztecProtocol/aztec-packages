@@ -12,6 +12,7 @@ import {
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
+  Point,
   Proof,
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
@@ -179,6 +180,8 @@ describe('sequencer/solo_block_builder', () => {
         makeEmptyLogs(),
         [],
         times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
+        [new Fr(0)],
+        [Point.ZERO],
       ),
     );
 

@@ -46,7 +46,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     privateTokenAddress = await PrivateTokenContract.deploy(wallets[0], initialBalance, accounts[0])
       .send()
       .deployed()
-      .then(c => c.completeAddress);
+      .then(c => c.address);
     logger(`Private Token deployed at ${privateTokenAddress}`);
   }, 100_000);
 

@@ -115,7 +115,7 @@ async function deployAllContracts(owner: AztecAddress) {
   await uniswapL2Contract.attach(uniswapPortalAddress);
 
   await uniswapPortal.write.initialize(
-    [l1ContractsAddresses!.registry.toString(), uniswapL2Contract.completeAddress.toString()],
+    [l1ContractsAddresses!.registry.toString(), uniswapL2Contract.address.toString()],
     {} as any,
   );
 
@@ -240,10 +240,10 @@ async function main() {
   const withdrawTx = uniswapL2Contract.methods
     .swap(
       selector,
-      wethL2Contract.completeAddress.toField(),
+      wethL2Contract.address.toField(),
       wethAmountToBridge,
       new Fr(3000),
-      daiL2Contract.completeAddress.toField(),
+      daiL2Contract.address.toField(),
       new Fr(minimumOutputAmount),
       owner.address,
       owner.address,

@@ -267,31 +267,6 @@ export async function setup(
 }
 
 /**
- * Deploys a smart contract on L2.
- * @param aztecRpcServer - An instance of AztecRPC that will be used for contract deployment.
- * @param publicKey - The encryption public key.
- * @param abi - The Contract ABI (Application Binary Interface) that defines the contract's interface.
- * @param args - An array of arguments to be passed to the contract constructor during deployment.
- * @param contractAddressSalt - A random value used as a salt to generate the contract address. If not provided, the contract address will be deterministic.
- * @returns An object containing the deployed contract's address and partial address.
- */
-export async function deployContract(
-  aztecRpcServer: AztecRPC,
-  publicKey: PublicKey,
-  abi: ContractAbi,
-  args: any[],
-  contractAddressSalt?: Fr,
-) {
-  const deployer = new ContractDeployer(abi, aztecRpcServer, publicKey);
-  const deployMethod = deployer.deploy(...args);
-  await deployMethod.create({ contractAddressSalt });
-  const tx = deployMethod.send();
-  expect(await tx.isMined({ interval: 0.1 })).toBeTruthy();
-  const receipt = await tx.getReceipt();
-  return { address: receipt.contractAddress!, partialAddress: deployMethod.partialAddress! };
-}
-
-/**
  * Sets the timestamp of the next block.
  * @param rpcUrl - rpc url of the blockchain instance to connect to
  * @param timestamp - the timestamp for the next block
