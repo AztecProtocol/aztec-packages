@@ -48,8 +48,13 @@ export class SimulationError extends Error {
   private functionErrorStack: FailingFunction[];
 
   // We want to maintain a public constructor for proper printing.
-  constructor(message: string, failingFunction: FailingFunction, private noirErrorStack?: NoirCallStack) {
-    super(message);
+  constructor(
+    message: string,
+    failingFunction: FailingFunction,
+    private noirErrorStack?: NoirCallStack,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
     this.functionErrorStack = [failingFunction];
   }
 

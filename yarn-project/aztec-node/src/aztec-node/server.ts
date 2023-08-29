@@ -68,6 +68,7 @@ export class AztecNodeService implements AztecNode {
     protected chainId: number,
     protected version: number,
     protected globalVariableBuilder: GlobalVariableBuilder,
+    protected merkleTreeDb: MerkleTrees,
     private log = createDebugLogger('aztec:node'),
   ) {}
 
@@ -88,7 +89,7 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await AztecNodeService.createMerkleTreeDB();
+    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver, worldStateConfig);
 
@@ -116,11 +117,8 @@ export class AztecNodeService implements AztecNode {
       config.chainId,
       config.version,
       getGlobalVariableBuilder(config),
+      merkleTreeDB,
     );
-  }
-
-  static async createMerkleTreeDB() {
-    return MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
   }
 
   /**
@@ -387,7 +385,7 @@ export class AztecNodeService implements AztecNode {
   public async simulatePublicPart(tx: Tx) {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
     // Instantiate merkle tree db so uncommited updates by this simulation are local to it.
-    const merkleTreeDb = await AztecNodeService.createMerkleTreeDB();
+    const merkleTreeDb = await this.merkleTreeDb.forTransaction();
 
     const publicProcessorFactory = new PublicProcessorFactory(
       merkleTreeDb.asLatest(),

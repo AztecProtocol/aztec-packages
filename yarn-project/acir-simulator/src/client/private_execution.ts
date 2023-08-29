@@ -203,7 +203,9 @@ export class PrivateFunctionExecution {
       if (err instanceof SimulationError) {
         throw SimulationError.extendPreviousSimulationError(failingFunction, err);
       }
-      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined);
+      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined, {
+        cause: err,
+      });
     });
 
     const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);

@@ -170,7 +170,7 @@ export async function acvm(
           typedError = new Error(`Error in oracle callback ${err}`);
         }
         oracleError = typedError;
-        logger.error(`Error in oracle callback ${name}: ${typedError.message}`);
+        logger.error(`Error in oracle callback ${name}:`, typedError);
         throw typedError;
       }
     },
