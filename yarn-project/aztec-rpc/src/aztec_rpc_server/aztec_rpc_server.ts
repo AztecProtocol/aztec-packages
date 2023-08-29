@@ -355,8 +355,8 @@ export class AztecRPCServer implements AztecRPC {
 
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
+    this.log('Executing unconstrained simulator...');
     try {
-      this.log('Executing unconstrained simulator...');
       const result = await simulator.runUnconstrained(
         execRequest,
         from ?? AztecAddress.ZERO,
@@ -445,7 +445,7 @@ export class AztecRPCServer implements AztecRPC {
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    const tx = new Tx(
+    return new Tx(
       publicInputs,
       proof,
       encryptedLogs,
@@ -453,8 +453,6 @@ export class AztecRPCServer implements AztecRPC {
       newContractPublicFunctions,
       enqueuedPublicFunctions,
     );
-
-    return tx;
   }
 
   async #debugLogSimulationError(err: SimulationError) {

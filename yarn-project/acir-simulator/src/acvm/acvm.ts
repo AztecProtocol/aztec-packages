@@ -174,13 +174,13 @@ export async function acvm(
         throw typedError;
       }
     },
-  ).catch((acvmError: string) => {
+  ).catch((acvmErrorString: string) => {
     if (oracleError) {
       throw oracleError;
     }
 
     if (debug) {
-      const callStack = processAcvmError(acvmError, debug);
+      const callStack = processAcvmError(acvmErrorString, debug);
 
       if (callStack) {
         throw new ACVMError(
@@ -190,7 +190,7 @@ export async function acvm(
       }
     }
     // If we cannot find a callstack, throw the original error.
-    throw new ACVMError(acvmError);
+    throw new ACVMError(acvmErrorString);
   });
 
   return Promise.resolve({ partialWitness });

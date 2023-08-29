@@ -392,11 +392,9 @@ export class AztecNodeService implements AztecNode {
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
     const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
 
-    // Process txs and drop the ones that fail processing
-    // We create a fresh processor each time to reset any cached state (eg storage writes)
     const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
     const [, failedTxs] = await processor.process([tx]);
-    if (failedTxs.length > 0) {
+    if (failedTxs.length) {
       throw failedTxs[0].error;
     }
     this.log.info(`Simulated tx ${await tx.getTxHash()} succeeds`);
