@@ -117,16 +117,13 @@ contract Test {
         context.push_new_nullifier(note.get_commitment(), 0);
     }
 
+    #[aztec(public)]
     open fn isTimeEqual(
-        input: PublicContextInputs,
         time: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(input, abi::hash_args([time]));
-
+    ) {
         assert(context.timestamp() == time);
 
         context.return_values.push(time);
-        context.finish()
     }
 
     // Purely exists for testing

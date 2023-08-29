@@ -56,17 +56,12 @@ contract PrivateTokenAirdrop {
 
     // Burn `amount` of tokens from `owner`'s balance.
     // This is an example of a recursive function. It calls itself until enough notes have been burned to burn the `amount`.
+    #[aztec(private)]
     fn burn(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field,
         owner: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner]));
-
         let msg_sender = context.msg_sender();
         let this_address = context.this_address();
 
@@ -87,9 +82,6 @@ contract PrivateTokenAirdrop {
             let this = PrivateTokenAirdropContractInterface::at(this_address);
             let _res = this.burn(&mut context, amount_to_burn, owner);
         }
-        
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -123,16 +115,12 @@ contract PrivateTokenAirdrop {
         increment(&mut context, recipient_balance, amount, recipient);
     }
 
+    #[aztec(private)]
     fn createClaims(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amounts: [Field; 2],  // TODO: handle fields
         secrets: [Field; 2], 
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amounts[0], amounts[1], secrets[0], secrets[1]]));
         let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
@@ -148,9 +136,6 @@ contract PrivateTokenAirdrop {
         // Insert the new claim notes to the set.
         claims.insert(&mut context, &mut note0);
         claims.insert(&mut context, &mut note1);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     #[aztec(private)]
@@ -173,27 +158,14 @@ contract PrivateTokenAirdrop {
     // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
     // Aztec only allows `MAX_NEW_COMMITMENTS_PER_CALL = 4` notes per tx =>
     // 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
+    #[aztec(private)]
     fn batchTransfer(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         sender: Field, 
         amounts: [Field; 3], 
         recipients: [Field; 3], // TODO: handle arrays
         spend_note_offset: u32,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            sender, 
-            amounts[0], 
-            amounts[1], 
-            amounts[2], 
-            recipients[0], 
-            recipients[1], 
-            recipients[2], 
-            spend_note_offset as Field,
-        ]));
 
         // Gets the set of sender's notes and picks 4 of those based on the offset.
         // Spends the first of those 4 notes.
@@ -228,9 +200,6 @@ contract PrivateTokenAirdrop {
         // for each call to this function is distinct. This is done to detect any issues while collecting 
         // logs when building a transaction. See: https://github.com/AztecProtocol/aztec-packages/issues/987
         emit_unencrypted_log(&mut context, context.new_commitments.storage[0]);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
