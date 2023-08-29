@@ -107,6 +107,8 @@ export class PublicProcessor {
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[]]> {
+    // The processor modifies the tx objects in place, so we need to clone them.
+    txs = txs.map(tx => Tx.fromJSON(tx.toJSON()));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
 

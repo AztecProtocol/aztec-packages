@@ -147,8 +147,7 @@ export class Sequencer {
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
       const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
-      // The processor modifies the tx objects in place, so we need to clone them.
-      const [processedTxs, failedTxs] = await processor.process(validTxs.map(tx => Tx.fromJSON(tx.toJSON())));
+      const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
         const failedTxData = failedTxs.map(fail => fail.tx);
         this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
