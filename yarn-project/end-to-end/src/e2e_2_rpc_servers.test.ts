@@ -137,7 +137,7 @@ describe('e2e_2_rpc_servers', () => {
 
   const deployChildContractViaServerA = async () => {
     logger(`Deploying Child contract...`);
-    const contract = await ChildContract.deploy(aztecRpcServerA).send().deployed();
+    const contract = await ChildContract.deploy(walletA).send().deployed();
     logger('Child contract deployed');
 
     return contract.completeAddress;
