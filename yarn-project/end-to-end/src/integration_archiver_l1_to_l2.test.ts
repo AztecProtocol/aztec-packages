@@ -77,7 +77,7 @@ describe('archiver integration with l1 to l2 messages', () => {
     expect(balance).toBe(expectedBalance);
   };
 
-  it.only('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
+  it('cancelled l1 to l2 messages cannot be consumed by archiver', async () => {
     // create a message, then cancel it
 
     // Generate a claim secret using pedersen
