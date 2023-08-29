@@ -1,4 +1,6 @@
 $$
+\newcommand{\BE}{\text{BE}}
+\newcommand{\LT}{\text{LT}}
 \newcommand{\bB}{\mathbb{B}}
 \newcommand{\bF}{\mathbb{F}}
 \newcommand{\bin}{\text{bin}}
@@ -108,221 +110,77 @@ Denote by $P_{\ell, i}^{j} = P_{\ell}^{j}(\bin(i))$. To be clear: For each $\ell
 $$
 \sum_{j=0}^{k}L_j(Y)P_{\ell, i}^{(j)}
 $$
-which is a Lagrange-basis combined of a particular prover polynomial at a particular point of the hypercube. For instance, this might combine information about the selector $q_c$ in each of the instances to be folded.
-
-With these combined values in hand, we take the product over all values $\ell=1,\ldots, d$. That is, we want to compute
+which is a Lagrange-basis combined of a particular prover polynomial at a particular point of the hypercube. For instance, this might combine information about the selector $q_c$ in each of the instances to be folded. With these combined values in hand, we take the product over all values $\ell=1,\ldots, d$.
 $$
-\prod_{\ell=1}^d\left(\sum_{j=0}^{k}L_j(Y)P_{\ell, i}^{(j)}\right)
-= \sum_{j\in \{0,\ldots, k\}^d}\prod_{\ell=1}^{d}L_{j_\ell}(Y)P_{\ell, i}^{(j_\ell)}
+\hat P_{\ell, i} := \sum_{j=0}^{k}L_j(Y)P_{\ell, i}^{(j)}
 $$
-This constitutes most of the work of computing $G(Y)$.
-
-Here each $L_{j_\ell}$ is the Lagrange polynomial on $\{0,\ldots, k\}$ centered at $j_\ell$, and extended over the set $\{0,\ldots, kd\}$ (i.e., it is regarded as the vector of its $kd+1$ values over that set). For now we ignore a smallish optmization of using the sparseness of the $L_j$ in the first $k+1$ terms in this representation.
-
-### Naive approach
-This is a very inefficient way of computing  that would let us reuse our existing relations code: group terms as in
+We want to compute
 $$
-\prod_{\ell=1}^d \left(L_{j_\ell}(Y)P_{\ell, i}^{(j_\ell)}\right)
-$$
-- Each inner term: $kd+1$ muls, so computing all of them is $d\cdot (kd+1)$
-- Multiplying the inner terms: $(d-1)(kd+1)$ muls
-- Doing this for all $i$: multiply both of these preceding counts by $n$
-- Do this for every vector index $j$: multiply both running counts by $(k+1)^d$.
-
-Altogether, the cost cost of the above multiplication is
-$$
-(d(kd+1)+((d-1)(kd+1)))\cdot n\cdot (k+1)^d
-= (2d^2k-(2-k)d-1)n(k+1)^{d}
+\Rel_i = \prod_{\ell=1}^d\hat P_{\ell, i}
 $$
 
-## Isolating monomial terms
-This way would require us isolating homogeneous components of the relations. We group terms as in:
-$$
-\left(\prod_{\ell=1}^d L_{j_\ell}\right)\left(\prod_{\ell=1}^d P_{\ell, i}^{(j_\ell)}\right)
-$$
-Let's suppose we can precompute the Lagrange product at compile time (this is infeasible for some of our target parameter values). Then we can ignore:
-- Taking the product of the Lagrange polynomials: $(d-1)(kd+1)$ muls.
+Our strategy is it to realize each $\hat P_{\ell, i}$ as the tuple $(P_{\ell, i}^{(0)}, \ldots, P_{\ell, i}^{(k)})$ of values and then barycentrically extend this over $\{0,\ldots, kd\}$. Let $\BE_{k, d}$ the the cost of an arbitrary barycentric extension of this sort. The leading of a single barycentric evaluation over $\{0, \ldots, k\}$ is about $6(k+1)$ multiplications, and so the worst case for $\BE_{k,d}$ is about
+$ k(d-1)\cdot 6(k+1) $ multiplications. For small $k$ this cost can be improved dramatically using special formulas having many additions.
 
-Then, counting multiplications in the monomial products goes as follows:
-- Multiplying the polynomial values: $d-1$  muls
-- Multiplying against the Lagrange term: $kd+1$  muls
-- Doing the previous two steps for all $i$: multiply the counts by $n$
-- Do this for every vector index $j$: multiply both of the preceding counts by $(k+1)^d$.
+The cost of computing the relation is then 
+ - Barycentrically extend $\hat P_{\ell,i}$ for $\ell=1,\ldots, d$: $d\cdot \BE_{k,d}$ 
+ - Take the product of all $\hat P_{\ell,i}$: $(d-1)\cdot(kd+1)$ muls
+ - Do this for all $i$: multiply the preceding by $n$.
 
-Altogether, the Precompute cost is (later: we see this is realistic if $k+1\leq 16$, so the word "Precompute is a misnomer")
+So the total cost of executing the relation would be:
 $$
-\begin{align*}
-((d-1) + (kd+1)) \cdot n \cdot (k+1)^d
-=d\cdot (k+1) \cdot n \cdot (k+1)^d
-\end{align*}
+n \cdot (d\cdot \BE_{k,d} + (d-1) \cdot (kd+1)).
 $$
 
-The middle path cost where we recompute the Lagrange product (assuming we already have the Lagrange polynomials, which are easily precomputed) adds a new dominant term $(d-1)(kd+1)\cdot n\cdot (k+1)^d$, so the middle path cost becomes
+Using the worst-case formula for barycentric extension, in the case of $d=5$ this becomes
 $$
-\begin{align*}
-((d-1) + d(kd+1)) \cdot n \cdot (k+1)^d  
-= (d^2k+2d-1) \cdot n \cdot (k+1)^d  
-\end{align*}
+n \cdot (d \cdot k(d-1)\cdot 6(k+1) + (d-1) \cdot (kd+1)).
 $$
 
 
-## Concrete numbers
+This gives 
 
-The total cost of storing all of the Lagrange polynomial products is $(kd+1)\cdot \binom{k+d}{d}$ field elements; here we use the standard formula for the "number of choices of $d$ things from a set of k things WITH replacement" see [Wikipedia](https://en.wikipedia.org/wiki/Multiset#Counting_multisets). 
-
-| k   | count     | size (MiB)  |
-|-----|-----------|-------------|
-| 1   | 6         | 0.001       |
-| 3   | 56        | 0.027       |
-| 7   | 792       | 0.87        |
-| 15  | 15504     | 35.959      |
-| 31  | 376992    | 1794.762    |
-| 63  | 10424128  | 100525.648  |
-| 127 | 309319296 | 6003633.797 |
-
-So possibly we can get some mileage out of storing these tables for $k+1\leq 16$ (...but in the hot loop?).
+| $k$ | time on `Fr` muls (s), $n=16384$, Worst case barycentric |
+|-----|----------------------------------------------------------|
+| 1   | 0.09                                                     |
+| 3   | 0.49                                                     |
+| 7   | 2.25                                                     |
+| 15  | 9.54                                                     |
 
 
-
-### n = 16384
-
-| $k$ | time on `Fr` muls (s), $n=16384$, Naive |
-|-----|-----------------------------------------|
-| 1   | 0.51                                    |
-| 3   | 43.49                                   |
-| 7   | 3131.03                                 |
-| 15  | 211518.55                               |
-| 31  | 13893428.93                             |
-| 63  | 900579187.99                            |
-| 127 | 58001859600.9                           |
-
-| $k$ | time on `Fr` muls (s), $n=16384$, Precompute |
-|-----|----------------------------------------------|
-| 1   | 0.09                                         |
-| 3   | 6.04                                         |
-| 7   | 386.55                                       |
-| 15  | 24739.01                                     |
-| 31  | 1583296.74                                   |
-| 63  | 101330991.62                                 |
-| 127 | 6485183463.41                                |
-
-| $k$ | time on `Fr` muls (s), $n=16384$, Middle Path |
-|-----|-----------------------------------------------|
-| 1   | 0.32                                          |
-| 3   | 25.37                                         |
-| 7   | 1778.12                                       |
-| 15  | 118747.26                                     |
-| 31  | 7758154.05                                    |
-| 63  | 501588408.5                                   |
-| 127 | 32263787730.48                                |
+| $k$ | time on `Fr` muls (s), $n=32768$, Worst case barycentric |
+|-----|----------------------------------------------------------|
+| 1   | 0.17                                                     |
+| 3   | 0.99                                                     |
+| 7   | 4.5                                                      |
+| 15  | 19.07                                                    |
 
 
-### n = 32768
-
-| $k$ | time on `Fr` muls (s), $n=32768$, Naive |
-|-----|-----------------------------------------|
-| 1   | 1.02                                    |
-| 3   | 86.97                                   |
-| 7   | 6262.06                                 |
-| 15  | 423037.1                                |
-| 31  | 27786857.86                             |
-| 63  | 1801158375.97                           |
-| 127 | 116003719201.81                         |
-
-| $k$ | time on `Fr` muls (s), $n=32768$, Precompute |
-|-----|----------------------------------------------|
-| 1   | 0.19                                         |
-| 3   | 12.08                                        |
-| 7   | 773.09                                       |
-| 15  | 49478.02                                     |
-| 31  | 3166593.49                                   |
-| 63  | 202661983.23                                 |
-| 127 | 12970366926.83                               |
-
-| $k$ | time on `Fr` muls (s), $n=32768$, Middle Path |
-|-----|-----------------------------------------------|
-| 1   | 0.64                                          |
-| 3   | 50.73                                         |
-| 7   | 3556.23                                       |
-| 15  | 237494.51                                     |
-| 31  | 15516308.09                                   |
-| 63  | 1003176817.0                                  |
-| 127 | 64527575460.96                                |
+| $k$ | time on `Fr` muls (s), $n=65536$, Worst case barycentric |
+|-----|----------------------------------------------------------|
+| 1   | 0.35                                                     |
+| 3   | 1.97                                                     |
+| 7   | 9.0                                                      |
+| 15  | 38.15                                                    |
 
 
-### n = 65536
-
-| $k$ | time on `Fr` muls (s), $n=65536$, Naive |
-|-----|-----------------------------------------|
-| 1   | 2.04                                    |
-| 3   | 173.95                                  |
-| 7   | 12524.12                                |
-| 15  | 846074.2                                |
-| 31  | 55573715.71                             |
-| 63  | 3602316751.94                           |
-| 127 | 232007438403.62                         |
-
-| $k$ | time on `Fr` muls (s), $n=65536$, Precompute |
-|-----|----------------------------------------------|
-| 1   | 0.38                                         |
-| 3   | 24.16                                        |
-| 7   | 1546.19                                      |
-| 15  | 98956.05                                     |
-| 31  | 6333186.98                                   |
-| 63  | 405323966.46                                 |
-| 127 | 25940733853.65                               |
-
-| $k$ | time on `Fr` muls (s), $n=65536$, Middle Path |
-|-----|-----------------------------------------------|
-| 1   | 1.28                                          |
-| 3   | 101.47                                        |
-| 7   | 7112.47                                       |
-| 15  | 474989.02                                     |
-| 31  | 31032616.18                                   |
-| 63  | 2006353633.99                                 |
-| 127 | 129055150921.93                               |
+| $k$ | time on `Fr` muls (s), $n=131072$, Worst case barycentric |
+|-----|-----------------------------------------------------------|
+| 1   | 0.69                                                      |
+| 3   | 3.94                                                      |
+| 7   | 17.99                                                     |
+| 15  | 76.29                                                     |
 
 
-### n = 131072
 
-| $k$ | time on `Fr` muls (s), $n=131072$, Naive |
-|-----|------------------------------------------|
-| 1   | 4.08                                     |
-| 3   | 347.89                                   |
-| 7   | 25048.25                                 |
-| 15  | 1692148.4                                |
-| 31  | 111147431.43                             |
-| 63  | 7204633503.89                            |
-| 127 | 464014876807.24                          |
+Let's now consider the special case of $k=1$, where we fold a single instance into an existing accmulator instance. In this case, we want to go from $k+1=2$ evaluations to $kd+1 = 6$ evaluations. As we wrote down when exploring sumcheck optimizations in 2022, this can be done with one subtraction and $6-2=4$ additions. Each of these operations costs about 2.5ns, so we're looking at 12.5ns to extend, which is less than the cost of a single multiplication (20ns), so in this case the cost is about
+$$
+n \cdot (d\cdot \BE_{k,d} + (d-1) \cdot (kd+1)) = 5n + 24n = 29n
+$$
+multiplications. This is about $580n$ nanoseconds.
 
-| $k$ | time on `Fr` muls (s), $n=131072$, Precompute |
-|-----|-----------------------------------------------|
-| 1   | 0.75                                          |
-| 3   | 48.32                                         |
-| 7   | 3092.38                                       |
-| 15  | 197912.09                                     |
-| 31  | 12666373.95                                   |
-| 63  | 810647932.93                                  |
-| 127 | 51881467707.31                                |
+Suppose we can fold a pair of instances of size $n$ in a single thread and we can spin up 8 threads in parallel. Then we can fold 16 instances of size $n$, arranged in a binary tree, in about $580n*\log(16)$ ns. To do 32 instances would cost an additional $2*580n$ ns, to do 64 instances would cost an additional $4*580n$ ns on top of the cost of 32, and to do 128 instances would cost an additional $8*580n$ ns on top of the cost of 64. For our target kernel circuit size $2^{17}$, folding 16 instances would cost about $4*580 n/1,000,000,000 = 0.3$ seconds and folding 128 instances would cost about $(4 + 2 + 4 + 8)*580 n/1,000,000,000 = 1.4$ seconds.
 
-| $k$ | time on `Fr` muls (s), $n=131072$, Middle Path |
-|-----|------------------------------------------------|
-| 1   | 2.57                                           |
-| 3   | 202.94                                         |
-| 7   | 14224.93                                       |
-| 15  | 949978.05                                      |
-| 31  | 62065232.36                                    |
-| 63  | 4012707267.99                                  |
-| 127 | 258110301843.86                                |
+NB: We got sloppy with language just now--the true costs of folding will be higher, since we have only considered the cost of a single high-degree term in $G(Y)$ in the true Ultra Goblin Honk relation.
 
-## Conclusions
-Folding $k$ instances for large $k$ is infeasible regardless of the strategy. It seems that we should execute foldings in a binary tree, meaning we take $k=1$ and employ the "Precompute" strategy. Unfortunately, this increases the verifier MSM cost over a strategy of folding many instances at once, since the verifier will not benefit from using larger MSMs lengths. 
-
-From the above numbers, let's say we can fold one instance into a base instance in 2s (for small $n$ this seems plausible, for large $n$ it's pretty Precompute). Let's say we can execute 8 such operations in parallel in the client. Then we could fold 16 instances in $2*\log(16)=8$ s. We could do 32 instances at the cost of an additional $2*2$s to deal with the base layer. We could do 64 instances at the cost of an additional $4*2$ s (so altogehter $8 + 4 + 8 = 20$ for 64 instances).
-
-
-To move forward, we should:
- - Check my work here and incorporate realistic improvements.
- - Think about how much mileage we can get out of a Goblin-only strategy and ask how much PG improves on that.
- - Ask how much additional mileage we could get out of a WebGPU implementation. My sense is this is all extremely parallel.
- - Consider the high cost of witness construction. and include that in our overall client proving time cost.
+IOU: efficient formulas to allow folding more instances in a single go? Do we even care? What about a different choice of domain to give simpler extension formulas?
