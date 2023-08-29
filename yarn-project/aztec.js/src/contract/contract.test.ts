@@ -1,12 +1,14 @@
 import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
 import { ABIParameterVisibility, ContractAbi, FunctionType } from '@aztec/foundation/abi';
 import {
-  ContractData,
+  ContractDataAndBytecode,
+  DeployedContract,
   NodeInfo,
   Tx,
   TxExecutionRequest,
   TxHash,
   TxReceipt,
+  randomContractAbi,
   randomDeployedContract,
 } from '@aztec/types';
 
@@ -17,8 +19,8 @@ import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
   let wallet: MockProxy<Wallet>;
-
-  const contractAddress = AztecAddress.random();
+  let resolvedContractDataAndBytecode: ContractDataAndBytecode;
+  let contractAddress: AztecAddress;
   let account: CompleteAddress;
 
   const mockTx = { type: 'Tx' } as any as Tx;
@@ -88,10 +90,13 @@ describe('Contract Class', () => {
   };
 
   beforeEach(async () => {
+    resolvedContractDataAndBytecode = ContractDataAndBytecode.random();
+    contractAddress = resolvedContractDataAndBytecode.contractData.contractAddress;
     account = await CompleteAddress.random();
+
     wallet = mock<Wallet>();
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractData.mockResolvedValue(ContractData.random());
+    wallet.getContractDataAndBytecode.mockResolvedValue(resolvedContractDataAndBytecode);
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.viewTx.mockResolvedValue(mockViewResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
@@ -139,7 +144,11 @@ describe('Contract Class', () => {
   });
 
   it('should add contract and dependencies to aztec rpc', async () => {
-    const entry = await randomDeployedContract();
+    const entry: DeployedContract = {
+      abi: randomContractAbi(),
+      completeAddress: resolvedContractDataAndBytecode.getCompleteAddress(),
+      portalContract: EthAddress.random(),
+    };
     const contract = await Contract.at(entry.completeAddress.address, entry.abi, wallet);
 
     {
