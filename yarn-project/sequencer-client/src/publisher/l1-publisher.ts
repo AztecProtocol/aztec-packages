@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { ContractDataAndBytecode, L2Block, PartialAddress, PublicKey } from '@aztec/types';
+import { ContractDataAndBytecode, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';

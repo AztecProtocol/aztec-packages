@@ -17,7 +17,7 @@ import {
   getUnsafeSchnorrAccount,
   makeFetch,
 } from '@aztec/aztec.js';
-import { CompleteAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { CompleteAddress, PrivateKey } from '@aztec/circuits.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';

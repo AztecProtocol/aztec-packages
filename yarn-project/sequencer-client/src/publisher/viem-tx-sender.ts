@@ -1,7 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { ContractDeploymentEmitterAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CompleteAddress, ContractDataAndBytecode, PartialAddress, PublicKey } from '@aztec/types';
+import { ContractDataAndBytecode } from '@aztec/types';
 
 import {
   GetContractReturnType,

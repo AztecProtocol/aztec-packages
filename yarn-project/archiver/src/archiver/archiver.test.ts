@@ -3,14 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import {
-  ContractData,
-  ContractDataAndBytecode,
-  EncodedContractFunction,
-  L2Block,
-  L2BlockL2Logs,
-  LogType,
-} from '@aztec/types';
+import { ContractDataAndBytecode, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
