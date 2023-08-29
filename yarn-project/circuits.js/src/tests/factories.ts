@@ -467,6 +467,15 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
 }
 
 /**
+ * Creates empty membership witness where the sibling paths is an array of fields filled with zeros.
+ * @param start - The start of the membership witness.
+ * @returns Non-transient empty read request membership witness.
+ */
+export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
+  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(PRIVATE_DATA_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+}
+
+/**
  * Creates arbitrary/mocked verification key.
  * @returns A verification key.
  */

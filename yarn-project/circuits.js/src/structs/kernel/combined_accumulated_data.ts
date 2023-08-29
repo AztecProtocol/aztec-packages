@@ -15,6 +15,7 @@ import {
   NUM_FIELDS_PER_SHA256,
 } from '../../cbind/constants.gen.js';
 import { assertMemberLength, makeTuple } from '../../index.js';
+import { makeEmptyReadRequestMembershipWitness } from '../../tests/factories.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
 import {
   AggregationObject,
@@ -425,6 +426,28 @@ export class CombinedAccumulatedData {
       reader.readArray(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, OptionallyRevealedData),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest),
       reader.readArray(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead),
+    );
+  }
+
+  static fromFinalAccumulatedData(finalData: FinalAccumulatedData): CombinedAccumulatedData {
+    return new CombinedAccumulatedData(
+      finalData.aggregationObject,
+      makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
+      makeTuple(MAX_READ_REQUESTS_PER_TX, makeEmptyReadRequestMembershipWitness),
+      finalData.newCommitments,
+      finalData.newNullifiers,
+      finalData.nullifiedCommitments,
+      finalData.privateCallStack,
+      finalData.publicCallStack,
+      finalData.newL2ToL1Msgs,
+      finalData.encryptedLogsHash,
+      finalData.unencryptedLogsHash,
+      finalData.encryptedLogPreimagesLength,
+      finalData.unencryptedLogPreimagesLength,
+      finalData.newContracts,
+      finalData.optionallyRevealedData,
+      makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataUpdateRequest.empty),
+      makeTuple(MAX_PUBLIC_DATA_READS_PER_TX, PublicDataRead.empty),
     );
   }
 

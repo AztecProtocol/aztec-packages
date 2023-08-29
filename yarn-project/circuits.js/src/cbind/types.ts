@@ -22,8 +22,6 @@ export {
   AggregationObject as NativeAggregationState,
   AztecAddress as Address,
   VerificationKey as VerificationKeyData,
-  PrivateKernelPublicInputs as PublicInputs,
-  PrivateKernelPublicInputsFinal as PublicInputsFinal,
   Fr,
   Fq,
   G1AffineElement,
