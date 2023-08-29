@@ -4,11 +4,13 @@ title: Aztec CLI
 
 ## Introduction
 
-The Aztec CLI is a tool designed to enable a user to interact with the Aztec Network. Here we will provide a walk-through demonstrating how to use the CLI to deploy and test contracts on the [Aztec Sandbox](../sandbox/main.md).
+The Aztec CLI is a tool designed to enable a user to interact with the Aztec Network.
 
 ## Requirements
 
-The Aztec CLI is an npm package so you will need to have installed node.js >= 18. This tutorial will use the Aztec Sandbox so you should first set up the sandbox using the link above.
+This tutorial will use the Aztec Sandbox so you should first set it up by following [the Aztec Sandbox instructions](../sandbox/main.md).
+
+You should also have [node.js](https://nodejs.org/en/download) installed with version >= 18.
 
 To install the Aztec CLI run:
 
@@ -76,7 +78,7 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
 Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys).
 
 Alternatively, we can also manually generate a private key and use it for creating the account, either via a `-k` option or by setting the `PRIVATE_KEY` environment variable.
- 
+
 ```
 % aztec-cli generate-private-key
 
@@ -120,7 +122,7 @@ We will now deploy the private token contract using the `deploy` command, mintin
 Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
 ```
 
-:::info 
+:::info
 If you use a different address in the constructor above, you will get an error when running the deployment. This is because you need to register an account in the sandbox before it can receive private notes. When you create a new account, it gets automatically registered. Alternatively, you can register an account you do not own along with its public key using the `register-recipient` command.
 :::
 
@@ -128,6 +130,7 @@ This command takes 1 mandatory positional argument which is the path to the cont
 Alternatively you can pass the name of an example contract as exported by `@aztec/noir-contracts` (run `aztec-cli example-contracts` to see the full list of contracts available).
 
 The command takes a few optional arguments while the most important one is:
+
 - `--args` - Arguments to the constructor of the contract. In this case we have minted 1000000 initial tokens to the aztec address 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c.
 
 The CLI tells us that the contract was successfully deployed. We can use the `check-deploy` command to verify that a contract has been successfully deployed to that address:
@@ -184,6 +187,7 @@ We called the `transfer` function of the contract and provided these arguments:
 - `--args` - The list of arguments to the function call.
 - `--contract-abi` - The abi of the contract to call.
 - `--contract-address` - The deployed address of the contract to call.
+- `--private-key` - The private key of the sender
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
