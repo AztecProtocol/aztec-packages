@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { ContractDataAndBytecode, L2Block } from '@aztec/types';
+import { ExtendedContractData, L2Block } from '@aztec/types';
 
 import { L2BlockReceiver } from '../receiver.js';
 import { PublisherConfig } from './config.js';
@@ -36,7 +36,7 @@ export interface L1PublisherTxSender {
    * @param l2BlockHash - The hash of the block corresponding to this data.
    * @param partialAddresses - The partial addresses of the deployed contract
    * @param publicKeys - The public keys of the deployed contract
-   * @param newContractDataAndBytecode - Data to publish.
+   * @param newExtendedContractData - Data to publish.
    * @returns The hash of the mined tx.
    * @remarks Partial addresses, public keys and contract data has to be in the same order.
    * @remarks See the link bellow for more info on partial address and public key:
@@ -46,7 +46,7 @@ export interface L1PublisherTxSender {
   sendEmitContractDeploymentTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    newContractDataAndBytecode: ContractDataAndBytecode[],
+    newExtendedContractData: ExtendedContractData[],
   ): Promise<(string | undefined)[]>;
 
   /**
@@ -145,12 +145,8 @@ export class L1Publisher implements L2BlockReceiver {
    * @param contractData - The new contract data to publish.
    * @returns True once the tx has been confirmed and is successful, false on revert or interrupt, blocks otherwise.
    */
-  public async processNewContractData(
-    l2BlockNum: number,
-    l2BlockHash: Buffer,
-    contractData: ContractDataAndBytecode[],
-  ) {
-    let _contractData: ContractDataAndBytecode[] = [];
+  public async processNewContractData(l2BlockNum: number, l2BlockHash: Buffer, contractData: ExtendedContractData[]) {
+    let _contractData: ExtendedContractData[] = [];
     while (!this.interrupted) {
       if (!(await this.checkFeeDistributorBalance())) {
         this.log(`Fee distributor ETH balance too low, awaiting top up...`);
@@ -223,11 +219,11 @@ export class L1Publisher implements L2BlockReceiver {
   private async sendEmitNewContractDataTx(
     l2BlockNum: number,
     l2BlockHash: Buffer,
-    newContractDataAndBytecode: ContractDataAndBytecode[],
+    newExtendedContractData: ExtendedContractData[],
   ) {
     while (!this.interrupted) {
       try {
-        return await this.txSender.sendEmitContractDeploymentTx(l2BlockNum, l2BlockHash, newContractDataAndBytecode);
+        return await this.txSender.sendEmitContractDeploymentTx(l2BlockNum, l2BlockHash, newExtendedContractData);
       } catch (err) {
         this.log.error(`Error sending contract data to L1`, err);
         await this.sleepOrInterrupted();

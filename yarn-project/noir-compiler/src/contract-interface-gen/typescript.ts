@@ -113,11 +113,11 @@ function generateAt(name: string) {
     /** The wallet. */
     wallet: Wallet,
   ) {
-    const contractDataAndBytecode = await wallet.getContractDataAndBytecode(address);
-    if (contractDataAndBytecode === undefined) {
+    const extendedContractData = await wallet.getExtendedContractData(address);
+    if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new ${name}Contract(contractDataAndBytecode.getCompleteAddress(), wallet);
+    return new ${name}Contract(extendedContractData.getCompleteAddress(), wallet);
   }`;
 }
 

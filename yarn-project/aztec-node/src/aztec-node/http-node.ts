@@ -11,7 +11,7 @@ import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   ContractData,
-  ContractDataAndBytecode,
+  ExtendedContractData,
   L1ToL2Message,
   L1ToL2MessageAndIndex,
   L2Block,
@@ -125,7 +125,7 @@ export class HttpNode implements AztecNode {
    * @param contractAddress - The contract data address.
    * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
    */
-  async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
+  async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     const url = new URL(`${this.baseUrl}/contract-data-and-bytecode`);
     url.searchParams.append('address', contractAddress.toString());
     const response = await (await fetch(url.toString())).json();
@@ -133,7 +133,7 @@ export class HttpNode implements AztecNode {
       return undefined;
     }
     const contract = response.contractData as string;
-    return Promise.resolve(ContractDataAndBytecode.fromBuffer(Buffer.from(contract, 'hex')));
+    return Promise.resolve(ExtendedContractData.fromBuffer(Buffer.from(contract, 'hex')));
   }
 
   /**

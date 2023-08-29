@@ -122,7 +122,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       );
     });
 
-    // Note: Not testing `getContractDataAndBytecode`, `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getExtendedContractData`, `getContractData` and `getUnencryptedLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

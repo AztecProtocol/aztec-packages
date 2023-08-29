@@ -5,8 +5,8 @@ import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-art
 import {
   BufferReader,
   ContractData,
-  ContractDataAndBytecode,
   EncodedContractFunction,
+  ExtendedContractData,
   L1Actor,
   L1ToL2Message,
   L2Actor,
@@ -163,13 +163,13 @@ export async function getContractDeploymentLogs(
  * Processes newly received ContractDeployment logs.
  * @param blockHashMapping - A mapping from block number to relevant block hash.
  * @param logs - ContractDeployment logs.
- * @returns The set of retrieved contract data and bytecode items.
+ * @returns The set of retrieved extended contract data items.
  */
 export function processContractDeploymentLogs(
   blockHashMapping: { [key: number]: Buffer | undefined },
   logs: Log<bigint, number, undefined, true, typeof ContractDeploymentEmitterAbi, 'ContractDeployment'>[],
-): [ContractDataAndBytecode[], number][] {
-  const contractDataAndBytecode: [ContractDataAndBytecode[], number][] = [];
+): [ExtendedContractData[], number][] {
+  const extendedContractData: [ExtendedContractData[], number][] = [];
   for (let i = 0; i < logs.length; i++) {
     const log = logs[i];
     const l2BlockNum = Number(log.args.l2BlockNum);
@@ -185,19 +185,19 @@ export function processContractDeploymentLogs(
       Fr.fromBuffer(Buffer.from(hexToBytes(log.args.pubKeyY))),
     );
 
-    const contractData = new ContractDataAndBytecode(
+    const contractData = new ExtendedContractData(
       new ContractData(AztecAddress.fromString(log.args.aztecAddress), EthAddress.fromString(log.args.portalAddress)),
       publicFnsReader.readVector(EncodedContractFunction),
       partialAddress,
       publicKey,
     );
-    if (contractDataAndBytecode[i]) {
-      contractDataAndBytecode[i][0].push(contractData);
+    if (extendedContractData[i]) {
+      extendedContractData[i][0].push(contractData);
     } else {
-      contractDataAndBytecode[i] = [[contractData], l2BlockNum];
+      extendedContractData[i] = [[contractData], l2BlockNum];
     }
   }
-  return contractDataAndBytecode;
+  return extendedContractData;
 }
 
 /**

@@ -24,9 +24,9 @@ export interface ContractDataSource {
    * Contains information such as the ethereum portal address and bytecode.
    * NOTE: This method works only for contracts that have public function bytecode.
    * @param contractAddress - The contract data address.
-   * @returns Contract data and bytecode or undefined if not found.
+   * @returns Extended contract data or undefined if not found.
    */
-  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
   /**
    * Lookup the L2 contract base info for this contract.
@@ -37,11 +37,11 @@ export interface ContractDataSource {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Lookup all contract data and bytecode in an L2 block.
+   * Gets extended contract data for all contracts deployed in L2 block.
    * @param blockNumber - The block number.
-   * @returns Public data of contracts deployed in L2 block, including public function bytecode.
+   * @returns Extended contract data of contracts deployed in L2 block.
    */
-  getContractDataAndBytecodeInBlock(blockNumber: number): Promise<ContractDataAndBytecode[]>;
+  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]>;
 
   /**
    * Lookup contract data in an L2 block.
@@ -109,9 +109,9 @@ export class EncodedContractFunction {
 }
 
 /**
- * A contract data blob, containing L1 and L2 addresses, as well as public functions' bytecode.
+ * A contract data blob, containing L1 and L2 addresses, public functions' bytecode, partial address and public key.
  */
-export class ContractDataAndBytecode {
+export class ExtendedContractData {
   /** The contract's encoded ACIR code. This should become Brillig code once implemented. */
   public bytecode: Buffer;
 
@@ -173,7 +173,7 @@ export class ContractDataAndBytecode {
     const publicFns = reader.readVector(EncodedContractFunction);
     const partialAddress = reader.readObject(Fr);
     const publicKey = reader.readObject(Point);
-    return new ContractDataAndBytecode(contractData, publicFns, partialAddress, publicKey);
+    return new ExtendedContractData(contractData, publicFns, partialAddress, publicKey);
   }
 
   /**
@@ -182,15 +182,15 @@ export class ContractDataAndBytecode {
    * @returns Deserialized instance.
    */
   static fromString(str: string) {
-    return ContractDataAndBytecode.fromBuffer(Buffer.from(str, 'hex'));
+    return ExtendedContractData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
   /**
    * Generate ContractData with random addresses.
-   * @returns A random ContractDataAndBytecode object.
+   * @returns A random ExtendedContractData object.
    */
-  static random(): ContractDataAndBytecode {
-    return new ContractDataAndBytecode(
+  static random(): ExtendedContractData {
+    return new ExtendedContractData(
       ContractData.random(),
       [EncodedContractFunction.random(), EncodedContractFunction.random()],
       Fr.random(),

@@ -23,8 +23,8 @@ import {
   AztecRPC,
   ContractDao,
   ContractData,
-  ContractDataAndBytecode,
   DeployedContract,
+  ExtendedContractData,
   FunctionCall,
   INITIAL_L2_BLOCK_NUM,
   KeyStore,
@@ -239,8 +239,8 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getBlockNumber();
   }
 
-  public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
-    return await this.node.getContractDataAndBytecode(contractAddress);
+  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return await this.node.getExtendedContractData(contractAddress);
   }
 
   public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {

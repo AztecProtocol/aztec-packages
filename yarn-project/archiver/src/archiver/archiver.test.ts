@@ -3,7 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { ContractDataAndBytecode, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
+import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -148,18 +148,18 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
  * @returns An ContractDeployment event.
  */
 function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
-  const contractDataAndBytecode = ContractDataAndBytecode.random();
-  const acir = contractDataAndBytecode.bytecode?.toString('hex');
+  const extendedContractData = ExtendedContractData.random();
+  const acir = extendedContractData.bytecode?.toString('hex');
   return {
     blockNumber: l1BlockNum,
     args: {
       l2BlockNum: BigInt(l2Block.number),
-      aztecAddress: contractDataAndBytecode.contractData.contractAddress.toString(),
-      portalAddress: contractDataAndBytecode.contractData.portalContractAddress.toString(),
+      aztecAddress: extendedContractData.contractData.contractAddress.toString(),
+      portalAddress: extendedContractData.contractData.portalContractAddress.toString(),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
-      partialAddress: contractDataAndBytecode.partialAddress.toString(true),
-      pubKeyX: contractDataAndBytecode.publicKey.x.toString(true),
-      pubKeyY: contractDataAndBytecode.publicKey.y.toString(true),
+      partialAddress: extendedContractData.partialAddress.toString(true),
+      pubKeyX: extendedContractData.publicKey.x.toString(true),
+      pubKeyY: extendedContractData.publicKey.y.toString(true),
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,

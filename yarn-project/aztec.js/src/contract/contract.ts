@@ -20,10 +20,10 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
-    const contractDataAndBytecode = await wallet.getContractDataAndBytecode(address);
-    if (contractDataAndBytecode === undefined) {
+    const extendedContractData = await wallet.getExtendedContractData(address);
+    if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new Contract(contractDataAndBytecode.getCompleteAddress(), abi, wallet);
+    return new Contract(extendedContractData.getCompleteAddress(), abi, wallet);
   }
 }
