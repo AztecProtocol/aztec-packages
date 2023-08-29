@@ -1,19 +1,15 @@
 import {
-  Fr,
   KernelCircuitPublicInputs,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
-  PartialAddress,
-  Point,
   Proof,
   PublicCallRequest,
-  PublicKey,
 } from '@aztec/circuits.js';
 import { serializeToBuffer } from '@aztec/circuits.js/utils';
 import { arrayNonEmptyLength } from '@aztec/foundation/collection';
-import { BufferReader, Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
+import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
-import { EncodedContractFunction } from '../contract_data.js';
+import { ExtendedContractData } from '../contract_data.js';
 import { TxL2Logs } from '../logs/tx_l2_logs.js';
 import { TxHash } from './tx_hash.js';
 
@@ -39,18 +35,15 @@ export class Tx {
      */
     public readonly unencryptedLogs: TxL2Logs,
     /**
-     * New public functions made available by this tx.
-     */
-    public readonly newContractPublicFunctions: EncodedContractFunction[],
-    /**
      * Enqueued public functions from the private circuit to be run by the sequencer.
      * Preimages of the public call stack entries from the private kernel circuit output.
      */
     public readonly enqueuedPublicFunctionCalls: PublicCallRequest[],
-    /** Partial addresses of new contracts. */
-    public readonly partialAddresses: Tuple<PartialAddress, typeof MAX_NEW_CONTRACTS_PER_TX>,
-    /** Public keys of new contracts. */
-    public readonly publicKeys: Tuple<PublicKey, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    /**
+     * Contracts deployed in this tx.
+     * Note: Portal address is always set to zero in the tx's new contracts.
+     */
+    public readonly newContracts: Tuple<ExtendedContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
   ) {
     if (this.unencryptedLogs.functionLogs.length < this.encryptedLogs.functionLogs.length) {
       // This check is present because each private function invocation creates encrypted FunctionL2Logs object and
@@ -84,10 +77,8 @@ export class Tx {
       reader.readObject(Proof),
       reader.readObject(TxL2Logs),
       reader.readObject(TxL2Logs),
-      reader.readArray(reader.readNumber(), EncodedContractFunction),
       reader.readArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, PublicCallRequest),
-      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, Point),
+      reader.readArray(MAX_NEW_CONTRACTS_PER_TX, ExtendedContractData),
     );
   }
 
@@ -101,12 +92,8 @@ export class Tx {
       this.proof,
       this.encryptedLogs,
       this.unencryptedLogs,
-      // number of new contract public functions is not constant so we need to include it in the serialization
-      numToUInt32BE(this.newContractPublicFunctions.length),
-      this.newContractPublicFunctions,
       this.enqueuedPublicFunctionCalls,
-      this.partialAddresses,
-      this.publicKeys,
+      this.newContracts,
     ]);
   }
 
@@ -120,10 +107,8 @@ export class Tx {
       encryptedLogs: this.encryptedLogs.toBuffer().toString('hex'),
       unencryptedLogs: this.unencryptedLogs.toBuffer().toString('hex'),
       proof: this.proof.toBuffer().toString('hex'),
-      newContractPublicFunctions: this.newContractPublicFunctions.map(f => f.toBuffer().toString('hex')) ?? [],
       enqueuedPublicFunctions: this.enqueuedPublicFunctionCalls.map(f => f.toBuffer().toString('hex')) ?? [],
-      partialAddresses: this.partialAddresses.map(f => f.toBuffer().toString('hex')),
-      publicKeys: this.publicKeys.map(f => f.toBuffer().toString('hex')),
+      newContracts: this.newContracts.map(c => c.toBuffer().toString('hex')),
     };
   }
 
@@ -137,23 +122,17 @@ export class Tx {
     const encryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.encryptedLogs, 'hex'));
     const unencryptedLogs = TxL2Logs.fromBuffer(Buffer.from(obj.unencryptedLogs, 'hex'));
     const proof = Buffer.from(obj.proof, 'hex');
-    const newContractPublicFunctions = obj.newContractPublicFunctions
-      ? obj.newContractPublicFunctions.map((x: string) => EncodedContractFunction.fromBuffer(Buffer.from(x, 'hex')))
-      : [];
     const enqueuedPublicFunctions = obj.enqueuedPublicFunctions
       ? obj.enqueuedPublicFunctions.map((x: string) => PublicCallRequest.fromBuffer(Buffer.from(x, 'hex')))
       : [];
-    const partialAddresses = obj.partialAddresses.map((x: string) => Fr.fromBuffer(Buffer.from(x, 'hex')));
-    const publicKeys = obj.publicKeys.map((x: string) => Point.fromBuffer(Buffer.from(x, 'hex')));
+    const newContracts = obj.newContracts.map((x: string) => ExtendedContractData.fromBuffer(Buffer.from(x, 'hex')));
     return new Tx(
       publicInputs,
       Proof.fromBuffer(proof),
       encryptedLogs,
       unencryptedLogs,
-      newContractPublicFunctions,
       enqueuedPublicFunctions,
-      partialAddresses,
-      publicKeys,
+      newContracts,
     );
   }
 
@@ -187,29 +166,13 @@ export class Tx {
     const proof = Proof.fromBuffer(tx.proof.toBuffer());
     const encryptedLogs = TxL2Logs.fromBuffer(tx.encryptedLogs.toBuffer());
     const unencryptedLogs = TxL2Logs.fromBuffer(tx.unencryptedLogs.toBuffer());
-    const publicFunctions = tx.newContractPublicFunctions.map(x => {
-      return EncodedContractFunction.fromBuffer(x.toBuffer());
-    });
     const enqueuedPublicFunctions = tx.enqueuedPublicFunctionCalls.map(x => {
       return PublicCallRequest.fromBuffer(x.toBuffer());
     });
-    const partialAddresses = tx.partialAddresses.map(x => Fr.fromBuffer(x.toBuffer())) as Tuple<
-      PartialAddress,
+    const newContracts = tx.newContracts.map(c => ExtendedContractData.fromBuffer(c.toBuffer())) as Tuple<
+      ExtendedContractData,
       typeof MAX_NEW_CONTRACTS_PER_TX
     >;
-    const publicKeys = tx.publicKeys.map(x => Point.fromBuffer(x.toBuffer())) as Tuple<
-      PublicKey,
-      typeof MAX_NEW_CONTRACTS_PER_TX
-    >;
-    return new Tx(
-      publicInputs,
-      proof,
-      encryptedLogs,
-      unencryptedLogs,
-      publicFunctions,
-      enqueuedPublicFunctions,
-      partialAddresses,
-      publicKeys,
-    );
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, newContracts);
   }
 }

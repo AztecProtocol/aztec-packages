@@ -7,6 +7,7 @@ import {
 import {
   AztecAddress,
   CompleteAddress,
+  EthAddress,
   FunctionData,
   KernelCircuitPublicInputs,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -395,23 +396,20 @@ export class AztecRPCServer implements AztecRPC {
     const encryptedLogs = new TxL2Logs(collectEncryptedLogs(executionResult));
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
-    const partialAddress = newContract?.completeAddress.partialAddress ?? Fr.ZERO;
-    const publicKey = newContract?.completeAddress.publicKey ?? Point.ZERO;
+
+    const contractData = new ContractData(newContract?.completeAddress.address ?? AztecAddress.ZERO, EthAddress.ZERO);
+    const extendedContractData = new ExtendedContractData(
+      contractData,
+      newContractPublicFunctions,
+      newContract?.completeAddress.partialAddress ?? Fr.ZERO,
+      newContract?.completeAddress.publicKey ?? Point.ZERO,
+    );
 
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(
-      publicInputs,
-      proof,
-      encryptedLogs,
-      unencryptedLogs,
-      newContractPublicFunctions,
-      enqueuedPublicFunctions,
-      [partialAddress],
-      [publicKey],
-    );
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
   }
 
   // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel

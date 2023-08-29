@@ -25,11 +25,9 @@ const verifyTx = (actual: Tx, expected: Tx) => {
   expect(actual.data!.toBuffer()).toEqual(expected.data?.toBuffer());
   expect(actual.proof!.toBuffer()).toEqual(expected.proof!.toBuffer());
   expect(actual.encryptedLogs!.toBuffer()).toEqual(expected.encryptedLogs?.toBuffer());
-  expect(actual.newContractPublicFunctions!.length).toEqual(expected.newContractPublicFunctions!.length);
-  for (let i = 0; i < actual.newContractPublicFunctions!.length; i++) {
-    expect(actual.newContractPublicFunctions![i].toBuffer()).toEqual(
-      expected.newContractPublicFunctions![i].toBuffer(),
-    );
+  expect(actual.newContracts!.length).toEqual(expected.newContracts!.length);
+  for (let i = 0; i < actual.newContracts!.length; i++) {
+    expect(actual.newContracts![i].toBuffer()).toEqual(expected.newContracts![i].toBuffer());
   }
 };
 

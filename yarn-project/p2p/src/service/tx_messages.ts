@@ -1,15 +1,6 @@
-import {
-  Fr,
-  KernelCircuitPublicInputs,
-  MAX_NEW_CONTRACTS_PER_TX,
-  PartialAddress,
-  Point,
-  Proof,
-  PublicCallRequest,
-  PublicKey,
-} from '@aztec/circuits.js';
+import { KernelCircuitPublicInputs, MAX_NEW_CONTRACTS_PER_TX, Proof, PublicCallRequest } from '@aztec/circuits.js';
 import { Tuple, numToUInt32BE } from '@aztec/foundation/serialize';
-import { EncodedContractFunction, Tx, TxHash, TxL2Logs } from '@aztec/types';
+import { ExtendedContractData, Tx, TxHash, TxL2Logs } from '@aztec/types';
 
 /**
  * Enumeration of P2P message types.
@@ -154,10 +145,8 @@ export function toTxMessage(tx: Tx): Buffer {
     createMessageComponent(tx.proof),
     createMessageComponent(tx.encryptedLogs),
     createMessageComponent(tx.unencryptedLogs),
-    createMessageComponents(tx.newContractPublicFunctions),
     createMessageComponents(tx.enqueuedPublicFunctionCalls),
-    createMessageComponents(tx.partialAddresses),
-    createMessageComponents(tx.publicKeys),
+    createMessageComponents(tx.newContracts),
   ]);
   const messageLength = numToUInt32BE(messageBuffer.length);
   return Buffer.concat([messageLength, messageBuffer]);
@@ -209,18 +198,14 @@ export function fromTxMessage(buffer: Buffer): Tx {
     unencryptedLogs.obj = new TxL2Logs([]);
   }
 
-  const functions = toObjectArray(unencryptedLogs.remainingData, EncodedContractFunction);
-  const publicCalls = toObjectArray(functions.remainingData, PublicCallRequest);
-  const partialAddresses = toObjectArray(publicCalls.remainingData, Fr);
-  const publicKeys = toObjectArray(partialAddresses.remainingData, Point);
+  const publicCalls = toObjectArray(unencryptedLogs.remainingData, PublicCallRequest);
+  const newContracts = toObjectArray(publicCalls.remainingData, ExtendedContractData);
   return new Tx(
     publicInputs.obj!,
     proof.obj!,
     encryptedLogs.obj,
     unencryptedLogs.obj,
-    functions.objects,
     publicCalls.objects,
-    partialAddresses.objects as Tuple<PartialAddress, typeof MAX_NEW_CONTRACTS_PER_TX>,
-    publicKeys.objects as Tuple<PublicKey, typeof MAX_NEW_CONTRACTS_PER_TX>,
+    newContracts.objects as Tuple<ExtendedContractData, typeof MAX_NEW_CONTRACTS_PER_TX>,
   );
 }

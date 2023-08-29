@@ -33,6 +33,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { to2Fields } from '@aztec/foundation/serialize';
 import {
   ContractData,
+  ExtendedContractData,
   L2Block,
   L2BlockL2Logs,
   MerkleTreeId,
@@ -178,10 +179,8 @@ describe('sequencer/solo_block_builder', () => {
         emptyProof,
         makeEmptyLogs(),
         makeEmptyLogs(),
-        [],
         times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
-        [new Fr(0)],
-        [Point.ZERO],
+        [ExtendedContractData.random()],
       ),
     );
 

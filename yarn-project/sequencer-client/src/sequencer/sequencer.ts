@@ -194,12 +194,7 @@ export class Sequencer {
         // Currently can only have 1 new contract per tx
         const newContract = tx.data?.end.newContracts[0];
         if (newContract) {
-          return new ExtendedContractData(
-            new ContractData(newContract.contractAddress, newContract.portalContractAddress),
-            tx.newContractPublicFunctions,
-            tx.partialAddresses[0],
-            tx.publicKeys[0],
-          );
+          return tx.newContracts[0];
         }
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
