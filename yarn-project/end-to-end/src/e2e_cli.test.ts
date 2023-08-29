@@ -161,7 +161,7 @@ describe('cli', () => {
     const receiver = existingAccounts.find(acc => acc.address.toString() !== ownerAddress.toString());
 
     await run(
-      `send transfer --args ${TRANSFER_BALANCE} ${ownerAddress.toString()} ${receiver?.address.toString()} --contract-address ${contractAddress.toString()} --contract-abi PrivateTokenContractAbi --private-key ${privKey}`,
+      `send transfer --args ${TRANSFER_BALANCE} ${receiver?.address.toString()} --contract-address ${contractAddress.toString()} --contract-abi PrivateTokenContractAbi --private-key ${privKey}`,
     );
     const txHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
 
