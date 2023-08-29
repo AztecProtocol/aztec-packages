@@ -61,7 +61,7 @@ contract Test {
         aField: Field,
         aBool: bool,
         aNumber: u32,
-        anArray: [Field; 2], // TODO: manage casting of arrays of arbitrary length as inputs
+        anArray: [Field; 2],
         aStruct: DummyNote,
         aDeepStruct: DeepStruct,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
@@ -97,6 +97,7 @@ contract Test {
         
         // Public oracle call to emit new commitment.
         context.message_portal(note.get_commitment());
+        
     }
 
     // Purely exists for testing

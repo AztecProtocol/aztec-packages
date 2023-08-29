@@ -364,11 +364,9 @@ impl Hasher {
     }
 
     fn add(&mut self, field: Field) {
-        // yikes
         self.fields = self.fields.push_back(field);
     }
 
-    // Call .serialize on it
     fn add_multiple<N>(&mut self, fields: [Field; N]) {
         for i in 0..N {
             self.fields = self.fields.push_back(fields[i]);

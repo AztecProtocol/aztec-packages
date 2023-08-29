@@ -117,8 +117,8 @@ contract PrivateTokenAirdrop {
 
     #[aztec(private)]
     fn createClaims(
-        amounts: [Field; 2],  // TODO: handle fields
-        secrets: [Field; 2], 
+        amounts: [Field; 2],
+        secrets: [Field; 2],
     ) {
         let storage = Storage::init();
         let sender = context.msg_sender();
@@ -160,9 +160,9 @@ contract PrivateTokenAirdrop {
     // 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
     #[aztec(private)]
     fn batchTransfer(
-        sender: Field, 
-        amounts: [Field; 3], 
-        recipients: [Field; 3], // TODO: handle arrays
+        sender: Field,
+        amounts: [Field; 3],
+        recipients: [Field; 3],
         spend_note_offset: u32,
     ) {
         let storage = Storage::init();
