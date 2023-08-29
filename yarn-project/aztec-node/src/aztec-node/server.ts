@@ -88,7 +88,7 @@ export class AztecNodeService implements AztecNode {
     const p2pClient = await createP2PClient(config, new InMemoryTxPool(), archiver);
 
     // now create the merkle trees and the world state syncher
-    const merkleTreeDB = await MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
+    const merkleTreeDB = await AztecNodeService.createMerkleTreeDB();
     const worldStateConfig: WorldStateConfig = getWorldStateConfig();
     const worldStateSynchroniser = new ServerWorldStateSynchroniser(merkleTreeDB, archiver, worldStateConfig);
 
@@ -117,6 +117,10 @@ export class AztecNodeService implements AztecNode {
       config.version,
       getGlobalVariableBuilder(config),
     );
+  }
+
+  static async createMerkleTreeDB() {
+    return MerkleTrees.new(levelup(createMemDown()), await CircuitsWasm.get());
   }
 
   /**
@@ -382,16 +386,17 @@ export class AztecNodeService implements AztecNode {
    **/
   public async simulatePublicPart(tx: Tx) {
     this.log.info(`Simulating tx ${await tx.getTxHash()}`);
+    // Instantiate merkle tree db so uncommited updates by this simulation are local to it.
+    const merkleTreeDb = await AztecNodeService.createMerkleTreeDB();
 
     const publicProcessorFactory = new PublicProcessorFactory(
-      this.worldStateSynchroniser.getLatest(),
+      merkleTreeDb.asLatest(),
       this.contractDataSource,
       this.l1ToL2MessageSource,
     );
     const blockNumber = (await this.blockSource.getBlockNumber()) + 1;
     const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(new Fr(blockNumber));
     const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
-
     const processor = await publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
     const [, failedTxs] = await processor.process([tx]);
     if (failedTxs.length) {
