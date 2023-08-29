@@ -44,7 +44,7 @@ import {
   toContractDao,
 } from '@aztec/types';
 
-import { RpcServerConfig } from '../config/index.js';
+import { RpcServerConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
@@ -58,6 +58,7 @@ import { Synchroniser } from '../synchroniser/index.js';
 export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
   private log: DebugLogger;
+  private clientInfo: string;
 
   constructor(
     private keyStore: KeyStore,
@@ -68,6 +69,9 @@ export class AztecRPCServer implements AztecRPC {
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:rpc_server_${logSuffix}` : `aztec:rpc_server`);
     this.synchroniser = new Synchroniser(node, db, logSuffix);
+
+    const { version, name } = getPackageInfo();
+    this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
   /**
@@ -279,6 +283,7 @@ export class AztecRPCServer implements AztecRPC {
       version,
       chainId,
       rollupAddress,
+      client: this.clientInfo,
     };
   }
 

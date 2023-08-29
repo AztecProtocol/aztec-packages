@@ -1,6 +1,6 @@
 {
   "name": "@aztec/bb.js",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/circuits/cpp/barretenberg/ts",
   "license": "MIT",
   "type": "module",
@@ -33,7 +33,7 @@
     "test": "yarn build:ts:browser && yarn build:ts:node && yarn test:jest && yarn test:bin",
     "test:jest": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
     "test:bin": "cd ./bin-test && ./bin-test.sh",
-    "test-debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand",
+    "test:debug": "NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand",
     "prepack": "yarn build",
     "deploy": "npm publish --access public"
   },
