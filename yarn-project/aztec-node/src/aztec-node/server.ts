@@ -390,6 +390,8 @@ export class AztecNodeService implements AztecNode {
     const prevGlobalVariables = (await this.blockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
 
     // Instantiate merkle trees so uncommited updates by this simulation are local to it.
+    // TODO we should be able to remove this after https://github.com/AztecProtocol/aztec-packages/issues/1869
+    // So simulation of public functions doesn't affect the merkle trees.
     const merkleTrees = new MerkleTrees(this.merkleTreesDb, this.log);
     await merkleTrees.init(await CircuitsWasm.get(), {
       globalVariables: prevGlobalVariables,
