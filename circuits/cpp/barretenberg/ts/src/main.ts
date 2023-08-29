@@ -18,7 +18,7 @@ const MAX_CIRCUIT_SIZE = 2 ** 19;
 
 function getBytecode(bytecodePath: string) {
   const encodedCircuit = readFileSync(bytecodePath, 'utf-8');
-  const buffer = Buffer.from(encodedCircuit, 'base64');
+  const buffer = Buffer.from(encodedCircuit);
   const decompressed = gunzipSync(buffer);
   return decompressed;
 }
