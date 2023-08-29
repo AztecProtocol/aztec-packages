@@ -35,13 +35,10 @@ contract Child {
     // Sets `current_value` to `new_value`
     #[aztec(public)]
     open fn pubSetValue(new_value: Field) {
-        let mut context = PublicContext::new(inputs, abi::hash_args([new_value]));
-
         let storage = Storage::init();
         storage.current_value.write(new_value);
         let _hash = emit_unencrypted_log(new_value);
         context.return_values.push(new_value);
-        
     }
 
     // Increments `current_value` by `new_value`
