@@ -3,6 +3,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
+import { NoirCallStack } from '@aztec/types';
 
 import {
   ForeignCallInput,
@@ -78,31 +79,9 @@ function extractOpcodeLocationFromError(err: string): string | undefined {
 }
 
 /**
- * The data for a call in the call stack.
- */
-interface SourceCodeLocation {
-  /**
-   * The path to the source file.
-   */
-  filePath: string;
-  /**
-   * The line number of the call.
-   */
-  line: number;
-  /**
-   * The source code of the file.
-   */
-  fileSource: string;
-  /**
-   * The source code text of the failed constraint.
-   */
-  locationText: string;
-}
-
-/**
  * Extracts the call stack from the location of a failing opcode and the debug metadata.
  */
-function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionDebugMetadata): SourceCodeLocation[] {
+function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionDebugMetadata): NoirCallStack {
   const { debugSymbols, files } = debug;
 
   const callStack = debugSymbols.locations[opcodeLocation] || [];
@@ -125,31 +104,33 @@ function getCallStackFromOpcodeLocation(opcodeLocation: string, debug: FunctionD
 }
 
 /**
- * Creates a formatted string for an error stack
- * @param callStack - The error stack
- * @returns - The formatted string
- */
-export function printErrorStack(callStack: SourceCodeLocation[]): string {
-  // TODO experiment with formats of reporting this for better error reporting
-  return [
-    'Error: Assertion failed',
-    callStack.map(call => `  at ${call.filePath}:${call.line} '${call.locationText}'`),
-  ].join('\n');
-}
-
-/**
  * Extracts source code locations from an ACVM error if possible.
  * @param errMessage - The ACVM error.
  * @param debug - The debug metadata of the function.
  * @returns The source code locations or undefined if they couldn't be extracted from the error.
  */
-export function processAcvmError(errMessage: string, debug: FunctionDebugMetadata): SourceCodeLocation[] | undefined {
+export function processAcvmError(errMessage: string, debug: FunctionDebugMetadata): NoirCallStack | undefined {
   const opcodeLocation = extractOpcodeLocationFromError(errMessage);
   if (!opcodeLocation) {
     return undefined;
   }
 
   return getCallStackFromOpcodeLocation(opcodeLocation, debug);
+}
+
+/**
+ * An error thrown by the ACVM during simulation. Optionally contains a noir call stack.
+ */
+export class ACVMError extends Error {
+  constructor(
+    message: string,
+    /**
+     * The noir call stack of the error, if it could be extracted.
+     */
+    public callStack?: NoirCallStack,
+  ) {
+    super(message);
+  }
 }
 
 /**
@@ -200,13 +181,16 @@ export async function acvm(
 
     if (debug) {
       const callStack = processAcvmError(acvmError, debug);
+
       if (callStack) {
-        logger(printErrorStack(callStack));
-        throw new Error(`Assertion failed: '${callStack.pop()?.locationText ?? 'Unknown'}'`);
+        throw new ACVMError(
+          `Assertion failed: '${callStack[callStack.length - 1]?.locationText ?? 'Unknown'}'`,
+          callStack,
+        );
       }
     }
     // If we cannot find a callstack, throw the original error.
-    throw new Error(acvmError);
+    throw new ACVMError(acvmError);
   });
 
   return Promise.resolve({ partialWitness });

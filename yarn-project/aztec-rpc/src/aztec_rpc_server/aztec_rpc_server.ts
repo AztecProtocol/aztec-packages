@@ -3,7 +3,6 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
-  printErrorStack,
   processAcvmError,
 } from '@aztec/acir-simulator';
 import {
@@ -189,6 +188,7 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
+    await this.#simulatePublicPart(tx);
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -324,10 +324,16 @@ export class AztecRPCServer implements AztecRPC {
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
     this.log('Executing simulator...');
-    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
-    this.log('Simulation completed!');
-
-    return result;
+    try {
+      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+      this.log('Simulation completed!');
+      return result;
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#debugLogSimulationError(err);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -349,18 +355,25 @@ export class AztecRPCServer implements AztecRPC {
 
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
-    this.log('Executing unconstrained simulator...');
-    const result = await simulator.runUnconstrained(
-      execRequest,
-      from ?? AztecAddress.ZERO,
-      functionAbi,
-      contractAddress,
-      portalContract,
-      this.node,
-    );
-    this.log('Unconstrained simulation completed!');
+    try {
+      this.log('Executing unconstrained simulator...');
+      const result = await simulator.runUnconstrained(
+        execRequest,
+        from ?? AztecAddress.ZERO,
+        functionAbi,
+        contractAddress,
+        portalContract,
+        this.node,
+      );
+      this.log('Unconstrained simulation completed!');
 
-    return result;
+      return result;
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#debugLogSimulationError(err);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -373,6 +386,7 @@ export class AztecRPCServer implements AztecRPC {
     try {
       await this.node.simulatePublicPart(tx);
     } catch (err) {
+      // Try to fill in the noir call stack since the RPC server may have access to the debug metadata
       if (err instanceof SimulationError) {
         const originalFailingFunction = err.getCallStack().pop()!;
         const contractDataOracle = new ContractDataOracle(this.db, this.node);
@@ -383,10 +397,13 @@ export class AztecRPCServer implements AztecRPC {
         if (debugInfo) {
           const callStack = processAcvmError(err.message, debugInfo);
           if (callStack) {
-            this.log(printErrorStack(callStack));
-            err.message = `Assertion failed in public execution: ${callStack.pop()?.locationText ?? 'Unknown'}`;
+            err.setNoirCallStack(callStack);
+            err.message = `Assertion failed in public execution: '${
+              callStack[callStack.length - 1]?.locationText ?? 'Unknown'
+            }'`;
           }
         }
+        await this.#debugLogSimulationError(err);
       }
 
       throw err;
@@ -437,9 +454,31 @@ export class AztecRPCServer implements AztecRPC {
       enqueuedPublicFunctions,
     );
 
-    await this.#simulatePublicPart(tx);
-
     return tx;
+  }
+
+  async #debugLogSimulationError(err: SimulationError) {
+    const functionCallStack = err.getCallStack();
+    const noirCallStack = err.getNoirCallStack();
+
+    // Try to resolve the contract and function names of the stack of failing functions.
+    const stackLines: string[] = [
+      ...(await Promise.all(
+        functionCallStack.map(async ({ contractAddress, functionSelector }) => {
+          const contract = await this.db.getContract(contractAddress);
+          const functionAbi = contract?.functions.find(f => f.selector.equals(functionSelector));
+          return `  at ${contract?.name ?? contractAddress.toString()}.${
+            functionAbi?.name ?? functionSelector.toString()
+          }`;
+        }),
+      )),
+      ...noirCallStack.map(
+        sourceCodeLocation =>
+          `  at ${sourceCodeLocation.filePath}:${sourceCodeLocation.line} '${sourceCodeLocation.locationText}'`,
+      ),
+    ];
+
+    this.log([`Simulation error: ${err.message}`, ...stackLines.reverse()].join('\n'));
   }
 
   // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel

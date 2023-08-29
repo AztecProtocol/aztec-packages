@@ -381,7 +381,7 @@ export class HttpNode implements AztecNode {
     const init: RequestInit = {};
     init['method'] = 'POST';
     init['body'] = tx.toBuffer();
-    const response = await (await fetch(url.toString(), init)).json();
+    const response = await (await fetch(url, init)).json();
     if (response.simulationError) {
       throw SimulationError.fromJSON(response.simulationError);
     }

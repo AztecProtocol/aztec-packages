@@ -24,6 +24,22 @@ contract Child {
         inputs: PrivateContextInputs,
         input: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        assert(inputs.call_context.msg_sender == 0);
+        let mut context = PrivateContext::new(inputs, abi::hash_args([input]));
+
+        context.return_values.push(input + context.chain_id() + context.version());
+
+        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
+        context.finish()
+    }
+
+    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values. 
+    // Can only be called from this contract.
+    fn valueInternal(
+        inputs: PrivateContextInputs,
+        input: Field,
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        assert(inputs.call_context.msg_sender == inputs.call_context.storage_contract_address);
         let mut context = PrivateContext::new(inputs, abi::hash_args([input]));
 
         context.return_values.push(input + context.chain_id() + context.version());
@@ -55,6 +71,19 @@ contract Child {
 
     // Increments `current_value` by `new_value`
     open fn pubIncValue(inputs: PublicContextInputs, new_value: Field) -> pub abi::PublicCircuitPublicInputs {
+        let mut context = PublicContext::new(inputs, abi::hash_args([new_value]));
+
+        let storage = Storage::init();
+        let old_value = storage.current_value.read();
+        storage.current_value.write(old_value + new_value);
+        let _hash = emit_unencrypted_log(new_value);
+        context.return_values.push(new_value);
+        context.finish()
+    }
+
+    // Increments `current_value` by `new_value`. Can only be called from this contract.
+    open fn pubIncValueInternal(inputs: PublicContextInputs, new_value: Field) -> pub abi::PublicCircuitPublicInputs {
+        assert(inputs.call_context.msg_sender == inputs.call_context.storage_contract_address);
         let mut context = PublicContext::new(inputs, abi::hash_args([new_value]));
 
         let storage = Storage::init();
