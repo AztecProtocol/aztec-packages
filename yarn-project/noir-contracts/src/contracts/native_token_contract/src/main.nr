@@ -31,6 +31,7 @@ contract NativeToken {
     use dep::aztec::{
         abi,
         abi::{
+            Hasher,
             PublicContextInputs,
             PrivateContextInputs,
         },
