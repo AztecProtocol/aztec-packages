@@ -183,7 +183,7 @@ export interface AztecRPC {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
-   * Lookup the extended contract data for this contract.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */

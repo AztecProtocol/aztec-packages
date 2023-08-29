@@ -293,12 +293,11 @@ export class Archiver implements L2BlockSource, L2LogsSource, ContractDataSource
   }
 
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains the contract's public function bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The contract data.
+   * @returns The extended contract data or undefined if not found.
    */
-  public getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     return this.store.getExtendedContractData(contractAddress);
   }
 

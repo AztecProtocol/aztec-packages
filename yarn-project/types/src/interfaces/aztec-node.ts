@@ -68,7 +68,7 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
   getRollupAddress(): Promise<EthAddress>;
 
   /**
-   * Lookup the extended contract data for this contract.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
    * @returns The extended contract data or undefined if not found.
    */

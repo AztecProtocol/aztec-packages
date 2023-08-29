@@ -120,10 +120,9 @@ export class HttpNode implements AztecNode {
   }
 
   /**
-   * Lookup the contract data for this contract.
-   * Contains the ethereum portal address and bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
+   * @returns The extended contract data or undefined if not found.
    */
   async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     const url = new URL(`${this.baseUrl}/contract-data-and-bytecode`);

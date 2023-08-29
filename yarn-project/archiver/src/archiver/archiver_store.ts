@@ -103,9 +103,9 @@ export interface ArchiverDataStore {
   addExtendedContractData(data: ExtendedContractData[], blockNum: number): Promise<boolean>;
 
   /**
-   * Lookup the L2 contract data for a contract address.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The contract's public data.
+   * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
@@ -348,11 +348,11 @@ export class MemoryArchiverStore implements ArchiverDataStore {
   }
 
   /**
-   * Lookup the L2 contract data for a contract address.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The contract's public data.
+   * @returns The extended contract data or undefined if not found.
    */
-  public getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
     const result = this.extendedContractData.get(contractAddress.toString());
     return Promise.resolve(result);
   }

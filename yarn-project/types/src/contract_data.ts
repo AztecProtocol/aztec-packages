@@ -20,11 +20,9 @@ export { BufferReader } from '@aztec/circuits.js/utils';
  */
 export interface ContractDataSource {
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains information such as the ethereum portal address and bytecode.
-   * NOTE: This method works only for contracts that have public function bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns Extended contract data or undefined if not found.
+   * @returns The extended contract data or undefined if not found.
    */
   getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
