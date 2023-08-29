@@ -116,7 +116,7 @@ describe('e2e_sandbox_example', () => {
     // docs:end:Deployment
 
     // ensure that private token contract is registered in the rpc
-    expect(await aztecRpc.getContracts()).toEqual(expect.arrayContaining([contract.completeAddress]));
+    expect(await aztecRpc.getContracts()).toEqual(expect.arrayContaining([contract.address]));
 
     // docs:start:Balance
 
