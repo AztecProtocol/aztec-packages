@@ -125,9 +125,6 @@ export class ContractDataAndBytecode {
     /** Public keys of the contract. */
     public readonly publicKey: PublicKey,
   ) {
-    if (!publicFunctions.length) {
-      throw Error('No public functions provided for ContractDataAndBytecode.');
-    }
     this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
 

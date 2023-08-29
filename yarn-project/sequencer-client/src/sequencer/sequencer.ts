@@ -193,7 +193,7 @@ export class Sequencer {
       .map(tx => {
         // Currently can only have 1 new contract per tx
         const newContract = tx.data?.end.newContracts[0];
-        if (newContract && tx.newContractPublicFunctions?.length) {
+        if (newContract) {
           return new ContractDataAndBytecode(
             new ContractData(newContract.contractAddress, newContract.portalContractAddress),
             tx.newContractPublicFunctions,
