@@ -32,7 +32,7 @@ export function getHttpRpcServer(aztecRpcServer: AztecRPC): JsonRpcServer {
       AztecAddress,
       TxExecutionRequest,
       ContractData,
-      ExtendedContractData: ExtendedContractData,
+      ExtendedContractData,
       TxHash,
       EthAddress,
       Point,

@@ -21,7 +21,7 @@ export const createAztecRpcClient = (url: string, fetch = defaultFetch): AztecRP
       AztecAddress,
       TxExecutionRequest,
       ContractData,
-      ExtendedContractData: ExtendedContractData,
+      ExtendedContractData,
       TxHash,
       EthAddress,
       Point,
