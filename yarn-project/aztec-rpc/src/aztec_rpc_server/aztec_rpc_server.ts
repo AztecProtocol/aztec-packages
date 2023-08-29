@@ -42,9 +42,9 @@ import {
   toContractDao,
 } from '@aztec/types';
 
-import { RpcServerConfig } from '../config/index.js';
+import { RpcServerConfig, getPackageInfo } from '../config/index.js';
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
-import { Database, TxDao } from '../database/index.js';
+import { Database } from '../database/index.js';
 import { KernelOracle } from '../kernel_oracle/index.js';
 import { KernelProver } from '../kernel_prover/kernel_prover.js';
 import { getAcirSimulator } from '../simulator/index.js';
@@ -56,6 +56,7 @@ import { Synchroniser } from '../synchroniser/index.js';
 export class AztecRPCServer implements AztecRPC {
   private synchroniser: Synchroniser;
   private log: DebugLogger;
+  private clientInfo: string;
 
   constructor(
     private keyStore: KeyStore,
@@ -66,6 +67,9 @@ export class AztecRPCServer implements AztecRPC {
   ) {
     this.log = createDebugLogger(logSuffix ? `aztec:rpc_server_${logSuffix}` : `aztec:rpc_server`);
     this.synchroniser = new Synchroniser(node, db, logSuffix);
+
+    const { version, name } = getPackageInfo();
+    this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
   /**
@@ -97,9 +101,10 @@ export class AztecRPCServer implements AztecRPC {
     if (wasAdded) {
       const pubKey = this.keyStore.addAccount(privKey);
       this.synchroniser.addAccount(pubKey, this.keyStore);
-      this.log.info(`Added account: ${completeAddress.toReadableString()}`);
+      this.log.info(`Registered account ${completeAddress.address.toString()}`);
+      this.log.debug(`Registered ${completeAddress.toReadableString()}`);
     } else {
-      this.log.info(`Account "${completeAddress.toReadableString()}" already registered.`);
+      this.log.info(`Account "${completeAddress.address.toString()}" already registered.`);
     }
   }
 
@@ -185,16 +190,8 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-
-    await this.db.addTx(
-      TxDao.from({
-        txHash: await tx.getTxHash(),
-        origin: txRequest.origin,
-        contractAddress: deployedContractAddress,
-      }),
-    );
-
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
+
     return tx;
   }
 
@@ -214,40 +211,28 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    const localTx = await this.#getTxByHash(txHash);
-    const partialReceipt = new TxReceipt(
-      txHash,
-      TxStatus.PENDING,
-      '',
-      localTx?.blockHash,
-      localTx?.blockNumber,
-      localTx?.origin,
-      localTx?.contractAddress,
-    );
+    const settledTx = await this.node.getTx(txHash);
+    if (settledTx) {
+      const deployedContractAddress = settledTx.newContractData.find(
+        c => !c.contractAddress.equals(AztecAddress.ZERO),
+      )?.contractAddress;
 
-    if (localTx?.blockHash) {
-      partialReceipt.status = TxStatus.MINED;
-      return partialReceipt;
+      return new TxReceipt(
+        txHash,
+        TxStatus.MINED,
+        '',
+        settledTx.blockHash,
+        settledTx.blockNumber,
+        deployedContractAddress,
+      );
     }
 
     const pendingTx = await this.node.getPendingTxByHash(txHash);
     if (pendingTx) {
-      return partialReceipt;
+      return new TxReceipt(txHash, TxStatus.PENDING, '');
     }
 
-    // if the transaction mined it will be removed from the pending pool and there is a race condition here as the synchroniser will not have the tx as mined yet, so it will appear dropped
-    // until the synchroniser picks this up
-
-    const isSynchronised = await this.synchroniser.isGlobalStateSynchronised();
-    if (!isSynchronised) {
-      // there is a pending L2 block, which means the transaction will not be in the tx pool but may be awaiting mine on L1
-      return partialReceipt;
-    }
-
-    // TODO we should refactor this once the node can store transactions. At that point we should query the node and not deal with block heights.
-    partialReceipt.status = TxStatus.DROPPED;
-    partialReceipt.error = 'Tx dropped by P2P node.';
-    return partialReceipt;
+    return new TxReceipt(txHash, TxStatus.DROPPED, 'Tx dropped by P2P node.');
   }
 
   async getBlockNumber(): Promise<number> {
@@ -295,21 +280,8 @@ export class AztecRPCServer implements AztecRPC {
       version,
       chainId,
       rollupAddress,
+      client: this.clientInfo,
     };
-  }
-
-  /**
-   * Retrieve a transaction by its hash from the database.
-   *
-   * @param txHash - The hash of the transaction to be fetched.
-   * @returns A TxDao instance representing the retrieved transaction.
-   */
-  async #getTxByHash(txHash: TxHash): Promise<TxDao> {
-    const tx = await this.db.getTx(txHash);
-    if (!tx) {
-      throw new Error(`Transaction ${txHash} not found in RPC database`);
-    }
-    return tx;
   }
 
   /**
@@ -326,14 +298,8 @@ export class AztecRPCServer implements AztecRPC {
     contractDataOracle: ContractDataOracle,
   ) {
     const contractAddress = (execRequest as FunctionCall).to ?? (execRequest as TxExecutionRequest).origin;
-    const functionAbi = await contractDataOracle.getFunctionAbi(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
-    const debug = await contractDataOracle.getFunctionDebugMetadata(
-      contractAddress,
-      execRequest.functionData.functionSelectorBuffer,
-    );
+    const functionAbi = await contractDataOracle.getFunctionAbi(contractAddress, execRequest.functionData.selector);
+    const debug = await contractDataOracle.getFunctionDebugMetadata(contractAddress, execRequest.functionData.selector);
     const portalContract = await contractDataOracle.getPortalContractAddress(contractAddress);
 
     return {

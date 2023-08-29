@@ -4,7 +4,7 @@ contract PrivateToken {
     // Libs
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
@@ -15,7 +15,6 @@ contract PrivateToken {
         note_header::NoteHeader,
         utils as note_utils,
     };
-    use dep::aztec::log::emit_unencrypted_log;
 
     // docs:start:storage-import
     use crate::storage::Storage;
@@ -37,8 +36,7 @@ contract PrivateToken {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            send_note(&mut context, owner_balance, initial_supply, owner);
-            emit_unencrypted_log(&mut context, "Balance set in constructor");
+            increment(&mut context, owner_balance, initial_supply, owner);
         }
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
@@ -61,8 +59,7 @@ contract PrivateToken {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        send_note(&mut context, owner_balance, amount, owner);
-        emit_unencrypted_log(&mut context, "Coins minted");
+        increment(&mut context, owner_balance, amount, owner);
 
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
@@ -70,29 +67,27 @@ contract PrivateToken {
     // docs:end:mint
 
     // docs:start:transfer
-    // Transfers `amount` of tokens from `sender` to a `recipient`.
+    // Transfers `amount` of tokens from msg_sender to a `recipient`.
     fn transfer(
         //*********************************/
         // Should eventually be hidden:
         inputs: PrivateContextInputs,
         //*********************************/
         amount: Field, 
-        sender: Field, 
         recipient: Field,
     ) -> distinct pub abi::PrivateCircuitPublicInputs {
         let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, sender, recipient]));
+        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, recipient]));
+        let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        decrement(&mut context, sender_balance, amount, sender);
 
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, amount, recipient);
+        increment(&mut context, recipient_balance, amount, recipient);
         
-        emit_unencrypted_log(&mut context, "Coins transferred");
-
         // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
         context.finish()
     }
@@ -116,8 +111,10 @@ contract PrivateToken {
     // Computes note hash and nullifier.
     // Note 1: Needs to be defined by every contract producing logs.
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
+    // docs:start:compute_note_hash_and_nullifier
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
         note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)
     }
+    // docs:end:compute_note_hash_and_nullifier
 }
