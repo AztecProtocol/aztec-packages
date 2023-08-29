@@ -16,7 +16,7 @@ import {
   PublicDataUpdateRequest,
   RootRollupPublicInputs,
   makeTuple,
-  range
+  range,
 } from '@aztec/circuits.js';
 import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuits.js/abis';
 import {
@@ -48,7 +48,7 @@ import { MockProxy, mock } from 'jest-mock-extended';
 import { default as levelup } from 'levelup';
 import flatMap from 'lodash.flatmap';
 import times from 'lodash.times';
-import { default as memdown, type MemDown } from 'memdown';
+import { type MemDown, default as memdown } from 'memdown';
 
 import { VerificationKeys, getVerificationKeys } from '../mocks/verification_keys.js';
 import { EmptyRollupProver } from '../prover/empty.js';
