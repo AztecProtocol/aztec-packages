@@ -169,6 +169,14 @@ template <typename Composer> class cycle_group {
         size_t rom_id = 0;
     };
 
+    struct batch_mul_internal_output {
+        cycle_group accumulator;
+        affine_element offset_generator_delta;
+    };
+    static batch_mul_internal_output _batch_mul_internal(const std::vector<cycle_scalar>& scalars,
+                                                         const std::vector<cycle_group>& base_points,
+                                                         bool unconditional_add);
+
     static cycle_group<Composer> fixed_base_batch_mul(
         const std::vector<cycle_scalar>& _scalars,
         const std::vector<affine_element>& _base_points) requires SupportsLookupTables<Composer>;

@@ -4,8 +4,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <array>
 
-namespace crypto {
-namespace pedersen_commitment {
+namespace crypto::pedersen_commitment {
 
 grumpkin::g1::element commit_single(const barretenberg::fr& in, generators::generator_index_t const& index);
 
@@ -26,5 +25,4 @@ grumpkin::fq compress_native(const std::vector<uint8_t>& input, const size_t has
 
 grumpkin::fq compress_native(const std::vector<std::pair<grumpkin::fq, generators::generator_index_t>>& input_pairs);
 
-} // namespace pedersen_commitment
-} // namespace crypto
+} // namespace crypto::pedersen_commitment

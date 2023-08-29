@@ -552,17 +552,21 @@ cycle_group<Composer> cycle_group<Composer>::straus_lookup_table::read(const fie
     return cycle_group(_context, x, y, false);
 }
 
-// for fixed base batch mul...
-// 1. take each generator point and split into table_bits chunks
-// 2. precompute multiples of each generator point and store in lookup table
-// 3.
 template <typename Composer>
-cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
-                                                                     const std::vector<cycle_group>& _base_points)
+typename cycle_group<Composer>::batch_mul_internal_output cycle_group<Composer>::_batch_mul_internal(
+    const std::vector<cycle_scalar>& _scalars,
+    const std::vector<cycle_group>& _base_points,
+    const bool unconditional_add)
 {
     ASSERT(_scalars.size() == _base_points.size());
 
     Composer* context = nullptr;
+    for (auto& scalar : _scalars) {
+        if (scalar.lo.get_context() != nullptr) {
+            context = scalar.get_context();
+            break;
+        }
+    }
     for (auto& point : _base_points) {
         if (point.get_context() != nullptr) {
             context = point.get_context();
@@ -586,7 +590,7 @@ cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::
         }
     }
     if (!has_non_constant_component) {
-        return cycle_group(constant_component);
+        return { cycle_group(constant_component), G1::affine_point_at_infinity };
     }
     // core algorithm
     // define a `table_bits` size lookup table
@@ -601,41 +605,50 @@ cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::
             straus_lookup_table(context, base_points[i], generators.generators[i + 1], table_bits));
     }
 
-    element debug_acc = G1::point_at_infinity;
-    uint256_t debug_scalar = uint256_t(scalars[0].lo.get_value()) +
-                             (uint256_t(scalars[0].hi.get_value()) * (uint256_t(1) << (cycle_scalar::LO_BITS)));
-
     element offset_generator_accumulator = generators.generators[0];
     cycle_group accumulator = generators.generators[0];
+
     for (size_t i = 0; i < num_rounds; ++i) {
         if (i != 0) {
-            // NOTE: IN FIXED BASE MODE WE CAN DOUBLE THE TABLES INSTEAD OF THE POINTS (if not using plookup)
             for (size_t j = 0; j < table_bits; ++j) {
                 accumulator = accumulator.dbl();
                 offset_generator_accumulator = offset_generator_accumulator.dbl();
-                debug_acc = debug_acc.dbl();
             }
         }
 
         for (size_t j = 0; j < num_points; ++j) {
             const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
             const cycle_group point = point_tables[j].read(scalar_slice);
-            accumulator = accumulator.constrained_unconditional_add(point);
+            accumulator = unconditional_add ? accumulator.unconditional_add(point)
+                                            : accumulator.constrained_unconditional_add(point);
             offset_generator_accumulator = offset_generator_accumulator + element(generators.generators[j + 1]);
         }
     }
 
-    // NOTE: should this be a general addition?
-    // e.g. x.[P] + -x.[P] . We want to be able to support this :/
     if (has_constant_component) {
         // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
         offset_generator_accumulator -= constant_component;
     }
-    cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
+    // cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
+    // // use a full conditional add here in case we end with a point at infinity or a point doubling.
+    // // e.g. x[P] + x[P], or x[P] + -x[P]
+    // accumulator = accumulator + offset_generator_delta;
+
+    return { accumulator, affine_element(-offset_generator_accumulator) };
+}
+
+template <typename Composer>
+cycle_group<Composer> cycle_group<Composer>::variable_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
+                                                                     const std::vector<cycle_group>& _base_points)
+{
+    ASSERT(_scalars.size() == _base_points.size());
+
+    auto [accumulator, offset_generator_accumulator] = _batch_mul_internal(_scalars, _base_points, false);
     // use a full conditional add here in case we end with a point at infinity or a point doubling.
     // e.g. x[P] + x[P], or x[P] + -x[P]
-    accumulator = accumulator + offset_generator_delta;
-
+    if (!offset_generator_accumulator.is_point_at_infinity()) {
+        return accumulator + (cycle_group(offset_generator_accumulator));
+    }
     return accumulator;
 }
 
@@ -660,7 +673,7 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
     bool has_non_constant_component = false;
     element constant_component = G1::point_at_infinity;
     for (size_t i = 0; i < _scalars.size(); ++i) {
-        if (_scalars[i].is_constant()) {
+        if (_scalars[i].is_constant() && (uint256_t(_scalars[i].get_value()) != 0)) {
             has_constant_component = true;
             constant_component += _base_points[i] * _scalars[i].get_value();
         } else {
@@ -681,7 +694,7 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
     std::vector<affine_element> plookup_base_points;
     std::vector<field_t> plookup_scalars;
     std::vector<cycle_scalar> leftover_scalars;
-    std::vector<affine_element> leftover_base_points;
+    std::vector<cycle_group> leftover_base_points;
 
     for (size_t i = 0; i < num_points; ++i) {
         std::optional<std::array<MultiTableId, 2>> table_id =
@@ -719,44 +732,15 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
         offset_generator_accumulator += offset_1.value();
     }
     cycle_group accumulator;
-    const size_t leftover_points = leftover_scalars.size();
-    if (leftover_points > 0) {
-
-        auto generators = offset_generators(leftover_points);
-        std::vector<straus_scalar_slice> scalar_slices;
-        std::vector<straus_lookup_table> point_tables;
-        for (size_t i = 0; i < leftover_points; ++i) {
-            scalar_slices.emplace_back(straus_scalar_slice(context, leftover_scalars[i], table_bits));
-            point_tables.emplace_back(straus_lookup_table(
-                context, cycle_group(leftover_base_points[i]), generators.generators[i + 1], table_bits));
-        }
-
-        element debug_acc = G1::point_at_infinity;
-        uint256_t debug_scalar =
-            uint256_t(leftover_scalars[0].lo.get_value()) +
-            (uint256_t(leftover_scalars[0].hi.get_value()) * (uint256_t(1) << (cycle_scalar::LO_BITS)));
-
-        offset_generator_accumulator += generators.generators[0];
-        accumulator = generators.generators[0];
-        for (size_t i = 0; i < num_rounds; ++i) {
-            if (i != 0) {
-
-                for (size_t j = 0; j < table_bits; ++j) {
-                    accumulator = accumulator.dbl();
-                    offset_generator_accumulator = offset_generator_accumulator.dbl();
-                    debug_acc = debug_acc.dbl();
-                }
-            }
-
-            for (size_t j = 0; j < leftover_points; ++j) {
-                const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
-                const cycle_group point = point_tables[j].read(scalar_slice);
-                accumulator = accumulator.constrained_unconditional_add(point);
-                offset_generator_accumulator = offset_generator_accumulator + element(generators.generators[j + 1]);
-            }
+    if (!leftover_scalars.empty()) {
+        auto [var_accumulator, var_offset_generator] =
+            _batch_mul_internal(leftover_scalars, leftover_base_points, true);
+        accumulator = var_accumulator;
+        // todo explain subtract
+        if (!var_offset_generator.is_point_at_infinity()) {
+            offset_generator_accumulator -= var_offset_generator;
         }
     }
-    // cycle_group accumulator = lookup_points[0];
     for (size_t i = 0; i < lookup_points.size(); ++i) {
         if (i == 0) {
             if (leftover_scalars.empty()) {
@@ -772,9 +756,12 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
     if (has_constant_component) {
         // we subtract off the offset_generator_accumulator, so subtract constant component from the accumulator!
         offset_generator_accumulator -= constant_component;
+        cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
+        // Assuming independent generators, existence of constant component = cannot hit edge cases
+        return accumulator.unconditional_add(offset_generator_delta);
     }
     cycle_group offset_generator_delta(affine_element(-offset_generator_accumulator));
-    accumulator = accumulator.unconditional_add(offset_generator_delta);
+    accumulator = accumulator + (offset_generator_delta);
     return accumulator;
 }
 
@@ -823,11 +810,6 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
 
     using straus_round_tables = std::vector<straus_lookup_table>;
     std::vector<straus_round_tables> point_tables(num_points);
-    // for (size_t i = 0; i < num_points; ++i) {
-    //     scalar_slices.emplace_back(straus_scalar_slice(context, scalars[i], table_bits));
-    //     point_tables.emplace_back(
-    //         straus_lookup_table(context, cycle_group(base_points[i]), generators.generators[i + 1], table_bits));
-    // }
 
     // creating these point tables should cost 0 constraints if base points are constant
     for (size_t i = 0; i < num_points; ++i) {
@@ -843,7 +825,7 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
         element::batch_normalize(&round_offset_generators[0], num_rounds);
         point_tables[i].resize(num_rounds);
         for (size_t j = 0; j < num_rounds; ++j) {
-            point_tables[i][num_rounds - j - 1] = straus_lookup_table(
+            point_tables[i][j] = straus_lookup_table(
                 context, cycle_group(round_points[j]), cycle_group(round_offset_generators[j]), FIXED_BASE_TABLE_BITS);
         }
     }
@@ -862,7 +844,7 @@ cycle_group<Composer> cycle_group<Composer>::fixed_base_batch_mul(
         for (size_t j = 0; j < num_points; ++j) {
             auto& point_table = point_tables[j][i];
 
-            const field_t scalar_slice = scalar_slices[j].read(num_rounds - i - 1);
+            const field_t scalar_slice = scalar_slices[j].read(i);
 
             const cycle_group point = point_table.read(scalar_slice);
             accumulator = accumulator.unconditional_add(point);

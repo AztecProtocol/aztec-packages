@@ -1,3 +1,4 @@
+#include "barretenberg/crypto/pedersen_commitment/pedersen_refactor.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -482,6 +483,7 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
     {
         std::vector<affine_element> points;
         std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+        std::vector<typename G1::subgroup_field> scalars_native;
 
         for (size_t i = 0; i < num_muls; ++i) {
             auto element = crypto::pedersen_hash::generator_info::get_lhs_generator();
@@ -490,17 +492,45 @@ TYPED_TEST(CycleGroupTest, TestFixedBaseBatchMul)
             // 1: add entry where point is constant, scalar is witness
             expected += (element * scalar);
             points.emplace_back((element));
+            std::cout << "test base point[0] = " << element << std::endl;
             scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+            scalars_native.emplace_back(scalar);
 
             // 2: add entry where point is constant, scalar is constant
+            element = crypto::pedersen_hash::generator_info::get_rhs_generator();
+            expected += (element * scalar);
+            points.emplace_back((element));
+            std::cout << "test base point[1] = " << element << std::endl;
+            scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
+            scalars_native.emplace_back(scalar);
+        }
+        auto result = cycle_group_ct::fixed_base_batch_mul(scalars, points);
+        EXPECT_EQ(result.get_value(), affine_element(expected));
+        EXPECT_EQ(result.get_value(), crypto::pedersen_commitment_refactor::commit_native(scalars_native));
+    }
+
+    // case 2, MSM where input scalars are 0
+    {
+        std::vector<affine_element> points;
+        std::vector<typename cycle_group_ct::cycle_scalar> scalars;
+
+        for (size_t i = 0; i < num_muls; ++i) {
+            auto element = crypto::pedersen_hash::generator_info::get_lhs_generator();
+            typename G1::subgroup_field scalar = 0;
+
+            // 1: add entry where point is constant, scalar is witness
+            expected += (element * scalar);
+            points.emplace_back((element));
+            scalars.emplace_back(cycle_group_ct::cycle_scalar::from_witness(&composer, scalar));
+
+            // // 2: add entry where point is constant, scalar is constant
             expected += (element * scalar);
             points.emplace_back((element));
             scalars.emplace_back(typename cycle_group_ct::cycle_scalar(scalar));
         }
         auto result = cycle_group_ct::fixed_base_batch_mul(scalars, points);
-        EXPECT_EQ(result.get_value(), affine_element(expected));
+        EXPECT_EQ(result.is_point_at_infinity().get_value(), true);
     }
-
     bool proof_result = composer.check_circuit();
     EXPECT_EQ(proof_result, true);
 }

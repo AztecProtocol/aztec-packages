@@ -8,9 +8,9 @@ namespace crypto::pedersen_hash {
 
 struct generator_info {
     inline static const grumpkin::g1::affine_element lhs_generator =
-        grumpkin::g1::get_secure_generator_from_index(0, "pedersen_hash_generator");
+        grumpkin::g1::get_secure_generator_from_index(0, "default_domain_separator");
     inline static const grumpkin::g1::affine_element rhs_generator =
-        grumpkin::g1::get_secure_generator_from_index(1, "pedersen_hash_generator");
+        grumpkin::g1::get_secure_generator_from_index(1, "default_domain_separator");
 
     static grumpkin::g1::affine_element get_lhs_generator();
     static grumpkin::g1::affine_element get_rhs_generator();
