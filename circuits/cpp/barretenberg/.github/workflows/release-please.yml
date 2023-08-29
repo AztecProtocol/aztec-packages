@@ -22,7 +22,7 @@ jobs:
 
       - name: Dispatch to publish workflow
         uses: benc-uk/workflow-dispatch@v1
-        if: ${{ steps.release.outputs.tag-name }}
+        if: ${{ steps.release.outputs.tag_name }}
         with:
           workflow: publish.yml
           repo: AztecProtocol/barretenberg
