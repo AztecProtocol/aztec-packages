@@ -50,13 +50,13 @@ describe('multi-transfer payments', () => {
   const deployZkTokenContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying zk token contract...`);
     zkTokenContract = await PrivateTokenAirdropContract.deploy(wallet, initialBalance, owner).send().deployed();
-    logger(`zk token contract deployed at ${zkTokenContract.completeAddress}`);
+    logger(`zk token contract deployed at ${zkTokenContract.address}`);
   };
 
   const deployMultiTransferContract = async () => {
     logger(`Deploying multi-transfer contract...`);
     multiTransferContract = await MultiTransferContract.deploy(wallet).send().deployed();
-    logger(`multi-transfer contract deployed at ${multiTransferContract.completeAddress}`);
+    logger(`multi-transfer contract deployed at ${multiTransferContract.address}`);
   };
 
   const expectBalance = async (tokenContract: Contract, owner: AztecAddress, expectedBalance: bigint) => {

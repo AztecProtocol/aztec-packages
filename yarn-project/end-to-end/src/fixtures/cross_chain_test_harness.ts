@@ -219,7 +219,7 @@ export class CrossChainTestHarness {
     );
     const entryKey = sha256ToField(
       Buffer.concat([
-        this.l2Contract.completeAddress.toBuffer(),
+        this.l2Contract.address.toBuffer(),
         new Fr(1).toBuffer(), // aztec version
         contractData?.portalContractAddress.toBuffer32() ?? Buffer.alloc(32, 0),
         new Fr(this.publicClient.chain.id).toBuffer(), // chain id

@@ -48,7 +48,7 @@ describe('e2e_nested_contract', () => {
 
       const receipt = await tx.getReceipt();
       const contract = await Contract.at(receipt.contractAddress!, abi, wallet);
-      logger(`L2 contract ${abi.name} deployed at ${contract.completeAddress}`);
+      logger(`L2 contract ${abi.name} deployed at ${contract.address}`);
       return contract;
     };
 

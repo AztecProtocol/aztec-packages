@@ -41,11 +41,11 @@ describe('e2e_escrow_contract', () => {
     escrowContract = await EscrowContract.deployWithPublicKey(wallet, escrowPublicKey, owner)
       .send({ contractAddressSalt: salt })
       .deployed();
-    logger(`Escrow contract deployed at ${escrowContract.completeAddress}`);
+    logger(`Escrow contract deployed at ${escrowContract.address}`);
 
     // Deploy Private Token contract and mint funds for the escrow contract
     privateTokenContract = await PrivateTokenContract.deploy(wallet, 100n, escrowContract.address).send().deployed();
-    logger(`Token contract deployed at ${privateTokenContract.completeAddress}`);
+    logger(`Token contract deployed at ${privateTokenContract.address}`);
   }, 100_000);
 
   afterEach(async () => {

@@ -298,7 +298,7 @@ export async function deployL2Contracts(wallet: Wallet, abis: ContractAbi[]) {
     receipts,
     async (abi, receipt) => await Contract.at(receipt!.contractAddress!, abi!, wallet),
   );
-  contracts.forEach(async c => logger(`L2 contract ${(await c).abi.name} deployed at ${(await c).completeAddress}`));
+  contracts.forEach(async c => logger(`L2 contract ${(await c).abi.name} deployed at ${(await c).address}`));
   return contracts;
 }
 

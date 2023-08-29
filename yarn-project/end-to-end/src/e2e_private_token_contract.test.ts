@@ -40,7 +40,7 @@ describe('e2e_private_token_contract', () => {
   const deployContract = async (initialBalance: bigint, owner: AztecAddress) => {
     logger(`Deploying L2 contract...`);
     contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
-    logger(`L2 contract deployed at ${contract.completeAddress}`);
+    logger(`L2 contract deployed at ${contract.address}`);
   };
 
   /**
