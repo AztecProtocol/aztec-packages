@@ -11,7 +11,7 @@ import { CombinedConstantData } from './combined_constant_data.js';
 export class KernelCircuitPublicInputsFinal {
   constructor(
     /**
-     * Final data accumulated for private ordering circuit.
+     * Final data accumulated for ordering privated kernel circuit.
      */
     public end: FinalAccumulatedData,
     /**

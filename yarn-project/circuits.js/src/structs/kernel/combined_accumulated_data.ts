@@ -484,8 +484,8 @@ export class CombinedAccumulatedData {
 }
 
 /**
- * Specific accumululated data structure for private kernel ordering circuit. Is included in the final public
- *  inputs of private kernel circuit.
+ * Specific accumululated data structure for the final ordering private kernel circuit. It is included
+ *  in the final public inputs of private kernel circuit.
  */
 export class FinalAccumulatedData {
   constructor(
