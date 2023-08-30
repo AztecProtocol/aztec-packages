@@ -75,7 +75,7 @@
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
-      "inherits": "default",
+      "inherits": "clang15",
       "binaryDir": "build-bench"
     },
     {
@@ -182,7 +182,7 @@
     },
     {
       "name": "bench",
-      "inherits": "default",
+      "inherits": "clang15",
       "configurePreset": "bench"
     },
     {
@@ -250,7 +250,7 @@
     },
     {
       "name": "bench",
-      "inherits": "default",
+      "inherits": "clang15",
       "configurePreset": "bench"
     },
     {
