@@ -3,10 +3,6 @@ use dep::aztec::note::{
     note_interface::NoteInterface,
     utils::compute_note_hash_for_read_or_nullify,
 };
-use dep::aztec::oracle::{
-    get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
-};
 
 global PROFILE_NOTE_LEN: Field = 2;
 
