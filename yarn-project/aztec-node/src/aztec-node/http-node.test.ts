@@ -484,13 +484,13 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('simulatePublicPart', () => {
+  describe('simulatePublicCalls', () => {
     it('should fetch a successful simulation response', async () => {
       const tx = mockTx();
       const response = {};
       setFetchMock(response);
 
-      await httpNode.simulatePublicPart(tx);
+      await httpNode.simulatePublicCalls(tx);
 
       const init: RequestInit = {
         method: 'POST',
@@ -512,7 +512,7 @@ describe('HttpNode', () => {
       };
       setFetchMock(response);
 
-      await expect(httpNode.simulatePublicPart(tx)).rejects.toThrow(simulationError);
+      await expect(httpNode.simulatePublicCalls(tx)).rejects.toThrow(simulationError);
     });
   });
 });

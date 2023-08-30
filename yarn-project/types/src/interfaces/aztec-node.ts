@@ -144,5 +144,5 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    **/
-  simulatePublicPart(tx: Tx): Promise<void>;
+  simulatePublicCalls(tx: Tx): Promise<void>;
 }

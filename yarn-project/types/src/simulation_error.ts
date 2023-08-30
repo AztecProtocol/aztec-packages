@@ -9,9 +9,17 @@ export interface FailingFunction {
    */
   contractAddress: AztecAddress;
   /**
+   * The name of the contract that failed.
+   */
+  contractName?: string;
+  /**
    * The selector of the function that failed.
    */
   functionSelector: FunctionSelector;
+  /**
+   * The name of the function that failed.
+   */
+  functionName?: string;
 }
 
 /**
@@ -62,9 +70,82 @@ export class SimulationError extends Error {
     this.functionErrorStack.unshift(failingFunction);
   }
 
+  static fromError(
+    failingContract: AztecAddress,
+    failingselector: FunctionSelector,
+    err: Error & {
+      /**
+       * The noir call stack.
+       */
+      callStack?: NoirCallStack;
+    },
+  ) {
+    const failingFunction = { contractAddress: failingContract, functionSelector: failingselector };
+    if (err instanceof SimulationError) {
+      return SimulationError.extendPreviousSimulationError(failingFunction, err);
+    }
+    return new SimulationError(err.message, failingFunction, err?.callStack, {
+      cause: err,
+    });
+  }
+
   static extendPreviousSimulationError(failingFunction: FailingFunction, previousError: SimulationError) {
     previousError.addCaller(failingFunction);
     return previousError;
+  }
+
+  /**
+   * Enriches the error with the name of a contract that failed.
+   * @param contractAddress - The address of the contract
+   * @param contractName - The corresponding name
+   */
+  enrichWithContractName(contractAddress: AztecAddress, contractName: string) {
+    this.functionErrorStack.forEach(failingFunction => {
+      if (failingFunction.contractAddress.equals(contractAddress)) {
+        failingFunction.contractName = contractName;
+      }
+    });
+  }
+
+  /**
+   * Enriches the error with the name of a function that failed.
+   * @param contractAddress - The address of the contract
+   * @param functionSelector - The selector of the function
+   * @param functionName - The corresponding name
+   */
+  enrichWithFunctionName(contractAddress: AztecAddress, functionSelector: FunctionSelector, functionName: string) {
+    this.functionErrorStack.forEach(failingFunction => {
+      if (
+        failingFunction.contractAddress.equals(contractAddress) &&
+        failingFunction.functionSelector.equals(functionSelector)
+      ) {
+        failingFunction.functionName = functionName;
+      }
+    });
+  }
+
+  /**
+   * Returns a string representation of the error.
+   * @returns The string.
+   */
+  toString() {
+    const functionCallStack = this.getCallStack();
+    const noirCallStack = this.getNoirCallStack();
+
+    // Try to resolve the contract and function names of the stack of failing functions.
+    const stackLines: string[] = [
+      ...functionCallStack.map(failingFunction => {
+        return `  at ${failingFunction.contractName ?? failingFunction.contractAddress.toString()}.${
+          failingFunction.functionName ?? failingFunction.functionSelector.toString()
+        }`;
+      }),
+      ...noirCallStack.map(
+        sourceCodeLocation =>
+          `  at ${sourceCodeLocation.filePath}:${sourceCodeLocation.line} '${sourceCodeLocation.locationText}'`,
+      ),
+    ];
+
+    return [`Simulation error: ${this.message}`, ...stackLines.reverse()].join('\n');
   }
 
   /**

@@ -117,7 +117,7 @@ export class PublicProcessor {
       try {
         result.push(await this.processTx(tx));
       } catch (err) {
-        this.log.error(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+        this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
         failed.push({
           tx,
           error: err instanceof Error ? err : new Error('Unknown error'),

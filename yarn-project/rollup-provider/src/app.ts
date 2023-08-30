@@ -274,12 +274,13 @@ export function appFactory(node: AztecNode, prefix: string) {
     const postData = (await stream.readAll()) as Buffer;
     const tx = Tx.fromBuffer(postData);
     try {
-      await node.simulatePublicPart(tx);
+      await node.simulatePublicCalls(tx);
     } catch (err) {
       if (err instanceof SimulationError) {
         ctx.body = {
           simulationError: err.toJSON(),
         };
+        ctx.status = 400;
       } else {
         throw err;
       }

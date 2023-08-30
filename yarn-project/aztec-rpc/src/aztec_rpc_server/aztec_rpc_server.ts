@@ -192,7 +192,7 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
-    if (simulatePublic) await this.#simulatePublicPart(tx);
+    if (simulatePublic) await this.#simulatePublicCalls(tx);
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -335,7 +335,8 @@ export class AztecRPCServer implements AztecRPC {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await this.#debugLogSimulationError(err);
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
       }
       throw err;
     }
@@ -375,7 +376,8 @@ export class AztecRPCServer implements AztecRPC {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await this.#debugLogSimulationError(err);
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
       }
       throw err;
     }
@@ -387,9 +389,9 @@ export class AztecRPCServer implements AztecRPC {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicPart(tx: Tx) {
+  async #simulatePublicCalls(tx: Tx) {
     try {
-      await this.node.simulatePublicPart(tx);
+      await this.node.simulatePublicCalls(tx);
     } catch (err) {
       // Try to fill in the noir call stack since the RPC server may have access to the debug metadata
       if (err instanceof SimulationError) {
@@ -411,7 +413,8 @@ export class AztecRPCServer implements AztecRPC {
             );
           }
         }
-        await this.#debugLogSimulationError(err);
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
       }
 
       throw err;
@@ -463,28 +466,37 @@ export class AztecRPCServer implements AztecRPC {
     );
   }
 
-  async #debugLogSimulationError(err: SimulationError) {
-    const functionCallStack = err.getCallStack();
-    const noirCallStack = err.getNoirCallStack();
+  /**
+   * Adds contract and function names to a simulation error.
+   * @param err - The error to enrich.
+   */
+  async #enrichSimulationError(err: SimulationError) {
+    // Maps contract addresses to the set of functions selectors that were in error.
+    // Using strings because map and set doesn't use .equals()
+    const mentionedFunctions: Map<string, Set<string>> = new Map();
 
-    // Try to resolve the contract and function names of the stack of failing functions.
-    const stackLines: string[] = [
-      ...(await Promise.all(
-        functionCallStack.map(async ({ contractAddress, functionSelector }) => {
-          const contract = await this.db.getContract(contractAddress);
-          const functionAbi = contract?.functions.find(f => f.selector.equals(functionSelector));
-          return `  at ${contract?.name ?? contractAddress.toString()}.${
-            functionAbi?.name ?? functionSelector.toString()
-          }`;
-        }),
-      )),
-      ...noirCallStack.map(
-        sourceCodeLocation =>
-          `  at ${sourceCodeLocation.filePath}:${sourceCodeLocation.line} '${sourceCodeLocation.locationText}'`,
-      ),
-    ];
+    err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
+      if (!mentionedFunctions.has(contractAddress.toString())) {
+        mentionedFunctions.set(contractAddress.toString(), new Set());
+      }
+      mentionedFunctions.get(contractAddress.toString())!.add(functionSelector.toString());
+    });
 
-    this.log([`Simulation error: ${err.message}`, ...stackLines.reverse()].join('\n'));
+    await Promise.all(
+      Object.keys(mentionedFunctions).map(async contractAddress => {
+        const selectors = mentionedFunctions.get(contractAddress)!;
+        const contract = await this.db.getContract(AztecAddress.fromString(contractAddress));
+        if (contract) {
+          err.enrichWithContractName(contract.address, contract.name);
+          selectors.forEach(selector => {
+            const functionAbi = contract.functions.find(f => f.selector.toString() === selector);
+            if (functionAbi) {
+              err.enrichWithFunctionName(contract.address, functionAbi.selector, functionAbi.name);
+            }
+          });
+        }
+      }),
+    );
   }
 
   // HACK(#1639): this is a hack to fix ordering of public calls enqueued in the call stack. Since the private kernel

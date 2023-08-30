@@ -15,7 +15,6 @@ import { FunctionL2Logs, NotePreimage, NoteSpendingInfo, SimulationError } from 
 
 import { extractPrivateCircuitPublicInputs, frToAztecAddress } from '../acvm/deserialize.js';
 import {
-  ACVMError,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
@@ -199,13 +198,7 @@ export class PrivateFunctionExecution {
       },
       this.abi.debug,
     ).catch((err: Error) => {
-      const failingFunction = { contractAddress: this.contractAddress, functionSelector: selector };
-      if (err instanceof SimulationError) {
-        throw SimulationError.extendPreviousSimulationError(failingFunction, err);
-      }
-      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined, {
-        cause: err,
-      });
+      throw SimulationError.fromError(this.contractAddress, selector, err);
     });
 
     const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);

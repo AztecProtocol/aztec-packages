@@ -376,7 +376,7 @@ export class HttpNode implements AztecNode {
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
-  public async simulatePublicPart(tx: Tx) {
+  public async simulatePublicCalls(tx: Tx) {
     const url = new URL(`${this.baseUrl}/simulate-tx`);
     const init: RequestInit = {};
     init['method'] = 'POST';

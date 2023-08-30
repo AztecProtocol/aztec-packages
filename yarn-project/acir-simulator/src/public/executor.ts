@@ -13,7 +13,6 @@ import { createDebugLogger } from '@aztec/foundation/log';
 import { FunctionL2Logs, SimulationError } from '@aztec/types';
 
 import {
-  ACVMError,
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
@@ -141,13 +140,7 @@ export class PublicExecutor {
         return Promise.resolve(toACVMField(portalContactAddress));
       },
     }).catch((err: Error) => {
-      const failingFunction = { contractAddress: execution.contractAddress, functionSelector: selector };
-      if (err instanceof SimulationError) {
-        throw SimulationError.extendPreviousSimulationError(failingFunction, err);
-      }
-      throw new SimulationError(err.message, failingFunction, err instanceof ACVMError ? err.callStack : undefined, {
-        cause: err,
-      });
+      throw SimulationError.fromError(execution.contractAddress, selector, err);
     });
 
     const {
