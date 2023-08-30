@@ -1773,7 +1773,7 @@ is_private: 1
 "
 `;
 
-exports[`structs/kernel serializes and prints private_kernel_public_inputs_final 1`] = `
+exports[`structs/kernel serializes and prints private_kernel_public_inputs for ordering circuit 1`] = `
 "end:
 aggregation_object:
 P0: { 0x1, 0x2 }

@@ -62,7 +62,7 @@ describe('structs/kernel', () => {
     );
   });
 
-  it(`serializes and prints private_kernel_public_inputs_final`, async () => {
+  it(`serializes and prints private_kernel_public_inputs for ordering circuit`, async () => {
     const kernelInputs = makeKernelPublicInputsFinal();
     await expectSerializeToMatchSnapshot(
       kernelInputs.toBuffer(),
