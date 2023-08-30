@@ -36,7 +36,9 @@ template <typename Curve> struct aggregation_state {
     void add_proof_outputs_as_public_inputs()
     {
         auto* context = P0.get_context();
-        context->add_recursive_proof(proof_witness_indices);
+        if constexpr (!IsSimulator<typename Curve::Builder>) {
+            context->add_recursive_proof(proof_witness_indices);
+        }
     }
 
     void assign_object_to_proof_outputs()
