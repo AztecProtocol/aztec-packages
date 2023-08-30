@@ -129,7 +129,7 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataC
     static constexpr auto full_numerator_values = construct_full_numerator_values(big_domain);
 
     /**
-     * @brief Given A univariate f represented by {f(0), ..., f(t-1)}, compute {f(t), ..., f(u-1)}
+     * @brief Given a univariate f represented by {f(0), ..., f(t-1)}, compute {f(t), ..., f(u-1)}
      * and return the Univariate represented by {f(0), ..., f(u-1)}.
      *
      * @details Write v_i = f(x_i) on a the domain {x_0, ..., x_{t-1}}. To efficiently compute the needed values of f,
@@ -139,19 +139,16 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataC
      *      - B(x) = Π_{i=0}^{t-1} (x-x_i)
      *      - d_i  = Π_{j ∈ {0, ..., t-1}, j≠i} (x_i-x_j) for i ∈ {0, ..., t-1}
      *
-     * NOTE: just taking x_i = i for now and possibly forever. Hence can significantly optimize:
-     *       extending an Edge f = v0(1-X) + v1X to a new value involves just one addition and a subtraction:
-     *       setting Δ  = v1-v0, the values of f(X) are
-     *       f(0)=v0, f(1)= v0 + Δ, v2 = f(1) + Δ, v3 = f(2) + Δ...
+     * When the domain size is two, extending f = v0(1-X) + v1X to a new value involves just one addition and a
+     * subtraction: setting Δ = v1-v0, the values of f(X) are f(0)=v0, f(1)= v0 + Δ, v2 = f(1) + Δ, v3 = f(2) + Δ...
      *
      */
-    Univariate<Fr, num_evals> extend(Univariate<Fr, domain_size> f)
+    Univariate<Fr, num_evals> extend(const Univariate<Fr, domain_size>& f)
     {
-        // ASSERT(u>t);
+        static_assert(num_evals >= domain_size); // WORKTODO > triggered
         Univariate<Fr, num_evals> result;
-        for (size_t k = 0; k != domain_size; ++k) {
-            result.value_at(k) = f.value_at(k);
-        }
+
+        std::copy(f.evaluations.begin(), f.evaluations.end(), result.evaluations.begin());
 
         if constexpr (domain_size == 2) {
             Fr delta = f.value_at(1) - f.value_at(0);
@@ -181,7 +178,7 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataC
      * @param f
      * @return Fr
      */
-    Fr evaluate(Univariate<Fr, domain_size>& f, const Fr& u)
+    Fr evaluate(const Univariate<Fr, domain_size>& f, const Fr& u)
     {
 
         Fr full_numerator_value = 1;

@@ -14,11 +14,11 @@ namespace proof_system::honk::sumcheck::relations_bench {
 
 void extend_2_to_6(State& state) noexcept
 {
-    auto f = Univariate<FF, 2>::get_random();
+    auto univariate = Univariate<FF, 2>::get_random();
     BarycentricData<FF, 2, 6> barycentric_2_to_6;
     for (auto _ : state)
     {
-        DoNotOptimize(barycentric_2_to_6.extend(f));
+        DoNotOptimize(barycentric_2_to_6.extend(univariate));
     }
 }
 BENCHMARK(extend_2_to_6);
