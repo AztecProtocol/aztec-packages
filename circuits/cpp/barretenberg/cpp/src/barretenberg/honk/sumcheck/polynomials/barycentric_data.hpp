@@ -20,9 +20,12 @@
 namespace proof_system::honk::sumcheck {
 
 /**
- * NOTE: We should definitely consider question of optimal choice of domain, but if decide on {0,1,...,t-1} then we can
+
+ * @todo: We should definitely consider question of optimal choice of domain, but if decide on {0,1,...,t-1} then we can
  * simplify the implementation a bit.
- * NOTE: if we use this approach in the recursive setting, will use Plookup?
+ * @todo: If we use this approach in the recursive setting, should we use Plookup. WORKTODO
+ */
+/**
  */
 template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataCompileTime {
   public:
@@ -146,23 +149,30 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataC
     {
         // ASSERT(u>t);
         Univariate<Fr, num_evals> result;
-
         for (size_t k = 0; k != domain_size; ++k) {
             result.value_at(k) = f.value_at(k);
         }
 
-        for (size_t k = domain_size; k != num_evals; ++k) {
-            result.value_at(k) = 0;
-            // compute each term v_j / (d_j*(x-x_j)) of the sum
-            for (size_t j = 0; j != domain_size; ++j) {
-                Fr term = f.value_at(j);
-                term *= precomputed_denominator_inverses[domain_size * k + j];
-                result.value_at(k) += term;
+        if constexpr (domain_size == 2) {
+            Fr delta = f.value_at(1) - f.value_at(0);
+            for (size_t idx = 1; idx < num_evals - 1; idx++) {
+                result.value_at(idx + 1) = result.value_at(idx) + delta;
             }
-            // scale the sum by the the value of of B(x)
-            result.value_at(k) *= full_numerator_values[k];
+            return result;
+        } else {
+            for (size_t k = domain_size; k != num_evals; ++k) {
+                result.value_at(k) = 0;
+                // compute each term v_j / (d_j*(x-x_j)) of the sum
+                for (size_t j = 0; j != domain_size; ++j) {
+                    Fr term = f.value_at(j);
+                    term *= precomputed_denominator_inverses[domain_size * k + j];
+                    result.value_at(k) += term;
+                }
+                // scale the sum by the the value of of B(x)
+                result.value_at(k) *= full_numerator_values[k];
+            }
+            return result;
         }
-        return result;
     }
 
     /**

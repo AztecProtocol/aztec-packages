@@ -10,6 +10,7 @@ namespace proof_system::honk::sumcheck {
 
 template <class Fr, size_t view_length> class UnivariateView;
 
+// IMPROVEMENT(Cody) this is not used anywhere? Move to memeber function of U/snivariate?
 template <class Fr, size_t _length> class Univariate {
   public:
     static constexpr size_t LENGTH = _length;
@@ -59,6 +60,15 @@ template <class Fr, size_t _length> class Univariate {
         std::read(buffer, result.evaluations);
         return result;
     }
+
+    static Univariate get_random()
+    {
+        auto output = Univariate<Fr, _length>();
+        for (size_t i = 0; i != _length; ++i) {
+            output.value_at(i) = Fr::random_element();
+        }
+        return output;
+    };
 
     // Operations between Univariate and other Univariate
     bool operator==(const Univariate& other) const = default;
