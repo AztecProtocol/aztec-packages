@@ -2,7 +2,10 @@ use dep::std::hash::pedersen;
 use dep::aztec::note::note_interface::NoteInterface;
 use dep::aztec::note::note_header::NoteHeader;
 use dep::aztec::note::utils::compute_unique_siloed_note_hash;
-use dep::aztec::oracle::get_secret_key::get_secret_key;
+use dep::aztec::oracle::{
+    get_secret_key::get_secret_key,
+    get_public_key::get_public_key,
+};
 
 global ADDRESS_NOTE_LEN: Field = 1;
 
@@ -28,6 +31,14 @@ impl AddressNote {
     fn compute_nullifier(self) -> Field {
         let unique_siloed_note_hash = compute_unique_siloed_note_hash(AddressNoteMethods, self);
         let secret = get_secret_key(self.address);
+
+        // Constrain the owner - Nullifier secret key is currently just the encryption private key so we can constrain
+        // the owner by deriving the public key from the secret key and checking the result.
+        let owner_public_key = get_public_key(self.address);
+        let computed_public_key = dep::std::scalar_mul::fixed_base(secret);
+        assert(owner_public_key.x == computed_public_key[0]);
+        assert(owner_public_key.y == computed_public_key[1]);
+
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             unique_siloed_note_hash,
