@@ -1,5 +1,6 @@
 #pragma once
 
+#include "aztec3/circuits/abis/complete_address.hpp"
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/function_leaf_preimage.hpp"
 #include "aztec3/circuits/abis/function_selector.hpp"
@@ -16,6 +17,7 @@
 
 namespace aztec3::circuits {
 
+using abis::CompleteAddress;
 using abis::FunctionData;
 using abis::FunctionSelector;
 using abis::Point;
@@ -72,17 +74,20 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
     return { NCT::hash(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS) };
 }
 
-template <typename NCT> typename NCT::address compute_contract_address(Point<NCT> const& point,
-                                                                       typename NCT::fr const& contract_address_salt,
-                                                                       typename NCT::fr const& function_tree_root,
-                                                                       typename NCT::fr const& constructor_hash)
+template <typename NCT>
+typename NCT::CompleteAddress compute_complete_contract_address(Point<NCT> const& point,
+                                                                typename NCT::fr const& contract_address_salt,
+                                                                typename NCT::fr const& function_tree_root,
+                                                                typename NCT::fr const& constructor_hash)
 {
     using fr = typename NCT::fr;
+    using CompleteAddress = typename NCT::CompleteAddress;
 
     const fr partial_address =
         compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
-
-    return compute_contract_address_from_partial(point, partial_address);
+    const fr contract_address = compute_contract_address_from_partial(point, partial_address);
+    const CompleteAddress complete_address = { contract_address, point, partial_address };
+    return complete_address;
 }
 
 template <typename NCT> typename NCT::fr compute_commitment_nonce(typename NCT::fr const& first_nullifier,

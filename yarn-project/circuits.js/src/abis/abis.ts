@@ -17,6 +17,7 @@ import {
 } from '../cbind/circuits.gen.js';
 import {
   AztecAddress,
+  CompleteAddress,
   FUNCTION_SELECTOR_NUM_BYTES,
   Fr,
   FunctionData,
@@ -182,53 +183,29 @@ export function hashConstructor(
 }
 
 /**
- * Computes a contract address.
+ * Computes a complete contract address.
  * @param wasm - A module providing low-level wasm access.
  * @param deployerPubKey - The pubkey of the contract deployer.
  * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
- * @returns The contract address.
+ * @returns The complete contract address.
  */
-export function computeContractAddress(
+export function computeCompleteContractAddress(
   wasm: IWasmModule,
   deployerPubKey: PublicKey,
   contractAddrSalt: Fr,
   fnTreeRoot: Fr,
   constructorHash: Fr,
-): AztecAddress {
+): CompleteAddress {
   wasm.call('pedersen__init');
   const result = inputBuffersToOutputBuffer(
     wasm,
-    'abis__compute_contract_address',
+    'abis__compute_complete_contract_address',
     [deployerPubKey.toBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
     32,
   );
-  return new AztecAddress(result);
-}
-
-/**
- * Computes a partial address. Consists of all contract address components except the deployer public key.
- * @param wasm - A module providing low-level wasm access.
- * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
- * @param fnTreeRoot - The function tree root of the contract being deployed.
- * @param constructorHash - The hash of the constructor.
- * @returns The partially constructed contract address.
- */
-export function computePartialAddress(
-  wasm: IWasmModule,
-  contractAddrSalt: Fr,
-  fnTreeRoot: Fr,
-  constructorHash: Fr,
-): Fr {
-  wasm.call('pedersen__init');
-  const result = inputBuffersToOutputBuffer(
-    wasm,
-    'abis__compute_partial_address',
-    [contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
-    32,
-  );
-  return Fr.fromBuffer(result);
+  return CompleteAddress.fromBuffer(result);
 }
 
 /**

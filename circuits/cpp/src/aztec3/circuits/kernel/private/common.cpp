@@ -288,10 +288,11 @@ void common_contract_logic(DummyBuilder& builder,
         auto constructor_hash =
             compute_constructor_hash(function_data, private_call_public_inputs.args_hash, private_call_vk_hash);
 
-        auto const new_contract_address = compute_contract_address<NT>(contract_dep_data.deployer_public_key,
-                                                                       contract_dep_data.contract_address_salt,
-                                                                       contract_dep_data.function_tree_root,
-                                                                       constructor_hash);
+        auto const new_contract_address = compute_complete_contract_address(contract_dep_data.deployer_public_key,
+                                                                            contract_dep_data.contract_address_salt,
+                                                                            contract_dep_data.function_tree_root,
+                                                                            constructor_hash)
+                                              .address;
 
         // Add new contract data if its a contract deployment function
         NewContractData<NT> const native_new_contract_data{ new_contract_address,

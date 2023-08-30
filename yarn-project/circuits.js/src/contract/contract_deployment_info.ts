@@ -1,5 +1,5 @@
 import {
-  computeContractAddress,
+  computeCompleteContractAddress,
   computeFunctionTreeRoot,
   computePartialAddress,
   computeVarArgsHash,
@@ -49,7 +49,7 @@ export async function getContractDeploymentInfo(
   // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/1873: create computeCompleteAddress
   // function --> The following is wasteful as it computes partial address twice
   const partialAddress = computePartialAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
-  const contractAddress = computeContractAddress(
+  const contractAddress = computeCompleteContractAddress(
     wasm,
     publicKey,
     contractAddressSalt,

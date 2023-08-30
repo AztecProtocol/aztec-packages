@@ -225,10 +225,10 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
         auto constructor_hash = compute_constructor_hash<NT>(function_data, args_hash, private_circuit_vk_hash);
 
         // Derive contract address so that it can be used inside the constructor itself
-        contract_address = compute_contract_address<NT>(
+        const auto complete_contract_address = compute_complete_contract_address<NT>(
             msg_sender_pub_key, contract_address_salt, contract_deployment_data.function_tree_root, constructor_hash);
         // update the contract address in the call context now that it is known
-        call_context.storage_contract_address = contract_address;
+        call_context.storage_contract_address = complete_contract_address.address;
     } else {
         const NT::fr& function_tree_root = function_tree_root_from_siblings<NT>(function_data.selector,
                                                                                 function_data.is_internal,
@@ -529,7 +529,7 @@ bool validate_deployed_contract_address(PrivateKernelInputsInit<NT> const& priva
     auto expected_constructor_hash = compute_constructor_hash(
         private_inputs.private_call.call_stack_item.function_data, tx_request.args_hash, private_circuit_vk_hash);
 
-    NT::fr const expected_contract_address = compute_contract_address(
+    NT::fr const expected_contract_address = compute_complete_contract_address(
         cdd.deployer_public_key, cdd.contract_address_salt, cdd.function_tree_root, expected_constructor_hash);
 
     return (public_inputs.end.new_contracts[0].contract_address.to_field() == expected_contract_address);

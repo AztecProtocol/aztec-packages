@@ -17,7 +17,7 @@ import {
   isConstructor,
 } from '@aztec/circuits.js';
 import {
-  computeContractAddress,
+  computeCompleteContractAddress,
   computeContractLeaf,
   computeFunctionTreeRoot,
   computePartialAddress,
@@ -98,7 +98,7 @@ export class ContractTree {
     // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/1873: create computeCompleteAddress
     // function --> The following is wasteful as it computes partial address twice
     const partialAddress = computePartialAddress(wasm, contractAddressSalt, root, constructorHash);
-    const address = computeContractAddress(wasm, from, contractAddressSalt, root, constructorHash);
+    const address = computeCompleteContractAddress(wasm, from, contractAddressSalt, root, constructorHash);
     const completeAddress = await CompleteAddress.create(address, from, partialAddress);
 
     const contractDao: ContractDao = {

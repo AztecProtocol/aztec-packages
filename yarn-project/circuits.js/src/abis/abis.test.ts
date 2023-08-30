@@ -5,7 +5,7 @@ import { makeAztecAddress, makeEthAddress, makePoint, makeTxRequest, makeVerific
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
   computeCommitmentNonce,
-  computeContractAddress,
+  computeCompleteContractAddress,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
@@ -67,7 +67,7 @@ describe('abis wasm bindings', () => {
     const contractAddrSalt = new Fr(2n);
     const treeRoot = new Fr(3n);
     const constructorHash = new Fr(4n);
-    const res = computeContractAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
+    const res = computeCompleteContractAddress(wasm, deployerPubKey, contractAddrSalt, treeRoot, constructorHash);
     expect(res).toMatchSnapshot();
   });
 
