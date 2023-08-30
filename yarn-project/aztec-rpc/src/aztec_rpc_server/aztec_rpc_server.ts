@@ -474,7 +474,7 @@ export class AztecRPCServer implements AztecRPC {
    */
   async #enrichSimulationError(err: SimulationError) {
     // Maps contract addresses to the set of functions selectors that were in error.
-    // Using strings because map and set doesn't use .equals()
+    // Using strings because map and set don't use .equals()
     const mentionedFunctions: Map<string, Set<string>> = new Map();
 
     err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
@@ -485,15 +485,15 @@ export class AztecRPCServer implements AztecRPC {
     });
 
     await Promise.all(
-      Object.keys(mentionedFunctions).map(async contractAddress => {
-        const selectors = mentionedFunctions.get(contractAddress)!;
-        const contract = await this.db.getContract(AztecAddress.fromString(contractAddress));
+      [...mentionedFunctions.entries()].map(async ([contractAddress, selectors]) => {
+        const parsedContractAddress = AztecAddress.fromString(contractAddress);
+        const contract = await this.db.getContract(parsedContractAddress);
         if (contract) {
-          err.enrichWithContractName(contract.address, contract.name);
+          err.enrichWithContractName(parsedContractAddress, contract.name);
           selectors.forEach(selector => {
             const functionAbi = contract.functions.find(f => f.selector.toString() === selector);
             if (functionAbi) {
-              err.enrichWithFunctionName(contract.address, functionAbi.selector, functionAbi.name);
+              err.enrichWithFunctionName(parsedContractAddress, functionAbi.selector, functionAbi.name);
             }
           });
         }
