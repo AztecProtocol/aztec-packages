@@ -322,17 +322,8 @@ const sidebars = {
       ],
     },
 
-    {
-      label: "Limitations",
-      type: "doc",
-      id: "dev_docs/limitations/main",
-    },
-
-    {
-      label: "Privacy Considerations",
-      type: "doc",
-      id: "dev_docs/privacy/main",
-    },
+    "dev_docs/limitations/main",
+    "dev_docs/privacy/main",
 
     {
       type: "html",

@@ -40,10 +40,6 @@ There are plans to resolve all of the below. See also the [engineering roadmap](
 
 None of the Sandbox code is audited. It's being iterated-on every day. It will not be audited for quite some time.
 
-#### What are the consequences?
-
-TODO: link to a disclaimer.
-
 
 ### No Proofs!
 
@@ -89,7 +85,6 @@ Apps won't yet be able to allow for any L2 fee logic. Once fees are introduced, 
 ### Basic Keys and Addresses!
 
 The way in which keypairs and addresses are currently derived and implemented (inside the Sandbox) is greatly over-simplified, relative to future plans.
-See [current keys] and [future keys].
 
 They're so over-simplified that they're known to be insecure. Other features have been prioritised so-far in Sandbox development. Please refer to the [future roadmap](../../about_aztec/roadmap/engineering_roadmap.md)
 
@@ -114,7 +109,7 @@ Please open new discussions on [discourse](http://discourse.aztec.network) or op
 ### It's not-yet decentralised
 
 It's an emulated blockchain entirely contained within your own laptop! It's centralised by design!
-As for deploying this all to mainnet, a decentralised sequencer selection and prover selection protocols are still being discussed. There are plans for decentralised testnets in 2024.
+As for deploying this all to mainnet, a decentralised sequencer selection and prover selection protocols are still [being discussed](https://discourse.aztec.network/t/request-for-proposals-decentralized-sequencer-selection/350). There are plans for decentralised testnets in 2024.
 
 
 ### You can't read mutable public state from a private function
@@ -130,7 +125,7 @@ Reading public state from a private contract will be a common pattern. For examp
 
 A contract can't perform a delegatecall yet (if ever). Delegatecalls are quite a controversial feature of the EVM.
 
-### No privacy-preserving queries to public nodes
+### No privacy-preserving queries to nodes
 
 Ethereum has a notion of a 'full node' which keeps-up with the blockchain and stores the full chain state. Many users don't wish to run full nodes, so rely on 3rd-party 'full-node-as-a-service' infrastructure providers, who service blockchain queries from their users.
 
@@ -176,8 +171,8 @@ There are [ongoing discussions](https://discourse.aztec.network/t/who-is-msg-sen
 
 #### What are the consequences?
 
-When a private function makes a call to a public function, the `msg_sender` of the calling function will be given to the public world. Most critically, includes if the `msg_sender` is an account contract.
-This will be patched in the near future, but unfortunately, app developers might need to 'overlook' this privacy leakage until then, with the assumption that it will be fixed. Thanks for your patience :)
+When a private function makes a call to a public function, the `msg_sender` of the calling function will be given to the public world. Most critically, this includes if the `msg_sender` is an account contract.
+This will be patched in the near future, but unfortunately, app developers might need to 'overlook' this privacy leakage until then, with the assumption that it will be fixed. But note, one possible 'patch' might be to set `msg_sender` to `0` for all private -> public calls. This might cause breaking changes to your public functions, if they rely on reading `msg_sender`. There are patterns to work around this, but they wouldn't be pretty, and we won't go into details until a solution is chosen. Sorry about this, and thanks for your patience whilst we work this out :)
 
 
 ### New Privacy Standards are required
@@ -196,6 +191,10 @@ For example, until community standards are developed to reduce the uniqueness of
 Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount of computation a circuit can perform, and on the amount of data that can be passed into and out of a function. See [Aztec function ABIs](../contracts/abi.md) for more information.
 
 > Blockchain developers are no stranger to restrictive computational environments. Ethereum has gas limits, local variable stack limits, call stack limits, contract deployment size limits, log size limits, etc.
+
+Here are the current constants:
+
+#include_code constants circuits/cpp/src/aztec3/constants.hpp cpp
 
 #### What are the consequences?
 

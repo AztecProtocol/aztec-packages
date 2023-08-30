@@ -1,4 +1,4 @@
-# Engineering Roadmap
+# Engineering Wishlist
 
 The engineering roadmap is long. There are no timings assigned here. In a loose priority order:
 
@@ -9,8 +9,8 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 - Encouraging contributions to 'good first issue' issues.
 - Release notes.
 - Versioning.
-- AZIPs (improvements)
-- AZRCs (standardisation efforts)
+- Aztec Improvement Proposals (AZIPs)
+- Aztec Requests for Comment (AZRCs)
 
 ## Benchmarking
 
@@ -18,24 +18,9 @@ The engineering roadmap is long. There are no timings assigned here. In a loose 
 
 ## Standardisation efforts
 
-- Aztec Smart Contract coding patterns
-    - Private State
-    - When to use `Singleton` vs `Set`.
-    - Custom Notes & Nullifiers
-    - Encrypting data for someone else, via encrypted logs.
-    - Account contracts
-    - Inter-layer messaging (L1<\>L2, public<\>private)
-    - Function calls
-    - Do not return private data from an external function (unless you've thought about the consequences)
-    - Do not pass private data as an argument to another function (unless you've thought about the consequences)
-    - Any public function call is leaky.
-    - Unencrypted logs are leaky.
-    - The timing of transactions can be leaky.
-    - The number of new commitments / nullifiers / log fields, is leaky. 
-        - Standardise tranches of 'sizes' of commitments/nullifiers/logs to ensure functions look the same. E.g. Tranches for 2, 4, 8, 16, 32.
-        - Perhaps have a version or 'mode' of the kernel circuit, which pads all arrays with random fields, up to some tranched 'size' of commitments/nullifiers/logs.
-- Access Control (whitelists/blacklists) - probably needs the Slow Updates tree (or something).
-- Basic example private tokens
+- Recommended Aztec smart contract coding patterns
+- Access Control (whitelists/blacklists) - probably needs the Slow Updates tree (or something similar).
+- Basic _example_ private tokens
     - Including recursive calls to 'get_notes'.
 - Compliant private tokens
 - Private NFTs
@@ -177,8 +162,6 @@ Some example features:
 
 ## Tooling
 
-Work more closely with the Noir tooling team. Upskill the wider engineering team to contribute to tooling.
-
 ## Proper Circuits
 
 ### Redesign
@@ -233,11 +216,13 @@ Also, we do a lot of sha256-compressing in our kernel and rollup circuits for da
 - Private data must not be returned to an app, unless the user authorises it.
 
 ## Validation: preventing execution of malicious bytecode
-- A node should check that some purported bytecode for a particular contract address matches the data in the contract tree.
+- A node should check that the bytecode provided by an application for a given app matches the leaf in the contract tree to ensure that user doesn't execute unplanned code which might access their notes.
 
-## Fuzz Testing?
+## Fuzz Testing
 
-## Formal Verification?
+## Formal Verification
+
+An investigation into how formal verification techniques might improve the security of Aztec software.
 
 ## P2P network
 
@@ -245,12 +230,12 @@ Also, we do a lot of sha256-compressing in our kernel and rollup circuits for da
 
 ## Hashes
 
-- New Pedersen
-- Poseidon
+- An improved, standardised Pedersen hash in barretenberg.
+- Poseidon hashing in barretenberg.
 
 ## Tree epochs
-- Nullifier tree
-- Maybe other trees. TBD.
+- Nullifier tree epochs
+- Maybe other tree epochs.
 
 ## Chaining txs
 - We have the ability to spend pending notes (which haven't-yet been added to the tree) _within the context of a single tx_.

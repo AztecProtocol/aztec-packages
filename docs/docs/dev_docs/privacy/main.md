@@ -1,4 +1,4 @@
-# Preserving privacy
+# Privacy Considerations
 
 Privacy is important.
 
@@ -45,7 +45,7 @@ There are many caveats to the above. Since Aztec also enables interaction with t
 Any time a private function makes a call to a public function, information is leaked. Now, that might be perfectly fine in some use cases (it's up to the smart contract developer). Indeed, most interesting apps will require some public state. But let's have a look at some leaky patterns:
 
 - Calling a public function from a private function. The public function execution will be publicly visible.
-- Calling a public function from a private function, without anonymising the msg_sender of that call. (Otherwise the msg_sender will be publicly visible).
+- Calling a public function from a private function, without anonymising the `msg_sender` of that call. (Otherwise the `msg_sender` will be publicly visible).
 - Passing arguments to a public function from a private function. All of those arguments will be publicly visible.
 - Calling an internal public function from a private function. The fact that the call originated from a private function of that same contract will be trivially known.
 - Emitting unencrypted events from a private function. The unencrypted event name and arguments will be publicly visible.
@@ -54,7 +54,7 @@ Any time a private function makes a call to a public function, information is le
 
 ### Crossing the public -> private boundary
 
-If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked without following recommended patterns. See (LINK) for more details.
+If a public function sends a message to be consumed by a private function, the act of consuming that message might be leaked if not following recommended patterns. See [here](../contracts/portals/inbox.md) for more details.
 
 
 ### Timing of transactions
@@ -72,9 +72,7 @@ Tl;dr: app developers should think about the _timing_ of user transactions, and 
 
 ### Function Fingerprints and Tx Fingerprints
 
-'Fingerprint' is something of a neologism, in the context of privacy leakage.
-
-A 'Function Fingerprint' is any data which is exposed by a function to the outside world. A 'Tx Fingerprint' is any data which is exposed by a tx to the outside world. We're interested in minimising leakages of information from private txs. For a private function, the following information _could_ be leaked (depending on the function, of course):
+A 'Function Fingerprint' is any data which is exposed by a function to the outside world. A 'Tx Fingerprint' is any data which is exposed by a tx to the outside world. We're interested in minimising leakages of information from private txs. The leakiness of a Tx Fingerprint depends on the leakiness of its consituent functions' Function Fingerprints _and_ on the appearance of the tx's Tx Fingerprint as a whole. For a private function (and by extension, for a private tx), the following information _could_ be leaked (depending on the function, of course):
 
 - All calls to public functions.
   - The contract address of the private function (if it calls an internal public function).
@@ -90,24 +88,8 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
   - \# bytes of encrypted logs
   - \# public function calls
   - \# L2->L1 messages
-  - \# nonzero roots**
-
-The leakiness of a Tx Fingerprint depends on the leakiness of its consituent functions' Function Fingerprints _and_ on the appearance of the tx's Tx Fingerprint as a whole. Txs can leak the following similar information:
-- All calls to public functions.
-  - The contract addresses of all private function (if it calls an internal public function).
-    - This could be the address of the transactor themselves, if the calling contract is an account contract.
-  - All arguments which are passed to public functions.
-- All calls to L1 functions (in the form of L2 -> L1 messages).
-  - The contents of L2 -> L1 messages.
-- All unencrypted logs (topics and arguments).
-- The roots of all trees which have been read from.
-- The _number_ of ['side effects'](https://en.wikipedia.org/wiki/Side_effect_(computer_science)) in the whole tx:
-  - \# new commitments
-  - \# new nullifiers
-  - \# bytes of encrypted logs
-  - \# public function calls
-  - \# L2->L1 messages
   - \# nonzero roots[^1]
+
 
 
 > Note: many of these were mentioned in the ["Crossing the private -> public boundary"](#crossing-the-private---public-boundary) section.
@@ -128,7 +110,7 @@ Ethereum has a notion of a 'full node' which keeps-up with the blockchain and st
 
 This pattern is likely to develop in Aztec as well, except there's a problem: privacy. If a privacy-seeking user makes a query to a 3rd-party 'full node', that user might leak data about who they are; about their historic network activity; or about their future intentions. One solution to this problem is "always run a full node", but pragmatically, not everyone will. To protect less-advanced users' privacy, research is underway to explore how a privacy-seeking user may request and receive data from a 3rd-party node without revealing what that data is, nor who is making the request.
 
-App developers should be aware of this avenue for private data leakage. **Whenever an app requests information from a public node, the entity running that node is unlikely be your user!**
+App developers should be aware of this avenue for private data leakage. **Whenever an app requests information from a node, the entity running that node is unlikely be your user!**
 
 #### What kind of queries can be leaky?
 
@@ -142,9 +124,9 @@ So for maximal privacy, it's in a user's best interest to read from the very-lat
 
 Naturally, the private data tree is continuously changing as new transactions take place and their new notes are appended. Most notably, the sibling path for every leaf in the tree changes every time a new leaf is appended.
 
-If a user runs their own public node, there's no problem: they can query the latest sibling path for their note(s) from their own machine without leaking any information to the outside world.
+If a user runs their own node, there's no problem: they can query the latest sibling path for their note(s) from their own machine without leaking any information to the outside world.
 
-But if a user is not running their own public node, they would need to query the very-latest sibling path of their note(s) from some 3rd-party public node. In order to query the sibling path of a leaf, the leaf's index needs to be provided as an argument. Revealing the leaf's index to a 3rd-party trivially reveals exactly the note(s) you're about to read. And since those notes were created in some prior transaction, the 3rd-party will be able to link you with that prior transaction. Suppose then that the 3rd-party also serviced the creator of said prior transaction: the 3rd-party will slowly be able to link more and more transactions, and gain more and more insight into a network which is meant to be private!
+But if a user is not running their own node, they would need to query the very-latest sibling path of their note(s) from some 3rd-party node. In order to query the sibling path of a leaf, the leaf's index needs to be provided as an argument. Revealing the leaf's index to a 3rd-party trivially reveals exactly the note(s) you're about to read. And since those notes were created in some prior transaction, the 3rd-party will be able to link you with that prior transaction. Suppose then that the 3rd-party also serviced the creator of said prior transaction: the 3rd-party will slowly be able to link more and more transactions, and gain more and more insight into a network which is meant to be private!
 
 We're [researching](../../about_aztec/roadmap/engineering_roadmap.md) cryptographic ways to enable users to retrieve sibling paths from 3rd-parties without revealing leaf indices.
 
@@ -152,7 +134,7 @@ We're [researching](../../about_aztec/roadmap/engineering_roadmap.md) cryptograp
 
 ##### Any query
 
-Any query to a public node leaks information to that node. 
+Any query to a node leaks information to that node. 
 
 We're [researching](../../about_aztec/roadmap/engineering_roadmap.md) cryptographic ways to enable users to query any data privately.
 
