@@ -334,7 +334,11 @@ export function makePublicCircuitPublicInputs(
  * @returns Kernel circuit public inputs.
  */
 export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100), true);
+  return new KernelCircuitPublicInputs(
+    makeAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+    true,
+  );
 }
 
 /**
