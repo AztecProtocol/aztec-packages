@@ -203,6 +203,7 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
 
         if (codeFilePath.slice(0) != "/") {
           // Absolute path to the code file from the root of the Docusaurus project
+          // Note: without prefixing with `/`, the later call to `path.resolve()` gives an incorrect path (absolute instead of relative)
           codeFilePath = `/${codeFilePath}`;
         }
 
@@ -220,10 +221,6 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
           );
 
           const relativeCodeFilePath = path.resolve(rootDir, codeFilePath);
-
-          // console.log(rootDir);
-          // console.log("cfp", codeFilePath);
-          console.log(path.resolve(rootDir, codeFilePath));
 
           const url = `https://github.com/AztecProtocol/aztec-packages/blob/master/${relativeCodeFilePath}#L${startLine}-L${endLine}`;
 
