@@ -28,8 +28,8 @@ template <typename NCT> struct KernelCircuitPublicInputsFinal {
 
     boolean operator==(KernelCircuitPublicInputsFinal<NCT> const& other) const
     {
-        return end == other.end && constants == other.constants && is_private == other.is_private;
-    };
+        return msgpack_derived_equals<boolean>(*this, other);
+    }
 
     template <typename Builder>
     KernelCircuitPublicInputsFinal<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const

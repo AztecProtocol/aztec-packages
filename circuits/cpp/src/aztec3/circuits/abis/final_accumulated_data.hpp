@@ -68,14 +68,7 @@ template <typename NCT> struct FinalAccumulatedData {
                    optionally_revealed_data);
     boolean operator==(FinalAccumulatedData<NCT> const& other) const
     {
-        return aggregation_object == other.aggregation_object && new_commitments == other.new_commitments &&
-               new_nullifiers == other.new_nullifiers && nullified_commitments == other.nullified_commitments &&
-               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
-               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
-               unencrypted_logs_hash == other.unencrypted_logs_hash &&
-               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
-               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
-               new_contracts == other.new_contracts && optionally_revealed_data == other.optionally_revealed_data;
+        return msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Builder> FinalAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
