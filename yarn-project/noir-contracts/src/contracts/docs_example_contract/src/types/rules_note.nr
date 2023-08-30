@@ -4,29 +4,29 @@ use dep::aztec::note::{
     utils::compute_note_hash_for_read_or_nullify,
 };
 
-global RULES_LEN: Field = 2;
+global RULES_NOTE_LEN: Field = 2;
 
-struct Rules {
+struct RulesNote {
     min_points: u8,
     max_points: u8,
     header: NoteHeader,
 }
 
-impl Rules {
+impl RulesNote {
     fn new(min_points: u8, max_points: u8) -> Self {
-        Rules {
+        RulesNote {
             min_points,
             max_points,
             header: NoteHeader::empty(),
         }
     }
 
-    fn serialise(self) -> [Field; RULES_LEN] {
+    fn serialise(self) -> [Field; RULES_NOTE_LEN] {
         [self.min_points as Field, self.max_points as Field]
     }
 
-    fn deserialise(preimage: [Field; RULES_LEN]) -> Self {
-        Rules {
+    fn deserialise(preimage: [Field; RULES_NOTE_LEN]) -> Self {
+        RulesNote {
             min_points: preimage[0] as u8,
             max_points: preimage[1] as u8,
             header: NoteHeader::empty(),
@@ -50,31 +50,31 @@ impl Rules {
     }
 }
 
-fn deserialise(preimage: [Field; RULES_LEN]) -> Rules {
-    Rules::deserialise(preimage)
+fn deserialise(preimage: [Field; RULES_NOTE_LEN]) -> RulesNote {
+    RulesNote::deserialise(preimage)
 }
 
-fn serialise(note: Rules) -> [Field; RULES_LEN] {
+fn serialise(note: RulesNote) -> [Field; RULES_NOTE_LEN] {
     note.serialise()
 }
 
-fn compute_note_hash(note: Rules) -> Field {
+fn compute_note_hash(note: RulesNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: Rules) -> Field {
+fn compute_nullifier(note: RulesNote) -> Field {
     note.compute_nullifier()
 }
 
-fn get_header(note: Rules) -> NoteHeader {
+fn get_header(note: RulesNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: &mut Rules, header: NoteHeader) {
+fn set_header(note: &mut RulesNote, header: NoteHeader) {
     note.set_header(header)
 }
 
-global RulesMethods = NoteInterface {
+global RulesNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,

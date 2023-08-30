@@ -135,7 +135,7 @@ Singleton is a private state variable that is unique in a way. When a Singleton 
 
 ### `::new`
 
-Here we define a Singleton for storing a Card note:
+Here we define a Singleton for storing a `CardNote`:
 
 #include_code state_vars-Singleton /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
@@ -153,7 +153,7 @@ Unlike public states, which have a default initial value of `0` (or many zeros, 
 
 The 'current value' of a `Singleton` state variable may be overwritten via the `.replace` method.
 
-To modify the 'current value' of a Singleton, we may create a new note (a Card in the following example) containing some new data, and replace the current note with it:
+To modify the 'current value' of a Singleton, we may create a new note (a `CardNote` in the following example) containing some new data, and replace the current note with it:
 
 #include_code state_vars-SingletonReplace /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/actions.nr rust
 
@@ -203,7 +203,7 @@ Set is used for managing a collection of notes. All notes in a set are of the sa
 
 The `new` method creates a Set that employs a specific note type. When a new Set is created, it initially contains no notes.
 
-In the following example, we define a set whose underlying note type is `Card`:
+In the following example, we define a set whose underlying note type is `CardNote`:
 
 #include_code state_vars-Set /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/storage.nr rust
 
@@ -243,17 +243,17 @@ For example, the following function outputs an instance of `NoteGetterOptions`, 
 
 #include_code state_vars-NoteGetterOptionsSelectSortOffset /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/options.nr rust
 
-The first value of `.select` and `.sort` is the index of a field in a note type. For the note type `Card` that has the following fields:
+The first value of `.select` and `.sort` is the index of a field in a note type. For the note type `CardNote` that has the following fields:
 
-#include_code state_vars-NoteCard /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/types/card.nr rust
+#include_code state_vars-CardNote /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/types/card.nr rust
 
 The indices are: 0 for `points`, 1 for `secret`, and 2 for `owner`.
 
 In the previous example,
 
-`.select(2, account_address)` matches the 2nd field of `Card`, which is `owner`, and returns the cards whose `owner` field equals `account_address`.
+`.select(2, account_address)` matches the 2nd field of `CardNote`, which is `owner`, and returns the cards whose `owner` field equals `account_address`.
 
-`.sort(0, SortOrder.DESC)` sorts the 0th field of `Card`, which is `points`, in descending order.
+`.sort(0, SortOrder.DESC)` sorts the 0th field of `CardNote`, which is `points`, in descending order.
 
 There can be as many conditions as the number of fields a note type has. The following example finds cards whose fields match the three given values:
 

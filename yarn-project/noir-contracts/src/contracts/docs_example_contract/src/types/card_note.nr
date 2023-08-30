@@ -8,20 +8,20 @@ use dep::aztec::oracle::{
     get_public_key::get_public_key,
 };
 
-global CARD_LEN: Field = 3;
+global CARD_NOTE_LEN: Field = 3;
 
-// docs:start:state_vars-NoteCard
-struct Card {
+// docs:start:state_vars-CardNote
+struct CardNote {
     points: u8,
     secret: Field,
     owner: Field,
     header: NoteHeader,
 }
-// docs:end:state_vars-NoteCard
+// docs:end:state_vars-CardNote
 
-impl Card {
+impl CardNote {
     fn new(points: u8, secret: Field, owner: Field) -> Self {
-        Card {
+        CardNote {
             points,
             secret,
             owner,
@@ -29,12 +29,12 @@ impl Card {
         }
     }
 
-    fn serialise(self) -> [Field; CARD_LEN] {
+    fn serialise(self) -> [Field; CARD_NOTE_LEN] {
         [self.points as Field, self.secret, self.owner]
     }
 
-    fn deserialise(preimage: [Field; CARD_LEN]) -> Self {
-        Card {
+    fn deserialise(preimage: [Field; CARD_NOTE_LEN]) -> Self {
+        CardNote {
             points: preimage[0] as u8,
             secret: preimage[1],
             owner: preimage[2],
@@ -51,7 +51,7 @@ impl Card {
     }
 
     fn compute_nullifier(self) -> Field {
-        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardMethods, self);
+        let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(CardNoteMethods, self);
         let owner_nullifying_public_key = get_public_key(self.owner);
         // TODO: get_secret_key should just accept an address
         // TODO!
@@ -67,31 +67,31 @@ impl Card {
     }
 }
 
-fn deserialise(preimage: [Field; CARD_LEN]) -> Card {
-    Card::deserialise(preimage)
+fn deserialise(preimage: [Field; CARD_NOTE_LEN]) -> CardNote {
+    CardNote::deserialise(preimage)
 }
 
-fn serialise(note: Card) -> [Field; CARD_LEN] {
+fn serialise(note: CardNote) -> [Field; CARD_NOTE_LEN] {
     note.serialise()
 }
 
-fn compute_note_hash(note: Card) -> Field {
+fn compute_note_hash(note: CardNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: Card) -> Field {
+fn compute_nullifier(note: CardNote) -> Field {
     note.compute_nullifier()
 }
 
-fn get_header(note: Card) -> NoteHeader {
+fn get_header(note: CardNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: &mut Card, header: NoteHeader) {
+fn set_header(note: &mut CardNote, header: NoteHeader) {
     note.set_header(header)
 }
 
-global CardMethods = NoteInterface {
+global CardNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,

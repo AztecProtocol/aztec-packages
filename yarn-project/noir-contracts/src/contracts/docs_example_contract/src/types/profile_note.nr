@@ -8,29 +8,29 @@ use dep::aztec::oracle::{
     get_public_key::get_public_key,
 };
 
-global PROFILE_LEN: Field = 2;
+global PROFILE_NOTE_LEN: Field = 2;
 
-struct Profile {
+struct ProfileNote {
     avatar: Field,
     xp: Field,
     header: NoteHeader,
 }
 
-impl Profile {
+impl ProfileNote {
     fn new(avatar: Field, xp: Field) -> Self {
-        Profile {
+        ProfileNote {
             avatar,
             xp,
             header: NoteHeader::empty(),
         }
     }
 
-    fn serialise(self) -> [Field; PROFILE_LEN] {
+    fn serialise(self) -> [Field; PROFILE_NOTE_LEN] {
         [self.avatar, self.xp]
     }
 
-    fn deserialise(preimage: [Field; PROFILE_LEN]) -> Self {
-        Profile {
+    fn deserialise(preimage: [Field; PROFILE_NOTE_LEN]) -> Self {
+        ProfileNote {
             avatar: preimage[1],
             xp: preimage[0],
             header: NoteHeader::empty(),
@@ -54,31 +54,31 @@ impl Profile {
     }
 }
 
-fn deserialise(preimage: [Field; PROFILE_LEN]) -> Profile {
-    Profile::deserialise(preimage)
+fn deserialise(preimage: [Field; PROFILE_NOTE_LEN]) -> ProfileNote {
+    ProfileNote::deserialise(preimage)
 }
 
-fn serialise(note: Profile) -> [Field; PROFILE_LEN] {
+fn serialise(note: ProfileNote) -> [Field; PROFILE_NOTE_LEN] {
     note.serialise()
 }
 
-fn compute_note_hash(note: Profile) -> Field {
+fn compute_note_hash(note: ProfileNote) -> Field {
     note.compute_note_hash()
 }
 
-fn compute_nullifier(note: Profile) -> Field {
+fn compute_nullifier(note: ProfileNote) -> Field {
     note.compute_nullifier()
 }
 
-fn get_header(note: Profile) -> NoteHeader {
+fn get_header(note: ProfileNote) -> NoteHeader {
     note.header
 }
 
-fn set_header(note: &mut Profile, header: NoteHeader) {
+fn set_header(note: &mut ProfileNote, header: NoteHeader) {
     note.set_header(header)
 }
 
-global ProfileMethods = NoteInterface {
+global ProfileNoteMethods = NoteInterface {
     deserialise,
     serialise,
     compute_note_hash,

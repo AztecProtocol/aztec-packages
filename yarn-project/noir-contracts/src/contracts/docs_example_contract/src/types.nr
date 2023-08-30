@@ -1,4 +1,4 @@
-mod card;
-mod profile;
+mod card_note;
+mod profile_note;
 mod queen;
-mod rules;
+mod rules_note;

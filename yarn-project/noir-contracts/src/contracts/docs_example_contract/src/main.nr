@@ -20,9 +20,9 @@ contract DocsExample {
     use crate::storage::Storage;
     // docs:end:storage-import
     use crate::types::{
-        card::Card,
+        card_note::CardNote,
         queen::Queen,
-        rules::Rules,
+        rules_note::RulesNote,
     };
 
     global REPLACE_QUEEN_FUNCTION_SELECTOR = 11111111;
@@ -42,10 +42,10 @@ contract DocsExample {
         
         let storage = Storage::init();
 
-        let mut game_rules = Rules::new(min_points, max_points);
+        let mut game_rules = RulesNote::new(min_points, max_points);
         actions::init_game_rules(&mut context, storage.game_rules, &mut game_rules);
 
-        let mut legendary_card = Card::new(0, legendary_card_secret, 0);
+        let mut legendary_card = CardNote::new(0, legendary_card_secret, 0);
         actions::init_legendary_card(&mut context, storage.legendary_card, &mut legendary_card);
 
         context.finish()
@@ -123,7 +123,7 @@ contract DocsExample {
         let storage = Storage::init();
 
         for i in 0..secrets.len() as u8 {
-            let mut card = Card::new(0, secrets[i], 0);
+            let mut card = CardNote::new(0, secrets[i], 0);
             actions::add_new_card(&mut context, storage.cards, &mut card);
         }
         
@@ -140,7 +140,7 @@ contract DocsExample {
         let storage = Storage::init();
 
         let owner = inputs.call_context.msg_sender;
-        let mut updated_card = Card::new(new_points, new_secret, owner);
+        let mut updated_card = CardNote::new(new_points, new_secret, owner);
 
         assert(actions::is_valid_card(&mut context, storage.game_rules, updated_card));
 

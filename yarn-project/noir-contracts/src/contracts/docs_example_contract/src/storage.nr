@@ -13,20 +13,20 @@ use dep::aztec::types::type_serialisation::bool_serialisation::{
 // docs:end:state_vars-PublicStateBoolImport
 
 use crate::types::{
-    card::{Card, CARD_LEN, CardMethods},
-    profile::{Profile, PROFILE_LEN, ProfileMethods},
+    card_note::{CardNote, CARD_NOTE_LEN, CardNoteMethods},
+    profile_note::{ProfileNote, PROFILE_NOTE_LEN, ProfileNoteMethods},
     queen::{Queen, QUEEN_SERIALISED_LEN, QueenSerialisationMethods},
-    rules::{Rules, RULES_LEN, RulesMethods},
+    rules_note::{RulesNote, RULES_NOTE_LEN, RulesNoteMethods},
 };
 
 // docs:start:storage-declaration
 struct Storage {
     locked: PublicState<bool, BOOL_SERIALISED_LEN>,
     queen: PublicState<Queen, QUEEN_SERIALISED_LEN>,
-    game_rules: ImmutableSingleton<Rules, RULES_LEN>,
-    legendary_card: Singleton<Card, CARD_LEN>,
-    cards: Set<Card, CARD_LEN>,
-    profiles: Map<Singleton<Profile, PROFILE_LEN>>,
+    game_rules: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>,
+    legendary_card: Singleton<CardNote, CARD_NOTE_LEN>,
+    cards: Set<CardNote, CARD_NOTE_LEN>,
+    profiles: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
 }
 
 // docs:start:state_vars-PublicState
@@ -43,13 +43,13 @@ impl Storage {
             // highlight-next-line:state_vars-PublicStateCustomStruct
             queen: PublicState::new(2, QueenSerialisationMethods),
             // highlight-next-line:state_vars-ImmutableSingleton
-            game_rules: ImmutableSingleton::new(3, RulesMethods),
+            game_rules: ImmutableSingleton::new(3, RulesNoteMethods),
             // highlight-next-line:state_vars-Singleton
-            legendary_card: Singleton::new(4, CardMethods),
+            legendary_card: Singleton::new(4, CardNoteMethods),
             // highlight-next-line:state_vars-Set
-            cards: Set::new(5, CardMethods),
+            cards: Set::new(5, CardNoteMethods),
             // highlight-next-line:state_vars-MapSingleton
-            profiles: Map::new(6, |slot| Singleton::new(slot, ProfileMethods)),
+            profiles: Map::new(6, |slot| Singleton::new(slot, ProfileNoteMethods)),
         }
     }
 }
