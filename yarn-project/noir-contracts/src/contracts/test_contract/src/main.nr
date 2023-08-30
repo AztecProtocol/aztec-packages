@@ -3,16 +3,9 @@ contract Test {
     use dep::aztec::{
         abi,
         types::vec::BoundedVec,
-        abi::{
-            PublicContextInputs,
-            PrivateContextInputs,
-            Hasher
-        }
+        abi::PrivateContextInputs,
     };
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext
-    };
+    use dep::aztec::context::PrivateContext;
 
     use dep::aztec::oracle::{
         get_public_key::get_public_key,
