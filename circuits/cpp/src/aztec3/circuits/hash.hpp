@@ -75,13 +75,12 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
 }
 
 template <typename NCT>
-typename NCT::CompleteAddress compute_complete_contract_address(Point<NCT> const& point,
-                                                                typename NCT::fr const& contract_address_salt,
-                                                                typename NCT::fr const& function_tree_root,
-                                                                typename NCT::fr const& constructor_hash)
+CompleteAddress<NCT> compute_complete_contract_address(Point<NCT> const& point,
+                                                       typename NCT::fr const& contract_address_salt,
+                                                       typename NCT::fr const& function_tree_root,
+                                                       typename NCT::fr const& constructor_hash)
 {
     using fr = typename NCT::fr;
-    using CompleteAddress = typename NCT::CompleteAddress;
 
     const fr partial_address =
         compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
