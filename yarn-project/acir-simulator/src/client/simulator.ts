@@ -1,7 +1,7 @@
 import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionAbi, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { ArrayType, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -12,7 +12,7 @@ import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
 
 import { PackedArgsCache } from '../packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
-import { DBOracle } from './db_oracle.js';
+import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
 import { ExecutionResult } from './execution_result.js';
 import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
@@ -53,16 +53,15 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
-   * @param curve - The curve instance for elliptic curve operations.
-   * @param packedArguments - The entrypoint packed arguments
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
   public async run(
     request: TxExecutionRequest,
-    entryPointABI: FunctionAbi,
+    entryPointABI: FunctionAbiWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
+    msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -76,7 +75,7 @@ export class AcirSimulator {
 
     const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
-      AztecAddress.ZERO,
+      msgSender,
       contractAddress,
       portalContractAddress,
       false,
@@ -118,7 +117,7 @@ export class AcirSimulator {
   public async runUnconstrained(
     request: FunctionCall,
     origin: AztecAddress,
-    entryPointABI: FunctionAbi,
+    entryPointABI: FunctionAbiWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
     aztecNode?: AztecNode,

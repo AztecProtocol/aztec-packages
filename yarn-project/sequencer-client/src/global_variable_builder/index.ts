@@ -1,9 +1,10 @@
 import { GlobalReaderConfig } from './config.js';
-import { GlobalVariableBuilder, SimpleGlobalVariableBuilder } from './global_builder.js';
+import { GlobalVariableBuilder, SimpleTestGlobalVariableBuilder } from './global_builder.js';
 import { ViemReader } from './viem-reader.js';
 
-export { SimpleGlobalVariableBuilder } from './global_builder.js';
+export { SimpleTestGlobalVariableBuilder as SimpleGlobalVariableBuilder } from './global_builder.js';
 export { GlobalReaderConfig } from './config.js';
+export { GlobalVariableBuilder } from './global_builder.js';
 
 /**
  * Returns a new instance of the global variable builder.
@@ -11,5 +12,5 @@ export { GlobalReaderConfig } from './config.js';
  * @returns A new instance of the global variable builder.
  */
 export function getGlobalVariableBuilder(config: GlobalReaderConfig): GlobalVariableBuilder {
-  return new SimpleGlobalVariableBuilder(new ViemReader(config));
+  return new SimpleTestGlobalVariableBuilder(new ViemReader(config));
 }

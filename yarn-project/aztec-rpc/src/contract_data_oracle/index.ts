@@ -1,4 +1,5 @@
 import { AztecAddress, CircuitsWasm, MembershipWitness, VK_TREE_HEIGHT } from '@aztec/circuits.js';
+import { FunctionDebugMetadata, FunctionSelector, getFunctionDebugMetadata } from '@aztec/foundation/abi';
 import { ContractCommitmentProvider, ContractDatabase } from '@aztec/types';
 
 import { ContractTree } from '../contract_tree/index.js';
@@ -35,12 +36,35 @@ export class ContractDataOracle {
    * Throws an error if the contract address or function selector are invalid or not found.
    *
    * @param contractAddress - The AztecAddress representing the contract containing the function.
-   * @param functionSelector - A Buffer containing the unique selector code for the desired function.
+   * @param selector - The function selector.
    * @returns The corresponding function's ABI as an object.
    */
-  public async getFunctionAbi(contractAddress: AztecAddress, functionSelector: Buffer) {
+  public async getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
-    return tree.getFunctionAbi(functionSelector);
+    return tree.getFunctionAbi(selector);
+  }
+
+  /**
+   * Retrieves the debug metadata of a specified function within a given contract.
+   * The function is identified by its selector, which is a unique code generated from the function's signature.
+   * Returns undefined if the debug metadata for the given function is not found.
+   *
+   * @param contractAddress - The AztecAddress representing the contract containing the function.
+   * @param selector - The function selector.
+   * @returns The corresponding function's ABI as an object.
+   */
+  public async getFunctionDebugMetadata(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionDebugMetadata | undefined> {
+    const contract = await this.db.getContract(contractAddress);
+    const functionAbi = contract?.functions.find(f => f.selector.equals(selector));
+
+    if (!contract || !functionAbi) {
+      return undefined;
+    }
+
+    return getFunctionDebugMetadata(contract, functionAbi.name);
   }
 
   /**
@@ -49,12 +73,12 @@ export class ContractDataOracle {
    * in the Aztec network. Throws an error if the contract or function cannot be found.
    *
    * @param contractAddress - The contract's address.
-   * @param functionSelector - A Buffer containing the function selector (first 4 bytes of the keccak256 hash of the function signature).
+   * @param selector - The function selector.
    * @returns A Promise that resolves to a Buffer containing the bytecode of the specified function.
    */
-  public async getBytecode(contractAddress: AztecAddress, functionSelector: Buffer) {
+  public async getBytecode(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
-    return tree.getBytecode(functionSelector);
+    return tree.getBytecode(selector);
   }
 
   /**
@@ -78,12 +102,12 @@ export class ContractDataOracle {
    * Throws an error if the contract address or function selector is unknown.
    *
    * @param contractAddress - The contract address.
-   * @param functionSelector - The buffer containing the function selector.
+   * @param selector - The function selector.
    * @returns A promise that resolves with the MembershipWitness instance for the specified contract's function.
    */
-  public async getFunctionMembershipWitness(contractAddress: AztecAddress, functionSelector: Buffer) {
+  public async getFunctionMembershipWitness(contractAddress: AztecAddress, selector: FunctionSelector) {
     const tree = await this.getTree(contractAddress);
-    return tree.getFunctionMembershipWitness(functionSelector);
+    return tree.getFunctionMembershipWitness(selector);
   }
 
   /**
@@ -111,7 +135,7 @@ export class ContractDataOracle {
    * @throws An Error if the contract is not found in the ContractDatabase.
    */
   private async getTree(contractAddress: AztecAddress) {
-    let tree = this.trees.find(t => t.contract.address.equals(contractAddress));
+    let tree = this.trees.find(t => t.contract.completeAddress.address.equals(contractAddress));
     if (!tree) {
       const contract = await this.db.getContract(contractAddress);
       if (!contract) {

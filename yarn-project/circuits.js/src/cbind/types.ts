@@ -22,7 +22,6 @@ export {
   AggregationObject as NativeAggregationState,
   AztecAddress as Address,
   VerificationKey as VerificationKeyData,
-  PrivateKernelPublicInputs as PublicInputs,
   Fr,
   Fq,
   G1AffineElement,
@@ -33,11 +32,13 @@ export {
   PublicDataUpdateRequest,
   ReadRequestMembershipWitness,
   CombinedAccumulatedData,
+  FinalAccumulatedData,
   HistoricBlockData,
   ContractDeploymentData,
   TxContext,
   CombinedConstantData,
   KernelCircuitPublicInputs,
+  KernelCircuitPublicInputsFinal,
   Proof,
   PreviousKernelData,
   CallContext,
@@ -52,6 +53,7 @@ export {
   Coordinate,
   GlobalVariables,
 } from '../structs/index.js';
+export { FunctionSelector } from '@aztec/foundation/abi';
 
 /**
  * A pointer to a Prover object in WebAssembly memory.

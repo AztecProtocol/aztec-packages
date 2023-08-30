@@ -1,9 +1,9 @@
-import { AztecAddress, EthAddress, Fr, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   CompleteAddress,
   ContractData,
-  ContractDataAndBytecode,
+  ExtendedContractData,
   L2BlockL2Logs,
   Tx,
   TxExecutionRequest,
@@ -21,9 +21,9 @@ export interface DeployedContract {
    */
   abi: ContractAbi;
   /**
-   * The address representing the contract on L2.
+   * The complete address representing the contract on L2.
    */
-  address: AztecAddress;
+  completeAddress: CompleteAddress;
   /**
    * The Ethereum address of the L1 portal contract.
    */
@@ -46,6 +46,10 @@ export type NodeInfo = {
    * The rollup contract address
    */
   rollupAddress: EthAddress;
+  /**
+   * Identifier of the client software.
+   */
+  client: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -56,6 +60,7 @@ export type SyncStatus = {
   notes: Record<string, number>;
 };
 
+// docs:start:rpc-interface
 /**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
@@ -67,11 +72,11 @@ export interface AztecRPC {
    * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
-   * @param account - A complete address of the account.
+   * @param partialAddress - A partial address of the account contract corresponding to the account being registered.
    * @returns Empty promise.
    * @throws If the account is already registered.
    */
-  registerAccount(privKey: PrivateKey, account: CompleteAddress): Promise<void>;
+  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void>;
 
   /**
    * Registers recipient in the Aztec RPC server.
@@ -81,7 +86,6 @@ export interface AztecRPC {
    *          This is because we don't have the associated private key and for this reason we can't decrypt
    *          the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
    *          public key.
-   * @throws If the recipient is already registered.
    */
   registerRecipient(recipient: CompleteAddress): Promise<void>;
 
@@ -135,10 +139,10 @@ export interface AztecRPC {
    * Throws an error if the contract or function is unknown.
    *
    * @param txRequest - An authenticated tx request ready for simulation
-   * @param optionalFromAddress - The address to simulate from
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @returns A Tx ready to send to the p2p pool for execution.
    */
-  simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
   /**
    * Send a transaction.
@@ -179,12 +183,11 @@ export interface AztecRPC {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains the ethereum portal address and bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
+   * @returns The extended contract data or undefined if not found.
    */
-  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
   /**
    * Lookup the L2 contract data for this contract.
@@ -203,10 +206,10 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Get latest L2 block number.
-   * @returns The latest block number.
+   * Fetches the current block number.
+   * @returns The block number.
    */
-  getBlockNum(): Promise<number>;
+  getBlockNumber(): Promise<number>;
 
   /**
    * Returns the information about the server's node
@@ -218,7 +221,7 @@ export interface AztecRPC {
    * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
    * @returns True if there are no outstanding blocks to be synched.
    * @remarks This indicates that blocks and transactions are synched even if notes are not.
-   * @remarks Compares local block height with the block height from aztec node.
+   * @remarks Compares local block number with the block number from aztec node.
    */
   isGlobalStateSynchronised(): Promise<boolean>;
 
@@ -237,3 +240,4 @@ export interface AztecRPC {
    */
   getSyncStatus(): Promise<SyncStatus>;
 }
+// docs:end:rpc-interface
