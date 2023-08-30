@@ -1,9 +1,9 @@
-import { AztecAddress, CircuitsWasm, Fr, PrivateKey, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, PartialAddress, PrivateKey, TxContext } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
-  ContractDataAndBytecode,
   DeployedContract,
+  ExtendedContractData,
   FunctionCall,
   L2BlockL2Logs,
   NodeInfo,
@@ -31,8 +31,8 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  registerAccount(privKey: PrivateKey, completeAddress: CompleteAddress): Promise<void> {
-    return this.rpc.registerAccount(privKey, completeAddress);
+  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void> {
+    return this.rpc.registerAccount(privKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
     return this.rpc.registerRecipient(account);
@@ -55,8 +55,8 @@ export abstract class BaseWallet implements Wallet {
   getContracts(): Promise<AztecAddress[]> {
     return this.rpc.getContracts();
   }
-  simulateTx(txRequest: TxExecutionRequest): Promise<Tx> {
-    return this.rpc.simulateTx(txRequest);
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx> {
+    return this.rpc.simulateTx(txRequest, simulatePublic);
   }
   sendTx(tx: Tx): Promise<TxHash> {
     return this.rpc.sendTx(tx);
@@ -70,8 +70,8 @@ export abstract class BaseWallet implements Wallet {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress | undefined): Promise<any> {
     return this.rpc.viewTx(functionName, args, to, from);
   }
-  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
-    return this.rpc.getContractDataAndBytecode(contractAddress);
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return this.rpc.getExtendedContractData(contractAddress);
   }
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
     return this.rpc.getContractData(contractAddress);
@@ -79,8 +79,8 @@ export abstract class BaseWallet implements Wallet {
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]> {
     return this.rpc.getUnencryptedLogs(from, limit);
   }
-  getBlockNum(): Promise<number> {
-    return this.rpc.getBlockNum();
+  getBlockNumber(): Promise<number> {
+    return this.rpc.getBlockNumber();
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.rpc.getNodeInfo();

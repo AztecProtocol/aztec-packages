@@ -3,8 +3,7 @@ import { createJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rpc/cl
 import {
   AztecRPC,
   ContractData,
-  ContractDataAndBytecode,
-  ContractDeploymentTx,
+  ExtendedContractData,
   L2BlockL2Logs,
   Tx,
   TxExecutionRequest,
@@ -12,8 +11,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-export { mustSucceedFetch } from '@aztec/foundation/json-rpc/client';
-export { mustSucceedFetchUnlessNoRetry } from '@aztec/foundation/json-rpc/client';
+export { makeFetch } from '@aztec/foundation/json-rpc/client';
 
 export const createAztecRpcClient = (url: string, fetch = defaultFetch): AztecRPC =>
   createJsonRpcClient<AztecRPC>(
@@ -23,14 +21,14 @@ export const createAztecRpcClient = (url: string, fetch = defaultFetch): AztecRP
       AztecAddress,
       TxExecutionRequest,
       ContractData,
-      ContractDataAndBytecode,
+      ExtendedContractData,
       TxHash,
       EthAddress,
       Point,
       PrivateKey,
       Fr,
     },
-    { Tx, ContractDeploymentTx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs },
     false,
     fetch,
   );

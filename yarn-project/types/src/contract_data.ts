@@ -1,4 +1,12 @@
-import { FUNCTION_SELECTOR_NUM_BYTES } from '@aztec/circuits.js';
+import {
+  CompleteAddress,
+  FUNCTION_SELECTOR_NUM_BYTES,
+  Fr,
+  FunctionSelector,
+  PartialAddress,
+  Point,
+  PublicKey,
+} from '@aztec/circuits.js';
 import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -12,13 +20,11 @@ export { BufferReader } from '@aztec/circuits.js/utils';
  */
 export interface ContractDataSource {
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains information such as the ethereum portal address and bytecode.
-   * NOTE: This method works only for contracts that have public function bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns Contract data and bytecode or undefined if not found.
+   * @returns The extended contract data or undefined if not found.
    */
-  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
   /**
    * Lookup the L2 contract base info for this contract.
@@ -29,11 +35,11 @@ export interface ContractDataSource {
   getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
-   * Lookup all contract data and bytecode in an L2 block.
+   * Gets extended contract data for all contracts deployed in L2 block.
    * @param blockNumber - The block number.
-   * @returns Public data of contracts deployed in L2 block, including public function bytecode.
+   * @returns Extended contract data of contracts deployed in L2 block.
    */
-  getContractDataAndBytecodeInBlock(blockNumber: number): Promise<ContractDataAndBytecode[]>;
+  getExtendedContractDataInBlock(blockNumber: number): Promise<ExtendedContractData[]>;
 
   /**
    * Lookup contract data in an L2 block.
@@ -45,10 +51,10 @@ export interface ContractDataSource {
   /**
    * Returns a contract's encoded public function, given its function selector.
    * @param address - The contract aztec address.
-   * @param functionSelector - The function's selector.
+   * @param selector - The function's selector.
    * @returns The function's data.
    */
-  getPublicFunction(address: AztecAddress, functionSelector: Buffer): Promise<EncodedContractFunction | undefined>;
+  getPublicFunction(address: AztecAddress, selector: FunctionSelector): Promise<EncodedContractFunction | undefined>;
 }
 
 /**
@@ -59,7 +65,7 @@ export class EncodedContractFunction {
     /**
      * The function selector.
      */
-    public functionSelector: Buffer,
+    public selector: FunctionSelector,
     /**
      * Whether the function is internal.
      */
@@ -76,7 +82,7 @@ export class EncodedContractFunction {
    */
   toBuffer(): Buffer {
     const bytecodeBuf = Buffer.concat([numToInt32BE(this.bytecode.length), this.bytecode]);
-    return serializeToBuffer(this.functionSelector, this.isInternal, bytecodeBuf);
+    return serializeToBuffer(this.selector, this.isInternal, bytecodeBuf);
   }
 
   /**
@@ -86,7 +92,7 @@ export class EncodedContractFunction {
    */
   static fromBuffer(buffer: Buffer | BufferReader): EncodedContractFunction {
     const reader = BufferReader.asReader(buffer);
-    const fnSelector = reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES);
+    const fnSelector = FunctionSelector.fromBuffer(reader.readBytes(FUNCTION_SELECTOR_NUM_BYTES));
     const isInternal = reader.readBoolean();
     return new EncodedContractFunction(fnSelector, isInternal, reader.readBuffer());
   }
@@ -96,43 +102,37 @@ export class EncodedContractFunction {
    * @returns A random contract function.
    */
   static random(): EncodedContractFunction {
-    return new EncodedContractFunction(randomBytes(4), false, randomBytes(64));
+    return new EncodedContractFunction(FunctionSelector.fromBuffer(randomBytes(4)), false, randomBytes(64));
   }
 }
 
 /**
- * A contract data blob, containing L1 and L2 addresses, as well as public functions' bytecode.
+ * A contract data blob, containing L1 and L2 addresses, public functions' bytecode, partial address and public key.
  */
-export class ContractDataAndBytecode {
-  /**
-   * The contract's encoded ACIR code. This should become Brillig code once implemented.
-   */
+export class ExtendedContractData {
+  /** The contract's encoded ACIR code. This should become Brillig code once implemented. */
   public bytecode: Buffer;
 
   constructor(
-    /**
-     * The base contract data: aztec & portal addresses.
-     */
+    /** The base contract data: aztec & portal addresses. */
     public contractData: ContractData,
-
-    /**
-     * ABIs of public functions.
-     */
+    /** ABIs of public functions. */
     private publicFunctions: EncodedContractFunction[],
+    /** Partial addresses of the contract. */
+    public readonly partialAddress: PartialAddress,
+    /** Public keys of the contract. */
+    public readonly publicKey: PublicKey,
   ) {
-    if (!publicFunctions.length) {
-      throw Error('No public functions provided for ContractDataAndBytecode.');
-    }
     this.bytecode = serializeBufferArrayToVector(publicFunctions.map(fn => fn.toBuffer()));
   }
 
   /**
    * Gets the public function data or undefined.
-   * @param functionSelector - The function selector of the function to fetch.
+   * @param selector - The function selector of the function to fetch.
    * @returns The public function data (if found).
    */
-  public getPublicFunction(functionSelector: Buffer): EncodedContractFunction | undefined {
-    return this.publicFunctions.find(fn => fn.functionSelector.equals(functionSelector));
+  public getPublicFunction(selector: FunctionSelector): EncodedContractFunction | undefined {
+    return this.publicFunctions.find(fn => fn.selector.equals(selector));
   }
 
   /**
@@ -141,7 +141,7 @@ export class ContractDataAndBytecode {
    */
   public toBuffer(): Buffer {
     const contractDataBuf = this.contractData.toBuffer();
-    return serializeToBuffer(contractDataBuf, this.bytecode);
+    return serializeToBuffer(contractDataBuf, this.bytecode, this.partialAddress, this.publicKey);
   }
 
   /**
@@ -153,6 +153,14 @@ export class ContractDataAndBytecode {
   }
 
   /**
+   * Gets the complete address.
+   * @returns The complete address.
+   */
+  public getCompleteAddress(): CompleteAddress {
+    return new CompleteAddress(this.contractData.contractAddress, this.publicKey, this.partialAddress);
+  }
+
+  /**
    * Deserializes a contract data object from an encoded buffer, using 20 bytes for the eth address.
    * @param buffer - Byte array resulting from calling toBuffer.
    * @returns Deserialized instance.
@@ -161,7 +169,9 @@ export class ContractDataAndBytecode {
     const reader = BufferReader.asReader(buffer);
     const contractData = reader.readObject(ContractData);
     const publicFns = reader.readVector(EncodedContractFunction);
-    return new ContractDataAndBytecode(contractData, publicFns);
+    const partialAddress = reader.readObject(Fr);
+    const publicKey = reader.readObject(Point);
+    return new ExtendedContractData(contractData, publicFns, partialAddress, publicKey);
   }
 
   /**
@@ -170,18 +180,20 @@ export class ContractDataAndBytecode {
    * @returns Deserialized instance.
    */
   static fromString(str: string) {
-    return ContractDataAndBytecode.fromBuffer(Buffer.from(str, 'hex'));
+    return ExtendedContractData.fromBuffer(Buffer.from(str, 'hex'));
   }
 
   /**
    * Generate ContractData with random addresses.
-   * @returns A random ContractDataAndBytecode object.
+   * @returns A random ExtendedContractData object.
    */
-  static random(): ContractDataAndBytecode {
-    return new ContractDataAndBytecode(ContractData.random(), [
-      EncodedContractFunction.random(),
-      EncodedContractFunction.random(),
-    ]);
+  static random(): ExtendedContractData {
+    return new ExtendedContractData(
+      ContractData.random(),
+      [EncodedContractFunction.random(), EncodedContractFunction.random()],
+      Fr.random(),
+      Point.random(),
+    );
   }
 }
 

@@ -26,4 +26,6 @@ jobs:
             fix
             feat
             chore
-            refactor 
+            refactor
+            docs
+            test

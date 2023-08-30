@@ -1,15 +1,16 @@
-import { AztecAddress, CircuitsWasm, EthAddress, Fr, HistoricBlockData } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { Pedersen } from '@aztec/merkle-tree';
 import {
   ContractData,
-  ContractDataAndBytecode,
+  ExtendedContractData,
   L1ToL2Message,
   L2Block,
   L2BlockL2Logs,
   LogType,
   MerkleTreeId,
   SiblingPath,
+  SimulationError,
   TxHash,
   mockTx,
 } from '@aztec/types';
@@ -109,14 +110,14 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('getBlockHeight', () => {
-    it('should fetch and return the block height', async () => {
-      const response = { blockHeight: 100 };
+  describe('getBlockNumber', () => {
+    it('should fetch and return current block number', async () => {
+      const response = { blockNumber: 100 };
       setFetchMock(response);
 
-      const result = await httpNode.getBlockHeight();
+      const result = await httpNode.getBlockNumber();
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block-height`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}get-block-number`);
       expect(result).toBe(100);
     });
   });
@@ -158,21 +159,21 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('getContractDataAndBytecode', () => {
+  describe('getExtendedContractData', () => {
     it('should fetch and return contract public data', async () => {
-      const contractDataAndBytecode = ContractDataAndBytecode.random();
+      const extendedContractData = ExtendedContractData.random();
       const response = {
-        contractData: contractDataAndBytecode.toBuffer(),
+        contractData: extendedContractData.toBuffer(),
       };
 
       setFetchMock(response);
 
-      const result = await httpNode.getContractDataAndBytecode(contractDataAndBytecode.contractData.contractAddress);
+      const result = await httpNode.getExtendedContractData(extendedContractData.contractData.contractAddress);
 
       expect(fetch).toHaveBeenCalledWith(
-        `${TEST_URL}contract-data-and-bytecode?address=${contractDataAndBytecode.contractData.contractAddress.toString()}`,
+        `${TEST_URL}contract-data-and-bytecode?address=${extendedContractData.contractData.contractAddress.toString()}`,
       );
-      expect(result).toEqual(contractDataAndBytecode);
+      expect(result).toEqual(extendedContractData);
     });
 
     it('should return undefined if contract data is not available', async () => {
@@ -183,7 +184,7 @@ describe('HttpNode', () => {
 
       const randomAddress = AztecAddress.random();
 
-      const result = await httpNode.getContractDataAndBytecode(randomAddress);
+      const result = await httpNode.getExtendedContractData(randomAddress);
 
       expect(fetch).toHaveBeenCalledWith(`${TEST_URL}contract-data-and-bytecode?address=${randomAddress.toString()}`);
       expect(result).toEqual(undefined);
@@ -480,6 +481,38 @@ describe('HttpNode', () => {
       const url = `${TEST_URL}historic-block-data`;
       expect(fetch).toHaveBeenCalledWith(url);
       expect(result).toEqual(blockData);
+    });
+  });
+
+  describe('simulatePublicCalls', () => {
+    it('should fetch a successful simulation response', async () => {
+      const tx = mockTx();
+      const response = {};
+      setFetchMock(response);
+
+      await httpNode.simulatePublicCalls(tx);
+
+      const init: RequestInit = {
+        method: 'POST',
+        body: tx.toBuffer(),
+      };
+      const call = (fetch as jest.Mock).mock.calls[0] as any[];
+      expect(call[0].href).toBe(`${TEST_URL}simulate-tx`);
+      expect(call[1]).toStrictEqual(init);
+    });
+
+    it('should fetch a simulation error', async () => {
+      const tx = mockTx();
+      const simulationError = new SimulationError('Failing function', {
+        contractAddress: AztecAddress.ZERO,
+        functionSelector: FunctionSelector.empty(),
+      });
+      const response = {
+        simulationError: simulationError.toJSON(),
+      };
+      setFetchMock(response);
+
+      await expect(httpNode.simulatePublicCalls(tx)).rejects.toThrow(simulationError);
     });
   });
 });

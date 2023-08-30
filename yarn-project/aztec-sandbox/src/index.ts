@@ -7,10 +7,14 @@ import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
+import { setupFileDebugLog } from './logging.js';
 import { startHttpRpcServer } from './server.js';
 import { github, splash } from './splash.js';
 
@@ -57,11 +61,16 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
  * Create and start a new Aztec RCP HTTP Server
  */
 async function main() {
+  const logPath = setupFileDebugLog();
   const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
   const rpcConfig = getRpcConfigEnvVars();
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
+  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
+  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
+  logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
+  logger.info('Deploying rollup contracts to L1...');
   const deployedL1Contracts = await waitThenDeploy(aztecNodeConfig.rpcUrl, hdAccount);
   aztecNodeConfig.publisherPrivateKey = new PrivateKey(Buffer.from(privKey!));
   aztecNodeConfig.rollupContract = deployedL1Contracts.rollupAddress;
@@ -71,11 +80,11 @@ async function main() {
   const aztecNode = await AztecNodeService.createAndSync(aztecNodeConfig);
   const aztecRpcServer = await createAztecRPCServer(aztecNode, rpcConfig);
 
-  logger('Deploying initial accounts...');
+  logger.info('Setting up test accounts...');
   const accounts = await deployInitialSandboxAccounts(aztecRpcServer);
 
   const shutdown = async () => {
-    logger('Shutting down...');
+    logger.info('Shutting down...');
     await aztecRpcServer.stop();
     await aztecNode.stop();
     process.exit(0);
@@ -85,7 +94,8 @@ async function main() {
   process.once('SIGTERM', shutdown);
 
   startHttpRpcServer(aztecRpcServer, deployedL1Contracts, SERVER_PORT);
-  logger.info(`Aztec JSON RPC listening on port ${SERVER_PORT}`);
+  logger.info(`Aztec Sandbox JSON-RPC Server listening on port ${SERVER_PORT}`);
+  logger.info(`Debug logs will be written to ${logPath}`);
   const accountStrings = [`Initial Accounts:\n\n`];
 
   const registeredAccounts = await aztecRpcServer.getAccounts();
@@ -98,10 +108,10 @@ async function main() {
       accountStrings.push(` Public Key: ${completeAddress.publicKey.toString()}\n\n`);
     }
   }
-  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings));
+  logger.info(`${splash}\n${github}\n\n`.concat(...accountStrings).concat(`Aztec Sandbox is now ready for use!`));
 }
 
 main().catch(err => {
-  logger.fatal(err);
+  logger.error(err);
   process.exit(1);
 });

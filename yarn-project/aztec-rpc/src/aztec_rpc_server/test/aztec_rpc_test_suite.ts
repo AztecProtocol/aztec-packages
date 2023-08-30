@@ -1,4 +1,4 @@
-import { AztecAddress, CompleteAddress, Fr, FunctionData, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CompleteAddress, Fr, FunctionData, Point, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ConstantKeyPair } from '@aztec/key-store';
 import {
@@ -19,9 +19,12 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
 
     it('registers an account and returns it as an account only and not as a recipient', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
+      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+        await keyPair.getPrivateKey(),
+        Fr.random(),
+      );
 
-      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
+      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
 
       // Check that the account is correctly registered using the getAccounts and getRecipients methods
       const accounts = await rpc.getAccounts();
@@ -54,30 +57,39 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       expect(recipient).toEqual(completeAddress);
     });
 
-    it('cannot register the same account twice', async () => {
+    it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
       const keyPair = ConstantKeyPair.random(await Grumpkin.new());
-      const completeAddress = await CompleteAddress.fromPrivateKey(await keyPair.getPrivateKey());
+      const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(
+        await keyPair.getPrivateKey(),
+        Fr.random(),
+      );
 
-      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress);
-      await expect(async () => rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress)).rejects.toThrow(
-        `Complete address corresponding to ${completeAddress.address} already exists`,
+      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+      await rpc.registerAccount(await keyPair.getPrivateKey(), completeAddress.partialAddress);
+    });
+
+    it('cannot register a recipient with the same aztec address but different pub key or partial address', async () => {
+      const recipient1 = await CompleteAddress.random();
+      const recipient2 = new CompleteAddress(recipient1.address, Point.random(), Fr.random());
+
+      await rpc.registerRecipient(recipient1);
+      await expect(() => rpc.registerRecipient(recipient2)).rejects.toThrow(
+        `Complete address with aztec address ${recipient1.address}`,
       );
     });
 
-    it('cannot register the same recipient twice', async () => {
+    it('does not throw when registering the same recipient twice (just ignores the second attempt)', async () => {
       const completeAddress = await CompleteAddress.random();
 
       await rpc.registerRecipient(completeAddress);
-      await expect(() => rpc.registerRecipient(completeAddress)).rejects.toThrow(
-        `Complete address corresponding to ${completeAddress.address} already exists`,
-      );
+      await rpc.registerRecipient(completeAddress);
     });
 
     it('successfully adds a contract', async () => {
-      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
+      const contracts: DeployedContract[] = [await randomDeployedContract(), await randomDeployedContract()];
       await rpc.addContracts(contracts);
 
-      const expectedContractAddresses = contracts.map(contract => contract.address);
+      const expectedContractAddresses = contracts.map(contract => contract.completeAddress.address);
       const contractAddresses = await rpc.getContracts();
 
       // check if all the contracts were returned
@@ -95,7 +107,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
         [],
       );
 
-      await expect(async () => await rpc.simulateTx(txExecutionRequest)).rejects.toThrow(
+      await expect(async () => await rpc.simulateTx(txExecutionRequest, false)).rejects.toThrow(
         'Public entrypoints are not allowed',
       );
     });
@@ -110,11 +122,11 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       );
     });
 
-    // Note: Not testing `getContractDataAndBytecode`, `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getExtendedContractData`, `getContractData` and `getUnencryptedLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {
-      const blockNum = await rpc.getBlockNum();
+      const blockNum = await rpc.getBlockNumber();
       expect(blockNum).toBeGreaterThanOrEqual(INITIAL_L2_BLOCK_NUM);
     });
 
