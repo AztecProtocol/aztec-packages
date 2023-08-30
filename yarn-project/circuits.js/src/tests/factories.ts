@@ -333,8 +333,8 @@ export function makePublicCircuitPublicInputs(
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Kernel circuit public inputs.
  */
-export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(makeAccumulatedData(seed, false), makeConstantData(seed + 0x100), true);
+export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(makeAccumulatedData(seed, fullAccumulatedData), makeConstantData(seed + 0x100), true);
 }
 
 /**
@@ -437,7 +437,7 @@ export function makePoint(seed = 1): Point {
  */
 export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
   return new PreviousKernelData(
-    kernelPublicInputs ?? makeKernelPublicInputs(seed),
+    kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -564,7 +564,7 @@ export async function makePublicKernelInputsWithTweak(
   seed = 1,
   tweak?: (publicKernelInputs: PublicKernelInputs) => void,
 ): Promise<PublicKernelInputs> {
-  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed);
+  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
   const publicKernelInputs = new PublicKernelInputs(
     makePreviousKernelData(seed, kernelCircuitPublicInputs),
     await makePublicCallData(seed + 0x1000),
