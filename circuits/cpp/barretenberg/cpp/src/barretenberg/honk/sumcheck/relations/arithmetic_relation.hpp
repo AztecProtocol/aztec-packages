@@ -8,7 +8,7 @@
 
 namespace proof_system::honk::sumcheck {
 
-// WORKTODO: ... this is not a base class.
+// WORKTODO: ... this is a base in a weird way. Wish I could simplify the structure here.
 template <typename FF> class ArithmeticRelationBase {
   public:
     // 1 + polynomial degree of this relation
