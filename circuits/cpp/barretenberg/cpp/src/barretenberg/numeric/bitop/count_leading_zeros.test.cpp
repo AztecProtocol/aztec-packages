@@ -21,7 +21,7 @@ TEST(bitop, ClzUint640)
 
 TEST(bitop, ClzSizeT)
 {
-    size_t a = 0x80;
+    uint64_t a = 0x80;
     auto r = numeric::count_leading_zeros(a);
     if (sizeof(a) == 4) {
         EXPECT_EQ(r, 24U);

@@ -37,6 +37,7 @@ template <typename CircuitBuilder> struct bn254 {
     using bool_ct = bool_t<CircuitBuilder>;
     using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
+    // TODO(AD) what to name this in relation to BaseField?
     using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
 

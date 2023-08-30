@@ -52,7 +52,7 @@ template <typename Curve> struct aggregation_state {
         P0 = P0.reduce();
         P1 = P1.reduce();
         if constexpr (IsSimulator<typename Curve::Builder>) {
-            std::vector<typename Curve::ScalarField> proof_element_limbs = {
+            std::vector<typename Curve::ScalarFieldNative> proof_element_limbs = {
                 P0.x.binary_basis_limbs[0].element.normalize().get_value(),
                 P0.x.binary_basis_limbs[1].element.normalize().get_value(),
                 P0.x.binary_basis_limbs[2].element.normalize().get_value(),
