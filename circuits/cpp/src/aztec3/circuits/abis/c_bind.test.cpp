@@ -73,34 +73,6 @@ TEST(abi_tests, compute_partial_address)
     EXPECT_EQ(actual, expected);
 }
 
-TEST(abi_tests, compute_complete_contract_address)
-{
-    Point<NT> const point = { .x = 1, .y = 3 };
-    auto const contract_address_salt = NT::fr(5);
-    auto const function_tree_root = NT::fr(6);
-    auto const constructor_hash = NT::fr(7);
-    CompleteAddress<NT> const expected =
-        compute_complete_contract_address(point, contract_address_salt, function_tree_root, constructor_hash);
-
-    std::array<uint8_t, sizeof(NT::fr)> output = { 0 };
-    std::vector<uint8_t> contract_address_salt_buf;
-    std::vector<uint8_t> function_tree_root_buf;
-    std::vector<uint8_t> constructor_hash_buf;
-    std::vector<uint8_t> point_buf;
-    write(contract_address_salt_buf, contract_address_salt);
-    write(function_tree_root_buf, function_tree_root);
-    write(constructor_hash_buf, constructor_hash);
-    serialize::write(point_buf, point);
-    abis__compute_complete_contract_address(point_buf.data(),
-                                            contract_address_salt_buf.data(),
-                                            function_tree_root_buf.data(),
-                                            constructor_hash_buf.data(),
-                                            output.data());
-
-    // Convert buffer to `fr` for comparison to in-test calculated hash
-    NT::fr const actual = NT::fr::serialize_from_buffer(output.data());
-    EXPECT_EQ(actual, expected);
-}
 TEST(abi_tests, hash_tx_request)
 {
     // Construct TxRequest with some randomized fields

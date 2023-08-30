@@ -8,6 +8,7 @@ import {
   abisComputeBlockHash,
   abisComputeBlockHashWithGlobals,
   abisComputeCommitmentNonce,
+  abisComputeCompleteAddress,
   abisComputeGlobalsHash,
   abisComputePublicDataTreeIndex,
   abisComputePublicDataTreeValue,
@@ -183,15 +184,15 @@ export function hashConstructor(
 }
 
 /**
- * Computes a complete contract address.
+ * Computes a complete address.
  * @param wasm - A module providing low-level wasm access.
  * @param deployerPubKey - The pubkey of the contract deployer.
  * @param contractAddrSalt - The salt used as one of the inputs of the contract address computation.
  * @param fnTreeRoot - The function tree root of the contract being deployed.
  * @param constructorHash - The hash of the constructor.
- * @returns The complete contract address.
+ * @returns The complete address.
  */
-export function computeCompleteContractAddress(
+export function computeCompleteAddress(
   wasm: IWasmModule,
   deployerPubKey: PublicKey,
   contractAddrSalt: Fr,
@@ -199,13 +200,7 @@ export function computeCompleteContractAddress(
   constructorHash: Fr,
 ): CompleteAddress {
   wasm.call('pedersen__init');
-  const result = inputBuffersToOutputBuffer(
-    wasm,
-    'abis__compute_complete_contract_address',
-    [deployerPubKey.toBuffer(), contractAddrSalt.toBuffer(), fnTreeRoot.toBuffer(), constructorHash.toBuffer()],
-    32,
-  );
-  return CompleteAddress.fromBuffer(result);
+  return abisComputeCompleteAddress(wasm, deployerPubKey, contractAddrSalt, fnTreeRoot, constructorHash);
 }
 
 /**

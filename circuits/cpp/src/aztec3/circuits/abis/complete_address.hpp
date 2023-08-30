@@ -16,7 +16,7 @@ template <typename NCT> struct CompleteAddress {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    fr address;
+    typename NCT::address address;
     Point<NCT> public_key;
     fr partial_address;
 

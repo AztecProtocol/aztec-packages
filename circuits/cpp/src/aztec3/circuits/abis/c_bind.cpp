@@ -33,7 +33,7 @@
 
 namespace {
 
-using aztec3::circuits::compute_complete_contract_address;
+using aztec3::circuits::compute_complete_address;
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_partial_address;
 using aztec3::circuits::abis::CallStackItem;
@@ -293,7 +293,7 @@ WASM_EXPORT void abis__hash_constructor(uint8_t const* function_data_buf,
 /**
  * @brief Compute a complete address.
  */
-CBIND(abis__compute_complete_contract_address, aztec3::circuits::compute_complete_contract_address<NT>);
+CBIND(abis__compute_complete_address, aztec3::circuits::compute_complete_address<NT>);
 
 /**
  * @brief Compute a contract address from deployer public key and partial address.

@@ -74,18 +74,22 @@ typename NCT::address compute_contract_address_from_partial(Point<NCT> const& po
     return { NCT::hash(inputs, aztec3::GeneratorIndex::CONTRACT_ADDRESS) };
 }
 
-template <typename NCT>
-CompleteAddress<NCT> compute_complete_contract_address(Point<NCT> const& point,
-                                                       typename NCT::fr const& contract_address_salt,
-                                                       typename NCT::fr const& function_tree_root,
-                                                       typename NCT::fr const& constructor_hash)
+template <typename NCT> typename aztec3::circuits::abis::CompleteAddress<NCT> compute_complete_address(
+    Point<NCT> const& point,
+    typename NCT::fr const& contract_address_salt,
+    typename NCT::fr const& function_tree_root,
+    typename NCT::fr const& constructor_hash)
 {
     using fr = typename NCT::fr;
 
     const fr partial_address =
         compute_partial_address<NCT>(contract_address_salt, function_tree_root, constructor_hash);
-    const fr contract_address = compute_contract_address_from_partial(point, partial_address);
-    const CompleteAddress complete_address = { contract_address, point, partial_address };
+
+    typename aztec3::circuits::abis::CompleteAddress<NCT> complete_address;
+    complete_address.address = compute_contract_address_from_partial(point, partial_address);
+    complete_address.public_key = point;
+    complete_address.partial_address = partial_address;
+
     return complete_address;
 }
 

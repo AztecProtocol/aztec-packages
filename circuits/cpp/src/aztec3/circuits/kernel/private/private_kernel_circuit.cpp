@@ -20,7 +20,7 @@ using plonk::stdlib::array_push;
 using plonk::stdlib::is_array_empty;
 using plonk::stdlib::push_array_to_array;
 
-using aztec3::circuits::compute_complete_contract_address;
+using aztec3::circuits::compute_complete_address;
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::silo_commitment;
 using aztec3::circuits::silo_nullifier;
@@ -113,11 +113,11 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
                                           "constructor_vk_hash does not match private call vk hash");
 
         // compute the contract address (only valid if this is a contract deployment)
-        auto contract_address = compute_complete_contract_address<CT>(contract_deployment_data.deployer_public_key,
-                                                                      contract_deployment_data.contract_address_salt,
-                                                                      contract_deployment_data.function_tree_root,
-                                                                      constructor_hash)
-                                    .address;
+        auto const contract_address = compute_complete_address<CT>(contract_deployment_data.deployer_public_key,
+                                                                   contract_deployment_data.contract_address_salt,
+                                                                   contract_deployment_data.function_tree_root,
+                                                                   constructor_hash)
+                                          .address;
 
         // must imply == derived address
         is_contract_deployment.must_imply(
