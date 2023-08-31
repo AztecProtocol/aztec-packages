@@ -15,13 +15,6 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
 
 namespace proof_system::honk::flavor {
 
