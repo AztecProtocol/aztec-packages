@@ -5,14 +5,6 @@ mod storage;
 mod types;
 
 contract DocsExample {
-    use dep::aztec::abi;
-    use dep::aztec::abi::{PrivateCircuitPublicInputs, PrivateContextInputs, PublicContextInputs};
-    use dep::aztec::constants_gen::MAX_READ_REQUESTS_PER_CALL;
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext,
-    };
-
     use crate::account_contract_interface::AccountContractInterface;
     use crate::actions;
     use crate::options::{create_account_card_getter_options, create_largest_account_card_getter_options};
@@ -28,18 +20,12 @@ contract DocsExample {
     global REPLACE_QUEEN_FUNCTION_SELECTOR = 11111111;
     global GET_POINTS_OF_COMMON_CARD_FUNCTION_SELECTOR = 11111111;
 
+    #[aztec(private)]
     fn constructor(
-        inputs: PrivateContextInputs,
         min_points: u8,
         max_points: u8,
         legendary_card_secret: Field,
-    ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([
-            min_points as Field,
-            max_points as Field,
-            legendary_card_secret,
-        ]));
-        
+    ) {
         let storage = Storage::init();
 
         let mut game_rules = RulesNote::new(min_points, max_points);
@@ -47,39 +33,30 @@ contract DocsExample {
 
         let mut legendary_card = CardNote::new(0, legendary_card_secret, 0);
         actions::init_legendary_card(&mut context, storage.legendary_card, &mut legendary_card);
-
-        context.finish()
     }
 
     // docs:start:storage-init
-    open fn lock(inputs: PublicContextInputs) -> pub abi::PublicCircuitPublicInputs {
-        let context = PublicContext::new(inputs, 0);
-
+    #[aztec(public)]
+    fn lock() {
         // highlight-next-line:storage-init
         let storage = Storage::init();
         storage.locked.write(true);
-
-        context.finish()
     }
     // docs:end:storage-init
 
     // docs:start:functions-OpenFunction
-    open fn unlock(inputs: PublicContextInputs) -> pub abi::PublicCircuitPublicInputs {
-        let context = PublicContext::new(inputs, 0);
-
+    #[aztec(public)]
+    fn unlock() {
         let storage = Storage::init();
         actions::unlock(storage.locked);
-
-        context.finish()
     }
     // docs:end:functions-OpenFunction
 
-    open fn replace_queen(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn replace_queen(
         account: Field,
         points: u8,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let context = PublicContext::new(inputs, abi::hash_args([account, points as Field]));
+    ) {
         let storage = Storage::init();
 
         let new_queen = Queen { account, points };
@@ -87,15 +64,11 @@ contract DocsExample {
         assert(actions::can_replace_queen(storage.queen, new_queen));
         
         actions::replace_queen(storage.queen, new_queen);
-
-        context.finish()
     }
 
     // docs:start:state_vars-PublicStateWriteBeforeCall
-    open fn replace_queen_unsafe(
-        inputs: PublicContextInputs,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let context = PublicContext::new(inputs, 0);
+    #[aztec(public)]
+    fn replace_queen_unsafe() {
         let storage = Storage::init();
 
         let account = context.msg_sender();
@@ -109,34 +82,26 @@ contract DocsExample {
         
         let new_queen = Queen { account, points };
         storage.queen.write(new_queen);
-
-        context.finish()
     }
     // docs:end:state_vars-PublicStateWriteBeforeCall
 
     // docs:start:functions-SecretFunction
-    fn add_common_cards(
-        inputs: PrivateContextInputs,
-        secrets: [Field; 4],
-    ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args(secrets));
+    #[aztec(private)]
+    fn add_common_cards(secrets: [Field; 4]) {
         let storage = Storage::init();
 
         for i in 0..secrets.len() as u8 {
             let mut card = CardNote::new(0, secrets[i], 0);
             actions::add_new_card(&mut context, storage.cards, &mut card);
         }
-        
-        context.finish()
     }
     // docs:end:functions-SecretFunction
 
+    #[aztec(private)]
     fn update_legendary_card(
-        inputs: PrivateContextInputs,
         new_points: u8,
         new_secret: Field,
-    ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([new_secret]));
+    ) {
         let storage = Storage::init();
 
         let owner = inputs.call_context.msg_sender;
@@ -145,12 +110,10 @@ contract DocsExample {
         assert(actions::is_valid_card(&mut context, storage.game_rules, updated_card));
 
         actions::update_legendary_card(&mut context, storage.legendary_card, &mut updated_card);
-
-        context.finish()
     }
 
-    fn become_queen(inputs: PrivateContextInputs) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, 0);
+    #[aztec(private)]
+    fn become_queen() {
         let storage = Storage::init();
 
         let legendary_card = actions::get_legendary_card(&mut context, storage.legendary_card);
@@ -168,22 +131,19 @@ contract DocsExample {
             REPLACE_QUEEN_FUNCTION_SELECTOR,
             [owner, total_points as Field]
         );
-
-        context.finish()
     }
 
+    #[aztec(private)]
     fn get_points_of_common_cards(
-        inputs: PrivateContextInputs,
         account: Field,
         offset: u32,
-    ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([account, offset as Field]));
+    ) {
         let storage = Storage::init();
 
         let mut total_points = 0;
         let options = create_account_card_getter_options(account, offset);
         let cards = actions::get_cards(&mut context, storage.cards, options);
-        for i in 0..MAX_READ_REQUESTS_PER_CALL {
+        for i in 0..cards.len() {
             if (cards[i].is_some()) {
                 let card = cards[i].unwrap_unchecked();
                 assert(card.owner == account);
@@ -192,15 +152,11 @@ contract DocsExample {
         }
 
         context.return_values.push(total_points as Field);
-
-        context.finish()
     }
 
     // docs:start:state_vars-check_return_notes
-    fn discard_largest_card(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, 0);
+    #[aztec(private)]
+    fn discard_largest_card() {
         let storage = Storage::init();
 
         let account = context.msg_sender();
@@ -210,8 +166,6 @@ contract DocsExample {
         assert(card.owner == account);
 
         actions::remove_card(&mut context, storage.cards, card);
-
-        context.finish()
     }
     // docs:end:state_vars-check_return_notes
 
