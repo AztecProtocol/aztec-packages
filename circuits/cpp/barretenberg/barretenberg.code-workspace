@@ -83,7 +83,7 @@
         // Clangd. Note that this setting may be overridden by  user settings
         // to the default value "clangd".
         //
-        "clangd.path": "clangd-15",
+        "clangd.path": "clangd-16",
         // We should disable automatic inclusion of headers unless we decide to follow "WhyIWYU".
         "clangd.arguments": [
             "-header-insertion=never"
@@ -151,7 +151,7 @@
             "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
         },
         "cmake.configureArgs": [
-            "--preset clang15",
+            "--preset clang16",
             "-G Ninja",
             "-g"
         ],

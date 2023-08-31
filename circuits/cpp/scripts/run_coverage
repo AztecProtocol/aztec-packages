@@ -71,6 +71,6 @@ cmake --build --preset coverage --target create_full_coverage_report
 echo "*** Generating VScode line coverage data ***"
 for BIN in $TESTS; do
   echo "Generating line coverage data for $BIN"
-  llvm-cov-15 export ./$BUILD_DIR/bin/$BIN  --format=lcov -instr-profile="./$BUILD_DIR/merged_profdata/default.profdata" > $BUILD_DIR/lcov.info
+  llvm-cov-16 export ./$BUILD_DIR/bin/$BIN  --format=lcov -instr-profile="./$BUILD_DIR/merged_profdata/default.profdata" > $BUILD_DIR/lcov.info
 done
 

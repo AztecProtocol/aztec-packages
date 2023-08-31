@@ -3,8 +3,8 @@ RUN apk update \
     && apk upgrade \
     && apk add --no-cache \
         build-base \
-        clang15 \
-        clang15-extra-tools \
+        clang16 \
+        clang16-extra-tools \
         openmp-dev \
         cmake \
         ninja \

@@ -135,7 +135,7 @@
   // Clangd. Note that this setting may be overridden by user settings
   // to the default value "clangd".
   //
-  "clangd.path": "clangd-15",
+  "clangd.path": "clangd-16",
   //
   // CMake
   //
