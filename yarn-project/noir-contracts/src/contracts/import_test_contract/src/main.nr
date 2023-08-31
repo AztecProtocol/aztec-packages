@@ -55,7 +55,7 @@ contract ImportTest {
     fn callNoArgs(
         target: Field
     ) {
-        let test_contract_instance =  TestPrivateContextInterface::at(target);
+        let test_contract_instance = TestPrivateContextInterface::at(target);
         let return_values = test_contract_instance.getThisAddress(&mut context);
         context.return_values.push(return_values[0]);
     }
@@ -67,7 +67,7 @@ contract ImportTest {
     fn callOpenFn(
         target: Field,
     ) {
-        let test_contract_instance =  TestPrivateContextInterface::at(target);
+        let test_contract_instance = TestPrivateContextInterface::at(target);
         test_contract_instance.createNullifierPublic(&mut context, 1, 2);
     }
 
@@ -78,7 +78,7 @@ contract ImportTest {
     open fn pubCallOpenFn(
         target: Field,
     ) {
-        let test_contract_instance =  TestPublicContextInterface::at(target);
+        let test_contract_instance = TestPublicContextInterface::at(target);
         let ret = test_contract_instance.createNullifierPublic(context, 1, 2);
         context.return_values.push(ret[0]);
     }
