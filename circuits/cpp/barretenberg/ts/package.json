@@ -1,6 +1,11 @@
 {
   "name": "@aztec/bb.js",
+<<<<<<< HEAD
   "version": "0.3.3",
+=======
+  "version": "0.4.6",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/circuits/cpp/barretenberg/ts",
+>>>>>>> origin/master
   "license": "MIT",
   "type": "module",
   "types": "./cjs-entry/index.d.ts",
@@ -29,7 +34,7 @@
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
-    "test-debug": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand",
+    "test:debug": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --inspect-brk=0.0.0.0 --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests --runInBand",
     "simple_test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node ./src/examples/simple.rawtest.ts",
     "prepack": "yarn build",
     "deploy": "npm publish --access public"

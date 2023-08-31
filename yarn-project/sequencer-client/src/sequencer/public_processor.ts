@@ -9,6 +9,7 @@ import {
 import {
   AztecAddress,
   CircuitsWasm,
+  CombinedAccumulatedData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   Fr,
@@ -46,10 +47,9 @@ import { MerkleTreeOperations } from '@aztec/world-state';
 import { getVerificationKeys } from '../index.js';
 import { EmptyPublicProver } from '../prover/empty.js';
 import { PublicProver } from '../prover/index.js';
-import { PublicKernelCircuitSimulator } from '../simulator/index.js';
-import { getPublicExecutor } from '../simulator/public_executor.js';
+import { PublicKernelCircuitSimulator, getPublicExecutor } from '../simulator/index.js';
 import { WasmPublicKernelCircuitSimulator } from '../simulator/public_kernel.js';
-import { ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
+import { FailedTx, ProcessedTx, makeEmptyProcessedTx, makeProcessedTx } from './processed_tx.js';
 import { getHistoricBlockData } from './utils.js';
 
 /**
@@ -107,17 +107,22 @@ export class PublicProcessor {
    * @param txs - Txs to process.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
-  public async process(txs: Tx[]): Promise<[ProcessedTx[], Tx[]]> {
+  public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[]]> {
+    // The processor modifies the tx objects in place, so we need to clone them.
+    txs = txs.map(tx => Tx.fromJSON(tx.toJSON()));
     const result: ProcessedTx[] = [];
-    const failed: Tx[] = [];
+    const failed: FailedTx[] = [];
 
     for (const tx of txs) {
       this.log(`Processing tx ${await tx.getTxHash()}`);
       try {
         result.push(await this.processTx(tx));
       } catch (err) {
-        this.log.error(`Error processing tx ${await tx.getTxHash()}: ${err}`);
-        failed.push(tx);
+        this.log.warn(`Error processing tx ${await tx.getTxHash()}: ${err}`);
+        failed.push({
+          tx,
+          error: err instanceof Error ? err : new Error('Unknown error'),
+        });
       }
     }
     return [result, failed];
@@ -149,7 +154,11 @@ export class PublicProcessor {
     this.log(`Executing enqueued public calls for tx ${await tx.getTxHash()}`);
     if (!tx.enqueuedPublicFunctionCalls) throw new Error(`Missing preimages for enqueued public calls`);
 
-    let kernelOutput = tx.data;
+    let kernelOutput = new KernelCircuitPublicInputs(
+      CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
+      tx.data.constants,
+      tx.data.isPrivate,
+    );
     let kernelProof = tx.proof;
     const newUnencryptedFunctionLogs: FunctionL2Logs[] = [];
 
