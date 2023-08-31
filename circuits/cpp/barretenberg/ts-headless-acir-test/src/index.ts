@@ -5,6 +5,8 @@ import { gunzipSync } from "zlib";
 import chalk from "chalk";
 import os from "os";
 
+const { BROWSER } = process.env;
+
 function formatAndPrintLog(message: string): void {
   const parts = message.split("%c");
   if (parts.length === 1) {
@@ -69,12 +71,13 @@ const readWitnessFile = (path: string): Uint8Array => {
   const witness = readWitnessFile(options.witness);
   const threads = Math.min(os.cpus().length, 16);
 
-  // const browsers = [chromium, firefox, webkit];
-  // const browsers = [firefox];
-  const browsers = { Chomium: chromium, Firefox: firefox, Webkit: webkit };
+  const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
 
   for (const [name, browserType] of Object.entries(browsers)) {
-    console.log(`Testing ${options.bytecode} in ${name}...`);
+    if (BROWSER && BROWSER != name) {
+      continue;
+    }
+    console.log(chalk.blue(`Testing ${options.bytecode} in ${name}...`));
     const browser = await browserType.launch();
 
     const context = await browser.newContext();
