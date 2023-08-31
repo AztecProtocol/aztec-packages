@@ -42,23 +42,23 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         // Populate the goblin-style ecc op gates for the given mul inputs
         auto op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
 
-        // Adds constraints demonstrating that the EC point coordinates can be reconstructed from their decomposition.
+        // Add constraints demonstrating that the EC point coordinates were decomposed faithfully. In particular, show
+        // that the lo-hi components that have been encoded in the op wires can be reconstructed via the limbs of the
+        // original point coordinates.
         auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
         auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
         auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
         auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
-        Fq point_x(x_lo, x_hi);
-        Fq point_y(y_lo, y_hi);
-        point.x.assert_equal(point_x);
-        point.y.assert_equal(point_y);
-
-        // // ALTERNATIVELY: try this and compare gate counts
-        // point.x.assert_is_in_field()
-        // point.y.assert_is_in_field()
-        // x_lo.assert_equal(point.x.binary_basis_limbs[0] + shift_1 * point.x.binary_basis_limbs[1]);
-        // x_hi.assert_equal(point.x.binary_basis_limbs[2] + shift_1 * point.x.binary_basis_limbs[3]);
-        // y_lo.assert_equal(point.y.binary_basis_limbs[0] + shift_1 * point.y.binary_basis_limbs[1]);
-        // y_hi.assert_equal(point.y.binary_basis_limbs[2] + shift_1 * point.y.binary_basis_limbs[3]);
+        // Note: These constraints do not assume or enforce that the coordinates of the original point have been
+        // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
+        // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
+        ASSERT(uint1024_t(point.x.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
+        ASSERT(uint1024_t(point.y.get_maximum_value()) <= Fq::DEFAULT_MAXIMUM_REMAINDER);
+        auto shift = Fr::from_witness(builder, Fq::shift_1);
+        x_lo.assert_equal(point.x.binary_basis_limbs[0].element + shift * point.x.binary_basis_limbs[1].element);
+        x_hi.assert_equal(point.x.binary_basis_limbs[2].element + shift * point.x.binary_basis_limbs[3].element);
+        y_lo.assert_equal(point.y.binary_basis_limbs[0].element + shift * point.y.binary_basis_limbs[1].element);
+        y_hi.assert_equal(point.y.binary_basis_limbs[2].element + shift * point.y.binary_basis_limbs[3].element);
 
         // Add constraints demonstrating proper decomposition of scalar into endomorphism scalars
         auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
