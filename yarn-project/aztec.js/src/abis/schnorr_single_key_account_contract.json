@@ -19,7 +19,7 @@
           "name": "payload",
           "type": {
             "kind": "struct",
-            "name": "EntrypointPayload",
+            "path": "aztec::entrypoint::EntrypointPayload",
             "fields": [
               {
                 "name": "flattened_args_hashes",

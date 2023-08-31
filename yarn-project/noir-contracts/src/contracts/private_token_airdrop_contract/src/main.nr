@@ -19,8 +19,7 @@ contract PrivateTokenAirdrop {
 
     use crate::storage::Storage;
     use crate::claim_note::{ClaimNote, ClaimNoteMethods};
-    use crate::interface::PrivateTokenAirdropPrivateContextInterface;
-
+    use crate::interface::PrivateTokenAirdropPrivateContextInterface ;
 
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
     #[aztec(private)]
