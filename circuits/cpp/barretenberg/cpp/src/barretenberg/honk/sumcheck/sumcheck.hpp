@@ -70,12 +70,12 @@ template <typename Flavor> class SumcheckProver {
      *
      * @details
      */
-    SumcheckOutput<Flavor> prove(
-        auto full_polynomials, const RelationParameters<FF>& relation_parameters) // pass by value, not by reference
+    SumcheckOutput<Flavor> prove(auto full_polynomials,
+                                 const RelationParameters<FF>& relation_parameters) // pass by value, not by reference
     {
         auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
 
-        PowUnivariate<FF> pow_univariate(zeta);
+        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
 
         std::vector<FF> multivariate_challenge;
         multivariate_challenge.reserve(multivariate_d);
@@ -169,8 +169,8 @@ template <typename Flavor> class SumcheckVerifier {
      * target sum.
      *
      * @details If verification fails, returns std::nullopt, otherwise returns SumcheckOutput
-     * @param relation_parameters 
-     * @param transcript 
+     * @param relation_parameters
+     * @param transcript
      */
     std::optional<SumcheckOutput<Flavor>> verify(const RelationParameters<FF>& relation_parameters, auto& transcript)
     {
@@ -178,7 +178,7 @@ template <typename Flavor> class SumcheckVerifier {
 
         auto [alpha, zeta] = transcript.get_challenges("Sumcheck:alpha", "Sumcheck:zeta");
 
-        PowUnivariate<FF> pow_univariate(zeta);
+        barretenberg::PowUnivariate<FF> pow_univariate(zeta);
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 
@@ -192,8 +192,8 @@ template <typename Flavor> class SumcheckVerifier {
         for (size_t round_idx = 0; round_idx < multivariate_d; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
-            auto round_univariate = transcript.template receive_from_prover<Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(
-                round_univariate_label);
+            auto round_univariate = transcript.template receive_from_prover<
+                barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(round_univariate_label);
 
             bool checked = round.check_sum(round_univariate);
             verified = verified && checked;

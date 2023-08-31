@@ -2,8 +2,7 @@
 #include "barycentric.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk::sumcheck;
-namespace test_univariate {
+namespace barretenberg::test_univariate {
 
 template <typename FF> class UnivariateTest : public testing::Test {
   public:
@@ -160,4 +159,4 @@ TYPED_TEST(UnivariateTest, Serialization)
     }
 }
 
-} // namespace test_univariate
+} // namespace barretenberg::test_univariate

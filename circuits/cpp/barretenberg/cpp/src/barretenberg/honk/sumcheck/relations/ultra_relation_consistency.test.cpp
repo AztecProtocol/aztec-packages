@@ -14,6 +14,9 @@
 #include "relation_parameters.hpp"
 #include <gtest/gtest.h>
 
+using barretenberg::BarycentricData;
+using barretenberg::Univariate;
+
 // TODO(luke): This testing infrastructure was duplicated between here and relation_consistency.test.cpp with the
 // orignal Flavor PR. Find a way to recombine these test suites or at least share this functionality.
 using namespace proof_system::honk::sumcheck;
@@ -28,6 +31,8 @@ using namespace proof_system::honk::sumcheck;
  * satisfied in general by random inputs) only that the two implementations are equivalent.
  */
 static const size_t INPUT_UNIVARIATE_LENGTH = 2;
+
+using barretenberg::Univariate;
 
 namespace proof_system::honk_relation_tests {
 

@@ -70,8 +70,8 @@ template <typename FF, template <typename> typename RelationBase> class Relation
     // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
     template <size_t... Values> struct UnivariateAccumulatorTypes {
         // These Values are extracted from RelationBase.
-        using Accumulators = std::tuple<Univariate<FF, Values>...>; 
-        using AccumulatorViews = std::tuple<UnivariateView<FF, Values>...>;
+        using Accumulators = std::tuple<barretenberg::Univariate<FF, Values>...>; 
+        using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, Values>...>;
     };
     template <size_t... Values> struct ValueAccumulatorTypes {
         using Accumulators = std::array<FF, sizeof...(Values)>;

@@ -15,7 +15,7 @@
 
    3) There should be more thorough testing of this class in isolation.
  */
-namespace proof_system::honk::sumcheck {
+namespace barretenberg {
 
 /**
 
@@ -411,4 +411,4 @@ using BarycentricData = std::conditional_t<is_field_type_v<Fr>,
                                            BarycentricDataCompileTime<Fr, domain_size, num_evals>,
                                            BarycentricDataRunTime<Fr, domain_size, num_evals>>;
 
-} // namespace proof_system::honk::sumcheck
+} // namespace barretenberg

@@ -1,16 +1,17 @@
 #include "barretenberg/honk/flavor/standard.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-
 #include "barretenberg/honk/sumcheck/relations/arithmetic_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk::sumcheck;
+using barretenberg::Univariate;
+using barretenberg::BarycentricData;
 /**
  * The purpose of this test suite is to show that the identity arithmetic implemented in the Relations is equivalent to
  * a simpler unoptimized version implemented in the tests themselves. This is useful 1) as documentation since the

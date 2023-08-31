@@ -2,8 +2,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk::sumcheck;
-namespace test_sumcheck_polynomials {
+namespace barretenberg::test_barycentric {
 
 template <class FF> class BarycentricDataTests : public testing::Test {};
 
@@ -95,4 +94,4 @@ TYPED_TEST(BarycentricDataTests, BarycentricData5to6)
     EXPECT_EQ(ext1, expected);
 }
 
-} // namespace test_sumcheck_polynomials
+} // namespace barretenberg::test_barycentric

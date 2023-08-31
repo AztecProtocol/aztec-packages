@@ -1,8 +1,8 @@
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "pow.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <gtest/gtest.h>
 
-namespace proof_system::honk::sumcheck::pow_test {
+namespace barretenberg::test_pow {
 
 using FF = barretenberg::fr;
 
@@ -23,4 +23,4 @@ TEST(SumcheckPow, FullPowConsistency)
     // FF expected_eval = proof_system::honk::power_polynomial::evaluate<FF>(zeta, variables);
     EXPECT_EQ(pow_univariate.partial_evaluation_constant, expected_eval);
 }
-} // namespace proof_system::honk::sumcheck::pow_test
+} // namespace barretenberg::test_pow

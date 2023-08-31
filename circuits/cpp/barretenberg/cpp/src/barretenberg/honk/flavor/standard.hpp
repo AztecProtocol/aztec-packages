@@ -12,12 +12,6 @@
 #include "barretenberg/proof_system/circuit_builder/standard_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
 
 namespace proof_system::honk::flavor {
 
@@ -235,8 +229,8 @@ class Standard {
      * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
      */
     template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges =
-        AllEntities<sumcheck::Univariate<FF, MAX_RELATION_LENGTH>, sumcheck::Univariate<FF, MAX_RELATION_LENGTH>>;
+    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
+                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

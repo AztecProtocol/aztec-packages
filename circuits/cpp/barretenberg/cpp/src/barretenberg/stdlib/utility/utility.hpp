@@ -29,8 +29,8 @@ template <typename Builder> class StdlibTypesUtility {
     using element_ct = element<Builder, fq_ct, field_ct, barretenberg::g1>;
     using FF = barretenberg::fr;
     using Commitment = barretenberg::g1::affine_element;
-    template <size_t LENGTH> using Univariate = proof_system::honk::sumcheck::Univariate<FF, LENGTH>;
-    template <size_t LENGTH> using Univariate_ct = proof_system::honk::sumcheck::Univariate<field_ct, LENGTH>;
+    template <size_t LENGTH> using Univariate = barretenberg::Univariate<FF, LENGTH>;
+    template <size_t LENGTH> using Univariate_ct = barretenberg::Univariate<field_ct, LENGTH>;
 
   public:
     /**

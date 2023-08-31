@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
 #include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/ecc_op_queue_relation.hpp"
@@ -9,20 +8,10 @@
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
-#include "barretenberg/srs/factories/crs_factory.hpp"
-// WORKTODO ugh
-#include <array>
-#include <concepts>
-#include <span>
-#include <string>
-#include <type_traits>
-#include <vector>
+
 
 namespace proof_system::honk::flavor {
 
@@ -340,7 +329,7 @@ class GoblinUltra {
      */
     template <size_t MAX_RELATION_LENGTH>
     using ExtendedEdges =
-        AllEntities<sumcheck::Univariate<FF, MAX_RELATION_LENGTH>, sumcheck::Univariate<FF, MAX_RELATION_LENGTH>>;
+        AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>, barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

@@ -304,7 +304,7 @@ class UltraGrumpkin {
      */
     template <size_t MAX_RELATION_LENGTH>
     using ExtendedEdges =
-        AllEntities<sumcheck::Univariate<FF, MAX_RELATION_LENGTH>, sumcheck::Univariate<FF, MAX_RELATION_LENGTH>>;
+        AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>, barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

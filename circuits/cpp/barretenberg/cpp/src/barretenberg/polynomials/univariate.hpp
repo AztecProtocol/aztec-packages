@@ -4,7 +4,7 @@
 #include <array>
 #include <span>
 
-namespace proof_system::honk::sumcheck {
+namespace barretenberg {
 
 template <class Fr, size_t view_length> class UnivariateView;
 
@@ -365,4 +365,4 @@ template <typename T, typename U, std::size_t N> std::array<T, N> array_to_array
     return array_to_array_aux<T, U, N>(elements, std::make_index_sequence<N>());
 };
 
-} // namespace proof_system::honk::sumcheck
+} // namespace barretenberg

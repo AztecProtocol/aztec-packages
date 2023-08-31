@@ -9,6 +9,9 @@ auto& engine = numeric::random::get_debug_engine();
 }
 
 using FF = barretenberg::fr;
+using barretenberg::Univariate;
+using barretenberg::BarycentricData;
+
 
 namespace proof_system::honk::sumcheck::relations_bench {
 
