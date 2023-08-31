@@ -1,5 +1,5 @@
 /**
- * @file relation_consistency.test.cpp
+ * @file standard_relation_consistency.test.cpp
  * @brief Show that relation arithmetic has a simple form.
  * @details The purpose of this test suite is to show that the identity arithmetic implemented in the Relations is
  * equivalent to a simpler unoptimized version implemented in the tests themselves. This is useful 1) as documentation
@@ -16,9 +16,8 @@
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk::sumcheck;
 
-namespace proof_system::honk_relation_tests {
+namespace proof_system::standard_relation_consistency_tests {
 
 using FF = barretenberg::fr;
 struct InputElements {
@@ -66,7 +65,9 @@ struct InputElements {
 class StandardRelationConsistency : public testing::Test {
   public:
     template <typename Relation>
-    static void validate_relation_execution(const auto& expected_values, const InputElements& input_elements, const auto& parameters)
+    static void validate_relation_execution(const auto& expected_values,
+                                            const InputElements& input_elements,
+                                            const auto& parameters)
     {
         typename Relation::RelationValues accumulator;
         std::fill(accumulator.begin(), accumulator.end(), FF(0));
@@ -77,7 +78,7 @@ class StandardRelationConsistency : public testing::Test {
 
 TEST_F(StandardRelationConsistency, ArithmeticRelation)
 {
-    auto run_test = [](bool random_inputs) {
+    const auto run_test = [](bool random_inputs) {
         using Relation = ArithmeticRelation<FF>;
         using RelationValues = typename Relation::RelationValues;
 
@@ -104,7 +105,7 @@ TEST_F(StandardRelationConsistency, ArithmeticRelation)
 
 TEST_F(StandardRelationConsistency, PermutationRelation)
 {
-    auto run_test = [](bool random_inputs) {
+    const auto run_test = [](bool random_inputs) {
         using Relation = PermutationRelation<FF>;
         using RelationValues = typename Relation::RelationValues;
 
@@ -142,4 +143,4 @@ TEST_F(StandardRelationConsistency, PermutationRelation)
     run_test(/*random_inputs=*/true);
 };
 
-} // namespace proof_system::honk_relation_tests
+} // namespace proof_system::standard_relation_consistency_tests
