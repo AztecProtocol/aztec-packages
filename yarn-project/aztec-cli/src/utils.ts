@@ -15,6 +15,7 @@ import {
   updatePackageJsonVersions,
 } from './unbox.js';
 
+export { createClient } from './client.js';
 /**
  * Helper type to dynamically import contracts.
  */

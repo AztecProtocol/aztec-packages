@@ -5,11 +5,8 @@ mod private_token_contract_interface;
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
 contract Escrow {
     use dep::std;
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
 
@@ -27,14 +24,13 @@ contract Escrow {
 
     use crate::storage::Storage;
 
-    use crate::private_token_contract_interface::PrivateTokenContractInterface;
+    use crate::private_token_contract_interface::PrivateTokenPrivateContextInterface;
 
     // Creates a new instance
+    #[aztec(private)]
     fn constructor(
-        inputs: pub PrivateContextInputs,
         owner: pub Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([owner]));
+    ) {
         let this = context.this_address();
         
         let storage = Storage::init();
@@ -47,18 +43,15 @@ contract Escrow {
             get_public_key(this),
             note.serialise(),
         );
-
-        context.finish()
     }
 
     // Withdraws balance. Requires that msg.sender is registered as an owner.
+    #[aztec(private)]
     fn withdraw(
-        inputs: pub PrivateContextInputs,
         token: pub Field,
         amount: pub Field,
         recipient: pub Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([token, amount, recipient]));
+    ) {
         let this = context.this_address();
         let sender = context.msg_sender();
         let storage = Storage::init();
@@ -71,10 +64,7 @@ contract Escrow {
         assert(note.address == sender);
         assert(note.owner == this);
 
-        // TODO: Can we dynamically get this selector?
-        let _callStackItem = PrivateTokenContractInterface::at(token).transfer(&mut context, amount, recipient);
-
-        context.finish()
+        let _callStackItem = PrivateTokenPrivateContextInterface::at(token).transfer(&mut context, amount, recipient);
     }
 
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; ADDRESS_NOTE_LEN]) -> [Field; 4] {
