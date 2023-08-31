@@ -2,10 +2,8 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, BatchCall, Wallet, generatePublicKey } from '@aztec/aztec.js';
 import { CompleteAddress, Fr, PrivateKey, getContractDeploymentInfo } from '@aztec/circuits.js';
-import { generateFunctionSelector } from '@aztec/foundation/abi';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { DebugLogger } from '@aztec/foundation/log';
-import { EscrowContractAbi, PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
+import { EscrowContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, PrivateTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
@@ -25,13 +23,6 @@ describe('e2e_escrow_contract', () => {
 
   let escrowPrivateKey: PrivateKey;
   let escrowPublicKey: PublicKey;
-
-  beforeAll(() => {
-    // Validate transfer selector. If this fails, then make sure to change it in the escrow contract.
-    const transferAbi = PrivateTokenContractAbi.functions.find(f => f.name === 'transfer')!;
-    const transferSelector = generateFunctionSelector(transferAbi.name, transferAbi.parameters);
-    expect(transferSelector).toEqual(toBufferBE(0xdcd4c318n, 4));
-  });
 
   beforeEach(async () => {
     // Setup environment
@@ -93,7 +84,7 @@ describe('e2e_escrow_contract', () => {
     await expectBalance(owner, 50n);
 
     const actions = [
-      privateTokenContract.methods.transfer(10, owner, recipient).request(),
+      privateTokenContract.methods.transfer(10, recipient).request(),
       escrowContract.methods.withdraw(privateTokenContract.address, 20, recipient).request(),
     ];
 

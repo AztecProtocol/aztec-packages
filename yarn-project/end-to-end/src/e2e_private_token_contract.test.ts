@@ -5,11 +5,7 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
 
-import {
-  expectUnencryptedLogsFromLastBlockToBe,
-  expectsNumOfEncryptedLogsInTheLastBlockToBe,
-  setup,
-} from './fixtures/utils.js';
+import { expectsNumOfEncryptedLogsInTheLastBlockToBe, setup } from './fixtures/utils.js';
 
 describe('e2e_private_token_contract', () => {
   let aztecNode: AztecNodeService | undefined;
@@ -58,7 +54,6 @@ describe('e2e_private_token_contract', () => {
     await expectBalance(receiver, 0n);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpcServer, ['Balance set in constructor']);
   }, 30_000);
 
   /**
@@ -81,7 +76,6 @@ describe('e2e_private_token_contract', () => {
     await expectBalance(owner, mintAmount);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpcServer, ['Coins minted']);
   }, 60_000);
 
   /**
@@ -97,9 +91,8 @@ describe('e2e_private_token_contract', () => {
     await expectBalance(receiver, 0n);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 1);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpcServer, ['Balance set in constructor']);
 
-    const tx = contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner });
+    const tx = contract.methods.transfer(transferAmount, receiver).send({ origin: owner });
 
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
@@ -110,6 +103,5 @@ describe('e2e_private_token_contract', () => {
     await expectBalance(receiver, transferAmount);
 
     await expectsNumOfEncryptedLogsInTheLastBlockToBe(aztecNode, 2);
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpcServer, ['Coins transferred']);
   }, 60_000);
 });

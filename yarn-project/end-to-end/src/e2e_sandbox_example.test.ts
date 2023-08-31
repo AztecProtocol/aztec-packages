@@ -4,7 +4,6 @@
 // docs:start:imports
 import {
   AztecRPC,
-  L2BlockL2Logs,
   PrivateKey,
   createAztecRpcClient,
   createDebugLogger,
@@ -20,9 +19,7 @@ import { createAztecRpcClient as createAztecRpcClient2 } from '@aztec/aztec.js';
 import { defaultFetch } from '@aztec/foundation/json-rpc/client';
 import { PrivateTokenContract } from '@aztec/noir-contracts/types';
 
-import { expectUnencryptedLogsFromLastBlockToBe } from './fixtures/utils.js';
-
-const { SANDBOX_URL } = process.env;
+const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
 describe('e2e_sandbox_example', () => {
   // Note: this is a hack to make the docs use http://localhost:8080 and CI to use the SANDBOX_URL
@@ -115,40 +112,21 @@ describe('e2e_sandbox_example', () => {
       .send()
       .deployed();
 
-    logger(`Contract successfully deployed at address ${contract.address!.toShortString()}`);
+    logger(`Contract successfully deployed at address ${contract.address.toShortString()}`);
     // docs:end:Deployment
 
     // ensure that private token contract is registered in the rpc
     expect(await aztecRpc.getContracts()).toEqual(expect.arrayContaining([contract.address]));
-
-    // docs:start:Logs
-
-    ////////////// RETRIEVE THE UNENCRYPTED LOGS EMITTED DURING DEPLOYMENT //////////////
-
-    // We can view the unencrypted logs emitted by the contract...
-    const viewUnencryptedLogs = async () => {
-      const lastBlock = await aztecRpc.getBlockNumber();
-      logger(`Retrieving unencrypted logs for block ${lastBlock}`);
-      const logs = await aztecRpc.getUnencryptedLogs(lastBlock, 1);
-      const unrolledLogs = L2BlockL2Logs.unrollLogs(logs);
-      const asciiLogs = unrolledLogs.map(log => log.toString('ascii'));
-      logger(`Emitted logs: `, asciiLogs);
-    };
-    await viewUnencryptedLogs();
-
-    // docs:end:Logs
-
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpc, ['Balance set in constructor']);
 
     // docs:start:Balance
 
     ////////////// QUERYING THE TOKEN BALANCE FOR EACH ACCOUNT //////////////
 
     // Create the contract abstraction and link to Alice's wallet for future signing
-    const tokenContractAlice = await PrivateTokenContract.at(contract.address!, await accounts[0].getWallet());
+    const tokenContractAlice = await PrivateTokenContract.at(contract.address, await accounts[0].getWallet());
 
     // Bob wants to mint some funds, the contract is already deployed, create an abstraction and link it his wallet
-    const tokenContractBob = await PrivateTokenContract.at(contract.address!, await accounts[1].getWallet());
+    const tokenContractBob = await PrivateTokenContract.at(contract.address, await accounts[1].getWallet());
 
     let aliceBalance = await tokenContractAlice.methods.getBalance(alice).view();
     logger(`Alice's balance ${aliceBalance}`);
@@ -167,10 +145,7 @@ describe('e2e_sandbox_example', () => {
     // We will now transfer tokens from ALice to Bob
     const transferQuantity = 543n;
     logger(`Transferring ${transferQuantity} tokens from Alice to Bob...`);
-    await tokenContractAlice.methods.transfer(transferQuantity, alice, bob).send().wait();
-
-    // See if any logs were emitted
-    await viewUnencryptedLogs();
+    await tokenContractAlice.methods.transfer(transferQuantity, bob).send({ origin: alice }).wait();
 
     // Check the new balances
     aliceBalance = await tokenContractAlice.methods.getBalance(alice).view();
@@ -183,8 +158,6 @@ describe('e2e_sandbox_example', () => {
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity);
 
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpc, ['Coins transferred']);
-
     // docs:start:Mint
     ////////////// MINT SOME MORE TOKENS TO BOB'S ACCOUNT //////////////
 
@@ -192,9 +165,6 @@ describe('e2e_sandbox_example', () => {
     const mintQuantity = 10_000n;
     logger(`Minting ${mintQuantity} tokens to Bob...`);
     await tokenContractBob.methods.mint(mintQuantity, bob).send().wait();
-
-    // See if any logs were emitted
-    await viewUnencryptedLogs();
 
     // Check the new balances
     aliceBalance = await tokenContractAlice.methods.getBalance(alice).view();
@@ -206,7 +176,5 @@ describe('e2e_sandbox_example', () => {
 
     expect(aliceBalance).toBe(initialSupply - transferQuantity);
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
-
-    await expectUnencryptedLogsFromLastBlockToBe(aztecRpc, ['Coins minted']);
   }, 60_000);
 });

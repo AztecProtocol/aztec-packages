@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.6](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.5...barretenberg.js-v0.4.6) (2023-08-29)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.5](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.4...barretenberg.js-v0.4.5) (2023-08-28)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.4](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.3...barretenberg.js-v0.4.4) (2023-08-28)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.3](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.2...barretenberg.js-v0.4.3) (2023-08-23)
+
+
+### Bug Fixes
+
+* Download SRS using one canonical URL across the codebase ([#1748](https://github.com/AztecProtocol/barretenberg/issues/1748)) ([5c91de7](https://github.com/AztecProtocol/barretenberg/commit/5c91de7296e054f6d5ac3dca94ca85e06d496048))
+* Proving fails when circuit has size &gt; ~500K ([#1739](https://github.com/AztecProtocol/barretenberg/issues/1739)) ([6d32383](https://github.com/AztecProtocol/barretenberg/commit/6d323838a525190618d608598357ee4608c46699))
+
 ## [0.4.2](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.1...barretenberg.js-v0.4.2) (2023-08-21)
 
 

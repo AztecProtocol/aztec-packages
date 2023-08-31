@@ -1,13 +1,14 @@
 import {
   CallContext,
   CircuitsWasm,
+  ContractStorageRead,
   FunctionData,
   GlobalVariables,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
 } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { FunctionAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -110,7 +111,7 @@ describe('ACIR public execution simulator', () => {
       beforeEach(() => {
         contractAddress = AztecAddress.random();
         abi = PublicTokenContractAbi.functions.find(f => f.name === 'transfer')!;
-        functionData = new FunctionData(Buffer.alloc(4), false, false, false);
+        functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
         args = encodeArguments(abi, [140, recipient]);
         sender = AztecAddress.random();
 
@@ -174,23 +175,20 @@ describe('ACIR public execution simulator', () => {
         expect(result.contractStorageReads).toEqual([]);
       });
 
-      // Contract storage reads and update requests are implemented as built-ins, which at the moment Noir does not
-      // now whether they have side-effects or not, so they get run even when their code path
-      // is not picked by a conditional. Once that's fixed, we should re-enable this test.
-      // Task to repair this test: https://github.com/AztecProtocol/aztec-packages/issues/1588
-      it.skip('should run the transfer function without enough sender balance', async () => {
+      it('should fail the transfer function without enough sender balance', async () => {
         const senderBalance = new Fr(10n);
         const recipientBalance = new Fr(20n);
         mockStore(senderBalance, recipientBalance);
 
         const result = await executor.execute(execution, GlobalVariables.empty());
-
         expect(result.returnValues[0]).toEqual(recipientBalance);
 
-        expect(result.contractStorageReads).toEqual([
-          { storageSlot: recipientStorageSlot, value: recipientBalance },
-          { storageSlot: senderStorageSlot, value: senderBalance },
-        ]);
+        expect(result.contractStorageReads).toEqual(
+          [
+            { storageSlot: senderStorageSlot, currentValue: senderBalance, sideEffectCounter: 0 },
+            { storageSlot: recipientStorageSlot, currentValue: recipientBalance, sideEffectCounter: 1 },
+          ].map(ContractStorageRead.from),
+        );
 
         expect(result.contractStorageUpdateRequests).toEqual([]);
       });
@@ -203,21 +201,21 @@ describe('ACIR public execution simulator', () => {
       async isInternal => {
         const parentContractAddress = AztecAddress.random();
         const parentEntryPointFn = ParentContractAbi.functions.find(f => f.name === 'pubEntryPoint')!;
-        const parentEntryPointFnSelector = generateFunctionSelector(
+        const parentEntryPointFnSelector = FunctionSelector.fromNameAndParameters(
           parentEntryPointFn.name,
           parentEntryPointFn.parameters,
         );
 
         const childContractAddress = AztecAddress.random();
         const childValueFn = ChildContractAbi.functions.find(f => f.name === 'pubGetValue')!;
-        const childValueFnSelector = generateFunctionSelector(childValueFn.name, childValueFn.parameters);
+        const childValueFnSelector = FunctionSelector.fromNameAndParameters(childValueFn.name, childValueFn.parameters);
 
         const initialValue = 3n;
 
         const functionData = new FunctionData(parentEntryPointFnSelector, isInternal ?? false, false, false);
         const args = encodeArguments(parentEntryPointFn, [
           childContractAddress.toField().value,
-          toBigInt(childValueFnSelector),
+          toBigInt(childValueFnSelector.toBuffer()),
           initialValue,
         ]);
 
@@ -231,7 +229,7 @@ describe('ACIR public execution simulator', () => {
         });
 
         // eslint-disable-next-line require-await
-        publicContracts.getBytecode.mockImplementation(async (addr: AztecAddress, selector: Buffer) => {
+        publicContracts.getBytecode.mockImplementation(async (addr: AztecAddress, selector: FunctionSelector) => {
           if (addr.equals(parentContractAddress) && selector.equals(parentEntryPointFnSelector)) {
             return Buffer.from(parentEntryPointFn.bytecode, 'base64');
           } else if (addr.equals(childContractAddress) && selector.equals(childValueFnSelector)) {
@@ -279,7 +277,7 @@ describe('ACIR public execution simulator', () => {
 
     beforeEach(async () => {
       contractAddress = AztecAddress.random();
-      functionData = new FunctionData(Buffer.alloc(4), false, false, false);
+      functionData = new FunctionData(FunctionSelector.empty(), false, false, false);
       amount = new Fr(140);
       params = [amount, Fr.random()];
       wasm = await CircuitsWasm.get();

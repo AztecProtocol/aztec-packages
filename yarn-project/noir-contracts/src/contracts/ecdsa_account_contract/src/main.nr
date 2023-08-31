@@ -10,6 +10,7 @@ contract EcdsaAccount {
     use dep::aztec::abi;
     use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
+    use dep::aztec::abi::Hasher;
     use dep::aztec::context::PrivateContext;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
@@ -29,19 +30,11 @@ contract EcdsaAccount {
     use crate::ecdsa_public_key_note::ECDSA_PUBLIC_KEY_NOTE_LEN;
 
     // All calls made by this account will be routed through this entrypoint
+    #[aztec(private)]
     fn entrypoint(  
-        inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64],
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        
-        // Initialise context
-        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
-        let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
-        args.push_array(payload.serialize());
-        for byte in signature { args.push(byte as Field); }
-        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
-
+    ) {
         // Load public key from storage
         let storage = Storage::init();
         let public_key = storage.public_key.get_note(&mut context);
@@ -50,28 +43,26 @@ contract EcdsaAccount {
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        let message_bytes = message_field.to_be_bytes(32);
+        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = message_field.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 {
+          message_bytes[i] = message_bytes_slice[i];
+        }
         let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
 
         payload.execute_calls(&mut context);
-
-        context.finish()
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
+    #[aztec(private)]
     fn constructor(
-        inputs: pub PrivateContextInputs,
         signing_pub_key_x: pub [u8;32],
         signing_pub_key_y: pub [u8;32],
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+    ) {
         let storage = Storage::init();
-        
-        let mut args: BoundedVec<Field, 64> = BoundedVec::new(0);
-        for byte in signing_pub_key_x { args.push(byte as Field); }
-        for byte in signing_pub_key_y { args.push(byte as Field); }
-        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
         
         let this = context.this_address();
         let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
@@ -84,8 +75,6 @@ contract EcdsaAccount {
             get_public_key(this),
             pub_key_note.serialise(),
         );
-
-        context.finish()
     }
 
     // Computes note hash and nullifier.

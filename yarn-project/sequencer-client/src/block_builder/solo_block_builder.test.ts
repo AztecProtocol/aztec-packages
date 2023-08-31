@@ -22,7 +22,7 @@ import { computeBlockHashWithGlobals, computeContractLeaf } from '@aztec/circuit
 import {
   fr,
   makeBaseOrMergeRollupPublicInputs,
-  makeKernelPublicInputs,
+  makeKernelPublicInputsFinal,
   makeNewContractData,
   makeProof,
   makePublicCallRequest,
@@ -32,6 +32,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { to2Fields } from '@aztec/foundation/serialize';
 import {
   ContractData,
+  ExtendedContractData,
   L2Block,
   L2BlockL2Logs,
   MerkleTreeId,
@@ -168,7 +169,7 @@ describe('sequencer/solo_block_builder', () => {
   };
 
   const buildMockSimulatorInputs = async () => {
-    const kernelOutput = makeKernelPublicInputs();
+    const kernelOutput = makeKernelPublicInputsFinal();
     kernelOutput.constants.blockData = await getHistoricBlockData(expectsDb);
 
     const tx = await makeProcessedTx(
@@ -177,8 +178,8 @@ describe('sequencer/solo_block_builder', () => {
         emptyProof,
         makeEmptyLogs(),
         makeEmptyLogs(),
-        [],
         times(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, makePublicCallRequest),
+        [ExtendedContractData.random()],
       ),
     );
 

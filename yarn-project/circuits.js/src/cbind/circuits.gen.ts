@@ -16,13 +16,16 @@ import {
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
+  FinalAccumulatedData,
   Fq,
   Fr,
   FunctionData,
+  FunctionSelector,
   G1AffineElement,
   GlobalVariables,
   HistoricBlockData,
   KernelCircuitPublicInputs,
+  KernelCircuitPublicInputsFinal,
   NativeAggregationState,
   NewContractData,
   OptionallyRevealedData,
@@ -266,16 +269,36 @@ export function fromNewContractData(o: NewContractData): MsgpackNewContractData 
   };
 }
 
+interface MsgpackFunctionSelector {
+  value: number;
+}
+
+export function toFunctionSelector(o: MsgpackFunctionSelector): FunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector deserialization');
+  }
+  return new FunctionSelector(o.value);
+}
+
+export function fromFunctionSelector(o: FunctionSelector): MsgpackFunctionSelector {
+  if (o.value === undefined) {
+    throw new Error('Expected value in FunctionSelector serialization');
+  }
+  return {
+    value: o.value,
+  };
+}
+
 interface MsgpackFunctionData {
-  function_selector: number;
+  selector: MsgpackFunctionSelector;
   is_internal: boolean;
   is_private: boolean;
   is_constructor: boolean;
 }
 
 export function toFunctionData(o: MsgpackFunctionData): FunctionData {
-  if (o.function_selector === undefined) {
-    throw new Error('Expected function_selector in FunctionData deserialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData deserialization');
   }
   if (o.is_internal === undefined) {
     throw new Error('Expected is_internal in FunctionData deserialization');
@@ -286,12 +309,12 @@ export function toFunctionData(o: MsgpackFunctionData): FunctionData {
   if (o.is_constructor === undefined) {
     throw new Error('Expected is_constructor in FunctionData deserialization');
   }
-  return new FunctionData(o.function_selector, o.is_internal, o.is_private, o.is_constructor);
+  return new FunctionData(toFunctionSelector(o.selector), o.is_internal, o.is_private, o.is_constructor);
 }
 
 export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
-  if (o.functionSelector === undefined) {
-    throw new Error('Expected functionSelector in FunctionData serialization');
+  if (o.selector === undefined) {
+    throw new Error('Expected selector in FunctionData serialization');
   }
   if (o.isInternal === undefined) {
     throw new Error('Expected isInternal in FunctionData serialization');
@@ -303,7 +326,7 @@ export function fromFunctionData(o: FunctionData): MsgpackFunctionData {
     throw new Error('Expected isConstructor in FunctionData serialization');
   }
   return {
-    function_selector: o.functionSelector,
+    selector: fromFunctionSelector(o.selector),
     is_internal: o.isInternal,
     is_private: o.isPrivate,
     is_constructor: o.isConstructor,
@@ -479,8 +502,8 @@ interface MsgpackCombinedAccumulatedData {
   unencrypted_log_preimages_length: Buffer;
   new_contracts: Tuple<MsgpackNewContractData, 1>;
   optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
-  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 8>;
-  public_data_reads: Tuple<MsgpackPublicDataRead, 8>;
+  public_data_update_requests: Tuple<MsgpackPublicDataUpdateRequest, 16>;
+  public_data_reads: Tuple<MsgpackPublicDataRead, 16>;
 }
 
 export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): CombinedAccumulatedData {
@@ -1096,6 +1119,182 @@ export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
   };
 }
 
+interface MsgpackFinalAccumulatedData {
+  aggregation_object: MsgpackNativeAggregationState;
+  new_commitments: Tuple<Buffer, 16>;
+  new_nullifiers: Tuple<Buffer, 16>;
+  nullified_commitments: Tuple<Buffer, 16>;
+  private_call_stack: Tuple<Buffer, 8>;
+  public_call_stack: Tuple<Buffer, 8>;
+  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  encrypted_logs_hash: Tuple<Buffer, 2>;
+  unencrypted_logs_hash: Tuple<Buffer, 2>;
+  encrypted_log_preimages_length: Buffer;
+  unencrypted_log_preimages_length: Buffer;
+  new_contracts: Tuple<MsgpackNewContractData, 1>;
+  optionally_revealed_data: Tuple<MsgpackOptionallyRevealedData, 4>;
+}
+
+export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAccumulatedData {
+  if (o.aggregation_object === undefined) {
+    throw new Error('Expected aggregation_object in FinalAccumulatedData deserialization');
+  }
+  if (o.new_commitments === undefined) {
+    throw new Error('Expected new_commitments in FinalAccumulatedData deserialization');
+  }
+  if (o.new_nullifiers === undefined) {
+    throw new Error('Expected new_nullifiers in FinalAccumulatedData deserialization');
+  }
+  if (o.nullified_commitments === undefined) {
+    throw new Error('Expected nullified_commitments in FinalAccumulatedData deserialization');
+  }
+  if (o.private_call_stack === undefined) {
+    throw new Error('Expected private_call_stack in FinalAccumulatedData deserialization');
+  }
+  if (o.public_call_stack === undefined) {
+    throw new Error('Expected public_call_stack in FinalAccumulatedData deserialization');
+  }
+  if (o.new_l2_to_l1_msgs === undefined) {
+    throw new Error('Expected new_l2_to_l1_msgs in FinalAccumulatedData deserialization');
+  }
+  if (o.encrypted_logs_hash === undefined) {
+    throw new Error('Expected encrypted_logs_hash in FinalAccumulatedData deserialization');
+  }
+  if (o.unencrypted_logs_hash === undefined) {
+    throw new Error('Expected unencrypted_logs_hash in FinalAccumulatedData deserialization');
+  }
+  if (o.encrypted_log_preimages_length === undefined) {
+    throw new Error('Expected encrypted_log_preimages_length in FinalAccumulatedData deserialization');
+  }
+  if (o.unencrypted_log_preimages_length === undefined) {
+    throw new Error('Expected unencrypted_log_preimages_length in FinalAccumulatedData deserialization');
+  }
+  if (o.new_contracts === undefined) {
+    throw new Error('Expected new_contracts in FinalAccumulatedData deserialization');
+  }
+  if (o.optionally_revealed_data === undefined) {
+    throw new Error('Expected optionally_revealed_data in FinalAccumulatedData deserialization');
+  }
+  return new FinalAccumulatedData(
+    toNativeAggregationState(o.aggregation_object),
+    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.encrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
+    Fr.fromBuffer(o.encrypted_log_preimages_length),
+    Fr.fromBuffer(o.unencrypted_log_preimages_length),
+    mapTuple(o.new_contracts, (v: MsgpackNewContractData) => toNewContractData(v)),
+    mapTuple(o.optionally_revealed_data, (v: MsgpackOptionallyRevealedData) => toOptionallyRevealedData(v)),
+  );
+}
+
+export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalAccumulatedData {
+  if (o.aggregationObject === undefined) {
+    throw new Error('Expected aggregationObject in FinalAccumulatedData serialization');
+  }
+  if (o.newCommitments === undefined) {
+    throw new Error('Expected newCommitments in FinalAccumulatedData serialization');
+  }
+  if (o.newNullifiers === undefined) {
+    throw new Error('Expected newNullifiers in FinalAccumulatedData serialization');
+  }
+  if (o.nullifiedCommitments === undefined) {
+    throw new Error('Expected nullifiedCommitments in FinalAccumulatedData serialization');
+  }
+  if (o.privateCallStack === undefined) {
+    throw new Error('Expected privateCallStack in FinalAccumulatedData serialization');
+  }
+  if (o.publicCallStack === undefined) {
+    throw new Error('Expected publicCallStack in FinalAccumulatedData serialization');
+  }
+  if (o.newL2ToL1Msgs === undefined) {
+    throw new Error('Expected newL2ToL1Msgs in FinalAccumulatedData serialization');
+  }
+  if (o.encryptedLogsHash === undefined) {
+    throw new Error('Expected encryptedLogsHash in FinalAccumulatedData serialization');
+  }
+  if (o.unencryptedLogsHash === undefined) {
+    throw new Error('Expected unencryptedLogsHash in FinalAccumulatedData serialization');
+  }
+  if (o.encryptedLogPreimagesLength === undefined) {
+    throw new Error('Expected encryptedLogPreimagesLength in FinalAccumulatedData serialization');
+  }
+  if (o.unencryptedLogPreimagesLength === undefined) {
+    throw new Error('Expected unencryptedLogPreimagesLength in FinalAccumulatedData serialization');
+  }
+  if (o.newContracts === undefined) {
+    throw new Error('Expected newContracts in FinalAccumulatedData serialization');
+  }
+  if (o.optionallyRevealedData === undefined) {
+    throw new Error('Expected optionallyRevealedData in FinalAccumulatedData serialization');
+  }
+  return {
+    aggregation_object: fromNativeAggregationState(o.aggregationObject),
+    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
+    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
+    private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
+    public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
+    new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
+    encrypted_logs_hash: mapTuple(o.encryptedLogsHash, (v: Fr) => toBuffer(v)),
+    unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
+    encrypted_log_preimages_length: toBuffer(o.encryptedLogPreimagesLength),
+    unencrypted_log_preimages_length: toBuffer(o.unencryptedLogPreimagesLength),
+    new_contracts: mapTuple(o.newContracts, (v: NewContractData) => fromNewContractData(v)),
+    optionally_revealed_data: mapTuple(o.optionallyRevealedData, (v: OptionallyRevealedData) =>
+      fromOptionallyRevealedData(v),
+    ),
+  };
+}
+
+interface MsgpackKernelCircuitPublicInputsFinal {
+  end: MsgpackFinalAccumulatedData;
+  constants: MsgpackCombinedConstantData;
+  is_private: boolean;
+}
+
+export function toKernelCircuitPublicInputsFinal(
+  o: MsgpackKernelCircuitPublicInputsFinal,
+): KernelCircuitPublicInputsFinal {
+  if (o.end === undefined) {
+    throw new Error('Expected end in KernelCircuitPublicInputsFinal deserialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in KernelCircuitPublicInputsFinal deserialization');
+  }
+  if (o.is_private === undefined) {
+    throw new Error('Expected is_private in KernelCircuitPublicInputsFinal deserialization');
+  }
+  return new KernelCircuitPublicInputsFinal(
+    toFinalAccumulatedData(o.end),
+    toCombinedConstantData(o.constants),
+    o.is_private,
+  );
+}
+
+export function fromKernelCircuitPublicInputsFinal(
+  o: KernelCircuitPublicInputsFinal,
+): MsgpackKernelCircuitPublicInputsFinal {
+  if (o.end === undefined) {
+    throw new Error('Expected end in KernelCircuitPublicInputsFinal serialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in KernelCircuitPublicInputsFinal serialization');
+  }
+  if (o.isPrivate === undefined) {
+    throw new Error('Expected isPrivate in KernelCircuitPublicInputsFinal serialization');
+  }
+  return {
+    end: fromFinalAccumulatedData(o.end),
+    constants: fromCombinedConstantData(o.constants),
+    is_private: o.isPrivate,
+  };
+}
+
 interface MsgpackCallContext {
   msg_sender: Buffer;
   storage_contract_address: Buffer;
@@ -1235,8 +1434,8 @@ interface MsgpackPublicCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 8>;
-  contract_storage_reads: Tuple<MsgpackContractStorageRead, 8>;
+  contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
+  contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
   public_call_stack: Tuple<Buffer, 4>;
   new_commitments: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
@@ -1569,9 +1768,9 @@ export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKer
 export function privateKernelSimOrdering(
   wasm: IWasmModule,
   arg0: PreviousKernelData,
-): CircuitError | KernelCircuitPublicInputs {
-  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
-    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
+): CircuitError | KernelCircuitPublicInputsFinal {
+  return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputsFinal) =>
+    isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputsFinal(v))(
     callCbind(wasm, 'private_kernel__sim_ordering', [fromPreviousKernelData(arg0)]),
   );
 }

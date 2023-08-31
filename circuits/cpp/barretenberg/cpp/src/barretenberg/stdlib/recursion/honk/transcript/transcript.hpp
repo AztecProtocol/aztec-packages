@@ -12,7 +12,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/utility/utility.hpp"
 
-//TODO(luke): this namespace will be sensible once stdlib is moved out of the plonk namespace
+// TODO(luke): this namespace will be sensible once stdlib is moved out of the plonk namespace
 namespace proof_system::plonk::stdlib::recursion::honk {
 template <typename Builder> class Transcript {
   public:
@@ -93,7 +93,7 @@ template <typename Builder> class Transcript {
     {
         // Get native type corresponding to input type
         using NativeType = typename StdlibTypes::template NativeType<T>::type;
-        
+
         // Extract the native element from the native transcript
         NativeType element = native_transcript.template receive_from_prover<NativeType>(label);
 

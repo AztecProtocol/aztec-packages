@@ -22,7 +22,7 @@ const PROJECT_CONTRACTS = [
   { name: 'EcdsaAccount', target: '../aztec.js/src/abis/', exclude: [] },
 ];
 
-const INTERFACE_CONTRACTS = ['test'];
+const INTERFACE_CONTRACTS = ['private_token', 'private_token_airdrop', 'test'];
 
 /**
  * Writes the contract to a specific project folder, if needed.
@@ -34,6 +34,8 @@ function writeToProject(abi: any) {
       const toWrite = {
         ...abi,
         functions: abi.functions.map((f: any) => omit(f, projectContract.exclude)),
+        // If we maintain debug symbols they will get commited to git.
+        debug: undefined,
       };
       const targetFilename = pathJoin(projectContract.target, `${snakeCase(abi.name)}_contract.json`);
       writeFileSync(targetFilename, JSON.stringify(toWrite, null, 2) + '\n');
@@ -88,7 +90,7 @@ const main = () => {
 
   // Write a .nr contract interface, for consumption by other Noir Contracts
   if (INTERFACE_CONTRACTS.includes(name)) {
-    const noirInterfaceDestFilePath = `${projectDirPath}/src/${projectName}_interface.nr`;
+    const noirInterfaceDestFilePath = `${projectDirPath}/src/interface.nr`;
     try {
       writeFileSync(noirInterfaceDestFilePath, generateNoirContractInterface(artifactJson));
       log(`Written ${noirInterfaceDestFilePath}`);
