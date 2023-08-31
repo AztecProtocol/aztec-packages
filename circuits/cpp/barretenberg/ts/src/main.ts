@@ -185,15 +185,16 @@ export async function writeVk(bytecodePath: string, crsPath: string, outputPath:
   }
 }
 
-export async function proofAsFields(proofPath: string, numInnerPublicInputs: number, outputPath: string) {
+export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string) {
   const { api, acirComposer } = await initLite();
 
   try {
     debug('serializing proof byte array into field elements');
+    const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
     const proofAsFields = await api.acirSerializeProofIntoFields(
       acirComposer,
       readFileSync(proofPath),
-      numInnerPublicInputs,
+      numPublicInputs,
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
@@ -296,10 +297,10 @@ program
   .description('Output solidity verification key contract.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
-  .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
-  .action(async ({ outputPath, vk }) => {
+  .requiredOption('-k, --vk-path <path>', 'Path to a verification key. avoids recomputation.')
+  .action(async ({ outputPath, vkPath }) => {
     handleGlobalOptions();
-    await contract(outputPath, vk);
+    await contract(outputPath, vkPath);
   });
 
 program
@@ -316,21 +317,21 @@ program
   .command('proof_as_fields')
   .description('Return the proof as fields elements')
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
-  .requiredOption('-n, --num-public-inputs <number>', 'Specify the number of public inputs')
+  .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
-  .action(async ({ proofPath, numPublicInputs, outputPath }) => {
+  .action(async ({ proofPath, vkPath, outputPath }) => {
     handleGlobalOptions();
-    await proofAsFields(proofPath, numPublicInputs, outputPath);
+    await proofAsFields(proofPath, vkPath, outputPath);
   });
 
 program
   .command('vk_as_fields')
   .description('Return the verification key represented as fields elements. Also return the verification key hash.')
-  .requiredOption('-i, --input-path <path>', 'Specifies the vk path (output from write_vk)')
+  .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields and key hash')
-  .action(async ({ inputPath, outputPath }) => {
+  .action(async ({ vkPath, outputPath }) => {
     handleGlobalOptions();
-    await vkAsFields(inputPath, outputPath);
+    await vkAsFields(vkPath, outputPath);
   });
 
 program.name('bb.js').parse(process.argv);

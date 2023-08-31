@@ -6,7 +6,6 @@ import webpack from 'webpack';
 export default {
   target: 'web',
   mode: 'production',
-  // devtool: false,
   entry: './src/index.ts',
   module: {
     rules: [

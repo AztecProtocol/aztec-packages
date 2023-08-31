@@ -8,7 +8,6 @@ import webpack from "webpack";
 export default {
   target: "web",
   mode: "production",
-  // devtool: false,
   entry: {
     index: "./src/index.ts",
   },
@@ -20,11 +19,6 @@ export default {
       },
     ],
   },
-  // optimization: {
-  //   splitChunks: {
-  //     chunks: "all", // This is key. It specifies to use code-splitting for all chunks, including those imported dynamically.
-  //   },
-  // },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
     filename: "[name].js",

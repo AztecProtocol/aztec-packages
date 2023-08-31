@@ -37,24 +37,6 @@ function formatAndPrintLog(message: string): void {
   console.log(formattedMessage);
 }
 
-// Set up the command-line interface
-const program = new Command();
-program.option("-v, --verbose", "verbose logging");
-program.option("-c, --crs-path <path>", "ignored (here for compatability)");
-program.option("-b, --bytecode <path>", "path to the bytecode file");
-program.option(
-  "-w, --witness <path>",
-  "path to the witness file",
-  "./target/witness.tr"
-);
-program.parse(process.argv);
-const options = program.opts();
-
-if (!options.bytecode) {
-  console.error("Please provide a bytecode path using the -b flag.");
-  process.exit(1);
-}
-
 const readBytecodeFile = (path: string): Uint8Array => {
   const data = fs.readFileSync(path, "ascii");
   const buffer = gunzipSync(Buffer.from(data, "base64"));
@@ -66,51 +48,69 @@ const readWitnessFile = (path: string): Uint8Array => {
   return gunzipSync(buffer);
 };
 
-(async () => {
-  const acir = readBytecodeFile(options.bytecode);
-  const witness = readWitnessFile(options.witness);
-  const threads = Math.min(os.cpus().length, 16);
+// Set up the command-line interface
+const program = new Command();
+program.option("-v, --verbose", "verbose logging");
+program.option("-c, --crs-path <path>", "ignored (here for compatability)");
 
-  const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
+program
+  .command("prove_and_verify")
+  .description(
+    "Generate a proof and verify it. Process exits with success or failure code."
+  )
+  .option(
+    "-b, --bytecode-path <path>",
+    "Specify the bytecode path",
+    "./target/main.bytecode"
+  )
+  .option(
+    "-w, --witness-path <path>",
+    "Specify the witness path",
+    "./target/witness.tr"
+  )
+  .action(async ({ bytecodePath, witnessPath, recursive }) => {
+    const acir = readBytecodeFile(bytecodePath);
+    const witness = readWitnessFile(witnessPath);
+    const threads = Math.min(os.cpus().length, 16);
 
-  for (const [name, browserType] of Object.entries(browsers)) {
-    if (BROWSER && BROWSER != name) {
-      continue;
+    const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
+
+    for (const [name, browserType] of Object.entries(browsers)) {
+      if (BROWSER && BROWSER != name) {
+        continue;
+      }
+      console.log(chalk.blue(`Testing ${bytecodePath} in ${name}...`));
+      const browser = await browserType.launch();
+
+      const context = await browser.newContext();
+      const page = await context.newPage();
+
+      if (program.opts().verbose) {
+        page.on("console", (msg) => formatAndPrintLog(msg.text()));
+      }
+
+      await page.goto("http://localhost:8080");
+
+      const result: boolean = await page.evaluate(
+        ([acirData, witnessData, threads]) => {
+          // Convert the input data to Uint8Arrays within the browser context
+          const acirUint8Array = new Uint8Array(acirData as number[]);
+          const witnessUint8Array = new Uint8Array(witnessData as number[]);
+
+          // Call the desired function and return the result
+          return (window as any).runTest(
+            acirUint8Array,
+            witnessUint8Array,
+            threads
+          );
+        },
+        [Array.from(acir), Array.from(witness), threads]
+      );
+
+      await browser.close();
+
+      process.exit(result ? 0 : 1);
     }
-    console.log(chalk.blue(`Testing ${options.bytecode} in ${name}...`));
-    const browser = await browserType.launch();
+  });
 
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    if (options.verbose) {
-      page.on("console", (msg) => formatAndPrintLog(msg.text()));
-    }
-
-    await page.goto("http://localhost:8080");
-
-    const result: boolean = await page.evaluate(
-      ([acirData, witnessData, threads]) => {
-        // Convert the input data to Uint8Arrays within the browser context
-        const acirUint8Array = new Uint8Array(acirData as number[]);
-        const witnessUint8Array = new Uint8Array(witnessData as number[]);
-
-        // Call the desired function and return the result
-        return (window as any).runTest(
-          acirUint8Array,
-          witnessUint8Array,
-          threads
-        );
-      },
-      [Array.from(acir), Array.from(witness), threads]
-    );
-
-    await browser.close();
-
-    if (!result) {
-      process.exit(1); // Exit with an error if any of the browsers fail
-    }
-  }
-
-  process.exit(0);
-})();
+program.parse(process.argv);
