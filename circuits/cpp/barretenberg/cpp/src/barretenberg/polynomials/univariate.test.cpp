@@ -1,5 +1,5 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barycentric_data.hpp"
+#include "barycentric.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk::sumcheck;

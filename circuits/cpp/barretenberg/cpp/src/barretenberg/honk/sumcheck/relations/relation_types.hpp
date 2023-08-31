@@ -1,5 +1,5 @@
 #pragma once
-#include "../polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "relation_parameters.hpp"
 
 namespace proof_system::honk::sumcheck {

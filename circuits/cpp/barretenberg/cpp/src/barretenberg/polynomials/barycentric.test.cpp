@@ -1,4 +1,4 @@
-#include "barycentric_data.hpp"
+#include "barycentric.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include <gtest/gtest.h>
 

@@ -1,4 +1,4 @@
-#include "../honk/sumcheck/polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "transcript_wrappers.hpp"
 #include <cstddef>
 #include <cstdint>

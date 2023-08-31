@@ -1,7 +1,7 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "sumcheck_round.hpp"
 
 #include <tuple>

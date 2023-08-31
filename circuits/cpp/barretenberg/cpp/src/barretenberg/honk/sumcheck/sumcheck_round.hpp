@@ -2,9 +2,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
-#include "polynomials/barycentric_data.hpp"
-#include "polynomials/pow.hpp"
-#include "polynomials/univariate.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/pow.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "relations/relation_parameters.hpp"
 #include <algorithm>
 #include <array>

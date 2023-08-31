@@ -6,7 +6,7 @@
 #include "barretenberg/honk/sumcheck/sumcheck_output.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
-#include "polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "sumcheck_round.hpp"
 
 namespace proof_system::honk::sumcheck {

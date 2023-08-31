@@ -1,5 +1,5 @@
-#include "../polynomials/barycentric_data.hpp"
-#include "../polynomials/univariate.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "arithmetic_relation.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
