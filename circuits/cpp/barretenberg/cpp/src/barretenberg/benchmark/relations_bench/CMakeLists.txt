@@ -6,7 +6,7 @@ relations.bench.cpp
 
 # Required libraries for benchmark suites
 set(LINKED_LIBRARIES
-  honk
+  polynomials
   benchmark::benchmark
 )
 
