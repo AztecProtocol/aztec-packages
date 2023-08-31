@@ -31,6 +31,7 @@ export function getPackageInfo() {
   const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
 
   // check if there's an environment variable for client version
-  const envClientVersion = process.env.RPC_CLIENT_VERSION;
-  return { version: envClientVersion || version, name };
+  // const envClientVersion = process.env.RPC_CLIENT_VERSION;
+  // return { version: envClientVersion || version, name };
+  return { version, name };
 }
