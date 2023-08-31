@@ -3,12 +3,14 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
+  processAcvmError,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CompleteAddress,
+  EthAddress,
   FunctionData,
-  KernelCircuitPublicInputs,
+  KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
   PrivateKey,
@@ -16,15 +18,15 @@ import {
 } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import {
   AztecNode,
   AztecRPC,
   ContractDao,
   ContractData,
-  ContractDataAndBytecode,
   DeployedContract,
+  ExtendedContractData,
   FunctionCall,
   INITIAL_L2_BLOCK_NUM,
   KeyStore,
@@ -32,6 +34,7 @@ import {
   L2BlockL2Logs,
   LogType,
   NodeInfo,
+  SimulationError,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -148,17 +151,17 @@ export class AztecRPCServer implements AztecRPC {
   }
 
   public async addContracts(contracts: DeployedContract[]) {
-    const contractDaos = contracts.map(c => toContractDao(c.abi, c.address, c.portalContract));
+    const contractDaos = contracts.map(c => toContractDao(c.abi, c.completeAddress, c.portalContract));
     await Promise.all(contractDaos.map(c => this.db.addContract(c)));
     for (const contract of contractDaos) {
       const portalInfo =
         contract.portalContract && !contract.portalContract.isZero() ? ` with portal ${contract.portalContract}` : '';
-      this.log.info(`Added contract ${contract.name} at ${contract.address}${portalInfo}`);
+      this.log.info(`Added contract ${contract.name} at ${contract.completeAddress.address}${portalInfo}`);
     }
   }
 
   public async getContracts(): Promise<AztecAddress[]> {
-    return (await this.db.getContracts()).map(c => c.address);
+    return (await this.db.getContracts()).map(c => c.completeAddress.address);
   }
 
   public async getPublicStorageAt(contract: AztecAddress, storageSlot: Fr) {
@@ -176,7 +179,7 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getBlock(blockNumber);
   }
 
-  public async simulateTx(txRequest: TxExecutionRequest) {
+  public async simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean) {
     if (!txRequest.functionData.isPrivate) {
       throw new Error(`Public entrypoints are not allowed`);
     }
@@ -190,6 +193,7 @@ export class AztecRPCServer implements AztecRPC {
     const newContract = deployedContractAddress ? await this.db.getContract(deployedContractAddress) : undefined;
 
     const tx = await this.#simulateAndProve(txRequest, newContract);
+    if (simulatePublic) await this.#simulatePublicCalls(tx);
     this.log.info(`Executed local simulation for ${await tx.getTxHash()}`);
 
     return tx;
@@ -197,6 +201,9 @@ export class AztecRPCServer implements AztecRPC {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = await tx.getTxHash();
+    if (await this.node.getTx(txHash)) {
+      throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
+    }
     this.log.info(`Sending transaction ${txHash}`);
     await this.node.sendTx(tx);
     return txHash;
@@ -239,8 +246,8 @@ export class AztecRPCServer implements AztecRPC {
     return await this.node.getBlockNumber();
   }
 
-  public async getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined> {
-    return await this.node.getContractDataAndBytecode(contractAddress);
+  public async getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined> {
+    return await this.node.getExtendedContractData(contractAddress);
   }
 
   public async getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined> {
@@ -326,10 +333,17 @@ export class AztecRPCServer implements AztecRPC {
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
     this.log('Executing simulator...');
-    const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
-    this.log('Simulation completed!');
-
-    return result;
+    try {
+      const result = await simulator.run(txRequest, functionAbi, contractAddress, portalContract);
+      this.log('Simulation completed!');
+      return result;
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
+      }
+      throw err;
+    }
   }
 
   /**
@@ -352,17 +366,63 @@ export class AztecRPCServer implements AztecRPC {
     const simulator = getAcirSimulator(this.db, this.node, this.node, this.node, this.keyStore, contractDataOracle);
 
     this.log('Executing unconstrained simulator...');
-    const result = await simulator.runUnconstrained(
-      execRequest,
-      from ?? AztecAddress.ZERO,
-      functionAbi,
-      contractAddress,
-      portalContract,
-      this.node,
-    );
-    this.log('Unconstrained simulation completed!');
+    try {
+      const result = await simulator.runUnconstrained(
+        execRequest,
+        from ?? AztecAddress.ZERO,
+        functionAbi,
+        contractAddress,
+        portalContract,
+        this.node,
+      );
+      this.log('Unconstrained simulation completed!');
 
-    return result;
+      return result;
+    } catch (err) {
+      if (err instanceof SimulationError) {
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Simulate the public part of a transaction.
+   * This allows to catch public execution errors before submitting the transaction.
+   * It can also be used for estimating gas in the future.
+   * @param tx - The transaction to be simulated.
+   */
+  async #simulatePublicCalls(tx: Tx) {
+    try {
+      await this.node.simulatePublicCalls(tx);
+    } catch (err) {
+      // Try to fill in the noir call stack since the RPC server may have access to the debug metadata
+      if (err instanceof SimulationError) {
+        const callStack = err.getCallStack();
+        const originalFailingFunction = callStack[callStack.length - 1];
+        const contractDataOracle = new ContractDataOracle(this.db, this.node);
+        const debugInfo = await contractDataOracle.getFunctionDebugMetadata(
+          originalFailingFunction.contractAddress,
+          originalFailingFunction.functionSelector,
+        );
+        if (debugInfo) {
+          const noirCallStack = processAcvmError(err.message, debugInfo);
+          if (noirCallStack) {
+            err.setNoirCallStack(noirCallStack);
+            err.updateMessage(
+              `Assertion failed in public execution: '${
+                noirCallStack[noirCallStack.length - 1]?.locationText ?? 'Unknown'
+              }'`,
+            );
+          }
+        }
+        await this.#enrichSimulationError(err);
+        this.log(err.toString());
+      }
+
+      throw err;
+    }
   }
 
   /**
@@ -396,17 +456,51 @@ export class AztecRPCServer implements AztecRPC {
     const unencryptedLogs = new TxL2Logs(collectUnencryptedLogs(executionResult));
     const enqueuedPublicFunctions = collectEnqueuedPublicFunctionCalls(executionResult);
 
+    const contractData = new ContractData(newContract?.completeAddress.address ?? AztecAddress.ZERO, EthAddress.ZERO);
+    const extendedContractData = new ExtendedContractData(
+      contractData,
+      newContractPublicFunctions,
+      newContract?.completeAddress.partialAddress ?? Fr.ZERO,
+      newContract?.completeAddress.publicKey ?? Point.ZERO,
+    );
+
     // HACK(#1639): Manually patches the ordering of the public call stack
     // TODO(#757): Enforce proper ordering of enqueued public calls
     await this.patchPublicCallStackOrdering(publicInputs, enqueuedPublicFunctions);
 
-    return new Tx(
-      publicInputs,
-      proof,
-      encryptedLogs,
-      unencryptedLogs,
-      newContractPublicFunctions,
-      enqueuedPublicFunctions,
+    return new Tx(publicInputs, proof, encryptedLogs, unencryptedLogs, enqueuedPublicFunctions, [extendedContractData]);
+  }
+
+  /**
+   * Adds contract and function names to a simulation error.
+   * @param err - The error to enrich.
+   */
+  async #enrichSimulationError(err: SimulationError) {
+    // Maps contract addresses to the set of functions selectors that were in error.
+    // Using strings because map and set don't use .equals()
+    const mentionedFunctions: Map<string, Set<string>> = new Map();
+
+    err.getCallStack().forEach(({ contractAddress, functionSelector }) => {
+      if (!mentionedFunctions.has(contractAddress.toString())) {
+        mentionedFunctions.set(contractAddress.toString(), new Set());
+      }
+      mentionedFunctions.get(contractAddress.toString())!.add(functionSelector.toString());
+    });
+
+    await Promise.all(
+      [...mentionedFunctions.entries()].map(async ([contractAddress, selectors]) => {
+        const parsedContractAddress = AztecAddress.fromString(contractAddress);
+        const contract = await this.db.getContract(parsedContractAddress);
+        if (contract) {
+          err.enrichWithContractName(parsedContractAddress, contract.name);
+          selectors.forEach(selector => {
+            const functionAbi = contract.functions.find(f => f.selector.toString() === selector);
+            if (functionAbi) {
+              err.enrichWithFunctionName(parsedContractAddress, functionAbi.selector, functionAbi.name);
+            }
+          });
+        }
+      }),
     );
   }
 
@@ -418,7 +512,7 @@ export class AztecRPCServer implements AztecRPC {
   // See https://github.com/AztecProtocol/aztec-packages/issues/1615
   // TODO(#757): Enforce proper ordering of enqueued public calls
   private async patchPublicCallStackOrdering(
-    publicInputs: KernelCircuitPublicInputs,
+    publicInputs: KernelCircuitPublicInputsFinal,
     enqueuedPublicCalls: PublicCallRequest[],
   ) {
     const callToHash = (call: PublicCallRequest) => call.toPublicCallStackItem().then(item => item.hash());
