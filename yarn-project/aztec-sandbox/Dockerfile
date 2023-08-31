@@ -12,8 +12,13 @@ RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
 FROM node:18-alpine
+
+ARG DOCKER_TAG
+ENV RPC_CLIENT_VERSION=${DOCKER_TAG}
+ENV SANDBOX_VERSION=${DOCKER_TAG}
 COPY --from=builder /usr/src/ /usr/src/
 WORKDIR /usr/src/yarn-project/aztec-sandbox
+
 ENTRYPOINT ["yarn"]
 CMD [ "start" ]
 EXPOSE 8080

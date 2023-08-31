@@ -29,5 +29,8 @@ export function getConfigEnvVars(): RpcServerConfig {
 export function getPackageInfo() {
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-  return { version, name };
+
+  // check if there's an environment variable for client version
+  const envClientVersion = process.env.RPC_CLIENT_VERSION;
+  return { version: envClientVersion || version, name };
 }
