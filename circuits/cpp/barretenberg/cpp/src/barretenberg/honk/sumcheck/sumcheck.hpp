@@ -8,13 +8,6 @@
 #include "barretenberg/honk/utils/grand_product_delta.hpp"
 #include "polynomials/univariate.hpp"
 #include "sumcheck_round.hpp"
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <optional>
-#include <span>
-#include <string>
-#include <vector>
 
 namespace proof_system::honk::sumcheck {
 
