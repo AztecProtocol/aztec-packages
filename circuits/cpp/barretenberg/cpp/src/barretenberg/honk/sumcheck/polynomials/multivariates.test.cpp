@@ -8,11 +8,11 @@
 using namespace proof_system::honk::sumcheck;
 namespace test_sumcheck_polynomials {
 
-template <typename Flavor> class MultivariatesTests : public testing::Test {};
+template <typename Flavor> class FoldingTests : public testing::Test {};
 
 using Flavors = testing::Types<honk::flavor::Standard>;
 
-TYPED_TEST_SUITE(MultivariatesTests, Flavors);
+TYPED_TEST_SUITE(FoldingTests, Flavors);
 
 /*
  * We represent a bivariate f0 as f0(X0, X1). The indexing starts from 0 to match with the round number in sumcheck.
@@ -40,7 +40,7 @@ TYPED_TEST_SUITE(MultivariatesTests, Flavors);
  * f0(u0,u1) = (v00 * (1-u0) + v10 * u0) * (1-u1)
  *           + (v01 * (1-u0) + v11 * u0) *   u1.
  */
-TYPED_TEST(MultivariatesTests, FoldTwoRoundsSpecial)
+TYPED_TEST(FoldingTests, FoldTwoRoundsSpecial)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
@@ -78,7 +78,7 @@ TYPED_TEST(MultivariatesTests, FoldTwoRoundsSpecial)
     EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
 
-TYPED_TEST(MultivariatesTests, FoldTwoRoundsGeneric)
+TYPED_TEST(FoldingTests, FoldTwoRoundsGeneric)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
@@ -135,7 +135,7 @@ TYPED_TEST(MultivariatesTests, FoldTwoRoundsGeneric)
  * f0(u0, u1, u2) = [(v000 * (1-u0) + v100 * u0) * (1-u1) + (v010 * (1-u0) + v110 * u0) * u1] * (1-u2)
  *                + [(v001 * (1-u0) + v101 * u0) * (1-u1) + (v011 * (1-u0) + v111 * u0) * u1] *   u2.
  */
-TYPED_TEST(MultivariatesTests, FoldThreeRoundsSpecial)
+TYPED_TEST(FoldingTests, FoldThreeRoundsSpecial)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
@@ -186,7 +186,7 @@ TYPED_TEST(MultivariatesTests, FoldThreeRoundsSpecial)
     EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
 
-TYPED_TEST(MultivariatesTests, FoldThreeRoundsGeneric)
+TYPED_TEST(FoldingTests, FoldThreeRoundsGeneric)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
@@ -237,7 +237,7 @@ TYPED_TEST(MultivariatesTests, FoldThreeRoundsGeneric)
     EXPECT_EQ(sumcheck.partially_evaluated_polynomials[0][0], expected_val);
 }
 
-TYPED_TEST(MultivariatesTests, FoldThreeRoundsGenericMultiplePolys)
+TYPED_TEST(FoldingTests, FoldThreeRoundsGenericMultiplePolys)
 {
     using Flavor = TypeParam;
     using FF = typename Flavor::FF;
