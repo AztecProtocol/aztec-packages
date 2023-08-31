@@ -2,8 +2,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include <array>
-#include <cstdint>
-#include <ostream>
 #include <span>
 
 namespace proof_system::honk::sumcheck {

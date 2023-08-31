@@ -1,7 +1,5 @@
 #pragma once
 #include "univariate.hpp"
-#include <algorithm>
-#include <array>
 
 // TODO(#674): We need the functionality of BarycentricData for both field (native) and field_t (stdlib). The former is
 // is compatible with constexpr operations, and the former is not. The functions for computing the
