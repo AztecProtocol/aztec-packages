@@ -1,6 +1,7 @@
 #include "../polynomials/barycentric_data.hpp"
 #include "../polynomials/univariate.hpp"
 #include "arithmetic_relation.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
@@ -8,14 +9,11 @@
 #include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "permutation_relation.hpp"
 #include "relation_parameters.hpp"
-
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
-
-#include <cstddef>
 #include <gtest/gtest.h>
+
 // TODO(luke): This testing infrastructure was duplicated between here and relation_consistency.test.cpp with the
 // orignal Flavor PR. Find a way to recombine these test suites or at least share this functionality.
 using namespace proof_system::honk::sumcheck;

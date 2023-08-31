@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstddef>
 namespace proof_system::honk::sumcheck {
 
 /**

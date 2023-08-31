@@ -1,6 +1,4 @@
 #pragma once
-#include "../polynomials/univariate.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
