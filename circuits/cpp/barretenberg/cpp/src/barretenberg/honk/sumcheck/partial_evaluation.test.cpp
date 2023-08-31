@@ -1,8 +1,5 @@
 #include "barretenberg/honk/flavor/standard.hpp"
-#include "barretenberg/honk/sumcheck/relations/arithmetic_relation.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk::sumcheck;

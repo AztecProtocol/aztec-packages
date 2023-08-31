@@ -1,8 +1,7 @@
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barycentric_data.hpp"
 #include "univariate.hpp"
-
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barycentric_data.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::honk::sumcheck;
