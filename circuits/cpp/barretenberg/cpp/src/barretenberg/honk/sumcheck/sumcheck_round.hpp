@@ -130,7 +130,7 @@ template <typename Flavor> class SumcheckProverRound {
      * univariate accumulators to be zero.
      */
     barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH> compute_univariate(auto& polynomials,
-                                                                  const RelationParameters<FF>& relation_parameters,
+                                                                  const proof_system::relation::RelationParameters<FF>& relation_parameters,
                                                                   const barretenberg::PowUnivariate<FF>& pow_univariate,
                                                                   const FF alpha)
     {
@@ -213,7 +213,7 @@ template <typename Flavor> class SumcheckProverRound {
     template <size_t relation_idx = 0>
     void accumulate_relation_univariates(RelationUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
-                                         const RelationParameters<FF>& relation_parameters,
+                                         const proof_system::relation::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
         std::get<relation_idx>(relations).add_edge_contribution(
@@ -403,7 +403,7 @@ template <typename Flavor> class SumcheckVerifierRound {
      * checked against the final value of the target total sum, defined as sigma_d.
      */
     FF compute_full_honk_relation_purported_value(ClaimedEvaluations purported_evaluations,
-                                                  const RelationParameters<FF>& relation_parameters,
+                                                  const proof_system::relation::RelationParameters<FF>& relation_parameters,
                                                   const barretenberg::PowUnivariate<FF>& pow_univariate,
                                                   const FF alpha)
     {
@@ -473,7 +473,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     template <size_t relation_idx = 0>
     // TODO(#224)(Cody): Input should be an array?
     void accumulate_relation_evaluations(ClaimedEvaluations purported_evaluations,
-                                         const RelationParameters<FF>& relation_parameters,
+                                         const proof_system::relation::RelationParameters<FF>& relation_parameters,
                                          const FF& partial_evaluation_constant)
     {
         std::get<relation_idx>(relations).add_full_relation_value_contribution(

@@ -20,7 +20,7 @@
 #include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::honk::sumcheck; // WORKTODO
+using namespace proof_system::relation;
 
 namespace proof_system::ultra_relation_consistency_tests {
 

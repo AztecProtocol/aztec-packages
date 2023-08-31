@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace proof_system::relation {
 
 // WORKTODO: ... this is a base in a weird way. Wish I could simplify the structure here.
 template <typename FF> class ArithmeticRelationBase {

@@ -43,14 +43,15 @@ class Ultra {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 11;
 
-    using GrandProductRelations = std::tuple<sumcheck::UltraPermutationRelation<FF>, sumcheck::LookupRelation<FF>>;
+    using GrandProductRelations =
+        std::tuple<proof_system::relation::UltraPermutationRelation<FF>, proof_system::relation::LookupRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<sumcheck::UltraArithmeticRelation<FF>,
-                                 sumcheck::UltraPermutationRelation<FF>,
-                                 sumcheck::LookupRelation<FF>,
-                                 sumcheck::GenPermSortRelation<FF>,
-                                 sumcheck::EllipticRelation<FF>,
-                                 sumcheck::AuxiliaryRelation<FF>>;
+    using Relations = std::tuple<proof_system::relation::UltraArithmeticRelation<FF>,
+                                 proof_system::relation::UltraPermutationRelation<FF>,
+                                 proof_system::relation::LookupRelation<FF>,
+                                 proof_system::relation::GenPermSortRelation<FF>,
+                                 proof_system::relation::EllipticRelation<FF>,
+                                 proof_system::relation::AuxiliaryRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 
@@ -296,8 +297,8 @@ class Ultra {
      * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
      */
     template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges =
-        AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>, barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
+                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

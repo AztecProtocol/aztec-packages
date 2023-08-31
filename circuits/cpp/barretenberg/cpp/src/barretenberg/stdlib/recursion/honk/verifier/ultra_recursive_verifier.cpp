@@ -47,7 +47,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     using PCS = typename Flavor::PCS; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using RelationParams = ::proof_system::honk::sumcheck::RelationParameters<FF>;
+    using RelationParams = ::proof_system::relation::RelationParameters<FF>;
 
     RelationParams relation_parameters;
 

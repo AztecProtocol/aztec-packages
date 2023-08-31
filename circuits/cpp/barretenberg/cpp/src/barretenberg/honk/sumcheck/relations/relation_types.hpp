@@ -2,7 +2,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "relation_parameters.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace proof_system::relation {
 template <typename T> concept HasSubrelationLinearlyIndependentMember = requires(T)
 {
     T::Relation::SUBRELATION_LINEARLY_INDEPENDENT;

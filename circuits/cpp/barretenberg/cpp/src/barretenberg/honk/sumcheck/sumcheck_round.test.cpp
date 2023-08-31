@@ -18,6 +18,8 @@
 
 using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
+using namespace proof_system::relation;
+
 using barretenberg::Univariate;
 using barretenberg::PowUnivariate;
 using barretenberg::BarycentricData;

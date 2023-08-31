@@ -15,18 +15,18 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace proof_system::honk::sumcheck::relations_bench {
+namespace proof_system::relation::benchmark {
 
 using FF = barretenberg::fr;
 
-template <typename Flavor, typename Relation> void execute_relation(benchmark::State& state)
+template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
 {
     // Generate beta and gamma
     auto beta = FF::random_element();
     auto gamma = FF::random_element();
     auto public_input_delta = FF::random_element();
 
-    sumcheck::RelationParameters<FF> params{
+    RelationParameters<FF> params{
         .beta = beta,
         .gamma = gamma,
         .public_input_delta = public_input_delta,
@@ -47,55 +47,55 @@ template <typename Flavor, typename Relation> void execute_relation(benchmark::S
     }
 }
 
-void arithmetic_relation(benchmark::State& state) noexcept
+void arithmetic_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::Standard, sumcheck::ArithmeticRelation<FF>>(state);
+    execute_relation<honk::flavor::Standard, ArithmeticRelation<FF>>(state);
 }
 BENCHMARK(arithmetic_relation);
 
 // WORKTODO
-// void auxiliary_relation(benchmark::State& state) noexcept
+// void auxiliary_relation(::benchmark::State& state) noexcept
 // {
-//     execute_relation<flavor::Ultra, sumcheck::AuxiliaryRelation<FF>>(state);
+//     execute_relation<honk::flavor::Ultra, AuxiliaryRelation<FF>>(state);
 // }
 // BENCHMARK(auxiliary_relation);
 
-void elliptic_relation(benchmark::State& state) noexcept
+void elliptic_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::GoblinUltra, sumcheck::EllipticRelation<FF>>(state);
+    execute_relation<honk::flavor::Ultra, EllipticRelation<FF>>(state);
 }
 BENCHMARK(elliptic_relation);
 
 
-void ecc_op_queue_relation(benchmark::State& state) noexcept
+void ecc_op_queue_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::GoblinUltra, sumcheck::EccOpQueueRelation<FF>>(state);
+    execute_relation<honk::flavor::GoblinUltra, EccOpQueueRelation<FF>>(state);
 }
 BENCHMARK(ecc_op_queue_relation);
 
-void gen_perm_sort_relation(benchmark::State& state) noexcept
+void gen_perm_sort_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::Ultra, sumcheck::GenPermSortRelation<FF>>(state);
+    execute_relation<honk::flavor::Ultra, GenPermSortRelation<FF>>(state);
 }
 BENCHMARK(gen_perm_sort_relation);
 
-void lookup_relation(benchmark::State& state) noexcept
+void lookup_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::Ultra, sumcheck::LookupRelation<FF>>(state);
+    execute_relation<honk::flavor::Ultra, LookupRelation<FF>>(state);
 }
 BENCHMARK(lookup_relation);
 
-void permutation_relation(benchmark::State& state) noexcept
+void permutation_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::Standard, sumcheck::PermutationRelation<FF>>(state);
+    execute_relation<honk::flavor::Standard, PermutationRelation<FF>>(state);
 }
 BENCHMARK(permutation_relation);
 
-void ultra_arithmetic_relation(benchmark::State& state) noexcept
+void ultra_arithmetic_relation(::benchmark::State& state) noexcept
 {
-    execute_relation<flavor::Ultra, sumcheck::UltraArithmeticRelation<FF>>(state);
+    execute_relation<honk::flavor::Ultra, UltraArithmeticRelation<FF>>(state);
 }
 BENCHMARK(ultra_arithmetic_relation);
 
 
-} // namespace proof_system::honk::sumcheck::relations_bench
+} // namespace proof_system::honk::relations_bench

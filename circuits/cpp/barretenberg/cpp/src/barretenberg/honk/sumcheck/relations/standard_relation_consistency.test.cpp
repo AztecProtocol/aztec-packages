@@ -17,6 +17,8 @@
 #include <gtest/gtest.h>
 
 
+using namespace proof_system::relation;
+
 namespace proof_system::standard_relation_consistency_tests {
 
 using FF = barretenberg::fr;

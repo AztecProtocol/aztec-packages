@@ -315,7 +315,7 @@ TEST_F(SumcheckTests, ProverAndVerifier)
                                                        lagrange_first,
                                                        lagrange_last);
     // Set aribitrary random relation parameters
-    sumcheck::RelationParameters<FF> relation_parameters{
+    proof_system::relation::RelationParameters<FF> relation_parameters{
         .beta = FF::random_element(),
         .gamma = FF::random_element(),
         .public_input_delta = FF::one(),
@@ -389,7 +389,7 @@ TEST_F(SumcheckTests, ProverAndVerifierLonger)
                                                            lagrange_last);
 
         // Set aribitrary random relation parameters
-        sumcheck::RelationParameters<FF> relation_parameters{
+        proof_system::relation::RelationParameters<FF> relation_parameters{
             .beta = FF::random_element(),
             .gamma = FF::random_element(),
             .public_input_delta = FF::one(),
@@ -453,7 +453,7 @@ TEST_F(SumcheckTests, RealCircuitStandard)
     auto public_input_delta =
         honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
 
-    sumcheck::RelationParameters<FF> relation_parameters{
+    proof_system::relation::RelationParameters<FF> relation_parameters{
         .beta = beta,
         .gamma = gamma,
         .public_input_delta = public_input_delta,
@@ -635,7 +635,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     auto lookup_grand_product_delta =
         honk::compute_lookup_grand_product_delta<FF>(beta, gamma, prover.key->circuit_size);
 
-    sumcheck::RelationParameters<FF> relation_parameters{
+    proof_system::relation::RelationParameters<FF> relation_parameters{
         .eta = eta,
         .beta = beta,
         .gamma = gamma,

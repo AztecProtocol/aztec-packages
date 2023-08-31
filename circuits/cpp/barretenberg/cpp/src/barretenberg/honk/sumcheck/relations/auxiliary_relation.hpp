@@ -3,7 +3,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::honk::sumcheck {
+namespace proof_system::relation {
 
 template <typename FF> class AuxiliaryRelationBase {
   public:

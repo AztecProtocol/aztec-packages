@@ -1,6 +1,6 @@
 #pragma once
 
-namespace proof_system::honk::sumcheck {
+namespace proof_system::relation {
 
 /**
  * @brief Container for parameters used by the grand product (permutation, lookup) Honk relations
