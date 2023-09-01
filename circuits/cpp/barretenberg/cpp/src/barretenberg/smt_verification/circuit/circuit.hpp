@@ -1,11 +1,12 @@
 #pragma once
-#include "barretenberg/serialize/cbind.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
 #include <fstream>
 #include <limits>
 #include <sstream>
 #include <string>
 #include <unordered_map>
+
+#include "barretenberg/serialize/cbind.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 #include "barretenberg/smt_verification/terms/bool.hpp"
 #include "barretenberg/smt_verification/terms/ffterm.hpp"

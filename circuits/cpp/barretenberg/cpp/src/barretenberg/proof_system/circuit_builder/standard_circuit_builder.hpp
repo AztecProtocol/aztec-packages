@@ -124,7 +124,7 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
         std::vector<FF> variables;
         std::vector<std::vector<FF>> selectors;
         std::vector<std::vector<uint32_t>> wits;
-        MSGPACK_FIELDS(public_inps, vars_of_interest, variables, selectors, wits);
+        MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wits);
     } circuit_schema;
 };
 
