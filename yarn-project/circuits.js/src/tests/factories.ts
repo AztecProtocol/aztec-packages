@@ -30,7 +30,6 @@ import {
   HISTORIC_BLOCKS_TREE_HEIGHT,
   HistoricBlockData,
   KernelCircuitPublicInputs,
-  KernelCircuitPublicInputsFinal,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
@@ -68,6 +67,7 @@ import {
   PrivateCircuitPublicInputs,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
+  PrivateKernelPublicInputsFinal,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -204,7 +204,6 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
@@ -346,8 +345,8 @@ export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): Ke
  * @param seed - The seed to use for generating the final ordering kernel circuit public inputs.
  * @returns Final ordering kernel circuit public inputs.
  */
-export function makeKernelPublicInputsFinal(seed = 1): KernelCircuitPublicInputsFinal {
-  return new KernelCircuitPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100), true);
+export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
+  return new PrivateKernelPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100));
 }
 
 /**
