@@ -25,7 +25,7 @@ template <typename NCT> struct PrivateKernelInputsInner {
     MSGPACK_FIELDS(previous_kernel, private_call);
     boolean operator==(PrivateKernelInputsInner<NCT> const& other) const
     {
-        return previous_kernel == other.previous_kernel && private_call == other.private_call;
+        return msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Builder> PrivateKernelInputsInner<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
