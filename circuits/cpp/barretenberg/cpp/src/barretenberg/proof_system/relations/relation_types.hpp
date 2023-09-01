@@ -36,11 +36,6 @@ inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorView
 /**
  * @brief Getter method that will return `input[index]` iff `input` is not a std::span container
  *
- * @tparam FF
- * @tparam TypeMuncher
- * @tparam T
- * @param input
- * @param index
  * @return requires
  */
 template <typename FF, typename AccumulatorTypes, typename T>
@@ -73,7 +68,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
 
   public:
     using UnivariateAccumTypes = typename RelationImpl::template AccumulatorTypesBase<UnivariateAccumulatorTypes>;
-    // WORKTODO: the lengths do nothing in the case of values?
+    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect. 
     using ValueAccumTypes = typename RelationImpl::template AccumulatorTypesBase<ValueAccumulatorTypes>;
 
     using RelationUnivariates = typename UnivariateAccumTypes::Accumulators;
