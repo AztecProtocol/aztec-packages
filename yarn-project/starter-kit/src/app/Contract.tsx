@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 // import { CircuitsWasm } from '@aztec/aztec-rpc';
+import { CompleteAddress } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
-import {AztecRPC} from '@aztec/types';
-import {CompleteAddress } from '@aztec/aztec.js';
+import { AztecRPC } from '@aztec/types';
 // import * as AztecJs from '../../node_modules/@aztec/aztec.js/dest/main.js';
 // import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 
@@ -14,7 +14,7 @@ interface Props {
 }
 
 interface WalletDropdownProps {
-    onSelectChange: (value: string) => void;
+    onSelectChange: (value: CompleteAddress) => void;
     rpcClient: AztecRPC;
 }
 
@@ -26,6 +26,7 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
         const loadOptions = async () => {
             const fetchedOptions = await rpcClient.getAccounts();
             setOptions(fetchedOptions);
+            console.log('fetchedOptions', fetchedOptions.map(x => (x.toString(), x.partialAddress)));
             onSelectChange(fetchedOptions[0]);
         };
         loadOptions();
@@ -35,10 +36,17 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
     return (
         <select 
             className="min-w-64 border rounded px-3 py-2" 
- onChange={(e) => onSelectChange(e.target.value)}>
+ onChange={(e) => {
+    const selectedWallet = wallets.find(wallet => wallet.toString() === e.target.value);
+    if (selectedWallet) {
+        onSelectChange(selectedWallet);
+    } else {
+        console.log('wallet not found', e.target.value);
+    }
+}}>
             {wallets.map((wallet: CompleteAddress)=> {return (
-                <option key={wallet.publicKey} value={wallet}>
-                    {wallet.name}
+                <option key={wallet.partialKey} value={wallet}>
+                    {wallet.partialKey}
                 </option>
             );})}
         </select>
@@ -55,13 +63,14 @@ const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
 
     // TODO: can we make these actually wallets, not complete addresses
     const handleSelectWallet = (wallet: CompleteAddress) => {
+        console.log(wallet);
         setSelectedWallet(wallet);
     };
 
     return (
         <div>
             <div>
-                {"Wallet (not hooked in yet): " + `${selectedWallet ? selectedWallet: ' none'}`}
+                {"Wallet (not hooked in yet): " + `${selectedWallet ? selectedWallet.partialAddress: ' none'}`}
                 <WalletDropdown onSelectChange={handleSelectWallet} rpcClient={rpcClient} />
             </div>
             <h1>

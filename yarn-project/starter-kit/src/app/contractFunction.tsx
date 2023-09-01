@@ -91,7 +91,11 @@ function generateYupSchema(functionAbi: FunctionAbi) {
             // todo: make these hex strings instead, because they are bigints
             // and yup doesn't support bigint
           parameterSchema[param.name] = Yup.string().required();
-          initialValues[param.name] = '0x64';
+          if (param.name === 'owner'){
+            initialValues[param.name] = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
+          } else {
+            initialValues[param.name] = '0xF4240';  // 1,000,000
+          }
           break;
         case 'array':
           // eslint-disable-next-line no-case-declarations
@@ -132,8 +136,12 @@ async function handleFunctionCall(functionType: string, contractAbi: ContractAbi
         const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, [privateKey], [privateKey], [accountCreationSalt]);
         console.log('got wallet', wallet);
         console.log(`Function ${functionName} calling with:`, functionArgs);
-            console.log('deploying contract with null pubkey');
             console.log("fn args", functionArgs);
+            const initialBalance = BigInt(functionArgs['initial_supply']);
+            const owner =  BigInt(functionArgs['owner']);
+            const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
+
+            console.log('contract from other way', contract);
             const tx = PrivateTokenContract.deploy(wallet, BigInt(functionArgs['initial_supply']), BigInt(functionArgs['owner'])).send();
             // const tx = PrivateTokenContract.deploy(rpcClient, BigInt(functionArgs['initial_supply']), BigInt(functionArgs['owner'])).send();
             console.log('tx sent', tx);

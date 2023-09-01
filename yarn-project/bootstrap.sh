@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 set -eu
 
 # Navigate to script folder
@@ -10,7 +10,7 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   \. ~/.nvm/nvm.sh
 fi
-nvm install
+# nvm install
 
 yarn install --immutable
 

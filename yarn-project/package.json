@@ -39,6 +39,7 @@
     "rollup-provider",
     "aztec-node",
     "sequencer-client",
+    "starter-kit",
     "types",
     "world-state",
     "yarn-project-base"

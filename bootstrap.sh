@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 set -eu
 
 export CLEAN=${1:-}
@@ -31,7 +31,7 @@ git submodule update --init --recursive
 
 if [ ! -f ~/.nvm/nvm.sh ]; then
   echo "Nvm not found at ~/.nvm"
-  exit 1
+#   exit 1
 fi
 
 circuits/cpp/bootstrap.sh
