@@ -102,7 +102,6 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     previous_kernel.public_inputs.end.new_nullifiers = new_nullifiers;
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
-    previous_kernel.public_inputs.end.read_request_membership_witnesses = read_request_membership_witnesses;
 
     PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
 

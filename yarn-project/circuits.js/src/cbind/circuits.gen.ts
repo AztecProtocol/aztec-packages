@@ -39,7 +39,6 @@ import {
   PublicDataRead,
   PublicDataUpdateRequest,
   PublicKernelInputs,
-  ReadRequestMembershipWitness,
   TxContext,
   VerificationKeyData,
   isCircuitError,
@@ -178,55 +177,6 @@ export function fromNativeAggregationState(o: NativeAggregationState): MsgpackNa
     public_inputs: o.publicInputs.map((v: Fr) => toBuffer(v)),
     proof_witness_indices: o.proofWitnessIndices.map((v: number) => v),
     has_data: o.hasData,
-  };
-}
-
-interface MsgpackReadRequestMembershipWitness {
-  leaf_index: Buffer;
-  sibling_path: Tuple<Buffer, 32>;
-  is_transient: boolean;
-  hint_to_commitment: Buffer;
-}
-
-export function toReadRequestMembershipWitness(o: MsgpackReadRequestMembershipWitness): ReadRequestMembershipWitness {
-  if (o.leaf_index === undefined) {
-    throw new Error('Expected leaf_index in ReadRequestMembershipWitness deserialization');
-  }
-  if (o.sibling_path === undefined) {
-    throw new Error('Expected sibling_path in ReadRequestMembershipWitness deserialization');
-  }
-  if (o.is_transient === undefined) {
-    throw new Error('Expected is_transient in ReadRequestMembershipWitness deserialization');
-  }
-  if (o.hint_to_commitment === undefined) {
-    throw new Error('Expected hint_to_commitment in ReadRequestMembershipWitness deserialization');
-  }
-  return new ReadRequestMembershipWitness(
-    Fr.fromBuffer(o.leaf_index),
-    mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
-    o.is_transient,
-    Fr.fromBuffer(o.hint_to_commitment),
-  );
-}
-
-export function fromReadRequestMembershipWitness(o: ReadRequestMembershipWitness): MsgpackReadRequestMembershipWitness {
-  if (o.leafIndex === undefined) {
-    throw new Error('Expected leafIndex in ReadRequestMembershipWitness serialization');
-  }
-  if (o.siblingPath === undefined) {
-    throw new Error('Expected siblingPath in ReadRequestMembershipWitness serialization');
-  }
-  if (o.isTransient === undefined) {
-    throw new Error('Expected isTransient in ReadRequestMembershipWitness serialization');
-  }
-  if (o.hintToCommitment === undefined) {
-    throw new Error('Expected hintToCommitment in ReadRequestMembershipWitness serialization');
-  }
-  return {
-    leaf_index: toBuffer(o.leafIndex),
-    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
-    is_transient: o.isTransient,
-    hint_to_commitment: toBuffer(o.hintToCommitment),
   };
 }
 
@@ -490,7 +440,6 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 16>;
-  read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 16>;
   new_commitments: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
   nullified_commitments: Tuple<Buffer, 16>;
@@ -513,9 +462,6 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   }
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
-  }
-  if (o.read_request_membership_witnesses === undefined) {
-    throw new Error('Expected read_request_membership_witnesses in CombinedAccumulatedData deserialization');
   }
   if (o.new_commitments === undefined) {
     throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
@@ -562,9 +508,6 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.read_request_membership_witnesses, (v: MsgpackReadRequestMembershipWitness) =>
-      toReadRequestMembershipWitness(v),
-    ),
     mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
@@ -588,9 +531,6 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   }
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
-  }
-  if (o.readRequestMembershipWitnesses === undefined) {
-    throw new Error('Expected readRequestMembershipWitnesses in CombinedAccumulatedData serialization');
   }
   if (o.newCommitments === undefined) {
     throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
@@ -637,9 +577,6 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: ReadRequestMembershipWitness) =>
-      fromReadRequestMembershipWitness(v),
-    ),
     new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),

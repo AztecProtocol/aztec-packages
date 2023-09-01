@@ -69,7 +69,6 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
                                    << " with code: " << builder.get_first_failure().code;
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
     ASSERT_TRUE(array_length(public_inputs.end.read_requests) == 1);
-    ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 1);
 
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
@@ -94,7 +93,6 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
                                    << " with code: " << builder.get_first_failure().code;
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 2);
     ASSERT_TRUE(array_length(public_inputs.end.read_requests) == 2);
-    ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 2);
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
     previous_kernel.public_inputs = public_inputs;
@@ -128,7 +126,6 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
                                    << " with code: " << builder.get_first_failure().code;
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 1);
     ASSERT_TRUE(array_length(public_inputs.end.read_requests) == 1);
-    ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 1);
 
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
@@ -153,7 +150,6 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
                                    << " with code: " << builder.get_first_failure().code;
     ASSERT_TRUE(array_length(public_inputs.end.new_commitments) == 2);
     ASSERT_TRUE(array_length(public_inputs.end.read_requests) == 2);
-    ASSERT_TRUE(array_length(public_inputs.end.read_request_membership_witnesses) == 2);
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
     previous_kernel.public_inputs = public_inputs;
