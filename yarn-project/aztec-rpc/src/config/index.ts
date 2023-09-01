@@ -1,6 +1,7 @@
+import { fileURLToPath } from '@aztec/foundation/url';
+
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 
 /**
  * Configuration settings for the RPC Server.
