@@ -78,6 +78,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     );
 
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
+    console.log('aztecjs deploy got args', args);
     const args = encodeArguments(this.constructorAbi, this.args);
     const functionData = FunctionData.fromAbi(this.constructorAbi);
     const execution = { args, functionData, to: completeAddress.address };

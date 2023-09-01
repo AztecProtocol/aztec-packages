@@ -136,7 +136,7 @@ async function deployContract(owner: CompleteAddress, contractAbi: ContractAbi, 
         [BigInt(constructorArgs['initial_supply']), owner.address]
         // functionAbi.parameters.map(x => BigInt(constructorArgs[x.name]))
     ).send();
-    console.log('sent');
+    console.log('sent, awaiting tx');
     await tx.wait();
     const receipt = await tx.getReceipt();
     console.log(`Contract Deployed: ${receipt.contractAddress}`);
