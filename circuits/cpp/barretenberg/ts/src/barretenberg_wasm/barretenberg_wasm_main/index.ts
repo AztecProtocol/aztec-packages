@@ -56,10 +56,12 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     this.call('_initialize');
 
     // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
-    this.logger('creating worker threads...');
-    this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
-    this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
-    await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
+    if (threads > 1) {
+      this.logger(`creating ${threads} worker threads...`);
+      this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
+      this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
+      await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
+    }
     this.logger('init complete.');
   }
 

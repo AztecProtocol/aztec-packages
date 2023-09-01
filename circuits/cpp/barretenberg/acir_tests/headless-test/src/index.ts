@@ -76,7 +76,7 @@ program
     const browsers = { chrome: chromium, firefox: firefox, webkit: webkit };
 
     for (const [name, browserType] of Object.entries(browsers)) {
-      if (BROWSER && BROWSER != name) {
+      if (BROWSER && !BROWSER.split(',').includes(name)) {
         continue;
       }
       console.log(chalk.blue(`Testing ${bytecodePath} in ${name}...`));
@@ -109,7 +109,9 @@ program
 
       await browser.close();
 
-      process.exit(result ? 0 : 1);
+      if (!result) {
+        process.exit(1);
+      }
     }
   });
 

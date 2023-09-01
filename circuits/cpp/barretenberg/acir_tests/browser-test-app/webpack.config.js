@@ -1,13 +1,13 @@
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import ResolveTypeScriptPlugin from "resolve-typescript-plugin";
+import CopyWebpackPlugin from "copy-webpack-plugin";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
 
 export default {
   target: "web",
-  mode: "development",
-  devtool: "source-map",
+  mode: "production",
   entry: {
     index: "./src/index.ts",
   },

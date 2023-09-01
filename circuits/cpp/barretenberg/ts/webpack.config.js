@@ -6,6 +6,9 @@ import webpack from 'webpack';
 export default {
   target: 'web',
   mode: 'production',
+  // Useful for debugging.
+  // mode: 'development',
+  // devtool: 'source-map',
   entry: './src/index.ts',
   module: {
     rules: [

@@ -2,6 +2,9 @@ import { BarretenbergWasm, BarretenbergWasmWorker } from '../barretenberg_wasm/i
 import { HeapAllocator } from './heap_allocator.js';
 import { Bufferable, OutputType } from '../serialize/index.js';
 import { asyncMap } from '../async_map/index.js';
+// import createDebug from 'debug';
+
+// const debug = createDebug('bb.js:barretenberg_binder');
 
 /**
  * Calls a WASM export function, handles allocating/freeing of memory, and serializing/deserializing to types.
@@ -28,7 +31,7 @@ export class BarretenbergBinder {
     const inPtrs = await alloc.copyToMemory(inArgs);
     const outPtrs = await alloc.getOutputPtrs(outTypes);
     await this.wasm.call(funcName, ...inPtrs, ...outPtrs);
-    const outArgs = this.deserializeOutputArgs(outTypes, outPtrs, alloc);
+    const outArgs = await this.deserializeOutputArgs(outTypes, outPtrs, alloc);
     await alloc.freeAll();
     return outArgs;
   }
@@ -41,8 +44,16 @@ export class BarretenbergBinder {
       }
       const slice = await this.wasm.getMemorySlice(outPtrs[i], outPtrs[i] + 4);
       const ptr = new DataView(slice.buffer, slice.byteOffset, slice.byteLength).getUint32(0, true);
+
+      // Add our heap buffer to the dealloc list.
       alloc.addOutputPtr(ptr);
-      return t.fromBuffer(await this.wasm.getMemorySlice(ptr));
+
+      // The length will be found in the first 4 bytes of the buffer, big endian. See to_heap_buffer.
+      const lslice = await this.wasm.getMemorySlice(ptr, ptr + 4);
+      const length = new DataView(lslice.buffer, lslice.byteOffset, lslice.byteLength).getUint32(0, false);
+
+      const buf = await this.wasm.getMemorySlice(ptr + 4, ptr + 4 + length);
+      return t.fromBuffer(buf);
     });
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "ts-headless-acir-test",
+  "name": "headless-test",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -10,7 +10,7 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^11.0.0",
-    "playwright": "^1.37.1",
+    "playwright": "^1.38.0-alpha-sep-1-2023",
     "puppeteer": "^21.1.0"
   },
   "devDependencies": {

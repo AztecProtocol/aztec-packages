@@ -56,9 +56,6 @@ WASM_EXPORT void pedersen_hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
         fields.push_back(crypto::pedersen_hash::lookup::hash_multiple({ fields[i], fields[i + 1] }));
     }
 
-    auto buf_size = 4 + num_outputs * sizeof(grumpkin::fq);
-    *out = static_cast<uint8_t*>(malloc(buf_size));
-    auto* dst = *out;
-    write(dst, fields);
+    *out = to_heap_buffer(fields);
 }
 }

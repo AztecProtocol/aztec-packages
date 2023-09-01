@@ -70,7 +70,7 @@ export class BarretenbergWasmBase {
         set_data: (keyAddr: number, dataAddr: number, dataLength: number) => {
           const key = this.stringFromAddress(keyAddr);
           dataAddr = dataAddr >>> 0;
-          this.memStore[key] = this.getMemorySlice(dataAddr, dataAddr + dataLength).slice();
+          this.memStore[key] = this.getMemorySlice(dataAddr, dataAddr + dataLength);
           // this.logger(`set_data: ${key} length: ${dataLength}`);
         },
 
@@ -107,8 +107,11 @@ export class BarretenbergWasmBase {
     return this.getMemory().length;
   }
 
-  public getMemorySlice(start: number, end?: number) {
-    return this.getMemory().subarray(start, end);
+  /**
+   * Returns a copy of the data, not a view.
+   */
+  public getMemorySlice(start: number, end: number) {
+    return this.getMemory().subarray(start, end).slice();
   }
 
   public writeMemory(offset: number, arr: Uint8Array) {
