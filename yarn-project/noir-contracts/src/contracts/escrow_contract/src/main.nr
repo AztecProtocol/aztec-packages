@@ -37,7 +37,7 @@ contract Escrow {
         
         let storage = Storage::init(Option::some(&mut context), Option::none());
         let mut note = AddressNote::new(owner, this);
-        storage.owners.insert( &mut note);
+        storage.owners.insert(&mut note);
         emit_encrypted_log(
             &mut context,
             this,

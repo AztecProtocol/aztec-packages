@@ -11,7 +11,7 @@ struct PublicState<T, T_SERIALISED_LEN> {
 
 impl<T, T_SERIALISED_LEN> PublicState<T, T_SERIALISED_LEN> {
     fn new(
-        // Note: passing the contexts to new to have an interface compatible with Map.
+        // Note: Passing the contexts to new(...) just to have an interface compatible with a Map.
         _: Option<&mut PrivateContext>,
         _: Option<&mut PublicContext>,
         storage_slot: Field,

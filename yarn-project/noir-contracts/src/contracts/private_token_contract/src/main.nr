@@ -74,7 +74,6 @@ contract PrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        // context not available here
         let storage = Storage::init(Option::none(), Option::none());
 
         // Get the set of notes owned by the user.
