@@ -6,6 +6,7 @@ mod storage;
 // be read/nullified before their creation etc.
 contract PendingCommitments {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         filter::filter_notes_min_sum,
@@ -37,8 +38,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
@@ -72,8 +72,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
@@ -111,8 +110,7 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
@@ -134,8 +132,7 @@ contract PendingCommitments {
         expected_value: Field,
         owner: Field,
     ){
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
@@ -154,8 +151,7 @@ contract PendingCommitments {
     fn get_note_zero_balance(
         owner: Field,
     ) {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
