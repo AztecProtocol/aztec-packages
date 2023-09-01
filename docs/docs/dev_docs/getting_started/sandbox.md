@@ -353,4 +353,4 @@ That's it! We have successfully deployed a private token contract to an instance
 ## Next Steps
 Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it. 
 
-You can find details on setting up [here](./noir_contracts.md) and refer to the [Contracts section](../contracts/) on syntax, compiling, deploying and interacting with how to start writing contracts.
+You can find details on setting up [here](./noir_contracts.md) and refer to the [Contracts section](../contracts/main.md) on syntax, compiling, deploying and interacting with how to start writing contracts.
