@@ -23,11 +23,6 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUB
 /**
  * @brief Getter method that will return `input[index]` iff `input` is a std::span container
  *
- * @tparam FF
- * @tparam TypeMuncher
- * @tparam T
- * @param input
- * @param index
  * @return requires
  */
 template <typename FF, typename AccumulatorTypes, typename T>
