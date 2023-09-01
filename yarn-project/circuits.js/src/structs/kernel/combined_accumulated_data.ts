@@ -16,13 +16,7 @@ import {
 } from '../../cbind/constants.gen.js';
 import { assertMemberLength, makeTuple } from '../../index.js';
 import { serializeToBuffer } from '../../utils/serialize.js';
-import {
-  AggregationObject,
-  AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionData,
-} from '../index.js';
+import { AggregationObject, AztecAddress, EthAddress, Fr, FunctionData } from '../index.js';
 
 /**
  * The information assembled after the contract deployment was processed by the private kernel circuit.

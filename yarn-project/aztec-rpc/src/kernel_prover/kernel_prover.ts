@@ -19,7 +19,6 @@ import {
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
-import { IntegerType } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
