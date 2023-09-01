@@ -32,7 +32,7 @@ contract SchnorrAccount {
         signature: pub [u8;64], // schnorr signature of the payload hash
     ) {
         // Load public key from storage
-        let storage = Storage::init();
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         let public_key = storage.signing_public_key.get_note(&mut context);
 
         // Verify payload signature
@@ -61,7 +61,7 @@ contract SchnorrAccount {
         signing_pub_key_x: pub Field,
         signing_pub_key_y: pub Field,
     ) {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         
         let this = context.this_address();
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
