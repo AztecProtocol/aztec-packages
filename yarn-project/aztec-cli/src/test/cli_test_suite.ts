@@ -13,10 +13,11 @@ const TRANSFER_BALANCE = 3000;
 export const cliTestSuite = (
   testName: string,
   aztecRpcSetup: () => Promise<AztecRPC>,
+  cleanup: () => Promise<void>,
   rpcUrl: string,
   debug: DebugLogger,
 ) => {
-  describe(testName, () => {
+  return describe(testName, () => {
     let cli: ReturnType<typeof getProgram>;
     let aztecRpcClient: AztecRPC;
     let existingAccounts: CompleteAddress[];
@@ -32,6 +33,10 @@ export const cliTestSuite = (
         logs.push(format(...args));
         debug(...args);
       };
+    });
+
+    afterAll(async () => {
+      await cleanup();
     });
 
     // in order to run the same command twice, we need to create a new CLI instance
