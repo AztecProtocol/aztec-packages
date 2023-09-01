@@ -39,8 +39,6 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/msgpack-c/include)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
-
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_SHENANIGANS parameter.
@@ -71,8 +69,11 @@ add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/bb)
-add_subdirectory(barretenberg/smt_verification)
 
+
+if(SMT)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
+    add_subdirectory(barretenberg/smt_verification)
 
 if(BENCHMARKS)
     add_subdirectory(barretenberg/benchmark)
