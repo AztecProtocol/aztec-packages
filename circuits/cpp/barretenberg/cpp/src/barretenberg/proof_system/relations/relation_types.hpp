@@ -67,12 +67,12 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     };
 
   public:
-    using UnivariateAccumTypes = typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
+    using UnivariateAccumulatorsAndViews = typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
     // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect. 
-    using ValueAccumTypes = typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
+    using ValueAccumulatorsAndViews = typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
-    using RelationUnivariates = typename UnivariateAccumTypes::Accumulators;
-    using RelationValues = typename ValueAccumTypes::Accumulators;
+    using RelationUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
+    using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
     static inline void add_edge_contribution(RelationUnivariates& accumulator,
@@ -80,7 +80,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                              const RelationParameters<FF>& relation_parameters,
                                              const FF& scaling_factor)
     {
-        Relation::template accumulate<UnivariateAccumTypes>(accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<UnivariateAccumulatorsAndViews>(accumulator, input, relation_parameters, scaling_factor);
     }
 
     static void add_full_relation_value_contribution(RelationValues& accumulator,
@@ -88,7 +88,7 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                                      const RelationParameters<FF>& relation_parameters,
                                                      const FF& scaling_factor = 1)
     {
-        Relation::template accumulate<ValueAccumTypes>(accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<ValueAccumulatorsAndViews>(accumulator, input, relation_parameters, scaling_factor);
     }
 
     /**
