@@ -1,46 +1,45 @@
-use dep::std::option::Option;
-use dep::value_note::{
-    filter::filter_notes_min_sum,
-    value_note::{
-        ValueNote,
-        ValueNoteMethods,
-        VALUE_NOTE_LEN,
-    },
-};
 use dep::aztec::{
-    context::PrivateContext,
+    context::{PrivateContext, PublicContext},
     log::emit_encrypted_log,
     note::note_getter_options::NoteGetterOptions,
     oracle::get_public_key::get_public_key,
     state_vars::set::Set,
     types::point::Point,
 };
+use dep::std::option::Option;
+use dep::value_note::{
+    filter::filter_notes_min_sum,
+    value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN},
+};
 
 struct EasyPrivateUint {
+    context: Option<&mut PrivateContext>,
     set: Set<ValueNote, VALUE_NOTE_LEN>,
     storage_slot: Field,
 }
 
 impl EasyPrivateUint {
-    fn new(storage_slot: Field) -> Self {
+    fn new(
+        private_context: Option<&mut PrivateContext>,
+        public_context: Option<&mut PublicContext>,
+        storage_slot: Field,
+    ) -> Self {
         assert(storage_slot != 0); // Storage slot 0 not allowed. Storage slots must start from 1.
         let set = Set {
+            private_context,
+            public_context,
             storage_slot,
             note_interface: ValueNoteMethods,
         };
         EasyPrivateUint {
+            context: private_context,
             set,
             storage_slot,
         }
     }
 
     // Very similar to `value_note::utils::increment`.
-    fn add(
-        self,
-        context: &mut PrivateContext,
-        addend: u120,
-        owner: Field,
-    ) {
+    fn add(self, addend: u120, owner: Field) {
         // Creates new note for the owner.
         let mut addend_note = ValueNote::new(addend as Field, owner);
 
@@ -49,9 +48,10 @@ impl EasyPrivateUint {
 
         // Emit the newly created encrypted note preimages via oracle calls.
         let owner_key = get_public_key(owner);
+        let _context = self.context.unwrap();
         emit_encrypted_log(
-            context,
-            (*context).this_address(),
+            _context,
+            (*_context).this_address(),
             self.set.storage_slot,
             owner_key,
             addend_note.serialise(),
@@ -59,12 +59,7 @@ impl EasyPrivateUint {
     }
 
     // Very similar to `value_note::utils::decrement`.
-    fn sub(
-        self,
-        context: &mut PrivateContext,
-        subtrahend: u120,
-        owner: Field,
-    ) {
+    fn sub(self, subtrahend: u120, owner: Field) {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
         let maybe_notes = self.set.get_notes(options);
 
@@ -99,13 +94,13 @@ impl EasyPrivateUint {
 
         let owner_key = get_public_key(owner);
 
+        let _context = self.context.unwrap();
         emit_encrypted_log(
-            context,
-            (*context).this_address(),
+            _context,
+            (*_context).this_address(),
             self.set.storage_slot,
             owner_key,
             encrypted_data,
         );
     }
 }
-

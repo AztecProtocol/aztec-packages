@@ -26,7 +26,8 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     )  {
-        let storage = Storage::init();
+                let storage = Storage::init(Option::some(&mut context), Option::none());
+
 
         let mut sender_note = AddressNote::new(sender);
         let mut recipient_note = AddressNote::new(recipient);
@@ -45,7 +46,8 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     ) {
-        let storage = Storage::init();
+                let storage = Storage::init(Option::some(&mut context), Option::none());
+
 
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
@@ -83,7 +85,7 @@ contract PokeableToken {
     unconstrained fn getBalance(
         sender: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
 
         // Get the set of notes owned by the user.
         let sender_balance = storage.balances.at(sender);
