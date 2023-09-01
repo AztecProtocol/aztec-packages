@@ -90,7 +90,7 @@ fn init_game_rules(
 // docs:start:state_vars-ImmutableSingletonGet
 fn is_valid_card(state_var: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>, card: CardNote) -> bool {
     let rules = state_var.get_note();
-    // card.points >= rules.min_points & card.points <= rules.max_points
+    card.points >= rules.min_points & card.points <= rules.max_points
 }
 // docs:end:state_vars-ImmutableSingletonGet
 
