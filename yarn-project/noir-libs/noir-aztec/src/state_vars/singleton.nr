@@ -1,23 +1,14 @@
-use dep::std::hash::pedersen_with_separator;
-use crate::context::{
-    PrivateContext,
-    PublicContext,
-};
-use dep::std::option::Option;
-use crate::oracle;
+use crate::constants_gen::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
+use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
-    lifecycle::{
-        create_note,
-        destroy_note,
-    },
+    lifecycle::{create_note, destroy_note},
     note_getter::{get_note, view_notes},
     note_interface::NoteInterface,
     note_viewer_options::NoteViewerOptions,
 };
-use crate::constants_gen::{
-    GENERATOR_INDEX__INITIALISATION_NULLIFIER,
-    EMPTY_NULLIFIED_COMMITMENT,
-};
+use crate::oracle;
+use dep::std::hash::pedersen_with_separator;
+use dep::std::option::Option;
 
 struct Singleton<Note, N> {
     context: Option<&mut PrivateContext>,
@@ -26,9 +17,18 @@ struct Singleton<Note, N> {
 }
 
 impl<Note, N> Singleton<Note, N> {
-    fn new(context: Option<&mut PrivateContext>, _: Option<&mut PublicContext>, storage_slot: Field, note_interface: NoteInterface<Note, N>) -> Self {
+    fn new(
+        context: Option<&mut PrivateContext>,
+        _: Option<&mut PublicContext>,
+        storage_slot: Field,
+        note_interface: NoteInterface<Note, N>,
+    ) -> Self {
         assert(storage_slot != 0); // Storage slot 0 not allowed. Storage slots must start from 1.
-        Singleton { context, storage_slot, note_interface }
+        Singleton {
+            context,
+            storage_slot,
+            note_interface,
+        }
     }
 
     unconstrained fn is_initialised(self) -> bool {
@@ -46,7 +46,10 @@ impl<Note, N> Singleton<Note, N> {
     }
 
     fn compute_initialisation_nullifier(self) -> Field {
-        pedersen_with_separator([self.storage_slot], GENERATOR_INDEX__INITIALISATION_NULLIFIER)[0]
+        pedersen_with_separator(
+            [self.storage_slot],
+            GENERATOR_INDEX__INITIALISATION_NULLIFIER,
+        )[0]
     }
 
     fn replace(self, new_note: &mut Note) {
