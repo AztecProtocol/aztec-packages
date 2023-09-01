@@ -6,6 +6,7 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateCircuitPublicInputs,
+  PrivateKernelInputsOrdering,
   Proof,
   TxRequest,
   makeEmptyProof,
@@ -24,6 +25,8 @@ import { createDebugLogger } from '@aztec/foundation/log';
 export interface ProofOutput {
   /**
    * The public inputs required for the proof generation process.
+   * Note: C++ side does not define the specific data structure PrivateKernelPublicInputs and therefore
+   * would not generate a binding in circuits.gen.ts.
    */
   publicInputs: KernelCircuitPublicInputs;
   /**
@@ -39,6 +42,8 @@ export interface ProofOutput {
 export interface ProofOutputFinal {
   /**
    * The public inputs required for the proof generation process.
+   * Note: C++ side does not define the specific data structure PrivateKernelPublicInputsFinal and therefore
+   * would not generate a binding in circuits.gen.ts.
    */
   publicInputs: KernelCircuitPublicInputsFinal;
   /**
@@ -84,7 +89,7 @@ export interface ProofCreator {
    * @param previousKernelData - The previous kernel data object.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
    */
-  createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutputFinal>;
+  createProofOrdering(previousKernelData: PrivateKernelInputsOrdering): Promise<ProofOutputFinal>;
 }
 
 /**
@@ -137,10 +142,10 @@ export class KernelProofCreator implements ProofCreator {
     };
   }
 
-  public async createProofOrdering(previousKernelData: PreviousKernelData): Promise<ProofOutputFinal> {
+  public async createProofOrdering(privateInputs: PrivateKernelInputsOrdering): Promise<ProofOutputFinal> {
     const wasm = await CircuitsWasm.get();
     this.log('Executing private kernel simulation ordering...');
-    const result = privateKernelSimOrdering(wasm, previousKernelData);
+    const result = privateKernelSimOrdering(wasm, privateInputs);
     if (result instanceof CircuitError) {
       throw new CircuitError(result.code, result.message);
     }

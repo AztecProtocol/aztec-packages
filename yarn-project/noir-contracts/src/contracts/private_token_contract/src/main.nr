@@ -8,18 +8,12 @@ contract PrivateToken {
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::note::{
         note_header::NoteHeader,
         utils as note_utils,
     };
 
-    // docs:start:storage-import
     use crate::storage::Storage;
-    // docs:end:storage-import
 
     // docs:start:constructor
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
