@@ -7,7 +7,6 @@ import {
   Eip1271AccountContract,
   Eip1271AccountEntrypoint,
   EipEntrypointWallet,
-  EntrypointCollection,
   Fr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
@@ -16,8 +15,6 @@ import { pedersenPlookupCommitInputs, pedersenPlookupCompressWithHashIndex } fro
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, NativeTokenContract, PriceFeedContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
-
-import times from 'lodash.times';
 
 import { setup } from './fixtures/utils.js';
 
