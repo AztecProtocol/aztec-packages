@@ -6,8 +6,8 @@
 #include "barretenberg/honk/proof_system/prover_library.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
  // will go away
-#include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
+#include "barretenberg/proof_system/relations/lookup_relation.hpp"
+#include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"

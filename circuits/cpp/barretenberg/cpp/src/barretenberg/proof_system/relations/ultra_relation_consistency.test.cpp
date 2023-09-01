@@ -12,12 +12,12 @@
  *
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/permutation_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
+#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
+#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/proof_system/relations/lookup_relation.hpp"
+#include "barretenberg/proof_system/relations/permutation_relation.hpp"
+#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
 using namespace proof_system::relation;

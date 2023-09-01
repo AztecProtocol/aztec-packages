@@ -1,31 +1,17 @@
+#include "sumcheck.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
-#include "barretenberg/honk/flavor/standard.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
-#include "barretenberg/honk/sumcheck/relations/auxiliary_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/elliptic_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/gen_perm_sort_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/lookup_relation.hpp"
-#include "barretenberg/honk/sumcheck/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/transcript/manifest.hpp"
-#include "barretenberg/transcript/transcript_wrappers.hpp"
-#include "relations/arithmetic_relation.hpp"
-#include "relations/permutation_relation.hpp"
-#include "sumcheck.hpp"
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <gtest/internal/gtest-internal.h>
-
+#include "barretenberg/proof_system/relations/arithmetic_relation.hpp"
+#include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
+#include "barretenberg/proof_system/relations/elliptic_relation.hpp"
+#include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
+#include "barretenberg/proof_system/relations/lookup_relation.hpp"
+#include "barretenberg/proof_system/relations/permutation_relation.hpp"
+#include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
-#include <initializer_list>
-#include <optional>
-#include <string>
-#include <sys/types.h>
-#include <vector>
 
 using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
