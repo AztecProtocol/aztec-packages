@@ -211,4 +211,4 @@ template <typename FF> class UltraPermutationRelationBase {
 template <typename FF> using PermutationRelation = RelationWrapper<FF, PermutationRelationBase>;
 
 template <typename FF> using UltraPermutationRelation = RelationWrapper<FF, UltraPermutationRelationBase>;
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

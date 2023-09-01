@@ -26,9 +26,9 @@ template <typename FF> class EllipticRelationBase {
      */
     template <typename AccumulatorTypes>
     static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                                           const auto& extended_edges,
-                                           const RelationParameters<FF>&,
-                                           const FF& scaling_factor){
+                           const auto& extended_edges,
+                           const RelationParameters<FF>&,
+                           const FF& scaling_factor){
         // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
         //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
         // TODO(luke): Formatter doesnt properly handle explicit scoping below so turning off. Whats up?
@@ -98,4 +98,4 @@ template <typename FF> class EllipticRelationBase {
 template <typename FF>
 using EllipticRelation = RelationWrapper<FF, EllipticRelationBase>;
 // clang-format on
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

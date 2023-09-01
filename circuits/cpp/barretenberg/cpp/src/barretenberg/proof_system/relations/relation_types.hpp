@@ -3,10 +3,8 @@
 #include "relation_parameters.hpp"
 
 namespace proof_system::relation {
-template <typename T> concept HasSubrelationLinearlyIndependentMember = requires(T)
-{
-    T::Relation::SUBRELATION_LINEARLY_INDEPENDENT;
-};
+template <typename T>
+concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUBRELATION_LINEARLY_INDEPENDENT; };
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
  *
@@ -33,9 +31,9 @@ template <typename T> concept HasSubrelationLinearlyIndependentMember = requires
  * @return requires
  */
 template <typename FF, typename AccumulatorTypes, typename T>
-requires std::is_same<std::span<FF>, T>::value inline
-    typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type
-    get_view(const T& input, const size_t index)
+    requires std::is_same<std::span<FF>, T>::value
+inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
+                                                                                                  const size_t index)
 {
     return input[index];
 }
@@ -70,7 +68,7 @@ template <typename FF, template <typename> typename RelationBase> class Relation
     // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
     template <size_t... Values> struct UnivariateAccumulatorTypes {
         // These Values are extracted from RelationBase.
-        using Accumulators = std::tuple<barretenberg::Univariate<FF, Values>...>; 
+        using Accumulators = std::tuple<barretenberg::Univariate<FF, Values>...>;
         using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, Values>...>;
     };
     template <size_t... Values> struct ValueAccumulatorTypes {
@@ -89,21 +87,19 @@ template <typename FF, template <typename> typename RelationBase> class Relation
     static constexpr size_t RELATION_LENGTH = Relation::RELATION_LENGTH;
 
     static inline void add_edge_contribution(RelationUnivariates& accumulator,
-                                      const auto& input,
-                                      const RelationParameters<FF>& relation_parameters,
-                                      const FF& scaling_factor)
+                                             const auto& input,
+                                             const RelationParameters<FF>& relation_parameters,
+                                             const FF& scaling_factor)
     {
-        Relation::template accumulate<UnivariateAccumTypes>(
-            accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<UnivariateAccumTypes>(accumulator, input, relation_parameters, scaling_factor);
     }
 
     static void add_full_relation_value_contribution(RelationValues& accumulator,
-                                              auto& input,
-                                              const RelationParameters<FF>& relation_parameters,
-                                              const FF& scaling_factor = 1)
+                                                     auto& input,
+                                                     const RelationParameters<FF>& relation_parameters,
+                                                     const FF& scaling_factor = 1)
     {
-        Relation::template accumulate<ValueAccumTypes>(
-            accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<ValueAccumTypes>(accumulator, input, relation_parameters, scaling_factor);
     }
 
     /**
@@ -113,8 +109,8 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * @tparam size_t
      */
     template <size_t>
-    static constexpr bool is_subrelation_linearly_independent() requires(
-        !HasSubrelationLinearlyIndependentMember<Relation>)
+    static constexpr bool is_subrelation_linearly_independent()
+        requires(!HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return true;
     }
@@ -125,11 +121,11 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      * @tparam size_t
      */
     template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent() requires(
-        HasSubrelationLinearlyIndependentMember<Relation>)
+    static constexpr bool is_subrelation_linearly_independent()
+        requires(HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }
 };
 
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

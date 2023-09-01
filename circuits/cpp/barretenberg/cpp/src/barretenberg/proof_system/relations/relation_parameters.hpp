@@ -14,7 +14,8 @@ template <typename FF> struct RelationParameters {
     FF public_input_delta = FF(0);         // Permutation
     FF lookup_grand_product_delta = FF(0); // Lookup
 
-    static RelationParameters get_random(){
+    static RelationParameters get_random()
+    {
         RelationParameters result;
         result.eta = FF::random_element();
         result.beta = FF::random_element();
@@ -24,4 +25,4 @@ template <typename FF> struct RelationParameters {
         return result;
     }
 };
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

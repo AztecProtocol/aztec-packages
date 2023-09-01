@@ -160,9 +160,9 @@ template <typename FF> class LookupRelationBase {
      */
     template <typename AccumulatorTypes>
     inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                                                  const auto& extended_edges,
-                                                  const RelationParameters<FF>& relation_parameters,
-                                                  const FF& scaling_factor)
+                                  const auto& extended_edges,
+                                  const RelationParameters<FF>& relation_parameters,
+                                  const FF& scaling_factor)
     {
         const auto& grand_product_delta = relation_parameters.lookup_grand_product_delta;
 
@@ -197,4 +197,4 @@ template <typename FF> class LookupRelationBase {
 
 template <typename FF> using LookupRelation = RelationWrapper<FF, LookupRelationBase>;
 
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

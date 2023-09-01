@@ -28,7 +28,7 @@ template <typename FF> class ArithmeticRelationBase {
     template <typename AccumulatorTypes>
     void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
                            const auto& new_term,
-                           [[maybe_unused]]const RelationParameters<FF>& parameters,
+                           [[maybe_unused]] const RelationParameters<FF>& parameters,
                            const FF& scaling_factor)
     {
         // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
@@ -57,4 +57,4 @@ template <typename FF> class ArithmeticRelationBase {
 //           ...moreover, should just be hidden in the relation parameters?
 // WORKTODO: make these decisions then propagate to other relations
 template <typename FF> using ArithmeticRelation = RelationWrapper<FF, ArithmeticRelationBase>;
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

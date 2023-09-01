@@ -67,9 +67,9 @@ template <typename FF> class UltraArithmeticRelationBase {
      */
     template <typename AccumulatorTypes>
     void static accumulate(typename AccumulatorTypes::Accumulators& evals,
-                                           const auto& extended_edges,
-                                           const RelationParameters<FF>&,
-                                           const FF& scaling_factor){
+                           const auto& extended_edges,
+                           const RelationParameters<FF>&,
+                           const FF& scaling_factor){
         // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
         //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
         // clang-format off
@@ -121,4 +121,4 @@ template <typename FF>
 using UltraArithmeticRelation = RelationWrapper<FF, UltraArithmeticRelationBase>;
 
 // clang-format on
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation

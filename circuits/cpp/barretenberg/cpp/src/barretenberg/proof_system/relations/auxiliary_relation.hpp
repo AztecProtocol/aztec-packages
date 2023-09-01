@@ -55,9 +55,9 @@ template <typename FF> class AuxiliaryRelationBase {
      */
     template <typename AccumulatorTypes>
     inline static void accumulate(typename AccumulatorTypes::Accumulators& accumulators,
-                                                  const auto& extended_edges,
-                                                  const RelationParameters<FF>& relation_parameters,
-                                                  const FF& scaling_factor)
+                                  const auto& extended_edges,
+                                  const RelationParameters<FF>& relation_parameters,
+                                  const FF& scaling_factor)
     {
         // OPTIMIZATION?: Karatsuba in general, at least for some degrees?
         //       See https://hackmd.io/xGLuj6biSsCjzQnYN-pEiA?both
@@ -292,4 +292,4 @@ template <typename FF> class AuxiliaryRelationBase {
 };
 
 template <typename FF> using AuxiliaryRelation = RelationWrapper<FF, AuxiliaryRelationBase>;
-} // namespace proof_system::honk::sumcheck
+} // namespace proof_system::relation
