@@ -25,7 +25,8 @@ export default defineConfig({
     viteStaticCopy({
       targets: [
         {
-          src: 'node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm',
+	  // TODO if we move away from yarn workspace, this needs to be adjusted to ./node_modules
+          src: '../node_modules/@aztec/circuits.js/resources/aztec3-circuits.wasm',
           dest: '',
         },
       ],
