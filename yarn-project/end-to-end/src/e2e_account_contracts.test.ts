@@ -3,6 +3,7 @@ import {
   Account,
   AccountContract,
   EcdsaAccountContract,
+  Eip1271AccountContract,
   Fr,
   SchnorrAccountContract,
   SingleKeyAccountContract,
@@ -79,5 +80,8 @@ describe('e2e_account_contracts', () => {
 
   describe('ecdsa stored-key account', () => {
     itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(PrivateKey.random()));
+  });
+  describe('ecdsa stored-key account', () => {
+    itShouldBehaveLikeAnAccountContract(() => new Eip1271AccountContract(PrivateKey.random()));
   });
 });

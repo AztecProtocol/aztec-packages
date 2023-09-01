@@ -15,7 +15,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { CreateTxRequestOpts, Entrypoint } from '../account/entrypoint/index.js';
+import { CreateTxRequestOpts, Eip1271AccountEntrypoint, Entrypoint } from '../account/entrypoint/index.js';
 import { CompleteAddress } from '../index.js';
 
 /**
@@ -94,6 +94,9 @@ export abstract class BaseWallet implements Wallet {
   getSyncStatus(): Promise<SyncStatus> {
     return this.rpc.getSyncStatus();
   }
+  addEip1271Witness(messageHash: Fr, witness: Fr[]) {
+    return this.rpc.addEip1271Witness(messageHash, witness);
+  }
 }
 
 /**
@@ -105,6 +108,32 @@ export class EntrypointWallet extends BaseWallet {
   }
   createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
     return this.accountImpl.createTxExecutionRequest(executions, opts);
+  }
+}
+
+/**
+ * A wallet implementation supporting EIP1271.
+ */
+export class EipEntrypointWallet extends BaseWallet {
+  constructor(rpc: AztecRPC, protected accountImpl: Eip1271AccountEntrypoint) {
+    super(rpc);
+  }
+  createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
+    // We could even use it in here :thinking:. We just need a nonce really. If we have the nonce we should be all good.
+    return this.accountImpl.createTxExecutionRequest(executions, opts);
+  }
+  sign(messageHash: Buffer): Promise<Buffer> {
+    return Promise.resolve(this.accountImpl.sign(messageHash));
+  }
+  /**
+   * Signs the `messageHash` and adds the witness to the RPC.
+   * @param messageHash - The message hash to sign
+   * @returns
+   */
+  async signAndAddEip1271Witness(messageHash: Buffer): Promise<void> {
+    const witness = await this.accountImpl.generateEip1271Witness(messageHash);
+    await this.rpc.addEip1271Witness(Fr.fromBuffer(messageHash), witness);
+    return Promise.resolve();
   }
 }
 

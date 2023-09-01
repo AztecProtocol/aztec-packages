@@ -89,6 +89,13 @@ export interface DBOracle extends CommitmentsDB {
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
   /**
+   * Retrieve the eip-1271 witness for a given message hash.
+   * @param message_hash - The message hash.
+   * @returns A Promise that resolves to an array of field elements representing the eip-1271 witness.
+   */
+  getEip1271Witness(message_hash: Fr): Promise<Fr[]>;
+
+  /**
    * Retrieve the secret key associated with a specific public key.
    * The function only allows access to the secret keys of the transaction creator,
    * and throws an error if the address does not match the public key address of the key pair.

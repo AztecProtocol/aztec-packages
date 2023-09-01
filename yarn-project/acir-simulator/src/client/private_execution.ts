@@ -80,6 +80,9 @@ export class PrivateFunctionExecution {
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
       },
+      getEip1271Witness: async ([messageHash]) => {
+        return (await this.context.db.getEip1271Witness(fromACVMField(messageHash))).map(toACVMField);
+      },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));

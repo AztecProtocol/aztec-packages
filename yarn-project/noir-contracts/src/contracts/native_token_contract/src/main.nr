@@ -13,6 +13,8 @@ contract NativeToken {
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
+    use dep::std;
+    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
     use dep::non_native::{
         hash::{get_mint_content_hash, get_withdraw_content_hash},
@@ -299,7 +301,26 @@ contract NativeToken {
     ) {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
-        // Remove user balance
+        // If `from != sender` then we use the is_valid function to check that the message is approved.
+        if (from != context.msg_sender()) {
+            // Compute the message hash, should follow eip-712 more here.
+            // @todo @lherskind, probably need a separate generator index and address of the 
+            // @todo @lherskind Currently this can be used multiple times since it is not nullified. 
+            //                  We can do a simple nullifier to handle that in here. Spends only 32 bytes onchain.
+            let message_field: Field = std::hash::pedersen_with_separator([
+                    0x90785014, 
+                    from, 
+                    to, 
+                    amount
+                ], 
+                GENERATOR_INDEX__SIGNATURE_PAYLOAD
+            )[0];
+
+            let _callStackItem0 = context.call_private_function(from, 0x29d25ca9, [message_field]);
+            assert(_callStackItem0[0] == 0x29d25ca9);
+        }
+
+        // Reduce user balance
         let sender_balance = storage.balances.at(from);
         decrement(sender_balance, amount, from);
 

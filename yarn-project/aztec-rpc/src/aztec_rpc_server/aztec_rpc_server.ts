@@ -76,6 +76,11 @@ export class AztecRPCServer implements AztecRPC {
     this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
+  public async addEip1271Witness(messageHash: Fr, witness: Fr[]) {
+    await this.db.addEip1271Witness(messageHash, witness);
+    return Promise.resolve();
+  }
+
   /**
    * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
    *
