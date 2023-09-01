@@ -1,4 +1,4 @@
-FROM yarn-project-base AS builder
+FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 
 ARG DOCKER_TAG
 
