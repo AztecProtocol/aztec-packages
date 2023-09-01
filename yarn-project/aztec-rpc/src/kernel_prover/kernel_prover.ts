@@ -5,16 +5,19 @@ import {
   Fr,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
+  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateKernelPublicInputs,
+  PrivateKernelInputsOrdering,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  makeTuple
 } from '@aztec/circuits.js';
 import { assertLength } from '@aztec/foundation/serialize';
 
@@ -163,7 +166,10 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const outputFinal = await this.proofCreator.createProofOrdering(previousKernelData);
+    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData,       makeTuple(MAX_READ_REQUESTS_PER_TX, () => ReadRequestMembershipWitness.empty(BigInt(0))),
+    );
+
+    const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;

@@ -3,6 +3,7 @@
 
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs_final.hpp"
 #include "aztec3/circuits/abis/previous_kernel_data.hpp"
+#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_ordering.hpp"
 #include "aztec3/circuits/hash.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
@@ -16,6 +17,7 @@ using NT = aztec3::utils::types::NativeTypes;
 
 using aztec3::circuits::abis::KernelCircuitPublicInputsFinal;
 using aztec3::circuits::abis::PreviousKernelData;
+using aztec3::circuits::abis::private_kernel::PrivateKernelInputsOrdering;
 using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
 using aztec3::utils::array_length;
 using aztec3::utils::array_rearrange;
@@ -193,31 +195,31 @@ void apply_commitment_nonces(NT::fr const& first_nullifier,
     }
 }
 
-KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(DummyCircuitBuilder& builder,
-                                                                          PreviousKernelData<NT> const& previous_kernel)
+KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
+    DummyCircuitBuilder& builder, PrivateKernelInputsOrdering<NT> const& private_inputs)
 {
     // We'll be pushing data to this during execution of this circuit.
     KernelCircuitPublicInputsFinal<NT> public_inputs{};
 
     // Do this before any functions can modify the inputs.
-    initialise_end_values(previous_kernel, public_inputs);
+    initialise_end_values(private_inputs.previous_kernel, public_inputs);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1329): validate that 0th nullifier is nonzero
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
     // len(nullified_commitments)`
 
     common_validate_previous_kernel_read_requests(builder,
-                                                  previous_kernel.public_inputs.end.read_requests,
-                                                  previous_kernel.public_inputs.end.read_request_membership_witnesses);
+                                                  private_inputs.previous_kernel.public_inputs.end.read_requests,
+                                                  private_inputs.read_request_membership_witnesses);
 
     // Matching read requests to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match reads against new_commitments in
     // previous_kernel.public_inputs.end, where "previous kernel" is the last "inner" kernel iteration.
     // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_reads_to_commitments(builder,
-                               previous_kernel.public_inputs.end.read_requests,
-                               previous_kernel.public_inputs.end.read_request_membership_witnesses,
-                               previous_kernel.public_inputs.end.new_commitments);
+                               private_inputs.previous_kernel.public_inputs.end.read_requests,
+                               private_inputs.read_request_membership_witnesses,
+                               private_inputs.previous_kernel.public_inputs.end.new_commitments);
 
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match nullifiers (their nullified_commitments)
@@ -230,7 +232,7 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(DummyC
                                                public_inputs.end.new_commitments);
 
     // tx hash
-    const auto& first_nullifier = previous_kernel.public_inputs.end.new_nullifiers[0];
+    const auto& first_nullifier = private_inputs.previous_kernel.public_inputs.end.new_nullifiers[0];
     apply_commitment_nonces(first_nullifier, public_inputs.end.new_commitments);
 
     return public_inputs;

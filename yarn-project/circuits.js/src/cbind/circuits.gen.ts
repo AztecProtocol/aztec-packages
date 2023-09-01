@@ -31,6 +31,7 @@ import {
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
+  PrivateKernelInputsOrdering,
   Proof,
   PublicCallData,
   PublicCallStackItem,
@@ -1091,6 +1092,41 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
   };
 }
 
+interface MsgpackPrivateKernelInputsOrdering {
+  previous_kernel: MsgpackPreviousKernelData;
+  read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 16>;
+}
+
+export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrdering): PrivateKernelInputsOrdering {
+  if (o.previous_kernel === undefined) {
+    throw new Error('Expected previous_kernel in PrivateKernelInputsOrdering deserialization');
+  }
+  if (o.read_request_membership_witnesses === undefined) {
+    throw new Error('Expected read_request_membership_witnesses in PrivateKernelInputsOrdering deserialization');
+  }
+  return new PrivateKernelInputsOrdering(
+    toPreviousKernelData(o.previous_kernel),
+    mapTuple(o.read_request_membership_witnesses, (v: MsgpackReadRequestMembershipWitness) =>
+      toReadRequestMembershipWitness(v),
+    ),
+  );
+}
+
+export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering): MsgpackPrivateKernelInputsOrdering {
+  if (o.previousKernel === undefined) {
+    throw new Error('Expected previousKernel in PrivateKernelInputsOrdering serialization');
+  }
+  if (o.readRequestMembershipWitnesses === undefined) {
+    throw new Error('Expected readRequestMembershipWitnesses in PrivateKernelInputsOrdering serialization');
+  }
+  return {
+    previous_kernel: fromPreviousKernelData(o.previousKernel),
+    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: ReadRequestMembershipWitness) =>
+      fromReadRequestMembershipWitness(v),
+    ),
+  };
+}
+
 interface MsgpackCircuitError {
   code: number;
   message: string;
@@ -1767,11 +1803,11 @@ export function privateKernelDummyPreviousKernel(wasm: IWasmModule): PreviousKer
 }
 export function privateKernelSimOrdering(
   wasm: IWasmModule,
-  arg0: PreviousKernelData,
+  arg0: PrivateKernelInputsOrdering,
 ): CircuitError | KernelCircuitPublicInputsFinal {
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputsFinal) =>
     isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputsFinal(v))(
-    callCbind(wasm, 'private_kernel__sim_ordering', [fromPreviousKernelData(arg0)]),
+    callCbind(wasm, 'private_kernel__sim_ordering', [fromPrivateKernelInputsOrdering(arg0)]),
   );
 }
 export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): CircuitError | KernelCircuitPublicInputs {
