@@ -4,6 +4,7 @@ mod storage;
 
 contract PrivateTokenAirdrop {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement, decrement_by_at_most},
@@ -149,7 +150,7 @@ contract PrivateTokenAirdrop {
 
         // Remove the claim note if it exists in the set.
         let note = ClaimNote::new(amount, secret);
-        storage.claims.assert_contains_note_and_remove(&mut context, note);
+        storage.claims.assert_contains_note_and_remove(note);
 
         // Send the value note.
         let balance = storage.balances.at(owner);
