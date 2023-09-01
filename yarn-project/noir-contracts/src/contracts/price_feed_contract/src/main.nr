@@ -11,20 +11,21 @@ contract PriceFeed {
     fn set_price(
         asset_id: Field,
         price: u120,
-    ) {
+    ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         let asset = storage.assets.at(asset_id);
         asset.write(Asset {price: price});
 
-        context.return_values.push(1);
+        1
     }
 
     #[aztec(public)]
     fn get_price(
         asset_id: Field,
-    ) {
+    ) -> Asset {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
-        context.return_values.push_array(storage.assets.at(asset_id).read().serialise());
+
+        storage.assets.at(asset_id).read()
     }
 
     unconstrained fn fetch_price(

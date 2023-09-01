@@ -1,4 +1,3 @@
-// docs:start:PublicState
 use dep::aztec::context::{PrivateContext, PublicContext};
 use dep::aztec::state_vars::{
     map::Map,
@@ -13,7 +12,6 @@ use dep::aztec::types::type_serialisation::field_serialisation::{
 };
 
 struct Storage {
-    // highlight-next-line:PublicState
     balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 }
 
@@ -39,4 +37,3 @@ impl Storage {
         }
     }
 }
-// docs:end:PublicState

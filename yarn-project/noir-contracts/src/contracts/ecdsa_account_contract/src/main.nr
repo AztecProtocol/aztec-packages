@@ -53,6 +53,7 @@ contract EcdsaAccount {
         payload.execute_calls(&mut context);
     }
 
+
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[aztec(private)]
     fn constructor(

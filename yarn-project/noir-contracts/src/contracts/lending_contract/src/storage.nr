@@ -41,6 +41,7 @@ fn serialiseAsset(asset: Asset) -> [Field; ASSET_SERIALISED_LEN] {
 }
 
 impl Asset {
+// TODO(Maddiaa): Rename all serialise -> serialize
     fn serialise(self: Self) -> [Field; ASSET_SERIALISED_LEN] {
         serialiseAsset(self)
     }

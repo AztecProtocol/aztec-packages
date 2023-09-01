@@ -37,7 +37,7 @@ contract PendingCommitments {
     fn test_insert_then_get_then_nullify_flat(
         amount: Field,
         owner: Field,
-    ) {
+    ) -> Field {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
@@ -61,9 +61,9 @@ contract PendingCommitments {
         assert(note.value == note0.value);
         assert(maybe_notes[1].is_none());
 
-        context.return_values.push(note0.value);
-
         owner_balance.remove(note0);
+
+        note0.value
     }
 
     // Confirm cannot access commitments inserted later in same function
@@ -71,7 +71,7 @@ contract PendingCommitments {
     fn test_bad_get_then_insert_flat(
         amount: Field,
         owner: Field,
-    ) {
+    ) -> Field {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
@@ -83,8 +83,6 @@ contract PendingCommitments {
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
 
-        context.return_values.push(0);
-
         // Insert note and emit encrypted note preimage via oracle call
         let mut note = ValueNote::new(amount, owner);
         owner_balance.insert(&mut note);
@@ -95,6 +93,8 @@ contract PendingCommitments {
             get_public_key(owner),
             note.serialise(),
         );
+
+        0
     }
 
     // Dumy nested/inner function (to pass a function which does nothing)
@@ -131,7 +131,7 @@ contract PendingCommitments {
     fn get_then_nullify_note(
         expected_value: Field,
         owner: Field,
-    ){
+    ) -> Field {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
@@ -141,9 +141,9 @@ contract PendingCommitments {
 
         assert(expected_value == note.value);
 
-        context.return_values.push(expected_value);
-
         owner_balance.remove(note);
+
+        expected_value
     }
 
     // Nested/inner function to get a note and confirms that none is returned

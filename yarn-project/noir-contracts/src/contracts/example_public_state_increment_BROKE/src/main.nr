@@ -28,7 +28,7 @@ contract ExamplePublicStateIncrement {
 
     // a = 100;
     #[aztec(public)]
-    open internal fn initialise_a() {
+    internal fn initialise_a() {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         storage.a.write(100);
     }
