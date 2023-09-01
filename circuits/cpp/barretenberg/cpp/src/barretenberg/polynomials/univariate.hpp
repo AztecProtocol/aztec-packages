@@ -13,7 +13,7 @@ template <class Fr, size_t _length> class Univariate {
   public:
     static constexpr size_t LENGTH = _length;
 
-    // WORKTODO: try out std::valarray?
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/714) Try out std::valarray?
     std::array<Fr, _length> evaluations;
 
     Univariate() = default;

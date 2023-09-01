@@ -69,9 +69,7 @@ template <typename Flavor> class SumcheckProverRound {
     RelationUnivariates univariate_accumulators;
 
     // TODO(#224)(Cody): this should go away
-    // WORKTODO long
-    barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH> barycentric_2_to_max =
-        barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH>();
+    barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH> barycentric_2_to_max;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)

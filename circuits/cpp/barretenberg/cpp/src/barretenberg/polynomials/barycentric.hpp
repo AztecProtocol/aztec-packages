@@ -18,13 +18,9 @@
 namespace barretenberg {
 
 /**
+ * @todo: TODO(https://github.com/AztecProtocol/barretenberg/issues/713) Optimize with lookup tables?
+ */
 
- * @todo: We should definitely consider question of optimal choice of domain, but if decide on {0,1,...,t-1} then we can
- * simplify the implementation a bit.
- * @todo: If we use this approach in the recursive setting, should we use Plookup. WORKTODO
- */
-/**
- */
 template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataCompileTime {
   public:
     static constexpr size_t big_domain_size = std::max(domain_size, num_evals);
@@ -143,7 +139,7 @@ template <class Fr, size_t domain_size, size_t num_evals> class BarycentricDataC
      */
     Univariate<Fr, num_evals> extend(const Univariate<Fr, domain_size>& f)
     {
-        static_assert(num_evals >= domain_size); // WORKTODO > triggered
+        static_assert(num_evals >= domain_size);
         Univariate<Fr, num_evals> result;
 
         std::copy(f.evaluations.begin(), f.evaluations.end(), result.evaluations.begin());

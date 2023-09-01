@@ -53,12 +53,11 @@ void arithmetic_relation(::benchmark::State& state) noexcept
 }
 BENCHMARK(arithmetic_relation);
 
-// WORKTODO
-// void auxiliary_relation(::benchmark::State& state) noexcept
-// {
-//     execute_relation<honk::flavor::Ultra, AuxiliaryRelation<FF>>(state);
-// }
-// BENCHMARK(auxiliary_relation);
+void auxiliary_relation(::benchmark::State& state) noexcept
+{
+    execute_relation<honk::flavor::Ultra, AuxiliaryRelation<FF>>(state);
+}
+BENCHMARK(auxiliary_relation);
 
 void elliptic_relation(::benchmark::State& state) noexcept
 {
