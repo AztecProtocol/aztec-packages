@@ -32,7 +32,7 @@ contract PrivateTokenAirdrop {
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            increment(&mut context, owner_balance, initial_supply, owner);
+            increment(owner_balance, initial_supply, owner);
         }
     }
 
@@ -46,7 +46,7 @@ contract PrivateTokenAirdrop {
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        increment(&mut context, owner_balance, amount, owner);
+        increment(owner_balance, amount, owner);
     }
 
     // Burn `amount` of tokens from `owner`'s balance.
@@ -66,7 +66,7 @@ contract PrivateTokenAirdrop {
         }
 
         let balance = storage.balances.at(owner);
-        let sum = decrement_by_at_most(&mut context, balance, amount, owner);
+        let sum = decrement_by_at_most(balance, amount, owner);
 
         // If sum is 0, there are no notes to be burned.
         assert(sum != 0);
@@ -90,7 +90,7 @@ contract PrivateTokenAirdrop {
         let sender = context.msg_sender();
         let sender_balance = storage.balances.at(sender);
 
-        let sum = decrement_by_at_most(&mut context, sender_balance, amount, sender);
+        let sum = decrement_by_at_most(sender_balance, amount, sender);
 
         // If sum is 0, there are no notes to be used.
         assert(sum != 0);
@@ -107,7 +107,7 @@ contract PrivateTokenAirdrop {
 
         // Create a new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        increment(&mut context, recipient_balance, amount, recipient);
+        increment(recipient_balance, amount, recipient);
     }
 
     #[aztec(private)]
@@ -121,7 +121,7 @@ contract PrivateTokenAirdrop {
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
         let total = amounts[0] + amounts[1];
-        decrement(&mut context, sender_balance, total, sender);
+        decrement(sender_balance, total, sender);
 
         // Create claim notes.
         let claims = storage.claims;
@@ -129,8 +129,8 @@ contract PrivateTokenAirdrop {
         let mut note1 = ClaimNote::new(amounts[1], secrets[1]);
 
         // Insert the new claim notes to the set.
-        claims.insert(&mut context, &mut note0);
-        claims.insert(&mut context, &mut note1);
+        claims.insert(&mut note0);
+        claims.insert(&mut note1);
     }
 
     #[aztec(private)]
@@ -147,7 +147,7 @@ contract PrivateTokenAirdrop {
 
         // Send the value note.
         let balance = storage.balances.at(owner);
-        increment(&mut context, balance, amount, owner);
+        increment(balance, amount, owner);
     }
 
     // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
@@ -168,26 +168,26 @@ contract PrivateTokenAirdrop {
         let total = amounts[0] + amounts[1] + amounts[2];
 
         let options = NoteGetterOptions::new().set_limit(1).set_offset(spend_note_offset);
-        let opt_notes = sender_balance.get_notes(&mut context, options);
+        let opt_notes = sender_balance.get_notes(options);
 
         // The note should always exist.
         let note = opt_notes[0].unwrap_unchecked();
 
         assert(note.owner == sender);
 
-        sender_balance.remove(&mut context, note);
+        sender_balance.remove(note);
         
         // Assert that the note chosen to spend has enough funds.
         assert(note.value as u64 >= total as u64);
 
         // Add the change value back to the owner's balance.
         let change_value = note.value - total;
-        increment(&mut context, sender_balance, change_value, sender);
+        increment(sender_balance, change_value, sender);
 
         // Creates new note for the recipient.
         for i in 0..3 {
             let recipient_balance = storage.balances.at(recipients[i]);
-            increment(&mut context, recipient_balance, amounts[i], recipients[i]);
+            increment(recipient_balance, amounts[i], recipients[i]);
         }
 
         // Also emit an unencrypted log, eg. "Coins transferred"

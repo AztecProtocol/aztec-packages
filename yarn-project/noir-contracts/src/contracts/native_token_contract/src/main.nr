@@ -41,7 +41,7 @@ contract NativeToken {
         let storage = Storage::init();
 
         let balance = storage.balances.at(owner);
-        increment(&mut context, balance, initial_supply, owner);
+        increment(balance, initial_supply, owner);
     }
 
     // uint256(keccak256("owner_mint_pub(field,field)")) >> 224 -> 1071038680
@@ -67,7 +67,7 @@ contract NativeToken {
         let pending_shields = storage.pending_shields;
 
         let mut note = TransparentNote::new(amount, secret_hash);
-        pending_shields.insert_from_public(&mut context, &mut note);
+        pending_shields.insert_from_public(&mut note);
 
         storage.total_supply.write(storage.total_supply.read() + amount);
     
@@ -95,7 +95,7 @@ contract NativeToken {
         context.consume_l1_to_l2_message(inputs, msg_key, content_hash, secret);
 
         let balance = storage.balances.at(owner);
-        increment(&mut context, balance, amount, owner);
+        increment(balance, amount, owner);
     }
 
     // Withdraws using user's private balance.
@@ -112,7 +112,7 @@ contract NativeToken {
         let storage = Storage::init();
 
         let sender_balance = storage.balances.at(sender);
-        decrement(&mut context, sender_balance, amount, sender);
+        decrement(sender_balance, amount, sender);
 
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
         context.message_portal(content);
@@ -248,10 +248,10 @@ contract NativeToken {
 
         // Gets the set of sender's notes and picks 2 of those.
         let sender_balance = storage.balances.at(from);
-        decrement(&mut context, sender_balance, amount, from);
+        decrement(sender_balance, amount, from);
 
         let balance = storage.balances.at(to);
-        increment(&mut context, balance, amount, to);
+        increment(balance, amount, to);
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
@@ -279,7 +279,7 @@ contract NativeToken {
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
-        pending_shields.insert_from_public(&mut context, &mut note);
+        pending_shields.insert_from_public(&mut note);
     }
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
@@ -297,11 +297,11 @@ contract NativeToken {
         let public_note = TransparentNote::new_from_secret(amount, secret);
 
         // Ensure that the note exists in the tree and remove it.
-        pending_shields.assert_contains_and_remove(&mut context, public_note);
+        pending_shields.assert_contains_and_remove(public_note);
 
         // Mint the tokens
         let balance = storage.balances.at(owner);
-        increment(&mut context, balance, amount, owner);
+        increment(balance, amount, owner);
     }
 
     // uint256(keccak256("unshieldTokens(field,field,field)")) >> 224 -> 2423803924
@@ -315,7 +315,7 @@ contract NativeToken {
 
         // Remove user balance
         let sender_balance = storage.balances.at(from);
-        decrement(&mut context, sender_balance, amount, from);
+        decrement(sender_balance, amount, from);
 
         // enqueue a public function to perform the public state update.
         let thisAddress = context.this_address();

@@ -1,6 +1,8 @@
 use dep::aztec::state_vars::{
     immutable_singleton::ImmutableSingleton
 };
+use dep::std::option::Option;
+use dep::aztec::context::{PrivateContext, PublicContext};
 
 use crate::public_key_note::{
     PublicKeyNote,
@@ -13,7 +15,10 @@ struct Storage {
 }
 
 impl Storage {
-    fn init() -> Self {
+    fn init(
+        private_context: Option<&mut PrivateContext>,
+        public_context: Option<&mut PublicContext>,
+    ) -> Self {
         Storage {
             signing_public_key: ImmutableSingleton::new(1, PublicKeyNoteMethods)
         }

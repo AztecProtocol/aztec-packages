@@ -45,7 +45,7 @@ impl EasyPrivateUint {
         let mut addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
-        self.set.insert(context, &mut addend_note);
+        self.set.insert(&mut addend_note);
 
         // Emit the newly created encrypted note preimages via oracle calls.
         let owner_key = get_public_key(owner);
@@ -66,7 +66,7 @@ impl EasyPrivateUint {
         owner: Field,
     ) {
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
-        let maybe_notes = self.set.get_notes(context, options);
+        let maybe_notes = self.set.get_notes(options);
 
         let mut minuend: u120 = 0;
         for i in 0..maybe_notes.len() {
@@ -78,7 +78,7 @@ impl EasyPrivateUint {
                 assert(note.owner == owner);
 
                 // Removes the note from the owner's set of notes.
-                self.set.remove(context, note);
+                self.set.remove(note);
 
                 minuend += note.value as u120;
             }
@@ -89,7 +89,7 @@ impl EasyPrivateUint {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let mut result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(context, &mut result_note);
+        self.set.insert(&mut result_note);
 
         // Emit the newly created encrypted note preimages via oracle calls.
         let mut encrypted_data = [0; VALUE_NOTE_LEN];

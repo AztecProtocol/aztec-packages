@@ -13,6 +13,8 @@ use dep::value_note::value_note::{
     ValueNoteMethods,
     VALUE_NOTE_LEN,
 };
+use dep::std::option::Option;
+use dep::aztec::context::{PrivateContext, PublicContext};
 
 struct Storage {
     sender: ImmutableSingleton<AddressNote, ADDRESS_NOTE_LEN>,
@@ -21,7 +23,10 @@ struct Storage {
 }
 
 impl Storage {
-    fn init() -> Self {
+    fn init(
+        private_context: Option<&mut PrivateContext>,
+        public_context: Option<&mut PublicContext>,
+    ) -> Self {
         Storage {
             sender: ImmutableSingleton::new(1, AddressNoteMethods),
             recipient: ImmutableSingleton::new(2, AddressNoteMethods),
