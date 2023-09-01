@@ -1,10 +1,15 @@
 import {
     AztecAddress,
-    ContractBase, Fr,
+    CompleteAddress,
+    ContractBase,
+    ContractDeployer,
+    DeployMethod,
+    Fr,
     PrivateKey,
-    PublicKey,
     getAccountWallets, isContractDeployed
 } from "@aztec/aztec.js";
+// note: import was fixed by loading from index.js instead of main.js by messing in the
+// node_modules/aztecjs/package.json
 import { ContractAbi, FunctionAbi } from "@aztec/foundation/abi";
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { AztecRPC } from '@aztec/types';
@@ -26,8 +31,6 @@ const contractAddress = AztecAddress.fromString(import.meta.env.VITE_CONTRACT_AD
 // const privateKey = Buffer.from('6bb46e9a80da2ff7bfff71c2c50eaaa4b15f7ed5ad1ade4261b574ef80b0cdb0', 'hex');
 const privateKey: PrivateKey = PrivateKey.fromString('6bb46e9a80da2ff7bfff71c2c50eaaa4b15f7ed5ad1ade4261b574ef80b0cdb0');
 const accountCreationSalt = Fr.ZERO;
-
-
 
 
 async function executeFunction(contractAddress: string, functionName: string, functionArgs: any,
@@ -88,10 +91,10 @@ function generateYupSchema(functionAbi: FunctionAbi) {
         // set some super crude default values
       switch (param.type.kind) {
         case 'field':
-            // todo: make these hex strings instead, because they are bigints
-            // and yup doesn't support bigint
+            // note: these are hex strings instead, because they are really bigints in JS, but yup doesn't support bigint
           parameterSchema[param.name] = Yup.string().required();
           if (param.name === 'owner'){
+            // ALICE public key
             initialValues[param.name] = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
           } else {
             initialValues[param.name] = '0xF4240';  // 1,000,000
@@ -120,13 +123,32 @@ async function viewTx(contractAddress: string, functionName: string, functionArg
     return;
 }
 
-async function deployContract(contractAbi: ContractAbi, rpcClient: AztecRPC, publicKey: PublicKey){
-          const deployer = new ContractDeployer(contractAbi, client, publicKey);
+async function deployContract(owner: CompleteAddress, contractAbi: ContractAbi, rpcClient: AztecRPC, functionAbi: FunctionAbi, constructorArgs: any){
+
+    console.log('constructor abi', contractAbi);
+
+    console.log('owner', owner, owner.address);
+    console.log('constructorArgs', constructorArgs);
+    console.log(functionAbi);
+
+    console.log(functionAbi.parameters.map(x => BigInt(constructorArgs[x.name])));
+    const tx = new DeployMethod(owner.publicKey, rpcClient, contractAbi, 
+        [BigInt(constructorArgs['initial_supply']), owner.address]
+        // functionAbi.parameters.map(x => BigInt(constructorArgs[x.name]))
+    ).send();
+    console.log('sent');
+    await tx.wait();
+    const receipt = await tx.getReceipt();
+    console.log(`Contract Deployed: ${receipt.contractAddress}`);
+    return receipt.txHash.toString();
+    const deployer = new ContractDeployer(contractAbi, rpcClient, publicKey);
 
 }
 
-async function handleFunctionCall(functionType: string, contractAbi: ContractAbi, contractAddress: string, functionName: string, functionArgs: any,
+async function handleFunctionCall(owner: CompleteAddress, functionType: string, contractAbi: ContractAbi, contractAddress: string,
+     functionAbi: FunctionAbi, functionName: string, functionArgs: any,
     rpcClient: AztecRPC){
+        console.log('owner', owner);
        if (functionType === 'unconstrained') {
               return await viewTx(contractAddress, functionName, functionArgs);
        } else if (functionName === 'constructor') {
@@ -136,10 +158,14 @@ async function handleFunctionCall(functionType: string, contractAbi: ContractAbi
         const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, [privateKey], [privateKey], [accountCreationSalt]);
         console.log('got wallet', wallet);
         console.log(`Function ${functionName} calling with:`, functionArgs);
-            console.log("fn args", functionArgs);
+        console.log("fn args", functionArgs);
+
+        return await deployContract(owner, contractAbi, rpcClient, functionAbi, functionArgs);
             const initialBalance = BigInt(functionArgs['initial_supply']);
-            const owner =  BigInt(functionArgs['owner']);
-            const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
+            // const owner =  BigInt(functionArgs['owner']);
+            console.log('converted args', initialBalance, owner);
+            const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send();
+            // const contract = await PrivateTokenContract.deploy(wallet, initialBalance, owner).send().deployed();
 
             console.log('contract from other way', contract);
             const tx = PrivateTokenContract.deploy(wallet, BigInt(functionArgs['initial_supply']), BigInt(functionArgs['owner'])).send();
@@ -161,11 +187,12 @@ import React from 'react';
 // Make sure to import any other dependencies and types you might need
 
 interface ContractFunctionFormProps {
+    owner: CompleteAddress;
     contractAbi: ContractAbi;
     functionAbi: FunctionAbi;
     rpcClient: AztecRPC;
 }
-const ContractFunctionForm: React.FC<ContractFunctionFormProps> = ({ contractAbi, functionAbi, rpcClient }) => {
+const ContractFunctionForm: React.FC<ContractFunctionFormProps> = ({ owner, contractAbi, functionAbi, rpcClient }) => {
     const functionName: string = functionAbi.name;
 
     const {validationSchema, initialValues} = generateYupSchema(functionAbi);
@@ -174,7 +201,7 @@ const ContractFunctionForm: React.FC<ContractFunctionFormProps> = ({ contractAbi
                     validationSchema: validationSchema,
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     onSubmit: async (values: any) => {
-                        return await handleFunctionCall(functionAbi.functionType, contractAbi, contractAddress, functionName, values, rpcClient);
+                        return await handleFunctionCall(owner, functionAbi.functionType, contractAbi, contractAddress, functionAbi, functionName, values, rpcClient);
                     },
                 });
     return (                   

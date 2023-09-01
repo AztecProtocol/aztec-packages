@@ -30,8 +30,7 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
             onSelectChange(fetchedOptions[0]);
         };
         loadOptions();
-    }, []); 
-    // Empty dependency array ensures this useEffect runs once when the component mounts.
+    }, []); // Empty dependency array allegedly ensures this useEffect runs once when the component mounts.
 
     return (
         <select 
@@ -41,7 +40,7 @@ function WalletDropdown({ onSelectChange, rpcClient }: WalletDropdownProps) {
     if (selectedWallet) {
         onSelectChange(selectedWallet);
     } else {
-        console.log('wallet not found', e.target.value);
+        console.log('wallet not found (this shouldnt happen)', e.target.value);
     }
 }}>
             {wallets.map((wallet: CompleteAddress)=> {return (
@@ -63,7 +62,6 @@ const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
 
     // TODO: can we make these actually wallets, not complete addresses
     const handleSelectWallet = (wallet: CompleteAddress) => {
-        console.log(wallet);
         setSelectedWallet(wallet);
     };
 
@@ -78,7 +76,7 @@ const DynamicContractForm: React.FC<Props> = ({ contractAbi, rpcClient }) =>
             </h1>
             <div>
             {contractAbi.functions.map((functionAbi: FunctionAbi) => {
-                return <ContractFunctionForm key={functionAbi.name} contractAbi={contractAbi} functionAbi={functionAbi} rpcClient={rpcClient}/>;
+                return <ContractFunctionForm key={functionAbi.name} owner={selectedWallet} contractAbi={contractAbi} functionAbi={functionAbi} rpcClient={rpcClient}/>;
             })}
             </div>
         </div>
