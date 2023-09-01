@@ -2,6 +2,7 @@ mod storage;
 
 contract PrivateToken {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
@@ -24,7 +25,7 @@ contract PrivateToken {
         initial_supply: Field, 
         owner: Field
     )  {
-        let storage = Storage::init(&mut context);
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
@@ -40,7 +41,7 @@ contract PrivateToken {
         amount: Field, 
         owner: Field
     )  {
-        let storage = Storage::init(&mut context);
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
@@ -55,7 +56,7 @@ contract PrivateToken {
         amount: Field, 
         recipient: Field,
     )  {
-        let storage = Storage::init(&mut context);
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
@@ -74,7 +75,7 @@ contract PrivateToken {
         owner: Field,
     ) -> Field {
         // context not available here
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
 
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner);
