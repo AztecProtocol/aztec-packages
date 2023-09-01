@@ -4,8 +4,10 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class UltraArithmeticRelationBase {
+template <typename FF_> class UltraArithmeticRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree(q_arith^2 * q_m * w_r * w_l) = 5
 
@@ -118,7 +120,7 @@ template <typename FF> class UltraArithmeticRelationBase {
 };
 
 template <typename FF>
-using UltraArithmeticRelation = RelationWrapper<FF, UltraArithmeticRelationBase>;
+using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
 
 // clang-format on
 } // namespace proof_system::relation

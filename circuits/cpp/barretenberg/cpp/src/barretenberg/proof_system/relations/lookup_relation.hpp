@@ -5,7 +5,7 @@
 namespace proof_system::relation {
 
 /**
- * @brief LookupRelationBase defines the algebra for the lookup polynomial:
+ * @brief LookupRelationImpl defines the algebra for the lookup polynomial:
  *
  *                       ∏ (1 + β) ⋅ (q_lookup*f_k + γ) ⋅ (t_k + βt_{k+1} + γ(1 + β))
  *  Z_lookup(g^j) = --------------------------------------------------------------------------
@@ -19,8 +19,10 @@ namespace proof_system::relation {
  *
  * @tparam FF parametrises the prime field class being used
  */
-template <typename FF> class LookupRelationBase {
+template <typename FF_> class LookupRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // deg(z_lookup * column_selector * wire * q_lookup * table) = 5
 
@@ -195,6 +197,6 @@ template <typename FF> class LookupRelationBase {
     };
 };
 
-template <typename FF> using LookupRelation = RelationWrapper<FF, LookupRelationBase>;
+template <typename FF> using LookupRelation = Relation<LookupRelationImpl<FF>>;
 
 } // namespace proof_system::relation

@@ -4,8 +4,10 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class EllipticRelationBase {
+template <typename FF_> class EllipticRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree(q_elliptic * q_beta * x^3) = 5
 
@@ -96,6 +98,6 @@ template <typename FF> class EllipticRelationBase {
 };
 
 template <typename FF>
-using EllipticRelation = RelationWrapper<FF, EllipticRelationBase>;
+using EllipticRelation = Relation<EllipticRelationImpl<FF>>;
 // clang-format on
 } // namespace proof_system::relation

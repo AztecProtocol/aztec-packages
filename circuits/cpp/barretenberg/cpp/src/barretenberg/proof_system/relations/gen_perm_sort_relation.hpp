@@ -4,8 +4,10 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class GenPermSortRelationBase {
+template <typename FF_> class GenPermSortRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6; // degree(q_sort * D(D - 1)(D - 2)(D - 3)) = 5
 
@@ -96,6 +98,6 @@ template <typename FF> class GenPermSortRelationBase {
     };
 };
 
-template <typename FF> using GenPermSortRelation = RelationWrapper<FF, GenPermSortRelationBase>;
+template <typename FF> using GenPermSortRelation = Relation<GenPermSortRelationImpl<FF>>;
 
 } // namespace proof_system::relation

@@ -60,31 +60,30 @@ inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorView
  * a given relation to the corresponding accumulator.
  *
  * @tparam FF
- * @tparam RelationBase Base class that implements the arithmetic for a given relation (or set of sub-relations)
+ * @tparam RelationImpl Base class that implements the arithmetic for a given relation (or set of sub-relations)
  */
-// WORKTODO: RelationWrapper is not a Relation(Base), so there shouldn't be inheritance here.
-template <typename FF, template <typename> typename RelationBase> class RelationWrapper : public RelationBase<FF> {
+// WORKTODO: Relation is not a Relation(Base), so there shouldn't be inheritance here.
+template <typename RelationImpl> class Relation : public RelationImpl {
   private:
+    using FF = typename RelationImpl::FF;
     // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
-    template <size_t... Values> struct UnivariateAccumulatorTypes {
-        // These Values are extracted from RelationBase.
-        using Accumulators = std::tuple<barretenberg::Univariate<FF, Values>...>;
-        using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, Values>...>;
+    template <size_t... subrelation_lengths> struct UnivariateAccumulatorTypes {
+        using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
+        using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
     };
-    template <size_t... Values> struct ValueAccumulatorTypes {
-        using Accumulators = std::array<FF, sizeof...(Values)>;
-        using AccumulatorViews = std::array<FF, sizeof...(Values)>; // there is no "view" type here
+    template <size_t... subrelation_lengths> struct ValueAccumulatorTypes {
+        using Accumulators = std::array<FF, sizeof...(subrelation_lengths)>;
+        using AccumulatorViews = std::array<FF, sizeof...(subrelation_lengths)>; // there is no "view" type here
     };
 
   public:
-    using Relation = RelationBase<FF>;
-    using UnivariateAccumTypes = typename Relation::template AccumulatorTypesBase<UnivariateAccumulatorTypes>;
+    using UnivariateAccumTypes = typename RelationImpl::template AccumulatorTypesBase<UnivariateAccumulatorTypes>;
     // WORKTODO: the lengths do nothing in the case of values?
-    using ValueAccumTypes = typename Relation::template AccumulatorTypesBase<ValueAccumulatorTypes>;
+    using ValueAccumTypes = typename RelationImpl::template AccumulatorTypesBase<ValueAccumulatorTypes>;
 
     using RelationUnivariates = typename UnivariateAccumTypes::Accumulators;
     using RelationValues = typename ValueAccumTypes::Accumulators;
-    static constexpr size_t RELATION_LENGTH = Relation::RELATION_LENGTH;
+    static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
     static inline void add_edge_contribution(RelationUnivariates& accumulator,
                                              const auto& input,

@@ -5,8 +5,10 @@
 namespace proof_system::relation {
 
 // WORKTODO: ... this is a base in a weird way. Wish I could simplify the structure here.
-template <typename FF> class ArithmeticRelationBase {
+template <typename FF_> class ArithmeticRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 4;
 
@@ -56,5 +58,5 @@ template <typename FF> class ArithmeticRelationBase {
 // WORKTODO: the field type should be supplied through the base class?
 //           ...moreover, should just be hidden in the relation parameters?
 // WORKTODO: make these decisions then propagate to other relations
-template <typename FF> using ArithmeticRelation = RelationWrapper<FF, ArithmeticRelationBase>;
+template <typename FF> using ArithmeticRelation = Relation<ArithmeticRelationImpl<FF>>;
 } // namespace proof_system::relation

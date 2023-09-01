@@ -532,33 +532,3 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 
 } // namespace proof_system::ultra_relation_consistency_tests
 
-// TEST_F(UltraRelationConsistency, AuxiliaryRelation)
-// {
-//     using Flavor = honk::flavor::Ultra;
-//     using FF = typename Flavor::FF;
-//     using Flavor = honk::flavor::Ultra;
-//     static constexpr size_t FULL_RELATION_LENGTH = 6;
-//     using ExtendedEdges = typename Flavor::ExtendedEdges<FULL_RELATION_LENGTH>;
-//     static const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
-//     auto relation_parameters = compute_mock_relation_parameters();
-//     ExtendedEdges input_elements;
-//     std::array<Univariate<FF, INPUT_UNIVARIATE_LENGTH>, NUM_POLYNOMIALS> input_polynomials;
-
-//     // input_univariates are random polynomials of degree one
-//     for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
-//         input_polynomials[i] = Univariate<FF, INPUT_UNIVARIATE_LENGTH>({ FF::random_element(), FF::random_element()
-//         });
-//     }
-//     compute_mock_extended_edges(input_elements, input_polynomials);
-
-//     auto relation = AuxiliaryRelation<FF>();
-
-//     // Extract the extended edges for manual computation of relation contribution
-
-//     constexpr std::size_t NUM_SUBRELATIONS = std::tuple_size_v<decltype(relation)::RelationUnivariates>;
-//     auto expected_values = std::array<Univariate<FF, FULL_RELATION_LENGTH>, NUM_SUBRELATIONS>();
-
-//     validate_evaluations(expected_values, relation, input_elements, relation_parameters);
-// };
-
-// } // namespace proof_system::honk_relation_tests

@@ -4,8 +4,9 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class EccOpQueueRelationBase {
+template <typename FF_> class EccOpQueueRelationImpl {
   public:
+    using FF = FF_;
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree(q * (w - w_op_queue)) = 2
 
@@ -107,6 +108,6 @@ template <typename FF> class EccOpQueueRelationBase {
     };
 };
 
-template <typename FF> using EccOpQueueRelation = RelationWrapper<FF, EccOpQueueRelationBase>;
+template <typename FF> using EccOpQueueRelation = Relation<EccOpQueueRelationImpl<FF>>;
 
 } // namespace proof_system::relation

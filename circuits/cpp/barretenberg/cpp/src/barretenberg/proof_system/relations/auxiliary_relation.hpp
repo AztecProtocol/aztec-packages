@@ -5,8 +5,10 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class AuxiliaryRelationBase {
+template <typename FF_> class AuxiliaryRelationImpl {
   public:
+    using FF = FF_;
+    
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
 
@@ -291,5 +293,5 @@ template <typename FF> class AuxiliaryRelationBase {
     };
 };
 
-template <typename FF> using AuxiliaryRelation = RelationWrapper<FF, AuxiliaryRelationBase>;
+template <typename FF> using AuxiliaryRelation = Relation<AuxiliaryRelationImpl<FF>>;
 } // namespace proof_system::relation

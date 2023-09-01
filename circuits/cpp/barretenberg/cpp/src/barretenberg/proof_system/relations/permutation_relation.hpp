@@ -5,13 +5,16 @@
 
 namespace proof_system::relation {
 
-template <typename FF> class PermutationRelationBase {
+template <typename FF_> class PermutationRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 5;
 
     static constexpr size_t LEN_1 = 5; // grand product construction sub-relation
     static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
+    static constexpr std::tuple<size_t, size_t> SUBRELATION_LENGTHS = {LEN_1, LEN_2};
     template <template <size_t...> typename AccumulatorTypesContainer>
     using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
@@ -107,8 +110,10 @@ template <typename FF> class PermutationRelationBase {
 
 // TODO(luke): With Cody's Flavor work it should be easier to create a simple templated relation
 // for handling arbitrary width. For now I'm duplicating the width 3 logic for width 4.
-template <typename FF> class UltraPermutationRelationBase {
+template <typename FF_> class UltraPermutationRelationImpl {
   public:
+    using FF = FF_;
+
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 6;
 
@@ -208,7 +213,7 @@ template <typename FF> class UltraPermutationRelationBase {
     };
 };
 
-template <typename FF> using PermutationRelation = RelationWrapper<FF, PermutationRelationBase>;
+template <typename FF> using PermutationRelation = Relation<PermutationRelationImpl<FF>>;
+template <typename FF> using UltraPermutationRelation = Relation<UltraPermutationRelationImpl<FF>>;
 
-template <typename FF> using UltraPermutationRelation = RelationWrapper<FF, UltraPermutationRelationBase>;
 } // namespace proof_system::relation
