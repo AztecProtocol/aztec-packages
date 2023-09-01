@@ -7,6 +7,7 @@ mod storage;
 // - Add public self-burn function for users to burn their own tokens
 contract NativeToken {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
@@ -261,7 +262,7 @@ contract NativeToken {
         amount: Field,
         secretHash: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let public_balances = storage.public_balances;
         let pending_shields = storage.pending_shields;
 
