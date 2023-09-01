@@ -1,3 +1,4 @@
+use dep::aztec::context::{PrivateContext, PublicContext};
 use dep::aztec::state_vars::public_state::PublicState;
 use dep::aztec::types::type_serialisation::field_serialisation::FieldSerialisationMethods;
 use dep::aztec::types::type_serialisation::field_serialisation::FIELD_SERIALISED_LEN;
@@ -8,11 +9,14 @@ struct Storage {
 }
 
 impl Storage {
-    fn init() -> Self {
+    fn init(
+        private_context: Option<&mut PrivateContext>,
+        public_context: Option<&mut PublicContext>,
+    ) -> Self {
         Storage {
             current_value: PublicState::new(
-                Option::none(),
-                Option::none(),
+                private_context,
+                public_context,
                 1,
                 FieldSerialisationMethods,
             ),
