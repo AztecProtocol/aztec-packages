@@ -18,8 +18,8 @@ template <typename FF_> class AuxiliaryRelationImpl {
     static constexpr size_t LEN_4 = 6; // RAM consistency sub-relation 1
     static constexpr size_t LEN_5 = 6; // RAM consistency sub-relation 2
     static constexpr size_t LEN_6 = 6; // RAM consistency sub-relation 3
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6>;
 
     /**
      * @brief Expression for the generalized permutation sort gate.

@@ -18,8 +18,8 @@ template <typename FF_> class EccOpQueueRelationImpl {
     static constexpr size_t LEN_6 = 3; // op-queue-wire vanishes sub-relation 2
     static constexpr size_t LEN_7 = 3; // op-queue-wire vanishes sub-relation 3
     static constexpr size_t LEN_8 = 3; // op-queue-wire vanishes sub-relation 4
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6, LEN_7, LEN_8>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2, LEN_3, LEN_4, LEN_5, LEN_6, LEN_7, LEN_8>;
 
     /**
      * @brief Expression for the generalized permutation sort gate.

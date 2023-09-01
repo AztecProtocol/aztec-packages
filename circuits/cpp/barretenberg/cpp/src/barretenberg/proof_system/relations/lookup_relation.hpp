@@ -28,8 +28,8 @@ template <typename FF_> class LookupRelationImpl {
 
     static constexpr size_t LEN_1 = 6; // grand product construction sub-relation
     static constexpr size_t LEN_2 = 3; // left-shiftable polynomial sub-relation
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
     /**

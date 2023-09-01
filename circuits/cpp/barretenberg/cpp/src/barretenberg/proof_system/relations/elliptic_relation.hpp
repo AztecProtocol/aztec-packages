@@ -13,8 +13,8 @@ template <typename FF_> class EllipticRelationImpl {
 
     static constexpr size_t LEN_1 = 6; // x-coordinate sub-relation
     static constexpr size_t LEN_2 = 5; // y-coordinate sub-relation
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1, LEN_2>;
 
     /**
      * @brief Expression for the Ultra Arithmetic gate.

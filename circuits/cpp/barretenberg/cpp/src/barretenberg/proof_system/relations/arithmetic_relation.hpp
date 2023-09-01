@@ -13,8 +13,8 @@ template <typename FF_> class ArithmeticRelationImpl {
     static constexpr size_t RELATION_LENGTH = 4;
 
     static constexpr size_t LEN_1 = 4; // arithmetic sub-relation
-    template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1>;
+    template <template <size_t...> typename SubrelationAccumulatorsTemplate>
+    using GetAccumulatorTypes = SubrelationAccumulatorsTemplate<LEN_1>;
 
     /**
      * @brief Expression for the StandardArithmetic gate.
