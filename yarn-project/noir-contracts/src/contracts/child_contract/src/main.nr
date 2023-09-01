@@ -2,14 +2,6 @@ mod storage;
 
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext
-    };
     use crate::storage::Storage;
     use dep::aztec::oracle::logs::emit_unencrypted_log;
 
@@ -36,7 +28,7 @@ contract Child {
 
     // Returns base_value + 42.
     #[aztec(public)]
-    open fn pubGetValue(base_value: Field) {
+    fn pubGetValue(base_value: Field) {
         let returnValue = base_value + context.chain_id() + context.version() + context.block_number() + context.timestamp();
 
         context.return_values.push(returnValue);
@@ -44,7 +36,7 @@ contract Child {
 
     // Sets `current_value` to `new_value`
     #[aztec(public)]
-    open fn pubSetValue(new_value: Field) {
+    fn pubSetValue(new_value: Field) {
         let storage = Storage::init();
         storage.current_value.write(new_value);
         let _hash = emit_unencrypted_log(new_value);
@@ -53,7 +45,7 @@ contract Child {
 
     // Increments `current_value` by `new_value`
     #[aztec(public)]
-    open fn pubIncValue(new_value: Field) {
+    fn pubIncValue(new_value: Field) {
         let storage = Storage::init();
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
@@ -63,7 +55,7 @@ contract Child {
 
     // Increments `current_value` by `new_value`. Can only be called from this contract.
     #[aztec(public)]
-    open fn pubIncValueInternal(new_value: Field) {
+    fn pubIncValueInternal(new_value: Field) {
         let storage = Storage::init();
         assert(inputs.call_context.msg_sender == inputs.call_context.storage_contract_address);
         let old_value = storage.current_value.read();
@@ -73,7 +65,7 @@ contract Child {
     }
 
     #[aztec(public)]
-    open fn setValueTwiceWithNestedFirst() {
+    fn setValueTwiceWithNestedFirst() {
         let pubSetValueSelector = 0x5b0f91b0;
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
 
@@ -83,7 +75,7 @@ contract Child {
     }
 
     #[aztec(public)]
-    open fn setValueTwiceWithNestedLast() {
+    fn setValueTwiceWithNestedLast() {
         let storage = Storage::init();
         storage.current_value.write(20);
         let _hash = emit_unencrypted_log(20);

@@ -33,18 +33,8 @@ contract NonNativeToken {
     use crate::storage::Storage;
     use crate::hash::{get_mint_content_hash, get_withdraw_content_hash};
 
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext,
-    };
     use dep::aztec::types::point::Point;
     use dep::aztec::{
-        abi,
-        abi::{
-            PublicContextInputs,
-            PrivateContextInputs,
-            Hasher
-        },
         note::{
             note_header::NoteHeader,
             utils as note_utils,
@@ -110,7 +100,7 @@ contract NonNativeToken {
     // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
     #[aztec(public)]
-    open fn mintPublic(
+    fn mintPublic(
         amount: Field,
         owner_address: Field,
         // This field should be hidden
@@ -138,7 +128,7 @@ contract NonNativeToken {
 
     // Withdraws using user's public balance.
     #[aztec(public)]
-    open fn withdrawPublic(
+    fn withdrawPublic(
         amount: Field,
         recipient: Field,
         callerOnL1: Field, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
@@ -184,7 +174,7 @@ contract NonNativeToken {
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
     #[aztec(public)]
-    open fn shield(
+    fn shield(
         amount: Field,
         secretHash: Field,
     ) {
@@ -252,7 +242,7 @@ contract NonNativeToken {
     }
 
     #[aztec(public)]
-    open fn addUnshieldedBalance(
+    fn addUnshieldedBalance(
         amount: Field,
         recipient: Field,
     ) {

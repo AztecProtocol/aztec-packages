@@ -11,18 +11,6 @@ mod interfaces;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::aztec::{
-        abi,
-        abi::{
-            PrivateContextInputs,
-            PublicContextInputs,
-            Hasher
-        }
-    };
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext
-    };
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use crate::storage::{Storage, Asset};
     use dep::safe_math::SafeU120;
@@ -42,7 +30,7 @@ contract Lending {
     ) {}
 
     #[aztec(public)]
-    open fn init(
+    fn init(
         oracle_address: Field,
         loan_to_value: Field,
         collateral_asset: Field,
@@ -72,7 +60,7 @@ contract Lending {
     // Create a position.
     // keccak256("update_accumulator()") >> 224 -> 0x1873b536
     #[aztec(public)]
-    open fn update_accumulator() {
+    fn update_accumulator() {
         let storage = Storage::init();
 
         let asset_loc = storage.assets.at(0);
@@ -113,7 +101,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn deposit_public(
+    fn deposit_public(
         owner: Field,
         amount: Field,
         collateral_asset: Field,
@@ -154,7 +142,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn withdraw_public(
+    fn withdraw_public(
         to: Field,
         amount: Field,
     ) {
@@ -209,7 +197,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn borrow_public(
+    fn borrow_public(
         to: Field,
         amount: Field
     ) {
@@ -262,7 +250,7 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn repay_public(
+    fn repay_public(
         owner: Field,
         amount: Field,
         stable_coin: Field,

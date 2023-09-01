@@ -1,13 +1,5 @@
 // A contract used along with `Child` contract to test nested calls.
 contract Parent {
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext,
-    };
 
     #[aztec(private)]
     fn constructor() {}
@@ -28,11 +20,11 @@ contract Parent {
 
     // Public function to directly call another public function to the targetContract using the selector and value provided
     #[aztec(public)]
-    open fn pubEntryPoint(
+    fn pubEntryPoint(
         targetContract: Field,
         targetSelector: Field,
         initValue: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
+    ) {
         let return_values = context.call_public_function(targetContract, targetSelector, [initValue]);
 
         context.return_values.push(return_values[0]);
@@ -40,11 +32,11 @@ contract Parent {
 
     // Same as pubEntryPoint, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
     #[aztec(public)]
-    open fn pubEntryPointTwice(
+    fn pubEntryPointTwice(
         targetContract: Field,
         targetSelector: Field,
         initValue: Field
-    ) -> pub abi::PublicCircuitPublicInputs {
+    ) {
         let returnValue = context.call_public_function(targetContract, targetSelector, [initValue])[0];
         let return_values = context.call_public_function(targetContract, targetSelector, [returnValue]);
 
