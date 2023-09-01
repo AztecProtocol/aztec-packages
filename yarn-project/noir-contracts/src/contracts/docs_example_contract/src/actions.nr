@@ -1,8 +1,5 @@
 use dep::std::option::Option;
 use dep::aztec::constants_gen::{MAX_READ_REQUESTS_PER_CALL, MAX_NOTES_PER_PAGE};
-use dep::aztec::context::{
-    PrivateContext,
-};
 use dep::aztec::note::{
     note_getter_options::NoteGetterOptions,
     note_viewer_options::NoteViewerOptions,
@@ -77,81 +74,73 @@ fn add_points_to_queen(
 
 // docs:start:state_vars-SingletonInit
 fn init_legendary_card(
-    context: &mut PrivateContext,
     state_var: Singleton<CardNote, CARD_NOTE_LEN>,
     card: &mut CardNote,
 ) {
-    state_var.initialise(context, card);
+    state_var.initialise(card);
 }
 // docs:end:state_vars-SingletonInit
 
 // docs:start:state_vars-SingletonReplace
 fn update_legendary_card(
-    context: &mut PrivateContext,
     state_var: Singleton<CardNote, CARD_NOTE_LEN>,
     card: &mut CardNote,
 ) {
-    state_var.replace(context, card);
+    state_var.replace(card);
 }
 // docs:end:state_vars-SingletonReplace
 
 // docs:start:state_vars-SingletonGet
 fn get_legendary_card(
-    context: &mut PrivateContext,
     state_var: Singleton<CardNote, CARD_NOTE_LEN>,
 ) -> CardNote {
-    state_var.get_note(context)
+    state_var.get_note()
 }
 // docs:end:state_vars-SingletonGet
 
 // docs:start:state_vars-ImmutableSingletonInit
 fn init_game_rules(
-    context: &mut PrivateContext,
     state_var: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>,
     rules: &mut RulesNote,
 ) {
-    state_var.initialise(context, rules);
+    state_var.initialise(rules);
 }
 // docs:end:state_vars-ImmutableSingletonInit
 
 // docs:start:state_vars-ImmutableSingletonGet
 fn is_valid_card(
-    context: &mut PrivateContext,
     state_var: ImmutableSingleton<RulesNote, RULES_NOTE_LEN>,
     card: CardNote,
 ) -> bool {
-    let rules = state_var.get_note(context);
+    let rules = state_var.get_note();
     card.points >= rules.min_points & card.points <= rules.max_points
 }
 // docs:end:state_vars-ImmutableSingletonGet
 
 // docs:start:state_vars-SetInsert
 fn add_new_card(
-    context: &mut PrivateContext,
     state_var: Set<CardNote, CARD_NOTE_LEN>,
     card: &mut CardNote,
   ) {
-    state_var.insert(context, card);
+    state_var.insert(card);
 }
 // docs:end:state_vars-SetInsert
 
 // docs:start:state_vars-SetRemove
 fn remove_card(
-    context: &mut PrivateContext,
     state_var: Set<CardNote, CARD_NOTE_LEN>,
     card: CardNote,
 ) {
-    state_var.remove(context, card);
+    state_var.remove(card);
 }
 // docs:end:state_vars-SetRemove
 
 // docs:start:state_vars-SetGet
 fn get_cards<FILTER_PARAMS>(
-    context: &mut PrivateContext,
     state_var: Set<CardNote, CARD_NOTE_LEN>,
     options: NoteGetterOptions<CardNote, CARD_NOTE_LEN, FILTER_PARAMS>,
 ) -> [Option<CardNote>; MAX_READ_REQUESTS_PER_CALL] {
-    state_var.get_notes(context, options)
+    state_var.get_notes(options)
 }
 // docs:end:state_vars-SetGet
 
@@ -181,31 +170,28 @@ unconstrained fn get_total_points(state_var: Set<CardNote, CARD_NOTE_LEN>, accou
 
 // docs:start:state_vars-SetContains
 fn assert_contains_card<RERUEN_LEN, FILTER_PARAMS>(
-    context: &mut PrivateContext,
     state_var: Set<CardNote, CARD_NOTE_LEN>,
     card: CardNote,
 ) {
-    state_var.assert_contains_and_remove(context, card);
+    state_var.assert_contains_and_remove(card);
 }
 // docs:end:state_vars-SetContains
 
 // docs:start:state_vars-MapAtSingletonInit
 fn add_new_profile(
-    context: &mut PrivateContext,
     state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
     account: Field,
     profile: &mut ProfileNote,
 ) {
-    state_var.at(account).initialise(context, profile);
+    state_var.at(account).initialise(profile);
 }
 // docs:end:state_vars-MapAtSingletonInit
 
 // docs:start:state_vars-MapAtSingletonGet
 fn get_profile(
-    context: &mut PrivateContext,
     state_var: Map<Singleton<ProfileNote, PROFILE_NOTE_LEN>>,
     account: Field,
 ) -> ProfileNote {
-    state_var.at(account).get_note(context)
+    state_var.at(account).get_note()
 }
 // docs:end:state_vars-MapAtSingletonGet
