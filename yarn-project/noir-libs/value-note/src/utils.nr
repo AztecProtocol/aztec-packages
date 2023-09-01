@@ -65,12 +65,12 @@ fn decrement_by_at_most(
     owner: Field,
 ) -> Field {
     let options = create_note_getter_options_for_decreasing_balance(max_amount);
-    let opt_notes = balance.get_notes(context, options);
+    let opt_notes = balance.get_notes(options);
 
     let mut decremented = 0;
     for i in 0..opt_notes.len() {
         if opt_notes[i].is_some() {
-            decremented += destroy_note(context, balance, owner, opt_notes[i].unwrap_unchecked());
+            decremented += destroy_note(balance, owner, opt_notes[i].unwrap_unchecked());
         }
     }
 
@@ -92,7 +92,7 @@ fn create_note(
     note: &mut ValueNote,
 ) {
     // Insert the new note to the owner's set of notes.
-    balance.insert(context, note);
+    balance.insert(note);
 
     // Remove this if statement if we can wrap this create_note function in an if statement.
     if note.value != 0 {
@@ -117,7 +117,6 @@ fn create_note(
 // Removes the note from the owner's set of notes.
 // Returns the value of the destroyed note.
 fn destroy_note(
-    context: &mut PrivateContext,
     balance: Set<ValueNote, VALUE_NOTE_LEN>,
     owner: Field,
     note: ValueNote,
@@ -126,7 +125,7 @@ fn destroy_note(
     // spending someone else's notes).
     assert(note.owner == owner);
 
-    balance.remove(context, note);
+    balance.remove(note);
     
     note.value
 }

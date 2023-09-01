@@ -2,6 +2,7 @@ use dep::aztec::state_vars::{
     map::Map,
     set::Set
 };
+use dep::aztec::context::PrivateContext;
 use dep::value_note::value_note::{
     ValueNote,
     ValueNoteMethods,
@@ -17,9 +18,9 @@ struct Storage {
 
 // highlight-next-line:storage-declaration
 impl Storage {
-    fn init() -> Self {
+    fn init(context: &mut PrivateContext) -> Self {
         Storage {
-            balances: Map::new(1, |slot| Set::new(slot, ValueNoteMethods)),
+            balances: Map::new(context, 1, |context, slot| Set::new(context, slot, ValueNoteMethods)),
         }
     }
 }

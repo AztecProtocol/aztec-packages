@@ -15,39 +15,40 @@ use crate::note::{
 };
 
 struct Set<Note, N> {
+    context: &mut PrivateContext,
     storage_slot: Field,
     note_interface: NoteInterface<Note, N>,
 }
 
 impl<Note, N> Set<Note, N> {
-    fn new(storage_slot: Field, note_interface: NoteInterface<Note, N>) -> Self {
+    fn new(context: &mut PrivateContext, storage_slot: Field, note_interface: NoteInterface<Note, N>) -> Self {
         assert(storage_slot != 0); // Storage slot 0 not allowed. Storage slots must start from 1.
-        Set { storage_slot, note_interface }
+        Set { context, storage_slot, note_interface }
     }
 
-    fn insert(self, context: &mut PrivateContext, note: &mut Note) {
-        create_note(context, self.storage_slot, note, self.note_interface);
+    fn insert(self, note: &mut Note) {
+        create_note(self.context, self.storage_slot, note, self.note_interface);
     }
 
-    fn insert_from_public(self, context: &mut PublicContext, note: &mut Note) {
-        create_note_hash_from_public(context, self.storage_slot, note, self.note_interface);
+    fn insert_from_public(self, public_context: &mut PublicContext, note: &mut Note) {
+        create_note_hash_from_public(public_context, self.storage_slot, note, self.note_interface);
     }
 
     // TODO(#1386)
     // Should be replaced by `assert_contains_and_remove`.
-    fn assert_contains_note_and_remove(self, context: &mut PrivateContext, note: Note) {
+    fn assert_contains_note_and_remove(self, note: Note) {
         let mut note_with_header = note;
-        ensure_note_exists(context, self.storage_slot, self.note_interface, &mut note_with_header);
-        self.remove(context, note_with_header);
+        ensure_note_exists(self.context, self.storage_slot, self.note_interface, &mut note_with_header);
+        self.remove(note_with_header);
     }
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386):
     // replace function above ^ once public kernel injects
     // nonces to note hashes.
-    fn assert_contains_and_remove(self, context: &mut PrivateContext, note: Note) {
+    fn assert_contains_and_remove(self, note: Note) {
         let mut note_with_header = note;
         // Modifies note with the header which is necessary for the next step (remove).
-        ensure_note_hash_exists(context, self.storage_slot, self.note_interface, &mut note_with_header);
+        ensure_note_hash_exists(self.context, self.storage_slot, self.note_interface, &mut note_with_header);
 
         let get_header = self.note_interface.get_header;
         let set_header = self.note_interface.set_header;
@@ -60,20 +61,19 @@ impl<Note, N> Set<Note, N> {
         header.nonce = 1;
         set_header(&mut note_with_header, header);
 
-        self.remove(context, note_with_header);
+        self.remove(note_with_header);
     }
 
-    fn remove(self, context: &mut PrivateContext, note: Note) {
-        destroy_note(context, self.storage_slot, note, self.note_interface);
+    fn remove(self, note: Note) {
+        destroy_note(self.context, self.storage_slot, note, self.note_interface);
     }
 
     fn get_notes<FILTER_ARGS>(
         self,
-        context: &mut PrivateContext,
         options: NoteGetterOptions<Note, N, FILTER_ARGS>,
     ) -> [Option<Note>; MAX_READ_REQUESTS_PER_CALL] {
         let storage_slot = self.storage_slot;
-        let opt_notes = get_notes(context, storage_slot, self.note_interface, options);
+        let opt_notes = get_notes(self.context, storage_slot, self.note_interface, options);
         opt_notes
     }
 
