@@ -3,6 +3,7 @@ mod address_note;
 
 contract PokeableToken {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         utils::increment,
@@ -26,14 +27,13 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     )  {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let mut sender_note = AddressNote::new(sender);
         let mut recipient_note = AddressNote::new(recipient);
 
-        storage.sender.initialise(&mut context, &mut sender_note);
-        storage.recipient.initialise(&mut context, &mut recipient_note);
+        storage.sender.initialise(&mut sender_note);
+        storage.recipient.initialise(&mut recipient_note);
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
@@ -46,8 +46,7 @@ contract PokeableToken {
         sender: Field,
         recipient: Field
     ) {
-                let storage = Storage::init(Option::some(&mut context), Option::none());
-
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
