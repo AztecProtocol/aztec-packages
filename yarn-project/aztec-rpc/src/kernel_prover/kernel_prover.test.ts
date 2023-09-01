@@ -1,6 +1,7 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   KernelCircuitPublicInputs,
+  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -12,6 +13,7 @@ import {
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  makeTuple,
 } from '@aztec/circuits.js';
 import { makeTxRequest } from '@aztec/circuits.js/factories';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -46,10 +48,14 @@ describe('Kernel Prover', () => {
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newCommitments = newNoteIndices.map(idx => generateFakeCommitment(notes[idx]));
+    publicInputs.newCommitments = makeTuple(
+      MAX_NEW_COMMITMENTS_PER_CALL,
+      i => generateFakeCommitment(notes[newNoteIndices[i]]),
+      0,
+    );
     return {
       // Replace `FunctionData` with `string` for easier testing.
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs, true),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },
