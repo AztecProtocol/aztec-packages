@@ -7,7 +7,7 @@ set -e
 
 BB=$PWD/${BB:-../cpp/build/bin/bb}
 CRS_PATH=~/.bb-crs
-BRANCH=kw/acvm-0-24
+BRANCH=kw/remove-base64-decode
 
 
 # Pull down the test vectors from the noir repo, if we don't have the folder already.
