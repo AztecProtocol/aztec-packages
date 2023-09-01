@@ -73,7 +73,8 @@ contract PrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(&mut context);
+        // context not available here
+        let storage = Storage::init();
 
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner);
