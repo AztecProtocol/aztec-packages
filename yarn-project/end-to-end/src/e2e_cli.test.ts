@@ -2,7 +2,7 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer } from '@aztec/aztec-rpc';
 import { startHttpRpcServer } from '@aztec/aztec-sandbox/http';
 import { createDebugLogger } from '@aztec/aztec.js';
-import { getProgram } from '@aztec/cli';
+import { cliTestSuite, getProgram } from '@aztec/cli';
 import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, CompleteAddress } from '@aztec/types';
 
@@ -14,9 +14,36 @@ import { setup } from './fixtures/utils.js';
 const HTTP_PORT = 9009;
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
+// const debug = createDebugLogger('aztec:e2e_cli');
+
+// let http: ReturnType<typeof startHttpRpcServer>;
+// let aztecNode: AztecNodeService | undefined;
+// let aztecRpcServer: AztecRPC;
+
+// const testSetup = async () => {
+//   const context = await setup(2);
+//   debug(`Environment set up`);
+//   const { deployL1ContractsValues } = context;
+//   ({ aztecNode, aztecRpcServer } = context);
+//   http = startHttpRpcServer(aztecRpcServer, deployL1ContractsValues, HTTP_PORT);
+//   debug(`HTTP RPC server started in port ${HTTP_PORT}`);
+//   return aztecRpcServer;
+// };
+
+// const cleanup = async () => {
+//   http.close();
+//   await aztecNode?.stop();
+//   await (aztecRpcServer as AztecRPCServer).stop();
+// };
+
+// cliTestSuite('CLI e2e test', testSetup, `http://localhost:${HTTP_PORT}`, debug);
+
+// cleanup()
+//   .then(() => debug('e2e CLI test suite finished running'))
+//   .catch(() => debug('Eror in e2e CLI test suite'));
 
 // Spins up a new http server wrapping the set up rpc server, and tests cli commands against it
-describe('cli', () => {
+describe('cli e2e test', () => {
   let cli: ReturnType<typeof getProgram>;
   let http: ReturnType<typeof startHttpRpcServer>;
   let debug: DebugLogger;

@@ -16,8 +16,7 @@ const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
 
-// Spins up a new http server wrapping the set up rpc server, and tests cli commands against it
-describe('cli', () => {
+describe('cli canary', () => {
   let cli: ReturnType<typeof getProgram>;
   let debug: DebugLogger;
   let aztecRpcClient: AztecRPC;
