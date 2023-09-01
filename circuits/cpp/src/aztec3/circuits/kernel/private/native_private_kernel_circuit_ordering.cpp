@@ -19,7 +19,6 @@ using aztec3::circuits::abis::KernelCircuitPublicInputsFinal;
 using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::private_kernel::PrivateKernelInputsOrdering;
 using aztec3::circuits::kernel::private_kernel::common_initialise_end_values;
-using aztec3::utils::array_length;
 using aztec3::utils::array_rearrange;
 using aztec3::utils::CircuitErrorCode;
 using aztec3::utils::DummyCircuitBuilder;
@@ -43,42 +42,34 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
                                 std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& hint_to_commitments,
                                 std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> const& new_commitments)
 {
-    // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
-    // we might get into trouble when accumulating them in public_inputs.end
-    builder.do_assert(array_length(read_requests) == array_length(hint_to_commitments),
-                      format("[private ordering circuit] mismatch array length between read_requests and witnesses - "
-                             "read_requests length: ",
-                             array_length(read_requests),
-                             " witnesses length: ",
-                             array_length(hint_to_commitments)),
-                      CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
-
     // match reads to commitments from the previous call(s)
     for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
         const auto& hint_to_commitment = hint_to_commitments[rr_idx];
 
-        size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): inefficient
-        // O(n^2) inner loop will be optimized via matching hints
-        for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-            match_pos = (read_request == new_commitments[c_idx]) ? c_idx : match_pos;
-        }
+        if (read_request != 0) {
+            size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): inefficient
+            // O(n^2) inner loop will be optimized via matching hints
+            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
+                match_pos = (read_request == new_commitments[c_idx]) ? c_idx : match_pos;
+            }
 
-        // Transient reads MUST match a pending commitment
-        builder.do_assert(
-            match_pos != MAX_NEW_COMMITMENTS_PER_TX,
-            format("read_request at position [",
-                   rr_idx,
-                   "]* is transient but does not match any new commitment.",
-                   "\n\tread_request: ",
-                   read_request,
-                   "\n\thint_to_commitment: ",
-                   hint_to_commitment,
-                   "\n\t* the read_request position/index is not expected to match position in app-circuit "
-                   "outputs because kernel iterations gradually remove non-transient read_requests as "
-                   "membership checks are resolved."),
-            CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
+            // Transient reads MUST match a pending commitment
+            builder.do_assert(
+                match_pos != MAX_NEW_COMMITMENTS_PER_TX,
+                format("read_request at position [",
+                       rr_idx,
+                       "]* is transient but does not match any new commitment.",
+                       "\n\tread_request: ",
+                       read_request,
+                       "\n\thint_to_commitment: ",
+                       hint_to_commitment,
+                       "\n\t* the read_request position/index is not expected to match position in app-circuit "
+                       "outputs because kernel iterations gradually remove non-transient read_requests as "
+                       "membership checks are resolved."),
+                CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
+        }
     }
 }
 

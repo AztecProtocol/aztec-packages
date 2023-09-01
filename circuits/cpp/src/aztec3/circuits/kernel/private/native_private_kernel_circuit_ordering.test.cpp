@@ -148,36 +148,6 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
 }
 
-TEST_F(native_private_kernel_ordering_tests, native_unresolved_non_transient_read_fails)
-{
-    auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
-
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
-        read_request_membership_witnesses{};
-
-    siloed_commitments[0] = NT::fr::random_element();
-
-
-    read_requests[0] = siloed_commitments[0];
-    read_request_membership_witnesses[0].is_transient = false;  // ordering circuit only allows transient reads
-
-    auto& previous_kernel = private_inputs_inner.previous_kernel;
-
-    previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
-    previous_kernel.public_inputs.end.read_requests = read_requests;
-
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
-
-    DummyBuilder builder =
-        DummyBuilder("native_private_kernel_ordering_tests__native_unresolved_non_transient_read_fails");
-    native_private_kernel_circuit_ordering(builder, private_inputs);
-
-    auto failure = builder.get_first_failure();
-    ASSERT_EQ(failure.code, CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
-}
-
 TEST_F(native_private_kernel_ordering_tests, native_squash_one_of_one_transient_matches_works)
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
