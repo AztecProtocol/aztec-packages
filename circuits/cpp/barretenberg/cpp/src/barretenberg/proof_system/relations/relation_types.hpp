@@ -57,19 +57,19 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   private:
     using FF = typename RelationImpl::FF;
     // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
-    template <size_t... subrelation_lengths> struct UnivariateAccumulatorTypesTemplate {
+    template <size_t... subrelation_lengths> struct UnivariateAccumulatorsAndViewsTemplate {
         using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
         using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
     };
-    template <size_t... subrelation_lengths> struct ValueAccumulatorTypesTemplate {
+    template <size_t... subrelation_lengths> struct ValueAccumulatorsAndViewsTemplate {
         using Accumulators = std::array<FF, sizeof...(subrelation_lengths)>;
         using AccumulatorViews = std::array<FF, sizeof...(subrelation_lengths)>; // there is no "view" type here
     };
 
   public:
-    using UnivariateAccumTypes = typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorTypesTemplate>;
+    using UnivariateAccumTypes = typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
     // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect. 
-    using ValueAccumTypes = typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorTypesTemplate>;
+    using ValueAccumTypes = typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
     using RelationUnivariates = typename UnivariateAccumTypes::Accumulators;
     using RelationValues = typename ValueAccumTypes::Accumulators;
