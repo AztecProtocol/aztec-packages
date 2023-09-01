@@ -10,15 +10,16 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
-  PrivateKernelPublicInputs,
   PrivateKernelInputsOrdering,
+  PrivateKernelPublicInputs,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
-  makeTuple
+  makeTuple,
 } from '@aztec/circuits.js';
+import { IntegerType } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
@@ -84,6 +85,9 @@ export class KernelProver {
       publicInputs: PrivateKernelPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
+
+    //TODO(#892): Dealing with this ticket we will fill the following hint array with the correct hints.
+    const hintToCommitments = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
 
     while (executionStack.length) {
       const currentExecution = executionStack.pop()!;
@@ -166,9 +170,7 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData,       makeTuple(MAX_READ_REQUESTS_PER_TX, () => ReadRequestMembershipWitness.empty(BigInt(0))),
-    );
-
+    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, hintToCommitments);
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.

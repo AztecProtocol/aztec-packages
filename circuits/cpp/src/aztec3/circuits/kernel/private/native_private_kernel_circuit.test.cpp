@@ -59,10 +59,8 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
     private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    auto ordering_witnesses =
-        std::array<abis::ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>{};
-
-    ordering_witnesses[0] = private_inputs_init.private_call.read_request_membership_witnesses[0];
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> hint_to_commitments{};
+    hint_to_commitments[0] = private_inputs_init.private_call.read_request_membership_witnesses[0].hint_to_commitment;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_accumulate_transient_read_requests");
     auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs_init);
@@ -79,7 +77,7 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
     private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    ordering_witnesses[1] = private_inputs_inner.private_call.read_request_membership_witnesses[0];
+    hint_to_commitments[1] = private_inputs_inner.private_call.read_request_membership_witnesses[0].hint_to_commitment;
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
@@ -101,7 +99,7 @@ TEST_F(native_private_kernel_tests, native_accumulate_transient_read_requests)
     auto& previous_kernel = private_inputs_inner.previous_kernel;
     previous_kernel.public_inputs = public_inputs;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, ordering_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, hint_to_commitments };
     auto final_public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
 
     ASSERT_FALSE(builder.failed()) << "failure: " << builder.get_first_failure()
@@ -120,10 +118,8 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     private_inputs_init.private_call.call_stack_item.public_inputs.read_requests[0] = fr(23);
     private_inputs_init.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    auto ordering_witnesses =
-        std::array<abis::ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>{};
-
-    ordering_witnesses[0] = private_inputs_init.private_call.read_request_membership_witnesses[0];
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> hint_to_commitments{};
+    hint_to_commitments[0] = private_inputs_init.private_call.read_request_membership_witnesses[0].hint_to_commitment;
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_tests__native_transient_read_requests_no_match");
     auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs_init);
@@ -140,7 +136,7 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     private_inputs_inner.private_call.call_stack_item.public_inputs.read_requests[0] = fr(12);
     private_inputs_inner.private_call.read_request_membership_witnesses[0].is_transient = true;
 
-    ordering_witnesses[1] = private_inputs_inner.private_call.read_request_membership_witnesses[0];
+    hint_to_commitments[1] = private_inputs_inner.private_call.read_request_membership_witnesses[0].hint_to_commitment;
 
     // We need to update the previous_kernel's private_call_stack because the current_call_stack_item has changed
     // i.e. we changed the new_commitments and read_requests of the current_call_stack_item's public_inputs
@@ -162,7 +158,7 @@ TEST_F(native_private_kernel_tests, native_transient_read_requests_no_match)
     auto& previous_kernel = private_inputs_inner.previous_kernel;
     previous_kernel.public_inputs = public_inputs;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, ordering_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, hint_to_commitments };
     auto final_public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
 
     ASSERT_TRUE(builder.failed());

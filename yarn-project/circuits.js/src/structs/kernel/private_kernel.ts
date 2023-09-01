@@ -158,9 +158,9 @@ export class PrivateKernelInputsOrdering {
      */
     public previousKernel: PreviousKernelData,
     /**
-     * All the transient read request membership witnesses made in this transaction.
+     * Contains hints for the transient read requests to localize corresponding commitments.
      */
-    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_TX>,
+    public hintToCommitments: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
   ) {}
 
   /**
@@ -168,6 +168,6 @@ export class PrivateKernelInputsOrdering {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.readRequestMembershipWitnesses);
+    return serializeToBuffer(this.previousKernel, this.hintToCommitments);
   }
 }

@@ -1094,21 +1094,19 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
 
 interface MsgpackPrivateKernelInputsOrdering {
   previous_kernel: MsgpackPreviousKernelData;
-  read_request_membership_witnesses: Tuple<MsgpackReadRequestMembershipWitness, 16>;
+  hint_to_commitments: Tuple<Buffer, 16>;
 }
 
 export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrdering): PrivateKernelInputsOrdering {
   if (o.previous_kernel === undefined) {
     throw new Error('Expected previous_kernel in PrivateKernelInputsOrdering deserialization');
   }
-  if (o.read_request_membership_witnesses === undefined) {
-    throw new Error('Expected read_request_membership_witnesses in PrivateKernelInputsOrdering deserialization');
+  if (o.hint_to_commitments === undefined) {
+    throw new Error('Expected hint_to_commitments in PrivateKernelInputsOrdering deserialization');
   }
   return new PrivateKernelInputsOrdering(
     toPreviousKernelData(o.previous_kernel),
-    mapTuple(o.read_request_membership_witnesses, (v: MsgpackReadRequestMembershipWitness) =>
-      toReadRequestMembershipWitness(v),
-    ),
+    mapTuple(o.hint_to_commitments, (v: Buffer) => Fr.fromBuffer(v)),
   );
 }
 
@@ -1116,14 +1114,12 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
   if (o.previousKernel === undefined) {
     throw new Error('Expected previousKernel in PrivateKernelInputsOrdering serialization');
   }
-  if (o.readRequestMembershipWitnesses === undefined) {
-    throw new Error('Expected readRequestMembershipWitnesses in PrivateKernelInputsOrdering serialization');
+  if (o.hintToCommitments === undefined) {
+    throw new Error('Expected hintToCommitments in PrivateKernelInputsOrdering serialization');
   }
   return {
     previous_kernel: fromPreviousKernelData(o.previousKernel),
-    read_request_membership_witnesses: mapTuple(o.readRequestMembershipWitnesses, (v: ReadRequestMembershipWitness) =>
-      fromReadRequestMembershipWitness(v),
-    ),
+    hint_to_commitments: mapTuple(o.hintToCommitments, (v: Fr) => toBuffer(v)),
   };
 }
 

@@ -58,7 +58,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, read_request_membership_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_one_read_request_to_commitment_works");
@@ -104,7 +104,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     previous_kernel.public_inputs.end.read_requests = read_requests;
     previous_kernel.public_inputs.end.read_request_membership_witnesses = read_request_membership_witnesses;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, read_request_membership_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_some_read_requests_to_commitments_works");
@@ -140,7 +140,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, read_request_membership_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
     native_private_kernel_circuit_ordering(builder, private_inputs);
@@ -169,7 +169,7 @@ TEST_F(native_private_kernel_ordering_tests, native_unresolved_non_transient_rea
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, read_request_membership_witnesses };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_unresolved_non_transient_read_fails");

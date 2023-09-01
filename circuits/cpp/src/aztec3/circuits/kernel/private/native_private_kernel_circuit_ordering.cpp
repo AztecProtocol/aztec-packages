@@ -40,76 +40,45 @@ namespace aztec3::circuits::kernel::private_kernel {
 // i.e., we get pairs i,j such that read_requests[i] == new_commitments[j]
 void match_reads_to_commitments(DummyCircuitBuilder& builder,
                                 std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
-                                std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
-                                           MAX_READ_REQUESTS_PER_TX> const& read_request_membership_witnesses,
+                                std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& hint_to_commitments,
                                 std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> const& new_commitments)
 {
     // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
     // we might get into trouble when accumulating them in public_inputs.end
-    builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
+    builder.do_assert(array_length(read_requests) == array_length(hint_to_commitments),
                       format("[private ordering circuit] mismatch array length between read_requests and witnesses - "
                              "read_requests length: ",
                              array_length(read_requests),
                              " witnesses length: ",
-                             array_length(read_request_membership_witnesses)),
+                             array_length(hint_to_commitments)),
                       CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
 
     // match reads to commitments from the previous call(s)
     for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
-        const auto& witness = read_request_membership_witnesses[rr_idx];
-        const auto is_transient_read = witness.is_transient;
-        const auto& hint_to_commitment = witness.hint_to_commitment;
+        const auto& hint_to_commitment = hint_to_commitments[rr_idx];
 
-
-        if (is_transient_read) {
-            size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): inefficient
-            // O(n^2) inner loop will be optimized via matching hints
-            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-                match_pos = (read_request == new_commitments[c_idx]) ? c_idx : match_pos;
-            }
-
-            // Transient reads MUST match a pending commitment
-            builder.do_assert(
-                match_pos != MAX_NEW_COMMITMENTS_PER_TX,
-                format("read_request at position [",
-                       rr_idx,
-                       "]* is transient but does not match any new commitment.",
-                       "\n\tread_request: ",
-                       read_request,
-                       "\n\tis_transient: ",
-                       is_transient_read,
-                       "\n\thint_to_commitment: ",
-                       hint_to_commitment,
-                       "\n\t* the read_request position/index is not expected to match position in app-circuit "
-                       "outputs because kernel iterations gradually remove non-transient read_requests as "
-                       "membership checks are resolved."),
-                CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
-        } else {
-            // This if-condition means it is a non-empty read request and it is flagged as transient....
-            // NON-transient reads MUST be membership-checked and removed during standard kernel iterations
-            // NONE should be here in (let alone output from) the ordering circuit.
-            builder.do_assert(
-                read_request == NT::fr(0),  // basically: assert(is_transient_read || empty)
-                format("read_request at position [",
-                       rr_idx,
-                       "]* is NOT transient but is still unresolved in the final kernel stage! This implies invalid "
-                       "inputs "
-                       "to the final (ordering) stage of the kernel.",
-                       "\n\tread_request: ",
-                       read_request,
-                       "\n\tleaf_index: ",
-                       witness.leaf_index,
-                       "\n\tis_transient: ",
-                       is_transient_read,
-                       "\n\thint_to_commitment: ",
-                       hint_to_commitment,
-                       "\n\t* the read_request position/index is not expected to match position in app-circuit "
-                       "outputs because kernel iterations gradually remove non-transient read_requests as "
-                       "membership checks are resolved."),
-                CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
+        size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
+        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/892): inefficient
+        // O(n^2) inner loop will be optimized via matching hints
+        for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
+            match_pos = (read_request == new_commitments[c_idx]) ? c_idx : match_pos;
         }
+
+        // Transient reads MUST match a pending commitment
+        builder.do_assert(
+            match_pos != MAX_NEW_COMMITMENTS_PER_TX,
+            format("read_request at position [",
+                   rr_idx,
+                   "]* is transient but does not match any new commitment.",
+                   "\n\tread_request: ",
+                   read_request,
+                   "\n\thint_to_commitment: ",
+                   hint_to_commitment,
+                   "\n\t* the read_request position/index is not expected to match position in app-circuit "
+                   "outputs because kernel iterations gradually remove non-transient read_requests as "
+                   "membership checks are resolved."),
+            CircuitErrorCode::PRIVATE_KERNEL__TRANSIENT_READ_REQUEST_NO_MATCH);
     }
 }
 
@@ -208,17 +177,13 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1486): validate that `len(new_nullifiers) ==
     // len(nullified_commitments)`
 
-    common_validate_previous_kernel_read_requests(builder,
-                                                  private_inputs.previous_kernel.public_inputs.end.read_requests,
-                                                  private_inputs.read_request_membership_witnesses);
-
     // Matching read requests to pending commitments requires the full list of new commitments accumulated over
     // all iterations of the private kernel. Therefore, we match reads against new_commitments in
     // previous_kernel.public_inputs.end, where "previous kernel" is the last "inner" kernel iteration.
     // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_reads_to_commitments(builder,
                                private_inputs.previous_kernel.public_inputs.end.read_requests,
-                               private_inputs.read_request_membership_witnesses,
+                               private_inputs.hint_to_commitments,
                                private_inputs.previous_kernel.public_inputs.end.new_commitments);
 
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over
