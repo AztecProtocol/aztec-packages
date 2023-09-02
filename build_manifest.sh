@@ -16,7 +16,8 @@ PROJECTS=(
   bb-wasm:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
   bb-x86:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
   bb.js:circuits/cpp/barretenberg/ts:Dockerfile:bb.js
-  run-acir-tests:circuits/cpp/barretenberg/acir_tests
+  run-acir-tests-bb:circuits/cpp/barretenberg/acir_tests:Dockerfile.bb
+  run-acir-tests-bb.js:circuits/cpp/barretenberg/acir_tests:Dockerfile.bb.js
   circuits:circuits/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:circuits-wasm-linux-clang
   l1-contracts:l1-contracts
   noir-contracts:yarn-project:DockerFile.build:noir-contracts-build
