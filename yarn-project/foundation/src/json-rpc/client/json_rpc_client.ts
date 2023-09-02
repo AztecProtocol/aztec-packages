@@ -11,7 +11,7 @@ import { JsonStringify, convertFromJsonObj, convertToJsonObj } from '../convert.
 
 export { JsonStringify } from '../convert.js';
 
-const debug = console.log; // createDebugLogger('json-rpc:json_rpc_client');
+const debug = createDebugLogger('json-rpc:json_rpc_client');
 /**
  * A normal fetch function that does not retry.
  * Alternatives are a fetch function with retries, or a mocked fetch.
