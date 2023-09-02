@@ -74,14 +74,15 @@ describe('e2e_account_contracts', () => {
     itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new SingleKeyAccountContract(encryptionKey));
   });
 
+  describe('eip single-key account', () => {
+    itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new Eip1271AccountContract(encryptionKey));
+  });
+
   describe('schnorr multi-key account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(PrivateKey.random()));
   });
 
   describe('ecdsa stored-key account', () => {
     itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(PrivateKey.random()));
-  });
-  describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new Eip1271AccountContract(PrivateKey.random()));
   });
 });
