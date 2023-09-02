@@ -13,7 +13,7 @@ template <typename Arithmetization> class CircuitBuilderBase {
   public:
     using FF = typename Arithmetization::FF;
     using EmbeddedCurve =
-        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, barretenberg::g1, grumpkin::g1>;
+        std::conditional_t<std::same_as<FF, barretenberg::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
 
     static constexpr size_t NUM_WIRES = Arithmetization::NUM_WIRES;
     // Keeping NUM_WIRES, at least temporarily, for backward compatibility

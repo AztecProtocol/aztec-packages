@@ -10,14 +10,11 @@
 
 namespace proof_system::plonk::stdlib {
 
-using namespace barretenberg;
-using namespace crypto::generators;
-
 template <typename Composer> concept SupportsLookupTables = (Composer::CIRCUIT_TYPE == CircuitType::ULTRA);
 template <typename Composer> concept DoesNotSupportLookupTables = (Composer::CIRCUIT_TYPE != CircuitType::ULTRA);
 
 /**
- * @brief cycle_group represents a group element of the proving system's embedded curve
+ * @brief cycle_group represents a group Element of the proving system's embedded curve
  *        i.e. a curve with a cofactor 1 defined over a field equal to the circuit's native field Composer::FF
  *
  *        (todo @zac-williamson) once the pedersen refactor project is finished, this class will supercede
@@ -31,136 +28,99 @@ template <typename Composer> class cycle_group {
     using bool_t = bool_t<Composer>;
     using witness_t = witness_t<Composer>;
     using FF = typename Composer::FF;
-    using G1 = typename Composer::EmbeddedCurve;
-    using element = typename G1::element;
-    using affine_element = typename G1::affine_element;
+    using Curve = typename Composer::EmbeddedCurve;
+    using Group = typename Curve::Group;
+    using Element = typename Curve::Element;
+    using AffineElement = typename Curve::AffineElement;
+    using generator_data = crypto::generator_data<Curve>;
 
+    static constexpr size_t STANDARD_NUM_TABLE_BITS = 1;
+    static constexpr size_t ULTRA_NUM_TABLE_BITS = 4;
     static constexpr bool IS_ULTRA = Composer::CIRCUIT_TYPE == CircuitType::ULTRA;
-    static constexpr size_t table_bits = IS_ULTRA ? 4 : 1;
-    static constexpr size_t num_bits = FF::modulus.get_msb() + 1;
-    static constexpr size_t num_rounds = (num_bits + table_bits - 1) / table_bits;
+    static constexpr size_t TABLE_BITS = IS_ULTRA ? ULTRA_NUM_TABLE_BITS : STANDARD_NUM_TABLE_BITS;
+    static constexpr size_t NUM_BITS = FF::modulus.get_msb() + 1;
+    static constexpr size_t NUM_ROUNDS = (NUM_BITS + TABLE_BITS - 1) / TABLE_BITS;
+    inline static const std::string OFFSET_GENERATOR_DOMAIN_SEPARATOR = "cycle_group_offset_generator";
 
-    Composer* get_context(const cycle_group& other) const;
+  private:
+    inline static const generator_data default_offset_generators =
+        generator_data(generator_data::DEFAULT_NUM_GENERATORS, OFFSET_GENERATOR_DOMAIN_SEPARATOR);
 
-    cycle_group(Composer* _context = nullptr)
-        : context(_context)
-        , x(0)
-        , y(0)
-        , is_infinity(true)
-        , _is_constant(true)
-    {}
-
-    cycle_group(Composer* _context, field_t _x, field_t _y, bool_t _is_infinity)
-        : context(_context)
-        , x(_x.normalize())
-        , y(_y.normalize())
-        , is_infinity(_is_infinity)
-        , _is_constant(_x.is_constant() && _y.is_constant() && _is_infinity.is_constant())
-    {}
-
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity)
-        : context(nullptr)
-        , x(_x)
-        , y(_y)
-        , is_infinity(_is_infinity)
-        , _is_constant(true)
-    {}
-
-    cycle_group(const affine_element& _in)
-        : context(nullptr)
-        , x(_in.x)
-        , y(_in.y)
-        , is_infinity(_in.is_point_at_infinity())
-        , _is_constant(true)
-    {}
-
+  public:
     /**
-     * @brief
+     * @brief cycle_scalar represents a member of the cycle curve SCALAR FIELD.
+     *        This is NOT the native circuit field type.
+     *        i.e. for a BN254 circuit, cycle_group will be Grumpkin and cycle_scalar will be Grumpkin::ScalarField
+     *        (BN254 native field is BN254::ScalarField == Grumpkin::BaseField)
      *
-     * N.B. make sure _in is not the point at infinity!
-     * (todo: shoul we validate on curve?)
-     * @param _context
-     * @param _in
-     * @return cycle_group
+     * @details We convert scalar multiplication inputs into cycle_scalars to enable scalar multiplication to be
+     * *complete* i.e. Grumpkin points multiplied by BN254 scalars does not produce a cyclic group
+     * as BN254::ScalarField < Grumpkin::ScalarField
+     * This complexity *should* not leak outside the cycle_group / cycle_scalar implementations, as cycle_scalar
+     * performs all required conversions if the input scalars are stdlib::field_t elements
+     *
+     * @note We opted to create a new class to represent `cycle_scalar` instead of using `bigfield`,
+     * as `bigfield` is inefficient in this context. All required range checks for `cycle_scalar` can be obtained for
+     * free from the `batch_mul` algorithm, making the range checks performed by `bigfield` largely redundant.
      */
-    static cycle_group from_witness(Composer* _context, const affine_element& _in)
-    {
-        cycle_group result(_context);
-        result.x = field_t(witness_t(_context, _in.x));
-        result.y = field_t(witness_t(_context, _in.y));
-        result.is_infinity = false;
-        result._is_constant = false;
-        return result;
-    }
-
-    Composer* get_context() const { return context; }
-    [[nodiscard]] bool is_constant() const { return _is_constant; }
-
-    affine_element get_value() const
-    {
-        affine_element result(x.get_value(), y.get_value());
-        if (is_infinity.get_value()) {
-            result.self_set_infinity();
-        }
-        return result;
-    }
-
-    bool_t is_point_at_infinity() const { return is_infinity; }
-    void validate_is_on_curve() const
-    {
-        auto xx = x * x;
-        auto xxx = xx * x;
-        auto res = y.madd(y, -xxx - G1::curve_b);
-        res *= is_point_at_infinity();
-        res.assert_is_zero();
-    }
-    cycle_group dbl() const;
-    cycle_group unconditional_add(const cycle_group& other) const;
-    cycle_group constrained_unconditional_add(const cycle_group& other) const;
-    cycle_group conditional_add(const cycle_group& other) const;
-    cycle_group operator+(const cycle_group& other) const;
-    cycle_group unconditional_subtract(const cycle_group& other) const;
-    cycle_group constrained_unconditional_subtract(const cycle_group& other) const;
-    cycle_group operator-(const cycle_group& other) const;
-    cycle_group& operator+=(const cycle_group& other);
-    cycle_group& operator-=(const cycle_group& other);
-
-    class offset_generators {
-      public:
-        offset_generators(size_t num_points);
-        // cycle_group get_generator(size_t generator_idx);
-        // cycle_group get_final_generator_offset();
-        std::vector<affine_element> generators;
-    };
-
     struct cycle_scalar {
-        using ScalarField = typename G1::subgroup_field;
+        using ScalarField = typename Curve::ScalarField;
         static constexpr size_t LO_BITS = 128;
         static constexpr size_t HI_BITS = ScalarField::modulus.get_msb() + 1 - LO_BITS;
-        static cycle_scalar from_witness(Composer* context, const ScalarField& value);
-        cycle_scalar(const ScalarField& _in);
+        cycle_scalar(const ScalarField& _in = 0);
         cycle_scalar(const field_t& _lo, const field_t& _hi);
         cycle_scalar(const field_t& _in);
+        static cycle_scalar from_witness(Composer* context, const ScalarField& value);
         [[nodiscard]] bool is_constant() const;
         ScalarField get_value() const;
+        Composer* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
         field_t lo;
         field_t hi;
-
-        Composer* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
     };
-    class straus_scalar_slice {
-      public:
+
+    /**
+     * @brief straus_scalar_slice decomposes an input scalar into `table_bits` bit-slices.
+     * Used in `batch_mul`, which ses the Straus multiscalar multiplication algorithm.
+     *
+     */
+    struct straus_scalar_slice {
         straus_scalar_slice(Composer* context, const cycle_scalar& scalars, size_t table_bits);
         field_t read(size_t index);
         size_t _table_bits;
         std::vector<field_t> slices;
     };
-    class straus_lookup_table {
+
+    /**
+     * @brief straus_lookup_table computes a lookup table of size 1 << table_bits
+     *
+     * @details for an input base_point [P] and offset_generator point [G], where N = 1 << table_bits, the following is
+     * computed:
+     *
+     * { [G] + 0.[P], [G] + 1.[P], ..., [G] + (N - 1).[P] }
+     *
+     * The point [G] is used to ensure that we do not have to handle the point at infinity associated with 0.[P].
+     *
+     * For an HONEST Prover, the probability of [G] and [P] colliding is equivalent to solving the dlog problem.
+     * This allows us to partially ignore the incomplete addition formula edge-cases for short Weierstrass curves.
+     *
+     * When adding group elements in `batch_mul`, we can constrain+assert the x-coordinates of the operand points do not
+     * match. An honest prover will never trigger the case where x-coordinates match due to the above. Validating
+     * x-coordinates do not match is much cheaper than evaluating the full complete addition formulae for short
+     * Weierstrass curves.
+     *
+     * @note For the case of fixed-base scalar multipliation, all input points are defined at circuit compile.
+     * We can ensure that all Provers cannot create point collisions between the base points and offset generators.
+     * For this restricted case we can skip the x-coordiante collision checks when performing group operations.
+     *
+     * @note straus_lookup_table uses UltraPlonk ROM tables if available. If not, we use simple conditional assignment
+     * constraints and restrict the table size to be 1 bit.
+     */
+    struct straus_lookup_table {
       public:
         straus_lookup_table() = default;
         straus_lookup_table(Composer* context,
                             const cycle_group& base_point,
-                            const cycle_group& generator_point,
+                            const cycle_group& offset_generator,
                             size_t table_bits);
         cycle_group read(const field_t& index);
         size_t _table_bits;
@@ -169,45 +129,66 @@ template <typename Composer> class cycle_group {
         size_t rom_id = 0;
     };
 
+  private:
+    /**
+     * @brief Stores temporary variables produced by internal multiplication algorithms
+     *
+     */
     struct batch_mul_internal_output {
         cycle_group accumulator;
-        affine_element offset_generator_delta;
+        AffineElement offset_generator_delta;
     };
-    static batch_mul_internal_output _batch_mul_internal(const std::vector<cycle_scalar>& scalars,
-                                                         const std::vector<cycle_group>& base_points,
-                                                         bool unconditional_add);
 
-    static cycle_group<Composer> fixed_base_batch_mul(
-        const std::vector<cycle_scalar>& _scalars,
-        const std::vector<affine_element>& _base_points) requires SupportsLookupTables<Composer>;
-
-    static cycle_group<Composer> fixed_base_batch_mul(
-        const std::vector<cycle_scalar>& _scalars,
-        const std::vector<affine_element>& _base_points) requires DoesNotSupportLookupTables<Composer>;
-
-    // static cycle_group fixed_base_batch_mul(const std::vector<cycle_scalar>& scalars,
-    //                                         const std::vector<affine_element>& base_points)
-    //     requires(!cycle_group<Composer>::IS_ULTRA);
-
-    static cycle_group variable_base_batch_mul(const std::vector<cycle_scalar>& scalars,
-                                               const std::vector<cycle_group>& base_points);
-
+  public:
+    cycle_group(Composer* _context = nullptr);
+    cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
+    cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(const AffineElement& _in);
+    static cycle_group from_witness(Composer* _context, const AffineElement& _in);
+    static cycle_group from_constant_witness(Composer* _context, const AffineElement& _in);
+    Composer* get_context(const cycle_group& other) const;
+    Composer* get_context() const { return context; }
+    AffineElement get_value() const;
+    [[nodiscard]] bool is_constant() const { return _is_constant; }
+    bool_t is_point_at_infinity() const { return _is_infinity; }
+    void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
+    void validate_is_on_curve() const;
+    cycle_group dbl() const;
+    cycle_group unconditional_add(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other) const;
+    cycle_group constrained_unconditional_add(const cycle_group& other) const;
+    cycle_group constrained_unconditional_subtract(const cycle_group& other) const;
+    cycle_group operator+(const cycle_group& other) const;
+    cycle_group operator-(const cycle_group& other) const;
+    cycle_group& operator+=(const cycle_group& other);
+    cycle_group& operator-=(const cycle_group& other);
+    static cycle_group batch_mul(const std::vector<cycle_scalar>& scalars,
+                                 const std::vector<cycle_group>& base_points,
+                                 const generator_data* offset_generator_data = &default_offset_generators);
+    cycle_group operator*(const cycle_scalar& scalar) const;
+    cycle_group& operator*=(const cycle_scalar& scalar);
+    cycle_group operator/(const cycle_scalar& scalar) const;
     Composer* context;
     field_t x;
     field_t y;
-    bool_t is_infinity;
+
+  private:
+    bool_t _is_infinity;
     bool _is_constant;
+    static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
+                                                                       std::span<cycle_group> base_points,
+                                                                       std::span<AffineElement> offset_generators,
+                                                                       bool unconditional_add);
+
+    static batch_mul_internal_output _fixed_base_batch_mul_internal(
+        std::span<cycle_scalar> scalars,
+        std::span<AffineElement> base_points,
+        std::span<AffineElement> offset_generators) requires SupportsLookupTables<Composer>;
+    static batch_mul_internal_output _fixed_base_batch_mul_internal(
+        std::span<cycle_scalar> scalars,
+        std::span<AffineElement> base_points,
+        std::span<AffineElement> offset_generators) requires DoesNotSupportLookupTables<Composer>;
 };
-
-// template <typename Composer>
-//     requires(cycle_group<Composer>::IS_ULTRA)
-// class cycle_group_upper : public cycle_group<Composer> {
-//     using cycle_scalar = typename cycle_group<Composer>::cycle_scalar;
-//     using affine_element = typename cycle_group<Composer>::affine_element;
-
-//     static cycle_group<Composer> fixed_base_batch_mul(const std::vector<cycle_scalar>& _scalars,
-//                                                       const std::vector<affine_element>& _base_points);
-// };
 
 template <typename ComposerContext>
 inline std::ostream& operator<<(std::ostream& os, cycle_group<ComposerContext> const& v)

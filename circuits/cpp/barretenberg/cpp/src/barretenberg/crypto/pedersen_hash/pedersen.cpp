@@ -8,15 +8,6 @@ namespace crypto::pedersen_hash {
 
 using namespace generators;
 
-grumpkin::g1::affine_element generator_info::get_lhs_generator()
-{
-    return lhs_generator;
-}
-grumpkin::g1::affine_element generator_info::get_rhs_generator()
-{
-    return rhs_generator;
-}
-
 grumpkin::g1::element hash_single(const barretenberg::fr& in, generator_index_t const& index)
 {
     auto gen_data = get_generator_data(index);
@@ -75,8 +66,4 @@ grumpkin::fq hash_multiple(const std::vector<grumpkin::fq>& inputs, const size_t
         r.is_point_at_infinity() ? grumpkin::g1::affine_element(0, 0) : static_cast<grumpkin::g1::affine_element>(r);
     return result.x;
 }
-
-struct foo;
-struct generator_info;
-// class grumpkin::g1::affine_element generator_info::get_rhs_generator();
 } // namespace crypto::pedersen_hash

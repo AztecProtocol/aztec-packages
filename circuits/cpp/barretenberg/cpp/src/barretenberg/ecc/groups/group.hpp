@@ -93,9 +93,9 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
      * @param domain_separator
      * @return std::vector<affine_element>
      */
-    static std::vector<affine_element> derive_generators_secure(const std::vector<uint8_t>& domain_separator,
-                                                                const size_t num_generators,
-                                                                const size_t starting_index = 0)
+    inline static std::vector<affine_element> derive_generators_secure(const std::vector<uint8_t>& domain_separator,
+                                                                       const size_t num_generators,
+                                                                       const size_t starting_index = 0)
     {
         std::vector<affine_element> result;
         std::array<uint8_t, 32> domain_hash = sha256::sha256(domain_separator);
@@ -117,7 +117,8 @@ template <typename _coordinate_field, typename _subgroup_field, typename GroupPa
         return result;
     }
 
-    static affine_element get_secure_generator_from_index(size_t generator_index, const std::string& domain_separator)
+    inline static affine_element get_secure_generator_from_index(size_t generator_index,
+                                                                 const std::string& domain_separator)
     {
         std::array<uint8_t, 32> domain_hash = sha256::sha256(domain_separator);
         std::vector<uint8_t> generator_preimage;

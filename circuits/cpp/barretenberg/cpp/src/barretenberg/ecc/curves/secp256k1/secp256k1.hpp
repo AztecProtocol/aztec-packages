@@ -120,7 +120,6 @@ struct Secp256k1G1Params {
 typedef barretenberg::
     group<barretenberg::field<Secp256k1FqParams>, barretenberg::field<Secp256k1FrParams>, Secp256k1G1Params>
         g1;
-g1::affine_element get_generator(const size_t generator_index);
 } // namespace secp256k1
 
 namespace curve {

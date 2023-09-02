@@ -30,8 +30,6 @@ struct GrumpkinG1Params {
 };
 typedef barretenberg::group<barretenberg::fr, barretenberg::fq, GrumpkinG1Params> g1;
 
-g1::affine_element get_generator(const size_t generator_index);
-
 }; // namespace grumpkin
 
 namespace curve {

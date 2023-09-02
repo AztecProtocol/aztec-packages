@@ -16,23 +16,32 @@ field_t<C> pedersen_hash_refactor<C>::hash_multiple(const std::vector<field_t>& 
 
     using cycle_group = cycle_group<C>;
     using cycle_scalar = typename cycle_group::cycle_scalar;
-    using affine_element = typename cycle_group::G1::affine_element;
-    std::vector<affine_element> base_points = {
-        crypto::pedersen_commitment_refactor::generator_info_temp::get_length_generator()
-    };
-    auto _base_points =
-        crypto::pedersen_commitment_refactor::generator_info_temp::get_generators(hash_index, 0, domain_separator);
-    std::copy(_base_points.begin(), _base_points.end(), std::back_inserter(base_points));
+    using Curve = typename C::EmbeddedCurve;
+
+    auto base_points = grumpkin::g1::get_generators(inputs.size(), hash_index, domain_separator);
+
     std::vector<cycle_scalar> scalars;
+    std::vector<cycle_group> points;
     scalars.emplace_back(field_t(inputs.size()));
-    for (const auto& in : inputs) {
-        scalars.emplace_back(in);
+    points.emplace_back(crypto::pedersen_hash_refactor<Curve>::get_length_generator());
+    for (size_t i = 0; i < inputs.size(); ++i) {
+        scalars.emplace_back(inputs[i]);
+        // constructs constant cycle_group objects (non-witness)
+        points.emplace_back(base_points[i]);
     }
 
-    auto result = cycle_group::fixed_base_batch_mul(scalars, base_points);
+    auto result = cycle_group::batch_mul(scalars, points);
     return result.x;
 }
 
+template <typename C>
+field_t<C> pedersen_hash_refactor<C>::hash(const std::vector<field_t>& in,
+                                           size_t hash_index,
+                                           const std::string& domain_separator,
+                                           bool validate_inputs_in_field)
+{
+    return hash_multiple(in, hash_index, domain_separator, validate_inputs_in_field);
+}
 INSTANTIATE_STDLIB_TYPE(pedersen_hash_refactor);
 
 } // namespace proof_system::plonk::stdlib

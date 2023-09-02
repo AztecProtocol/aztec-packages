@@ -3431,8 +3431,8 @@ template <typename FF>
 inline FF UltraCircuitBuilder_<FF>::compute_elliptic_double_identity(
     FF q_elliptic_double_value, FF w_1_value, FF w_2_value, FF w_3_value, FF w_4_value, FF alpha_base, FF alpha) const
 {
-    constexpr FF curve_b = CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::curve_b;
-    static_assert(CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::curve_a == 0);
+    constexpr FF curve_b = CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_b;
+    static_assert(CircuitBuilderBase<arithmetization::Ultra<FF>>::EmbeddedCurve::Group::curve_a == 0);
     const auto x1 = w_1_value;
     const auto y1 = w_4_value;
     const auto x3 = w_2_value;

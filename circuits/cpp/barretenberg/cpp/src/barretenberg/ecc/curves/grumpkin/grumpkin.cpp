@@ -17,8 +17,4 @@ namespace {
 //     ASSERT(generator_index < max_num_generators);
 //     return generators[generator_index];
 // }
-g1::affine_element get_generator(const size_t generator_index)
-{
-    return g1::get_secure_generator_from_index(generator_index, "grumpkin_default_generator");
-}
 } // namespace grumpkin
