@@ -4,25 +4,63 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "build": "yarn clean && webpack",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "start": "serve -p 8080 ./dest",
+    "start:dev": "webpack serve --mode=development",
+    "start:remote": "/bin/bash -c \"$(curl -fsSL 'https://up-dev.aztec.network')\"",
+    "formatting": "prettier --check ./src && eslint ./src",
+    "formatting:fix": "prettier -w ./src"
   },
   "dependencies": {
+    "@aztec/aztec.js": "workspace:^",
+    "@aztec/cli": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/noir-compiler": "workspace:^",
+    "@aztec/noir-contracts": "workspace:^",
+    "@aztec/types": "workspace:^",
+    "formik": "^2.4.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "styled-components": "^6.0.7",
+    "styled-reset": "^4.5.1",
+    "tailwindcss": "^3.3.3",
+    "yup": "^1.2.0"
   },
   "devDependencies": {
+    "@svgr/webpack": "^8.1.0",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
+    "@types/styled-components": "^5.1.26",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
-    "@vitejs/plugin-react": "^4.0.3",
+    "copy-webpack-plugin": "^11.0.0",
     "eslint": "^8.45.0",
+    "eslint-import-resolver-typescript": "^3.5.5",
+    "eslint-plugin-import": "^2.27.5",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.3",
-    "typescript": "^5.0.2",
-    "vite": "^4.4.5"
+    "prettier": "^3.0.3",
+    "resolve-typescript-plugin": "^2.0.1",
+    "ts-jest": "^29.1.0",
+    "ts-loader": "^9.4.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.4",
+    "util": "^0.12.5",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
   }
 }

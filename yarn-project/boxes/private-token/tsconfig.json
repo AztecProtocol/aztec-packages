@@ -1,25 +1,32 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
+    "rootDir": "src",
+    "outDir": "dest",
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "target": "es2020",
+    "lib": ["esnext", "dom", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "declaration": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "inlineSourceMap": true,
+    "declarationMap": true,
+    "importHelpers": true,
+    "resolveJsonModule": true,
+    "composite": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx"
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src", "src/**/*.json"],
+  "references": [
+    { "path": "../../aztec.js" },
+    { "path": "../../aztec-cli" },
+    { "path": "../../foundation" },
+    { "path": "../../noir-compiler" },
+    { "path": "../../noir-contracts" },
+    { "path": "../../types" }
+  ]
 }
