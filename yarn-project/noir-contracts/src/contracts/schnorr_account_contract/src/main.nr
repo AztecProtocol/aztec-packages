@@ -32,7 +32,6 @@ contract SchnorrAccount {
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64], // schnorr signature of the payload hash
     ) {
-        // oracle to get sig.
         // Load public key from storage
         let storage = Storage::init(Option::some(&mut context), Option::none());
         let public_key = storage.signing_public_key.get_note();

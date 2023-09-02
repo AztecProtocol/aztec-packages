@@ -118,20 +118,35 @@ export class EipEntrypointWallet extends BaseWallet {
   constructor(rpc: AztecRPC, protected accountImpl: Eip1271AccountEntrypoint) {
     super(rpc);
   }
-  createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
-    // We could even use it in here :thinking:. We just need a nonce really. If we have the nonce we should be all good.
-    return this.accountImpl.createTxExecutionRequest(executions, opts);
+
+  async createTxExecutionRequest(
+    executions: FunctionCall[],
+    opts: CreateTxRequestOpts = {},
+  ): Promise<TxExecutionRequest> {
+    // Note that as we are inserting into the DB when creating this, it can be used after a simulation
+    // Meaning that if you were to use someone elses rpc with db you could send these transactions.
+    // For simulations these should be bypassed such that no data is generated.
+    const { txRequest, message, witness } = await this.accountImpl.createTxExecutionRequestWithWitness(
+      executions,
+      opts,
+    );
+    await this.rpc.addEip1271Witness(Fr.fromBuffer(message), witness);
+    return txRequest;
   }
+
   sign(messageHash: Buffer): Promise<Buffer> {
     return Promise.resolve(this.accountImpl.sign(messageHash));
   }
+
   /**
    * Signs the `messageHash` and adds the witness to the RPC.
+   * This is useful for signing messages that are not directly part of the transaction payload, such as
+   * approvals.
    * @param messageHash - The message hash to sign
    * @returns
    */
   async signAndAddEip1271Witness(messageHash: Buffer): Promise<void> {
-    const witness = await this.accountImpl.generateEip1271Witness(messageHash);
+    const witness = await this.accountImpl.createEip1271Witness(messageHash);
     await this.rpc.addEip1271Witness(Fr.fromBuffer(messageHash), witness);
     return Promise.resolve();
   }

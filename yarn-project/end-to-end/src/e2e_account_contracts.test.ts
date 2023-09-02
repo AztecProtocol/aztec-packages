@@ -2,20 +2,31 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   Account,
   AccountContract,
+  AztecRPC,
   EcdsaAccountContract,
   Eip1271AccountContract,
+  Eip1271AccountEntrypoint,
+  EipEntrypointWallet,
   Fr,
   SchnorrAccountContract,
   SingleKeyAccountContract,
   Wallet,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
+import { CompleteAddress, PrivateKey } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts/types';
 
 import { setup } from './fixtures/utils.js';
 
-function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey: PrivateKey) => AccountContract) {
+function itShouldBehaveLikeAnAccountContract(
+  getAccountContract: (encryptionKey: PrivateKey) => AccountContract,
+  walletSetup: (
+    rpc: AztecRPC,
+    encryptionPrivateKey: PrivateKey,
+    accountContract: AccountContract,
+    address?: CompleteAddress,
+  ) => Promise<{ account: Account; wallet: Wallet }>,
+) {
   describe(`behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
     let child: ChildContract;
@@ -26,8 +37,14 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
     beforeEach(async () => {
       context = await setup();
       encryptionPrivateKey = PrivateKey.random();
-      account = new Account(context.aztecRpcServer, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
-      wallet = await account.deploy().then(tx => tx.getWallet());
+
+      const { account: a, wallet: w } = await walletSetup(
+        context.aztecRpcServer,
+        encryptionPrivateKey,
+        getAccountContract(encryptionPrivateKey),
+      );
+      account = a;
+      wallet = w;
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
 
@@ -55,12 +72,12 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
 
     it('fails to call a function using an invalid signature', async () => {
       const accountAddress = await account.getCompleteAddress();
-      const invalidWallet = await new Account(
+      const { wallet: invalidWallet } = await walletSetup(
         context.aztecRpcServer,
         encryptionPrivateKey,
         getAccountContract(PrivateKey.random()),
         accountAddress,
-      ).getWallet();
+      );
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
         /Cannot satisfy constraint.*/,
@@ -70,19 +87,50 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
 }
 
 describe('e2e_account_contracts', () => {
-  describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new SingleKeyAccountContract(encryptionKey));
-  });
+  const base = async (
+    rpc: AztecRPC,
+    encryptionPrivateKey: PrivateKey,
+    accountContract: AccountContract,
+    address?: CompleteAddress,
+  ) => {
+    const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
+    const wallet = await account.deploy().then(tx => tx.getWallet());
+    return { account, wallet };
+  };
 
-  describe('eip single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new Eip1271AccountContract(encryptionKey));
+  describe('schnorr single-key account', () => {
+    itShouldBehaveLikeAnAccountContract(
+      (encryptionKey: PrivateKey) => new SingleKeyAccountContract(encryptionKey),
+      base,
+    );
   });
 
   describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(PrivateKey.random()));
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(PrivateKey.random()), base);
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(PrivateKey.random()));
+    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(PrivateKey.random()), base);
+  });
+
+  describe('eip single-key account', () => {
+    itShouldBehaveLikeAnAccountContract(
+      (encryptionKey: PrivateKey) => new Eip1271AccountContract(encryptionKey),
+      async (
+        rpc: AztecRPC,
+        encryptionPrivateKey: PrivateKey,
+        accountContract: AccountContract,
+        address?: CompleteAddress,
+      ) => {
+        const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
+        if (!address) {
+          const tx = await account.deploy();
+          await tx.wait();
+        }
+        const entryPoint = (await account.getEntrypoint()) as unknown as Eip1271AccountEntrypoint;
+        const wallet = new EipEntrypointWallet(rpc, entryPoint);
+        return { account, wallet };
+      },
+    );
   });
 });
