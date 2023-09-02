@@ -94,7 +94,7 @@ describe('e2e_account_contracts', () => {
     address?: CompleteAddress,
   ) => {
     const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
-    const wallet = await account.deploy().then(tx => tx.getWallet());
+    const wallet = !address ? await account.deploy().then(tx => tx.getWallet()) : await account.getWallet();
     return { account, wallet };
   };
 
