@@ -574,28 +574,22 @@ TYPED_TEST(ScalarMultiplicationTests, EndomorphismSplit)
     using Fr = typename Curve::ScalarField;
     using Fq = typename Curve::BaseField;
 
-    Fr scalar = Fr::random_element();
+    // NOTE: to appease GCC array-bounds checks, we need an extra Fr at the end of 'scalar'
+    // This is why it is an Fr[2]. Otherwise, GCC really doesn't like us type-punning in k2_t as it
+    // encompasses undefined memory (even though it doesn't use it).
+    Fr scalar[2];
+    scalar[0] = Fr::random_element();
 
-    Element expected = Group::one * scalar;
+    Element expected = Group::one * scalar[0];
 
     // we want to test that we can split a scalar into two half-length components, using the same location in memory.
-    Fr* k1_t = &scalar;
-    Fr* k2_t = (Fr*)&scalar.data[2];
+    Fr* k1_t = &scalar[0];
+    Fr* k2_t = (Fr*)&scalar[0].data[2];
 
-    Fr::split_into_endomorphism_scalars(scalar, *k1_t, *k2_t);
-    // The compiler really doesn't like what we're doing here,
-    // and disabling the array-bounds error project-wide seems unsafe.
-    // The large macro blocks are here to warn that we should be careful when
-    // aliasing the arguments to split_into_endomorphism_scalars
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-#endif
+    Fr::split_into_endomorphism_scalars(scalar[0], *k1_t, *k2_t);
     Fr k1{ (*k1_t).data[0], (*k1_t).data[1], 0, 0 };
     Fr k2{ (*k2_t).data[0], (*k2_t).data[1], 0, 0 };
-#if !defined(__clang__) && defined(__GNUC__)
-#pragma GCC diagnostic pop
-#endif
+
     Element result;
     Element t1 = Group::affine_one * k1;
     AffineElement generator = Group::affine_one;

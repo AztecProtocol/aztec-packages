@@ -177,9 +177,9 @@
         memcpy((cast*)(to), (from), sizeof(cast)); \
         *(to) = (cast)_msgpack_be32(*(to));        \
     } while (0);
-#define _msgpack_load64(cast, from, to) do {       \
-        memcpy((cast*)(to), (from), sizeof(cast)); \
-        *(to) = (cast)_msgpack_be64(*(to));        \
+#define _msgpack_load64(cast, from, to) do {         \
+        memcpy((cast*)(to), (from), sizeof(cast));   \
+        *(to) = (cast)_msgpack_be64((uint64_t)*(to));\
     } while (0);
 
 #define _msgpack_store16(to, num) \

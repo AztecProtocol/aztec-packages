@@ -441,6 +441,10 @@ uint<Composer, Native> uint<Composer, Native>::rol(const size_t target_rotation)
     return ror(width - (target_rotation & (width - 1)));
 }
 
+struct Test {
+    std::vector<uint32_t> testeroni;
+};
+
 /**
  * @brief Implement AND and XOR.
  */
@@ -517,6 +521,11 @@ uint<Composer, Native> uint<Composer, Native>::logic_operator(const uint& other,
     }
 
     uint<Composer, Native> result(ctx);
+    Test test;
+//    result.accumulators = logic_accumulators.out;
+    std::vector<uint32_t> accums_out;
+    accums_out = logic_accumulators.out;
+    result.accumulators = accums_out;
     result.accumulators = logic_accumulators.out;
     result.witness_index = result.accumulators[num_accumulators() - 1];
     result.witness_status = WitnessStatus::OK;
