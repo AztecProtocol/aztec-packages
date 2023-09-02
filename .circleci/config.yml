@@ -1157,7 +1157,18 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.test.ts canary docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
+
+  run-deployment-canary-cli:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^v.*/
@@ -1388,7 +1399,6 @@ workflows:
       - deploy-dockerhub:
           requires:
             - e2e-end
-            - aztec-sandbox
           <<: *deploy_defaults
       - deploy-npm:
           requires:
@@ -1412,6 +1422,11 @@ workflows:
           <<: *deploy_defaults
 
       - run-deployment-canary-browser:
+          requires:
+            - build-deployment-canary
+          <<: *deploy_defaults
+
+      - run-deployment-canary-cli:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults

@@ -8,7 +8,7 @@ set -e
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=master
+BRANCH=kw/acvm-0-24
 VERBOSE=$VERBOSE
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)

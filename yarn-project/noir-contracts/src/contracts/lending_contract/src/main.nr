@@ -11,18 +11,6 @@ mod interfaces;
 // - A way to repay all debt at once
 // - Liquidations
 contract Lending {
-    use dep::aztec::{
-        abi,
-        abi::{
-            PrivateContextInputs,
-            PublicContextInputs,
-            Hasher
-        }
-    };
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext
-    };
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use crate::storage::{Storage, Asset};
     use dep::safe_math::SafeU120;
@@ -42,12 +30,12 @@ contract Lending {
     ) {}
 
     #[aztec(public)]
-    open fn init(
+    fn init(
         oracle_address: Field,
         loan_to_value: Field,
         collateral_asset: Field,
         stable_coin: Field,
-    ) {
+    ) -> Field {
         let storage = Storage::init();
         let asset_loc = storage.assets.at(0);
         let asset = asset_loc.read();
@@ -66,13 +54,13 @@ contract Lending {
         storage.collateral_asset.write(collateral_asset);
         storage.stable_coin.write(stable_coin);
 
-        context.return_values.push(1);
+        1
     }
 
     // Create a position.
     // keccak256("update_accumulator()") >> 224 -> 0x1873b536
     #[aztec(public)]
-    open fn update_accumulator() {
+    fn update_accumulator() -> Asset {
         let storage = Storage::init();
 
         let asset_loc = storage.assets.at(0);
@@ -94,7 +82,7 @@ contract Lending {
             asset_loc.write(asset);
         }
 
-        context.return_values.push_array(asset.serialise());
+        asset
     }
 
     // This don't need to be on behalf of self. We should be able to repay on behalf of someone else.
@@ -113,23 +101,24 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn deposit_public(
+    fn deposit_public(
         owner: Field,
         amount: Field,
         collateral_asset: Field,
-    ) {
+    ) -> Field {
         Token::at(collateral_asset).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
         let return_values = context.call_public_function(context.this_address(), 0x08506e50, [owner, amount, collateral_asset]);
-        context.return_values.push(return_values[0]);
+        
+        return_values[0]
     }
 
     #[aztec(public)]
     // keccak256("_deposit(field,field,field)") >> 224 -> 0x08506e50
-    open internal fn _deposit(
+    internal fn _deposit(
         owner: Field,
         amount: Field,
         collateral_asset: Field,
-    ) {
+    ) -> Field {
         let _asset = Lending::at(context.this_address()).update_accumulator(context);
         let storage = Storage::init();
 
@@ -140,7 +129,7 @@ contract Lending {
         let collateral = coll_loc.read();
         coll_loc.write(collateral + amount);
 
-        context.return_values.push(1);
+        1
     }
 
     #[aztec(private)]
@@ -154,22 +143,23 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn withdraw_public(
+    fn withdraw_public(
         to: Field,
         amount: Field,
-    ) {
+    ) -> Field {
         // _withdraw(msg.sender, to, amount);
         let return_values = context.call_public_function(context.this_address(), 0x5af6f634, [context.msg_sender(), to, amount]);
-        context.return_values.push(return_values[0]);
+
+        return_values[0]
     }
 
     // keccak256("_withdraw(field,field,field)") >> 224 -> 0x5af6f634
     #[aztec(public)]
-    open internal fn _withdraw(
+    internal fn _withdraw(
         owner: Field,
         recipient: Field,
         amount: Field
-    ) {
+    ) -> Field {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
@@ -194,7 +184,7 @@ contract Lending {
         let collateral_asset = storage.collateral_asset.read();
         Token::at(collateral_asset).transfer_pub(context, recipient, amount);
 
-        context.return_values.push(1);
+        1
     }
 
     #[aztec(private)]
@@ -209,22 +199,23 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn borrow_public(
+    fn borrow_public(
         to: Field,
         amount: Field
-    ) {
+    ) -> Field {
         // _borrow(msg.sender, to, amount)
         let return_values = context.call_public_function(context.this_address(), 0xceffa31a, [context.msg_sender(), to, amount]);
-        context.return_values.push(return_values[0]);
+        
+        return_values[0]
     }
 
     // keccak256("_borrow(field,field,field)") >> 224 -> 0xceffa31a
     #[aztec(public)]
-    open internal fn _borrow(
+    internal fn _borrow(
         owner: Field,
         to: Field,
         amount: Field
-    ) {
+    ) -> Field {
         let asset = Lending::at(context.this_address()).update_accumulator(context);
         let price = PriceFeed::at(asset.oracle_address).get_price(context);
         
@@ -245,7 +236,7 @@ contract Lending {
         let stable_coin = storage.stable_coin.read();
         Token::at(stable_coin).owner_mint_pub(context, to, amount);
 
-        context.return_values.push(1);
+        1
     }
 
     #[aztec(private)]
@@ -262,20 +253,21 @@ contract Lending {
     }
 
     #[aztec(public)]
-    open fn repay_public(
+    fn repay_public(
         owner: Field,
         amount: Field,
         stable_coin: Field,
-    ) {
+    ) -> Field {
         // Should probably just burn the tokens actually :thinking:
         Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
         let return_values = context.call_public_function(context.this_address(), 0xfa94ab54, [owner, amount, stable_coin]);
-        context.return_values.push(return_values[0]);
+        
+        return_values[0]
     }
 
     // keccak256("_repay(field,field,field)") >> 224 -> 0xfa94ab54
     #[aztec(public)]
-    open internal fn _repay(
+    internal fn _repay(
         owner: Field,
         amount: Field,
         stable_coin: Field,
@@ -291,7 +283,7 @@ contract Lending {
 
         storage.static_debt.at(owner).write(debt_returns.static_debt as Field);
         
-        context.return_values.push(1);
+        1
     }
 
     unconstrained fn get_asset(
