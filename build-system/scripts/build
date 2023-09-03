@@ -35,8 +35,6 @@ echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
 
-init_submodules $REPOSITORY
-
 function fetch_image() {
   echo "Pulling: $1"
   if ! docker pull $1 > /dev/null 2>&1; then
@@ -60,6 +58,8 @@ if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSIT
   untag_remote_image $REPOSITORY tainted
   exit 0
 fi
+
+init_submodules $REPOSITORY
 
 # Validate any terraform if it exists.
 if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
