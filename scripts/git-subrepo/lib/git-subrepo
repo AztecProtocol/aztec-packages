@@ -492,8 +492,7 @@ subrepo:clone() {
     assert-subdir-empty
     if [[ -z $subrepo_branch ]]; then
       o "Determine the upstream head branch."
-      get
-      pstream-head-branch
+      get-upstream-head-branch
       subrepo_branch=$output
     fi
 
