@@ -77,9 +77,9 @@ save_logs: &save_logs
 
 jobs:
   barretenberg-wasm-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -88,9 +88,9 @@ jobs:
           command: cond_spot_run_build barretenberg-wasm-linux-clang 64
 
   barretenberg-x86_64-linux-gcc:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -99,9 +99,9 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-gcc 64
 
   barretenberg-x86_64-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -110,9 +110,9 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-clang 64
 
   barretenberg-x86_64-linux-clang-fuzzing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -121,9 +121,9 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-fuzzing 64
 
   barretenberg-x86_64-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -132,9 +132,9 @@ jobs:
           command: cond_spot_run_build barretenberg-x86_64-linux-clang-assert 64
 
   barretenberg-stdlib-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -144,9 +144,9 @@ jobs:
       - *save_logs
 
   barretenberg-dsl-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -156,9 +156,9 @@ jobs:
       - *save_logs
 
   barretenberg-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -168,9 +168,9 @@ jobs:
       - *save_logs
 
   barretenberg-honk-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -180,9 +180,9 @@ jobs:
       - *save_logs
 
   barretenberg-proof-system-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -192,9 +192,9 @@ jobs:
       - *save_logs
 
   barretenberg-stdlib-recursion-turbo-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -204,9 +204,9 @@ jobs:
       - *save_logs
 
   barretenberg-stdlib-recursion-ultra-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -216,9 +216,9 @@ jobs:
       - *save_logs
 
   barretenberg-join-split-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -228,9 +228,9 @@ jobs:
       - *save_logs
 
   barretenberg-benchmark-aggregator:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - attach_workspace:
           at: /tmp/test-logs
@@ -252,9 +252,9 @@ jobs:
           command: build bb.js
 
   bb-js-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -263,9 +263,9 @@ jobs:
           command: cond_spot_run_tests bb.js
 
   barretenberg-acir-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -274,9 +274,9 @@ jobs:
           command: cond_spot_run_build barretenberg-acir-tests 32
 
   circuits-wasm-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -285,9 +285,9 @@ jobs:
           command: cond_spot_run_build circuits-wasm-linux-clang 64
 
   circuits-wasm-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -296,9 +296,9 @@ jobs:
           command: cond_spot_run_build circuits-wasm-linux-clang-assert 64
 
   circuits-x86_64-linux-clang-tidy:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -307,9 +307,9 @@ jobs:
           command: cond_spot_run_build circuits-x86_64-linux-clang-tidy 64
 
   circuits-x86_64-linux-clang:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -318,9 +318,9 @@ jobs:
           command: cond_spot_run_build circuits-x86_64-linux-clang 64
 
   circuits-x86_64-linux-clang-assert:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -329,9 +329,9 @@ jobs:
           command: cond_spot_run_build circuits-x86_64-linux-clang-assert 64
 
   circuits-wasm-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -341,9 +341,9 @@ jobs:
       - *save_logs
 
   circuits-x86_64-tests:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -355,7 +355,7 @@ jobs:
   circuits-end:
     docker:
       - image: cimg/base:current
-    resource_class: small
+
     steps:
       - run:
           name: "Noop"
@@ -467,9 +467,8 @@ jobs:
           command: build key-store
 
   noir-contracts-build:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -714,9 +713,9 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-sandbox-example:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -725,9 +724,9 @@ jobs:
           command: cond_spot_run_tests end-to-end e2e_sandbox_example.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-multi-transfer-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -820,9 +819,9 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-escrow-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -915,9 +914,9 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-p2p:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -926,9 +925,9 @@ jobs:
           command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
 
   e2e-browser-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -937,9 +936,9 @@ jobs:
           command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
 
   aztec-rpc-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -960,9 +959,9 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-canary-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -973,7 +972,7 @@ jobs:
   e2e-join:
     docker:
       - image: cimg/base:current
-    resource_class: small
+
     steps:
       - run:
           name: "Noop"
@@ -982,7 +981,7 @@ jobs:
   e2e-end:
     docker:
       - image: cimg/base:current
-    resource_class: small
+
     steps:
       - run:
           name: "Noop"
@@ -1129,7 +1128,7 @@ jobs:
   deploy-end:
     docker:
       - image: cimg/base:current
-    resource_class: small
+
     steps:
       - run:
           name: "Noop"
@@ -1147,9 +1146,9 @@ jobs:
           command: build canary true
 
   run-deployment-canary-uniswap:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -1158,9 +1157,9 @@ jobs:
           command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary docker-compose.yml
 
   run-deployment-canary-browser:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
@@ -1169,9 +1168,9 @@ jobs:
           command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
 
   run-deployment-canary-cli:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
+
     steps:
       - *checkout
       - *setup_env
