@@ -15,6 +15,7 @@
 #    successful run. The script will only run if there were relevant code changes since the last successful commit.
 # 3... ARGS: Script to run and args.
 set -e
+set -x
 
 REPOSITORY=$1
 shift
