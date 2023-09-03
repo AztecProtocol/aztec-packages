@@ -33,6 +33,8 @@ else
   BUILD_DIR=build-wasm
 fi
 
+
+
 echo "*** Running Aztec circuits tests on commit: $AZTEC_COMMIT"
 # run tests in docker
 RUN_ARGS="$@" # helper var necessary for some reason to pass all args to docker run
