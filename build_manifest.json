@@ -122,6 +122,13 @@
     ],
     "dependencies": []
   },
+  "docs": {
+    "buildDir": "docs",
+    "rebuildPatterns": [
+      "^docs/"
+    ],
+    "dependencies": []
+  },
   "l1-contracts": {
     "buildDir": "l1-contracts",
     "dockerfile": "Dockerfile",

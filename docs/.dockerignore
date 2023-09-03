@@ -5,9 +5,6 @@
 *Dockerfile
 *.CONTRIBUTING.md
 *.LICENSE
-*/build/
-*/build-wasm/
-*/build-coverage/
 
 # Ignore C++ object files and executables
 *.o
@@ -15,11 +12,13 @@
 *.exe
 *.so
 *.a
-*/build/
-*/Debug/
-*/Release/
-
-/barretenberg/
+build/
+Debug/
+Release/
+circuits/cpp/build/
+circuits/cpp/build-wasm/
+circuits/cpp/build-coverage/
+circuits/cpp/barretenberg/
 
 # Ignore Node.js build artifacts
 */node_modules/
