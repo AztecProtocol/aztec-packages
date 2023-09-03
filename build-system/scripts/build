@@ -1,4 +1,5 @@
 #!/bin/bash
+set -x
 #
 # Builds a docker image and pushes it to it's repository. Leverages caches where possible.
 # Cached images include previous successfully built images (including multi-stages) built on this branch.
