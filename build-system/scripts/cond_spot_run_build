@@ -15,7 +15,7 @@ echo "Content hash: $CONTENT_HASH"
 
 cd $(query_manifest buildDir $REPOSITORY)
 
-if ! check_rebuild "$CONTENT_HASH" $REPOSITORY; then
+if ! check_rebuild cache-$CONTENT_HASH-$SUCCESS_TAG $REPOSITORY; then
   spot_run_script $SPEC $BUILD_SYSTEM_PATH/remote_build/remote_build $REPOSITORY $@
-  tag_remote_image $REPOSITORY cache-$COMMIT_HASH cache-$COMMIT_HASH-$SUCCESS_TAG
+  tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$SUCCESS_TAG
 fi

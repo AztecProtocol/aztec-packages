@@ -2,7 +2,7 @@
 set -e
 
 REPOSITORY=$1
-IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$COMMIT_HASH
+IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
 
 # Login to build region and pull the build.
 ensure_repo $REPOSITORY $ECR_REGION

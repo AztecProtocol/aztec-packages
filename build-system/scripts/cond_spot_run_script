@@ -24,7 +24,7 @@ shift
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
 
-if ! check_rebuild "$CONTENT_HASH" $REPOSITORY; then
+if ! check_rebuild cache-$CONTENT_HASH-$SUCCESS_TAG $REPOSITORY; then
   spot_run_script $@
   tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$SUCCESS_TAG
 fi

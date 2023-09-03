@@ -1,10 +1,10 @@
 #!/bin/bash
-# Returns true if the file at path has changed since the LAST_SUCCESSFUL_COMMIT.
-LAST_SUCCESSFUL_COMMIT=$1
+# Returns true if the file at path has changed since the CONTENT_HASH.
+CONTENT_HASH=$1
 
 [ -n "$COMMIT_HASH" ] || exit 1
 
-if git diff --name-only $LAST_SUCCESSFUL_COMMIT $COMMIT_HASH | grep -q $2; then
+if git diff --name-only $CONTENT_HASH $COMMIT_HASH | grep -q $2; then
   exit 0
 else
   exit 1
