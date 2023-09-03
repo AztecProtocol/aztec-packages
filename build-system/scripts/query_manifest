@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-set -x
+set -xe
+set -xx
 CMD=$1
 REPO=$2
 

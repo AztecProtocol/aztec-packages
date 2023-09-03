@@ -1,7 +1,7 @@
 #!/bin/bash
 # Erase the image tag associated with the last commit for the given repository.
 # If TILL_COMMIT_HASH is given, erase tags going back in time until we reach TILL_COMMIT_HASH.
-set -e
+set -xe
 
 REPOSITORY=$1
 TILL_COMMIT_HASH=$2

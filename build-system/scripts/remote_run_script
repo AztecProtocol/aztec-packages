@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 IP=$1
 CONTENT_HASH=$2

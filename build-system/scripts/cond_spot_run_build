@@ -1,6 +1,6 @@
 #!/bin/bash
-set -e
-set -o pipefail
+set -xe
+set -xo pipefail
 
 REPOSITORY=$1
 shift

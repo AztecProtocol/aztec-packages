@@ -2,7 +2,7 @@
 # Runs a test script on a remote spot instance. Arguments are:
 # 1. SPEC: Instance specification filename.
 # 2... ARGS: Arguments to pass to remote_run_script.
-set -e
+set -xe
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 
