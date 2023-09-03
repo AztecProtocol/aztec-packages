@@ -7,7 +7,7 @@
 # how nice Bash can be.
 #------------------------------------------------------------------------------
 
-set -e -u -o pipefail
+set -xe -u -o pipefail
 [[ $BASH_VERSION == 4.0* ]] && set +u
 
 run=0

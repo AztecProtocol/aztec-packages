@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 # Clean.
 rm -rf ./build

@@ -7,7 +7,7 @@
 # shellcheck disable=1090,1091,2034
 
 # Exit on any errors:
-set -eu
+set -xeu
 
 export FILTER_BRANCH_SQUELCH_WARNING=1
 

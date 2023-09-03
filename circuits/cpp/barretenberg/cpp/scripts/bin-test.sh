@@ -1,6 +1,6 @@
 #!/bin/bash
 # Executes the bb binary test script.
-set -eu
+set -xeu
 
 $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 REPOSITORY=barretenberg-x86_64-linux-clang-assert

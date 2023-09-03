@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 REPOSITORY=$1
 # A global deploy, doesn't namespace under a deploy tag (e.g. company website, metrics)

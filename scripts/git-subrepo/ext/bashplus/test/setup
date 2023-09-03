@@ -7,7 +7,7 @@
 # how nice Bash can be.
 #------------------------------------------------------------------------------
 
-set -e -o pipefail
+set -xe -o pipefail
 
 PATH=$PWD/bin:$PATH
 

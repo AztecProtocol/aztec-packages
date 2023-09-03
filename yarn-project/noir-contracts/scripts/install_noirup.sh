@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to install noirup and the latest nargo
-set -eu
+set -xeu
 
 SPECIFIED_HOME=${1:-$HOME}
 

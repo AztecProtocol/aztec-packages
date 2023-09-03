@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 readonly LOCAL_VERSION=$(node -pe "require('./package.json').version")
 readonly PACKAGE_NAME=${1:-./}

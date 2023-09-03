@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 REPOSITORY=$1
 shift

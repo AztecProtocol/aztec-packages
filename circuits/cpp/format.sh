@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 if [ "$1" == "staged" ]; then
   echo Formatting staged files...

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 readonly REPOSITORY=$1
 readonly STANDALONE=$2

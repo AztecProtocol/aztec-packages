@@ -2,7 +2,7 @@
 # Fails if any files matching the rebuild patterns, have changed since the base commit.
 # If this script fails (nonzero exit), then the caller should rebuild.
 # The rebuild patterns are taken from the build manifest (computed from set of dependencies).
-set -euo pipefail
+set -xeuo pipefail
 
 TAG=$1
 REPOSITORY=$2

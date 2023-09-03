@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to install noirup and the latest aztec nargo
-set -eu
+set -xeu
 
 VERSION="aztec"
 

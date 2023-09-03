@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail;
+set -xeuo pipefail;
 
 target_dir=./generated
 

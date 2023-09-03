@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 # Redeploy service with latest image.
 SERVICE_NAME=$1

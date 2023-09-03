@@ -1,5 +1,5 @@
 #! /bin/bash
-set -eu
+set -xeu
 export DEBUG='aztec:*'
 export ARCHIVER_POLLING_INTERVAL=500
 export P2P_CHECK_INTERVAL=50
