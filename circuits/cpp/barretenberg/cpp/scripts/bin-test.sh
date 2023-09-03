@@ -4,11 +4,8 @@ set -eu
 
 $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 
-export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
-REPOSITORY=barretenberg-x86_64-linux-clang-assert
-CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
-IMAGE_URI=278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPOSITORY:cache-$CONTENT_HASH
-
+# use the image rebuild patterns to compute a content hash, use this to get a URI
+IMAGE_URI=$($(git rev-parse --show-toplevel)/build-system/scripts/calculate_image_uri barretenberg-x86_64-linux-clang-assert)
 docker pull $IMAGE_URI
 
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
