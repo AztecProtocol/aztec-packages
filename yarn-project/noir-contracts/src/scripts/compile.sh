@@ -7,7 +7,7 @@
 # yarn noir:build private_token ecdsa_account
 
 # Enable strict mode:
-# Exit on error (set -xe), treat unset variables as an error (set -u),
+# Exit on error (set -e), treat unset variables as an error (set -u),
 # and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
 set -euo pipefail;
 
