@@ -1,7 +1,7 @@
 set(CMAKE_SYSTEM_NAME Darwin)
 set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # Clang allows us to cross compile on Mac
     # so we explicitly specify the arch to the compiler
     # If you just select the arch toolchain and are on an
