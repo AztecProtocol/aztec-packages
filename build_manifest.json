@@ -305,6 +305,7 @@
       "aztec-sandbox",
       "aztec.js",
       "circuits.js",
+      "cli",
       "ethereum",
       "foundation",
       "l1-artifacts",
