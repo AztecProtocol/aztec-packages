@@ -127,8 +127,8 @@
     "dockerfile": "docs/Dockerfile",
     "rebuildPatterns": [
       "^docs/",
-      "^.*\\.cpp",
-      "^.*\\.ts"
+      "^.*.cpp^",
+      "^.*.ts^"
     ],
     "dependencies": []
   },
