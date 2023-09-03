@@ -6,6 +6,7 @@ set -e
 export TEST=$1
 export COMPOSE_FILE=${2:-./scripts/docker-compose.yml}
 
+
 if [ -n "$COMMIT_HASH" ]; then
   aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 278380418400.dkr.ecr.us-east-2.amazonaws.com
 

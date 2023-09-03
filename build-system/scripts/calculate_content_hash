@@ -1,6 +1,7 @@
 #!/bin/bash
 
 REPOSITORY=$1
+COMMIT_HASH=${2:-$COMMIT_HASH}
 
 # Compute REBUILD_PATTERNS from the build manifest
 REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
