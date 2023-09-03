@@ -25,12 +25,21 @@ parameters:
     default: "system"
 
 # This build step checks out the code from the repository. It has a hardcoded readonly key to allow the checkout.
-# Initially it just fetches the repo metadata for the current commit hash to a depth of 1 commit.
+# Initially it just fetches the repo metadata for the current commit hash to a depth of 50 commits.
+# We need historical commit hashes to calculate diffs between previous and current commits.
 # It then checks out the fetched head to actually download the data.
 checkout: &checkout
   run:
     name: "Checkout code"
     command: |
+      function retry_10() {
+        # Retries up to 10 times with 10 second intervals
+        for i in $(seq 1 10); do
+          "$@" && return || sleep 10
+        done
+        echo "$@ failed after 10 attempts"
+        exit 1
+      }
       cd $HOME
       mkdir -p .ssh
       chmod 0700 .ssh
@@ -50,13 +59,6 @@ checkout: &checkout
       # Only download metadata when fetching.
       retry_10 git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
-
-# checkout_submodules: &checkout_submodules
-#   run:
-#     name: "Checkout code"
-#     command: |
-#       # Initialize submodules recursively (retry 10 times on failure)
-#       retry_10 git submodule update --init --recursive
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
