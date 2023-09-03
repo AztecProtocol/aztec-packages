@@ -1,0 +1,21 @@
+#!/bin/bash
+
+REPOSITORY=$1
+
+# Compute REBUILD_PATTERNS from the build manifest, also printing it to the terminal (/dev/tty).
+echo "Rebuild patterns:"
+REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY | tee /dev/tty)
+
+git ls-files -s ${COMMIT_HASH} | while read -r line; do
+  # an example line is
+  #   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
+  # this format is beneficial as it grabs the hashes from git efficiently
+  # we will next filter by our rebuild patterns 
+  # then we pipe the hash portion of each file to git hash-object to produce our content hash
+  for pattern in $REBUILD_PATTERNS; do
+    if [[ "$filepath" =~ $pattern ]]; then
+      echo "$line"
+      break
+    fi
+  done
+done | git hash-object --stdin

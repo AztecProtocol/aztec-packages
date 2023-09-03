@@ -49,19 +49,19 @@ function fetch_image() {
 # Ensure ECR repository exists.
 ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 
-LAST_SUCCESSFUL_COMMIT=$(last_successful_commit $REPOSITORY)
-echo "Last successful commit: $LAST_SUCCESSFUL_COMMIT"
+CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
+echo "Content hash: $CONTENT_HASH"
 
 cd $BUILD_DIR
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
-if [[ $FORCE_BUILD == 'false' ]] && check_rebuild "$LAST_SUCCESSFUL_COMMIT" $REPOSITORY; then
+if [[ $FORCE_BUILD == 'false' ]] && check_rebuild "$CONTENT_HASH" $REPOSITORY; then
   echo "No rebuild necessary. Retagging..."
   STAGES=$(cat $DOCKERFILE | sed -n -e 's/^FROM .* AS \(.*\)/\1/p')
   for STAGE in $STAGES; do
-    tag_remote_image $REPOSITORY cache-$LAST_SUCCESSFUL_COMMIT-$STAGE cache-$COMMIT_HASH-$STAGE || true
+    tag_remote_image $REPOSITORY cache-$CONTENT_HASH-$STAGE cache-$COMMIT_HASH-$STAGE || true
   done
-  tag_remote_image $REPOSITORY cache-$LAST_SUCCESSFUL_COMMIT cache-$COMMIT_HASH
+  tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$COMMIT_HASH
   untag_remote_image $REPOSITORY tainted
   exit 0
 fi
