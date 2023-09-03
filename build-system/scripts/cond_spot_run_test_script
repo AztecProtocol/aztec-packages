@@ -5,8 +5,6 @@ REPOSITORY=$2
 shift
 shift
 
-init_submodules $REPOSITORY
-
 cd $(query_manifest projectDir $REPOSITORY)
 
 mkdir -p /tmp/test-logs
