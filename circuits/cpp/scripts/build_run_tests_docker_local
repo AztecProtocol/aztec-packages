@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -xeu
 
 # To be called only LOCALLY for testing WITH docker.
 # Builds a docker image and runs tests in it.

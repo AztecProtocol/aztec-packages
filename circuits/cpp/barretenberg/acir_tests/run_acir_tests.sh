@@ -3,7 +3,7 @@
 #   BB: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 
-set -xe
+set -xeu
 
 BB=$PWD/${BB:-../cpp/build/bin/bb}
 CRS_PATH=~/.bb-crs
@@ -54,7 +54,7 @@ function test() {
     $BB prove_and_verify -c $CRS_PATH -b ./target/$dir_name.bytecode > /dev/null 2>&1
   fi
   result=$?
-  set -xe
+  set -xeu
 
   if [ $result -eq 0 ]; then
     echo -e "\033[32mPASSED\033[0m"

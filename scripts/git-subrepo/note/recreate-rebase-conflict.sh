@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -xeu
 set -x
 
 # Make a directory to work in:

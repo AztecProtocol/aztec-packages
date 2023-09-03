@@ -1,4 +1,4 @@
 #!/bin/bash
-set -xe
+set -xeu
 
 cond_spot_run_test_script ./scripts/run_tests $@

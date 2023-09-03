@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+set -xeu
 
 if dpkg -s $1 &> /dev/null; then
   exit 0
