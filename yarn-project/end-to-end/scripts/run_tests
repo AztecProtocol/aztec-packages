@@ -6,7 +6,6 @@ set -e
 export TEST=$1
 export COMPOSE_FILE=${2:-docker-compose.yml}
 
-CONTENT_HASH=$(calculate_content_hash $REPO)
 $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 
 for REPO in aztec.js end-to-end aztec-sandbox; do
