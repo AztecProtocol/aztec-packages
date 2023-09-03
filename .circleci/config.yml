@@ -985,9 +985,6 @@ jobs:
       - run:
           name: "Build docs"
           command: build docs
-      - run:
-          name: "Remove dockerignore"
-          command: rm .dockerignore
 
   e2e-join:
     docker:
