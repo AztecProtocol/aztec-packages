@@ -7,7 +7,7 @@ export TEST=$1
 export COMPOSE_FILE=${2:-./scripts/docker-compose.yml}
 REPOSITORY=barretenberg-x86_64-linux-clang-assert
 # use the image rebuild patterns to compute a content hash, use this to get a URI
-IMAGE_URI=$(calculate_image_uri $REPOSITORY)
+IMAGE_URI="278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPOSITORY:cache-$CONTENT_HASH"
 docker pull $IMAGE_URI
 
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 278380418400.dkr.ecr.us-east-2.amazonaws.com
