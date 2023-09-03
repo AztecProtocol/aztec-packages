@@ -48,7 +48,7 @@ function test() {
   cd $1
 
   set +e
-  if [ -n "$VERBOSE" ]; then
+  if [ -n "${VERBOSE:-}" ]; then
     $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
   else
     $BB prove_and_verify -c $CRS_PATH -b ./target/$dir_name.bytecode > /dev/null 2>&1
