@@ -1,5 +1,5 @@
 #!/bin/sh
-set -xeu
+set -eu
 
 export FOUNDRY_DIR="$PWD/.foundry"
 FOUNDRY_BIN_DIR="$FOUNDRY_DIR/bin"

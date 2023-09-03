@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 REPOSITORY=$1
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH

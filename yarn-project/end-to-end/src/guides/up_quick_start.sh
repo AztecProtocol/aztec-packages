@@ -1,7 +1,7 @@
 # Run locally from end-to-end folder while running anvil and sandbox with:
 # PATH=$PATH:../node_modules/.bin ./src/guides/up_quick_start.sh
 
-set -xeux
+set -eux
 
 # docs:start:declare-accounts
 ALICE="0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360"

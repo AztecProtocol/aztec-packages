@@ -1,4 +1,4 @@
-set -xeu
+set -eu
 # Retries up to 10 times with 10 second intervals
 for i in $(seq 1 10); do
     "$@" && exit || sleep 10

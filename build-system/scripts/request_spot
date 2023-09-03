@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 NAME=$1
 CPUS=${2:-32}

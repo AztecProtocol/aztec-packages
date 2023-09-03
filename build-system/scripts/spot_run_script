@@ -3,7 +3,7 @@
 # 1. Content hash for our repository contents. Used for identify spot jobs and image tags.
 # 2. SPEC: Instance specification filename.
 # 3... ARGS: Arguments to pass to remote_run_script.
-set -xeu
+set -eu
 CONTENT_HASH=$1
 SPEC=$2
 shift 2

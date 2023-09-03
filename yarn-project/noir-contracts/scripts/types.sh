@@ -8,7 +8,7 @@
 
 # Enable strict mode:
 # Exit on error (set -xe), treat unset variables as an error (set -u),
-set -xeu;
+set -eu;
 
 artifacts_dir="src/artifacts"
 types_dir="src/types"

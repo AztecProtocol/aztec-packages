@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 # Usage: ./this.sh <branch> <commit_message>
 # Script for migrating PRs from barretenberg repo to aztec-packages.

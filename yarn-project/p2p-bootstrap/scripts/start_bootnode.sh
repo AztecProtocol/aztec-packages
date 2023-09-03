@@ -1,5 +1,5 @@
 #! /bin/bash
-set -xeu
+set -eu
 
 cd ..
 export P2P_TCP_LISTEN_PORT=40400

@@ -3,7 +3,7 @@
 #   BB: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
 
-set -xeu
+set -eu
 
 BB=$PWD/${BB:-../cpp/build/bin/bb}
 CRS_PATH=~/.bb-crs

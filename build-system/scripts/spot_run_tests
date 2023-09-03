@@ -1,4 +1,4 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 spot_run_test_script ./scripts/run_tests $@

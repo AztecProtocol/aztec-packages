@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2013-2020. Ingy döt Net.
 
-set -xe -u -o pipefail
+set -e -u -o pipefail
 
 # shellcheck disable=2034
 Test__More_VERSION=0.0.5

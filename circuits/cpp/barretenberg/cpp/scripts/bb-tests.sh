@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script runs all test suites that have not been broken out into their own jobs for parallelisation.
 # Might be better to list exclusions here rather than inclusions as risky to maintain.
-set -xeu
+set -eu
 
 $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 REPOSITORY=barretenberg-x86_64-linux-clang-assert

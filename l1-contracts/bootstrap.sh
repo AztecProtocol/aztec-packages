@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 cd "$(dirname "$0")"
 
