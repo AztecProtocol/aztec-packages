@@ -15,7 +15,7 @@ git ls-tree -r ${COMMIT_HASH} | while read -r line; do
   # we will next filter by our rebuild patterns 
   # then we pipe the hash portion of each file to git hash-object to produce our content hash
   for pattern in $REBUILD_PATTERNS; do
-    if [[ "$filepath" =~ $pattern ]]; then
+    if [[ "$line" =~ $pattern ]]; then
       echo "$line"
       break
     fi
