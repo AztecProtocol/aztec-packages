@@ -68,7 +68,7 @@ function test() {
   cd ..
 }
 
-if [ -n "{$1:-}" ]; then
+if [ -n "${1:-}" ]; then
   test $1
 else
   for DIR in $(find -maxdepth 1 -type d -not -path '.'); do
