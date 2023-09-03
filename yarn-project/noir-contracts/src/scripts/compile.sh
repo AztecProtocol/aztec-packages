@@ -9,7 +9,7 @@
 # Enable strict mode:
 # Exit on error (set -xe), treat unset variables as an error (set -u),
 # and propagate the exit status of the first failing command in a pipeline (set -o pipefail).
-set -xeuo pipefail;
+set -euo pipefail;
 
 # Run build scripts
 ./scripts/compile.sh "$@"

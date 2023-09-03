@@ -14,7 +14,7 @@
 # 2. SUCCESS_TAG: To track if this job needs to be run, the repository image is tagged with a prefix after a
 #    successful run. The script will only run if there were relevant code changes since the last successful commit.
 # 3... ARGS: Arguments to pass to spot_run_script.
-set -xeu
+set -eu
 
 REPOSITORY=$1
 shift

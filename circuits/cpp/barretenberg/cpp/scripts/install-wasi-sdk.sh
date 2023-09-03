@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 # Clean.
 rm -rf ./src/wasi-sdk-*

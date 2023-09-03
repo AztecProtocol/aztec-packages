@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 SCRIPT_PATH=$1
 REPOSITORY=$2
 shift
@@ -9,7 +9,7 @@ cd $(query_manifest projectDir $REPOSITORY)
 
 mkdir -p /tmp/test-logs
 
-set -xo pipefail
+set -o pipefail
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"

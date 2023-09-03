@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 #find ./cpp/src -type f -name "c_bind*.hpp" | ./scripts/decls_json.py > exports.json
 cat ./scripts/c_bind_files.txt | ./scripts/decls_json.py > exports.json

@@ -16,7 +16,7 @@
 #   cd yarn-project/end-to-end
 #   ONLY_TARGET=false ../../bootstrap_docker.sh
 
-set -xe
+set -e
 
 TARGET_PROJECT=$1
 COMMIT_HASH=$(git rev-parse HEAD)

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Downloads and installs `terraform` if it's not installed.
-set -xeu
+set -eu
 
 [ ! -f /usr/local/bin/terraform ] || exit 0
 

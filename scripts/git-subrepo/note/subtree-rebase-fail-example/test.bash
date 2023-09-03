@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xex
+set -ex
 
 rm -fr repo{1,2,3}
 mkdir repo{1,2}

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xeu
+set -eu
 
 ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 

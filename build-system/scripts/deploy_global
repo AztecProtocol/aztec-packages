@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deployment script for global service (e.g. company website and metrics).
-set -xeu
+set -eu
 
 REPOSITORY=$1
 
