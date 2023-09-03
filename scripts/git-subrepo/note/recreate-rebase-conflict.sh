@@ -43,7 +43,7 @@ set -x
   # commit:
   git rebase master subrepo-fake || true
 
-  # Command fails on conflict but `|| true` prevents `set -xe` from stopping
+  # Command fails on conflict but `|| true` prevents `set -e` from stopping
   # here.
 
   # Show the current branch status:
