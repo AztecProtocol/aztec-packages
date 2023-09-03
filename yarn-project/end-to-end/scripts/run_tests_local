@@ -1,19 +1,16 @@
 #!/bin/bash
 # This script is used to run an e2e test in CI (see config.yml and cond_run_script).
 # It sets a few environment variables used inside the docker-compose.yml, pulls images, and runs docker-compose.
-set -xeu
+set -e
 
 export TEST=$1
 export COMPOSE_FILE=${2:-./scripts/docker-compose.yml}
-REPOSITORY=barretenberg-x86_64-linux-clang-assert
-# use the image rebuild patterns to compute a content hash, use this to get a URI
-IMAGE_URI="278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPOSITORY:cache-$CONTENT_HASH"
+
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 278380418400.dkr.ecr.us-east-2.amazonaws.com
-docker pull $IMAGE_URI
 
 for REPO in end-to-end; do
-  docker pull $IMAGE_URI
-  docker tag $IMAGE_URI aztecprotocol/$REPO:latest
+  docker pull 278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPO:cache-$CONTENT_HASH
+  docker tag 278380418400.dkr.ecr.us-east-2.amazonaws.com/$REPO:cache-$CONTENT_HASH aztecprotocol/$REPO:latest
 done
 
 docker-compose -f $COMPOSE_FILE rm -f
