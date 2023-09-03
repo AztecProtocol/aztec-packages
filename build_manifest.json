@@ -123,7 +123,8 @@
     "dependencies": []
   },
   "docs": {
-    "buildDir": "docs",
+    "buildDir": ".",
+    "dockerfile": "docs/Dockerfile",
     "rebuildPatterns": [
       "^docs/"
     ],
