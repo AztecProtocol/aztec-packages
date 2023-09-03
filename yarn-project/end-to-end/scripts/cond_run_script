@@ -14,7 +14,7 @@
 # 2. SUCCESS_TAG: To track if this job needs to be run, the repository image is tagged with a success tag after a
 #    successful run. The script will only run if there were relevant code changes since the last successful commit.
 # 3... ARGS: Script to run and args.
-set -xe
+set -xeu
 set -x
 
 REPOSITORY=$1
@@ -24,10 +24,11 @@ shift
 SCRIPT_TO_RUN=$1
 shift
 
+CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
 echo "Script to run is $SCRIPT_TO_RUN $@"
 
 if ! check_rebuild cache-$CONTENT_HASH-$SUCCESS_TAG $REPOSITORY; then
-  "$SCRIPT_TO_RUN" "$@"
+  CONTENT_HASH="$CONTENT_HASH" "$SCRIPT_TO_RUN" "$@"
   tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$SUCCESS_TAG
 fi
