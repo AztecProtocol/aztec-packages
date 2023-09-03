@@ -8,17 +8,10 @@ COMMIT_HASH=${2:-$COMMIT_HASH}
 # Compute REBUILD_PATTERNS from the build manifest
 REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
 
-git ls-tree -r ${COMMIT_HASH} | while read -r line; do
-  # an example line is
-  #   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
-  # this format is beneficial as it grabs the hashes from git efficiently
-  # we will next filter by our rebuild patterns 
-  # then we pipe the hash portion of each file to git hash-object to produce our content hash
-  filepath=$(echo "$line" | awk '{print $4}')
-  for pattern in $REBUILD_PATTERNS; do
-    if [[ "$filepath" =~ $pattern ]]; then
-      echo "$line"
-      break
-    fi
-  done
-done | git hash-object --stdin
+AWK_PATTERN=$(echo $REBUILD_PATTERNS | sed 's/ /|/g')
+# an example line is
+#   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
+# this format is beneficial as it grabs the hashes from git efficiently
+# we will next filter by our rebuild patterns 
+# then we pipe the hash portion of each file to git hash-object to produce our content hash
+git ls-tree -r HEAD | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | git hash-object --stdin

@@ -1265,10 +1265,10 @@ workflows:
             - barretenberg-stdlib-recursion-turbo-tests
             - barretenberg-stdlib-recursion-ultra-tests
             - barretenberg-join-split-tests
-          filters:
-            branches:
-              only:
-                - master
+          # filters:
+          #   branches:
+          #     only:
+          #       - master
           <<: *defaults
       - bb-js:
           requires:
@@ -1458,4 +1458,3 @@ workflows:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
-
