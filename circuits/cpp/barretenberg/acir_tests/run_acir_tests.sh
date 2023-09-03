@@ -11,7 +11,7 @@ BRANCH=kw/acvm-0-24
 
 # Pull down the test vectors from the noir repo, if we don't have the folder already.
 if [ ! -d acir_tests ]; then
-  if [ -n "$TEST_SRC" ]; then
+  if [ -n "${TEST_SRC:-}" ]; then
     cp -R $TEST_SRC acir_tests
   else
     rm -rf noir
