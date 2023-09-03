@@ -4,8 +4,6 @@ REPOSITORY=$1
 
 # Compute REBUILD_PATTERNS from the build manifest
 REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
-echo "Rebuild patterns:"
-echo $REBUILD_PATTERNS
 
 git ls-files -s ${COMMIT_HASH} | while read -r line; do
   # an example line is
