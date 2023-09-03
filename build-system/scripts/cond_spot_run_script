@@ -26,6 +26,6 @@ echo "Content hash: $CONTENT_HASH"
 
 if ! check_rebuild cache-$CONTENT_HASH-$SUCCESS_TAG $REPOSITORY; then
   init_submodules $REPOSITORY
-  spot_run_script $@
+  spot_run_script $CONTENT_HASH $@
   tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$SUCCESS_TAG
 fi
