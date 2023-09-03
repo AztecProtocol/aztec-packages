@@ -7,11 +7,6 @@
 *.LICENSE
 
 # Ignore C++ object files and executables
-*.o
-*.out
-*.exe
-*.so
-*.a
 build/
 Debug/
 Release/
