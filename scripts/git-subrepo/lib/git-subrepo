@@ -1902,7 +1902,7 @@ RUN() {
     fi
   fi
   rc=$?
-  set -xeu
+  set -eu
 
   if [[ $rc -ne 0 ]]; then
     OK=false
