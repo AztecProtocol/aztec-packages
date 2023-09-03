@@ -8,7 +8,7 @@ TAG=$1
 REPOSITORY=$2
 
 # If given nothing, then exit with failure to rebuild
-[ -n "$CONTENT_HASH" ] || exit 1
+[ -n "$TAG" ] || exit 1
 
 if ! image_exists $REPOSITORY $TAG; then
   echo "Rebuild required."
