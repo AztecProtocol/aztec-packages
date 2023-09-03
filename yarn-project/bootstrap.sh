@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 # Navigate to script folder
 cd "$(dirname "$0")"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -xex
 cat $0    # Show this script in the output
 
 REPO=${1:-ingydotnet/djson-pm}

@@ -3,7 +3,7 @@
 # 1. The number of ignition transcripts to download.
 # 2. The set of gtest binary names to run.
 # 3-n. The arguments to pass to the gtest binaries.
-set -e
+set -xe
 
 NUM_TRANSCRIPTS=$1
 TESTS=$2
@@ -22,7 +22,7 @@ if [ -f "$TESTS" ]; then
 fi
 
 docker run --rm -t $IMAGE_URI /bin/sh -c "\
-  set -e; \
+  set -xe; \
   cd /usr/src/barretenberg/cpp/srs_db; \
   ./download_ignition.sh $NUM_TRANSCRIPTS; \
   cd /usr/src/barretenberg/cpp/build; \

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 # To be called from CI for testing with docker and AWS.
 # Can't be called locally unless AWS credentials are set up.
@@ -32,7 +32,7 @@ docker pull $IMAGE_URI
 # run tests in docker image
 RUN_ARGS="$@" # helper var necessary for some reason to pass all args to docker run
 time docker run --rm -t $IMAGE_URI /bin/sh -c "\
-  set -e; \
+  set -xe; \
   cd /usr/src/circuits/cpp/barretenberg/cpp/srs_db; \
   ln -sf /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/srs_db; \
   ./download_ignition.sh $NUM_TRANSCRIPTS; \

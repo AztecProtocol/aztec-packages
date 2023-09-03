@@ -1,5 +1,5 @@
 #!bin/bash
-set -e
+set -xe
 
 # To be called LOCALLY for testing WITHOUT docker.
 #

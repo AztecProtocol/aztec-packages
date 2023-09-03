@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -xeu
 
 # Script for running after updating the working copy with remote changes.
 # Similar to bootstrap, but more lightweight and oriented towards working on end-to-end.

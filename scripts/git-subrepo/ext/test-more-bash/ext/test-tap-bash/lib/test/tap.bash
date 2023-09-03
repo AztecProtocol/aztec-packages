@@ -6,7 +6,7 @@
 Test::Tap:die() { echo "$@" >&2; trap EXIT; exit 1; }
 #------------------------------------------------------------------------------
 
-set -e -u -o pipefail
+set -xe -u -o pipefail
 [[ ${BASH_VERSION-} == 4.0* ]] && set +u
 
 # shellcheck disable=2034

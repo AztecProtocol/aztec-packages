@@ -7,8 +7,8 @@
 # - you can run `yarn noir:types:all` to create all noir artifacts and types consumed by aztec packages.
 
 # Enable strict mode:
-# Exit on error (set -e), treat unset variables as an error (set -u),
-set -eu;
+# Exit on error (set -xe), treat unset variables as an error (set -u),
+set -xeu;
 
 artifacts_dir="src/artifacts"
 types_dir="src/types"

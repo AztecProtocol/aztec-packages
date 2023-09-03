@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 # Run clang-tidy on all C++ source files
 #

@@ -7,7 +7,7 @@
 # shellcheck disable=1090,1091,2034
 
 # Exit on any errors:
-set -e
+set -xe
 
 export FILTER_BRANCH_SQUELCH_WARNING=1
 
@@ -1902,7 +1902,7 @@ RUN() {
     fi
   fi
   rc=$?
-  set -e
+  set -xe
 
   if [[ $rc -ne 0 ]]; then
     OK=false

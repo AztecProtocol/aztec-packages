@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -xe
 
 AZTEC_GITHUB_TOKEN=$1
 

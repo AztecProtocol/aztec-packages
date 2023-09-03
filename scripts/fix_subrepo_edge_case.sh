@@ -6,7 +6,7 @@
 # in the face of e.g. a .gitrepo whitespace change, but it's a fallback, 
 # we only have this issue in master, and the file should only be edited
 # generally by subrepo commands.
-set -eu
+set -xeu
 
 SUBREPO_PATH="${1:-}"
 echo "Auto-fixing squashed parent in $SUBREPO_PATH/.gitrepo."

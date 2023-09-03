@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -xex
 
 # Make a directory to work in:
 {

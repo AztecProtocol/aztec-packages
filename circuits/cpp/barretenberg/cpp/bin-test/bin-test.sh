@@ -1,6 +1,6 @@
 #!/bin/sh
 # Script is assumed to be run from
-set -eu
+set -xeu
 
 bb() {
   ../build/bin/bb "$@" -v
