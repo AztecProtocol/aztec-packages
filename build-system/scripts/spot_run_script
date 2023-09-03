@@ -4,10 +4,12 @@
 # 2... ARGS: Arguments to pass to remote_run_script.
 set -e
 
+CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
+
 # On any sort of exit (error or not), kill spot request so it doesn't count against quota.
 function on_exit {
-    if [ -f "sir-$COMMIT_HASH:$JOB_NAME.txt" ]; then
-        SIR=$(cat sir-$COMMIT_HASH:$JOB_NAME.txt)
+    if [ -f "sir-$CONTENT_HASH:$JOB_NAME.txt" ]; then
+        SIR=$(cat sir-$CONTENT_HASH:$JOB_NAME.txt)
         echo "Cancelling spot instance request $SIR (silently)"
         aws ec2 cancel-spot-instance-requests --spot-instance-request-ids $SIR >/dev/null 2>&1 || true
     fi
@@ -18,11 +20,11 @@ SPEC=$1
 shift
 
 # Get spot instance.
-IP=$(request_spot $COMMIT_HASH:$JOB_NAME $SPEC)
+IP=$(request_spot $CONTENT_HASH:$JOB_NAME $SPEC)
 
 # Run script remotely on spot instance, capturing success or failure.
 set +e
-remote_run_script $IP $@
+remote_run_script $IP $CONTENT_HASH $@
 CODE=$?
 
 # Shutdown spot.

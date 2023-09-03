@@ -25,10 +25,10 @@ shift
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 
-echo "Last successful commit for $SUCCESS_TAG: $CONTENT_HASH"
+echo "Content: $CONTENT_HASH"
 echo "Script to run is $SCRIPT_TO_RUN $@"
 
-if ! check_rebuild cache-$COMMIT_HASH-$SUCCESS_TAG $REPOSITORY; then
+if ! check_rebuild cache-$CONTENT_HASH-$SUCCESS_TAG $REPOSITORY; then
   "$SCRIPT_TO_RUN" "$@"
-  tag_remote_image $REPOSITORY cache-$COMMIT_HASH cache-$COMMIT_HASH-$SUCCESS_TAG
+  tag_remote_image $REPOSITORY cache-$CONTENT_HASH cache-$CONTENT_HASH-$SUCCESS_TAG
 fi
