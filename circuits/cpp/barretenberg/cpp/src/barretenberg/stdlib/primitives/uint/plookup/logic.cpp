@@ -315,6 +315,7 @@ uint_plookup<Composer, Native> uint_plookup<Composer, Native>::logic_operator(co
          **/
 
         if (i != (num_accumulators() - 1)) {
+
             result.accumulators.emplace_back(
                 (lookup[ColumnIdx::C3][2 * i] - (lookup[ColumnIdx::C3][2 * (i + 1)] * scaling_factor)).witness_index);
         } else {
