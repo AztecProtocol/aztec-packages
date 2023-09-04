@@ -19,5 +19,5 @@ elif image_exists $REPOSITORY tainted; then
   exit 1
 else
   echo "No rebuild required."
-  exit 1
+  exit 0
 fi
