@@ -21,6 +21,7 @@ def has_associated_manifest_job(circleci_job, manifest_names):
                 return True
     return False
 
+
 def get_already_built_circleci_job_names(circleci_jobs):
     manifest_names = list(get_already_built_manifest_job_names())
     for job_name, circleci_job in circleci_jobs.items():
