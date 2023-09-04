@@ -1,24 +1,14 @@
 #pragma once
-#include "relation_parameters.hpp"
 #include <array>
-#include <span>
 #include <tuple>
 
-// forward-declare Polynomial so we can use in a concept
-namespace barretenberg {
-template <typename FF> class Polynomial;
-}
+#include "../polynomials/univariate.hpp"
+#include "relation_parameters.hpp"
+
 namespace proof_system::honk::sumcheck {
-
-template <typename FF, size_t Length> class Univariate;
-template <typename FF, size_t Length> class UnivariateView;
-
-template <typename T, size_t subrelation_idx> concept HasSubrelationLinearlyIndependentMember = requires(T)
+template <typename T> concept HasSubrelationLinearlyIndependentMember = requires(T)
 {
-    {
-        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
-    }
-    ->std::convertible_to<bool>;
+    T::Relation::SUBRELATION_LINEARLY_INDEPENDENT;
 };
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
@@ -39,7 +29,7 @@ template <typename T, size_t subrelation_idx> concept HasSubrelationLinearlyInde
  * @brief Getter method that will return `input[index]` iff `input` is a std::span container
  *
  * @tparam FF
- * @tparam AccumulatorTypes
+ * @tparam TypeMuncher
  * @tparam T
  * @param input
  * @param index
@@ -54,25 +44,7 @@ requires std::is_same<std::span<FF>, T>::value inline
 }
 
 /**
- * @brief Getter method that will return `input[index]` iff `input` is a Polynomial container
- *
- * @tparam FF
- * @tparam TypeMuncher
- * @tparam T
- * @param input
- * @param index
- * @return requires
- */
-template <typename FF, typename AccumulatorTypes, typename T>
-requires std::is_same<barretenberg::Polynomial<FF>, T>::value inline
-    typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type
-    get_view(const T& input, const size_t index)
-{
-    return input[index];
-}
-
-/**
- * @brief Getter method that will return `input[index]` iff `input` is not a std::span or a Polynomial container
+ * @brief Getter method that will return `input[index]` iff `input` is not a std::span container
  *
  * @tparam FF
  * @tparam TypeMuncher
@@ -83,7 +55,7 @@ requires std::is_same<barretenberg::Polynomial<FF>, T>::value inline
  */
 template <typename FF, typename AccumulatorTypes, typename T>
 inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t /*unused*/)
+                                                                                                  const size_t)
 {
     return typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type(input);
 }
@@ -132,14 +104,16 @@ template <typename FF, template <typename> typename RelationBase> class Relation
         Relation::template add_edge_contribution_impl<ValueAccumTypes>(
             accumulator, input, relation_parameters, scaling_factor);
     }
+
     /**
      * @brief Check is subrelation is linearly independent
-     * Method is active if relation has SUBRELATION_LINEARLY_INDEPENDENT array defined
+     * Method always returns true if relation has no SUBRELATION_LINEARLY_INDEPENDENT std::array
+     * (i.e. default is to make linearly independent)
      * @tparam size_t
      */
-    template <size_t subrelation_index>
+    template <size_t>
     static constexpr bool is_subrelation_linearly_independent() requires(
-        !HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
+        !HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return true;
     }
@@ -151,7 +125,7 @@ template <typename FF, template <typename> typename RelationBase> class Relation
      */
     template <size_t subrelation_index>
     static constexpr bool is_subrelation_linearly_independent() requires(
-        HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>)
+        HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }
