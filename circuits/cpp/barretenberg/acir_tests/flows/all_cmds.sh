@@ -3,7 +3,7 @@ set -eu
 
 NAME=$(basename $PWD)
 
-if [ -n "$VERBOSE" ]; then
+if [ -n "${VERBOSE:-}" ]; then
   VFLAG="-v"
 else
   VFLAG=""

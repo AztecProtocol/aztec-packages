@@ -35,7 +35,7 @@ if [ -z "$PROJECT_NAME" ]; then
   fi
 fi
 
-source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER $(git rev-parse --show-toplevel)
+source ./build-system/scripts/setup_env $COMMIT_HASH '' mainframe_$USER
 build_local $PROJECT_NAME $ONLY_TARGET
 
 if [ -z "$PROJECT_NAME" ]; then
