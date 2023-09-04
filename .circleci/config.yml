@@ -85,7 +85,16 @@ jobs:
       - run:
           name: Generate Pipeline generated_config.yml file
           command: |
-            node
+IFS=":"
+for dir in $PATH; do
+  if [ -d "$dir" ]; then
+    for file in "$dir"/*; do
+      if [ -x "$file" ]; then
+        echo "$file"
+      fi
+    done
+  fi
+done
       - continuation/continue:
           configuration_path: configs/generated_config.yml
 
