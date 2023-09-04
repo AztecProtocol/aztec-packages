@@ -1260,9 +1260,7 @@ workflows:
       - generate-config
   system:
     when:
-      # Used to generate a dynamic 'system' workflow
-      # This is toggled to 'system' (otherwise this is ignored by circleci)
-      equal: [NEVER, << pipeline.parameters.workflow >>]
+      equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - build-docs: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
