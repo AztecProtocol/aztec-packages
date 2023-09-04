@@ -22,6 +22,7 @@ def get_already_built_manifest():
     tag_found_for_hash = {}
     manifest_names = get_all_manifest_names()
     for name in manifest_names:
+        print(name)
         content_hash = subprocess.run(["calculate_content_hash", name], stdout=subprocess.DEVNULL)
         if tag_found_for_hash.get(content_hash):
             yield name
@@ -30,7 +31,6 @@ def get_already_built_manifest():
         if completed.returncode == 0:
             tag_found_for_hash[content_hash] = True
             yield name
-        break
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
