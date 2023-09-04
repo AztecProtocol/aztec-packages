@@ -7,8 +7,9 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=kw/acvm-0-24
+BRANCH=master
 VERBOSE=${VERBOSE:-}
+NAMED_TEST=${1:-}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
@@ -41,28 +42,15 @@ cd acir_tests
 
 # Convert them to array
 # TODO: Test double_verify_proof. Find out why it stopped working.
-skip_array=(diamond_deps_0 workspace workspace_default_member double_verify_proof)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member double_verify_proof)
 
 function test() {
-  echo -n "Testing $1... "
-
-  dir_name=$(basename "$1")
-  if [[ " ${skip_array[@]} " =~ " $dir_name " ]]; then
-    echo -e "\033[33mSKIPPED\033[0m (hardcoded to skip)"
-    return
-  fi
-
-  if [[ ! -f ./$1/target/$dir_name.bytecode || ! -f ./$1/target/witness.tr ]]; then
-    echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
-    return
-  fi
-
   cd $1
 
   set +e
   $FLOW_SCRIPT
   result=$?
-  set -xeu
+  set -eu
 
   if [ $result -eq 0 ]; then
     echo -e "\033[32mPASSED\033[0m"
@@ -74,10 +62,23 @@ function test() {
   cd ..
 }
 
-if [ -n "${1:-}" ]; then
-  test $1
+if [ -n "$NAMED_TEST" ]; then
+  echo -n "Testing $NAMED_TEST... "
+  test $NAMED_TEST
 else
-  for DIR in $(find -maxdepth 1 -type d -not -path '.'); do
-    test $DIR
+  for TEST_NAME in $(find -maxdepth 1 -type d -not -path '.' -printf '%P\n'); do
+    echo -n "Testing $TEST_NAME... "
+
+    if [[ " ${SKIP_ARRAY[@]} " =~ " $TEST_NAME" ]]; then
+      echo -e "\033[33mSKIPPED\033[0m (hardcoded to skip)"
+      return
+    fi
+
+    if [[ ! -f ./$TEST_NAME/target/$TEST_NAME.bytecode || ! -f ./$TEST_NAME/target/witness.tr ]]; then
+      echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
+      return
+    fi
+
+    test $TEST_NAME
   done
 fi

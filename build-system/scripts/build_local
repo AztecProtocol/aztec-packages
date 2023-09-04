@@ -9,7 +9,7 @@
 set -eu
 
 TARGET_PROJECT=$1
-ONLY_TARGET=$2
+ONLY_TARGET=${2:-}
 
 ROOT=$(git rev-parse --show-toplevel)
 source $ROOT/build_manifest.sh

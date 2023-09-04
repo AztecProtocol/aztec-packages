@@ -251,6 +251,17 @@ jobs:
           name: "Build and test"
           command: build bb.js
 
+  bb-js-tests:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_tests bb.js
+
   barretenberg-acir-tests-bb:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1274,6 +1285,10 @@ workflows:
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
+          <<: *defaults
+      - bb-js-tests:
+          requires:
+            - bb-js
           <<: *defaults
       - barretenberg-acir-tests-bb:
           requires:
