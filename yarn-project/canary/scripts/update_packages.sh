@@ -1,4 +1,4 @@
-set -eu
+set -e
 
 COMMIT_TAG=$1
 

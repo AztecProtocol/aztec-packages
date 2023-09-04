@@ -1,9 +1,11 @@
 #!/bin/bash
-set -eu
+set -e
 SCRIPT_PATH=$1
 REPOSITORY=$2
 shift
 shift
+
+init_submodules $REPOSITORY
 
 cd $(query_manifest projectDir $REPOSITORY)
 

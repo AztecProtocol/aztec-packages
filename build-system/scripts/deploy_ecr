@@ -1,8 +1,8 @@
 #!/bin/bash
-set -eu
+set -e
 
 REPOSITORY=$1
-IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
+IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$COMMIT_HASH
 
 # Login to build region and pull the build.
 retry_10 ensure_repo $REPOSITORY $ECR_REGION

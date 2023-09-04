@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -e
 
 if [ -z "$COMMIT_TAG" ]; then
   echo "Will only push tagged builds to dockerhub. Skipping."

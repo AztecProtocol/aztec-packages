@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eu
+set -e
 
 REPOSITORY=$1
 TF_DIR=$2
