@@ -6,19 +6,9 @@ import subprocess
 import multiprocessing
 
 # same functionality as query_manifest rebuildPatterns but in bulk
-def get_manifest_and_build_patterns():
+def get_manifest_job_names():
     manifest = json.load(open("build_manifest.json"))
-    
-    # First pass to initialize manifest_to_build_patterns
-    manifest_to_build_patterns = {key: manifest[key]["rebuildPatterns"] for key in manifest}
-    
-    # Second pass to include dependencies
-    for key in manifest:
-        for dep in manifest[key].get("dependencies", []):
-            manifest_to_build_patterns[key] += manifest_to_build_patterns[dep]
-
-    # Convert lists to joined string sets
-    return {key: "|".join(set(value)) for key, value in manifest_to_build_patterns.items()}
+    return list(manifest)
 
 def find_string_in_jobs(jobs, manifest_name):
     matching_jobs = {}
@@ -33,28 +23,19 @@ def find_string_in_jobs(jobs, manifest_name):
     return matching_jobs
 
 
-def process_manifest(key, rebuild_patterns):
-    # if rebuild_patterns in tag_found_for_hash:
-    #     print(key, "SKIPPING")
-    #     if tag_found_for_hash[rebuild_patterns]:
-    #         return key
-        # return None
-
-    # print(key, rebuild_patterns)
-    content_hash = subprocess.check_output(['calculate_content_hash', key]).decode("utf-8")
-    completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
+def process_manifest(manifest_name):
+    content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
+    completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
-        # tag_found_for_hash[rebuild_patterns] = True
-        return key
+        return manifest_name
     else:
-        # tag_found_for_hash[rebuild_patterns] = False
         return None
 
 def get_already_built_manifest():
-    manifest_to_build_patterns = get_manifest_and_build_patterns()
+    manifest_names = get_manifest_job_names()
 
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(process_manifest, key, rebuild_patterns): key for key, rebuild_patterns in manifest_to_build_patterns.items()}
+        futures = {executor.submit(process_manifest, key): key for key in manifest_names}
         for future in as_completed(futures):
             result = future.result()
             if result is not None:
