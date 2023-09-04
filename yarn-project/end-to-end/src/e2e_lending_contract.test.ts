@@ -80,7 +80,7 @@ describe('e2e_lending_contract', () => {
   };
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc } = await setup());
+    ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc } = await setup(0));
 
     const privateKey = PrivateKey.random();
     const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
@@ -286,7 +286,7 @@ describe('e2e_lending_contract', () => {
 
   it('Full lending run-through', async () => {
     // Gotta use the actual auth witness account here and not the standard wallet.
-    const recipientFull = accounts[1];
+    const recipientFull = accounts[0];
     const recipient = recipientFull.address;
 
     const { lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts(recipient);

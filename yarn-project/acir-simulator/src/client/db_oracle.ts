@@ -89,9 +89,9 @@ export interface DBOracle extends CommitmentsDB {
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
   /**
-   * Retrieve the eip-1271 witness for a given message hash.
+   * Retrieve the auth witness for a given message hash.
    * @param message_hash - The message hash.
-   * @returns A Promise that resolves to an array of field elements representing the eip-1271 witness.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
   getAuthWitness(message_hash: Fr): Promise<Fr[]>;
 

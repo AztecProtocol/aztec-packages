@@ -35,16 +35,14 @@ function itShouldBehaveLikeAnAccountContract(
     let encryptionPrivateKey: PrivateKey;
 
     beforeEach(async () => {
-      context = await setup();
+      context = await setup(0);
       encryptionPrivateKey = PrivateKey.random();
 
-      const { account: a, wallet: w } = await walletSetup(
+      ({ account, wallet } = await walletSetup(
         context.aztecRpcServer,
         encryptionPrivateKey,
         getAccountContract(encryptionPrivateKey),
-      );
-      account = a;
-      wallet = w;
+      ));
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
 

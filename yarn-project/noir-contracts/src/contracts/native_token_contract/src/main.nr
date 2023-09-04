@@ -318,6 +318,7 @@ contract NativeToken {
             )[0];
 
             let _callStackItem0 = context.call_private_function(from, 0x29d25ca9, [message_field]);
+            // Ensure that we retrieved the magic number (selector of is_valid function), otherwise revert.
             assert(_callStackItem0[0] == 0x29d25ca9);
         }
 
