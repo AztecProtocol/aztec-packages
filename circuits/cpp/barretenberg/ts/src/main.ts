@@ -248,8 +248,8 @@ function handleGlobalOptions() {
 program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.tr')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-r, --recursive', 'prove and verify using recursive prover and verifier', false)
   .action(async ({ bytecodePath, witnessPath, recursive, crsPath }) => {
     handleGlobalOptions();
@@ -260,8 +260,8 @@ program
 program
   .command('prove')
   .description('Generate a proof and write it to a file.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.tr')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-r, --recursive', 'prove using recursive prover', false)
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, recursive, outputPath, crsPath }) => {
@@ -272,7 +272,7 @@ program
 program
   .command('gates')
   .description('Print gate count to standard output.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .action(async ({ bytecodePath: bytecodePath }) => {
     handleGlobalOptions();
     await gateCount(bytecodePath);
@@ -293,7 +293,7 @@ program
 program
   .command('contract')
   .description('Output solidity verification key contract.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vk }) => {
@@ -304,7 +304,7 @@ program
 program
   .command('write_vk')
   .description('Output verification key.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/main.bytecode')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.gz')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();

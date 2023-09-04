@@ -41,7 +41,7 @@ function test() {
     return
   fi
 
-  if [[ ! -f ./$1/target/$dir_name.bytecode || ! -f ./$1/target/witness.tr ]]; then
+  if [[ ! -f ./$1/target/acir.gz || ! -f ./$1/target/witness.gz ]]; then
     echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
     return
   fi
@@ -50,9 +50,9 @@ function test() {
 
   set +e
   if [ -n "${VERBOSE:-}" ]; then
-    $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
+    $BB prove_and_verify -v -c $CRS_PATH -b ./target/acir.gz
   else
-    $BB prove_and_verify -c $CRS_PATH -b ./target/$dir_name.bytecode > /dev/null 2>&1
+    $BB prove_and_verify -c $CRS_PATH -b ./target/acir.gz > /dev/null 2>&1
   fi
   result=$?
   set -eu
@@ -62,7 +62,7 @@ function test() {
   else
     echo -e "\033[31mFAILED\033[0m"
     # Run again verbose.
-    $BB prove_and_verify -v -c $CRS_PATH -b ./target/$dir_name.bytecode
+    $BB prove_and_verify -v -c $CRS_PATH -b ./target/acir.gz
     exit 1
   fi
 
