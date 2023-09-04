@@ -8,6 +8,7 @@
 
 namespace aztec3::oracle {
 
+
 using aztec3::circuits::apps::UTXOSLoadDatum;
 
 using aztec3::circuits::apps::notes::DefaultPrivateNotePreimage;
