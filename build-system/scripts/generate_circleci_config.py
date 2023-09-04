@@ -10,20 +10,21 @@ def get_manifest_job_names():
     manifest = json.load(open("build_manifest.json"))
     return list(manifest)
 
-def find_string_in_jobs(jobs, manifest_name):
+def get_(jobs, manifest_names):
     matching_jobs = {}
     for job_name, job_info in jobs.items():
         steps = job_info.get("steps", [])
         for step in steps:
             run_info = step.get("run", {})
             command = run_info.get("command", "")
-            if manifest_name in command:
-                matching_jobs[job_name] = manifest_name
-                break
+            for manifest_name in manifest_names:
+                if manifest_name in command:
+                    matching_jobs[job_name] = manifest_name
+                    break
     return matching_jobs
 
-
-def process_manifest(manifest_name):
+# Helper for multiprocessing
+def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
@@ -31,11 +32,11 @@ def process_manifest(manifest_name):
     else:
         return None
 
-def get_already_built_manifest():
+def get_already_built_manifest_job_names():
     manifest_names = get_manifest_job_names()
 
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(process_manifest, key): key for key in manifest_names}
+        futures = {executor.submit(_get_already_built_manifest_job_names, key): key for key in manifest_names}
         for future in as_completed(futures):
             result = future.result()
             if result is not None:
