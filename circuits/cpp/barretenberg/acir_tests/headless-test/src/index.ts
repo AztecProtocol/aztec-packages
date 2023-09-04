@@ -61,12 +61,12 @@ program
   .option(
     "-b, --bytecode-path <path>",
     "Specify the bytecode path",
-    "./target/main.bytecode"
+    "./target/acir.gz"
   )
   .option(
     "-w, --witness-path <path>",
     "Specify the witness path",
-    "./target/witness.tr"
+    "./target/witness.gz"
   )
   .action(async ({ bytecodePath, witnessPath, recursive }) => {
     const acir = readBytecodeFile(bytecodePath);
