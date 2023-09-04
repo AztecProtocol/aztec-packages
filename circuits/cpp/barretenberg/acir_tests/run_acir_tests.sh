@@ -7,7 +7,7 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=master
+BRANCH=kw/fix-double-verify-proof
 VERBOSE=${VERBOSE:-}
 NAMED_TEST=${1:-}
 
@@ -41,8 +41,7 @@ fi
 cd acir_tests
 
 # Convert them to array
-# TODO: Test double_verify_proof. Find out why it stopped working.
-SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member double_verify_proof)
+SKIP_ARRAY=(diamond_deps_0 workspace workspace_default_member)
 
 function test() {
   cd $1

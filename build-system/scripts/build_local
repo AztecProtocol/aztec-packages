@@ -24,6 +24,7 @@ for E in ${PROJECTS[@]}; do
   WORKING_DIR=${ARR[1]}
   DOCKERFILE=${ARR[2]}
   REPO=${ARR[3]:-$PROJECT_DIR_NAME}
+  LAUNCH=${ARR[4]:-}
 
   if [ "$ONLY_TARGET" == "true" -a ! "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
     continue
@@ -50,6 +51,10 @@ for E in ${PROJECTS[@]}; do
 
   time docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
   docker tag $ECR_DEPLOY_URL/$REPO:latest aztecprotocol/$REPO:latest
+
+  if [ -n "$LAUNCH" ]; then
+    docker run -ti --rm aztecprotocol/$REPO:latest
+  fi
 
   if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
     break

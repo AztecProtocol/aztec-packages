@@ -23,7 +23,7 @@ set -e
 
 PROJECT_NAME=$1
 COMMIT_HASH=$(git rev-parse HEAD)
-ONLY_TARGET=
+ONLY_TARGET=${ONLY_TARGET:-}
 
 # If we're calling this script from within a project directory, that's the target project.
 if [ -z "$PROJECT_NAME" ]; then
