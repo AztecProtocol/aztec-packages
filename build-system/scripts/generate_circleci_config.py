@@ -19,10 +19,16 @@ def find_string_in_jobs(jobs, manifest_name):
     return matching_jobs
 
 def get_already_built_manifest():
+    tag_found_for_hash = {}
     manifest_names = get_all_manifest_names()
     for name in manifest_names:
-        completed = subprocess.run(f"check_rebuild cache-$(calculate_content_hash {name}) {name}", shell=True)
+        content_hash = subprocess.run(f"calculate_content_hash {name}", shell=True, stdout=subprocess.DEVNULL)
+        if tag_found_for_hash.get(content_hash):
+            yield name
+            continue
+        completed = subprocess.run(f"check_rebuild cache-{content_hash} {name}", shell=True, stdout=subprocess.DEVNULL)
         if completed.returncode == 0:
+            tag_found_for_hash[content_hash] = True
             yield name
 
 def remove_jobs_from_workflow(jobs, to_remove):
