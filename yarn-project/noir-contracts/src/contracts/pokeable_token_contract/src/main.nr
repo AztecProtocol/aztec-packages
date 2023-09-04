@@ -3,14 +3,12 @@ mod address_note;
 
 contract PokeableToken {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::increment,
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods, ValueNote},
     };
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::note::{
         note_getter::NoteGetterOptions,
         note_header::{NoteHeader},
@@ -23,43 +21,32 @@ contract PokeableToken {
     use crate::address_note::{AddressNote, AddressNoteMethods};
 
     // Constructs the contract and sets `initial_supply` which is fully owned by `sender`.
+    #[aztec(private)]
     fn constructor(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         initial_supply: Field, 
         sender: Field,
         recipient: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, sender, recipient]));
+    )  {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let mut sender_note = AddressNote::new(sender);
         let mut recipient_note = AddressNote::new(recipient);
 
-        storage.sender.initialise(&mut context, &mut sender_note);
-        storage.recipient.initialise(&mut context, &mut recipient_note);
+        storage.sender.initialise(&mut sender_note);
+        storage.recipient.initialise(&mut recipient_note);
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let sender_balance = storage.balances.at(sender);
-        send_note(&mut context, sender_balance, initial_supply, sender);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
+        increment(sender_balance, initial_supply, sender);
     }
 
     // Transfers full balance of tokens from `sender` to a `recipient`.
+    #[aztec(private)]
     fn poke(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         sender: Field,
         recipient: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let mut context = PrivateContext::new(inputs, abi::hash_args([sender, recipient]));
-        let storage = Storage::init();
+    ) {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         // TODO: This check is not satisfying constraints
         // let mut sender_note = AddressNote::new(sender);
@@ -71,7 +58,7 @@ contract PokeableToken {
         let sender_balance = storage.balances.at(sender);
 
         let options = NoteGetterOptions::new();
-        let maybe_notes = sender_balance.get_notes(&mut context, options);
+        let maybe_notes = sender_balance.get_notes(options);
         let mut note_sum = 0;
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
@@ -82,7 +69,7 @@ contract PokeableToken {
                 assert(note.owner == sender);
 
                 // Removes the note from the owner's set of notes.
-                sender_balance.remove(&mut context, note);
+                sender_balance.remove(note);
 
                 note_sum += note.value;
             }
@@ -90,17 +77,14 @@ contract PokeableToken {
 
         // Create new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, note_sum, recipient);
-        
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
+        increment(recipient_balance, note_sum, recipient);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
     unconstrained fn getBalance(
         sender: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
 
         // Get the set of notes owned by the user.
         let sender_balance = storage.balances.at(sender);

@@ -2,94 +2,68 @@ mod storage;
 
 contract PrivateToken {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
-        utils::{send_note, spend_notes},
+        utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
 
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::note::{
         note_header::NoteHeader,
         utils as note_utils,
     };
 
-    // docs:start:storage-import
     use crate::storage::Storage;
-    // docs:end:storage-import
 
     // docs:start:constructor
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
+    #[aztec(private)]
     fn constructor(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         initial_supply: Field, 
         owner: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([initial_supply, owner]));
-
+    )  {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
-            send_note(&mut context, owner_balance, initial_supply, owner);
+            increment(owner_balance, initial_supply, owner);
         }
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        context.finish()
     }
     // docs:end:constructor
 
     // docs:start:mint
     // Mints `amount` of tokens to `owner`.
+    #[aztec(private)]
     fn mint(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field, 
         owner: Field
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, owner]));
+    )  {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
-        send_note(&mut context, owner_balance, amount, owner);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
+        increment(owner_balance, amount, owner);
     }
     // docs:end:mint
 
     // docs:start:transfer
-    // Transfers `amount` of tokens from `sender` to a `recipient`.
+    // Transfers `amount` of tokens from msg_sender to a `recipient`.
+    #[aztec(private)]
     fn transfer(
-        //*********************************/
-        // Should eventually be hidden:
-        inputs: PrivateContextInputs,
-        //*********************************/
         amount: Field, 
-        sender: Field, 
         recipient: Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        let mut context = PrivateContext::new(inputs, abi::hash_args([amount, sender, recipient]));
+    )  {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
         let sender_balance = storage.balances.at(sender);
-        spend_notes(&mut context, sender_balance, amount, sender);
+        decrement(sender_balance, amount, sender);
 
         // Creates new note for the recipient.
         let recipient_balance = storage.balances.at(recipient);
-        send_note(&mut context, recipient_balance, amount, recipient);
-
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel..
-        context.finish()
+        increment(recipient_balance, amount, recipient);
     }
     // docs:end:transfer
 
@@ -98,7 +72,7 @@ contract PrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
 
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner);

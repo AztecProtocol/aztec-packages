@@ -8,6 +8,12 @@
 #include <ostream>
 #include <vector>
 
+// clang-format off
+// disabling the following style guides:
+// cert-dcl58-cpp , restricts modifying the standard library. We need to do this for portable serialization methods
+// NOLINTBEGIN(cert-dcl58-cpp)
+// clang-format on
+
 namespace serialize {
 /**
  * @brief Helper method for streaming msgpack values, specialized for shared_ptr
@@ -73,6 +79,7 @@ namespace std {
 template <msgpack_concepts::HasMsgPack T> std::ostream& operator<<(std::ostream& os, const T& obj)
 {
     // We must use const_cast as our method is meant to be polymorphic over const, but there's no such concept in C++
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     const_cast<T&>(obj).msgpack([&](auto&... key_value_pairs) {
         // apply 'operator<<' to each object field
         serialize::_msgpack_stream_write_key_value_pairs(os, key_value_pairs...);
@@ -85,7 +92,7 @@ inline std::ostream& operator<<(std::ostream& os, std::vector<uint8_t> const& ar
     std::ios_base::fmtflags f(os.flags());
     os << "[" << std::hex << std::setfill('0');
     for (auto byte : arr) {
-        os << ' ' << std::setw(2) << +(unsigned char)byte;
+        os << ' ' << std::setw(2) << +static_cast<unsigned char>(byte);
     }
     os << " ]";
     os.flags(f);
@@ -118,7 +125,7 @@ template <size_t S> inline std::ostream& operator<<(std::ostream& os, std::array
     std::ios_base::fmtflags f(os.flags());
     os << "[" << std::hex << std::setfill('0');
     for (auto byte : arr) {
-        os << ' ' << std::setw(2) << +(unsigned char)byte;
+        os << ' ' << std::setw(2) << +static_cast<unsigned char>(byte);
     }
     os << " ]";
     os.flags(f);
@@ -158,3 +165,5 @@ template <typename T, typename U> inline std::ostream& operator<<(std::ostream& 
     return os;
 }
 } // namespace std
+
+// NOLINTEND(cert-dcl58-cpp)

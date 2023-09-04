@@ -1,6 +1,6 @@
 import { createDebugLogger } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 
-import { fileURLToPath } from 'url';
 import { createPublicClient, http } from 'viem';
 import { localhost } from 'viem/chains';
 
@@ -47,7 +47,7 @@ async function main() {
 if (process.argv[1] === fileURLToPath(import.meta.url).replace(/\/index\.js$/, '')) {
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   main().catch(err => {
-    log.fatal(err);
+    log.error(err);
     process.exit(1);
   });
 }

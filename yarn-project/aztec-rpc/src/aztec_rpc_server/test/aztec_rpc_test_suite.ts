@@ -10,7 +10,7 @@ import {
 } from '@aztec/types';
 
 export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise<AztecRPC>) => {
-  describe(testName, function () {
+  describe(testName, () => {
     let rpc: AztecRPC;
 
     beforeAll(async () => {
@@ -86,10 +86,10 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
     });
 
     it('successfully adds a contract', async () => {
-      const contracts: DeployedContract[] = [randomDeployedContract(), randomDeployedContract()];
+      const contracts: DeployedContract[] = [await randomDeployedContract(), await randomDeployedContract()];
       await rpc.addContracts(contracts);
 
-      const expectedContractAddresses = contracts.map(contract => contract.address);
+      const expectedContractAddresses = contracts.map(contract => contract.completeAddress.address);
       const contractAddresses = await rpc.getContracts();
 
       // check if all the contracts were returned
@@ -107,7 +107,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
         [],
       );
 
-      await expect(async () => await rpc.simulateTx(txExecutionRequest)).rejects.toThrow(
+      await expect(async () => await rpc.simulateTx(txExecutionRequest, false)).rejects.toThrow(
         'Public entrypoints are not allowed',
       );
     });
@@ -122,7 +122,7 @@ export const aztecRpcTestSuite = (testName: string, aztecRpcSetup: () => Promise
       );
     });
 
-    // Note: Not testing `getContractDataAndBytecode`, `getContractData` and `getUnencryptedLogs` here as these
+    // Note: Not testing `getExtendedContractData`, `getContractData` and `getUnencryptedLogs` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
 
     it('successfully gets a block number', async () => {

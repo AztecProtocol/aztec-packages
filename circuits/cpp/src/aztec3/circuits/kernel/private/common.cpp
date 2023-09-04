@@ -6,7 +6,6 @@
 #include "aztec3/circuits/abis/function_data.hpp"
 #include "aztec3/circuits/abis/kernel_circuit_public_inputs.hpp"
 #include "aztec3/circuits/abis/new_contract_data.hpp"
-#include "aztec3/circuits/abis/previous_kernel_data.hpp"
 #include "aztec3/circuits/abis/private_kernel/private_call_data.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/hash.hpp"
@@ -21,7 +20,6 @@ using aztec3::circuits::abis::ContractLeafPreimage;
 using aztec3::circuits::abis::FunctionData;
 using aztec3::circuits::abis::KernelCircuitPublicInputs;
 using aztec3::circuits::abis::NewContractData;
-using aztec3::circuits::abis::PreviousKernelData;
 using aztec3::circuits::abis::ReadRequestMembershipWitness;
 
 using aztec3::utils::array_length;
@@ -74,16 +72,6 @@ void common_validate_read_requests(DummyBuilder& builder,
                                    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>,
                                               MAX_READ_REQUESTS_PER_CALL> const& read_request_membership_witnesses)
 {
-    // Arrays read_request and read_request_membership_witnesses must be of the same length. Otherwise,
-    // we might get into trouble when accumulating them in public_inputs.end
-    builder.do_assert(array_length(read_requests) == array_length(read_request_membership_witnesses),
-                      format("[private kernel circuit] mismatch array length between read_requests and witnesses - "
-                             "read_requests length: ",
-                             array_length(read_requests),
-                             " witnesses length: ",
-                             array_length(read_request_membership_witnesses)),
-                      CircuitErrorCode::PRIVATE_KERNEL__READ_REQUEST_WITNESSES_ARRAY_LENGTH_MISMATCH);
-
     // membership witnesses must resolve to the same private data root
     // for every request in all kernel iterations
     for (size_t rr_idx = 0; rr_idx < aztec3::MAX_READ_REQUESTS_PER_CALL; rr_idx++) {
@@ -123,39 +111,6 @@ void common_validate_read_requests(DummyBuilder& builder,
             // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1354): do we need to enforce
             // that a non-transient read_request was derived from the proper/current contract address?
         }
-    }
-}
-
-
-/**
- * @brief Ensure that all read requests from previous kernel are transient.
- *
- * @param builder
- * @param read_requests from previous kernel's public inputs
- * @param read_request_membership_witnesses from previous kernel's public inputs
- */
-void common_validate_previous_kernel_read_requests(
-    DummyBuilder& builder,
-    std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
-    std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX> const&
-        read_request_membership_witnesses)
-{
-    for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
-        const auto& read_request = read_requests[rr_idx];
-        const auto& witness = read_request_membership_witnesses[rr_idx];
-        builder.do_assert(read_request == 0 || witness.is_transient,  // rr == 0 means empty
-                          format("Previous kernel's read request[",
-                                 rr_idx,
-                                 "] is not transient, but kernel should only forward transient reads.",
-                                 "\n\tread_request: ",
-                                 read_request,
-                                 "\n\tleaf_index: ",
-                                 witness.leaf_index,
-                                 "\n\tis_transient: ",
-                                 witness.is_transient,
-                                 "\n\thint_to_commitment: ",
-                                 witness.hint_to_commitment),
-                          CircuitErrorCode::PRIVATE_KERNEL__UNRESOLVED_NON_TRANSIENT_READ_REQUEST);
     }
 }
 
@@ -200,11 +155,6 @@ void common_update_end_values(DummyBuilder& builder,
                            siloed_read_request,
                            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                                   "too many transient read requests in one tx"));
-                array_push(builder,
-                           public_inputs.end.read_request_membership_witnesses,
-                           witness,
-                           format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-                                  "too many transient read request membership witnesses in one tx"));
             }
         }
     }
@@ -421,33 +371,6 @@ void common_contract_logic(DummyBuilder& builder,
             "computed_contract_tree_root doesn't match purported_contract_tree_root",
             CircuitErrorCode::PRIVATE_KERNEL__COMPUTED_CONTRACT_TREE_ROOT_AND_PURPORTED_CONTRACT_TREE_ROOT_MISMATCH);
     }
-}
-
-void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
-                                  KernelCircuitPublicInputs<NT>& public_inputs)
-{
-    public_inputs.constants = previous_kernel.public_inputs.constants;
-
-    // Ensure the arrays are the same as previously, before we start pushing more data onto them in other
-    // functions within this circuit:
-    auto& end = public_inputs.end;
-    const auto& start = previous_kernel.public_inputs.end;
-
-    end.new_commitments = start.new_commitments;
-    end.new_nullifiers = start.new_nullifiers;
-    end.nullified_commitments = start.nullified_commitments;
-
-    end.private_call_stack = start.private_call_stack;
-    end.public_call_stack = start.public_call_stack;
-    end.new_l2_to_l1_msgs = start.new_l2_to_l1_msgs;
-
-    end.encrypted_logs_hash = start.encrypted_logs_hash;
-    end.unencrypted_logs_hash = start.unencrypted_logs_hash;
-
-    end.encrypted_log_preimages_length = start.encrypted_log_preimages_length;
-    end.unencrypted_log_preimages_length = start.unencrypted_log_preimages_length;
-
-    end.optionally_revealed_data = start.optionally_revealed_data;
 }
 
 }  // namespace aztec3::circuits::kernel::private_kernel

@@ -5,11 +5,12 @@ import { Fr } from '@aztec/foundation/fields';
 import {
   ContractCommitmentProvider,
   ContractData,
-  ContractDataAndBytecode,
   DataCommitmentProvider,
+  ExtendedContractData,
   L1ToL2MessageProvider,
   L2Block,
   L2BlockL2Logs,
+  L2Tx,
   LogType,
   MerkleTreeId,
   Tx,
@@ -67,12 +68,11 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
   getRollupAddress(): Promise<EthAddress>;
 
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains the ethereum portal address and bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
+   * @returns The extended contract data or undefined if not found.
    */
-  getContractDataAndBytecode(contractAddress: AztecAddress): Promise<ContractDataAndBytecode | undefined>;
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
   /**
    * Lookup the contract data for this contract.
@@ -97,6 +97,13 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
    * @returns Nothing.
    */
   sendTx(tx: Tx): Promise<void>;
+
+  /**
+   * Get a settled tx.
+   * @param txHash - The txHash being requested.
+   * @returns The tx requested.
+   */
+  getTx(txHash: TxHash): Promise<L2Tx | undefined>;
 
   /**
    * Method to retrieve pending txs.
@@ -130,4 +137,11 @@ export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider
    * @returns The current committed block data.
    */
   getHistoricBlockData(): Promise<HistoricBlockData>;
+
+  /**
+   * Simulates the public part of a transaction with the current state.
+   * This currently just checks that the transaction execution succeeds.
+   * @param tx - The transaction to simulate.
+   **/
+  simulatePublicCalls(tx: Tx): Promise<void>;
 }

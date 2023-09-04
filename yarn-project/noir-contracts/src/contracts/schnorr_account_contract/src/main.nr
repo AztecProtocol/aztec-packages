@@ -5,14 +5,12 @@ mod public_key_note;
 // The signing key is stored in an immutable private note and should be different from the encryption/nullifying key.
 contract SchnorrAccount {
     use dep::std;
+    use dep::std::option::Option;
     use dep::aztec::entrypoint;
     use dep::aztec::entrypoint::EntrypointPayload;
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
     use dep::aztec::types::vec::BoundedVec;
@@ -29,22 +27,14 @@ contract SchnorrAccount {
     use crate::public_key_note::PUBLIC_KEY_NOTE_LEN;
 
     // docs:start:entrypoint
-
+    #[aztec(private)]
     fn entrypoint(
-        inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64], // schnorr signature of the payload hash
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Initialize context
-        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
-        let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
-        args.push_array(payload.serialize());
-        for byte in signature { args.push(byte as Field); }
-        let mut context = PrivateContext::new(inputs, abi::hash_args(args.storage));
-
+    ) {
         // Load public key from storage
-        let storage = Storage::init();
-        let public_key = storage.signing_public_key.get_note(&mut context);
+        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let public_key = storage.signing_public_key.get_note();
 
         // Verify payload signature
         let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
@@ -64,23 +54,19 @@ contract SchnorrAccount {
 
         // Execute calls
         payload.execute_calls(&mut context);
-
-        context.finish()
     }
 
     // Constructs the contract
+    #[aztec(private)]
     fn constructor(
-        inputs: pub PrivateContextInputs,
         signing_pub_key_x: pub Field,
         signing_pub_key_y: pub Field,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
-        
-        let mut context = PrivateContext::new(inputs, abi::hash_args([signing_pub_key_x, signing_pub_key_y]));
+    ) {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         
         let this = context.this_address();
         let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialise(&mut context, &mut pub_key_note);
+        storage.signing_public_key.initialise(&mut pub_key_note);
         
         emit_encrypted_log(
             &mut context,
@@ -89,8 +75,6 @@ contract SchnorrAccount {
             get_public_key(this),
             pub_key_note.serialise(),
         );
-
-        context.finish()
     }
 
     // Computes notes hash and nullifier.

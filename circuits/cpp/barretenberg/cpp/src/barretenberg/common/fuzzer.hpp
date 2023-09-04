@@ -4,6 +4,7 @@
 #include "barretenberg/proof_system/circuit_builder/turbo_circuit_builder.hpp"
 #include <concepts>
 
+// NOLINTBEGIN(cppcoreguidelines-macro-usage, google-runtime-int)
 #define PARENS ()
 
 // Rescan macro tokens 256 times
@@ -68,7 +69,9 @@ class FastRandom {
     FastRandom(uint32_t seed) { reseed(seed); }
     uint32_t next()
     {
-        state = static_cast<uint32_t>((uint64_t(state) * uint64_t(363364578) + uint64_t(537)) % uint64_t(3758096939));
+        state = static_cast<uint32_t>(
+            (static_cast<uint64_t>(state) * static_cast<uint64_t>(363364578) + static_cast<uint64_t>(537)) %
+            static_cast<uint64_t>(3758096939));
         return state;
     }
     void reseed(uint32_t seed)
@@ -147,7 +150,6 @@ template <typename T> concept ArithmeticFuzzHelperConstraint = requires
     typename T::ExecutionState;
     typename T::ExecutionHandler;
     InstructionArgumentSizes<typename T::ArgSizes>;
-    // HavocConfigConstraint<typename T::HavocConfig>;
 };
 
 /**
@@ -229,7 +231,8 @@ template <typename T, typename FF> inline static FF mutateFieldElement(FF e, T& 
     if (choice < 2) {
         // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
         MONT_CONVERSION_LOCAL
-        LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        LLVMFuzzerMutate(reinterpret_cast<uint8_t*>(&value_data), sizeof(uint256_t), sizeof(uint256_t));
         INV_MONT_CONVERSION_LOCAL
     } else if (choice < 3) { // 25% to use small additions
 
@@ -328,7 +331,7 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
         if (instructions_count == 0) {
             return;
         }
-        if (rng.next() & 1) {
+        if ((rng.next() & 1) != 0U) {
             instructions.erase(instructions.begin() + (rng.next() % instructions_count));
         } else {
             // We get the logarithm of number of instructions and subtract 1 to delete at most half
@@ -472,7 +475,8 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
         std::vector<typename T::Instruction> result;
         // Choose the size of th resulting vector
         const size_t final_result_size = rng.next() % (vecA_size + vecB_size) + 1;
-        size_t indexA = 0, indexB = 0;
+        size_t indexA = 0;
+        size_t indexB = 0;
         size_t* inIndex = &indexA;
         size_t inSize = vecA_size;
         auto inIterator = vecA.begin();
@@ -518,7 +522,8 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
     static std::vector<typename T::Instruction> parseDataIntoInstructions(const uint8_t* Data, size_t Size)
     {
         std::vector<typename T::Instruction> fuzzingInstructions;
-        uint8_t* pData = (uint8_t*)Data;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        auto* pData = const_cast<uint8_t*>(Data);
         size_t size_left = Size;
         while (size_left != 0) {
             uint8_t chosen_operation = *pData;
@@ -592,12 +597,14 @@ template <typename T> requires ArithmeticFuzzHelperConstraint<T> class Arithmeti
      * @param instructions
      */
     template <typename Composer>
+    // TODO(@Rumata888)(from Zac: maybe try to fix? not comfortable refactoring this myself. Issue #1807)
+    // NOLINTNEXTLINE(readability-function-size, google-readability-function-size)
     inline static void executeInstructions(
         std::vector<typename T::Instruction>& instructions) requires CheckableComposer<Composer>
     {
         typename T::ExecutionState state;
         Composer composer = Composer();
-        circuit_should_fail = false;
+        bool circuit_should_fail = false;
         size_t total_instruction_weight = 0;
         (void)total_instruction_weight;
         for (auto& instruction : instructions) {
@@ -691,3 +698,5 @@ constexpr void RunWithComposers(const uint8_t* Data, const size_t Size, FastRand
         RunWithComposer<Fuzzer, proof_system::TurboCircuitBuilder>(Data, Size, VarianceRNG);
     }
 }
+
+// NOLINTEND(cppcoreguidelines-macro-usage, google-runtime-int)

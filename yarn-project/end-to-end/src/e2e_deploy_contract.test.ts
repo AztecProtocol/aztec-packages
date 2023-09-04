@@ -41,7 +41,6 @@ describe('e2e_deploy_contract', () => {
       expect.objectContaining({
         status: TxStatus.PENDING,
         error: '',
-        contractAddress: deploymentData.completeAddress.address,
       }),
     );
     logger(`Receipt received and expecting contract deployment at ${receipt.contractAddress}`);
@@ -49,8 +48,14 @@ describe('e2e_deploy_contract', () => {
     const receiptAfterMined = await tx.getReceipt();
 
     expect(isMined).toBe(true);
-    expect(receiptAfterMined.status).toBe(TxStatus.MINED);
-    const contractAddress = receipt.contractAddress!;
+    expect(receiptAfterMined).toEqual(
+      expect.objectContaining({
+        status: TxStatus.MINED,
+        error: '',
+        contractAddress: deploymentData.completeAddress.address,
+      }),
+    );
+    const contractAddress = receiptAfterMined.contractAddress!;
     expect(await isContractDeployed(aztecRpcServer, contractAddress)).toBe(true);
     expect(await isContractDeployed(aztecRpcServer, AztecAddress.random())).toBe(false);
   }, 30_000);
@@ -91,13 +96,9 @@ describe('e2e_deploy_contract', () => {
     }
 
     {
-      const tx = deployer.deploy().send({ contractAddressSalt });
-      const isMined = await tx.isMined({ interval: 0.1 });
-      expect(isMined).toBe(false);
-      const receipt = await tx.getReceipt();
-
-      expect(receipt.status).toBe(TxStatus.DROPPED);
-      expect(receipt.error).toBe('Tx dropped by P2P node.');
+      await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrowError(
+        /A settled tx with equal hash/,
+      );
     }
   }, 30_000);
 });

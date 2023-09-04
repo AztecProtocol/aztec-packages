@@ -53,9 +53,7 @@ export class AcirSimulator {
    * @param entryPointABI - The ABI of the entry point function.
    * @param contractAddress - The address of the contract (should match request.origin)
    * @param portalContractAddress - The address of the portal contract.
-   * @param historicBlockData - Data required to reconstruct the block hash, this also contains the historic tree roots.
-   * @param curve - The curve instance for elliptic curve operations.
-   * @param packedArguments - The entrypoint packed arguments
+   * @param msgSender - The address calling the function. This can be replaced to simulate a call from another contract or a specific account.
    * @returns The result of the execution.
    */
   public async run(
@@ -63,6 +61,7 @@ export class AcirSimulator {
     entryPointABI: FunctionAbiWithDebugMetadata,
     contractAddress: AztecAddress,
     portalContractAddress: EthAddress,
+    msgSender = AztecAddress.ZERO,
   ): Promise<ExecutionResult> {
     if (entryPointABI.functionType !== FunctionType.SECRET) {
       throw new Error(`Cannot run ${entryPointABI.functionType} function as secret`);
@@ -76,7 +75,7 @@ export class AcirSimulator {
 
     const historicBlockData = await this.db.getHistoricBlockData();
     const callContext = new CallContext(
-      AztecAddress.ZERO,
+      msgSender,
       contractAddress,
       portalContractAddress,
       false,
@@ -169,37 +168,38 @@ export class AcirSimulator {
     storageSlot: Fr,
     notePreimage: Fr[],
   ) {
+    let abi: FunctionAbiWithDebugMetadata;
     try {
-      const abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
-
-      const preimageLen = (abi.parameters[3].type as ArrayType).length;
-      const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
-
-      const execRequest: FunctionCall = {
-        to: AztecAddress.ZERO,
-        functionData: FunctionData.empty(),
-        args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
-      };
-
-      const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
-        execRequest,
-        AztecAddress.ZERO,
-        abi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-      )) as bigint[];
-
-      return {
-        innerNoteHash: new Fr(innerNoteHash),
-        siloedNoteHash: new Fr(siloedNoteHash),
-        uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
-        innerNullifier: new Fr(innerNullifier),
-      };
+      abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
     } catch (e) {
       throw new Error(
         `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
       );
     }
+
+    const preimageLen = (abi.parameters[3].type as ArrayType).length;
+    const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
+
+    const execRequest: FunctionCall = {
+      to: AztecAddress.ZERO,
+      functionData: FunctionData.empty(),
+      args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
+    };
+
+    const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+      execRequest,
+      AztecAddress.ZERO,
+      abi,
+      AztecAddress.ZERO,
+      EthAddress.ZERO,
+    )) as bigint[];
+
+    return {
+      innerNoteHash: new Fr(innerNoteHash),
+      siloedNoteHash: new Fr(siloedNoteHash),
+      uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
+      innerNullifier: new Fr(innerNullifier),
+    };
   }
 
   /**

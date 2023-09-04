@@ -1,26 +1,27 @@
-use dep::aztec::state_vars::{
-    map::Map,
-    set::Set
-};
-use dep::value_note::value_note::{
-    ValueNote,
-    ValueNoteMethods,
-    VALUE_NOTE_LEN,
-};
+use dep::aztec::context::{PrivateContext, PublicContext};
+use dep::aztec::state_vars::{map::Map, set::Set};
+use dep::std::option::Option;
+use dep::value_note::value_note::{ValueNote, ValueNoteMethods, VALUE_NOTE_LEN};
 
-// docs:start:storage-declaration
-// highlight-next-line:storage-declaration
 struct Storage {
     // maps an aztec address to its balance
     balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
 }
 
-// highlight-next-line:storage-declaration
 impl Storage {
-    fn init() -> Self {
+    fn init(
+        private_context: Option<&mut PrivateContext>,
+        public_context: Option<&mut PublicContext>,
+    ) -> Self {
         Storage {
-            balances: Map::new(1, |slot| Set::new(slot, ValueNoteMethods)),
+            balances: Map::new(
+                private_context,
+                public_context,
+                1, // Storage slot
+                |private_context, public_context, slot| {
+                    Set::new(private_context, public_context, slot, ValueNoteMethods)
+                },
+            ),
         }
     }
 }
-// docs:end:storage-declaration

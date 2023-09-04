@@ -1,37 +1,26 @@
 mod storage;
 
 contract PublicToken {
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext
-    };
 
     // docs:start:unencrypted_import
     use dep::aztec::oracle::logs::emit_unencrypted_log;
     // docs:end:unencrypted_import
+    use dep::std::option::Option;
 
     use crate::storage::Storage;
 
     // Constructs the contract.
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        PrivateContext::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 
     // Mints `amount` of tokens to a `recipient`.
-    open fn mint(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn mint(
         amount: Field,
         recipient: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
+    ) -> Field {
 
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
         // docs:start:unencrypted_log
@@ -40,20 +29,16 @@ contract PublicToken {
         // docs:end:unencrypted_log
         recipient_balance.write(new_amount);
 
-        context.return_values.push(new_amount);
-
-        context.finish()
+        new_amount
     }
 
     // Transfers `amount` of tokens from `msg_sender` to `recipient`.
-    open fn transfer(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn transfer(
         amount: Field,
         recipient: Field,
-    ) -> pub abi::PublicCircuitPublicInputs {
-        let mut context = PublicContext::new(inputs, abi::hash_args([amount, recipient]));
-
-        let storage = Storage::init();
+    ) -> Field {
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -76,15 +61,13 @@ contract PublicToken {
             // TODO: Revert if there is not enough balance
             return_value = current_recipient_balance;
         }
-        context.return_values.push(return_value);
-
-        context.finish()
+        return_value
     }
 
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
         storage.balances.at(owner).read()
     }
 }

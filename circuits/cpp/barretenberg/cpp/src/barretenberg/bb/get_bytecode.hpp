@@ -6,6 +6,6 @@
  */
 inline std::vector<uint8_t> get_bytecode(const std::string& bytecodePath)
 {
-    std::string command = "base64 -d " + bytecodePath + " | gunzip";
+    std::string command = "cat " + bytecodePath + " | base64 -d | gunzip";
     return exec_pipe(command);
 }
