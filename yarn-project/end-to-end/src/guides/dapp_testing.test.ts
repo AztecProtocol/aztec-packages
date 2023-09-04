@@ -1,0 +1,160 @@
+import {
+  AccountWallet,
+  AztecRPC,
+  CheatCodes,
+  Fr,
+  L2BlockL2Logs,
+  PrivateKey,
+  createAztecRpcClient,
+  getSchnorrAccount,
+} from '@aztec/aztec.js';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+import { NativeTokenContract, PrivateTokenContract, TestContract } from '@aztec/noir-contracts/types';
+
+describe('guides/dapp/testing', () => {
+  describe('on sandbox', () => {
+    // docs:start:sandbox-example
+    describe('private token contract', () => {
+      const AZTEC_URL = 'http://localhost:8080';
+
+      let rpc: AztecRPC;
+      let owner: AccountWallet;
+      let recipient: AccountWallet;
+      let token: PrivateTokenContract;
+
+      beforeEach(async () => {
+        rpc = createAztecRpcClient(AZTEC_URL);
+        owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        recipient = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
+      }, 30_000);
+
+      it('increases recipient funds on transfer', async () => {
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(0n);
+        await token.methods.transfer(20n, recipient.getAddress()).send().wait();
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(20n);
+      });
+    });
+    // docs:end:sandbox-example
+
+    describe('cheats', () => {
+      const AZTEC_URL = 'http://localhost:8080';
+      const ETH_RPC_URL = 'http://localhost:8545';
+
+      let rpc: AztecRPC;
+      let owner: AccountWallet;
+      let testContract: TestContract;
+      let cheats: CheatCodes;
+
+      beforeAll(async () => {
+        rpc = createAztecRpcClient(AZTEC_URL);
+        owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        testContract = await TestContract.deploy(owner).send().deployed();
+        cheats = await CheatCodes.create(ETH_RPC_URL, rpc);
+      }, 30_000);
+
+      it('warps time to 1h into the future', async () => {
+        // docs:start:warp
+        const newTimestamp = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
+        await cheats.aztec.warp(newTimestamp);
+        await testContract.methods.isTimeEqual(newTimestamp).send().wait();
+        // docs:end:warp
+      });
+    });
+
+    describe('assertions', () => {
+      const AZTEC_URL = 'http://localhost:8080';
+      const ETH_RPC_URL = 'http://localhost:8545';
+
+      let rpc: AztecRPC;
+      let owner: AccountWallet;
+      let recipient: AccountWallet;
+      let token: PrivateTokenContract;
+      let nativeToken: NativeTokenContract;
+      let cheats: CheatCodes;
+      let ownerSlot: Fr;
+
+      beforeAll(async () => {
+        rpc = createAztecRpcClient(AZTEC_URL);
+        owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        recipient = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
+        nativeToken = await NativeTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
+
+        // docs:start:calc-slot
+        cheats = await CheatCodes.create(ETH_RPC_URL, rpc);
+        // The balances mapping is defined on storage slot 1 and is indexed by user address
+        ownerSlot = cheats.aztec.computeSlotInMap(1n, owner.getAddress());
+        // docs:end:calc-slot
+      }, 30_000);
+
+      it('checks private storage', async () => {
+        // docs:start:private-storage
+        const notes = await rpc.getPrivateStorageAt(owner.getAddress(), token.address, ownerSlot);
+        const values = notes.map(note => note.items[0]);
+        const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
+        expect(balance).toEqual(100n);
+        // docs:end:private-storage
+      });
+
+      it('checks public storage', async () => {
+        // docs:start:public-storage
+        await nativeToken.methods.owner_mint_pub(owner.getAddress(), 100n).send().wait();
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(4n, owner.getAddress());
+        const balance = await rpc.getPublicStorageAt(nativeToken.address, ownerPublicBalanceSlot);
+        expect(toBigIntBE(balance!)).toEqual(100n);
+        // docs:end:public-storage
+      });
+
+      it('checks unencrypted logs', async () => {
+        // docs:start:unencrypted-logs
+        const tx = await nativeToken.methods.owner_mint_pub(owner.getAddress(), 100n).send().wait();
+        const logs = await rpc.getUnencryptedLogs(tx.blockNumber!, 1);
+        const textLogs = L2BlockL2Logs.unrollLogs(logs).map(log => log.toString('ascii'));
+        expect(textLogs).toEqual(['Coins minted']);
+        // docs:end:unencrypted-logs
+      });
+
+      it('asserts a local transaction simulation fails by calling simulate', async () => {
+        // docs:start:local-tx-fails
+        const call = token.methods.transfer(200n, recipient.getAddress());
+        await expect(call.simulate()).rejects.toThrowError(/Assertion failed/);
+        // docs:end:local-tx-fails
+      });
+
+      it('asserts a local transaction simulation fails by calling send', async () => {
+        // docs:start:local-tx-fails-send
+        const call = token.methods.transfer(200n, recipient.getAddress());
+        await expect(call.send().wait()).rejects.toThrowError(/Assertion failed/);
+        // docs:end:local-tx-fails-send
+      });
+
+      it('asserts a transaction is dropped', async () => {
+        // docs:start:tx-dropped
+        const call1 = token.methods.transfer(80n, recipient.getAddress());
+        const call2 = token.methods.transfer(50n, recipient.getAddress());
+
+        await call1.simulate();
+        await call2.simulate();
+
+        await call1.send().wait();
+        await expect(call2.send().wait()).rejects.toThrowError(/dropped/);
+        // docs:end:tx-dropped
+      });
+
+      it('asserts a simulation for a public function call fails', async () => {
+        // docs:start:local-pub-fails
+        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 200n);
+        await expect(call.simulate()).rejects.toThrowError(/Assertion failed/);
+        // docs:end:local-pub-fails
+      });
+
+      it('asserts a transaction with a failing public call is dropped (until we get public reverts)', async () => {
+        // docs:start:pub-dropped
+        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 200n);
+        await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
+        // docs:end:pub-dropped
+      });
+    });
+  });
+});

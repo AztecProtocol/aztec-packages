@@ -5,11 +5,10 @@ import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
 
+
+
 import fs from 'fs';
 
-const toFr = (value: Fr | bigint): Fr => {
-  return typeof value === 'bigint' ? new Fr(value) : value;
-};
 
 /**
  * A class that provides utility functions for interacting with the chain.
@@ -236,13 +235,13 @@ export class AztecCheatCodes {
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
-  public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint): Fr {
+  public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
     // aztec3-packages/yarn-project/noir-contracts/src/contracts/noir-aztec/src/state_vars/map.nr
     return Fr.fromBuffer(
       pedersenPlookupCommitInputs(
         this.wasm,
-        [toFr(baseSlot), toFr(key)].map(f => f.toBuffer()),
+        [new Fr(baseSlot), new Fr(key)].map(f => f.toBuffer()),
       ),
     );
   }
@@ -277,7 +276,7 @@ export class AztecCheatCodes {
    * @returns The value stored at the given slot
    */
   public async loadPublic(who: AztecAddress, slot: Fr | bigint): Promise<Fr> {
-    const storageValue = await this.aztecRpc.getPublicStorageAt(who, toFr(slot));
+    const storageValue = await this.aztecRpc.getPublicStorageAt(who, new Fr(slot));
     if (storageValue === undefined) {
       throw new Error(`Storage slot ${slot} not found`);
     }

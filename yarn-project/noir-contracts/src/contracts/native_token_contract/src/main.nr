@@ -24,15 +24,15 @@ contract NativeToken {
 
     use crate::storage::Storage;
 
-    use dep::aztec::types::point::Point;
     use dep::aztec::{
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
+        oracle::logs::emit_unencrypted_log,
+        public_call_stack_item::PublicCallStackItem,
+        types::point::Point
     };
-
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     #[aztec(private)]
     fn constructor(
@@ -55,7 +55,8 @@ contract NativeToken {
         let new_balance = storage.public_balances.at(to).read() + amount;
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
-        
+        let _hash = emit_unencrypted_log("Coins minted");
+
         1
     }
 
@@ -207,6 +208,8 @@ contract NativeToken {
         // User has sufficient balance so we decrement it by `amount`
         sender_balance.write(current_sender_balance - amount);
         to_balance.write(current_to_balance + amount);
+
+        let _hash = emit_unencrypted_log("Coins transferred");
     }
 
     // uint256(keccak256("transfer_from_pub(field,field,field)")) >> 224 -> 1602017294
