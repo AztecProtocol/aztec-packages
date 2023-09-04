@@ -19,6 +19,7 @@ setup: true # have a dynamic config step
 orbs:
   continuation: circleci/continuation@1.0.0
   slack: circleci/slack@4.12.5
+  aws-cli: circleci/aws-cli@4.1.0
 
 parameters:
   workflow:
@@ -79,7 +80,7 @@ save_logs: &save_logs
 jobs:
   # Dynamically filter our code, quickly figuring out which jobs we can skip.
   generate-config:
-    executor: continuation/default
+    executor: aws-cli/default
     steps:
       - *checkout
       - *setup_env
