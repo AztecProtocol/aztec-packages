@@ -4,10 +4,10 @@ title: Aztec.nr Contracts
 
 ## Introduction
 
-This guide explains the set up required to write a contract using the Aztec.nr library; then deploy it to the sandbox
+This guide explains the set up required to write a contract using the Aztec.nr library; then deploy it to the sandbox. Aztec.nr is a library on top of [Noir](https://noir-lang.org/) that can be used to write smart contracts for Aztec. Since Noir files use the `.nr` extension, we are calling this library "Aztec.nr".
 
 :::info Prerequisite reading
-If you haven't read [Aztec Sandbox](./sandbox.md) and [Noir](./noir.md), we recommend going there first.
+If you haven't read [Aztec Sandbox](./sandbox.md), we recommend going there first.
 :::
 
 ### Dependencies
