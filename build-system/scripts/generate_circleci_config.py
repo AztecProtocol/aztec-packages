@@ -6,14 +6,17 @@ import subprocess
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_and_build_patterns():
     manifest = json.load(open("build_manifest.json"))
-    manifest_to_build_patterns = {}
-    for key in manifest:
-        manifest_to_build_patterns[key] = "|".join(manifest[key]["rebuildPatterns"])
+    
+    # First pass to initialize manifest_to_build_patterns
+    manifest_to_build_patterns = {key: manifest[key]["rebuildPatterns"] for key in manifest}
+    
+    # Second pass to include dependencies
     for key in manifest:
         for dep in manifest[key].get("dependencies", []):
-            manifest_to_build_patterns[key] += "|"
             manifest_to_build_patterns[key] += manifest_to_build_patterns[dep]
-    return manifest_to_build_patterns 
+
+    # Convert lists to joined string sets
+    return {key: "|".join(set(value)) for key, value in manifest_to_build_patterns.items()}
 
 def find_string_in_jobs(jobs, manifest_name):
     matching_jobs = {}
@@ -33,9 +36,11 @@ def get_already_built_manifest():
     for key in manifest_to_build_patterns:
         rebuild_patterns = manifest_to_build_patterns[key]
         if rebuild_patterns in tag_found_for_hash:
+            print(key, "SKIPPING")
             if tag_found_for_hash[rebuild_patterns]:
                 yield key
             continue
+        print(key, rebuild_patterns)
         content_hash = subprocess.check_output(['calculate_content_hash', key, rebuild_patterns]).decode("utf-8")
         completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
         if completed.returncode == 0:
