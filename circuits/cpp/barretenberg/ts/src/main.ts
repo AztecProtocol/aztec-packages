@@ -17,8 +17,14 @@ const debug = createDebug('bb.js');
 const MAX_CIRCUIT_SIZE = 2 ** 19;
 
 function getBytecode(bytecodePath: string) {
-  const encodedCircuit = readFileSync(bytecodePath, 'utf-8');
+  const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
+  return decompressed;
+}
+
+function getWitness(witnessPath: string) {
+  const data = readFileSync(witnessPath);
+  const decompressed = gunzipSync(data);
   return decompressed;
 }
 
@@ -27,11 +33,6 @@ async function getGates(bytecodePath: string, api: BarretenbergApiAsync) {
   return total;
 }
 
-function getWitness(witnessPath: string) {
-  const data = readFileSync(witnessPath);
-  const decompressed = gunzipSync(data);
-  return decompressed;
-}
 
 async function computeCircuitSize(bytecodePath: string, api: BarretenbergApiAsync) {
   debug(`computing circuit size...`);
