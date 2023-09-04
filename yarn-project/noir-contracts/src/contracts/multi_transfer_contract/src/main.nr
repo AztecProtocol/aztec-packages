@@ -1,10 +1,5 @@
 // Demonstrates how to perform 4 x 4 = 16 transfers in one transaction. Uses the private airdrop contract in the backend.
 contract MultiTransfer {
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::PrivateContext;
     use dep::aztec::oracle::public_call;
     use dep::aztec::private_call_stack_item::PrivateCallStackItem;
     use dep::aztec::public_call_stack_item::PublicCallStackItem;
@@ -35,7 +30,7 @@ contract MultiTransfer {
         owner: Field, // Owner of the asset
         batch_transfer_selector: Field, // Function selector for transfer
         note_offsets: [Field; 4], // Offsets from which 4 notes of the owner would be read.
-    ) {
+    ) -> [Field; 4] {
         // First batch transfer call
         let return_values_1 = context.call_private_function(asset, batch_transfer_selector, [
             owner, 
@@ -48,7 +43,6 @@ contract MultiTransfer {
             note_offsets[0],
         ]);
         let result1 = return_values_1[0];
-        context.return_values.push(result1);
 
         // Second batch transfer call
         let return_values_2 = context.call_private_function(asset, batch_transfer_selector, [
@@ -62,7 +56,6 @@ contract MultiTransfer {
             note_offsets[1],
         ]);
         let result2 = return_values_2[0];
-        context.return_values.push(result2);
 
         // Third batch transfer call
         let return_values_3 = context.call_private_function(asset, batch_transfer_selector, [
@@ -76,7 +69,6 @@ contract MultiTransfer {
             note_offsets[2],
         ]);
         let result3 = return_values_3[0];
-        context.return_values.push(result3);
 
         // Fourth batch transfer call
         let return_values_4 = context.call_private_function(asset, batch_transfer_selector, [
@@ -90,6 +82,7 @@ contract MultiTransfer {
             note_offsets[3],
         ]);
         let result4 = return_values_4[0];
-        context.return_values.push(result4);
+
+        [result1, result2, result3, result4]
     }
 }
