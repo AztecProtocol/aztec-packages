@@ -35,7 +35,8 @@ if __name__ == '__main__':
     # List of jobs to remove
     jobs_to_remove = ["e2e-sandbox-example", "e2e-multi-transfer-contract", "deploy-end"]
 
-    # Get rid of workflow setup step
+    # Get rid of workflow setup step and setup flag
+    workflow_dict["setup"] = False
     del workflow_dict["workflows"]["setup-workflow"]
     # Remove the jobs and get the new workflow
     workflow_dict["workflows"]["system"]["jobs"] = remove_jobs_from_workflow(workflow_dict["workflows"]["system"]["jobs"], jobs_to_remove)
