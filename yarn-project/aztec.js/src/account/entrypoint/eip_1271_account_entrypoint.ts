@@ -1,6 +1,6 @@
 import { AztecAddress, Fr, FunctionData, PartialAddress, PrivateKey, TxContext } from '@aztec/circuits.js';
 import { Signer } from '@aztec/circuits.js/barretenberg';
-import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
 import SchnorrEip1271AccountContractAbi from '../../abis/schnorr_eip_1271_account_contract.json' assert { type: 'json' };
@@ -13,6 +13,7 @@ import { CreateTxRequestOpts, Entrypoint } from './index.js';
  * Account contract implementation that uses a single key for signing and encryption. This public key is not
  * stored in the contract, but rather verified against the contract address. Note that this approach is not
  * secure and should not be used in real use cases.
+ * The entrypoint is extended to support signing and creating eip1271-like witnesses.
  */
 export class Eip1271AccountEntrypoint implements Entrypoint {
   constructor(
@@ -24,19 +25,27 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
     private version: number = DEFAULT_VERSION,
   ) {}
 
-  public sign(message: Buffer) {
+  /**
+   * Sign a message hash with the private key.
+   * @param message - The message hash to sign.
+   * @returns The signature as a Buffer.
+   */
+  public sign(message: Buffer): Buffer {
     return this.signer.constructSignature(message, this.privateKey).toBuffer();
   }
 
-  async createEip1271Witness(message: Buffer) {
+  /**
+   * Creates an eip1271 witness for the given message. In this case, witness is the public key, the signature
+   * and the partial address, to be used for verification.
+   * @param message - The message hash to sign.
+   * @returns [publicKey, signature, partialAddress] as Fr[].
+   */
+  async createEip1271Witness(message: Buffer): Promise<Fr[]> {
     const signature = this.sign(message);
     const publicKey = await generatePublicKey(this.privateKey);
 
-    const publicKeyBytes = publicKey.toBuffer();
     const sigFr: Fr[] = [];
-    const pubKeyFr: Fr[] = [];
     for (let i = 0; i < 64; i++) {
-      pubKeyFr.push(new Fr(publicKeyBytes[i]));
       sigFr.push(new Fr(signature[i]));
     }
 
@@ -48,7 +57,7 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
    * Returning the witness here as a nonce is generated in the buildPayload action.
    * @param executions - The function calls to execute
    * @param opts - The options
-   * @returns
+   * @returns The TxRequest, the eip1271 witness to insert in db and the message signed
    */
   async createTxExecutionRequestWithWitness(
     executions: FunctionCall[],
@@ -84,13 +93,10 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
   }
 
   createTxExecutionRequest(executions: FunctionCall[], _opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
-    throw new Error(`Not implemented`);
+    throw new Error(`Not implemented, use createTxExecutionRequestWithWitness instead`);
   }
 
-  private getEntrypointAbi() {
-    // We use the SchnorrSingleKeyAccountContract because it implements the interface we need, but ideally
-    // we should have an interface that defines the entrypoint for SingleKeyAccountContracts and
-    // load the abi from it.
+  private getEntrypointAbi(): FunctionAbi {
     const abi = (SchnorrEip1271AccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;

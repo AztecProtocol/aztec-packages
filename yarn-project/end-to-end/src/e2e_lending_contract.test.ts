@@ -82,15 +82,10 @@ describe('e2e_lending_contract', () => {
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc } = await setup());
 
-    // Somewhere up here it gets nasty with the wallet addresses.
-
-    // We want to replace that wallet. And want to create one that has the Eip 1271
     const privateKey = PrivateKey.random();
     const account = new Account(aztecRpcServer, privateKey, new Eip1271AccountContract(privateKey));
-    // IS this too early or what is going on?
     const entryPoint = (await account.getEntrypoint()) as unknown as Eip1271AccountEntrypoint;
 
-    // await account.getDeployMethod().then(d => d.simulate({ contractAddressSalt: account.salt }));
     const deployTx = await account.deploy();
     await deployTx.wait({ interval: 0.1 });
 
@@ -290,7 +285,7 @@ describe('e2e_lending_contract', () => {
   }
 
   it('Full lending run-through', async () => {
-    // Gotta use the actual eip1271 account here.
+    // Gotta use the actual eip1271 account here and not the standard wallet.
     const recipientFull = accounts[1];
     const recipient = recipientFull.address;
 

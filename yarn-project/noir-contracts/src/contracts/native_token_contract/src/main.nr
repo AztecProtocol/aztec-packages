@@ -307,6 +307,7 @@ contract NativeToken {
             // @todo @lherskind, probably need a separate generator index and address of the 
             // @todo @lherskind Currently this can be used multiple times since it is not nullified. 
             //                  We can do a simple nullifier to handle that in here. Spends only 32 bytes onchain.
+            // @todo @LHerskind Is to be solved as part of https://github.com/AztecProtocol/aztec-packages/issues/1743
             let message_field: Field = std::hash::pedersen_with_separator([
                     0x90785014, 
                     from, 

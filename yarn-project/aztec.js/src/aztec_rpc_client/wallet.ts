@@ -113,19 +113,29 @@ export class EntrypointWallet extends BaseWallet {
 
 /**
  * A wallet implementation supporting EIP1271.
+ * This wallet inserts eip1271-like witnesses into the RPC, which are then fetched using an oracle
+ * to provide authentication data to the contract during execution.
  */
 export class EipEntrypointWallet extends BaseWallet {
   constructor(rpc: AztecRPC, protected accountImpl: Eip1271AccountEntrypoint) {
     super(rpc);
   }
 
+  /**
+   * Create a transaction request and add the eip1271 witness to the RPC.
+   * Note:  When used in simulations, the witness that is inserted could be used later by attacker with
+   *        access to the RPC.
+   *        Meaning that if you were to use someone elses rpc with db you could send these transactions.
+   *        For simulations it would be desirable to bypass such that no data is generated.
+   *
+   * @param executions - The function calls to execute.
+   * @param opts - The options.
+   * @returns - The TxRequest
+   */
   async createTxExecutionRequest(
     executions: FunctionCall[],
     opts: CreateTxRequestOpts = {},
   ): Promise<TxExecutionRequest> {
-    // Note that as we are inserting into the DB when creating this, it can be used after a simulation
-    // Meaning that if you were to use someone elses rpc with db you could send these transactions.
-    // For simulations these should be bypassed such that no data is generated.
     const { txRequest, message, witness } = await this.accountImpl.createTxExecutionRequestWithWitness(
       executions,
       opts,
@@ -141,9 +151,8 @@ export class EipEntrypointWallet extends BaseWallet {
   /**
    * Signs the `messageHash` and adds the witness to the RPC.
    * This is useful for signing messages that are not directly part of the transaction payload, such as
-   * approvals.
+   * approvals .
    * @param messageHash - The message hash to sign
-   * @returns
    */
   async signAndAddEip1271Witness(messageHash: Buffer): Promise<void> {
     const witness = await this.accountImpl.createEip1271Witness(messageHash);

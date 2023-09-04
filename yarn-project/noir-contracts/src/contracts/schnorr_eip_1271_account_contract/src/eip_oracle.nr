@@ -23,7 +23,6 @@ impl Eip1271Witness {
     }
 }
 
-// Need to figure something out for number of fields returned
 unconstrained fn get_eip_1271_witness(message_hash: Field) -> Eip1271Witness {
     Eip1271Witness::deserialize(get_eip_1271_witness_oracle(message_hash))
 }

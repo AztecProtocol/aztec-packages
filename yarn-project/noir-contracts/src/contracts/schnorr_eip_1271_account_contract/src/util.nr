@@ -14,11 +14,9 @@ fn recover_address(
       message_bytes[i] = message_bytes_slice[i];
     }
     
-    // Verify signature of the payload hash
     let verification = verify_signature(witness.owner.x, witness.owner.y, witness.signature, message_bytes);
     assert(verification == true);
 
-    // Verify public key against address
     let reproduced_address = pedersen_with_separator([witness.owner.x, witness.owner.y, witness.partial_address], GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
     reproduced_address
 }

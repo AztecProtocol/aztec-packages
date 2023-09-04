@@ -9,6 +9,7 @@ import { AccountContract } from './index.js';
 /**
  * Account contract that authenticates transactions using Schnorr signatures verified against
  * the note encryption key, relying on a single private key for both encryption and authentication.
+ * Extended to pull verification data from the oracle instead of passed as arguments.
  */
 export class Eip1271AccountContract implements AccountContract {
   constructor(private encryptionPrivateKey: PrivateKey) {}
