@@ -32,8 +32,6 @@ def find_string_in_jobs(jobs, manifest_name):
                 break
     return matching_jobs
 
-manager = multiprocessing.Manager()
-tag_found_for_hash = manager.dict()
 
 def process_manifest(key, rebuild_patterns):
     if rebuild_patterns in tag_found_for_hash:
@@ -87,6 +85,9 @@ def remove_jobs_from_workflow(jobs, to_remove):
     return new_jobs
 
 if __name__ == '__main__':
+    multiprocessing.freeze_support()  # Optional but recommended when targeting multiple platforms
+    manager = multiprocessing.Manager()
+    tag_found_for_hash = manager.dict()
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
     workflow_json_str = sys.stdin.read()
     
