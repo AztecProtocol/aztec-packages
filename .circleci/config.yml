@@ -89,7 +89,7 @@ jobs:
           command: |
             # convert to json, run a python script, write out json (which is a readable as YAML)
             pip install PyYAML
-            yq -o=json -I=0 '.' .circleci/config.yml | build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
+            build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
       - continuation/continue:
           configuration_path: .circleci/generated_config.yml
 

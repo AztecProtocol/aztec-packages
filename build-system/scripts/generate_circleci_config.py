@@ -2,7 +2,7 @@
 # Operates on circleci (loaded as json) from stdin
 # Outputs filtered circleci without the jobs we don't need to run
 import json
-import sys
+import yaml
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
 
@@ -73,10 +73,9 @@ def remove_jobs_from_workflow(jobs, to_remove):
 
 if __name__ == '__main__':
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
-    workflow_json_str = sys.stdin.read()
     
     # Convert the JSON string to a Python dictionary
-    workflow_dict = json.loads(workflow_json_str)
+    workflow_dict = yaml.load('.circleci/config.yml')
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
