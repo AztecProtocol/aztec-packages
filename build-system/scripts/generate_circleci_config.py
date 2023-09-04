@@ -87,5 +87,5 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["jobs"] = remove_jobs_from_workflow(workflow_dict["workflows"]["system"]["jobs"], jobs_to_remove)
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
-    new_workflow_json_str = json.dumps(workflow_dict, indent=2)
+    new_workflow_json_str = yaml.dumps(workflow_dict, indent=2)
     print(new_workflow_json_str)
