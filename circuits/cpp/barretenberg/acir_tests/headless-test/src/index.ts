@@ -38,8 +38,8 @@ function formatAndPrintLog(message: string): void {
 }
 
 const readBytecodeFile = (path: string): Uint8Array => {
-  const data = fs.readFileSync(path, "ascii");
-  const buffer = gunzipSync(Buffer.from(data, "base64"));
+  const data = fs.readFileSync(path);
+  const buffer = gunzipSync(data);
   return buffer;
 };
 
