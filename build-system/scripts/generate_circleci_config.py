@@ -8,7 +8,7 @@ def get_manifest_and_build_patterns():
     manifest = json.load(open("build_manifest.json"))
     manifest_to_build_patterns = {}
     for key in manifest:
-        manifest_to_build_patterns[key] = "|".join(manifest["rebuildPatterns"])
+        manifest_to_build_patterns[key] = "|".join(manifest[key]["rebuildPatterns"])
     for key in manifest:
         for dep in manifest[key].get("dependencies", []):
             manifest_to_build_patterns[key] += "|"
