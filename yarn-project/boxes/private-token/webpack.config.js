@@ -28,8 +28,8 @@ export default (_, argv) => ({
         ],
       },
       {
-        test: /\.svg$/,
-        use: ['@svgr/webpack'],
+        test: /\.css$/i,
+        use: ['style-loader', 'css-loader', 'postcss-loader'],
       },
     ],
   },
@@ -46,14 +46,13 @@ export default (_, argv) => ({
     new webpack.ProvidePlugin({ Buffer: ['buffer', 'Buffer'] }),
     new CopyWebpackPlugin({
       patterns: [
-        // {
-        //   from: `${path.dirname(require.resolve(`@aztec/sdk`))}/aztec-connect.wasm`,
-        //   to: 'aztec-connect.wasm',
-        // },
-        // {
-        //   from: `${path.dirname(require.resolve(`@aztec/sdk`))}/web_worker.js`,
-        //   to: 'web_worker.js',
-        // },
+        {
+          from: `${dirname(require.resolve(`@aztec/circuits.js`)).replace(
+            /\/dest$/,
+            '',
+          )}/resources/aztec3-circuits.wasm`,
+          to: 'aztec3-circuits.wasm',
+        },
         {
           from: './src/assets',
         },
@@ -87,6 +86,7 @@ export default (_, argv) => ({
     },
   },
   devServer: {
+    port: 3000,
     historyApiFallback: true,
     client: {
       overlay: false,
