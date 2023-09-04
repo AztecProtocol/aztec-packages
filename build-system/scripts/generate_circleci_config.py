@@ -20,7 +20,6 @@ def remove_jobs_from_workflow(jobs, to_remove):
         key = next(iter(job))
         if key in to_remove:
             continue
-        print(job[key])
         # remove our filtered jobs from the dependency graph via the requires attribute
         job[key]["requires"] = [r for r in job[key].get("requires", []) if r not in jobs_to_remove]
         new_jobs.append(job)
