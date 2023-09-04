@@ -34,24 +34,23 @@ def find_string_in_jobs(jobs, manifest_name):
 
 
 def process_manifest(key, rebuild_patterns):
-    if rebuild_patterns in tag_found_for_hash:
-        print(key, "SKIPPING")
-        if tag_found_for_hash[rebuild_patterns]:
-            return key
-        return None
+    # if rebuild_patterns in tag_found_for_hash:
+    #     print(key, "SKIPPING")
+    #     if tag_found_for_hash[rebuild_patterns]:
+    #         return key
+        # return None
 
-    print(key, rebuild_patterns)
-    content_hash = subprocess.check_output(['calculate_content_hash', key, rebuild_patterns]).decode("utf-8")
+    # print(key, rebuild_patterns)
+    content_hash = subprocess.check_output(['calculate_content_hash', key]).decode("utf-8")
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
-        tag_found_for_hash[rebuild_patterns] = True
+        # tag_found_for_hash[rebuild_patterns] = True
         return key
     else:
-        tag_found_for_hash[rebuild_patterns] = False
+        # tag_found_for_hash[rebuild_patterns] = False
         return None
 
 def get_already_built_manifest():
-    tag_found_for_hash = {}
     manifest_to_build_patterns = get_manifest_and_build_patterns()
 
     with ProcessPoolExecutor() as executor:
@@ -85,8 +84,9 @@ def remove_jobs_from_workflow(jobs, to_remove):
     return new_jobs
 
 if __name__ == '__main__':
-    multiprocessing.freeze_support()  # Optional but recommended when targeting multiple platforms
+    multiprocessing.freeze_support()
     manager = multiprocessing.Manager()
+    global tag_found_for_hash
     tag_found_for_hash = manager.dict()
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
     workflow_json_str = sys.stdin.read()
