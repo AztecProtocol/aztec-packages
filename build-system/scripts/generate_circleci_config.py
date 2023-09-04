@@ -22,11 +22,11 @@ def get_already_built_manifest():
     tag_found_for_hash = {}
     manifest_names = get_all_manifest_names()
     for name in manifest_names:
-        content_hash = subprocess.run(f"calculate_content_hash {name}", shell=True, stdout=subprocess.DEVNULL)
+        content_hash = subprocess.run(["calculate_content_hash", name], stdout=subprocess.DEVNULL)
         if tag_found_for_hash.get(content_hash):
             yield name
             continue
-        completed = subprocess.run(f"check_rebuild cache-{content_hash} {name}", shell=True, stdout=subprocess.DEVNULL)
+        completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", "{name}"], stdout=subprocess.DEVNULL)
         if completed.returncode == 0:
             tag_found_for_hash[content_hash] = True
             yield name
