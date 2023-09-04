@@ -57,10 +57,8 @@ checkout: &checkout
       git remote add origin $CIRCLE_REPOSITORY_URL
 
       # Only download metadata when fetching.
-      retry_10 git fetch --depth 50 --filter=blob:none origin $CIRCLE_SHA1
+      retry_10 git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
       git checkout FETCH_HEAD
-      # Initialize submodules recursively (retry 10 times on failure)
-      retry_10 git submodule update --init --recursive
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -242,6 +240,17 @@ jobs:
           name: "Test"
           command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
 
+  barretenberg-acir-tests-bb:
+    docker:
+      - image: aztecprotocol/alpine-build-image
+    resource_class: small
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: cond_spot_run_build barretenberg-acir-tests-bb 32
+
   bb-js:
     machine:
       image: ubuntu-2004:202010-01
@@ -250,7 +259,7 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Build"
+          name: "Build and test"
           command: build bb.js
 
   bb-js-tests:
@@ -261,10 +270,10 @@ jobs:
       - *checkout
       - *setup_env
       - run:
-          name: "Test"
+          name: "Build and test"
           command: cond_spot_run_tests bb.js
 
-  barretenberg-acir-tests:
+  bb-js-acir-tests:
     docker:
       - image: aztecprotocol/alpine-build-image
     resource_class: small
@@ -273,7 +282,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: cond_spot_run_build barretenberg-acir-tests 32
+          command: cond_spot_run_build barretenberg-acir-tests-bb.js 32
 
   circuits-wasm-linux-clang:
     docker:
@@ -972,6 +981,20 @@ jobs:
           name: "Test"
           command: cond_spot_run_test_script ./scripts/run_tests canary-build uniswap_trade_on_l1_from_l2.test.ts canary-build docker-compose-e2e-sandbox.yml
 
+  build-docs:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Copy docs dockerignore"
+          command: cp docs/.dockerignore .
+      - run:
+          name: "Build docs"
+          command: build docs
+
   e2e-join:
     docker:
       - image: cimg/base:current
@@ -1227,11 +1250,13 @@ circuits-x86_64-test: &circuits-x86_64-test
   requires:
     - circuits-x86_64-linux-clang-assert
   <<: *defaults
+
 workflows:
   system:
     when:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
+      - build-docs: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
@@ -1265,9 +1290,12 @@ workflows:
           requires:
             - bb-js
           <<: *defaults
-      - barretenberg-acir-tests:
+      - barretenberg-acir-tests-bb:
           requires:
             - barretenberg-x86_64-linux-clang-assert
+          <<: *defaults
+      - bb-js-acir-tests:
+          requires:
             - bb-js
           <<: *defaults
       - circuits-wasm-linux-clang: *defaults
@@ -1445,5 +1473,3 @@ workflows:
           requires:
             - build-deployment-canary
           <<: *deploy_defaults
-
-

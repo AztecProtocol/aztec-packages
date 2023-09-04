@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -eu
 
 if [ -z "$COMMIT_TAG" ]; then
   echo "Will only push tagged builds to dockerhub. Skipping."
@@ -40,7 +40,7 @@ IMAGE_TAG=$COMMIT_TAG_VERSION
 echo "Deploying to dockerhub: $IMAGE_DEPLOY_URI"
 
 # Login.
-ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
+retry_10 ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
 
 # Pull image.
 docker pull $IMAGE_COMMIT_URI
