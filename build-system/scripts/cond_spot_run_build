@@ -8,6 +8,8 @@ SPEC=$1
 shift
 DOCKERFILE=$(query_manifest dockerfile $REPOSITORY)
 
+echo "REBUILD PATTERN"
+query_manifest rebuildPatterns $REPOSITORY
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash tag: cache-$CONTENT_HASH"
 

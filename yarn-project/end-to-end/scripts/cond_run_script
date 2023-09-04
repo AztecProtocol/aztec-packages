@@ -25,6 +25,8 @@ SCRIPT_TO_RUN=$1
 shift
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
+echo "REBUILD PATTERN"
+query_manifest rebuildPatterns $REPOSITORY
 echo "Content hash tag: cache-$CONTENT_HASH-$SUCCESS_TAG"
 echo "Script to run is $SCRIPT_TO_RUN $@"
 

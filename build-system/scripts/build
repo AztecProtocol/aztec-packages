@@ -47,6 +47,8 @@ function fetch_image() {
 # Ensure ECR repository exists.
 retry_10 ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 
+echo "REBUILD PATTERN"
+query_manifest rebuildPatterns $REPOSITORY
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
 
