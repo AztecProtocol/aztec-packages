@@ -85,18 +85,10 @@ jobs:
       - run:
           name: Generate Pipeline generated_config.yml file
           command: |
-            IFS=":"
-            for dir in $PATH; do
-              if [ -d "$dir" ]; then
-                for file in "$dir"/*; do
-                  if [ -x "$file" ]; then
-                    echo "$file"
-                  fi
-                done
-              fi
-            done
+            # convert to json, run a python script, output json (which is loadable as yaml)
+            yq -o=json -I=0 '.' .circleci/config.yml | build-system/scripts/generate_circleci_config.py > .circleci/generated_config.yml
       - continuation/continue:
-          configuration_path: configs/generated_config.yml
+          configuration_path: .circleci/generated_config.yml
 
   barretenberg-wasm-linux-clang:
     docker:
@@ -1269,7 +1261,7 @@ workflows:
     when:
       # Used to generate a dynamic 'system' workflow
       # This is toggled to 'system' (otherwise this is ignored by circleci)
-      equal: [system_DYNAMIC, << pipeline.parameters.workflow >>]
+      equal: [NEVER, << pipeline.parameters.workflow >>]
     jobs:
       - build-docs: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
