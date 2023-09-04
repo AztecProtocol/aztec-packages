@@ -10,6 +10,7 @@ export function toBigIntBE(bytes: Uint8Array) {
   return bigint;
 }
 
+
 export function toBufferBE(value: bigint, byteLength = 32) {
   const bytes = new Uint8Array(byteLength);
   const view = new DataView(bytes.buffer);
