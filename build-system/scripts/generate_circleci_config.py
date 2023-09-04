@@ -89,3 +89,4 @@ if __name__ == '__main__':
     # Convert the new workflow back to JSON string
     new_workflow_json_str = json.dumps(workflow_dict, indent=2)
     print(new_workflow_json_str)
+
