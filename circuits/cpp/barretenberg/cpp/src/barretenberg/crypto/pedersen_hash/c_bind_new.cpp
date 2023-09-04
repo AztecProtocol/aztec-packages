@@ -45,6 +45,7 @@ WASM_EXPORT void pedersen_hash_multiple_with_hash_index(uint8_t const* inputs_bu
  * e.g.
  * input:  [1][2][3][4]
  * output: [1][2][3][4][compress(1,2)][compress(3,4)][compress(5,6)]
+ *
  */
 WASM_EXPORT void pedersen_hash_to_tree(fr::vec_in_buf data, fr::vec_out_buf out)
 {
