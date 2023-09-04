@@ -66,7 +66,7 @@ if [ -n "$NAMED_TEST" ]; then
   echo -n "Testing $NAMED_TEST... "
   test $NAMED_TEST
 else
-  for TEST_NAME in $(find -maxdepth 1 -type d -not -path '.' -printf '%P\n'); do
+  for TEST_NAME in $(find -maxdepth 1 -type d -not -path '.' | sed 's|^\./||'); do
     echo -n "Testing $TEST_NAME... "
 
     if [[ " ${SKIP_ARRAY[@]} " =~ " $TEST_NAME" ]]; then
