@@ -23,7 +23,7 @@ def has_associated_manifest_job(circleci_job, manifest_names):
     return False
 
 def get_already_built_circleci_job_names(circleci_jobs):
-    manifest_names = [] #list(get_already_built_manifest_job_names())
+    manifest_names = ["barretenberg-x86_64-linux-clang", "barretenberg-x86_64-linux-gcc"] #list(get_already_built_manifest_job_names())
     for job_name, circleci_job in circleci_jobs.items():
         if has_associated_manifest_job(circleci_job, manifest_names):
             yield job_name
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     # print(list(get_already_built_manifest_job_names()))
     # print(get_already_built_circleci_job_names(workflow_dict["jobs"]))
     # # List of jobs to remove
-    jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
+    jobs_to_remove = []# list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
 
     # Get rid of workflow setup step and setup flag
     workflow_dict["setup"] = False
