@@ -5,7 +5,6 @@ import json
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
-import multiprocessing
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_job_names():
@@ -72,18 +71,12 @@ def remove_jobs_from_workflow(jobs, to_remove):
     return new_jobs
 
 if __name__ == '__main__':
-    multiprocessing.freeze_support()
-    manager = multiprocessing.Manager()
-    global tag_found_for_hash
-    tag_found_for_hash = manager.dict()
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
     workflow_json_str = sys.stdin.read()
     
     # Convert the JSON string to a Python dictionary
     workflow_dict = json.loads(workflow_json_str)
 
-    # print(list(get_already_built_manifest_job_names()))
-    # print(get_already_built_circleci_job_names(workflow_dict["jobs"]))
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
 
