@@ -15,9 +15,10 @@
 # There are some `join` steps that are just noops. They are just used to produce cleaner graph rendering in CCI.
 
 version: 2.1
-
+setup: true # have a dynamic config step
 orbs:
-  slack: circleci/slack@4.12.1
+  continuation: circleci/continuation@1.0.0
+  slack: circleci/slack@4.12.5
 
 parameters:
   workflow:
@@ -76,6 +77,18 @@ save_logs: &save_logs
       - ./*
 
 jobs:
+  # Dynamically filter our code, quickly figuring out which jobs we can skip.
+  generate-config:
+    executor: continuation/default
+    steps:
+      - *checkout
+      - run:
+          name: Generate Pipeline generated_config.yml file
+          command: |
+            node
+      - continuation/continue:
+          configuration_path: configs/generated_config.yml
+
   barretenberg-wasm-linux-clang:
     docker:
       - image: aztecprotocol/alpine-build-image
@@ -1240,9 +1253,14 @@ circuits-x86_64-test: &circuits-x86_64-test
     - circuits-x86_64-linux-clang-assert
   <<: *defaults
 workflows:
+  setup-workflow:
+    jobs:
+      - generate-config
   system:
     when:
-      equal: [system, << pipeline.parameters.workflow >>]
+      # Used to generate a dynamic 'system' workflow
+      # This is toggled to 'system' (otherwise this is ignored by circleci)
+      equal: [system_DYNAMIC, << pipeline.parameters.workflow >>]
     jobs:
       - build-docs: *defaults
       - barretenberg-x86_64-linux-gcc: *defaults
