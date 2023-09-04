@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import subprocess
+import multiprocessing
 
 # same functionality as query_manifest rebuildPatterns but in bulk
 def get_manifest_and_build_patterns():
@@ -30,24 +32,36 @@ def find_string_in_jobs(jobs, manifest_name):
                 break
     return matching_jobs
 
+manager = multiprocessing.Manager()
+tag_found_for_hash = manager.dict()
+
+def process_manifest(key, rebuild_patterns):
+    if rebuild_patterns in tag_found_for_hash:
+        print(key, "SKIPPING")
+        if tag_found_for_hash[rebuild_patterns]:
+            return key
+        return None
+
+    print(key, rebuild_patterns)
+    content_hash = subprocess.check_output(['calculate_content_hash', key, rebuild_patterns]).decode("utf-8")
+    completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
+    if completed.returncode == 0:
+        tag_found_for_hash[rebuild_patterns] = True
+        return key
+    else:
+        tag_found_for_hash[rebuild_patterns] = False
+        return None
+
 def get_already_built_manifest():
     tag_found_for_hash = {}
     manifest_to_build_patterns = get_manifest_and_build_patterns()
-    for key in manifest_to_build_patterns:
-        rebuild_patterns = manifest_to_build_patterns[key]
-        if rebuild_patterns in tag_found_for_hash:
-            print(key, "SKIPPING")
-            if tag_found_for_hash[rebuild_patterns]:
-                yield key
-            continue
-        print(key, rebuild_patterns)
-        content_hash = subprocess.check_output(['calculate_content_hash', key, rebuild_patterns]).decode("utf-8")
-        completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
-        if completed.returncode == 0:
-            tag_found_for_hash[rebuild_patterns] = True
-            yield key
-        else:
-            tag_found_for_hash[rebuild_patterns] = False
+
+    with ProcessPoolExecutor() as executor:
+        futures = {executor.submit(process_manifest, key, rebuild_patterns): key for key, rebuild_patterns in manifest_to_build_patterns.items()}
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                yield result
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
