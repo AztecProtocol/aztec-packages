@@ -30,6 +30,7 @@ def get_already_built_manifest():
         if completed.returncode == 0:
             tag_found_for_hash[content_hash] = True
             yield name
+        break
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
