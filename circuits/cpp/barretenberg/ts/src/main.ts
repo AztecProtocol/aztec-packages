@@ -33,7 +33,6 @@ async function getGates(bytecodePath: string, api: BarretenbergApiAsync) {
   return total;
 }
 
-
 async function computeCircuitSize(bytecodePath: string, api: BarretenbergApiAsync) {
   debug(`computing circuit size...`);
   const bytecode = getBytecode(bytecodePath);
