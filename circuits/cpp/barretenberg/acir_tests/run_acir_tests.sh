@@ -7,7 +7,7 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=master
+BRANCH=kw/remove-base64-decode
 VERBOSE=${VERBOSE:-}
 NAMED_TEST=${1:-}
 
@@ -73,7 +73,7 @@ else
       continue
     fi
 
-    if [[ ! -f ./$TEST_NAME/target/$TEST_NAME.bytecode || ! -f ./$TEST_NAME/target/witness.tr ]]; then
+    if [[ ! -f ./$TEST_NAME/target/acir.gz || ! -f ./$TEST_NAME/target/witness.gz ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
       continue
     fi
