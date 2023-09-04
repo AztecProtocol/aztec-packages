@@ -77,8 +77,8 @@ const sidebars = {
       items: [
         "dev_docs/getting_started/noir",
         "dev_docs/getting_started/sandbox",
-        "dev_docs/getting_started/cli",
         "dev_docs/getting_started/noir_contracts",
+        "dev_docs/getting_started/cli",
       ],
     },
 
