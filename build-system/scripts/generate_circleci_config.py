@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Operates on circleci (loaded as json) from stdin
+# Outputs filtered circleci without the jobs we don't need to run
 import json
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -10,24 +12,30 @@ def get_manifest_job_names():
     manifest = json.load(open("build_manifest.json"))
     return list(manifest)
 
-def get_(jobs, manifest_names):
+def get_associated_manifest_job(circleci_job, manifest_names):
+    steps = circleci_job.get("steps", [])
+    for step in steps:
+        run_info = step.get("run", {})
+        command = run_info.get("command", "")
+        print(command)
+        for manifest_name in manifest_names:
+            if manifest_name in command:
+                print(manifest_name)
+                return manifest_name
+    return None
+
+def get_already_built_circleci_job_names(circleci_jobs):
+    manifest_names = ["barretenberg-x86_64-linux-clang"] #list(get_already_built_manifest_job_names())
     matching_jobs = {}
-    for job_name, job_info in jobs.items():
-        steps = job_info.get("steps", [])
-        for step in steps:
-            run_info = step.get("run", {})
-            command = run_info.get("command", "")
-            for manifest_name in manifest_names:
-                if manifest_name in command:
-                    matching_jobs[job_name] = manifest_name
-                    break
+    for job_name, circleci_job in circleci_jobs.items():
+        matching_jobs[job_name] = get_associated_manifest_job(circleci_job, manifest_names)
     return matching_jobs
 
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
-    if completed.returncode == 0:
+    if completed.returncode == 1:
         return manifest_name
     else:
         return None
@@ -75,18 +83,18 @@ if __name__ == '__main__':
     
     # Convert the JSON string to a Python dictionary
     workflow_dict = json.loads(workflow_json_str)
-    
-    for man in get_already_built_manifest():
-        print("man",man)
-    # List of jobs to remove
-    jobs_to_remove = ["e2e-sandbox-example", "e2e-multi-transfer-contract", "deploy-end"]
 
-    # Get rid of workflow setup step and setup flag
-    workflow_dict["setup"] = False
-    del workflow_dict["workflows"]["setup-workflow"]
-    # Remove the jobs and get the new workflow
-    workflow_dict["workflows"]["system"]["jobs"] = remove_jobs_from_workflow(workflow_dict["workflows"]["system"]["jobs"], jobs_to_remove)
-    workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
-    # Convert the new workflow back to JSON string
-    new_workflow_json_str = json.dumps(workflow_dict, indent=2)
-    print(new_workflow_json_str)
+    # print(list(get_already_built_manifest_job_names()))
+    print(get_already_built_circleci_job_names(workflow_dict["jobs"]))
+    # # List of jobs to remove
+    # jobs_to_remove = ["e2e-sandbox-example", "e2e-multi-transfer-contract", "deploy-end"]
+
+    # # Get rid of workflow setup step and setup flag
+    # workflow_dict["setup"] = False
+    # del workflow_dict["workflows"]["setup-workflow"]
+    # # Remove the jobs and get the new workflow
+    # workflow_dict["workflows"]["system"]["jobs"] = remove_jobs_from_workflow(workflow_dict["workflows"]["system"]["jobs"], jobs_to_remove)
+    # workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
+    # # Convert the new workflow back to JSON string
+    # new_workflow_json_str = json.dumps(workflow_dict, indent=2)
+    # print(new_workflow_json_str)
