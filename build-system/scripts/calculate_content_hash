@@ -8,6 +8,8 @@ COMMIT_HASH=${2:-$COMMIT_HASH}
 # Compute REBUILD_PATTERNS from the build manifest
 REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
 
+echo REBUILD $REBUILD_PATTERNS
+
 AWK_PATTERN=$(echo $REBUILD_PATTERNS | sed 's/ /|/g')
 # an example line is
 #   100644 da9ae2e020ea7fe3505488bbafb39adc7191559b 0       yarn-project/world-state/tsconfig.json
