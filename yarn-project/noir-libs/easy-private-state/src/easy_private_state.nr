@@ -48,10 +48,10 @@ impl EasyPrivateUint {
 
         // Emit the newly created encrypted note preimages via oracle calls.
         let owner_key = get_public_key(owner);
-        let _context = self.context.unwrap();
+        let maybeContext = self.context.unwrap();
         emit_encrypted_log(
-            _context,
-            (*_context).this_address(),
+            maybeContext,
+            (*maybeContext).this_address(),
             self.set.storage_slot,
             owner_key,
             addend_note.serialise(),
@@ -94,10 +94,10 @@ impl EasyPrivateUint {
 
         let owner_key = get_public_key(owner);
 
-        let _context = self.context.unwrap();
+        let maybeContext = self.context.unwrap();
         emit_encrypted_log(
-            _context,
-            (*_context).this_address(),
+            maybeContext,
+            (*maybeContext).this_address(),
             self.set.storage_slot,
             owner_key,
             encrypted_data,
