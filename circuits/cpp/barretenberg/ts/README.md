@@ -118,7 +118,7 @@ const { Barretenberg, RawBuffer, Crs } = await loadModule();
 Create a symlink to the root script `bb.js-dev` in your path. You can now run the current state of the code from
 anywhere in your filesystem with no `yarn build` required.
 
-If you change the C++ code run `yarn build:wasm`.
+If you change the C++ code run `yarn build:wasm` to rebuild the webassembly.
 
 To run the tests run `yarn test`.
 
