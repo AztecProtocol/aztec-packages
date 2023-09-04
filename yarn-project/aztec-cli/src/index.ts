@@ -437,7 +437,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log('\nView result: ', result, '\n');
     });
 
-  // Helper for users to decode hex strings into structs if needed
+  // Helper for users to decode hex strings into structs if needed.
   program
     .command('parse-parameter-struct')
     .description("Helper for parsing an encoded string into a contract's parameter struct.")
