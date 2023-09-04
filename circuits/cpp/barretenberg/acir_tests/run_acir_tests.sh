@@ -71,12 +71,12 @@ else
 
     if [[ " ${SKIP_ARRAY[@]} " =~ " $TEST_NAME" ]]; then
       echo -e "\033[33mSKIPPED\033[0m (hardcoded to skip)"
-      return
+      continue
     fi
 
     if [[ ! -f ./$TEST_NAME/target/$TEST_NAME.bytecode || ! -f ./$TEST_NAME/target/witness.tr ]]; then
       echo -e "\033[33mSKIPPED\033[0m (uncompiled)"
-      return
+      continue
     fi
 
     test $TEST_NAME
