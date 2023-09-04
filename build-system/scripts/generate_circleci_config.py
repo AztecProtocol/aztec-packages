@@ -31,7 +31,6 @@ def get_already_built_circleci_job_names(circleci_jobs):
 # Helper for multiprocessing
 def _get_already_built_manifest_job_names(manifest_name):
     content_hash = subprocess.check_output(['calculate_content_hash', manifest_name]).decode("utf-8")
-    subprocess.check_call(["ensure_repo", manifest_name])
     completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", manifest_name], stdout=subprocess.DEVNULL)
     if completed.returncode == 0:
         return manifest_name
@@ -75,7 +74,7 @@ if __name__ == '__main__':
     # The CircleCI workflow as a JSON string (Replace this with your actual workflow)
     
     # Convert the JSON string to a Python dictionary
-    workflow_dict = yaml.load('.circleci/config.yml')
+    workflow_dict = yaml.safe_load(open('.circleci/config.yml'))
 
     # # List of jobs to remove
     jobs_to_remove = list(get_already_built_circleci_job_names(workflow_dict["jobs"]))
@@ -87,5 +86,5 @@ if __name__ == '__main__':
     workflow_dict["workflows"]["system"]["jobs"] = remove_jobs_from_workflow(workflow_dict["workflows"]["system"]["jobs"], jobs_to_remove)
     workflow_dict["workflows"]["system"]["when"] = {"equal":["system","<< pipeline.parameters.workflow >>"]}
     # Convert the new workflow back to JSON string
-    new_workflow_json_str = yaml.dumps(workflow_dict, indent=2)
+    new_workflow_json_str = json.dumps(workflow_dict, indent=2)
     print(new_workflow_json_str)
