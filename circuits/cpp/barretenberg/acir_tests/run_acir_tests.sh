@@ -2,14 +2,13 @@
 # Env var overrides:
 #   BIN: to specify a different binary to test with (e.g. bb.js or bb.js-dev).
 #   VERBOSE: to enable logging for each test.
-
 set -eu
 
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
 BRANCH=kw/acvm-0-24
-VERBOSE=$VERBOSE
+VERBOSE=${VERBOSE:-}
 
 FLOW_SCRIPT=$(realpath ./flows/${FLOW}.sh)
 
