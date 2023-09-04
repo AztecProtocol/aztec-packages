@@ -23,14 +23,17 @@ def get_already_built_manifest():
     manifest_names = get_all_manifest_names()
     for name in manifest_names:
         rebuild_patterns = subprocess.check_output(['query_manifest', 'rebuildPatterns', name]).decode("utf-8")
-        if tag_found_for_hash.get(rebuild_patterns):
-            yield name
+        if rebuild_patterns in tag_found_for_hash:
+            if tag_found_for_hash[rebuild_patterns]:
+                yield name
             continue
         content_hash = subprocess.check_output(['calculate_content_hash', name]).decode("utf-8")
         completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", "{name}"], stdout=subprocess.DEVNULL)
         if completed.returncode == 0:
             tag_found_for_hash[rebuild_patterns] = True
             yield name
+        else:
+            tag_found_for_hash[rebuild_patterns] = False
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
