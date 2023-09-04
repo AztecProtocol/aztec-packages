@@ -12,7 +12,5 @@ mkdir -p /tmp/test-logs
 set -o pipefail
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
-echo "REBUILD PATTERN"
-query_manifest rebuildPatterns $REPOSITORY
 echo "Content hash: $CONTENT_HASH"
 spot_run_script $CONTENT_HASH 32 $SCRIPT_PATH $@ | tee "/tmp/test-logs/$JOB_NAME.log"

@@ -21,8 +21,6 @@ shift
 SUCCESS_TAG=$1
 shift
 
-echo "REBUILD PATTERN"
-query_manifest rebuildPatterns $REPOSITORY
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash tag: cache-$CONTENT_HASH-$SUCCESS_TAG"
 
