@@ -21,7 +21,7 @@ def find_string_in_jobs(jobs, manifest_name):
 def get_already_built_manifest():
     manifest_names = get_all_manifest_names()
     for name in manifest_names:
-        completed = subprocess.run("check_rebuild cache-$(calculate_content_hash $REPOSITORY) $REPOSITORY", shell=True)
+        completed = subprocess.run(f"check_rebuild cache-$(calculate_content_hash {name}) {name}", shell=True)
         if completed.returncode == 0:
             yield name
 
