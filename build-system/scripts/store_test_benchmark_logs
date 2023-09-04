@@ -16,6 +16,7 @@ for file in $(ls /tmp/test-logs); do
     cat /tmp/test-logs/$file | grep "##BENCHMARK_INFO_PREFIX##" | sed "s/.*##BENCHMARK_INFO_PREFIX##\(.*\)##BENCHMARK_INFO_SUFFIX##.*/\1/" | sed "s/#/,/g" | sed "s_\(.*\)_$SAVED_TIMESTAMP,$HUMAN_READABLE_TIME,$BRANCH,$COMMIT_HASH,$COMMIT_TAG,\1_" | tee -a /tmp/csv/new.csv 1>/dev/null
 done
 echo "Parsed from logs:"
+touch /tmp/csv/new.csv # Ensure the file actually exists
 cat /tmp/csv/new.csv
 
 # We have lots of repeated entries, no need to put them into repository. Unfortunately build times differ a bit and uniq only works with space as separator
