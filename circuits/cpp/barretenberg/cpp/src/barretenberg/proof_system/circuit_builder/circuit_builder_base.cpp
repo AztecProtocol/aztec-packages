@@ -2,7 +2,6 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 
-
 namespace proof_system {
 
 /**
