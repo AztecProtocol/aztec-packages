@@ -9,6 +9,7 @@ BB=$PWD/${BB:-../cpp/build/bin/bb}
 CRS_PATH=~/.bb-crs
 BRANCH=master
 
+
 # Pull down the test vectors from the noir repo, if we don't have the folder already.
 if [ ! -d acir_tests ]; then
   if [ -n "${TEST_SRC:-}" ]; then
