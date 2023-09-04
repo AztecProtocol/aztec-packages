@@ -2,11 +2,11 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   Account,
   AccountContract,
+  AuthWitnessAccountContract,
+  AuthWitnessAccountEntrypoint,
+  AuthWitnessEntrypointWallet,
   AztecRPC,
   EcdsaAccountContract,
-  Eip1271AccountContract,
-  Eip1271AccountEntrypoint,
-  EipEntrypointWallet,
   Fr,
   SchnorrAccountContract,
   SingleKeyAccountContract,
@@ -115,7 +115,7 @@ describe('e2e_account_contracts', () => {
 
   describe('eip single-key account', () => {
     itShouldBehaveLikeAnAccountContract(
-      (encryptionKey: PrivateKey) => new Eip1271AccountContract(encryptionKey),
+      (encryptionKey: PrivateKey) => new AuthWitnessAccountContract(encryptionKey),
       async (
         rpc: AztecRPC,
         encryptionPrivateKey: PrivateKey,
@@ -127,8 +127,8 @@ describe('e2e_account_contracts', () => {
           const tx = await account.deploy();
           await tx.wait();
         }
-        const entryPoint = (await account.getEntrypoint()) as unknown as Eip1271AccountEntrypoint;
-        const wallet = new EipEntrypointWallet(rpc, entryPoint);
+        const entryPoint = (await account.getEntrypoint()) as unknown as AuthWitnessAccountEntrypoint;
+        const wallet = new AuthWitnessEntrypointWallet(rpc, entryPoint);
         return { account, wallet };
       },
     );

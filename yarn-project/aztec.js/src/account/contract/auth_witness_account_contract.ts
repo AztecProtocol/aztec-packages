@@ -2,8 +2,8 @@ import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { CompleteAddress, NodeInfo, PrivateKey } from '@aztec/types';
 
-import Eip1271AccountContractAbi from '../../abis/schnorr_eip_1271_account_contract.json' assert { type: 'json' };
-import { Eip1271AccountEntrypoint } from '../entrypoint/eip_1271_account_entrypoint.js';
+import AuthWitnessAccountContractAbi from '../../abis/schnorr_auth_witness_account_contract.json' assert { type: 'json' };
+import { AuthWitnessAccountEntrypoint } from '../entrypoint/auth_witness_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
 /**
@@ -11,7 +11,7 @@ import { AccountContract } from './index.js';
  * the note encryption key, relying on a single private key for both encryption and authentication.
  * Extended to pull verification data from the oracle instead of passed as arguments.
  */
-export class Eip1271AccountContract implements AccountContract {
+export class AuthWitnessAccountContract implements AccountContract {
   constructor(private encryptionPrivateKey: PrivateKey) {}
 
   public getDeploymentArgs() {
@@ -19,7 +19,7 @@ export class Eip1271AccountContract implements AccountContract {
   }
 
   public async getEntrypoint({ address, partialAddress }: CompleteAddress, { chainId, version }: NodeInfo) {
-    return new Eip1271AccountEntrypoint(
+    return new AuthWitnessAccountEntrypoint(
       address,
       partialAddress,
       this.encryptionPrivateKey,
@@ -30,6 +30,6 @@ export class Eip1271AccountContract implements AccountContract {
   }
 
   public getContractAbi(): ContractAbi {
-    return Eip1271AccountContractAbi as unknown as ContractAbi;
+    return AuthWitnessAccountContractAbi as unknown as ContractAbi;
   }
 }

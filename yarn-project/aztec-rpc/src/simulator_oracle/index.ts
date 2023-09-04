@@ -46,9 +46,9 @@ export class SimulatorOracle implements DBOracle {
     return completeAddress;
   }
 
-  async getEip1271Witness(messageHash: Fr): Promise<Fr[]> {
-    const witness = await this.db.getEip1271Witness(messageHash);
-    if (!witness) throw new Error(`Unknown eip1271 witness for message hash ${messageHash.toString()}`);
+  async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    const witness = await this.db.getAuthWitness(messageHash);
+    if (!witness) throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
     return witness;
   }
 

@@ -2,11 +2,11 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   Account,
+  AuthWitnessAccountContract,
+  AuthWitnessAccountEntrypoint,
+  AuthWitnessEntrypointWallet,
   AztecAddress,
   CheatCodes,
-  Eip1271AccountContract,
-  Eip1271AccountEntrypoint,
-  EipEntrypointWallet,
   Fr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
@@ -21,7 +21,7 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_lending_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let wallet: EipEntrypointWallet;
+  let wallet: AuthWitnessEntrypointWallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
@@ -83,13 +83,13 @@ describe('e2e_lending_contract', () => {
     ({ aztecNode, aztecRpcServer, logger, cheatCodes: cc } = await setup());
 
     const privateKey = PrivateKey.random();
-    const account = new Account(aztecRpcServer, privateKey, new Eip1271AccountContract(privateKey));
-    const entryPoint = (await account.getEntrypoint()) as unknown as Eip1271AccountEntrypoint;
+    const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
+    const entryPoint = (await account.getEntrypoint()) as unknown as AuthWitnessAccountEntrypoint;
 
     const deployTx = await account.deploy();
     await deployTx.wait({ interval: 0.1 });
 
-    wallet = new EipEntrypointWallet(aztecRpcServer, entryPoint);
+    wallet = new AuthWitnessEntrypointWallet(aztecRpcServer, entryPoint);
     accounts = await wallet.getAccounts();
   }, 100_000);
 
@@ -285,7 +285,7 @@ describe('e2e_lending_contract', () => {
   }
 
   it('Full lending run-through', async () => {
-    // Gotta use the actual eip1271 account here and not the standard wallet.
+    // Gotta use the actual auth witness account here and not the standard wallet.
     const recipientFull = accounts[1];
     const recipient = recipientFull.address;
 
@@ -364,7 +364,7 @@ describe('e2e_lending_contract', () => {
         lendingContract.address.toField(),
         new Fr(depositAmount),
       ]);
-      await wallet.signAndAddEip1271Witness(messageHash);
+      await wallet.signAndAddAuthWitness(messageHash);
       await lendingSim.progressTime(10);
       lendingSim.deposit(await lendingAccount.key(), depositAmount);
 
@@ -397,7 +397,7 @@ describe('e2e_lending_contract', () => {
         lendingContract.address.toField(),
         new Fr(depositAmount),
       ]);
-      await wallet.signAndAddEip1271Witness(messageHash);
+      await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
       lendingSim.deposit(recipient.toField(), depositAmount);
@@ -510,7 +510,7 @@ describe('e2e_lending_contract', () => {
         lendingContract.address.toField(),
         new Fr(repayAmount),
       ]);
-      await wallet.signAndAddEip1271Witness(messageHash);
+      await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
       lendingSim.repay(await lendingAccount.key(), await lendingAccount.key(), repayAmount);
@@ -545,7 +545,7 @@ describe('e2e_lending_contract', () => {
         lendingContract.address.toField(),
         new Fr(repayAmount),
       ]);
-      await wallet.signAndAddEip1271Witness(messageHash);
+      await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
       lendingSim.repay(await lendingAccount.key(), lendingAccount.address.toField(), repayAmount);

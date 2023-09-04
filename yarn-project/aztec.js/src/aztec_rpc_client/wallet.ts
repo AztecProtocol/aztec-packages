@@ -15,7 +15,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { CreateTxRequestOpts, Eip1271AccountEntrypoint, Entrypoint } from '../account/entrypoint/index.js';
+import { AuthWitnessAccountEntrypoint, CreateTxRequestOpts, Entrypoint } from '../account/entrypoint/index.js';
 import { CompleteAddress } from '../index.js';
 
 /**
@@ -94,8 +94,8 @@ export abstract class BaseWallet implements Wallet {
   getSyncStatus(): Promise<SyncStatus> {
     return this.rpc.getSyncStatus();
   }
-  addEip1271Witness(messageHash: Fr, witness: Fr[]) {
-    return this.rpc.addEip1271Witness(messageHash, witness);
+  addAuthWitness(messageHash: Fr, witness: Fr[]) {
+    return this.rpc.addAuthWitness(messageHash, witness);
   }
 }
 
@@ -112,17 +112,17 @@ export class EntrypointWallet extends BaseWallet {
 }
 
 /**
- * A wallet implementation supporting EIP1271.
+ * A wallet implementation supporting auth witnesses.
  * This wallet inserts eip1271-like witnesses into the RPC, which are then fetched using an oracle
  * to provide authentication data to the contract during execution.
  */
-export class EipEntrypointWallet extends BaseWallet {
-  constructor(rpc: AztecRPC, protected accountImpl: Eip1271AccountEntrypoint) {
+export class AuthWitnessEntrypointWallet extends BaseWallet {
+  constructor(rpc: AztecRPC, protected accountImpl: AuthWitnessAccountEntrypoint) {
     super(rpc);
   }
 
   /**
-   * Create a transaction request and add the eip1271 witness to the RPC.
+   * Create a transaction request and add the auth witness to the RPC.
    * Note:  When used in simulations, the witness that is inserted could be used later by attacker with
    *        access to the RPC.
    *        Meaning that if you were to use someone elses rpc with db you could send these transactions.
@@ -140,7 +140,7 @@ export class EipEntrypointWallet extends BaseWallet {
       executions,
       opts,
     );
-    await this.rpc.addEip1271Witness(Fr.fromBuffer(message), witness);
+    await this.rpc.addAuthWitness(Fr.fromBuffer(message), witness);
     return txRequest;
   }
 
@@ -154,9 +154,9 @@ export class EipEntrypointWallet extends BaseWallet {
    * approvals .
    * @param messageHash - The message hash to sign
    */
-  async signAndAddEip1271Witness(messageHash: Buffer): Promise<void> {
-    const witness = await this.accountImpl.createEip1271Witness(messageHash);
-    await this.rpc.addEip1271Witness(Fr.fromBuffer(messageHash), witness);
+  async signAndAddAuthWitness(messageHash: Buffer): Promise<void> {
+    const witness = await this.accountImpl.createAuthWitness(messageHash);
+    await this.rpc.addAuthWitness(Fr.fromBuffer(messageHash), witness);
     return Promise.resolve();
   }
 }

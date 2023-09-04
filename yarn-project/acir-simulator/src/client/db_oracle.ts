@@ -93,7 +93,7 @@ export interface DBOracle extends CommitmentsDB {
    * @param message_hash - The message hash.
    * @returns A Promise that resolves to an array of field elements representing the eip-1271 witness.
    */
-  getEip1271Witness(message_hash: Fr): Promise<Fr[]>;
+  getAuthWitness(message_hash: Fr): Promise<Fr[]>;
 
   /**
    * Retrieve the secret key associated with a specific public key.

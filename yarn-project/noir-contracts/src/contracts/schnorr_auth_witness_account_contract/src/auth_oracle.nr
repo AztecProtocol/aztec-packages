@@ -1,15 +1,15 @@
 use dep::aztec::types::point::Point;
 
-#[oracle(getEip1271Witness)]
-fn get_eip_1271_witness_oracle(_message_hash: Field) -> [Field; 67] {}
+#[oracle(getAuthWitness)]
+fn get_auth_witness_oracle(_message_hash: Field) -> [Field; 67] {}
 
-struct Eip1271Witness {
+struct AuthWitness {
     owner: Point,
     signature: [u8; 64],
     partial_address: Field,
 }
 
-impl Eip1271Witness {
+impl AuthWitness {
     fn deserialize(values: [Field; 67]) -> Self {
         let mut signature = [0; 64];
         for i in 0..64 {
@@ -23,6 +23,6 @@ impl Eip1271Witness {
     }
 }
 
-unconstrained fn get_eip_1271_witness(message_hash: Field) -> Eip1271Witness {
-    Eip1271Witness::deserialize(get_eip_1271_witness_oracle(message_hash))
+unconstrained fn get_auth_witness(message_hash: Field) -> AuthWitness {
+    AuthWitness::deserialize(get_auth_witness_oracle(message_hash))
 }

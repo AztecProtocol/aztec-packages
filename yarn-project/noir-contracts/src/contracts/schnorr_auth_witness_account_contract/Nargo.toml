@@ -1,5 +1,5 @@
 [package]
-name = "schnorr_eip_1271_account_contract"
+name = "schnorr_auth_witness_account_contract"
 authors = [""]
 compiler_version = "0.1"
 type = "contract"

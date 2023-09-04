@@ -73,7 +73,7 @@ export interface AztecRPC {
    * @param messageHash - The message hash to insert witness at
    * @param witness - The witness to insert
    */
-  addEip1271Witness(messageHash: Fr, witness: Fr[]): Promise<void>;
+  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
 
   /**
    * Registers an account in the Aztec RPC server.

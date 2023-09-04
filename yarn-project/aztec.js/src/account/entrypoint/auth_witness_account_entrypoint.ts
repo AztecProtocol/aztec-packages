@@ -3,7 +3,7 @@ import { Signer } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
-import SchnorrEip1271AccountContractAbi from '../../abis/schnorr_eip_1271_account_contract.json' assert { type: 'json' };
+import SchnorrAuthWitnessAccountContractAbi from '../../abis/schnorr_auth_witness_account_contract.json' assert { type: 'json' };
 import { generatePublicKey } from '../../index.js';
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../../utils/defaults.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
@@ -15,7 +15,7 @@ import { CreateTxRequestOpts, Entrypoint } from './index.js';
  * secure and should not be used in real use cases.
  * The entrypoint is extended to support signing and creating eip1271-like witnesses.
  */
-export class Eip1271AccountEntrypoint implements Entrypoint {
+export class AuthWitnessAccountEntrypoint implements Entrypoint {
   constructor(
     private address: AztecAddress,
     private partialAddress: PartialAddress,
@@ -35,12 +35,12 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
   }
 
   /**
-   * Creates an eip1271 witness for the given message. In this case, witness is the public key, the signature
+   * Creates an AuthWitness witness for the given message. In this case, witness is the public key, the signature
    * and the partial address, to be used for verification.
    * @param message - The message hash to sign.
    * @returns [publicKey, signature, partialAddress] as Fr[].
    */
-  async createEip1271Witness(message: Buffer): Promise<Fr[]> {
+  async createAuthWitness(message: Buffer): Promise<Fr[]> {
     const signature = this.sign(message);
     const publicKey = await generatePublicKey(this.privateKey);
 
@@ -53,11 +53,11 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
   }
 
   /**
-   * Returns the transaction request and the eip1271 witness for the given function calls.
+   * Returns the transaction request and the auth witness for the given function calls.
    * Returning the witness here as a nonce is generated in the buildPayload action.
    * @param executions - The function calls to execute
    * @param opts - The options
-   * @returns The TxRequest, the eip1271 witness to insert in db and the message signed
+   * @returns The TxRequest, the auth witness to insert in db and the message signed
    */
   async createTxExecutionRequestWithWitness(
     executions: FunctionCall[],
@@ -65,7 +65,7 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
   ): Promise<{
     /** The transaction request */
     txRequest: TxExecutionRequest;
-    /** The eip1271 witness */
+    /** The auth witness */
     witness: Fr[];
     /** The message signed */
     message: Buffer;
@@ -76,7 +76,7 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
 
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
     const message = await hashPayload(payload);
-    const witness = await this.createEip1271Witness(message);
+    const witness = await this.createAuthWitness(message);
 
     const args = [payload];
     const abi = this.getEntrypointAbi();
@@ -97,7 +97,9 @@ export class Eip1271AccountEntrypoint implements Entrypoint {
   }
 
   private getEntrypointAbi(): FunctionAbi {
-    const abi = (SchnorrEip1271AccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
+    const abi = (SchnorrAuthWitnessAccountContractAbi as any as ContractAbi).functions.find(
+      f => f.name === 'entrypoint',
+    );
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }

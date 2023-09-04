@@ -19,29 +19,29 @@ export class MemoryDB extends MemoryContractDatabase implements Database {
   private treeRoots: Record<MerkleTreeId, Fr> | undefined;
   private globalVariablesHash: Fr | undefined;
   private addresses: CompleteAddress[] = [];
-  private eip1271Witnesses: Record<string, Fr[]> = {};
+  private authWitnesses: Record<string, Fr[]> = {};
 
   constructor(logSuffix?: string) {
     super(createDebugLogger(logSuffix ? 'aztec:memory_db_' + logSuffix : 'aztec:memory_db'));
   }
 
   /**
-   * Add a eip1271 witness to the database.
+   * Add a auth witness to the database.
    * @param messageHash - The message hash.
-   * @param witness - An array of field elements representing the eip1271 witness.
+   * @param witness - An array of field elements representing the auth witness.
    */
-  public addEip1271Witness(messageHash: Fr, witness: Fr[]): Promise<void> {
-    this.eip1271Witnesses[messageHash.toString()] = witness;
+  public addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void> {
+    this.authWitnesses[messageHash.toString()] = witness;
     return Promise.resolve();
   }
 
   /**
-   * Fetching the eip1271 witness for a given message hash.
+   * Fetching the auth witness for a given message hash.
    * @param messageHash - The message hash.
-   * @returns A Promise that resolves to an array of field elements representing the eip1271 witness.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
    */
-  public getEip1271Witness(messageHash: Fr): Promise<Fr[]> {
-    return Promise.resolve(this.eip1271Witnesses[messageHash.toString()]);
+  public getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    return Promise.resolve(this.authWitnesses[messageHash.toString()]);
   }
 
   public addNoteSpendingInfo(noteSpendingInfoDao: NoteSpendingInfoDao) {
