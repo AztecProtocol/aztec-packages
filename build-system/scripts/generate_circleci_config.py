@@ -3,8 +3,17 @@ import json
 import sys
 import subprocess
 
-def get_all_manifest_names():
-    return list(json.load(open("build_manifest.json")))
+# same functionality as query_manifest rebuildPatterns but in bulk
+def get_manifest_and_build_patterns():
+    manifest = json.load(open("build_manifest.json"))
+    manifest_to_build_patterns = {}
+    for key in manifest:
+        manifest_to_build_patterns[key] = "|".join(manifest["rebuildPatterns"])
+    for key in manifest:
+        for dep in manifest[key].get("dependencies", []):
+            manifest_to_build_patterns[key] += "|"
+            manifest_to_build_patterns[key] += manifest_to_build_patterns[dep]
+    return manifest_to_build_patterns 
 
 def find_string_in_jobs(jobs, manifest_name):
     matching_jobs = {}
@@ -20,18 +29,18 @@ def find_string_in_jobs(jobs, manifest_name):
 
 def get_already_built_manifest():
     tag_found_for_hash = {}
-    manifest_names = get_all_manifest_names()
-    for name in manifest_names:
-        rebuild_patterns = subprocess.check_output(['query_manifest', 'rebuildPatterns', name]).decode("utf-8")
+    manifest_to_build_patterns = get_manifest_and_build_patterns()
+    for key in manifest_to_build_patterns:
+        rebuild_patterns = manifest_to_build_patterns[key]
         if rebuild_patterns in tag_found_for_hash:
             if tag_found_for_hash[rebuild_patterns]:
-                yield name
+                yield key
             continue
-        content_hash = subprocess.check_output(['calculate_content_hash', name]).decode("utf-8")
-        completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", "{name}"], stdout=subprocess.DEVNULL)
+        content_hash = subprocess.check_output(['calculate_content_hash', key, rebuild_patterns]).decode("utf-8")
+        completed = subprocess.run(["check_rebuild", f"cache-{content_hash}", key], stdout=subprocess.DEVNULL)
         if completed.returncode == 0:
             tag_found_for_hash[rebuild_patterns] = True
-            yield name
+            yield key
         else:
             tag_found_for_hash[rebuild_patterns] = False
 

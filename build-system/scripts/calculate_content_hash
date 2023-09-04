@@ -4,9 +4,12 @@ set -eu
 
 REPOSITORY=$1
 COMMIT_HASH=${2:-$COMMIT_HASH}
+REBUILD_PATTERNS=${3:-}
 
-# Compute REBUILD_PATTERNS from the build manifest
-REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
+if ! [ -n "$REBUILD_PATTERNS" ] ; then
+ # Compute REBUILD_PATTERNS from the build manifest
+ REBUILD_PATTERNS=$(query_manifest rebuildPatterns $REPOSITORY)
+fi
 
 AWK_PATTERN=$(echo $REBUILD_PATTERNS | sed 's/ /|/g')
 # an example line is
