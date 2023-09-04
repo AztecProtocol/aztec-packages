@@ -50,12 +50,12 @@ describe('Kernel Prover', () => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
     publicInputs.newCommitments = makeTuple(
       MAX_NEW_COMMITMENTS_PER_CALL,
-      i => generateFakeCommitment(notes[newNoteIndices[i]]),
+      i => (i < newNoteIndices.length ? generateFakeCommitment(notes[newNoteIndices[i]]) : Fr.ZERO),
       0,
     );
     return {
       // Replace `FunctionData` with `string` for easier testing.
-      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs, true),
+      callStackItem: new PrivateCallStackItem(AztecAddress.ZERO, fnName as any, publicInputs, false),
       nestedExecutions: (dependencies[fnName] || []).map(name => createExecutionResult(name)),
       vk: VerificationKey.makeFake().toBuffer(),
       preimages: { newNotes: newNoteIndices.map(idx => notes[idx]), nullifiedNotes: [] },

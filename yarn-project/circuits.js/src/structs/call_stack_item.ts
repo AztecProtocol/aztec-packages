@@ -1,7 +1,4 @@
 import { AztecAddress } from '@aztec/foundation/aztec-address';
-import { assertLength } from '@aztec/foundation/serialize';
-
-import assert from 'assert';
 
 import { computePublicCallStackItemHash } from '../abis/abis.js';
 import { CircuitsWasm } from '../index.js';
@@ -31,9 +28,11 @@ export class PrivateCallStackItem {
     /**
      * Whether the current callstack item should be considered a public fn execution request.
      */
-    public isExecutionRequest: boolean,
+    public readonly isExecutionRequest: boolean,
   ) {
-    assert(isExecutionRequest, 'isExecutionRequest must be initiliazed to true');
+    if (isExecutionRequest) {
+      throw new Error('boolean isExecutionRequest must be set to true for a PrivateCallStackItem object');
+    }
   }
 
   toBuffer() {
@@ -49,7 +48,7 @@ export class PrivateCallStackItem {
       AztecAddress.ZERO,
       FunctionData.empty({ isPrivate: true }),
       PrivateCircuitPublicInputs.empty(),
-      true,
+      false,
     );
   }
 }

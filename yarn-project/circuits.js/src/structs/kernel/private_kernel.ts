@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Tuple } from '@aztec/foundation/serialize';
 
 import {

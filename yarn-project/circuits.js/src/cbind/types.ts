@@ -2,9 +2,10 @@
 // Can either export things directly or handle
 // naming differences with the 'as' syntax
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 
-import { Fr, MembershipWitness } from '../structs/index.js';
+import { MembershipWitness } from '../structs/membership_witness.js';
 
 /**
  * Alias for msgpack which expects a MembershipWitness + N name.
