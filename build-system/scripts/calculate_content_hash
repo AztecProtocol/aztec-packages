@@ -14,4 +14,4 @@ AWK_PATTERN=$(echo $REBUILD_PATTERNS | sed 's/ /|/g')
 # this format is beneficial as it grabs the hashes from git efficiently
 # we will next filter by our rebuild patterns 
 # then we pipe the hash portion of each file to git hash-object to produce our content hash
-git ls-tree -r HEAD | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | git hash-object --stdin
+git ls-tree -r $COMMIT_HASH | awk -v pattern="($AWK_PATTERN)" '$4 ~ pattern {print $3}' | git hash-object --stdin
