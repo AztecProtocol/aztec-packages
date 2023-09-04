@@ -1,6 +1,29 @@
 #!/usr/bin/env python3
 import json
 import sys
+import subprocess
+
+def get_all_manifest_names():
+    return list(json.load(open("build_manifest.json")))
+
+def find_string_in_jobs(jobs, manifest_name):
+    matching_jobs = {}
+    for job_name, job_info in jobs.items():
+        steps = job_info.get("steps", [])
+        for step in steps:
+            run_info = step.get("run", {})
+            command = run_info.get("command", "")
+            if manifest_name in command:
+                matching_jobs[job_name] = manifest_name
+                break
+    return matching_jobs
+
+def get_already_built_manifest():
+    manifest_names = get_all_manifest_names()
+    for name in manifest_names:
+        completed = subprocess.run("check_rebuild cache-$(calculate_content_hash $REPOSITORY) $REPOSITORY", shell=True)
+        if completed.returncode == 0:
+            yield name
 
 def remove_jobs_from_workflow(jobs, to_remove):
     """
@@ -32,6 +55,8 @@ if __name__ == '__main__':
     # Convert the JSON string to a Python dictionary
     workflow_dict = json.loads(workflow_json_str)
     
+    for man in get_already_built_manifest():
+        print("man",man)
     # List of jobs to remove
     jobs_to_remove = ["e2e-sandbox-example", "e2e-multi-transfer-contract", "deploy-end"]
 

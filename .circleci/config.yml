@@ -82,6 +82,7 @@ jobs:
     executor: continuation/default
     steps:
       - *checkout
+      - *setup_env
       - run:
           name: Generate Pipeline generated_config.yml file
           command: |
