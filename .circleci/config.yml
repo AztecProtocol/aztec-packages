@@ -363,6 +363,15 @@ jobs:
           command: cond_spot_run_tests circuits-x86_64-linux-clang-assert 1 x86_64 scripts/a3-tests -*.skip*
       - *save_logs
 
+  circuits-end:
+    docker:
+      - image: cimg/base:current
+    resource_class: small
+    steps:
+      - run:
+          name: "Noop"
+          command: echo Noop
+
   l1-contracts:
     machine:
       image: ubuntu-2004:202010-01
@@ -1299,6 +1308,17 @@ workflows:
       - circuits-x86_64-tests:
           <<: *circuits-x86_64-test
 
+      - circuits-end:
+          requires:
+            - circuits-wasm-linux-clang
+            - circuits-wasm-linux-clang-assert
+            - circuits-x86_64-linux-clang-tidy
+            - circuits-x86_64-linux-clang
+            - circuits-x86_64-linux-clang-assert
+            - circuits-wasm-tests
+            - circuits-x86_64-tests
+          <<: *defaults
+
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
 
@@ -1417,7 +1437,7 @@ workflows:
             - e2e-canary-test
             - aztec-rpc-sandbox
             - guides-writing-an-account-contract
-          <<: *deploy_defaults
+          <<: *defaults
 
       - deploy-dockerhub:
           requires:
