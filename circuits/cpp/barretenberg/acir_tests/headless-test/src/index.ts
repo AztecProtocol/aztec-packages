@@ -60,12 +60,12 @@ program
   )
   .option(
     "-b, --bytecode-path <path>",
-    "Specify the bytecode path",
+    "Specify the path to the gzip encoded ACIR bytecode",
     "./target/acir.gz"
   )
   .option(
     "-w, --witness-path <path>",
-    "Specify the witness path",
+    "Specify the path to the gzip encoded ACIR witness",
     "./target/witness.gz"
   )
   .action(async ({ bytecodePath, witnessPath, recursive }) => {
