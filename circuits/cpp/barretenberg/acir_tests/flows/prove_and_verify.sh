@@ -1,8 +1,6 @@
 #!/bin/sh
 set -eu
 
-NAME=$(basename $PWD)
-
 if [ -n "$VERBOSE" ]; then
   $BIN prove_and_verify -v -c $CRS_PATH -b ./target/acir.gz
 else
