@@ -133,14 +133,14 @@ export async function gateCount(bytecodePath: string) {
 }
 
 export function acvmInfo(outputPath: string) {
-    const stringifiedJson = JSON.stringify(acvmInfoJson, null, 2);
-    if (outputPath === '-') {
-      process.stdout.write(stringifiedJson);
-      debug(`info written to stdout`);
-    } else {
-      writeFileSync(outputPath, stringifiedJson);
-      debug(`info written to: ${outputPath}`);
-    }
+  const stringifiedJson = JSON.stringify(acvmInfoJson, null, 2);
+  if (outputPath === '-') {
+    process.stdout.write(stringifiedJson);
+    debug(`info written to stdout`);
+  } else {
+    writeFileSync(outputPath, stringifiedJson);
+    debug(`info written to: ${outputPath}`);
+  }
 }
 
 export async function verify(proofPath: string, isRecursive: boolean, vkPath: string) {
@@ -350,7 +350,7 @@ program
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the information to')
   .action(({ outputPath }) => {
     handleGlobalOptions();
-    acvmInfo( outputPath);
+    acvmInfo(outputPath);
   });
 
 program.name('bb.js').parse(process.argv);
