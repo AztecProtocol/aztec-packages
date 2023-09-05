@@ -22,7 +22,6 @@ import {
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
-import { makeEmptyReadRequestMembershipWitness } from '@aztec/circuits.js/factories';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
@@ -217,7 +216,7 @@ export class KernelProver {
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
-      makeTuple(MAX_READ_REQUESTS_PER_CALL, makeEmptyReadRequestMembershipWitness),
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
       portalContractAddress.toField(),
       acirHash,
     );
