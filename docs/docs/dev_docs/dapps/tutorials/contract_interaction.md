@@ -1,3 +1,3 @@
 ---
-title: Contract Interaction
+title: Contract Interactions
 ---

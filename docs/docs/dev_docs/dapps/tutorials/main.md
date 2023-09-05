@@ -7,6 +7,4 @@ title: Dapp Development Tutorials
 - Connecting to the RPC Server
 - Creating Accounts
 - Deploying a contract
-- Contract Interaction and View methods
-- Simulating and sending transactions
-- Querying state and retrieving logs
+- Contract Interactions
