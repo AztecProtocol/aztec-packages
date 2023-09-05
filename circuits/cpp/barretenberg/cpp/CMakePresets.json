@@ -92,7 +92,7 @@
       "name": "smt-verification",
       "displayName": "Build with smt verificaiton",
       "description": "Build default preset but with smt library included",
-      "inherits": "default",
+      "inherits": "clang16",
       "binaryDir": "build-smt",
       "cacheVariables": {
         "SMT": "ON"
@@ -202,7 +202,7 @@
     },
     { 
       "name": "smt-verification",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "smt-verification"
     },
     {
@@ -275,7 +275,7 @@
     },
     {
       "name": "smt-verification",
-      "inherits": "default",
+      "inherits": "clang16",
       "configurePreset": "smt-verification"
     },
     {
