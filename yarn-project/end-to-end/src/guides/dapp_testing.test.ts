@@ -177,14 +177,14 @@ describe('guides/dapp/testing', () => {
       it('asserts a local transaction simulation fails by calling simulate', async () => {
         // docs:start:local-tx-fails
         const call = token.methods.transfer(200n, recipient.getAddress());
-        await expect(call.simulate()).rejects.toThrowError(/Cannot satisfy constraint/);
+        await expect(call.simulate()).rejects.toThrowError(/Balance too low/);
         // docs:end:local-tx-fails
       });
 
       it('asserts a local transaction simulation fails by calling send', async () => {
         // docs:start:local-tx-fails-send
         const call = token.methods.transfer(200n, recipient.getAddress());
-        await expect(call.send().wait()).rejects.toThrowError(/Cannot satisfy constraint/);
+        await expect(call.send().wait()).rejects.toThrowError(/Balance too low/);
         // docs:end:local-tx-fails-send
       });
 
@@ -204,7 +204,7 @@ describe('guides/dapp/testing', () => {
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
         const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 1000n);
-        await expect(call.simulate()).rejects.toThrowError(/Failed to solve/);
+        await expect(call.simulate()).rejects.toThrowError(/Balance too low/);
         // docs:end:local-pub-fails
       });
 

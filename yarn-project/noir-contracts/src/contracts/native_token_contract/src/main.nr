@@ -191,7 +191,7 @@ contract NativeToken {
         let sender = context.msg_sender();
         let sender_balance = storage.public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
-        assert(current_sender_balance as u120 >= amount as u120);
+        assert(current_sender_balance as u120 >= amount as u120, "Balance too low");
 
         let to_balance = storage.public_balances.at(to);
         let current_to_balance: Field = to_balance.read();

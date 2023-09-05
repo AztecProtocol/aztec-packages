@@ -81,7 +81,7 @@ In the example above we used `contract.methods.method().send().wait()` to create
 
 #### A private call fails
 
-We can check that a call to a private function would fail by simulating it locally and expecting a rejection. Remember that all private function calls are only executed locally in order to preserve privacy. As an example, we can try transferring more tokens than we have.
+We can check that a call to a private function would fail by simulating it locally and expecting a rejection. Remember that all private function calls are only executed locally in order to preserve privacy. As an example, we can try transferring more tokens than we have, which will fail an assertion with the `Balance too low` error message.
 
 #include_code local-tx-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -111,10 +111,10 @@ We can ignore a local simulation error for a public function via the `skipPublic
 
 #include_code pub-dropped /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
-If you run the snippet above, you'll see the following error in the Sandbox logs, where `0x1cbcdf5094fe2f1cda9a47621c4528c30a13a10e610942f656b95130015f44f8` is the address of the contract and `3c5e7ad4` is the selector of the `transfer_pub` function we called.
+If you run the snippet above, you'll see the following error in the Sandbox logs:
 
 ```
-WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5fab3ea923f: Simulation error: Cannot satisfy constraint 0.19085 at 0x1cbcdf5094fe2f1cda9a47621c4528c30a13a10e610942f656b95130015f44f8.3c5e7ad4
+WARN Error processing tx 06dc87c4d64462916ea58426ffcfaf20017880b353c9ec3e0f0ee5fab3ea923f: Assertion failed: Balance too low.
 ```
 
 :::info
