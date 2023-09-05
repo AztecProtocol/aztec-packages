@@ -1,0 +1,80 @@
+# We push using git subrepo (https://github.com/ingydotnet/git-subrepo)
+# with some logic to recover from squashed parent commits
+# We first identify ourselves, needed to commit.
+# Then push to subrepo, commit to master. The commit is needed
+# to continue to replay. If we still hit issues such as this
+# action failing due to upstream changes, a manual resolution
+# PR with ./scripts/git_subrepo.sh pull will be needed.
+name: Mirror Repositories
+
+concurrency:
+  group: mirror-repositories
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "docs/**"
+      - "!docs/.gitrepo"
+      - "build-system/**"
+      - "!build-system/.gitrepo"
+      - "circuits/cpp/barretenberg/**"
+      - "!circuits/cpp/barretenberg/.gitrepo"
+
+jobs:
+  mirror-to-docs-repo:
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.modified, 'docs/')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Push to docs repo
+        run: |
+          SUBREPO_PATH=docs
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main
+          git fetch # in case a commit came after this
+          git rebase origin/master
+          git push
+
+  mirror-to-build-system-repo:
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.modified, 'build-system/')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Push to build-system repo
+        run: |
+          SUBREPO_PATH=build-system
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=maste
+          git fetch # in case a commit came after this
+          git rebase origin/masterr
+          git push
+
+  mirror-to-barretenberg-repo:
+    runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.modified, 'circuits/cpp/barretenberg/')"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Push to barretenberg repo
+        run: |
+          SUBREPO_PATH=circuits/cpp/barretenberg
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master
+          git fetch # in case a commit came after this
+          git rebase origin/master
+          git push
