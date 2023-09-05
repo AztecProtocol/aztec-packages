@@ -61,6 +61,16 @@ Instead of creating new accounts in our test suite, we can use the ones already 
 
 #include_code use-existing-wallets /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
+### Running Sandbox in the nodejs process
+
+Instead of connecting to a local running Sandbox instance, you can also start your own Sandbox within the nodejs process running your tests, for an easier setup. To do this, import the `@aztec/aztec-sandbox` package in your project, and run `createSandbox` during setup. Note that this will still require you to run a local Ethereum node like Anvil locally.
+
+#include_code in-proc-sandbox /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
+The `createSandbox` returns a `stop` callback that you should run once your test suite is over to stop all Sandbox services.
+
+#include_code stop-in-proc-sandbox /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
 ## Assertions
 
 We will now see how to use `aztec.js` to write assertions about transaction statuses, about chain state both public and private, and about logs.

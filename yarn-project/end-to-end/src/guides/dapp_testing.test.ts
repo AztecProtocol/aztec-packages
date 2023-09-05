@@ -1,3 +1,4 @@
+import { createSandbox } from '@aztec/aztec-sandbox';
 import {
   AccountWallet,
   AztecRPC,
@@ -14,13 +15,42 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { NativeTokenContract, PrivateTokenContract, TestContract } from '@aztec/noir-contracts/types';
 
 describe('guides/dapp/testing', () => {
-  beforeAll(async () => {
-    const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
-    const rpc = createAztecRpcClient(SANDBOX_URL);
-    await waitForSandbox(rpc);
+  describe('on in-proc sandbox', () => {
+    describe('private token contract', () => {
+      let rpc: AztecRPC;
+      let stop: () => Promise<void>;
+      let owner: AccountWallet;
+      let recipient: AccountWallet;
+      let token: PrivateTokenContract;
+
+      beforeAll(async () => {
+        // docs:start:in-proc-sandbox
+        ({ rpcServer: rpc, stop } = await createSandbox());
+        // docs:end:in-proc-sandbox
+        owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        recipient = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
+        token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
+      }, 30_000);
+
+      // docs:start:stop-in-proc-sandbox
+      afterAll(() => stop());
+      // docs:end:stop-in-proc-sandbox
+
+      it('increases recipient funds on transfer', async () => {
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(0n);
+        await token.methods.transfer(20n, recipient.getAddress()).send().wait();
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(20n);
+      });
+    });
   });
 
-  describe('on sandbox', () => {
+  describe('on local sandbox', () => {
+    beforeAll(async () => {
+      const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+      const rpc = createAztecRpcClient(SANDBOX_URL);
+      await waitForSandbox(rpc);
+    });
+
     // docs:start:sandbox-example
     describe('private token contract', () => {
       const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
