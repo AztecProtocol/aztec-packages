@@ -7,15 +7,22 @@ import {
   PrivateKey,
   createAztecRpcClient,
   getSchnorrAccount,
+  waitForSandbox,
 } from '@aztec/aztec.js';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { NativeTokenContract, PrivateTokenContract, TestContract } from '@aztec/noir-contracts/types';
 
 describe('guides/dapp/testing', () => {
+  beforeAll(async () => {
+    const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+    const rpc = createAztecRpcClient(SANDBOX_URL);
+    await waitForSandbox(rpc);
+  });
+
   describe('on sandbox', () => {
     // docs:start:sandbox-example
     describe('private token contract', () => {
-      const AZTEC_URL = 'http://localhost:8080';
+      const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
 
       let rpc: AztecRPC;
       let owner: AccountWallet;
@@ -23,7 +30,7 @@ describe('guides/dapp/testing', () => {
       let token: PrivateTokenContract;
 
       beforeEach(async () => {
-        rpc = createAztecRpcClient(AZTEC_URL);
+        rpc = createAztecRpcClient(SANDBOX_URL);
         owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
         recipient = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
         token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
@@ -38,8 +45,7 @@ describe('guides/dapp/testing', () => {
     // docs:end:sandbox-example
 
     describe('cheats', () => {
-      const AZTEC_URL = 'http://localhost:8080';
-      const ETH_RPC_URL = 'http://localhost:8545';
+      const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
       let rpc: AztecRPC;
       let owner: AccountWallet;
@@ -47,10 +53,10 @@ describe('guides/dapp/testing', () => {
       let cheats: CheatCodes;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(AZTEC_URL);
+        rpc = createAztecRpcClient(SANDBOX_URL);
         owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
         testContract = await TestContract.deploy(owner).send().deployed();
-        cheats = await CheatCodes.create(ETH_RPC_URL, rpc);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
       }, 30_000);
 
       it('warps time to 1h into the future', async () => {
@@ -63,8 +69,7 @@ describe('guides/dapp/testing', () => {
     });
 
     describe('assertions', () => {
-      const AZTEC_URL = 'http://localhost:8080';
-      const ETH_RPC_URL = 'http://localhost:8545';
+      const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
 
       let rpc: AztecRPC;
       let owner: AccountWallet;
@@ -75,14 +80,14 @@ describe('guides/dapp/testing', () => {
       let ownerSlot: Fr;
 
       beforeAll(async () => {
-        rpc = createAztecRpcClient(AZTEC_URL);
+        rpc = createAztecRpcClient(SANDBOX_URL);
         owner = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
         recipient = await getSchnorrAccount(rpc, PrivateKey.random(), PrivateKey.random()).waitDeploy();
         token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
         nativeToken = await NativeTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETH_RPC_URL, rpc);
+        cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
         // The balances mapping is defined on storage slot 1 and is indexed by user address
         ownerSlot = cheats.aztec.computeSlotInMap(1n, owner.getAddress());
         // docs:end:calc-slot
@@ -144,14 +149,14 @@ describe('guides/dapp/testing', () => {
 
       it('asserts a simulation for a public function call fails', async () => {
         // docs:start:local-pub-fails
-        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 200n);
+        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 1000n);
         await expect(call.simulate()).rejects.toThrowError(/Assertion failed/);
         // docs:end:local-pub-fails
       });
 
       it('asserts a transaction with a failing public call is dropped (until we get public reverts)', async () => {
         // docs:start:pub-dropped
-        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 200n);
+        const call = nativeToken.methods.transfer_pub(recipient.getAddress(), 1000n);
         await expect(call.send({ skipPublicSimulation: true }).wait()).rejects.toThrowError(/dropped/);
         // docs:end:pub-dropped
       });
