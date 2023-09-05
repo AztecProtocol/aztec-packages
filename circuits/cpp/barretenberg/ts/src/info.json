@@ -3,8 +3,8 @@
     "name": "PLONK-CSAT",
     "width": 3
   },
-  "opcodes-supported": ["arithmetic", "directive", "brillig", "memory_init", "memory_op"],
-  "black-box-functions-supported": [
+  "opcodes_supported": ["arithmetic", "directive", "brillig", "memory_init", "memory_op"],
+  "black_box_functions_supported": [
     "and",
     "xor",
     "range",
