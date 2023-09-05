@@ -176,4 +176,65 @@ contract DocsExample {
         actions::get_total_points(storage.cards, account, 0)
     }
     // docs:end:functions-UncontrainedFunction
+
+
+    /// Macro equivalence section
+    use dep::aztec::abi;
+    use dep::aztec::abi::Hasher;
+    use dep::aztec::context::PrivateContext;
+    use dep::aztec::abi::PrivateContextInputs;
+    use dep::aztec::abi::PrivateCircuitPublicInputs;
+
+    // docs:start:simple_macro_example
+    #[aztec(private)]
+    fn simple_macro_example(a: Field, b: Field) -> Field {
+        a + b
+    }
+    // docs:end:simple_macro_example
+
+
+    // docs:start:simple_macro_example_expanded
+    fn simple_macro_example_expanded(
+        // ************************************************************
+        // The private context inputs are made available to the circuit by the kernel
+        inputs: PrivateContextInputs,
+        // ************************************************************
+
+        // Our original inputs!
+        a: Field,
+        b: Field
+        
+        // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the 
+        // input to our kernel! 
+    ) -> distinct pub abi::PrivateCircuitPublicInputs {
+        // ************************************************************
+        // The hasher is a structure used to generate a hash of the circuits inputs. 
+        let mut hasher = Hasher::new();
+        hasher.add(a);
+        hasher.add(b);
+
+        // The context object is created with the inputs and the hash of the inputs
+        let mut context = PrivateContext::new(inputs, hasher.hash());
+        // ************************************************************
+
+        // Our actual program
+        let result = a + b;
+
+        // ************************************************************
+        // Return values are pushed into the context
+        context.return_values.push(result);
+
+        // The context is returned to be consumed by the kernel circuit!
+        context.finish()
+        // ************************************************************
+    }
+    // docs:end:simple_macro_example_expanded
+
+
+    // Cross chain messaging section
+    // Demonstrates a cross chain message 
+    // docs:start:l1_to_l2_cross_chain_message 
+    #[aztec(private)]
+    fn send_to_l1()
+    // docs:end:l1_to_l2_cross_chain_message  
 }

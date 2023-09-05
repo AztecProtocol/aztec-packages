@@ -167,12 +167,14 @@ impl PrivateContext {
 
     // PrivateContextInputs must be temporarily passed in to prevent too many unknowns
     // Note this returns self to get around an issue where mutable structs do not maintain mutations unless reassigned
+    // docs:start:consume_l1_to_l2_message
     fn consume_l1_to_l2_message(&mut self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) {
         let nullifier = process_l1_to_l2_message(inputs.block_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
     }
+    // docs:end:consume_l1_to_l2_message
 
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
         let _void1 = self.inputs;
