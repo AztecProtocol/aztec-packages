@@ -57,5 +57,5 @@ export function createSimulationError(error: Error): SimulationError {
     }
   });
 
-  return new SimulationError(error.message, aztecCallStack, noirCallStack, { cause: rootCause });
+  return new SimulationError(rootCause.message, aztecCallStack, noirCallStack, { cause: rootCause });
 }
