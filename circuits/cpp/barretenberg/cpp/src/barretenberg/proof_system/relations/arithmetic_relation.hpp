@@ -24,7 +24,6 @@ template <typename FF_> class ArithmeticRelationImpl {
      * @param new_term the term to be accumulated
      * @param parameters inputs not varying between successive executions of this function
      * @param scaling_factor term to scale the new accumulator contribution by before incorporating it
-     * @todo WORKTODO: Why isn't scaling_factor in the parameters? It varies between executions?
      */
     template <typename AccumulatorTypes>
     void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
