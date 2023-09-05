@@ -1,4 +1,4 @@
-import { ABIParameter } from '@aztec/foundation/abi';
+import { ABIParameter, FunctionSignatureDecoder } from '@aztec/foundation/abi';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -97,7 +97,7 @@ export class FunctionSelector {
    * @returns A Buffer containing the 4-byte function selector.
    */
   static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
-    const signature = name === 'constructor' ? name : `${name}(${parameters.map(p => p.type.kind).join(',')})`;
+    const signature = new FunctionSignatureDecoder(name, parameters).decode();
     return FunctionSelector.fromSignature(signature);
   }
 
