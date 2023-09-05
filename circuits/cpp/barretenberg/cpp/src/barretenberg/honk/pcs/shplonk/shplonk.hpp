@@ -192,7 +192,7 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
         // using a builder Simulator.
         if constexpr (Curve::is_stdlib_type) {
             auto builder = nu.get_context();
-            evaluation_zero = Fr::from_witness(builder, 0);
+            evaluation_zero = Fr(builder, 0);
 
             // Containers for the inputs to the final batch mul
             std::vector<Commitment> commitments;
@@ -201,7 +201,7 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
             // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
             //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
             commitments.emplace_back(Q_commitment);
-            scalars.emplace_back(Fr::from_witness(builder, 1)); // Fr(1)
+            scalars.emplace_back(Fr(builder, 1)); // Fr(1)
 
             // Compute {ẑⱼ(r)}ⱼ , where ẑⱼ(r) = 1/zⱼ(r) = 1/(r - xⱼ)
             std::vector<Fr> inverse_vanishing_evals;

@@ -13,6 +13,9 @@ namespace stdlib {
  * natively (without constraints) under the hood, and the final result is obtained by queueing an equality operation via
  * the builder. The components of the result are returned as indices into the variables array from which the resulting
  * accumulator point is re-constructed.
+ * @note Because this is the only method for performing Goblin-style group operations (Issue #707), it is sometimes used
+ * in situations where one of the scalars is 1 (e.g. to perform P = P_0 + z*P_1). In this case, we perform a simple add
+ * accumulate instead of a mul-then_accumulate.
  *
  * @tparam C CircuitBuilder
  * @tparam Fq Base field
@@ -40,7 +43,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         auto& scalar = scalars[i];
 
         // Populate the goblin-style ecc op gates for the given mul inputs
-        auto op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
+        ecc_op_tuple op_tuple;
+        bool scalar_is_constant_equal_one = scalar.get_witness_index() == IS_CONSTANT && scalar.get_value() == 1;
+        if (scalar_is_constant_equal_one) { // if scalar is 1, there is no need to perform a mul
+            op_tuple = builder->queue_ecc_add_accum(point.get_value());
+        } else { // otherwise, perform a mul-then-accumulate
+            op_tuple = builder->queue_ecc_mul_accum(point.get_value(), scalar.get_value());
+        }
 
         // Add constraints demonstrating that the EC point coordinates were decomposed faithfully. In particular, show
         // that the lo-hi components that have been encoded in the op wires can be reconstructed via the limbs of the
@@ -61,10 +70,12 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::goblin_batch_mul(const std::vector<
         y_hi.assert_equal(point.y.binary_basis_limbs[2].element + shift * point.y.binary_basis_limbs[3].element);
 
         // Add constraints demonstrating proper decomposition of scalar into endomorphism scalars
-        auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
-        auto z_2 = Fr::from_witness_index(builder, op_tuple.z_2);
-        auto beta = G::subgroup_field::cube_root_of_unity();
-        scalar.assert_equal(z_1 - z_2 * beta);
+        if (!scalar_is_constant_equal_one) {
+            auto z_1 = Fr::from_witness_index(builder, op_tuple.z_1);
+            auto z_2 = Fr::from_witness_index(builder, op_tuple.z_2);
+            auto beta = G::subgroup_field::cube_root_of_unity();
+            scalar.assert_equal(z_1 - z_2 * beta);
+        }
     }
 
     // Populate equality gates based on the internal accumulator point

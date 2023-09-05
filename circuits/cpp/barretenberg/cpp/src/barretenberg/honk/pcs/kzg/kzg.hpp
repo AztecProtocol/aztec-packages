@@ -85,7 +85,7 @@ template <typename Curve, bool goblin_flag = false> class KZG {
         // evaluation is not equal to zero).
         if constexpr (Curve::is_stdlib_type) {
             auto builder = verifier_transcript.builder;
-            auto one = Fr::from_witness(builder, 1);
+            auto one = Fr(builder, 1);
             std::vector<GroupElement> commitments = { claim.commitment, quotient_commitment };
             std::vector<Fr> scalars = { one, claim.opening_pair.challenge };
             P_0 = GroupElement::template batch_mul<goblin_flag>(commitments, scalars);

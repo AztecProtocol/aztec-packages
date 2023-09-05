@@ -222,10 +222,7 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
         // Create a recursive verification circuit for the proof of the inner circuit
         create_outer_circuit(inner_circuit, outer_circuit);
 
-        if (outer_circuit.failed()) {
-            info(outer_circuit.err());
-        }
-        EXPECT_EQ(outer_circuit.failed(), false);
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
         EXPECT_TRUE(outer_circuit.check_circuit());
     }
 };

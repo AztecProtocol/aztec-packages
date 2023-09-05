@@ -242,8 +242,11 @@ template <typename Curve, bool goblin_flag = false> class GeminiVerifier_ {
         // achieved through a builder Simulator, the stdlib codepath should become the only codepath.
         if constexpr (Curve::is_stdlib_type) {
             std::vector<GroupElement> commitments = { batched_f, batched_g };
-            auto one = Fr::from_witness(r.get_context(), 1);
-            // TODO(#707): these batch muls are not optimal since we are performing an unnecessary mul by 1.
+            auto builder = r.get_context();
+            auto one = Fr(builder, 1);
+            // TODO(#707): these batch muls include the use of 1 as a scalar. This is handled appropriately as a non-mul
+            // (add-accumulate) in the goblin batch_mul but is done inefficiently as a scalar mul in the conventional
+            // emulated batch mul.
             C0_r_pos = GroupElement::template batch_mul<goblin_flag>(commitments, { one, r_inv });
             C0_r_neg = GroupElement::template batch_mul<goblin_flag>(commitments, { one, -r_inv });
         } else {
