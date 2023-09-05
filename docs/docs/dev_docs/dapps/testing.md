@@ -55,6 +55,12 @@ node Received tx 2132767911fbbe67e24a3e51bc769ba2ae874eb1ba56e69cef8fc9e2c5eba04
 sequencer Submitted rollup block 5 with 1 transactions
 ```
 
+### Using Sandbox initial accounts
+
+Instead of creating new accounts in our test suite, we can use the ones already initialized by the Sandbox upon startup. This can provide a speed boost to your tests setup. However, bear in mind that you may accidentally introduce an interdependency across test suites by reusing the same accounts.
+
+#include_code use-existing-wallets /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
+
 ## Assertions
 
 We will now see how to use `aztec.js` to write assertions about transaction statuses, about chain state both public and private, and about logs.

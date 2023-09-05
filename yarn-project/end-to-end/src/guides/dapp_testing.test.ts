@@ -6,6 +6,7 @@ import {
   L2BlockL2Logs,
   PrivateKey,
   createAztecRpcClient,
+  getSandboxAccountsWallets,
   getSchnorrAccount,
   waitForSandbox,
 } from '@aztec/aztec.js';
@@ -43,6 +44,29 @@ describe('guides/dapp/testing', () => {
       });
     });
     // docs:end:sandbox-example
+
+    describe('private token contract with initial accounts', () => {
+      const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+
+      let rpc: AztecRPC;
+      let owner: AccountWallet;
+      let recipient: AccountWallet;
+      let token: PrivateTokenContract;
+
+      beforeEach(async () => {
+        // docs:start:use-existing-wallets
+        rpc = createAztecRpcClient(SANDBOX_URL);
+        [owner, recipient] = await getSandboxAccountsWallets(rpc);
+        token = await PrivateTokenContract.deploy(owner, 100n, owner.getAddress()).send().deployed();
+        // docs:end:use-existing-wallets
+      }, 30_000);
+
+      it('increases recipient funds on transfer', async () => {
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(0n);
+        await token.methods.transfer(20n, recipient.getAddress()).send().wait();
+        expect(await token.methods.getBalance(recipient.getAddress()).view()).toEqual(20n);
+      });
+    });
 
     describe('cheats', () => {
       const { SANDBOX_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
