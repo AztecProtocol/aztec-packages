@@ -61,39 +61,6 @@ WASM_EXPORT size_t private_kernel__init_verification_key(uint8_t const* pk_buf, 
 
 CBIND(private_kernel__dummy_previous_kernel, []() { return dummy_previous_kernel(); });
 
-// TODO(dbanks12): comment about how public_inputs is a confusing name
-// returns size of public inputs
-WASM_EXPORT uint8_t* private_kernel__sim_init_legacy(uint8_t const* tx_request_buf,
-                                                     uint8_t const* private_call_buf,
-                                                     size_t* private_kernel_public_inputs_size_out,
-                                                     uint8_t const** private_kernel_public_inputs_buf)
-{
-    DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_init");
-
-    PrivateCallData<NT> private_call_data;
-    serialize::read(private_call_buf, private_call_data);
-
-    TxRequest<NT> tx_request;
-    serialize::read(tx_request_buf, tx_request);
-
-    PrivateKernelInputsInit<NT> const private_inputs = PrivateKernelInputsInit<NT>{
-        .tx_request = tx_request,
-        .private_call = private_call_data,
-    };
-
-    auto public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
-
-    // serialize public inputs to bytes vec
-    std::vector<uint8_t> public_inputs_vec;
-    serialize::write(public_inputs_vec, public_inputs);
-    // copy public inputs to output buffer
-    auto* raw_public_inputs_buf = (uint8_t*)malloc(public_inputs_vec.size());
-    memcpy(raw_public_inputs_buf, (void*)public_inputs_vec.data(), public_inputs_vec.size());
-    *private_kernel_public_inputs_buf = raw_public_inputs_buf;
-    *private_kernel_public_inputs_size_out = public_inputs_vec.size();
-    return builder.alloc_and_serialize_first_failure();
-}
-
 CBIND(private_kernel__sim_init, [](PrivateKernelInputsInit<NT> private_inputs) {
     DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_init");
     auto const& public_inputs = native_private_kernel_circuit_initial(builder, private_inputs);
