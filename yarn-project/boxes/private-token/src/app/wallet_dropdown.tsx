@@ -1,15 +1,14 @@
-import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
-import { AztecRPC } from '@aztec/types';
+import { CompleteAddress } from '@aztec/aztec.js';
 import { useEffect, useState } from 'react';
+import { rpcClient } from '../config.js';
 
 interface Props {
-  selected: AztecAddress | undefined;
-  rpcClient: AztecRPC;
-  onSelectChange: (value: AztecAddress) => void;
+  selected: CompleteAddress | undefined;
+  onSelectChange: (value: CompleteAddress) => void;
   onError: (msg: string) => void;
 }
 
-export function WalletDropdown({ selected, rpcClient, onSelectChange, onError }: Props) {
+export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
   const [wallets, setOptions] = useState<CompleteAddress[] | undefined>();
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export function WalletDropdown({ selected, rpcClient, onSelectChange, onError }:
       const fetchedOptions = await rpcClient.getAccounts();
       setOptions(fetchedOptions);
       // console.log('fetchedOptions', fetchedOptions.map(x => (x.toString(), x.partialAddress)));
-      onSelectChange(fetchedOptions[0]?.address);
+      onSelectChange(fetchedOptions[0]);
     };
     loadOptions().catch(e => {
       setOptions([]);
@@ -38,7 +37,10 @@ export function WalletDropdown({ selected, rpcClient, onSelectChange, onError }:
       {!!wallets && (
         <select
           className="min-w-64 border rounded px-3 py-2"
-          onChange={e => onSelectChange(AztecAddress.fromString(e.target.value))}
+          onChange={e => {
+                const selectedWallet = wallets.find(wallet => wallet.address.toString() === e.target.value);
+            onSelectChange(selectedWallet!);
+          }}
           value={selected?.toString()}
         >
           {wallets.map(({ address }: CompleteAddress) => {

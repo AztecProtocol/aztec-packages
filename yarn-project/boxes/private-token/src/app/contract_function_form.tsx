@@ -1,4 +1,4 @@
-import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -20,13 +20,19 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
+      if (param.name === 'owner'){
+          // ALICE public key
+        parameterSchema[param.name] = Yup.string().required();
+          initialValues[param.name] = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
+          continue;
+      }
     // set some super crude default values
     switch (param.type.kind) {
       case 'field':
         // todo: make these hex strings instead, because they are bigints
         // and yup doesn't support bigint
-        parameterSchema[param.name] = Yup.string().required();
-        initialValues[param.name] = '0x64';
+        parameterSchema[param.name] = Yup.number().required();
+        initialValues[param.name] = 1000000;
         break;
       case 'array':
         // eslint-disable-next-line no-case-declarations
@@ -49,10 +55,11 @@ async function handleFunctionCall(
   contractAbi: ContractAbi,
   functionName: string,
   args: any,
+  wallet?: CompleteAddress,
 ) {
-  if (functionName === 'constructor') {
-    const salt = Fr.random();
-    return await deployContract(contractAbi, args, salt, rpcClient);
+  if (functionName === 'constructor' && !!wallet) {
+    const salt = Fr.ZERO;
+    return await deployContract(wallet, contractAbi, args, salt, rpcClient);
   }
 
   const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
@@ -64,6 +71,7 @@ async function handleFunctionCall(
 }
 
 interface ContractFunctionFormProps {
+  wallet?: CompleteAddress;
   contractAddress?: AztecAddress;
   contractAbi: ContractAbi;
   functionAbi: FunctionAbi;
@@ -77,6 +85,7 @@ interface ContractFunctionFormProps {
 }
 
 export function ContractFunctionForm({
+  wallet,
   contractAddress,
   contractAbi,
   functionAbi,
@@ -95,7 +104,7 @@ export function ContractFunctionForm({
     onSubmit: async (values: any) => {
       onSubmit();
       try {
-        const result = await handleFunctionCall(contractAddress, contractAbi, functionAbi.name, values);
+        const result = await handleFunctionCall(contractAddress, contractAbi, functionAbi.name, values, wallet);
         onSuccess(result);
       } catch (e: any) {
         onError(e.message);

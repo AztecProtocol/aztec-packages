@@ -1,4 +1,4 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { useState } from 'react';
 import { contractAbi } from '../config.js';
@@ -11,7 +11,11 @@ const functionTypeSortOrder = {
   unconstrained: 2,
 };
 
-export function Contract() {
+interface Props {
+  wallet: CompleteAddress | undefined;
+}
+
+export function Contract({wallet}: Props) {
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');
@@ -43,6 +47,7 @@ export function Contract() {
       </div>
       {!contractAddress && (
         <ContractFunctionForm
+        wallet={wallet}
           contractAbi={contractAbi}
           functionAbi={constructorAbi}
           title="Deploy Contract"
@@ -62,6 +67,7 @@ export function Contract() {
             .map((functionAbi: FunctionAbi) => (
               <ContractFunctionForm
                 key={functionAbi.name}
+        wallet={wallet}
                 contractAddress={contractAddress}
                 contractAbi={contractAbi}
                 functionAbi={functionAbi}

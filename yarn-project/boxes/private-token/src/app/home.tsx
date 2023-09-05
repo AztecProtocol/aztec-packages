@@ -1,16 +1,15 @@
-import { AztecAddress } from '@aztec/aztec.js';
+import { CompleteAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
-import { rpcClient } from '../config.js';
 import { Banner, Spinner } from './components/index.js';
 import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
 
 export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
-  const [selectedWallet, setSelectedWallet] = useState<AztecAddress | undefined>();
+  const [selectedWallet, setSelectedWallet] = useState<CompleteAddress| undefined>();
   const [selectWalletError, setSelectedWalletError] = useState('');
 
-  const handleSelectWallet = (address: AztecAddress | undefined) => {
+  const handleSelectWallet = (address: CompleteAddress | undefined) => {
     setSelectedWallet(address);
     setIsLoadingWallet(false);
   };
@@ -34,7 +33,6 @@ export function Home() {
           </div>
           <div>
             <WalletDropdown
-              rpcClient={rpcClient}
               selected={selectedWallet}
               onSelectChange={handleSelectWallet}
               onError={handleSelectWalletError}
@@ -50,7 +48,7 @@ export function Home() {
           {!isLoadingWallet && (
             <div className="py-8">
               {!!selectWalletError && `Failed to load accounts: ${selectWalletError}`}
-              {!selectWalletError && <Contract />}
+              {!selectWalletError && <Contract wallet={selectedWallet}/>}
             </div>
           )}
         </div>
