@@ -198,7 +198,7 @@ __metadata:
     winston: ^3.10.0
     winston-daily-rotate-file: ^4.7.1
   bin:
-    aztec-sandbox: ./dest/index.js
+    aztec-sandbox: ./dest/bin/index.js
   languageName: unknown
   linkType: soft
 
