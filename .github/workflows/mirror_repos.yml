@@ -39,6 +39,7 @@ jobs:
           ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main
           git fetch # in case a commit came after this
           git rebase origin/master
+          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
           git push
 
   mirror-to-build-system-repo:
@@ -58,6 +59,7 @@ jobs:
           ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=maste
           git fetch # in case a commit came after this
           git rebase origin/masterr
+          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
           git push
 
   mirror-to-barretenberg-repo:
@@ -77,4 +79,5 @@ jobs:
           ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master
           git fetch # in case a commit came after this
           git rebase origin/master
+          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
           git push
