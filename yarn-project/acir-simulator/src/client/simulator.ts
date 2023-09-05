@@ -1,7 +1,7 @@
 import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -177,12 +177,23 @@ export class AcirSimulator {
     storageSlot: Fr,
     notePreimage: Fr[],
   ) {
-    let abi: FunctionAbiWithDebugMetadata;
-    try {
-      abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
-    } catch (e) {
+    let abi: FunctionAbiWithDebugMetadata | undefined = undefined;
+
+    // Brute force
+    for (let i = 1; i < 5; i++) {
+      const signature = `compute_note_hash_and_nullifier(Field,Field,Field,[Field;${i}])`;
+      const selector = FunctionSelector.fromSignature(signature);
+      try {
+        abi = await this.db.getFunctionABI(contractAddress, selector);
+        break;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    if (abi == undefined) {
       throw new Error(
-        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
+        `Mandatory implementation of "compute_note_hash_and_nullifier" missing in noir contract ${contractAddress.toString()}.`,
       );
     }
 
