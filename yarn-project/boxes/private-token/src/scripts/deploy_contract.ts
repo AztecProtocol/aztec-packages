@@ -15,27 +15,25 @@ export async function deployContract(
   if (functionAbi === undefined) {
     throw new Error('Cannot find constructor in the ABI.');
   }
-  console.log('constructor abi', contractAbi);
 
-  console.log('constructorArgs', args);
-
-  console.log(functionAbi.parameters.map(x => BigInt(args[x.name])));
-  const tx = new DeployMethod(
-    activeWallet.publicKey,
-    client,
-    contractAbi,
-    [BigInt(args['initial_supply']), args.owner],
-    // functionAbi.parameters.map(x => BigInt(constructorArgs[x.name]))
-  ).send({ contractAddressSalt: salt });
-  console.log('sent, awaiting tx');
+  // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
+  // convert those back to bigints before sending
+  const typedArgs = functionAbi.parameters.map(param => {
+    switch (param.type.kind) {
+      case 'field':
+        return BigInt(args[param.name]);
+      default:
+        return args[param.name];
+    }
+  });
+  const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
+    contractAddressSalt: salt,
+  });
   await tx.wait();
   const receipt = await tx.getReceipt();
-  console.log(`Contract Deployed: ${receipt.contractAddress}`);
   if (receipt.contractAddress) {
     return receipt.contractAddress;
   } else {
     throw new Error('Contract not deployed');
   }
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return AztecAddress.random();
 }

@@ -22,7 +22,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   for (const param of functionAbi.parameters) {
       if (param.name === 'owner'){
           // ALICE public key
-        parameterSchema[param.name] = Yup.string().required();
+          parameterSchema[param.name] = Yup.string().required();
           initialValues[param.name] = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
           continue;
       }

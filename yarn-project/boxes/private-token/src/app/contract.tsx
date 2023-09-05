@@ -12,7 +12,7 @@ const functionTypeSortOrder = {
 };
 
 interface Props {
-  wallet: CompleteAddress | undefined;
+  wallet: CompleteAddress;
 }
 
 export function Contract({wallet}: Props) {

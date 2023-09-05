@@ -6,7 +6,7 @@ import { WalletDropdown } from './wallet_dropdown.js';
 
 export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
-  const [selectedWallet, setSelectedWallet] = useState<CompleteAddress| undefined>();
+  const [selectedWallet, setSelectedWallet] = useState<CompleteAddress>();
   const [selectWalletError, setSelectedWalletError] = useState('');
 
   const handleSelectWallet = (address: CompleteAddress | undefined) => {
@@ -45,7 +45,7 @@ export function Home() {
               <Spinner />
             </div>
           )}
-          {!isLoadingWallet && (
+          {!isLoadingWallet && !!selectedWallet && (
             <div className="py-8">
               {!!selectWalletError && `Failed to load accounts: ${selectWalletError}`}
               {!selectWalletError && <Contract wallet={selectedWallet}/>}
