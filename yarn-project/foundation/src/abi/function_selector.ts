@@ -4,8 +4,6 @@ import { keccak } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
 
-import { createDebugLogger } from '../log/logger.js';
-
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
  */
@@ -14,7 +12,6 @@ export class FunctionSelector {
    * The size of the function selector in bytes.
    */
   public static SIZE = 4;
-  protected logger = createDebugLogger('aztec:foundation:function-selector');
 
   constructor(/** number representing the function selector */ public value: number) {
     if (value > 2 ** (FunctionSelector.SIZE * 8) - 1) {
@@ -102,7 +99,8 @@ export class FunctionSelector {
   static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
     const signature = decodeFunctionSignature(name, parameters);
     const selector = FunctionSelector.fromSignature(signature);
-    selector.logger(`Function selector for ${signature} is ${selector}`);
+    // If using the debug logger here it kill the typing in the `server_world_state_synchroniser` and jest tests.
+    // console.log(`Function selector for ${signature} is ${selector}`);
     return selector;
   }
 

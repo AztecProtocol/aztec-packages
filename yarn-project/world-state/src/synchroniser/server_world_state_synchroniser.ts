@@ -1,5 +1,5 @@
 import { SerialQueue } from '@aztec/foundation/fifo';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { createDebugLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockDownloader, L2BlockSource } from '@aztec/types';
 
 import { MerkleTreeOperations, MerkleTrees } from '../index.js';
@@ -28,7 +28,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
     private merkleTreeDb: MerkleTrees,
     private l2BlockSource: L2BlockSource,
     config: WorldStateConfig,
-    private log: DebugLogger = createDebugLogger('aztec:world_state'),
+    private log = createDebugLogger('aztec:world_state'),
   ) {
     this.l2BlockDownloader = new L2BlockDownloader(
       l2BlockSource,

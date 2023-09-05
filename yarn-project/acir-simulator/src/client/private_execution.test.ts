@@ -621,9 +621,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ args, abi: parentAbi });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
-      expect(oracle.getFunctionABI.mock.calls[0].map(a => a.toBuffer())).toEqual(
-        [childAddress, childSelector].map(a => a.toBuffer()),
-      );
+      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([childAddress, childSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([childAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(new Fr(privateIncrement));
@@ -673,9 +671,7 @@ describe('Private Execution test suite', () => {
       const result = await runSimulator({ args, abi: parentAbi });
 
       expect(result.callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
-      expect(oracle.getFunctionABI.mock.calls[0].map(a => a.toBuffer())).toEqual(
-        [testAddress, testCodeGenSelector].map(a => a.toBuffer()),
-      );
+      expect(oracle.getFunctionABI.mock.calls[0]).toEqual([testAddress, testCodeGenSelector]);
       expect(oracle.getPortalContractAddress.mock.calls[0]).toEqual([testAddress]);
       expect(result.nestedExecutions).toHaveLength(1);
       expect(result.nestedExecutions[0].callStackItem.publicInputs.returnValues[0]).toEqual(argsHash);
@@ -819,7 +815,7 @@ describe('Private Execution test suite', () => {
       );
 
       expect(result.enqueuedPublicFunctionCalls).toHaveLength(1);
-      expect(result.enqueuedPublicFunctionCalls[0].toBuffer()).toEqual(publicCallRequest.toBuffer());
+      expect(result.enqueuedPublicFunctionCalls[0]).toEqual(publicCallRequest);
       expect(result.callStackItem.publicInputs.publicCallStack[0]).toEqual(publicCallRequestHash);
     });
   });
