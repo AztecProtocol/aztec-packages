@@ -14,17 +14,17 @@ export async function viewContractFunction(
 ) {
   // todo: pass this in?
   const realWallet = await getSandboxAccountsWallet(rpc);
-  console.log('wallet', realWallet);
+  // console.log('wallet', realWallet);
   const contract = await Contract.at(address, abi, realWallet);
 
   const functionAbi = abi.functions.find(f => f.name === functionName);
-  console.log('functionAbi', functionAbi);
-  args = convertArgs(functionAbi!, args);
+  const typedArgs = convertArgs(functionAbi!, args, false);
 
-  console.log('args', args);
-  console.log('address buffer', wallet.address.toBuffer());
+  // console.log('address buffer', wallet.address.toBuffer());
+  console.log('viewing from wallet', wallet.address.toString());
 
-  const balance = await contract.methods[functionName](wallet.address).view({ from: wallet.address });
+  const balance = await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
+  // const balance = await contract.methods[functionName](wallet.address).view({ from: wallet.address });
   // const balance = await contract.methods.getBalance(wallet.address).view({ from: wallet.address });
   return balance;
   await new Promise(resolve => setTimeout(resolve, 2000));

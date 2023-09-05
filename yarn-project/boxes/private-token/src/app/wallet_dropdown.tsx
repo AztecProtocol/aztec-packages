@@ -29,10 +29,11 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
   });
 
   return (
-    <div className="flex items-center">
+    <div className="">
+    <div className="flex justify-end">
       <div className="p-2">
-        {'Wallet: '}
-        {!wallets && 'not hooked in yet dan'}
+        {'Active Wallet: '}
+        {!wallets && 'loading...'}
       </div>
       {!!wallets && (
         <select
@@ -53,6 +54,12 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
           })}
         </select>
       )}
+</div>
+  {!!selected && (
+        <div className='p-1'>
+        {selected.address.toString()}
+        </div>
+  )}
     </div>
   );
 }
