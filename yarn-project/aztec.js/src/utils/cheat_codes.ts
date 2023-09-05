@@ -5,10 +5,7 @@ import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC } from '@aztec/types';
 
-
-
 import fs from 'fs';
-
 
 /**
  * A class that provides utility functions for interacting with the chain.
