@@ -3,7 +3,7 @@ import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { toBigIntBE, toHex } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, NotePreimage } from '@aztec/types';
 
 import fs from 'fs';
 
@@ -278,5 +278,16 @@ export class AztecCheatCodes {
       throw new Error(`Storage slot ${slot} not found`);
     }
     return Fr.fromBuffer(storageValue);
+  }
+
+  /**
+   * Loads the value stored at the given slot in the private storage of the given contract.
+   * @param contract - The address of the contract
+   * @param owner - The owner for whom the notes are encrypted
+   * @param slot - The storage slot to lookup
+   * @returns The notes stored at the given slot
+   */
+  public loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<NotePreimage[]> {
+    return this.aztecRpc.getPrivateStorageAt(owner, contract, new Fr(slot));
   }
 }
