@@ -111,7 +111,7 @@ export const cliTestSuite = (
       // generate a private key
       debug('Create an account using a private key');
       await run('generate-private-key', false);
-      const privKey = findInLogs(/Private\sKey:\s+(?<privKey>[a-fA-F0-9]+)/)?.groups?.privKey;
+      const privKey = findInLogs(/Private\sKey:\s+0x(?<privKey>[a-fA-F0-9]+)/)?.groups?.privKey;
       expect(privKey).toHaveLength(64);
       await run(`create-account --private-key ${privKey}`);
       const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
