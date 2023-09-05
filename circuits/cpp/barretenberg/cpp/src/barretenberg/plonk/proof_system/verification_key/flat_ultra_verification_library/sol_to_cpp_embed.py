@@ -12,4 +12,4 @@ with open(filename, 'r') as file:
 # Escape special characters
 escaped_content = content.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
 
-print(f"static const char* embedded_file_content = \"{escaped_content}\";")
+print(f"static const char* ultra_verifier_template = \"{escaped_content}\";")
