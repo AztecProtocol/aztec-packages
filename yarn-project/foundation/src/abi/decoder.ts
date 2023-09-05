@@ -123,7 +123,16 @@ export class FunctionSignatureDecoder {
    * @returns The function signature.
    */
   public decode(): string {
-    const hmm = this.parameters.map(param => this.decodeParameter(param.type));
-    return `${this.name}(${hmm.join(',')})`;
+    return `${this.name}(${this.parameters.map(param => this.decodeParameter(param.type)).join(',')})`;
   }
+}
+
+/**
+ * Decodes a function signature from the name and parameters.
+ * @param name - The name of the function-
+ * @param parameters - The parameters of the function.
+ * @returns - The function signature.
+ */
+export function decodeFunctionSignature(name: string, parameters: ABIParameter[]) {
+  return new FunctionSignatureDecoder(name, parameters).decode();
 }

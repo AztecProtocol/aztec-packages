@@ -1,8 +1,10 @@
-import { ABIParameter, FunctionSignatureDecoder } from '@aztec/foundation/abi';
+import { ABIParameter, decodeFunctionSignature } from '@aztec/foundation/abi';
 import { toBigIntBE, toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { keccak } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader } from '@aztec/foundation/serialize';
+
+import { createDebugLogger } from '../log/logger.js';
 
 /**
  * A function selector is the first 4 bytes of the hash of a function signature.
@@ -12,6 +14,7 @@ export class FunctionSelector {
    * The size of the function selector in bytes.
    */
   public static SIZE = 4;
+  protected logger = createDebugLogger('aztec:foundation:function-selector');
 
   constructor(/** number representing the function selector */ public value: number) {
     if (value > 2 ** (FunctionSelector.SIZE * 8) - 1) {
@@ -97,10 +100,9 @@ export class FunctionSelector {
    * @returns A Buffer containing the 4-byte function selector.
    */
   static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
-    const signature = new FunctionSignatureDecoder(name, parameters).decode();
+    const signature = decodeFunctionSignature(name, parameters);
     const selector = FunctionSelector.fromSignature(signature);
-    // If you are debugging, can be useful to uncomment the following line.
-    // console.log(`Function selector for ${signature} is ${selector}`);
+    selector.logger(`Function selector for ${signature} is ${selector}`);
     return selector;
   }
 

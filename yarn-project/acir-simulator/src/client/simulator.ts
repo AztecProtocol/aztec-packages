@@ -1,4 +1,4 @@
-import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, FunctionData, MAX_NOTE_FIELDS_LENGTH, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
@@ -15,7 +15,6 @@ import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
 import { ExecutionResult } from './execution_result.js';
-import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
@@ -180,12 +179,12 @@ export class AcirSimulator {
     let abi: FunctionAbiWithDebugMetadata | undefined = undefined;
 
     // Brute force
-    for (let i = 1; i < 5; i++) {
+    for (let i = 0; i < MAX_NOTE_FIELDS_LENGTH; i++) {
       const signature = `compute_note_hash_and_nullifier(Field,Field,Field,[Field;${i}])`;
       const selector = FunctionSelector.fromSignature(signature);
       try {
         abi = await this.db.getFunctionABI(contractAddress, selector);
-        break;
+        if (abi !== undefined) break;
       } catch (e) {
         // ignore
       }
