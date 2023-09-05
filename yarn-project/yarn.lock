@@ -344,8 +344,8 @@ __metadata:
     jest: ^29.5.0
     jest-mock-extended: ^3.0.5
     jszip: ^3.10.1
-    node-fetch: ^3.3.2
     lodash.startcase: ^4.4.0
+    node-fetch: ^3.3.2
     semver: ^7.5.4
     string-argv: ^0.3.2
     ts-jest: ^29.1.0

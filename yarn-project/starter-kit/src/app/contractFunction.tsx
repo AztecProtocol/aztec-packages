@@ -36,8 +36,8 @@ const accountCreationSalt = Fr.ZERO;
 async function executeFunction(contractAddress: string, functionName: string, functionArgs: any,
     rpcClient: AztecRPC
     ) {
-    const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
-    console.log('wallet', wallet);
+    // const wallet = await getAccountWallets(rpcClient, SchnorrSingleKeyAccountContractAbi, privateKey, privateKey, accountCreationSalt);
+    // console.log('wallet', wallet);
 
 
     // next line is erroring out with 404
@@ -141,7 +141,7 @@ async function deployContract(owner: CompleteAddress, contractAbi: ContractAbi, 
     const receipt = await tx.getReceipt();
     console.log(`Contract Deployed: ${receipt.contractAddress}`);
     return receipt.txHash.toString();
-    const deployer = new ContractDeployer(contractAbi, rpcClient, publicKey);
+    const deployer = new ContractDeployer(contractAbi, rpcClient, owner.publicKey);
 
 }
 
