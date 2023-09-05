@@ -35,10 +35,6 @@ echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
 
-# Important! While we can pull tags without logging in, we risk getting throttled and CI breaking.
-# We should always login first.
-echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
-
 function fetch_image() {
   echo "Pulling: $1"
   if ! docker pull $1 > /dev/null 2>&1; then
@@ -82,6 +78,7 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
 fi
 
 # Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
+echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | grep -v $ECR_DEPLOY_URL  | sort | uniq)
 for PARENT in $PARENTS; do
   fetch_image $PARENT
