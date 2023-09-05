@@ -98,9 +98,6 @@ export class PublicExecutor {
         return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockData.privateDataTreeRoot);
       },
       storageRead: async ([slot], [numberOfElements]) => {
-        if (slot) {
-          throw new Error('Fake');
-        }
         const startStorageSlot = fromACVMField(slot);
         const values = [];
         for (let i = 0; i < Number(numberOfElements); i++) {
