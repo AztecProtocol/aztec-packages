@@ -1,4 +1,5 @@
 import { AztecAddress, FunctionSelector } from '@aztec/circuits.js';
+import { OpcodeLocation } from '@aztec/foundation/abi';
 
 /**
  * Address and selector of a function that failed during simulation.
@@ -47,12 +48,20 @@ export interface SourceCodeLocation {
 /**
  * A stack of noir source code locations.
  */
-export type NoirCallStack = SourceCodeLocation[];
+export type NoirCallStack = SourceCodeLocation[] | OpcodeLocation[];
+
+/**
+ * Checks if a call stack is unresolved.
+ */
+export function isNoirCallStackUnresolved(callStack: NoirCallStack): callStack is OpcodeLocation[] {
+  return typeof callStack[0] === 'string';
+}
 
 /**
  * An error during the simulation of a function call.
  */
 export class SimulationError extends Error {
+  private originalMessage: string;
   private functionErrorStack: FailingFunction[];
 
   // We want to maintain a public constructor for proper printing.
@@ -63,6 +72,8 @@ export class SimulationError extends Error {
     options?: ErrorOptions,
   ) {
     super(message, options);
+    this.originalMessage = message;
+    this.addSourceCodeSnippetToMessage();
     this.functionErrorStack = [failingFunction];
   }
 
@@ -73,18 +84,14 @@ export class SimulationError extends Error {
   static fromError(
     failingContract: AztecAddress,
     failingselector: FunctionSelector,
-    err: Error & {
-      /**
-       * The noir call stack.
-       */
-      callStack?: NoirCallStack;
-    },
+    err: Error,
+    callStack?: NoirCallStack,
   ) {
     const failingFunction = { contractAddress: failingContract, functionSelector: failingselector };
     if (err instanceof SimulationError) {
       return SimulationError.extendPreviousSimulationError(failingFunction, err);
     }
-    return new SimulationError(err.message, failingFunction, err?.callStack, {
+    return new SimulationError(err.message, failingFunction, callStack, {
       cause: err,
     });
   }
@@ -139,20 +146,29 @@ export class SimulationError extends Error {
           failingFunction.functionName ?? failingFunction.functionSelector.toString()
         }`;
       }),
-      ...noirCallStack.map(
-        sourceCodeLocation =>
-          `  at ${sourceCodeLocation.filePath}:${sourceCodeLocation.line} '${sourceCodeLocation.locationText}'`,
+      ...noirCallStack.map(errorLocation =>
+        typeof errorLocation === 'string'
+          ? `  at opcode ${errorLocation}`
+          : `  at ${errorLocation.filePath}:${errorLocation.line} '${errorLocation.locationText}'`,
       ),
     ];
 
     return [`Simulation error: ${this.message}`, ...stackLines.reverse()].join('\n');
   }
 
+  private addSourceCodeSnippetToMessage() {
+    if (this.noirErrorStack && !isNoirCallStackUnresolved(this.noirErrorStack) && this.noirErrorStack.length) {
+      this.updateMessage(
+        `${this.originalMessage} '${this.noirErrorStack[this.noirErrorStack.length - 1].locationText}'`,
+      );
+    }
+  }
+
   /**
    * Updates the error message. This is needed because in some engines the stack also contains the message.
    * @param newMessage - The new message of this error.
    */
-  updateMessage(newMessage: string) {
+  private updateMessage(newMessage: string) {
     const oldMessage = this.message;
     this.message = newMessage;
     if (this.stack?.startsWith(`Error: ${oldMessage}`)) {
@@ -181,6 +197,7 @@ export class SimulationError extends Error {
    */
   setNoirCallStack(callStack: NoirCallStack) {
     this.noirErrorStack = callStack;
+    this.addSourceCodeSnippetToMessage();
   }
 
   toJSON() {
