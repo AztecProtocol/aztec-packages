@@ -195,7 +195,7 @@ export class PrivateFunctionExecution {
       },
     }).catch((err: Error) => {
       throw new ExecutionError(
-        'Private function execution failed',
+        err.message,
         {
           contractAddress: this.contractAddress,
           functionSelector: selector,

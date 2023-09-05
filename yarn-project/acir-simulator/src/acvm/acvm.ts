@@ -156,16 +156,15 @@ export async function acvm(
       }
     },
   ).catch((err: Error) => {
-    if (err.cause instanceof Error) {
-      // Wasm callbacks act as a boundary for stack traces, so we capture it here and complete the error if it happens.
-      const stack = new Error().stack;
+    // Wasm callbacks act as a boundary for stack traces, so we capture it here and complete the error if it happens.
+    const stack = new Error().stack;
 
-      traverseCauseChain(err.cause, cause => {
-        if (cause.stack) {
-          cause.stack += stack;
-        }
-      });
-    }
+    traverseCauseChain(err, cause => {
+      if (cause.stack) {
+        cause.stack += stack;
+      }
+    });
+
     throw err;
   });
 

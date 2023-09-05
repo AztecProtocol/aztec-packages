@@ -154,7 +154,7 @@ export class PublicExecutor {
       },
     }).catch((err: Error) => {
       throw new ExecutionError(
-        'Private function execution failed',
+        err.message,
         {
           contractAddress: execution.contractAddress,
           functionSelector: selector,
