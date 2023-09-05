@@ -347,7 +347,7 @@ program
 program
   .command('info')
   .description('Return ACVM related metadata about the backend')
-  .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the information to')
+  .requiredOption('-o, --output-path <path>', 'Specify the path to write the JSON information to')
   .action(({ outputPath }) => {
     handleGlobalOptions();
     acvmInfo(outputPath);
