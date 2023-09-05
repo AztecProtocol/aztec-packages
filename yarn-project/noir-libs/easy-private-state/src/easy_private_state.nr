@@ -13,7 +13,7 @@ use dep::value_note::{
 };
 
 struct EasyPrivateUint {
-    context: Option<&mut PrivateContext>,
+    maybe_context: Option<&mut PrivateContext>,
     set: Set<ValueNote, VALUE_NOTE_LEN>,
     storage_slot: Field,
 }
@@ -24,7 +24,7 @@ impl EasyPrivateUint {
         public_context: Option<&mut PublicContext>,
         storage_slot: Field,
     ) -> Self {
-        assert(storage_slot != 0); // Storage slot 0 not allowed. Storage slots must start from 1.
+        assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         let set = Set {
             private_context,
             public_context,
@@ -32,7 +32,7 @@ impl EasyPrivateUint {
             note_interface: ValueNoteMethods,
         };
         EasyPrivateUint {
-            context: private_context,
+            maybe_context: private_context,
             set,
             storage_slot,
         }
@@ -48,10 +48,10 @@ impl EasyPrivateUint {
 
         // Emit the newly created encrypted note preimages via oracle calls.
         let owner_key = get_public_key(owner);
-        let _context = self.context.unwrap();
+        let context = self.maybe_context.unwrap();
         emit_encrypted_log(
-            _context,
-            (*_context).this_address(),
+            context,
+            (*context).this_address(),
             self.set.storage_slot,
             owner_key,
             addend_note.serialise(),
@@ -94,10 +94,10 @@ impl EasyPrivateUint {
 
         let owner_key = get_public_key(owner);
 
-        let _context = self.context.unwrap();
+        let context = self.maybe_context.unwrap();
         emit_encrypted_log(
-            _context,
-            (*_context).this_address(),
+            context,
+            (*context).this_address(),
             self.set.storage_slot,
             owner_key,
             encrypted_data,
