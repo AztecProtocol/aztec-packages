@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, CheatCodes, Fr, Wallet, computeMessageSecretHash } from '@aztec/aztec.js';
+import { AztecAddress, CheatCodes, Fr, Wallet, computeMessageSecretHash, sleep } from '@aztec/aztec.js';
 import { CircuitsWasm, CompleteAddress } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
@@ -54,7 +54,7 @@ describe('e2e_lending_contract', () => {
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
-      logger(`Debt asset deployed to ${receipt.contractAddress}`);
+      logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
       stableCoin = await NativeTokenContract.at(receipt.contractAddress!, wallet);
     }
 
@@ -88,6 +88,7 @@ describe('e2e_lending_contract', () => {
     stableCoin: NativeTokenContract,
     account: Account,
   ) => {
+    await sleep(5000);
     logger('Fetching storage snapshot 📸 ');
     const accountKey = await account.key();
 
@@ -293,6 +294,7 @@ describe('e2e_lending_contract', () => {
       const receipt3 = await tx3.wait();
       expect(receipt3.status).toBe(TxStatus.MINED);
 
+      // At this point we should have some values!????
       const tx4 = stableCoin.methods.redeemShield(shieldAmount, secret, recipient).send({ origin: recipient });
       const receipt4 = await tx4.wait();
       expect(receipt4.status).toBe(TxStatus.MINED);
@@ -411,6 +413,7 @@ describe('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger('Borrow 🥸 : 🏦 -> 🍌');
+      logger(`Addresses: ${stableCoin.address}, ${lendingContract.address}, ${collateralAsset.address}, ${recipient}`);
       const tx = lendingContract.methods
         .borrow_private(account.secret, account.address, borrowAmount)
         .send({ origin: recipient });

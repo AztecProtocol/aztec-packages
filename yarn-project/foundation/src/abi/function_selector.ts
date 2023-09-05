@@ -98,7 +98,10 @@ export class FunctionSelector {
    */
   static fromNameAndParameters(name: string, parameters: ABIParameter[]) {
     const signature = new FunctionSignatureDecoder(name, parameters).decode();
-    return FunctionSelector.fromSignature(signature);
+    const selector = FunctionSelector.fromSignature(signature);
+    // If you are debugging, can be useful to uncomment the following line.
+    // console.log(`Function selector for ${signature} is ${selector}`);
+    return selector;
   }
 
   /**
