@@ -10,12 +10,15 @@
 ## secret functions
 
 > a.k.a. "private" functions
+To create a private function you can annotate it with the `#[aztec(private)]` attribute. This will make the private context (INCLUDE LINK TO COVERAGE OF PRIVATE CONTEXT) available within your current function's execution scope.
 
 #include_code functions-SecretFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 
 ## `open` functions
 
 > a.k.a. "public" functions
+
+To create a public function you can annotate it with the `#[aztec(public)]` attribute. This will make the public context available within your current function's execution scope. (TODO: INCLUDE LINK)
 
 #include_code functions-OpenFunction /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
 

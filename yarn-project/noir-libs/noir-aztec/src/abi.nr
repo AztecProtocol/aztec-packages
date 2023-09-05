@@ -82,23 +82,26 @@ impl ContractDeploymentData {
 }
 
 // PrivateContextInputs are expected to be provided to each private function
+// docs:start:private-context-inputs
 struct PrivateContextInputs {
     call_context : CallContext,
     block_data: HistoricBlockData,
-
     contract_deployment_data: ContractDeploymentData,
-
     private_global_variables: PrivateGlobalVariables,
 }
+// docs:end:private-context-inputs
 
 // PublicContextInputs are expected to be provided to each public function
+// docs:start:public-context-inputs
 struct PublicContextInputs {
     call_context: CallContext,
     block_data: HistoricBlockData,
 
     public_global_variables: PublicGlobalVariables,
 }
+// docs:end:public-context-inputs
 
+// docs:start:call-context
 struct CallContext {
     msg_sender : Field,
     storage_contract_address : Field,
@@ -108,6 +111,7 @@ struct CallContext {
     is_static_call : bool,
     is_contract_deployment: bool,
 }
+// docs:end:call-context
 
 impl CallContext {
     fn serialize(self) -> [Field; CALL_CONTEXT_LENGTH] {
@@ -126,6 +130,7 @@ impl CallContext {
     }
 }
 
+// docs:start:historic-block-data
 struct HistoricBlockData {
     private_data_tree_root : Field,
     nullifier_tree_root : Field,
@@ -135,6 +140,7 @@ struct HistoricBlockData {
     public_data_tree_root: Field,
     global_variables_hash: Field,
 }
+// docs:end:historic-block-data
 
 impl HistoricBlockData {
     // NOTE: this order must match the order in `private_circuit_public_inputs.hpp`
