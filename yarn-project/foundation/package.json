@@ -31,7 +31,6 @@
     "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js",
-    "./url": "./dest/url/index.js",
     "./committable": "./dest/committable/index.js"
   },
   "scripts": {

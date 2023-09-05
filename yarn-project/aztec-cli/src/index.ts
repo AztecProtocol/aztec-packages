@@ -12,7 +12,6 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
-import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract } from '@aztec/noir-compiler/cli';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { CompleteAddress, ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
@@ -20,6 +19,7 @@ import { CompleteAddress, ContractData, L2BlockL2Logs, PrivateKey, TxHash } from
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';

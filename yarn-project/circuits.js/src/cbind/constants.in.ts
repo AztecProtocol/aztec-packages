@@ -1,7 +1,6 @@
-import { fileURLToPath } from '@aztec/foundation/url';
-
 import * as fs from 'fs';
 import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import { callCbind } from './cbind.js';
