@@ -110,37 +110,14 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-```rust title="NonNativeTokenContract.nr"
-// burns token and sends a message to the portal
-fn withdraw(
-    amount: Field,
-    sender: Field,
-    recipient: Field,
-    callerOnL1: Field,
-) -> distinct pub abi::PrivateCircuitPublicInputs {
-    ...
-    let sender_balance = storage.balances.at(sender);
-    spend_notes(&mut context, sender_balance, amount, sender);
-
-    let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
-    context.message_portal(content);
-    ...
-}
-```
+#include_code send_to_portal /yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
 
 When the transaction is included in a rollup block the message will be inserted into the `Outbox`, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
-```solidity title="IOutbox.sol"
-struct L2ToL1Msg {
-    DataStructures.L2Actor sender;
-    DataStructures.L1Actor recipient;
-    bytes32 content;
-}
+<!-- TODO: the rest of these docs should have code snippets updates -->
+#include_code l1_to_l2_message_struct /l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-function consume(DataStructures.L2ToL1Msg memory _message) 
-    external 
-    returns (bytes32 entryKey);
-```
+#include_code consume_interface /l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 As noted earlier, the portal contract should check that the sender is as expected. In the example below, we support only one sender contract (stored in `l2TokenAddress`) so we can just pass it as the sender, that way we will only be able to consume messages from that contract. If multiple senders are supported, you could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
 

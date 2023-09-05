@@ -42,6 +42,7 @@ library DataStructures {
     uint256 version;
   }
 
+  // docs:start:l1_to_l2_message_struct
   /**
    * @notice Struct containing a message from L1 to L2
    * @param sender - The sender of the message
@@ -59,6 +60,7 @@ library DataStructures {
     uint32 deadline;
     uint64 fee;
   }
+  // docs:end:l1_to_l2_message_struct
 
   /**
    * @notice Struct containing a message from L2 to L1
