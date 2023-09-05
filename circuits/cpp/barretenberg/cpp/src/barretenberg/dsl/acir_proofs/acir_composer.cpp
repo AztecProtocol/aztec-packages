@@ -142,7 +142,7 @@ std::string AcirComposer::get_solidity_verifier()
 {
     std::ostringstream stream;
     output_vk_sol(stream, verification_key_, "UltraVerificationKey");
-    return stream.str() + embedded_file_content;
+    return stream.str() + ultra_verifier_template;
 }
 
 /**
