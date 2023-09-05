@@ -89,13 +89,8 @@ template <typename Curve, bool goblin_flag = false> class KZG {
             std::vector<GroupElement> commitments = { claim.commitment, quotient_commitment };
             std::vector<Fr> scalars = { one, claim.opening_pair.challenge };
             P_0 = GroupElement::template batch_mul<goblin_flag>(commitments, scalars);
-            // WORKTODO(luke): The evaluation is always zero due to the nature of shplonk. What is the proper way to
-            // handle this? Contraints to show scalar (evaluation) is zero? Or simply dont add anything and ensure this
-            // function is only used in the current context? 
-            // if (!claim.opening_pair.evaluation.get_value().is_zero()) {
-            //     auto ctx = verifier_transcript.builder;
-            //     lhs -= GroupElement::one(ctx) * claim.opening_pair.evaluation;
-            // }
+            // Note: This implementation assumes the evaluation is zero (as is the case for shplonk).
+            ASSERT(claim.opening_pair.evaluation.get_value() == 0);
         } else {
             P_0 = claim.commitment;
             P_0 += quotient_commitment * claim.opening_pair.challenge;

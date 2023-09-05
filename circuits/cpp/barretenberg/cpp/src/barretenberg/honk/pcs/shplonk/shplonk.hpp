@@ -173,7 +173,6 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
         auto Q_commitment = transcript.template receive_from_prover<Commitment>("Shplonk:Q");
 
         const Fr z_challenge = transcript.get_challenge("Shplonk:z");
-        Fr evaluation_zero; // 0 \in Fr
 
         // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
         //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
@@ -192,7 +191,6 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
         // using a builder Simulator.
         if constexpr (Curve::is_stdlib_type) {
             auto builder = nu.get_context();
-            evaluation_zero = Fr(builder, 0);
 
             // Containers for the inputs to the final batch mul
             std::vector<Commitment> commitments;
@@ -236,8 +234,6 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
             G_commitment = GroupElement::template batch_mul<goblin_flag>(commitments, scalars);
 
         } else {
-            evaluation_zero = Fr(0);
-
             // [G] = [Q] - ∑ⱼ ρʲ / ( r − xⱼ )⋅[fⱼ] + G₀⋅[1]
             //     = [Q] - [∑ⱼ ρʲ ⋅ ( fⱼ(X) − vⱼ) / ( r − xⱼ )]
             G_commitment = Q_commitment;
@@ -272,7 +268,7 @@ template <typename Curve, bool goblin_flag = false> class ShplonkVerifier_ {
         }
 
         // Return opening pair (z, 0) and commitment [G]
-        return { { z_challenge, evaluation_zero }, G_commitment };
+        return { { z_challenge, Fr(0) }, G_commitment };
     };
 };
 } // namespace proof_system::honk::pcs::shplonk
