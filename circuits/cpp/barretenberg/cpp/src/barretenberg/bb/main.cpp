@@ -282,7 +282,10 @@ void acvmInfo(const std::string& output_path)
 {
 
     const char* jsonData = R"({
-    "language": "PLONK-CSAT-WIDTH-3",
+    "language": {
+        "name" : "PLONK-CSAT",
+        "width" : 3
+    },
     "opcodes-supported" : ["arithmetic", "directive","brillig","memory_init", "memory_op"],
     "black-box-functions-supported" : ["and", "xor", "range", "sha256", "blake2s", "keccak256", "schnorr_verify", "pedersen", "hash_to_field_128_security", "ecdsa_secp256k1", "ecdsa_secp256r1", "fixed_base_scalar_mul", "recursive_aggregation"]
     })";
