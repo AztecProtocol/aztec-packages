@@ -61,37 +61,58 @@ export function isNoirCallStackUnresolved(callStack: NoirCallStack): callStack i
  * An error during the simulation of a function call.
  */
 export class SimulationError extends Error {
-  private originalMessage: string;
-  private functionErrorStack: FailingFunction[];
-
-  // We want to maintain a public constructor for proper printing.
-  constructor(
+  private constructor(
     message: string,
-    failingFunction: FailingFunction,
+    private originalMessage: string,
+    private functionErrorStack: FailingFunction[],
     private noirErrorStack?: NoirCallStack,
     options?: ErrorOptions,
   ) {
     super(message, options);
-    this.originalMessage = message;
     this.addSourceCodeSnippetToMessage();
-    this.functionErrorStack = [failingFunction];
   }
 
   private addCaller(failingFunction: FailingFunction) {
     this.functionErrorStack.unshift(failingFunction);
   }
 
-  static fromError(
+  /**
+   * Creates a new simulation error
+   * @param message - The error message
+   * @param failingContract - The address of the contract that failed.
+   * @param failingSelector - The selector of the function that failed.
+   * @param callStack - The noir call stack of the error.
+   * @returns - The simulation error.
+   */
+  public static new(
+    message: string,
     failingContract: AztecAddress,
-    failingselector: FunctionSelector,
+    failingSelector: FunctionSelector,
+    callStack?: NoirCallStack,
+  ) {
+    const failingFunction = { contractAddress: failingContract, functionSelector: failingSelector };
+    return new SimulationError(message, message, [failingFunction], callStack);
+  }
+
+  /**
+   * Creates a new simulation error from an error thrown during simulation.
+   * @param failingContract - The address of the contract that failed.
+   * @param failingSelector - The selector of the function that failed.
+   * @param err - The error that was thrown.
+   * @param callStack - The noir call stack of the error.
+   * @returns - The simulation error.
+   */
+  public static fromError(
+    failingContract: AztecAddress,
+    failingSelector: FunctionSelector,
     err: Error,
     callStack?: NoirCallStack,
   ) {
-    const failingFunction = { contractAddress: failingContract, functionSelector: failingselector };
+    const failingFunction = { contractAddress: failingContract, functionSelector: failingSelector };
     if (err instanceof SimulationError) {
       return SimulationError.extendPreviousSimulationError(failingFunction, err);
     }
-    return new SimulationError(err.message, failingFunction, callStack, {
+    return new SimulationError(err.message, err.message, [failingFunction], callStack, {
       cause: err,
     });
   }
@@ -203,14 +224,13 @@ export class SimulationError extends Error {
   toJSON() {
     return {
       message: this.message,
+      originalMessage: this.originalMessage,
       functionErrorStack: this.functionErrorStack,
       noirErrorStack: this.noirErrorStack,
     };
   }
 
-  static fromJSON(obj: any) {
-    const error = new SimulationError(obj.message, obj.functionErrorStack[0], obj.noirErrorStack);
-    error.functionErrorStack = obj.functionErrorStack;
-    return error;
+  static fromJSON(obj: ReturnType<SimulationError['toJSON']>) {
+    return new SimulationError(obj.message, obj.originalMessage, obj.functionErrorStack, obj.noirErrorStack);
   }
 }
