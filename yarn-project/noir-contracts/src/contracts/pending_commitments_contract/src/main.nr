@@ -6,6 +6,7 @@ mod storage;
 // be read/nullified before their creation etc.
 contract PendingCommitments {
     // Libs
+    use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         filter::filter_notes_min_sum,
@@ -36,14 +37,14 @@ contract PendingCommitments {
     fn test_insert_then_get_then_nullify_flat(
         amount: Field,
         owner: Field,
-    ) {
-        let storage = Storage::init();
+    ) -> Field {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        owner_balance.insert(&mut context, &mut note);
+        owner_balance.insert(&mut note);
         emit_encrypted_log(
             &mut context,
             context.inputs.call_context.storage_contract_address,
@@ -54,15 +55,15 @@ contract PendingCommitments {
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note inserted above
-        let maybe_notes = owner_balance.get_notes(&mut context, options);
+        let maybe_notes = owner_balance.get_notes(options);
 
         let note0 = maybe_notes[0].unwrap();
         assert(note.value == note0.value);
         assert(maybe_notes[1].is_none());
 
-        context.return_values.push(note0.value);
+        owner_balance.remove(note0);
 
-        owner_balance.remove(&mut context, note0);
+        note0.value
     }
 
     // Confirm cannot access commitments inserted later in same function
@@ -70,23 +71,21 @@ contract PendingCommitments {
     fn test_bad_get_then_insert_flat(
         amount: Field,
         owner: Field,
-    ) {
-        let storage = Storage::init();
+    ) -> Field {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::with_filter(filter_notes_min_sum, amount);
         // get note (note inserted at bottom of function shouldn't exist yet)
-        let maybe_notes = owner_balance.get_notes(&mut context, options);
+        let maybe_notes = owner_balance.get_notes(options);
 
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
 
-        context.return_values.push(0);
-
         // Insert note and emit encrypted note preimage via oracle call
         let mut note = ValueNote::new(amount, owner);
-        owner_balance.insert(&mut context, &mut note);
+        owner_balance.insert(&mut note);
         emit_encrypted_log(
             &mut context,
             context.inputs.call_context.storage_contract_address,
@@ -94,6 +93,8 @@ contract PendingCommitments {
             get_public_key(owner),
             note.serialise(),
         );
+
+        0
     }
 
     // Dumy nested/inner function (to pass a function which does nothing)
@@ -109,13 +110,13 @@ contract PendingCommitments {
         amount: Field,
         owner: Field,
     ) {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
         let mut note = ValueNote::new(amount, owner);
 
         // Insert note and emit encrypted note preimage via oracle call
-        owner_balance.insert(&mut context, &mut note);
+        owner_balance.insert(&mut note);
         emit_encrypted_log(
             &mut context,
             context.inputs.call_context.storage_contract_address,
@@ -130,19 +131,19 @@ contract PendingCommitments {
     fn get_then_nullify_note(
         expected_value: Field,
         owner: Field,
-    ){
-        let storage = Storage::init();
+    ) -> Field {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::new().set_limit(1);
-        let note = owner_balance.get_notes(&mut context, options)[0].unwrap();
+        let note = owner_balance.get_notes(options)[0].unwrap();
 
         assert(expected_value == note.value);
 
-        context.return_values.push(expected_value);
+        owner_balance.remove(note);
 
-        owner_balance.remove(&mut context, note);
+        expected_value
     }
 
     // Nested/inner function to get a note and confirms that none is returned
@@ -150,12 +151,12 @@ contract PendingCommitments {
     fn get_note_zero_balance(
         owner: Field,
     ) {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::some(&mut context), Option::none());
 
         let owner_balance = storage.balances.at(owner);
 
         let options = NoteGetterOptions::new();
-        let maybe_notes = owner_balance.get_notes(&mut context, options);
+        let maybe_notes = owner_balance.get_notes(options);
 
         assert(maybe_notes[0].is_none());
         assert(maybe_notes[1].is_none());
