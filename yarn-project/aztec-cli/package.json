@@ -45,6 +45,7 @@
     "commander": "^9.0.0",
     "jszip": "^3.10.1",
     "node-fetch": "^3.3.2",
+    "lodash.startcase": "^4.4.0",
     "semver": "^7.5.4",
     "tslib": "^2.4.0",
     "viem": "^1.2.5"
@@ -53,6 +54,7 @@
     "@jest/globals": "^29.5.0",
     "@rushstack/eslint-patch": "^1.1.4",
     "@types/jest": "^29.5.0",
+    "@types/lodash.startcase": "^4.4.7",
     "@types/node": "^18.7.23",
     "jest": "^29.5.0",
     "jest-mock-extended": "^3.0.5",

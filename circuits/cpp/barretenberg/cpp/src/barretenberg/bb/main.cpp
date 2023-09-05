@@ -12,11 +12,8 @@
 #include <vector>
 
 using namespace barretenberg;
-// The maximum size that we can do in the browser and node is 2^19
-// based on memory constraints for UltraPlonk.
-// However, since this CLI does not use WASM, we can increase the
-// size.
-uint32_t MAX_CIRCUIT_SIZE = 1 << 23;
+// Transcript downloading code only supports fetching and parsing the first transcript file.
+const uint32_t MAX_CIRCUIT_SIZE = 1 << 22;
 std::string CRS_PATH = "./crs";
 bool verbose = false;
 
@@ -296,8 +293,8 @@ int main(int argc, char* argv[])
 
         std::string command = args[0];
 
-        std::string bytecode_path = getOption(args, "-b", "./target/main.bytecode");
-        std::string witness_path = getOption(args, "-w", "./target/witness.tr");
+        std::string bytecode_path = getOption(args, "-b", "./target/acir.gz");
+        std::string witness_path = getOption(args, "-w", "./target/witness.gz");
         std::string proof_path = getOption(args, "-p", "./proofs/proof");
         std::string vk_path = getOption(args, "-k", "./target/vk");
         CRS_PATH = getOption(args, "-c", "./crs");
