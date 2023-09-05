@@ -8,10 +8,10 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
     "start:dev": "webpack serve --mode=development",
-    "start:remote": "/bin/bash -c \"$(curl -fsSL 'https://up-dev.aztec.network')\"",
+    "start:remote": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\"",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "compile": "This script should compile contracts/ and output their abi and ts wrapper to artifacts/"
+    "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts"
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
@@ -23,6 +23,7 @@
     "formik": "^2.4.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "serve": "^14.2.1",
     "tailwindcss": "^3.3.3",
     "yup": "^1.2.0"
   },
