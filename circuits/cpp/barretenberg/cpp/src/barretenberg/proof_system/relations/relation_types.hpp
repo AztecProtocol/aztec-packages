@@ -52,11 +52,9 @@ inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorView
  * @tparam FF
  * @tparam RelationImpl Base class that implements the arithmetic for a given relation (or set of sub-relations)
  */
-// WORKTODO: Relation is not a Relation(Base), so there shouldn't be inheritance here.
 template <typename RelationImpl> class Relation : public RelationImpl {
   private:
     using FF = typename RelationImpl::FF;
-    // WORKTODO: does these templates being defined inside of here mean we can't reuse their instantiations?
     template <size_t... subrelation_lengths> struct UnivariateAccumulatorsAndViewsTemplate {
         using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
         using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
