@@ -1,4 +1,4 @@
-export default function Spinner() {
+export function Spinner() {
   return (
     <svg
       aria-hidden="true"

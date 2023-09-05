@@ -1,4 +1,4 @@
-import Button from './button.js';
+import { Button } from './button.js';
 
 interface Props {
   children: string;
@@ -7,7 +7,7 @@ interface Props {
   onClose?: () => void;
 }
 
-export default function Popup({ children, buttonText = 'Close', isWarning = false, onClose }: Props) {
+export function Popup({ children, buttonText = 'Close', isWarning = false, onClose }: Props) {
   return (
     <div className="fixed top-0 left-0 w-full h-full bg-white bg-opacity-30">
       <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">

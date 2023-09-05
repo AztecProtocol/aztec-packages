@@ -2,8 +2,8 @@ import { AztecAddress } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { useState } from 'react';
 import { contractAbi } from '../config.js';
-import Popup from './components/popup.js';
-import ContractFunctionForm from './contract_function_form.js';
+import { Popup } from './components/index.js';
+import { ContractFunctionForm } from './contract_function_form.js';
 
 const functionTypeSortOrder = {
   secret: 0,
@@ -11,7 +11,7 @@ const functionTypeSortOrder = {
   unconstrained: 2,
 };
 
-export default function Contract() {
+export function Contract() {
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');

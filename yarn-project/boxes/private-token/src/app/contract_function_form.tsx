@@ -4,7 +4,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { rpcClient } from '../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../scripts/index.js';
-import Button from './components/button.js';
+import { Button } from './components/index.js';
 
 // hack: add `any` at the end to get the array schema to typecheck
 type NoirFunctionYupSchema = {
@@ -76,7 +76,7 @@ interface ContractFunctionFormProps {
   onError: (msg: string) => void;
 }
 
-export default function ContractFunctionForm({
+export function ContractFunctionForm({
   contractAddress,
   contractAbi,
   functionAbi,

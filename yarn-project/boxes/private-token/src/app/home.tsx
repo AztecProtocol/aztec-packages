@@ -1,11 +1,10 @@
 import { AztecAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
-import Banner from './components/banner.js';
-import Spinner from './components/spinner.js';
-import Contract from './contract.js';
+import { Banner, Spinner } from './components/index.js';
+import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
 
-export default function Home() {
+export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<AztecAddress | undefined>();
   const [selectWalletError, setSelectedWalletError] = useState('');

@@ -1,4 +1,4 @@
-import Spinner from './spinner.js';
+import { Spinner } from './spinner.js';
 
 interface Props {
   children: string;
@@ -7,7 +7,7 @@ interface Props {
   onClick?: () => void;
 }
 
-export default function Button({ children, isLoading, disabled, onClick }: Props) {
+export function Button({ children, isLoading, disabled, onClick }: Props) {
   return (
     <button
       type="submit"

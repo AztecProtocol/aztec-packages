@@ -9,7 +9,7 @@ interface Props {
  * @param background - background color, either "black" or "purple"
  * @returns a moving banner repeating the word PRIVACY
  */
-export default function Banner({ background, direction, animated }: Props) {
+export function Banner({ background, direction, animated }: Props) {
   // Determine direction
   const start = !animated ? '' : direction === 'reverse' ? 'animate-marquee' : 'animate-marquee3';
   const end = !animated ? '' : direction === 'reverse' ? 'animate-marquee2' : 'animate-marquee4';
