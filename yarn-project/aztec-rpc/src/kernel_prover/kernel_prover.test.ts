@@ -85,9 +85,11 @@ describe('Kernel Prover', () => {
   };
 
   const expectExecution = (fns: string[]) => {
-    const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(args => args[1].callStackItem.functionData);
+    const callStackItemsInit = proofCreator.createProofInit.mock.calls.map(
+      args => args[0].privateCall.callStackItem.functionData,
+    );
     const callStackItemsInner = proofCreator.createProofInner.mock.calls.map(
-      args => args[1].callStackItem.functionData,
+      args => args[0].privateCall.callStackItem.functionData,
     );
 
     expect(proofCreator.createProofInit).toHaveBeenCalledTimes(Math.min(1, fns.length));
