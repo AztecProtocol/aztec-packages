@@ -40,8 +40,9 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
           onChange={e => {
                 const selectedWallet = wallets.find(wallet => wallet.address.toString() === e.target.value);
             onSelectChange(selectedWallet!);
+            console.log('selectedWallet', selectedWallet, selectedWallet?.address.toString());
           }}
-          value={selected?.toString()}
+          value={selected?.address.toString()}
         >
           {wallets.map(({ address }: CompleteAddress) => {
             return (

@@ -11,6 +11,7 @@ export function Home() {
 
   const handleSelectWallet = (address: CompleteAddress | undefined) => {
     setSelectedWallet(address);
+    console.log('setSelectedWallet', address?.address.toString());
     setIsLoadingWallet(false);
   };
 

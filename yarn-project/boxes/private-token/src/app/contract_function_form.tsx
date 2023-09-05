@@ -55,7 +55,7 @@ async function handleFunctionCall(
   contractAbi: ContractAbi,
   functionName: string,
   args: any,
-  wallet?: CompleteAddress,
+  wallet: CompleteAddress,
 ) {
   if (functionName === 'constructor' && !!wallet) {
     const salt = Fr.ZERO;
@@ -64,14 +64,14 @@ async function handleFunctionCall(
 
   const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
   if (functionAbi.functionType === 'unconstrained') {
-    return await viewContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient);
+    return await viewContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient, wallet);
   } else {
     return await callContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient);
   }
 }
 
 interface ContractFunctionFormProps {
-  wallet?: CompleteAddress;
+  wallet: CompleteAddress;
   contractAddress?: AztecAddress;
   contractAbi: ContractAbi;
   functionAbi: FunctionAbi;

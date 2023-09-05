@@ -1,6 +1,7 @@
 import { AztecAddress, CompleteAddress, DeployMethod, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { AztecRPC } from '@aztec/types';
+import { convertArgs } from './arg_conversion.js';
 
 // REMOVE THIS
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -18,14 +19,8 @@ export async function deployContract(
 
   // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
   // convert those back to bigints before sending
-  const typedArgs = functionAbi.parameters.map(param => {
-    switch (param.type.kind) {
-      case 'field':
-        return BigInt(args[param.name]);
-      default:
-        return args[param.name];
-    }
-  });
+  const typedArgs = convertArgs(functionAbi, args);
+
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,
   });
