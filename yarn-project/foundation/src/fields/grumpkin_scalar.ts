@@ -5,7 +5,7 @@ import { BufferReader } from '../serialize/buffer_reader.js';
 /**
  * Represents a field element in a prime finite field with modulus defined by the constant MODULUS.
  * @remarks Called GrumpkinScalar because it is used to represent elements in Grumpkin's scalar field as defined in
- *          the [Aztec Yellow Paper](https://hackmd.io/@aztec-network/ByzgNxBfd).
+ *          the Aztec Yellow Paper.
  */
 export class GrumpkinScalar {
   static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
@@ -44,6 +44,30 @@ export class GrumpkinScalar {
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     return new this(toBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
+  }
+
+  /**
+   * Like fromBuffer, but wraps the value around the modulus.
+   *
+   * @param buffer - The Buffer or BufferReader containing the bytes representing the value.
+   * @returns GrumpkinScalar with the decoded value.
+   */
+  static fromBufferWithWrapping(buffer: Buffer | BufferReader) {
+    const reader = BufferReader.asReader(buffer);
+    const value = toBigIntBE(reader.readBytes(GrumpkinScalar.SIZE_IN_BYTES)) % GrumpkinScalar.MODULUS;
+    return new GrumpkinScalar(value);
+  }
+
+  /**
+   * Create a GrumpkinScalar instance from a hex-encoded string.
+   * The input 'address' can be either prefixed with '0x' or not, and should have exactly 64 hex characters.
+   * Throws an error if the input length is invalid or the address value is out of range.
+   *
+   * @param address - The hex-encoded string representing the field element.
+   * @returns A GrumpkinScalar instance.
+   */
+  static fromString(address: string) {
+    return GrumpkinScalar.fromBuffer(Buffer.from(address.replace(/^0x/i, ''), 'hex'));
   }
 
   /**

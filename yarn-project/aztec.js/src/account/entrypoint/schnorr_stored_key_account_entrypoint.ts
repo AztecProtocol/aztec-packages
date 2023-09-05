@@ -1,5 +1,5 @@
-import { AztecAddress, FunctionData, PrivateKey, TxContext } from '@aztec/circuits.js';
-import { Signer } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, FunctionData, GrumpkinPrivateKey, TxContext } from '@aztec/circuits.js';
+import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
@@ -10,16 +10,16 @@ import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { CreateTxRequestOpts, Entrypoint } from './index.js';
 
 /**
- * Account contract implementation that keeps a signing public key in storage, and is retrieved on
+ * Account contract implementation that keeps a Schnorr signing public key in storage, and is retrieved on
  * every new request in order to validate the payload signature.
  */
-export class StoredKeyAccountEntrypoint implements Entrypoint {
+export class SchnorrStoredKeyAccountEntrypoint implements Entrypoint {
   private log: DebugLogger;
 
   constructor(
     private address: AztecAddress,
-    private privateKey: PrivateKey,
-    private signer: Signer,
+    private privateKey: GrumpkinPrivateKey,
+    private signer: Schnorr,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
   ) {

@@ -8,23 +8,27 @@ import {
   SingleKeyAccountContract,
   Wallet,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
+import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts/types';
 
+import { randomBytes } from 'crypto';
+
 import { setup } from './fixtures/utils.js';
 
-function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey: PrivateKey) => AccountContract) {
+function itShouldBehaveLikeAnAccountContract(
+  getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
+) {
   describe(`behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
     let child: ChildContract;
     let account: Account;
     let wallet: Wallet;
-    let encryptionPrivateKey: PrivateKey;
+    let encryptionPrivateKey: GrumpkinPrivateKey;
 
     beforeEach(async () => {
       context = await setup();
-      encryptionPrivateKey = PrivateKey.random();
+      encryptionPrivateKey = GrumpkinScalar.random();
       account = new Account(context.aztecRpcServer, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
       wallet = await account.deploy().then(tx => tx.getWallet());
       child = await ChildContract.deploy(wallet).send().deployed();
@@ -57,7 +61,7 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
       const invalidWallet = await new Account(
         context.aztecRpcServer,
         encryptionPrivateKey,
-        getAccountContract(PrivateKey.random()),
+        getAccountContract(GrumpkinScalar.random()),
         accountAddress,
       ).getWallet();
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
@@ -70,14 +74,16 @@ function itShouldBehaveLikeAnAccountContract(getAccountContract: (encryptionKey:
 
 describe('e2e_account_contracts', () => {
   describe('schnorr single-key account', () => {
-    itShouldBehaveLikeAnAccountContract((encryptionKey: PrivateKey) => new SingleKeyAccountContract(encryptionKey));
+    itShouldBehaveLikeAnAccountContract(
+      (encryptionKey: GrumpkinPrivateKey) => new SingleKeyAccountContract(encryptionKey),
+    );
   });
 
   describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(PrivateKey.random()));
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(PrivateKey.random()));
+    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)));
   });
 });

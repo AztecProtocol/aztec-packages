@@ -5,7 +5,7 @@ export * from './entrypoint_collection.js';
 export * from './entrypoint_payload.js';
 export * from './entrypoint_utils.js';
 export * from './single_key_account_entrypoint.js';
-export * from './stored_key_account_entrypoint.js';
+export * from './ecdsa_stored_key_account_entrypoint.js';
 
 /** Options for creating a tx request out of a set of function calls. */
 export type CreateTxRequestOpts = {

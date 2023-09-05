@@ -1,12 +1,13 @@
-import { Fr, PrivateKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
+import { SchnorrStoredKeyAccountEntrypoint } from '../account/entrypoint/schnorr_stored_key_account_entrypoint.js';
 import { SingleKeyAccountEntrypoint } from '../account/entrypoint/single_key_account_entrypoint.js';
 import { EntrypointWallet, Wallet } from '../aztec_rpc_client/wallet.js';
-import { ContractDeployer, EntrypointCollection, StoredKeyAccountEntrypoint, generatePublicKey } from '../index.js';
+import { ContractDeployer, EntrypointCollection, generatePublicKey } from '../index.js';
 
 /**
  * Creates an Aztec Account.
@@ -15,7 +16,7 @@ import { ContractDeployer, EntrypointCollection, StoredKeyAccountEntrypoint, gen
 export async function createAccounts(
   aztecRpcClient: AztecRPC,
   accountContractAbi: ContractAbi,
-  privateKey?: PrivateKey,
+  privateKey?: GrumpkinPrivateKey,
   salt = Fr.random(),
   numberOfAccounts = 1,
   logger = createDebugLogger('aztec:aztec.js:accounts'),
@@ -24,7 +25,7 @@ export async function createAccounts(
 
   for (let i = 0; i < numberOfAccounts; ++i) {
     // TODO(#662): Let the aztec rpc server generate the keypair rather than hardcoding the private key
-    const privKey = i == 0 && privateKey ? privateKey : PrivateKey.random();
+    const privKey = i == 0 && privateKey ? privateKey : GrumpkinScalar.random();
     const publicKey = await generatePublicKey(privKey);
     const deploymentInfo = await getContractDeploymentInfo(accountContractAbi, [], salt, publicKey);
     await aztecRpcClient.registerAccount(privKey, deploymentInfo.completeAddress.partialAddress);
@@ -67,8 +68,8 @@ export async function createAccounts(
 export async function getAccountWallets(
   aztecRpcClient: AztecRPC,
   accountContractAbi: ContractAbi,
-  privateKeys: PrivateKey[],
-  signingKeys: PrivateKey[],
+  privateKeys: GrumpkinPrivateKey[],
+  signingKeys: GrumpkinPrivateKey[],
   salts: Fr[],
 ) {
   if (privateKeys.length != salts.length || signingKeys.length != privateKeys.length) {
@@ -88,7 +89,7 @@ export async function getAccountWallets(
 
     accountCollection.registerAccount(
       address,
-      new StoredKeyAccountEntrypoint(address, signingKeys[i], await Schnorr.new()),
+      new SchnorrStoredKeyAccountEntrypoint(address, signingKeys[i], await Schnorr.new()),
     );
   }
   return new EntrypointWallet(aztecRpcClient, accountCollection);

@@ -1,28 +1,30 @@
-import { AztecAddress, FunctionData, GrumpkinPrivateKey, PartialAddress, TxContext } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
+import { Ecdsa } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
+import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
 
-import SchnorrSingleKeyAccountContractAbi from '../../abis/schnorr_single_key_account_contract.json' assert { type: 'json' };
-import { generatePublicKey } from '../../index.js';
+import EcdsaAccountContractAbi from '../../abis/ecdsa_account_contract.json' assert { type: 'json' };
 import { DEFAULT_CHAIN_ID, DEFAULT_VERSION } from '../../utils/defaults.js';
 import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { CreateTxRequestOpts, Entrypoint } from './index.js';
 
 /**
- * Account contract implementation that uses a single key for signing and encryption. This public key is not
- * stored in the contract, but rather verified against the contract address. Note that this approach is not
- * secure and should not be used in real use cases.
+ * Account contract implementation that keeps a signing public key in storage, and is retrieved on
+ * every new request in order to validate the payload signature.
  */
-export class SingleKeyAccountEntrypoint implements Entrypoint {
+export class EcdsaStoredKeyAccountEntrypoint implements Entrypoint {
+  private log: DebugLogger;
+
   constructor(
     private address: AztecAddress,
-    private partialAddress: PartialAddress,
-    private privateKey: GrumpkinPrivateKey,
-    private signer: Schnorr,
+    private privateKey: Buffer,
+    private signer: Ecdsa,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
-  ) {}
+  ) {
+    this.log = createDebugLogger('aztec:client:accounts:stored_key');
+  }
 
   async createTxExecutionRequest(
     executions: FunctionCall[],
@@ -34,10 +36,10 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
 
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
     const message = await hashPayload(payload);
-
     const signature = this.signer.constructSignature(message, this.privateKey).toBuffer();
-    const publicKey = await generatePublicKey(this.privateKey);
-    const args = [payload, publicKey.toBuffer(), signature, this.partialAddress];
+    this.log(`Signed challenge ${message.toString('hex')} as ${signature.toString('hex')}`);
+
+    const args = [payload, signature];
     const abi = this.getEntrypointAbi();
     const packedArgs = await PackedArguments.fromArgs(encodeArguments(abi, args));
     const txRequest = TxExecutionRequest.from({
@@ -52,10 +54,10 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
   }
 
   private getEntrypointAbi() {
-    // We use the SchnorrSingleKeyAccountContract because it implements the interface we need, but ideally
-    // we should have an interface that defines the entrypoint for SingleKeyAccountContracts and
+    // We use the EcdsaAccountContractAbi because it implements the interface we need, but ideally
+    // we should have an interface that defines the entrypoint for StoredKeyAccountContracts and
     // load the abi from it.
-    const abi = (SchnorrSingleKeyAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
+    const abi = (EcdsaAccountContractAbi as any as ContractAbi).functions.find(f => f.name === 'entrypoint');
     if (!abi) throw new Error(`Entrypoint abi for account contract not found`);
     return abi;
   }

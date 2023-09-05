@@ -2,7 +2,6 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import { deployInitialSandboxAccounts } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -72,7 +71,7 @@ async function main() {
   logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
   logger.info('Deploying rollup contracts to L1...');
   const deployedL1Contracts = await waitThenDeploy(aztecNodeConfig.rpcUrl, hdAccount);
-  aztecNodeConfig.publisherPrivateKey = new PrivateKey(Buffer.from(privKey!));
+  aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   aztecNodeConfig.rollupContract = deployedL1Contracts.rollupAddress;
   aztecNodeConfig.contractDeploymentEmitterContract = deployedL1Contracts.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxContract = deployedL1Contracts.inboxAddress;
