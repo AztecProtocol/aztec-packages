@@ -150,7 +150,7 @@ export async function acvm(
     },
   );
 
-  return Promise.resolve({ partialWitness });
+  return { partialWitness };
 }
 
 /**
