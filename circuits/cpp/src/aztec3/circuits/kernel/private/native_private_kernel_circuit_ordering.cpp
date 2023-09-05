@@ -12,9 +12,6 @@
 
 #include <barretenberg/numeric/uint256/uint256.hpp>
 
-#include <cstddef>
-#include <cstdint>
-
 namespace {
 using NT = aztec3::utils::types::NativeTypes;
 

@@ -8,8 +8,6 @@
 
 #include <barretenberg/barretenberg.hpp>
 
-#include <cstdint>
-
 namespace aztec3::circuits::abis::private_kernel {
 
 using aztec3::utils::types::CircuitTypes;
