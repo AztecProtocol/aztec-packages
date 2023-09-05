@@ -6,10 +6,10 @@ import { PrivateKey } from '@aztec/circuits.js';
 import { deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -67,7 +67,7 @@ async function main() {
   const hdAccount = mnemonicToAccount(MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
   const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../package.json');
-  const version: string = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
 
   logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
   logger.info('Deploying rollup contracts to L1...');

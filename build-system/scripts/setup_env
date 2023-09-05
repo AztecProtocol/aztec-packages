@@ -6,14 +6,15 @@
 # The script should be sourced from the root of the repository, e.g:
 #   source ./build-system/scripts/setup_env
 # This ensures the resultant variables are set in the calling shell.
-set -e
+set -eu
 
 COMMIT_HASH=$1
 COMMIT_TAG=$2
 JOB_NAME=$3
-GIT_REPOSITORY_URL=$4
-BRANCH=$5
+GIT_REPOSITORY_URL=${4:-}
+BRANCH=${5:-}
 
+BASH_ENV=${BASH_ENV:-}
 BUILD_SYSTEM_PATH=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PROJECT=$(cat PROJECT)
 VERSION=$(cat VERSION)
@@ -24,7 +25,7 @@ echo "JOB_NAME=$JOB_NAME"
 echo "GIT_REPOSITORY_URL=$GIT_REPOSITORY_URL"
 echo "BRANCH=$BRANCH"
 
-if [ -n "$COMMIT_TAG" ]; then
+if [ -n "${COMMIT_TAG:-}" ]; then
   # We're tagged e.g. v2.1.123 or v2.1.123-testnet.0.
   # First we sanity check that the tag matches the VERSION file.
   echo "Extracting commit tag version..."
@@ -95,7 +96,7 @@ source $BASH_ENV
 if [ -n "$COMMIT_HASH" ]; then
   # Install and ensure correct permissions on build instance key.
   mkdir -p ~/.ssh
-  echo $BUILD_INSTANCE_KEY | base64 -d > ~/.ssh/build_instance_key
+  echo ${BUILD_INSTANCE_KEY:-} | base64 -d > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
 fi
 
