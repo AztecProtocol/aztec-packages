@@ -84,7 +84,7 @@ export class SimulationError extends Error {
    * @param callStack - The noir call stack of the error.
    * @returns - The simulation error.
    */
-  public static new(
+  static new(
     message: string,
     failingContract: AztecAddress,
     failingSelector: FunctionSelector,
@@ -102,7 +102,7 @@ export class SimulationError extends Error {
    * @param callStack - The noir call stack of the error.
    * @returns - The simulation error.
    */
-  public static fromError(
+  static fromError(
     failingContract: AztecAddress,
     failingSelector: FunctionSelector,
     err: Error,
@@ -117,7 +117,7 @@ export class SimulationError extends Error {
     });
   }
 
-  static extendPreviousSimulationError(failingFunction: FailingFunction, previousError: SimulationError) {
+  private static extendPreviousSimulationError(failingFunction: FailingFunction, previousError: SimulationError) {
     previousError.addCaller(failingFunction);
     return previousError;
   }
