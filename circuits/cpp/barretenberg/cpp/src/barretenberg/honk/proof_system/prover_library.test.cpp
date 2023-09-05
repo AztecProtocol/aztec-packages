@@ -88,7 +88,7 @@ template <class FF> class ProverLibraryTests : public testing::Test {
         auto beta = FF::random_element();
         auto gamma = FF::random_element();
 
-        proof_system::relation::RelationParameters<FF> params{
+        proof_system::RelationParameters<FF> params{
             .eta = 0,
             .beta = beta,
             .gamma = gamma,
@@ -125,12 +125,12 @@ template <class FF> class ProverLibraryTests : public testing::Test {
         using LHS =
             typename std::tuple_element<PERMUTATION_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
         if constexpr (Flavor::NUM_WIRES == 4) {
-            using RHS = typename proof_system::relation::UltraPermutationRelation<FF>;
+            using RHS = typename proof_system::UltraPermutationRelation<FF>;
             static_assert(std::same_as<LHS, RHS>);
             grand_product_library::compute_grand_product<Flavor, RHS>(
                 proving_key->circuit_size, prover_polynomials, params);
         } else {
-            using RHS = proof_system::relation::PermutationRelation<FF>;
+            using RHS = proof_system::PermutationRelation<FF>;
             static_assert(std::same_as<LHS, RHS>);
             grand_product_library::compute_grand_product<Flavor, RHS>(
                 proving_key->circuit_size, prover_polynomials, params);
@@ -262,7 +262,7 @@ template <class FF> class ProverLibraryTests : public testing::Test {
         auto gamma = FF::random_element();
         auto eta = FF::random_element();
 
-        proof_system::relation::RelationParameters<FF> params{
+        proof_system::RelationParameters<FF> params{
             .eta = eta,
             .beta = beta,
             .gamma = gamma,
@@ -298,7 +298,7 @@ template <class FF> class ProverLibraryTests : public testing::Test {
         // Method 1: Compute z_lookup using the prover library method
         constexpr size_t LOOKUP_RELATION_INDEX = 1;
         using LHS = typename std::tuple_element<LOOKUP_RELATION_INDEX, typename Flavor::GrandProductRelations>::type;
-        using RHS = proof_system::relation::LookupRelation<FF>;
+        using RHS = proof_system::LookupRelation<FF>;
         static_assert(std::same_as<LHS, RHS>);
         grand_product_library::compute_grand_product<Flavor, RHS>(
             proving_key->circuit_size, prover_polynomials, params);

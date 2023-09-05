@@ -3,7 +3,7 @@
 #include "relation_types.hpp"
 // TODO(luke): change name of this file to permutation_grand_product_relation(s).hpp and move 'init' relation into it.
 
-namespace proof_system::relation {
+namespace proof_system {
 
 template <typename FF_> class PermutationRelationImpl {
   public:
@@ -216,4 +216,4 @@ template <typename FF_> class UltraPermutationRelationImpl {
 template <typename FF> using PermutationRelation = Relation<PermutationRelationImpl<FF>>;
 template <typename FF> using UltraPermutationRelation = Relation<UltraPermutationRelationImpl<FF>>;
 
-} // namespace proof_system::relation
+} // namespace proof_system

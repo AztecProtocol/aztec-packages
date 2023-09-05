@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 
 template <typename FF_> class EllipticRelationImpl {
   public:
@@ -100,4 +100,4 @@ template <typename FF_> class EllipticRelationImpl {
 template <typename FF>
 using EllipticRelation = Relation<EllipticRelationImpl<FF>>;
 // clang-format on
-} // namespace proof_system::relation
+} // namespace proof_system

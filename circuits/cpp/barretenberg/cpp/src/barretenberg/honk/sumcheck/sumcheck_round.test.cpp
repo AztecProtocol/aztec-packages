@@ -18,7 +18,7 @@
 
 using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
-using namespace proof_system::relation;
+using namespace proof_system;
 
 using barretenberg::Univariate;
 using barretenberg::PowUnivariate;

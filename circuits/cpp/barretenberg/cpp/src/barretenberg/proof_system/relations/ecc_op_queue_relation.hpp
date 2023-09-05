@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 
 template <typename FF_> class EccOpQueueRelationImpl {
   public:
@@ -110,4 +110,4 @@ template <typename FF_> class EccOpQueueRelationImpl {
 
 template <typename FF> using EccOpQueueRelation = Relation<EccOpQueueRelationImpl<FF>>;
 
-} // namespace proof_system::relation
+} // namespace proof_system

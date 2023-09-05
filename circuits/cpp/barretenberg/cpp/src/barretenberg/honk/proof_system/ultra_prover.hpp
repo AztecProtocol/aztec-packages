@@ -47,7 +47,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset; // offset of the PI relative to 0th index in the wire polynomials
 
-    proof_system::relation::RelationParameters<FF> relation_parameters;
+    proof_system::RelationParameters<FF> relation_parameters;
 
     std::shared_ptr<ProvingKey> key;
 

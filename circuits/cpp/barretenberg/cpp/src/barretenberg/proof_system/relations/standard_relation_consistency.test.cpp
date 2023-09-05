@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 
 
-using namespace proof_system::relation;
+using namespace proof_system;
 
 namespace proof_system::standard_relation_consistency_tests {
 

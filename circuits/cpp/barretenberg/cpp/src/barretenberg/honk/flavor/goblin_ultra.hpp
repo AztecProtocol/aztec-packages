@@ -40,16 +40,16 @@ class GoblinUltra {
     static constexpr size_t NUM_WITNESS_ENTITIES = 15; // 11 (UH) + 4 op wires
 
     using GrandProductRelations =
-        std::tuple<proof_system::relation::UltraPermutationRelation<FF>, proof_system::relation::LookupRelation<FF>>;
+        std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
 
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::relation::UltraArithmeticRelation<FF>,
-                                 proof_system::relation::UltraPermutationRelation<FF>,
-                                 proof_system::relation::LookupRelation<FF>,
-                                 proof_system::relation::GenPermSortRelation<FF>,
-                                 proof_system::relation::EllipticRelation<FF>,
-                                 proof_system::relation::AuxiliaryRelation<FF>,
-                                 proof_system::relation::EccOpQueueRelation<FF>>;
+    using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
+                                 proof_system::UltraPermutationRelation<FF>,
+                                 proof_system::LookupRelation<FF>,
+                                 proof_system::GenPermSortRelation<FF>,
+                                 proof_system::EllipticRelation<FF>,
+                                 proof_system::AuxiliaryRelation<FF>,
+                                 proof_system::EccOpQueueRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 

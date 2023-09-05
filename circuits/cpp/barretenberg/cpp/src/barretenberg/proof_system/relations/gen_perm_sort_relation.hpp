@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 
 template <typename FF_> class GenPermSortRelationImpl {
   public:
@@ -100,4 +100,4 @@ template <typename FF_> class GenPermSortRelationImpl {
 
 template <typename FF> using GenPermSortRelation = Relation<GenPermSortRelationImpl<FF>>;
 
-} // namespace proof_system::relation
+} // namespace proof_system

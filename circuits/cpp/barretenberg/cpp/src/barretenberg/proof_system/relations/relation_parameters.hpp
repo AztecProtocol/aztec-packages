@@ -1,6 +1,6 @@
 #pragma once
 
-namespace proof_system::relation {
+namespace proof_system {
 
 /**
  * @brief Container for parameters used by the grand product (permutation, lookup) Honk relations
@@ -25,4 +25,4 @@ template <typename FF> struct RelationParameters {
         return result;
     }
 };
-} // namespace proof_system::relation
+} // namespace proof_system

@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 
 // WORKTODO: ... this is a base in a weird way. Wish I could simplify the structure here.
 template <typename FF_> class ArithmeticRelationImpl {
@@ -59,4 +59,4 @@ template <typename FF_> class ArithmeticRelationImpl {
 //           ...moreover, should just be hidden in the relation parameters?
 // WORKTODO: make these decisions then propagate to other relations
 template <typename FF> using ArithmeticRelation = Relation<ArithmeticRelationImpl<FF>>;
-} // namespace proof_system::relation
+} // namespace proof_system

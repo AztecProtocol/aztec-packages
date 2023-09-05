@@ -238,7 +238,7 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
     auto public_input_delta =
         honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
 
-    proof_system::relation::RelationParameters<FF> params{
+    proof_system::RelationParameters<FF> params{
         .beta = beta,
         .gamma = gamma,
         .public_input_delta = public_input_delta,
@@ -272,7 +272,7 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations =
-        std::tuple(proof_system::relation::ArithmeticRelation<FF>(), proof_system::relation::PermutationRelation<FF>());
+        std::tuple(proof_system::ArithmeticRelation<FF>(), proof_system::PermutationRelation<FF>());
 
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
@@ -325,7 +325,7 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     auto lookup_grand_product_delta =
         honk::compute_lookup_grand_product_delta<FF>(beta, gamma, prover.key->circuit_size);
 
-    proof_system::relation::RelationParameters<FF> params{
+    proof_system::RelationParameters<FF> params{
         .eta = eta,
         .beta = beta,
         .gamma = gamma,
@@ -392,12 +392,12 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     ensure_non_zero(prover.key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(proof_system::relation::UltraArithmeticRelation<FF>(),
-                                proof_system::relation::UltraPermutationRelation<FF>(),
-                                proof_system::relation::LookupRelation<FF>(),
-                                proof_system::relation::GenPermSortRelation<FF>(),
-                                proof_system::relation::EllipticRelation<FF>(),
-                                proof_system::relation::AuxiliaryRelation<FF>());
+    auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
+                                proof_system::UltraPermutationRelation<FF>(),
+                                proof_system::LookupRelation<FF>(),
+                                proof_system::GenPermSortRelation<FF>(),
+                                proof_system::EllipticRelation<FF>(),
+                                proof_system::AuxiliaryRelation<FF>());
 
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
@@ -449,7 +449,7 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     auto lookup_grand_product_delta =
         honk::compute_lookup_grand_product_delta<FF>(beta, gamma, prover.key->circuit_size);
 
-    proof_system::relation::RelationParameters<FF> params{
+    proof_system::RelationParameters<FF> params{
         .eta = eta,
         .beta = beta,
         .gamma = gamma,
@@ -522,13 +522,13 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     ensure_non_zero(prover.key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
-    auto relations = std::tuple(proof_system::relation::UltraArithmeticRelation<FF>(),
-                                proof_system::relation::UltraPermutationRelation<FF>(),
-                                proof_system::relation::LookupRelation<FF>(),
-                                proof_system::relation::GenPermSortRelation<FF>(),
-                                proof_system::relation::EllipticRelation<FF>(),
-                                proof_system::relation::AuxiliaryRelation<FF>(),
-                                proof_system::relation::EccOpQueueRelation<FF>());
+    auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
+                                proof_system::UltraPermutationRelation<FF>(),
+                                proof_system::LookupRelation<FF>(),
+                                proof_system::GenPermSortRelation<FF>(),
+                                proof_system::EllipticRelation<FF>(),
+                                proof_system::AuxiliaryRelation<FF>(),
+                                proof_system::EccOpQueueRelation<FF>());
 
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);

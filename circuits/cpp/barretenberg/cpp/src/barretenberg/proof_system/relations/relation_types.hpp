@@ -2,7 +2,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "relation_parameters.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUBRELATION_LINEARLY_INDEPENDENT; };
 /**
@@ -117,4 +117,4 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     }
 };
 
-} // namespace proof_system::relation
+} // namespace proof_system

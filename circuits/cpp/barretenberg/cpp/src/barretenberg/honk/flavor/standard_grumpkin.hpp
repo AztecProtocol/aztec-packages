@@ -46,9 +46,9 @@ class StandardGrumpkin {
     static constexpr size_t NUM_WITNESS_ENTITIES = 4;
 
     // define the tuple of Relations that require grand products
-    using GrandProductRelations = std::tuple<proof_system::relation::PermutationRelation<FF>>;
+    using GrandProductRelations = std::tuple<proof_system::PermutationRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
-    using Relations = std::tuple<proof_system::relation::ArithmeticRelation<FF>, proof_system::relation::PermutationRelation<FF>>;
+    using Relations = std::tuple<proof_system::ArithmeticRelation<FF>, proof_system::PermutationRelation<FF>>;
 
     static constexpr size_t MAX_RELATION_LENGTH = get_max_relation_length<Relations>();
 

@@ -20,7 +20,7 @@
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
 
-using namespace proof_system::relation;
+using namespace proof_system;
 
 namespace proof_system::ultra_relation_consistency_tests {
 

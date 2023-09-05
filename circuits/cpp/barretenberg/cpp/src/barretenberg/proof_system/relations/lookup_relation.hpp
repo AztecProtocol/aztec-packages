@@ -2,7 +2,7 @@
 #include "relation_parameters.hpp"
 #include "relation_types.hpp"
 
-namespace proof_system::relation {
+namespace proof_system {
 
 /**
  * @brief LookupRelationImpl defines the algebra for the lookup polynomial:
@@ -199,4 +199,4 @@ template <typename FF_> class LookupRelationImpl {
 
 template <typename FF> using LookupRelation = Relation<LookupRelationImpl<FF>>;
 
-} // namespace proof_system::relation
+} // namespace proof_system

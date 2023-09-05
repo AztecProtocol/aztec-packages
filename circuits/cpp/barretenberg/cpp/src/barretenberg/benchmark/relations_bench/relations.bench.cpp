@@ -15,7 +15,7 @@ namespace {
 auto& engine = numeric::random::get_debug_engine();
 }
 
-namespace proof_system::relation::benchmark {
+namespace proof_system::benchmark::relations {
 
 using FF = barretenberg::fr;
 
@@ -65,7 +65,6 @@ void elliptic_relation(::benchmark::State& state) noexcept
 }
 BENCHMARK(elliptic_relation);
 
-
 void ecc_op_queue_relation(::benchmark::State& state) noexcept
 {
     execute_relation<honk::flavor::GoblinUltra, EccOpQueueRelation<FF>>(state);
@@ -96,5 +95,4 @@ void ultra_arithmetic_relation(::benchmark::State& state) noexcept
 }
 BENCHMARK(ultra_arithmetic_relation);
 
-
-} // namespace proof_system::honk::relations_bench
+} // namespace proof_system::benchmark::relations
