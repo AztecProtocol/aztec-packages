@@ -1,24 +1,26 @@
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
+import { AztecRPC } from '@aztec/types';
 import { useEffect, useState } from 'react';
 
 interface Props {
   selected: AztecAddress | undefined;
+  rpcClient: AztecRPC;
   onSelectChange: (value: AztecAddress) => void;
   onError: (msg: string) => void;
 }
 
-export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
+export function WalletDropdown({ selected, rpcClient, onSelectChange, onError }: Props) {
   const [wallets, setOptions] = useState<CompleteAddress[] | undefined>();
 
   useEffect(() => {
+    // console.log('wallets', wallets);
     if (wallets) {
       return;
     }
     const loadOptions = async () => {
-      const fetchedOptions = [await CompleteAddress.random()];
-      // TODO
-      // const fetchedOptions = await rpcClient.getAccounts();
+      const fetchedOptions = await rpcClient.getAccounts();
       setOptions(fetchedOptions);
+      // console.log('fetchedOptions', fetchedOptions.map(x => (x.toString(), x.partialAddress)));
       onSelectChange(fetchedOptions[0]?.address);
     };
     loadOptions().catch(e => {
@@ -31,7 +33,7 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
     <div className="flex items-center">
       <div className="p-2">
         {'Wallet: '}
-        {!wallets && 'not hooked in yet'}
+        {!wallets && 'not hooked in yet dan'}
       </div>
       {!!wallets && (
         <select

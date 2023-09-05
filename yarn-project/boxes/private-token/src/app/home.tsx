@@ -1,5 +1,6 @@
 import { AztecAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
+import { rpcClient } from '../config.js';
 import { Banner, Spinner } from './components/index.js';
 import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
@@ -33,6 +34,7 @@ export function Home() {
           </div>
           <div>
             <WalletDropdown
+              rpcClient={rpcClient}
               selected={selectedWallet}
               onSelectChange={handleSelectWallet}
               onError={handleSelectWalletError}
