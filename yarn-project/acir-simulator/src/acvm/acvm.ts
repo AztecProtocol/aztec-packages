@@ -89,11 +89,15 @@ function getSourceCodeLocationsFromOpcodeLocation(
 
     const locationText = source.substring(span.start, span.end + 1);
     const precedingText = source.substring(0, span.start);
-    const line = precedingText.split('\n').length;
+    const previousLines = precedingText.split('\n');
+    // Lines and columns in stacks are one indexed.
+    const line = previousLines.length;
+    const column = previousLines[previousLines.length - 1].length + 1;
 
     return {
       filePath: path,
       line,
+      column,
       fileSource: source,
       locationText,
     };

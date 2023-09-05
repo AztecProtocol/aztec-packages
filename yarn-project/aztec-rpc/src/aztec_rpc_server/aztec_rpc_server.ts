@@ -341,7 +341,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -382,7 +381,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -413,7 +411,6 @@ export class AztecRPCServer implements AztecRPC {
           err.setNoirCallStack(parsedCallStack);
         }
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
 
       throw err;
