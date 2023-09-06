@@ -13,7 +13,7 @@ impl GrumpkinScalar {
 
 global GRUMPKIN_SCALAR_SERIALISED_LEN: Field = 2;
 
-fn deserialiseGrumpkinScalar(fields: [Field; GRUMPKIN_SCALAR_SERIALISED_LEN]) -> GrumpkinScalar {
+fn deserialise_grumpkin_scalar(fields: [Field; GRUMPKIN_SCALAR_SERIALISED_LEN]) -> GrumpkinScalar {
     GrumpkinScalar {
         high: fields[0],
         low: fields[1],
@@ -25,6 +25,6 @@ fn serialiseGrumpkinScalar(scalar: GrumpkinScalar) -> [Field; GRUMPKIN_SCALAR_SE
 }
 
 global GrumpkinScalarSerialisationMethods = TypeSerialisationInterface {
-    deserialise: deserialiseGrumpkinScalar,
+    deserialise: deserialise_grumpkin_scalar,
     serialise: serialiseGrumpkinScalar,
 };
