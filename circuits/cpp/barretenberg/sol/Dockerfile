@@ -1,15 +1,15 @@
 FROM alpine:3.17
 RUN apk update \
-    && apk upgrade \
-    && apk add --no-cache \
-        build-base \
-        clang15 \
-        openmp-dev \
-        cmake \
-        ninja \
-        git \
-        curl \
-        perl
+  && apk upgrade \
+  && apk add --no-cache \
+  build-base \
+  clang16 \
+  openmp-dev \
+  cmake \
+  ninja \
+  git \
+  curl \
+  perl
 
 WORKDIR /usr/src/barretenberg/cpp
 
