@@ -13,6 +13,8 @@ contract NativeToken {
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
+    use dep::std;
+    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
     use dep::non_native::{
         hash::{get_mint_content_hash, get_withdraw_content_hash},
@@ -24,16 +26,18 @@ contract NativeToken {
 
     use crate::storage::Storage;
 
-    use dep::aztec::types::point::Point;
     use dep::aztec::{
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
+        oracle::{
+            logs::emit_unencrypted_log,
+            compute_selector::compute_selector
+        },
+        public_call_stack_item::PublicCallStackItem,
+        types::point::Point
     };
-
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::oracle::compute_selector::compute_selector;
 
     #[aztec(private)]
     fn constructor(
@@ -55,7 +59,8 @@ contract NativeToken {
         let new_balance = storage.public_balances.at(to).read() + amount;
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
-        
+        let _hash = emit_unencrypted_log("Coins minted");
+
         1
     }
 
@@ -188,7 +193,7 @@ contract NativeToken {
         let sender = context.msg_sender();
         let sender_balance = storage.public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
-        assert(current_sender_balance as u120 >= amount as u120);
+        assert(current_sender_balance as u120 >= amount as u120, "Balance too low");
 
         let to_balance = storage.public_balances.at(to);
         let current_to_balance: Field = to_balance.read();
@@ -196,6 +201,8 @@ contract NativeToken {
         // User has sufficient balance so we decrement it by `amount`
         sender_balance.write(current_sender_balance - amount);
         to_balance.write(current_to_balance + amount);
+
+        let _hash = emit_unencrypted_log("Coins transferred");
     }
 
     #[aztec(public)]
@@ -299,7 +306,27 @@ contract NativeToken {
     ) {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
-        // Remove user balance
+        // If `from != sender` then we use the is_valid function to check that the message is approved.
+        if (from != context.msg_sender()) {
+            // Compute the message hash, should follow eip-712 more here.
+            // @todo @lherskind, probably need a separate generator index and address of the 
+            // @todo @lherskind Currently this can be used multiple times since it is not nullified. 
+            //                  We can do a simple nullifier to handle that in here. Spends only 32 bytes onchain.
+            // @todo @LHerskind Is to be solved as part of https://github.com/AztecProtocol/aztec-packages/issues/1743
+            let message_field: Field = std::hash::pedersen_with_separator([
+                    compute_selector("unshieldTokens(Field,Field,Field)"),
+                    from, 
+                    to, 
+                    amount
+                ], 
+                GENERATOR_INDEX__SIGNATURE_PAYLOAD
+            )[0];
+            let is_valid_selector = compute_selector("is_valid(Field)");
+            let _callStackItem0 = context.call_private_function(from, is_valid_selector, [message_field]);
+            assert(_callStackItem0[0] == is_valid_selector);
+        }
+
+        // Reduce user balance
         let sender_balance = storage.balances.at(from);
         decrement(sender_balance, amount, from);
 
