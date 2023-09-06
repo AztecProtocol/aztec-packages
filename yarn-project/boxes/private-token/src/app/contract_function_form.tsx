@@ -66,7 +66,7 @@ async function handleFunctionCall(
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient, wallet);
   } else {
-    return await callContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient);
+    return await callContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient, wallet);
   }
 }
 
