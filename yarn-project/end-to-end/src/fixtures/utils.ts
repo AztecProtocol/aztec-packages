@@ -242,8 +242,9 @@ export async function setup(
   const deployL1ContractsValues = await setupL1Contracts(config.rpcUrl, hdAccount, logger);
   const privKeyRaw = hdAccount.getHdKey().privateKey;
   const publisherPrivKey = privKeyRaw === null ? null : Buffer.from(privKeyRaw);
+  // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
   const firstRpcAccountPrivKey =
-    publisherPrivKey === null ? null : GrumpkinScalar.fromBufferWithWrapping(publisherPrivKey);
+    publisherPrivKey === null ? null : GrumpkinScalar.fromBufferWithReduction(publisherPrivKey);
 
   config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
   config.rollupContract = deployL1ContractsValues.rollupAddress;

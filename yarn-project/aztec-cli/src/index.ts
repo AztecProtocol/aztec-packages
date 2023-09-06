@@ -107,10 +107,8 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       let publicKey;
       if (options.mnemonic) {
         const acc = mnemonicToAccount(options.mnemonic);
-        // Given that the mnemonicToAccount is a function from viem/accounts, it works with Ethereum private keys.
-        // Ethereum private keys are 256 bits and for this reason we need to fit it to Fr as that is the canonical
-        // representation of a private key used with Grumpkin curve.
-        const key = GrumpkinScalar.fromBufferWithWrapping(Buffer.from(acc.getHdKey().privateKey!));
+        // TODO(#2052): This reduction is not secure enough. TACKLE THIS ISSUE BEFORE MAINNET.
+        const key = GrumpkinScalar.fromBufferWithReduction(Buffer.from(acc.getHdKey().privateKey!));
         publicKey = await generatePublicKey(key);
       } else {
         const key = GrumpkinScalar.random();

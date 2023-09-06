@@ -70,12 +70,12 @@ export class GrumpkinScalar {
   }
 
   /**
-   * Like fromBuffer, but wraps the value around the modulus.
+   * Like fromBuffer, but reduces the value modulo MODULUS.
    *
    * @param buffer - The Buffer or BufferReader containing the bytes representing the value.
    * @returns GrumpkinScalar with the decoded value.
    */
-  static fromBufferWithWrapping(buffer: Buffer | BufferReader) {
+  static fromBufferWithReduction(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
     const value = toBigIntBE(reader.readBytes(GrumpkinScalar.SIZE_IN_BYTES)) % GrumpkinScalar.MODULUS;
     return new GrumpkinScalar(value);
