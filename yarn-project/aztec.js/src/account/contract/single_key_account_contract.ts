@@ -1,4 +1,3 @@
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { CompleteAddress, GrumpkinPrivateKey, NodeInfo } from '@aztec/types';
 
@@ -17,14 +16,9 @@ export class SingleKeyAccountContract implements AccountContract {
     return Promise.resolve([]);
   }
 
-  public async getEntrypoint({ address, partialAddress }: CompleteAddress, { chainId, version }: NodeInfo) {
-    return new SingleKeyAccountEntrypoint(
-      address,
-      partialAddress,
-      this.encryptionPrivateKey,
-      await Schnorr.new(),
-      chainId,
-      version,
+  public getEntrypoint({ address, partialAddress }: CompleteAddress, { chainId, version }: NodeInfo) {
+    return Promise.resolve(
+      new SingleKeyAccountEntrypoint(address, partialAddress, this.encryptionPrivateKey, chainId, version),
     );
   }
 

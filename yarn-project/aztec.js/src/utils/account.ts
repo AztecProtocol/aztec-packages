@@ -44,12 +44,7 @@ export async function createAccounts(
     logger(`Created account ${address.toString()} with public key ${publicKey.toString()}`);
     accountImpls.registerAccount(
       address,
-      new SingleKeyAccountEntrypoint(
-        address,
-        deploymentInfo.completeAddress.partialAddress,
-        privKey,
-        await Schnorr.new(),
-      ),
+      new SingleKeyAccountEntrypoint(address, deploymentInfo.completeAddress.partialAddress, privKey),
     );
   }
   return new EntrypointWallet(aztecRpcClient, accountImpls);

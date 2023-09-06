@@ -19,7 +19,6 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
     private address: AztecAddress,
     private partialAddress: PartialAddress,
     private privateKey: GrumpkinPrivateKey,
-    private signer: Schnorr,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
   ) {}
@@ -35,7 +34,8 @@ export class SingleKeyAccountEntrypoint implements Entrypoint {
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
     const message = await hashPayload(payload);
 
-    const signature = this.signer.constructSignature(message, this.privateKey).toBuffer();
+    const signer = await Schnorr.new();
+    const signature = signer.constructSignature(message, this.privateKey).toBuffer();
     const publicKey = await generatePublicKey(this.privateKey);
     const args = [payload, publicKey.toBuffer(), signature, this.partialAddress];
     const abi = this.getEntrypointAbi();
