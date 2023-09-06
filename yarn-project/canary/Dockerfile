@@ -1,7 +1,7 @@
 FROM node:18-alpine
-RUN apk update && apk add --no-cache jq bash udev ttf-freefont chromium
+RUN apk update && apk add --no-cache jq bash
 
-ARG COMMIT_TAG="0.1.0-alpha59"
+ARG COMMIT_TAG=""
 
 #Build canary
 WORKDIR /usr/src/

@@ -29,9 +29,9 @@ services:
       - '8080:8080'
 
   canary:
-    image: canary
+    image: aztecprotocol/canary:latest
     environment:
       ETHEREUM_HOST: http://fork:8545
       CHAIN_ID: 31337
       SANDBOX_URL: http://sandbox:8080
-    command: ${TEST:-./src/cli.test.ts}
+    command: ${TEST:-./src/uniswap_trade_on_l1_from_l2.test.ts}
