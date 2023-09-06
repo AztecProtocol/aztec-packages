@@ -309,17 +309,16 @@ contract NativeToken {
             //                  We can do a simple nullifier to handle that in here. Spends only 32 bytes onchain.
             // @todo @LHerskind Is to be solved as part of https://github.com/AztecProtocol/aztec-packages/issues/1743
             let message_field: Field = std::hash::pedersen_with_separator([
-                    0x90785014, 
+                    compute_selector("unshieldTokens(Field,Field,Field)"),
                     from, 
                     to, 
                     amount
                 ], 
                 GENERATOR_INDEX__SIGNATURE_PAYLOAD
             )[0];
-
-            let _callStackItem0 = context.call_private_function(from, 0x29d25ca9, [message_field]);
-            // Ensure that we retrieved the magic number (selector of is_valid function), otherwise revert.
-            assert(_callStackItem0[0] == 0x29d25ca9);
+            let is_valid_selector = compute_selector("is_valid(Field)");
+            let _callStackItem0 = context.call_private_function(from, is_valid_selector, [message_field]);
+            assert(_callStackItem0[0] == is_valid_selector);
         }
 
         // Reduce user balance

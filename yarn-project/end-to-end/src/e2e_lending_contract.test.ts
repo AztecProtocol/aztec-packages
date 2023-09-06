@@ -10,7 +10,7 @@ import {
   Fr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, CompleteAddress, GeneratorIndex, PrivateKey } from '@aztec/circuits.js';
+import { CircuitsWasm, CompleteAddress, FunctionSelector, GeneratorIndex, PrivateKey } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs, pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { LendingContract, NativeTokenContract, PriceFeedContract } from '@aztec/noir-contracts/types';
@@ -359,7 +359,7 @@ describe('e2e_lending_contract', () => {
       const depositAmount = 420n;
 
       const messageHash = await hashPayload([
-        new Fr(0x90785014),
+        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
         recipientFull.address.toField(),
         lendingContract.address.toField(),
         new Fr(depositAmount),
@@ -392,7 +392,7 @@ describe('e2e_lending_contract', () => {
     {
       const depositAmount = 421n;
       const messageHash = await hashPayload([
-        new Fr(0x90785014),
+        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
         recipientFull.address.toField(),
         lendingContract.address.toField(),
         new Fr(depositAmount),
@@ -505,7 +505,7 @@ describe('e2e_lending_contract', () => {
     {
       const repayAmount = 20n;
       const messageHash = await hashPayload([
-        new Fr(0x90785014),
+        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
         recipientFull.address.toField(),
         lendingContract.address.toField(),
         new Fr(repayAmount),
@@ -540,7 +540,7 @@ describe('e2e_lending_contract', () => {
     {
       const repayAmount = 21n;
       const messageHash = await hashPayload([
-        new Fr(0x90785014),
+        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
         recipientFull.address.toField(),
         lendingContract.address.toField(),
         new Fr(repayAmount),

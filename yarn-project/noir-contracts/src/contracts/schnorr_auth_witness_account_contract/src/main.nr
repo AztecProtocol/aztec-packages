@@ -19,18 +19,23 @@ contract SchnorrAuthWitnessAccount {
           payload.serialize(), 
           GENERATOR_INDEX__SIGNATURE_PAYLOAD
         )[0];
-        let witness = get_auth_witness(message_hash);
-        assert(recover_address(message_hash, witness) == context.this_address());
+        _inner_is_valid(message_hash, context.this_address());
         payload.execute_calls(&mut context);
     }
 
-    // keccak256("is_valid(field)") >> 224 -> 0x29d25ca9
     #[aztec(private)]
     fn is_valid(
         message_hash: Field
     ) -> Field {
+        _inner_is_valid(message_hash, context.this_address());
+        0xe86ab4ff
+    }
+
+    fn _inner_is_valid(
+        message_hash: Field,
+        address: Field,
+    ) {
         let witness = get_auth_witness(message_hash);
-        assert(recover_address(message_hash, witness) == context.this_address());
-        0x29d25ca9
+        assert(recover_address(message_hash, witness) == address, "Invalid signature");
     }
 }
