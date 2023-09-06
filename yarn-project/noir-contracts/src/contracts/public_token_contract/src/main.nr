@@ -10,8 +10,10 @@ contract PublicToken {
     use crate::storage::Storage;
 
     // Constructs the contract.
+    // docs:start:empty-constructor
     #[aztec(private)]
     fn constructor() {}
+    // docs:end:empty-constructor
 
     // Mints `amount` of tokens to a `recipient`.
     #[aztec(public)]
