@@ -7,12 +7,12 @@ import chunk from 'lodash.chunk';
 import {
   abisComputeBlockHash,
   abisComputeBlockHashWithGlobals,
-  abisComputeCommitmentNonce,
   abisComputeGlobalsHash,
+  abisComputeNoteHashNonce,
   abisComputePublicDataTreeIndex,
   abisComputePublicDataTreeValue,
-  abisComputeUniqueCommitment,
-  abisSiloCommitment,
+  abisComputeUniqueNoteHash,
+  abisSiloNoteHash,
   abisSiloNullifier,
 } from '../cbind/circuits.gen.js';
 import {
@@ -255,40 +255,40 @@ export function computeContractAddressFromPartial(
 }
 
 /**
- * Computes a commitment nonce, which will be used to create a unique commitment.
+ * Computes a noteHash nonce, which will be used to create a unique noteHash.
  * @param wasm - A module providing low-level wasm access.
  * @param nullifierZero - The first nullifier in the tx.
- * @param commitmentIndex - The index of the commitment.
- * @returns A commitment nonce.
+ * @param noteHashIndex - The index of the noteHash.
+ * @returns A noteHash nonce.
  */
-export function computeCommitmentNonce(wasm: IWasmModule, nullifierZero: Fr, commitmentIndex: number): Fr {
+export function computeNoteHashNonce(wasm: IWasmModule, nullifierZero: Fr, noteHashIndex: number): Fr {
   wasm.call('pedersen__init');
-  return abisComputeCommitmentNonce(wasm, nullifierZero, new Fr(commitmentIndex));
+  return abisComputeNoteHashNonce(wasm, nullifierZero, new Fr(noteHashIndex));
 }
 
 /**
- * Computes a siloed commitment, given the contract address and the commitment itself.
- * A siloed commitment effectively namespaces a commitment to a specific contract.
+ * Computes a siloed noteHash, given the contract address and the noteHash itself.
+ * A siloed noteHash effectively namespaces a noteHash to a specific contract.
  * @param wasm - A module providing low-level wasm access.
  * @param contract - The contract address
- * @param uniqueCommitment - The commitment to silo.
- * @returns A siloed commitment.
+ * @param uniqueNoteHash - The noteHash to silo.
+ * @returns A siloed noteHash.
  */
-export function siloCommitment(wasm: IWasmModule, contract: AztecAddress, uniqueCommitment: Fr): Fr {
+export function siloNoteHash(wasm: IWasmModule, contract: AztecAddress, uniqueNoteHash: Fr): Fr {
   wasm.call('pedersen__init');
-  return abisSiloCommitment(wasm, contract, uniqueCommitment);
+  return abisSiloNoteHash(wasm, contract, uniqueNoteHash);
 }
 
 /**
- * Computes a unique commitment. It includes a nonce which contains data that guarantees the commiment will be unique.
+ * Computes a unique noteHash. It includes a nonce which contains data that guarantees the commiment will be unique.
  * @param wasm - A module providing low-level wasm access.
  * @param nonce - The contract address.
- * @param siloedCommitment - An siloed commitment.
- * @returns A unique commitment.
+ * @param siloedNoteHash - An siloed noteHash.
+ * @returns A unique noteHash.
  */
-export function computeUniqueCommitment(wasm: IWasmModule, nonce: Fr, siloedCommitment: Fr): Fr {
+export function computeUniqueNoteHash(wasm: IWasmModule, nonce: Fr, siloedNoteHash: Fr): Fr {
   wasm.call('pedersen__init');
-  return abisComputeUniqueCommitment(wasm, nonce, siloedCommitment);
+  return abisComputeUniqueNoteHash(wasm, nonce, siloedNoteHash);
 }
 
 /**

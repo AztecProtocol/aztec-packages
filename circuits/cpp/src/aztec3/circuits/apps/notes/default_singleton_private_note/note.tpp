@@ -54,10 +54,10 @@ template <typename Builder, typename V> bool DefaultSingletonPrivateNote<Builder
 }
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::compute_commitment()
+typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::compute_note_hash()
 {
-    if (commitment.has_value()) {
-        return *commitment;
+    if (note_hash.has_value()) {
+        return *note_hash;
     }
 
     grumpkin_point const storage_slot_point = state_var->storage_slot_point;
@@ -69,14 +69,14 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
         if (!input) {
             throw_or_abort("Cannot commit to a partial preimage.");
         }
-        return std::make_pair((*input).to_field(), generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
+        return std::make_pair((*input).to_field(), generator_index_t({ GeneratorIndex::NOTE_HASH, hash_sub_index }));
     };
 
     auto gen_pair_fr = [&](std::optional<fr> const& input, size_t const hash_sub_index) {
         if (!input) {
             throw_or_abort("Cannot commit to a partial preimage.");
         }
-        return std::make_pair(*input, generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
+        return std::make_pair(*input, generator_index_t({ GeneratorIndex::NOTE_HASH, hash_sub_index }));
     };
 
     if (!note_preimage.salt) {
@@ -85,7 +85,7 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
 
     const auto& [value, owner, salt, nonce] = note_preimage;
 
-    const grumpkin_point commitment_point =
+    const grumpkin_point note_hash_point =
         storage_slot_point + CT::commit({
                                  gen_pair_fr(value, PrivateStateNoteGeneratorIndex::VALUE),
                                  gen_pair_address(owner, PrivateStateNoteGeneratorIndex::OWNER),
@@ -93,9 +93,9 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
                                  gen_pair_fr(nonce, PrivateStateNoteGeneratorIndex::NONCE),
                              });
 
-    commitment = commitment_point.x;
+    note_hash = note_hash_point.x;
 
-    return *commitment;
+    return *note_hash;
 }
 
 template <typename Builder, typename V>
@@ -107,15 +107,15 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::comp
     if (nullifier && nullifier_preimage) {
         return *nullifier;
     }
-    if (!commitment) {
-        compute_commitment();
+    if (!note_hash) {
+        compute_note_hash();
     }
 
     fr const& owner_private_key = get_oracle().get_msg_sender_private_key();
 
-    nullifier = DefaultSingletonPrivateNote<Builder, V>::compute_nullifier(*commitment, owner_private_key);
+    nullifier = DefaultSingletonPrivateNote<Builder, V>::compute_nullifier(*note_hash, owner_private_key);
     nullifier_preimage = {
-        *commitment,
+        *note_hash,
         owner_private_key,
     };
     return *nullifier;
@@ -125,22 +125,22 @@ template <typename Builder, typename V>
 typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::compute_dummy_nullifier()
 {
     auto& oracle = get_oracle();
-    fr const dummy_commitment = oracle.generate_random_element();
+    fr const dummy_note_hash = oracle.generate_random_element();
     fr const& owner_private_key = oracle.get_msg_sender_private_key();
-    const boolean is_dummy_commitment = true;
+    const boolean is_dummy_note_hash = true;
 
     return DefaultSingletonPrivateNote<Builder, V>::compute_nullifier(
-        dummy_commitment, owner_private_key, is_dummy_commitment);
+        dummy_note_hash, owner_private_key, is_dummy_note_hash);
 };
 
 template <typename Builder, typename V>
 typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::compute_nullifier(
-    fr const& commitment, fr const& owner_private_key, boolean const& is_dummy_commitment)
+    fr const& note_hash, fr const& owner_private_key, boolean const& is_dummy_note_hash)
 {
     const std::vector<fr> hash_inputs{
-        commitment,
+        note_hash,
         owner_private_key,
-        is_dummy_commitment,
+        is_dummy_note_hash,
     };
 
     // We compress the hash_inputs with Pedersen, because that's cheaper (constraint-wise) than compressing
@@ -229,21 +229,21 @@ typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_
 };
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialisation_commitment()
+typename CircuitTypes<Builder>::fr DefaultSingletonPrivateNote<Builder, V>::get_initialisation_note_hash()
 {
     /**
-     * TODO: Get rid of this temporary fix of including owner_private_key while computing the initialisation commitment.
-     * Details: We need to add the initialisation commitment value to the `nullified_commitments`.
+     * TODO: Get rid of this temporary fix of including owner_private_key while computing the initialisation note_hash.
+     * Details: We need to add the initialisation note_hash value to the `nullified_note_hashes`.
      * In this case, since the actual note data is not yet available, we compute the initialisation nullifier as:
      * null = hash(compressed_storage_slot, owner_private_key, false)
      *
-     * Thus, the initialisation commitment here is `compressed_storage_slot`. But since the storage slot is not a real
+     * Thus, the initialisation note_hash here is `compressed_storage_slot`. But since the storage slot is not a real
      * circuit variable, `compressed_storage_slot` would be a circuit constant. The compiler doesn't allow us
      * to make a circuit constant as a public input of the circuit, it just crashes at runtime.
-     * To avoid this, we compute the initial commitment as:
+     * To avoid this, we compute the initial note_hash as:
      * comm = hash(storage_slot_point.x, storage_slot_point.y, owner_private_key)
      *
-     * This makes the initial commitment a "real" circuit variable.
+     * This makes the initial note_hash a "real" circuit variable.
      */
     auto& oracle = get_oracle();
 

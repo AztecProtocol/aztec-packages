@@ -31,11 +31,11 @@ import {
   HistoricBlockData,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
@@ -204,7 +204,7 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
@@ -231,7 +231,7 @@ export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulat
 
   return new FinalAccumulatedData(
     makeAggregationObject(seed),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
     tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
@@ -317,7 +317,7 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, makeContractStorageUpdateRequest, seed + 0x400),
     tupleGenerator(MAX_PUBLIC_DATA_READS_PER_CALL, makeContractStorageRead, seed + 0x500),
     tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x700),
+    tupleGenerator(MAX_NEW_NOTE_HASHES_PER_CALL, fr, seed + 0x700),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x800),
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
@@ -649,9 +649,9 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),
     readRequests: makeTuple(MAX_READ_REQUESTS_PER_CALL, fr, seed + 0x300),
-    newCommitments: makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, fr, seed + 0x400),
+    newNoteHashes: makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, fr, seed + 0x400),
     newNullifiers: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x500),
-    nullifiedCommitments: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
+    nullifiedNoteHashes: makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, fr, seed + 0x510),
     privateCallStack: makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x600),
     publicCallStack: makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, fr, seed + 0x700),
     newL2ToL1Msgs: makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x800),
@@ -895,7 +895,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     makeMembershipWitness(NULLIFIER_TREE_HEIGHT, x),
   );
 
-  const newCommitmentsSubtreeSiblingPath = range(
+  const newNoteHashesSubtreeSiblingPath = range(
     PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     seed + 0x3000,
   ).map(x => fr(x));
@@ -934,7 +934,7 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     startPublicDataTreeRoot,
     startHistoricBlocksTreeSnapshot,
     lowNullifierLeafPreimages,
-    newCommitmentsSubtreeSiblingPath,
+    newNoteHashesSubtreeSiblingPath,
     newNullifiersSubtreeSiblingPath,
     newContractsSubtreeSiblingPath,
     newPublicDataUpdateRequestsSiblingPaths,

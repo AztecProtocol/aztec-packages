@@ -22,7 +22,7 @@ using plonk::stdlib::push_array_to_array;
 
 using aztec3::circuits::compute_constructor_hash;
 using aztec3::circuits::compute_contract_address;
-using aztec3::circuits::silo_commitment;
+using aztec3::circuits::silo_note_hash;
 using aztec3::circuits::silo_nullifier;
 
 // TODO: NEED TO RECONCILE THE `proof`'s public inputs (which are uint8's) with the
@@ -63,7 +63,7 @@ void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
     // TODO
     // end.aggregation_object = start.aggregation_object;
 
-    end.new_commitments = start.new_commitments;
+    end.new_note_hashes = start.new_note_hashes;
     end.new_nullifiers = start.new_nullifiers;
 
     end.private_call_stack = start.private_call_stack;
@@ -77,7 +77,7 @@ void initialise_end_values(PrivateKernelInputsInner<CT> const& private_inputs,
 }
 
 /**
- * @brief Update the AccumulatedData with new commitments, nullifiers, contracts, etc
+ * @brief Update the AccumulatedData with new note_hashes, nullifiers, contracts, etc
  * and update its running callstack with all items in the current private-circuit/function's
  * callstack.
  */
@@ -86,13 +86,13 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
     const auto private_call_public_inputs = private_inputs.private_call.call_stack_item.public_inputs;
 
     // TODO: private call count
-    const auto& new_commitments = private_call_public_inputs.new_commitments;
+    const auto& new_note_hashes = private_call_public_inputs.new_note_hashes;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
 
     const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
 
     // No state changes are allowed for static calls:
-    is_static_call.must_imply(is_array_empty<Builder>(new_commitments) == true);
+    is_static_call.must_imply(is_array_empty<Builder>(new_note_hashes) == true);
     is_static_call.must_imply(is_array_empty<Builder>(new_nullifiers) == true);
 
     // TODO: name change (just contract_address)
@@ -148,11 +148,11 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
                                                                            new_contract_data);
     }
 
-    {  // commitments, nullifiers, and contracts
-        std::array<CT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments;
-        for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] = CT::fr::conditional_assign(
-                new_commitments[i] == 0, 0, silo_commitment<CT>(storage_contract_address, new_commitments[i]));
+    {  // note_hashes, nullifiers, and contracts
+        std::array<CT::fr, MAX_NEW_NOTE_HASHES_PER_CALL> siloed_new_note_hashes;
+        for (size_t i = 0; i < new_note_hashes.size(); ++i) {
+            siloed_new_note_hashes[i] = CT::fr::conditional_assign(
+                new_note_hashes[i] == 0, 0, silo_note_hash<CT>(storage_contract_address, new_note_hashes[i]));
         }
         std::array<CT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers;
         for (size_t i = 0; i < new_nullifiers.size(); ++i) {
@@ -160,8 +160,8 @@ void update_end_values(PrivateKernelInputsInner<CT> const& private_inputs, Kerne
                 new_nullifiers[i] == 0, 0, silo_nullifier<CT>(storage_contract_address, new_nullifiers[i]));
         }
 
-        // Add new commitments/etc to AggregatedData
-        push_array_to_array<Builder>(siloed_new_commitments, public_inputs.end.new_commitments);
+        // Add new note_hashes/etc to AggregatedData
+        push_array_to_array<Builder>(siloed_new_note_hashes, public_inputs.end.new_note_hashes);
         push_array_to_array<Builder>(siloed_new_nullifiers, public_inputs.end.new_nullifiers);
     }
 

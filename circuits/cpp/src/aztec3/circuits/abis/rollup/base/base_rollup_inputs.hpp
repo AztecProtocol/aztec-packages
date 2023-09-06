@@ -28,7 +28,7 @@ template <typename NCT> struct BaseRollupInputs {
 
     // For inserting the new subtrees into their respective trees:
     // Note: the insertion leaf index can be derived from the above snapshots' `next_available_leaf_index` values.
-    std::array<fr, PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH> new_commitments_subtree_sibling_path{};
+    std::array<fr, PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH> new_note_hashes_subtree_sibling_path{};
     std::array<fr, NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH> new_nullifiers_subtree_sibling_path{};
     std::array<fr, CONTRACT_SUBTREE_SIBLING_PATH_LENGTH> new_contracts_subtree_sibling_path{};
     std::array<std::array<fr, PUBLIC_DATA_TREE_HEIGHT>, 2 * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX>
@@ -49,7 +49,7 @@ template <typename NCT> struct BaseRollupInputs {
                    start_historic_blocks_tree_snapshot,
                    low_nullifier_leaf_preimages,
                    low_nullifier_membership_witness,
-                   new_commitments_subtree_sibling_path,
+                   new_note_hashes_subtree_sibling_path,
                    new_nullifiers_subtree_sibling_path,
                    new_contracts_subtree_sibling_path,
                    new_public_data_update_requests_sibling_paths,

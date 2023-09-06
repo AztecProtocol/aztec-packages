@@ -1,4 +1,4 @@
-use crate::constants_gen::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
+use crate::constants_gen::{EMPTY_NULLIFIED_NOTE_HASH, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
 use crate::context::PrivateContext;
 use crate::note::{
     lifecycle::create_note,
@@ -40,7 +40,7 @@ impl<Note, N> ImmutableSingleton<Note, N> {
         let nullifier = self.compute_initialisation_nullifier();
         self.context
             .unwrap()
-            .push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
+            .push_new_nullifier(nullifier, EMPTY_NULLIFIED_NOTE_HASH);
 
         create_note(
             self.context.unwrap(),

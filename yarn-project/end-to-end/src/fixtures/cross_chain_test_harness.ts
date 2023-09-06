@@ -256,7 +256,7 @@ export class CrossChainTestHarness {
   }
 
   async redeemShieldPrivatelyOnL2(shieldAmount: bigint, secret: Fr) {
-    this.logger('Spending commitment in private call');
+    this.logger('Spending noteHash in private call');
     const privateTx = this.l2Contract.methods
       .redeemShield(shieldAmount, secret, this.ownerAddress)
       .send({ origin: this.ownerAddress });

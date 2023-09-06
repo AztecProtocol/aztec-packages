@@ -1,8 +1,8 @@
 import {
-  CommitmentDataOracleInputs,
   DBOracle,
   FunctionAbiWithDebugMetadata,
   MessageLoadOracleInputs,
+  NoteHashDataOracleInputs,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
@@ -15,8 +15,8 @@ import {
   HistoricBlockData,
   PublicKey,
 } from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
-import { DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
+import { siloNoteHash } from '@aztec/circuits.js/abis';
+import { DataNoteHashProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/index.js';
@@ -30,7 +30,7 @@ export class SimulatorOracle implements DBOracle {
     private db: Database,
     private keyStore: KeyStore,
     private l1ToL2MessageProvider: L1ToL2MessageProvider,
-    private dataTreeProvider: DataCommitmentProvider,
+    private dataTreeProvider: DataNoteHashProvider,
   ) {}
 
   getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
@@ -102,20 +102,20 @@ export class SimulatorOracle implements DBOracle {
   }
 
   /**
-   * Retrieves the noir oracle data required to prove existence of a given commitment.
+   * Retrieves the noir oracle data required to prove existence of a given noteHash.
    * @param contractAddress - The contract Address.
-   * @param innerCommitment - The key of the message being fetched.
-   * @returns - A promise that resolves to the commitment data, a sibling path and the
+   * @param innerNoteHash - The key of the message being fetched.
+   * @returns - A promise that resolves to the noteHash data, a sibling path and the
    *            index of the message in the private data tree.
    */
-  async getCommitmentOracle(contractAddress: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), contractAddress, innerCommitment);
-    const index = await this.dataTreeProvider.findCommitmentIndex(siloedCommitment.toBuffer());
-    if (!index) throw new Error(`Commitment not found ${siloedCommitment.toString()}`);
+  async getNoteHashOracle(contractAddress: AztecAddress, innerNoteHash: Fr): Promise<NoteHashDataOracleInputs> {
+    const siloedNoteHash = siloNoteHash(await CircuitsWasm.get(), contractAddress, innerNoteHash);
+    const index = await this.dataTreeProvider.findNoteHashIndex(siloedNoteHash.toBuffer());
+    if (!index) throw new Error(`NoteHash not found ${siloedNoteHash.toString()}`);
 
     const siblingPath = await this.dataTreeProvider.getDataTreePath(index);
     return await Promise.resolve({
-      commitment: siloedCommitment,
+      noteHash: siloedNoteHash,
       siblingPath: siblingPath.toFieldArray(),
       index,
     });

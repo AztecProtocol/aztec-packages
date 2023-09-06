@@ -18,7 +18,7 @@ void common_initialise_end_values(PublicKernelInputs<NT> const& public_kernel_in
     auto& end = circuit_outputs.end;
     const auto& start = public_kernel_inputs.previous_kernel.public_inputs.end;
 
-    end.new_commitments = start.new_commitments;
+    end.new_note_hashes = start.new_note_hashes;
     end.new_nullifiers = start.new_nullifiers;
 
     end.private_call_stack = start.private_call_stack;

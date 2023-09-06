@@ -3,9 +3,9 @@ import {
   CircuitsWasm,
   Fr,
   GlobalVariables,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -67,7 +67,7 @@ const getMockL1ToL2MessagesData = () => {
   return new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).map(() => Fr.random());
 };
 
-const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) => {
+const getMockBlock = (blockNumber: number, newContractsNoteHashes?: Buffer[]) => {
   const newEncryptedLogs = L2BlockL2Logs.random(1, 2, 3);
   const block = L2Block.fromFields({
     number: blockNumber,
@@ -84,9 +84,9 @@ const getMockBlock = (blockNumber: number, newContractsCommitments?: Buffer[]) =
     endPublicDataTreeRoot: Fr.random(),
     endL1ToL2MessageTreeSnapshot: getMockTreeSnapshot(),
     endHistoricBlocksTreeSnapshot: getMockTreeSnapshot(),
-    newCommitments: times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
+    newNoteHashes: times(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
     newNullifiers: times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
-    newContracts: newContractsCommitments?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
+    newContracts: newContractsNoteHashes?.map(x => Fr.fromBuffer(x)) ?? [Fr.random()],
     newContractData: times(MAX_NEW_CONTRACTS_PER_TX, getMockContractData),
     newPublicDataWrites: times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
     newL1ToL2Messages: getMockL1ToL2MessagesData(),

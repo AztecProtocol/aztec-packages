@@ -84,11 +84,11 @@ contract Test {
         amount: Field,
         secretHash: Field,
     ) {
-        // Create a commitment to the amount
+        // Create a note_hash to the amount
         let note = DummyNote::new(amount, secretHash);
         
-        // Public oracle call to emit new commitment.
-        context.message_portal(note.get_commitment());
+        // Public oracle call to emit new note_hash.
+        context.message_portal(note.get_note_hash());
         
     }
 
@@ -98,11 +98,11 @@ contract Test {
         amount: Field,
         secretHash: Field,
     ) {
-        // Create a commitment to the amount
+        // Create a note_hash to the amount
         let note = DummyNote::new(amount, secretHash);
         
-        // Public oracle call to emit new commitment.
-        context.push_new_nullifier(note.get_commitment(), 0);
+        // Public oracle call to emit new note_hash.
+        context.push_new_nullifier(note.get_note_hash(), 0);
     }
 
     // docs:start:is-time-equal
@@ -135,7 +135,7 @@ contract Test {
             }
         }
 
-        fn get_commitment(self) -> pub Field {
+        fn get_note_hash(self) -> pub Field {
             dep::std::hash::pedersen([self.amount, self.secretHash])[0]
         }
     }

@@ -22,14 +22,14 @@ import {
   fromACVMField,
   toACVMField,
   toACVMWitness,
-  toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
+  toAcvmNoteHashLoadOracleInputs,
 } from '../acvm/index.js';
 import { oracleDebugCallToFormattedStr } from '../client/debug.js';
 import { ExecutionError, createSimulationError } from '../common/errors.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { AcirSimulator } from '../index.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { NoteHashesDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
 
@@ -43,7 +43,7 @@ export class PublicExecutor {
   constructor(
     private readonly stateDb: PublicStateDB,
     private readonly contractsDb: PublicContractsDB,
-    private readonly commitmentsDb: CommitmentsDB,
+    private readonly noteHashesDb: NoteHashesDB,
     private readonly blockData: HistoricBlockData,
     private sideEffectCounter: number = 0,
     private log = createDebugLogger('aztec:simulator:public-executor'),
@@ -90,15 +90,15 @@ export class PublicExecutor {
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       getL1ToL2Message: async ([msgKey]) => {
-        const messageInputs = await this.commitmentsDb.getL1ToL2Message(fromACVMField(msgKey));
+        const messageInputs = await this.noteHashesDb.getL1ToL2Message(fromACVMField(msgKey));
         return toAcvmL1ToL2MessageLoadOracleInputs(messageInputs, this.blockData.l1ToL2MessagesTreeRoot);
       }, // l1 to l2 messages in public contexts TODO: https://github.com/AztecProtocol/aztec-packages/issues/616
-      getCommitment: async ([commitment]) => {
-        const commitmentInputs = await this.commitmentsDb.getCommitmentOracle(
+      getNoteHash: async ([noteHash]) => {
+        const noteHashInputs = await this.noteHashesDb.getNoteHashOracle(
           execution.contractAddress,
-          fromACVMField(commitment),
+          fromACVMField(noteHash),
         );
-        return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.blockData.privateDataTreeRoot);
+        return toAcvmNoteHashLoadOracleInputs(noteHashInputs, this.blockData.privateDataTreeRoot);
       },
       storageRead: async ([slot], [numberOfElements]) => {
         const startStorageSlot = fromACVMField(slot);
@@ -167,12 +167,12 @@ export class PublicExecutor {
     const {
       returnValues,
       newL2ToL1Msgs,
-      newCommitments: newCommitmentsPadded,
+      newNoteHashes: newNoteHashesPadded,
       newNullifiers: newNullifiersPadded,
     } = extractPublicCircuitPublicInputs(partialWitness, acir);
 
     const newL2ToL1Messages = newL2ToL1Msgs.filter(v => !v.isZero());
-    const newCommitments = newCommitmentsPadded.filter(v => !v.isZero());
+    const newNoteHashes = newNoteHashesPadded.filter(v => !v.isZero());
     const newNullifiers = newNullifiersPadded.filter(v => !v.isZero());
 
     const [contractStorageReads, contractStorageUpdateRequests] = storageActions.collect();
@@ -184,7 +184,7 @@ export class PublicExecutor {
 
     return {
       execution,
-      newCommitments,
+      newNoteHashes,
       newL2ToL1Messages,
       newNullifiers,
       contractStorageReads,

@@ -78,7 +78,7 @@ export class UnconstrainedFunctionExecution {
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       getL1ToL2Message: ([msgKey]) => this.context.getL1ToL2Message(fromACVMField(msgKey)),
-      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
+      getNoteHash: ([noteHash]) => this.context.getNoteHash(this.contractAddress, noteHash),
       storageRead: async ([slot], [numberOfElements]) => {
         if (!aztecNode) {
           const errMsg = `Aztec node is undefined, cannot read storage`;

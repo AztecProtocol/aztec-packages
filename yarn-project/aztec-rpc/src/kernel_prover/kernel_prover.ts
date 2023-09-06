@@ -2,9 +2,9 @@ import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
-  EMPTY_NULLIFIED_COMMITMENT,
+  EMPTY_NULLIFIED_NOTE_HASH,
   Fr,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
@@ -31,7 +31,7 @@ import { ProvingDataOracle } from './proving_data_oracle.js';
 
 /**
  * Represents an output note data object.
- * Contains the contract address, new note data and commitment for the note,
+ * Contains the contract address, new note data and noteHash for the note,
  * resulting from the execution of a transaction in the Aztec network.
  */
 export interface OutputNoteData {
@@ -46,7 +46,7 @@ export interface OutputNoteData {
   /**
    * The unique value representing the note.
    */
-  commitment: Fr;
+  noteHash: Fr;
 }
 
 /**
@@ -55,7 +55,7 @@ export interface OutputNoteData {
  */
 export interface KernelProverOutput extends ProofOutputFinal {
   /**
-   * An array of output notes containing the contract address, note data, and commitment for each new note.
+   * An array of output notes containing the contract address, note data, and noteHash for each new note.
    */
   outputNotes: OutputNoteData[];
 }
@@ -81,7 +81,7 @@ export class KernelProver {
    */
   async prove(txRequest: TxRequest, executionResult: ExecutionResult): Promise<KernelProverOutput> {
     const executionStack = [executionResult];
-    const newNotes: { [commitmentStr: string]: OutputNoteData } = {};
+    const newNotes: { [noteHashStr: string]: OutputNoteData } = {};
     let firstIteration = true;
     let previousVerificationKey = VerificationKey.makeFake();
 
@@ -112,12 +112,12 @@ export class KernelProver {
       for (let rr = 0; rr < readRequestMembershipWitnesses.length; rr++) {
         if (currentExecution.callStackItem.publicInputs.readRequests[rr] == Fr.zero()) {
           throw new Error(
-            'Number of read requests output from Noir circuit does not match number of read request commitment indices output from simulator.',
+            'Number of read requests output from Noir circuit does not match number of read request noteHash indices output from simulator.',
           );
         }
         const rrWitness = readRequestMembershipWitnesses[rr];
         if (!rrWitness.isTransient) {
-          // Non-transient reads must contain full membership witness with sibling path from commitment to root.
+          // Non-transient reads must contain full membership witness with sibling path from noteHash to root.
           // Get regular membership witness to fill in sibling path in the read request witness.
           const membershipWitness = await this.oracle.getNoteMembershipWitness(rrWitness.leafIndex.toBigInt());
           rrWitness.siblingPath = membershipWitness.siblingPath;
@@ -158,7 +158,7 @@ export class KernelProver {
         );
       }
       (await this.getNewNotes(currentExecution)).forEach(n => {
-        newNotes[n.commitment.toString()] = n;
+        newNotes[n.noteHash.toString()] = n;
       });
       firstIteration = false;
       previousVerificationKey = privateCallData.vk;
@@ -173,26 +173,26 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const readCommitmentHints = this.getReadRequestHints(
+    const readNoteHashHints = this.getReadRequestHints(
       output.publicInputs.end.readRequests,
-      output.publicInputs.end.newCommitments,
+      output.publicInputs.end.newNoteHashes,
     );
 
-    const nullifierCommitmentHints = this.getNullifierHints(
-      output.publicInputs.end.nullifiedCommitments,
-      output.publicInputs.end.newCommitments,
+    const nullifierNoteHashHints = this.getNullifierHints(
+      output.publicInputs.end.nullifiedNoteHashes,
+      output.publicInputs.end.newNoteHashes,
     );
 
     const privateInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
-      readCommitmentHints,
-      nullifierCommitmentHints,
+      readNoteHashHints,
+      nullifierNoteHashHints,
     );
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
-    // Only return the notes whose commitment is in the commitments of the final proof.
-    const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
-    const outputNotes = finalNewCommitments.map(c => newNotes[c.toString()]).filter(c => !!c);
+    // Only return the notes whose noteHash is in the noteHashes of the final proof.
+    const finalNewNoteHashes = outputFinal.publicInputs.end.newNoteHashes;
+    const outputNotes = finalNewNoteHashes.map(c => newNotes[c.toString()]).filter(c => !!c);
 
     return { ...outputFinal, outputNotes };
   }
@@ -237,7 +237,7 @@ export class KernelProver {
   /**
    * Retrieves the new output notes for a given execution result.
    * The function maps over the new note preimages and associates them with their corresponding
-   * commitments in the public inputs of the execution result. It also includes the contract address
+   * noteHashes in the public inputs of the execution result. It also includes the contract address
    * from the call context of the public inputs.
    *
    * @param executionResult - The execution result object containing note preimages and public inputs.
@@ -249,36 +249,36 @@ export class KernelProver {
       preimages,
     } = executionResult;
     const contractAddress = publicInputs.callContext.storageContractAddress;
-    // Assuming that for each new commitment there's an output note added to the execution result.
-    const newCommitments = await this.proofCreator.getSiloedCommitments(publicInputs);
+    // Assuming that for each new noteHash there's an output note added to the execution result.
+    const newNoteHashes = await this.proofCreator.getSiloedNoteHashes(publicInputs);
     return preimages.newNotes.map((data, i) => ({
       contractAddress,
       data,
-      commitment: newCommitments[i],
+      noteHash: newNoteHashes[i],
     }));
   }
 
   /**
-   * Performs the matching between an array of read request and an array of commitments. This produces
+   * Performs the matching between an array of read request and an array of noteHashes. This produces
    * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
-   * commitment.
+   * noteHash.
    *
    * @param readRequests - The array of read requests.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
+   * @param noteHashes - The array of noteHashes.
+   * @returns An array of hints where each element is the index of the noteHash in noteHashes array
+   *  corresponding to the read request. In other words we have readRequests[i] == noteHashes[hints[i]].
    */
   private getReadRequestHints(
     readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
-    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
     const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isZero(); i++) {
       const equalToRR = (cmt: Fr) => cmt.equals(readRequests[i]);
-      const result = commitments.findIndex(equalToRR);
+      const result = noteHashes.findIndex(equalToRR);
       if (result == -1) {
         throw new Error(
-          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any commitment.`,
+          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any noteHash.`,
         );
       } else {
         hints[i] = new Fr(result);
@@ -288,29 +288,29 @@ export class KernelProver {
   }
 
   /**
-   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
+   *  Performs the matching between an array of nullified noteHashes and an array of noteHashes. This produces
    * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
-   * commitment.
+   * noteHash.
    *
-   * @param nullifiedCommitments - The array of nullified commitments.
-   * @param commitments - The array of commitments.
-   * @returns An array of hints where each element is the index of the commitment in commitments array
-   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
+   * @param nullifiedNoteHashes - The array of nullified noteHashes.
+   * @param noteHashes - The array of noteHashes.
+   * @returns An array of hints where each element is the index of the noteHash in noteHashes array
+   *  corresponding to the nullified noteHashes. In other words we have nullifiedNoteHashes[i] == noteHashes[hints[i]].
    */
   private getNullifierHints(
-    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
-    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    noteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
   ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
     const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
     for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
-      if (!nullifiedCommitments[i].isZero() && !nullifiedCommitments[i].equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
-        const equalToCommitment = (cmt: Fr) => cmt.equals(nullifiedCommitments[i]);
-        const result = commitments.findIndex(equalToCommitment);
+      if (!nullifiedNoteHashes[i].isZero() && !nullifiedNoteHashes[i].equals(new Fr(EMPTY_NULLIFIED_NOTE_HASH))) {
+        const equalToNoteHash = (cmt: Fr) => cmt.equals(nullifiedNoteHashes[i]);
+        const result = noteHashes.findIndex(equalToNoteHash);
         if (result == -1) {
           throw new Error(
-            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
+            `The nullified noteHash at index ${i} with value ${nullifiedNoteHashes[
               i
-            ].toString()} does not match to any commitment.`,
+            ].toString()} does not match to any noteHash.`,
           );
         } else {
           hints[i] = new Fr(result);

@@ -1,9 +1,9 @@
 import {
   AppendOnlyTreeSnapshot,
   GlobalVariables,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -108,9 +108,9 @@ export class L2Block {
      */
     public endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
-     * The commitments to be inserted into the private data tree.
+     * The noteHashes to be inserted into the private data tree.
      */
-    public newCommitments: Fr[],
+    public newNoteHashes: Fr[],
     /**
      * The nullifiers to be inserted into the nullifier tree.
      */
@@ -139,8 +139,8 @@ export class L2Block {
     newUnencryptedLogs?: L2BlockL2Logs,
     private blockHash?: Buffer,
   ) {
-    if (newCommitments.length % MAX_NEW_COMMITMENTS_PER_TX !== 0) {
-      throw new Error(`The number of new commitments must be a multiple of ${MAX_NEW_COMMITMENTS_PER_TX}.`);
+    if (newNoteHashes.length % MAX_NEW_NOTE_HASHES_PER_TX !== 0) {
+      throw new Error(`The number of new noteHashes must be a multiple of ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
     }
 
     if (newEncryptedLogs) {
@@ -150,7 +150,7 @@ export class L2Block {
       this.attachLogs(newUnencryptedLogs, LogType.UNENCRYPTED);
     }
 
-    this.numberOfTxs = Math.floor(this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX);
+    this.numberOfTxs = Math.floor(this.newNoteHashes.length / MAX_NEW_NOTE_HASHES_PER_TX);
   }
 
   /**
@@ -172,7 +172,7 @@ export class L2Block {
     numUnencryptedLogs = 1,
   ): L2Block {
     const newNullifiers = times(MAX_NEW_NULLIFIERS_PER_TX * txsPerBlock, Fr.random);
-    const newCommitments = times(MAX_NEW_COMMITMENTS_PER_TX * txsPerBlock, Fr.random);
+    const newNoteHashes = times(MAX_NEW_NOTE_HASHES_PER_TX * txsPerBlock, Fr.random);
     const newContracts = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, Fr.random);
     const newContractData = times(MAX_NEW_CONTRACTS_PER_TX * txsPerBlock, ContractData.random);
     const newPublicDataWrites = times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * txsPerBlock, PublicDataWrite.random);
@@ -190,13 +190,13 @@ export class L2Block {
       startPublicDataTreeRoot: Fr.random(),
       startL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
       startHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(0),
-      endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(newCommitments.length),
+      endPrivateDataTreeSnapshot: makeAppendOnlyTreeSnapshot(newNoteHashes.length),
       endNullifierTreeSnapshot: makeAppendOnlyTreeSnapshot(newNullifiers.length),
       endContractTreeSnapshot: makeAppendOnlyTreeSnapshot(newContracts.length),
       endPublicDataTreeRoot: Fr.random(),
       endL1ToL2MessageTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
       endHistoricBlocksTreeSnapshot: makeAppendOnlyTreeSnapshot(1),
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newContracts,
       newContractData,
@@ -273,9 +273,9 @@ export class L2Block {
        */
       endHistoricBlocksTreeSnapshot: AppendOnlyTreeSnapshot;
       /**
-       * The commitments to be inserted into the private data tree.
+       * The noteHashes to be inserted into the private data tree.
        */
-      newCommitments: Fr[];
+      newNoteHashes: Fr[];
       /**
        * The nullifiers to be inserted into the nullifier tree.
        */
@@ -326,7 +326,7 @@ export class L2Block {
       fields.endPublicDataTreeRoot,
       fields.endL1ToL2MessageTreeSnapshot,
       fields.endHistoricBlocksTreeSnapshot,
-      fields.newCommitments,
+      fields.newNoteHashes,
       fields.newNullifiers,
       fields.newPublicDataWrites,
       fields.newL2ToL1Msgs,
@@ -362,8 +362,8 @@ export class L2Block {
       this.endPublicDataTreeRoot,
       this.endL1ToL2MessageTreeSnapshot,
       this.endHistoricBlocksTreeSnapshot,
-      this.newCommitments.length,
-      this.newCommitments,
+      this.newNoteHashes.length,
+      this.newNoteHashes,
       this.newNullifiers.length,
       this.newNullifiers,
       this.newPublicDataWrites.length,
@@ -409,7 +409,7 @@ export class L2Block {
     const endPublicDataTreeRoot = reader.readObject(Fr);
     const endL1ToL2MessageTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
     const endHistoricBlocksTreeSnapshot = reader.readObject(AppendOnlyTreeSnapshot);
-    const newCommitments = reader.readVector(Fr);
+    const newNoteHashes = reader.readVector(Fr);
     const newNullifiers = reader.readVector(Fr);
     const newPublicDataWrites = reader.readVector(PublicDataWrite);
     const newL2ToL1Msgs = reader.readVector(Fr);
@@ -435,7 +435,7 @@ export class L2Block {
       endPublicDataTreeRoot,
       endL1ToL2MessageTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newPublicDataWrites,
       newL2ToL1Msgs,
@@ -468,7 +468,7 @@ export class L2Block {
 
     L2Block.logger(`Attaching ${logFieldName} logs`);
 
-    const numTxs = this.newCommitments.length / MAX_NEW_COMMITMENTS_PER_TX;
+    const numTxs = this.newNoteHashes.length / MAX_NEW_NOTE_HASHES_PER_TX;
 
     if (numTxs !== logs.txLogs.length) {
       throw new Error(
@@ -588,16 +588,16 @@ export class L2Block {
       return layers[layers.length - 1][0];
     };
 
-    const leafCount = this.newCommitments.length / (MAX_NEW_COMMITMENTS_PER_TX * 2);
+    const leafCount = this.newNoteHashes.length / (MAX_NEW_NOTE_HASHES_PER_TX * 2);
     const leafs: Buffer[] = [];
 
     for (let i = 0; i < leafCount; i++) {
-      const commitmentsPerBase = MAX_NEW_COMMITMENTS_PER_TX * 2;
+      const noteHashesPerBase = MAX_NEW_NOTE_HASHES_PER_TX * 2;
       const nullifiersPerBase = MAX_NEW_NULLIFIERS_PER_TX * 2;
       const publicDataUpdateRequestsPerBase = MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2;
       const l2ToL1MsgsPerBase = MAX_NEW_L2_TO_L1_MSGS_PER_TX * 2;
-      const commitmentsBuffer = Buffer.concat(
-        this.newCommitments.slice(i * commitmentsPerBase, (i + 1) * commitmentsPerBase).map(x => x.toBuffer()),
+      const noteHashesBuffer = Buffer.concat(
+        this.newNoteHashes.slice(i * noteHashesPerBase, (i + 1) * noteHashesPerBase).map(x => x.toBuffer()),
       );
       const nullifiersBuffer = Buffer.concat(
         this.newNullifiers.slice(i * nullifiersPerBase, (i + 1) * nullifiersPerBase).map(x => x.toBuffer()),
@@ -617,7 +617,7 @@ export class L2Block {
       const unencryptedLogsHashKernel1 = L2Block.computeKernelLogsHash(this.newUnencryptedLogs.txLogs[i * 2 + 1]);
 
       const inputValue = Buffer.concat([
-        commitmentsBuffer,
+        noteHashesBuffer,
         nullifiersBuffer,
         publicDataUpdateRequestsBuffer,
         newL2ToL1MsgsBuffer,
@@ -661,9 +661,9 @@ export class L2Block {
       );
     }
 
-    const newCommitments = this.newCommitments.slice(
-      MAX_NEW_COMMITMENTS_PER_TX * txIndex,
-      MAX_NEW_COMMITMENTS_PER_TX * (txIndex + 1),
+    const newNoteHashes = this.newNoteHashes.slice(
+      MAX_NEW_NOTE_HASHES_PER_TX * txIndex,
+      MAX_NEW_NOTE_HASHES_PER_TX * (txIndex + 1),
     );
     const newNullifiers = this.newNullifiers.slice(
       MAX_NEW_NULLIFIERS_PER_TX * txIndex,
@@ -687,7 +687,7 @@ export class L2Block {
     );
 
     return new L2Tx(
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newPublicDataWrites,
       newL2ToL1Msgs,
@@ -750,7 +750,7 @@ export class L2Block {
       `endPublicDataTreeRoot: ${this.endPublicDataTreeRoot.toString()}`,
       `endL1ToL2MessageTreeSnapshot: ${inspectTreeSnapshot(this.endL1ToL2MessageTreeSnapshot)}`,
       `endHistoricBlocksTreeSnapshot: ${inspectTreeSnapshot(this.endHistoricBlocksTreeSnapshot)}`,
-      `newCommitments: ${inspectFrArray(this.newCommitments)}`,
+      `newNoteHashes: ${inspectFrArray(this.newNoteHashes)}`,
       `newNullifiers: ${inspectFrArray(this.newNullifiers)}`,
       `newPublicDataWrite: ${inspectPublicDataWriteArray(this.newPublicDataWrites)}`,
       `newL2ToL1Msgs: ${inspectFrArray(this.newL2ToL1Msgs)}`,

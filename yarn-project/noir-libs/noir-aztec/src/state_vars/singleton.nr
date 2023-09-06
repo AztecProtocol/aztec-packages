@@ -1,4 +1,4 @@
-use crate::constants_gen::{EMPTY_NULLIFIED_COMMITMENT, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
+use crate::constants_gen::{EMPTY_NULLIFIED_NOTE_HASH, GENERATOR_INDEX__INITIALISATION_NULLIFIER};
 use crate::context::{PrivateContext, PublicContext};
 use crate::note::{
     lifecycle::{create_note, destroy_note},
@@ -40,7 +40,7 @@ impl<Note, N> Singleton<Note, N> {
         let context = self.context.unwrap();
         // Nullify the storage slot.
         let nullifier = self.compute_initialisation_nullifier();
-        context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT);
+        context.push_new_nullifier(nullifier, EMPTY_NULLIFIED_NOTE_HASH);
 
         create_note(context, self.storage_slot, note, self.note_interface);
     }

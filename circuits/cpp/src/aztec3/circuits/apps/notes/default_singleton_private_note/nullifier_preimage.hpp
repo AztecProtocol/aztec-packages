@@ -15,12 +15,12 @@ template <typename NCT> struct DefaultSingletonPrivateNoteNullifierPreimage {
     using fr = typename NCT::fr;
     using boolean = typename NCT::boolean;
 
-    fr commitment;
+    fr note_hash;
     fr owner_private_key;
     boolean is_dummy = false;
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(commitment, owner_private_key, is_dummy);
+    MSGPACK_FIELDS(note_hash, owner_private_key, is_dummy);
 
     bool operator==(DefaultSingletonPrivateNoteNullifierPreimage<NCT> const&) const = default;
 
@@ -33,7 +33,7 @@ template <typename NCT> struct DefaultSingletonPrivateNoteNullifierPreimage {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         DefaultSingletonPrivateNoteNullifierPreimage<CircuitTypes<Builder>> preimage = {
-            to_ct(commitment),
+            to_ct(note_hash),
             to_ct(owner_private_key),
             to_ct(is_dummy),
         };

@@ -48,7 +48,7 @@ using aztec3::utils::array_length;
  * @details read requests are siloed by contract address and nonce before being
  * inserted into mock private data tree
  *
- * @param first_nullifier used when computing nonce for unique_siloed_commitments (private data tree leaves)
+ * @param first_nullifier used when computing nonce for unique_siloed_note_hashes (private data tree leaves)
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num. Must be < MAX_READ_REQUESTS_PER_CALL
  * @return std::tuple<read_requests, read_request_memberships_witnesses, historic_private_data_tree_root>
@@ -70,17 +70,17 @@ get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, 
                                   : numeric::random::get_engine().get_random_uint8() % (MAX_READ_REQUESTS_PER_CALL + 1);
     // randomize private app circuit's read requests
     for (size_t rr = 0; rr < final_num_rr; rr++) {
-        // randomize commitment and its leaf index
+        // randomize note_hash and its leaf index
         // transient read requests are raw (not siloed and not unique at input to kernel circuit)
         transient_read_requests[rr] = NT::fr::random_element();
 
-        const auto siloed_commitment = silo_commitment<NT>(contract_address, read_requests[rr]);
-        const auto nonce = compute_commitment_nonce<NT>(first_nullifier, rr);
-        const auto unique_siloed_commitment =
-            siloed_commitment == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitment);
+        const auto siloed_note_hash = silo_note_hash<NT>(contract_address, read_requests[rr]);
+        const auto nonce = compute_note_hash_nonce<NT>(first_nullifier, rr);
+        const auto unique_siloed_note_hash =
+            siloed_note_hash == 0 ? 0 : compute_unique_note_hash<NT>(nonce, siloed_note_hash);
 
-        leaves[rr] = unique_siloed_commitment;
-        read_requests[rr] = unique_siloed_commitment;
+        leaves[rr] = unique_siloed_note_hash;
+        read_requests[rr] = unique_siloed_note_hash;
     }
 
     // this set and the following loop lets us generate totally random leaf indices
@@ -95,10 +95,10 @@ get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, 
     MemoryStore private_data_tree_store;
     MerkleTree private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
 
-    // add the commitments to the private data tree for each read request
+    // add the note_hashes to the private data tree for each read request
     // add them at their corresponding index in the tree
     // (in practice the the tree is left-to-right append-only, but here
-    // we treat it as sparse just to get these commitments in their correct spot)
+    // we treat it as sparse just to get these note_hashes in their correct spot)
     for (size_t i = 0; i < array_length(leaves); i++) {
         private_data_tree.update_element(rr_leaf_indices[i], leaves[i]);
     }
@@ -113,12 +113,12 @@ get_random_reads(NT::fr const& first_nullifier, NT::fr const& contract_address, 
                                                  .sibling_path = get_sibling_path<PRIVATE_DATA_TREE_HEIGHT>(
                                                      private_data_tree, rr_leaf_indices[i], 0),
                                                  .is_transient = false,
-                                                 .hint_to_commitment = 0 };
+                                                 .hint_to_note_hash = 0 };
         transient_read_request_membership_witnesses[i] = {
             .leaf_index = NT::fr(0),
             .sibling_path = compute_empty_sibling_path<NT, PRIVATE_DATA_TREE_HEIGHT>(0),
             .is_transient = true,
-            .hint_to_commitment = 0
+            .hint_to_note_hash = 0
         };
     }
 
@@ -290,9 +290,9 @@ std::pair<PrivateCallData<NT>, ContractDeploymentData<NT>> create_private_call_d
             .call_context = call_context,
             .args_hash = args_hash,
             .return_values = {},
-            .new_commitments = { NT::fr::random_element() },  // One random commitment
+            .new_note_hashes = { NT::fr::random_element() },  // One random note_hash
             .new_nullifiers = { NT::fr::random_element() },   // One random nullifier
-            .nullified_commitments = {},
+            .nullified_note_hashes = {},
             .private_call_stack = {},
             .new_l2_to_l1_msgs = {},
             .encrypted_logs_hash = encrypted_logs_hash,

@@ -1,13 +1,13 @@
 import {
-  CommitmentDataOracleInputs,
-  CommitmentsDB,
   MessageLoadOracleInputs,
+  NoteHashDataOracleInputs,
+  NoteHashesDB,
   PublicContractsDB,
   PublicExecutor,
   PublicStateDB,
 } from '@aztec/acir-simulator';
 import { AztecAddress, CircuitsWasm, EthAddress, Fr, FunctionSelector, HistoricBlockData } from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
+import { siloNoteHash } from '@aztec/circuits.js/abis';
 import { ContractDataSource, L1ToL2MessageSource, MerkleTreeId } from '@aztec/types';
 import { MerkleTreeOperations, computePublicDataTreeLeafIndex } from '@aztec/world-state';
 
@@ -84,7 +84,7 @@ class WorldStatePublicDB implements PublicStateDB {
 /**
  * Implements WorldState db using a world state database.
  */
-export class WorldStateDB implements CommitmentsDB {
+export class WorldStateDB implements NoteHashesDB {
   constructor(private db: MerkleTreeOperations, private l1ToL2MessageSource: L1ToL2MessageSource) {}
 
   public async getL1ToL2Message(messageKey: Fr): Promise<MessageLoadOracleInputs> {
@@ -100,17 +100,17 @@ export class WorldStateDB implements CommitmentsDB {
     };
   }
 
-  public async getCommitmentOracle(address: AztecAddress, innerCommitment: Fr): Promise<CommitmentDataOracleInputs> {
-    const siloedCommitment = siloCommitment(await CircuitsWasm.get(), address, innerCommitment);
+  public async getNoteHashOracle(address: AztecAddress, innerNoteHash: Fr): Promise<NoteHashDataOracleInputs> {
+    const siloedNoteHash = siloNoteHash(await CircuitsWasm.get(), address, innerNoteHash);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): shoild be
-    // unique commitment that exists in tree (should be siloed and then made unique via
+    // unique noteHash that exists in tree (should be siloed and then made unique via
     // nonce).  Once public kernel or base rollup circuit injects nonces, this can be updated
-    // to use uniqueSiloedCommitment.
-    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedCommitment.toBuffer()))!;
+    // to use uniqueSiloedNoteHash.
+    const index = (await this.db.findLeafIndex(MerkleTreeId.PRIVATE_DATA_TREE, siloedNoteHash.toBuffer()))!;
     const siblingPath = await this.db.getSiblingPath(MerkleTreeId.PRIVATE_DATA_TREE, index);
 
     return {
-      commitment: siloedCommitment,
+      noteHash: siloedNoteHash,
       siblingPath: siblingPath.toFieldArray(),
       index,
     };

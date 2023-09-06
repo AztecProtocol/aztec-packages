@@ -16,12 +16,12 @@ export interface NewNoteData {
 }
 
 /**
- * The contents of a nullified commitment.
+ * The contents of a nullified noteHash.
  */
 export interface NewNullifierData {
-  /** The preimage of the nullified commitment. */
+  /** The preimage of the nullified noteHash. */
   preimage: Fr[];
-  /** The storage slot of the nullified commitment. */
+  /** The storage slot of the nullified noteHash. */
   storageSlot: Fr;
   /** The nullifier. */
   nullifier: Fr;
@@ -33,7 +33,7 @@ export interface NewNullifierData {
 export interface ExecutionPreimages {
   /** The preimages of the new notes. */
   newNotes: NewNoteData[];
-  /** The preimages of the nullified commitments. */
+  /** The preimages of the nullified noteHashes. */
   nullifiedNotes: NewNullifierData[];
 }
 
@@ -51,7 +51,7 @@ export interface ExecutionResult {
   // Needed for the verifier (kernel)
   /** The call stack item. */
   callStackItem: PrivateCallStackItem;
-  /** The partially filled-in read request membership witnesses for commitments being read. */
+  /** The partially filled-in read request membership witnesses for noteHashes being read. */
   readRequestPartialWitnesses: ReadRequestMembershipWitness[];
   // Needed for the user
   /** The preimages of the executed function. */

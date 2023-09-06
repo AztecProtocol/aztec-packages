@@ -126,8 +126,8 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
     std::array<NT::fr, RETURN_VALUES_LENGTH> const return_values = array_of_values<RETURN_VALUES_LENGTH>(count);
     std::array<NT::fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const public_call_stack =
         array_of_values<MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>(count);
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
-        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(count);
+    std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_CALL> const new_note_hashes =
+        array_of_values<MAX_NEW_NOTE_HASHES_PER_CALL>(count);
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
         array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(count);
     std::array<NT::fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
@@ -145,7 +145,7 @@ PublicCallStackItem generate_call_stack_item(NT::fr contract_address,
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = public_call_stack,
-        .new_commitments = new_commitments,
+        .new_note_hashes = new_note_hashes,
         .new_nullifiers = new_nullifiers,
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
 
@@ -209,16 +209,16 @@ public_data_update_requests_from_contract_storage_update_requests(
     return values;
 }
 
-std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments_as_siloed_commitments(
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments, NT::fr const& contract_address)
+std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> new_note_hashes_as_siloed_note_hashes(
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> const& new_note_hashes, NT::fr const& contract_address)
 {
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_commitments{};
-    for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_CALL; ++i) {
-        if (!new_commitments[i].is_zero()) {
-            siloed_commitments[i] = silo_commitment<NT>(contract_address, new_commitments[i]);
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> siloed_note_hashes{};
+    for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_CALL; ++i) {
+        if (!new_note_hashes[i].is_zero()) {
+            siloed_note_hashes[i] = silo_note_hash<NT>(contract_address, new_note_hashes[i]);
         }
     }
-    return siloed_commitments;
+    return siloed_note_hashes;
 }
 
 std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers_as_siloed_nullifiers(
@@ -323,8 +323,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         generate_contract_storage_update_requests(seed, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL / 2);
     std::array<ContractStorageRead<NT>, MAX_PUBLIC_DATA_READS_PER_CALL> const reads =
         generate_contract_storage_reads(seed, MAX_PUBLIC_DATA_READS_PER_CALL / 2);
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> const new_commitments =
-        array_of_values<MAX_NEW_COMMITMENTS_PER_CALL>(seed, MAX_NEW_COMMITMENTS_PER_CALL / 2);
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> const new_note_hashes =
+        array_of_values<MAX_NEW_NOTE_HASHES_PER_CALL>(seed, MAX_NEW_NOTE_HASHES_PER_CALL / 2);
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> const new_nullifiers =
         array_of_values<MAX_NEW_NULLIFIERS_PER_CALL>(seed, MAX_NEW_NULLIFIERS_PER_CALL / 2);
     std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> const new_l2_to_l1_msgs =
@@ -351,7 +351,7 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
         .contract_storage_update_requests = update_requests,
         .contract_storage_reads = reads,
         .public_call_stack = call_stack_hashes,
-        .new_commitments = new_commitments,
+        .new_note_hashes = new_note_hashes,
         .new_nullifiers = new_nullifiers,
         .new_l2_to_l1_msgs = new_l2_to_l1_msgs,
         .unencrypted_logs_hash = unencrypted_logs_hash,
@@ -396,8 +396,8 @@ PublicKernelInputs<NT> get_kernel_inputs_with_previous_kernel(NT::boolean privat
     public_call_stack[0] = public_call_data.call_stack_item.hash();
 
     CombinedAccumulatedData<NT> const end_accumulated_data = {
-        .new_commitments =
-            array_of_values<MAX_NEW_COMMITMENTS_PER_TX>(seed, private_previous ? MAX_NEW_COMMITMENTS_PER_TX / 2 : 0),
+        .new_note_hashes =
+            array_of_values<MAX_NEW_NOTE_HASHES_PER_TX>(seed, private_previous ? MAX_NEW_NOTE_HASHES_PER_TX / 2 : 0),
         .new_nullifiers =
             array_of_values<MAX_NEW_NULLIFIERS_PER_TX>(seed, private_previous ? MAX_NEW_NULLIFIERS_PER_TX / 2 : 0),
         .private_call_stack = array_of_values<MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX>(seed, 0),
@@ -1057,11 +1057,11 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     initial_reads[1] = second_read;
     inputs.previous_kernel.public_inputs.end.public_data_reads = initial_reads;
 
-    // setup 2 previous new commitments
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> initial_commitments{};
-    initial_commitments[0] = fr(1);
-    initial_commitments[1] = fr(2);
-    inputs.previous_kernel.public_inputs.end.new_commitments = initial_commitments;
+    // setup 2 previous new note_hashes
+    std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_TX> initial_note_hashes{};
+    initial_note_hashes[0] = fr(1);
+    initial_note_hashes[1] = fr(2);
+    inputs.previous_kernel.public_inputs.end.new_note_hashes = initial_note_hashes;
 
     // setup 2 previous new nullifiers
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> initial_nullifiers{};
@@ -1085,7 +1085,7 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                   inputs.public_call.call_stack_item.public_inputs.public_call_stack[i]);
     }
 
-    // we should now see the public data reads and writes, new commitments, new_nullifiers,
+    // we should now see the public data reads and writes, new note_hashes, new_nullifiers,
     // l2_to_l1_messages from this iteration appended to the combined output
     ASSERT_EQ(array_length(public_inputs.end.public_data_reads),
               array_length(inputs.previous_kernel.public_inputs.end.public_data_reads) +
@@ -1093,9 +1093,9 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
     ASSERT_EQ(array_length(public_inputs.end.public_data_update_requests),
               array_length(inputs.previous_kernel.public_inputs.end.public_data_update_requests) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests));
-    ASSERT_EQ(array_length(public_inputs.end.new_commitments),
-              array_length(inputs.previous_kernel.public_inputs.end.new_commitments) +
-                  array_length(inputs.public_call.call_stack_item.public_inputs.new_commitments));
+    ASSERT_EQ(array_length(public_inputs.end.new_note_hashes),
+              array_length(inputs.previous_kernel.public_inputs.end.new_note_hashes) +
+                  array_length(inputs.public_call.call_stack_item.public_inputs.new_note_hashes));
     ASSERT_EQ(array_length(public_inputs.end.new_nullifiers),
               array_length(inputs.previous_kernel.public_inputs.end.new_nullifiers) +
                   array_length(inputs.public_call.call_stack_item.public_inputs.new_nullifiers));
@@ -1141,14 +1141,14 @@ TEST(public_kernel_tests, circuit_outputs_should_be_correctly_populated_with_pre
                                             expected_new_reads,
                                             public_inputs.end.public_data_reads));
 
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> const expected_new_commitments =
-        new_commitments_as_siloed_commitments(inputs.public_call.call_stack_item.public_inputs.new_commitments,
+    std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_CALL> const expected_new_note_hashes =
+        new_note_hashes_as_siloed_note_hashes(inputs.public_call.call_stack_item.public_inputs.new_note_hashes,
                                               contract_address);
 
     ASSERT_TRUE(source_arrays_are_in_target(dummyBuilder,
-                                            inputs.previous_kernel.public_inputs.end.new_commitments,
-                                            expected_new_commitments,
-                                            public_inputs.end.new_commitments));
+                                            inputs.previous_kernel.public_inputs.end.new_note_hashes,
+                                            expected_new_note_hashes,
+                                            public_inputs.end.new_note_hashes));
 
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> const expected_new_nullifiers = new_nullifiers_as_siloed_nullifiers(
         inputs.public_call.call_stack_item.public_inputs.new_nullifiers, contract_address);
@@ -1209,9 +1209,9 @@ TEST(public_kernel_tests, previous_public_kernel_fails_if_incorrect_storage_cont
               CircuitErrorCode::PUBLIC_KERNEL__CALL_CONTEXT_INVALID_STORAGE_ADDRESS_FOR_DELEGATE_CALL);
 }
 
-TEST(public_kernel_tests, public_kernel_fails_creating_new_commitments_on_static_call)
+TEST(public_kernel_tests, public_kernel_fails_creating_new_note_hashes_on_static_call)
 {
-    DummyBuilder dummyBuilder = DummyBuilder("public_kernel_fails_creating_new_commitments_on_static_call");
+    DummyBuilder dummyBuilder = DummyBuilder("public_kernel_fails_creating_new_note_hashes_on_static_call");
     PublicKernelInputs<NT> inputs = get_kernel_inputs_with_previous_kernel(false);
 
     // the function call has the contract address and storage contract address equal and so it should fail for a
@@ -1230,7 +1230,7 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_commitments_on_static
     auto public_inputs = native_public_kernel_circuit_public_previous_kernel(dummyBuilder, inputs);
     ASSERT_TRUE(dummyBuilder.failed());
     ASSERT_EQ(dummyBuilder.get_first_failure().code,
-              CircuitErrorCode::PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
+              CircuitErrorCode::PUBLIC_KERNEL__NEW_NOTE_HASHES_PROHIBITED_IN_STATIC_CALL);
 }
 
 TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_call)
@@ -1245,8 +1245,8 @@ TEST(public_kernel_tests, public_kernel_fails_creating_new_nullifiers_on_static_
     // set previously set items to 0
     inputs.public_call.call_stack_item.public_inputs.contract_storage_update_requests =
         empty_array_of_values<ContractStorageUpdateRequest<NT>, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL>();
-    inputs.public_call.call_stack_item.public_inputs.new_commitments =
-        empty_array_of_values<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL>();
+    inputs.public_call.call_stack_item.public_inputs.new_note_hashes =
+        empty_array_of_values<NT::fr, MAX_NEW_NOTE_HASHES_PER_CALL>();
 
     // regenerate call data hash
     inputs.previous_kernel.public_inputs.end.public_call_stack[0] =

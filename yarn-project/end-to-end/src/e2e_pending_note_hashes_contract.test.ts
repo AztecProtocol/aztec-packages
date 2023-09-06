@@ -2,19 +2,19 @@ import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Fr, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
-import { PendingCommitmentsContract } from '@aztec/noir-contracts/types';
+import { PendingNoteHashesContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, CompleteAddress, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
-describe('e2e_pending_commitments_contract', () => {
+describe('e2e_pending_noteHashes_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallet: Wallet;
   let logger: DebugLogger;
   let owner: AztecAddress;
 
-  let contract: PendingCommitmentsContract;
+  let contract: PendingNoteHashesContract;
 
   beforeEach(async () => {
     let accounts: CompleteAddress[];
@@ -29,17 +29,17 @@ describe('e2e_pending_commitments_contract', () => {
     }
   });
 
-  const expectCommitmentsSquashedExcept = async (exceptFirstFew: number) => {
+  const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode!.getBlockNumber();
     const block = (await aztecNode!.getBlocks(blockNum, 1))[0];
 
-    // all new commitments should be zero (should be squashed)
+    // all new noteHashes should be zero (should be squashed)
     for (let c = 0; c < exceptFirstFew; c++) {
-      expect(block.newCommitments[c]).not.toEqual(Fr.ZERO);
+      expect(block.newNoteHashes[c]).not.toEqual(Fr.ZERO);
     }
 
-    for (let c = exceptFirstFew; c < block.newCommitments.length; c++) {
-      expect(block.newCommitments[c]).toEqual(Fr.ZERO);
+    for (let c = exceptFirstFew; c < block.newNoteHashes.length; c++) {
+      expect(block.newNoteHashes[c]).toEqual(Fr.ZERO);
     }
   };
 
@@ -59,7 +59,7 @@ describe('e2e_pending_commitments_contract', () => {
 
   const deployContract = async () => {
     logger(`Deploying L2 contract...`);
-    contract = await PendingCommitmentsContract.deploy(wallet).send().deployed();
+    contract = await PendingNoteHashesContract.deploy(wallet).send().deployed();
     logger('L2 contract deployed');
     return contract;
   };
@@ -99,7 +99,7 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -123,7 +123,7 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -148,7 +148,7 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt = await tx.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(1);
+    await expectNoteHashesSquashedExcept(1);
     await expectNullifiersSquashedExcept(0);
   }, 60_000);
 
@@ -169,7 +169,7 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt0 = await tx0.getReceipt();
     expect(receipt0.status).toBe(TxStatus.MINED);
 
-    await expectCommitmentsSquashedExcept(1); // first TX just creates 1 persistent note
+    await expectNoteHashesSquashedExcept(1); // first TX just creates 1 persistent note
     await expectNullifiersSquashedExcept(0);
 
     // create another note, and nullify it and AND nullify the above-created note in the same TX
@@ -188,7 +188,7 @@ describe('e2e_pending_commitments_contract', () => {
     expect(receipt1.status).toBe(TxStatus.MINED);
 
     // second TX creates 1 note, but it is squashed!
-    await expectCommitmentsSquashedExcept(0);
+    await expectNoteHashesSquashedExcept(0);
     // the nullifier corresponding to this transient note is squashed, but the
     // other nullifier corresponding to the persistent note becomes persistent itself.
     await expectNullifiersSquashedExcept(1);
@@ -209,8 +209,8 @@ describe('e2e_pending_commitments_contract', () => {
     const receipt = await tx0.getReceipt();
     expect(receipt.status).toBe(TxStatus.MINED);
 
-    // There is a single new commitment/note.
-    await expectCommitmentsSquashedExcept(1);
+    // There is a single new noteHash/note.
+    await expectNoteHashesSquashedExcept(1);
 
     const tx1 = deployedContract.methods
       .test_insert_then_get_then_nullify_all_in_nested_calls(

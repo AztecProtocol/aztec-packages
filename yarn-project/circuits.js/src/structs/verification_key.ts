@@ -43,13 +43,13 @@ export class G1AffineElement {
 }
 
 /**
- * Used store and serialize a key-value map of commitments where key is the name of the commitment and value is
- * the commitment itself. The name can be e.g. Q_1, Q_2, SIGMA_1 etc.
+ * Used store and serialize a key-value map of noteHashes where key is the name of the noteHash and value is
+ * the noteHash itself. The name can be e.g. Q_1, Q_2, SIGMA_1 etc.
  */
 export class CommitmentMap {
   constructor(
     /**
-     * An object used to store the commitments.
+     * An object used to store the noteHashes.
      */
     public record: { [name: string]: G1AffineElement },
   ) {}
@@ -75,7 +75,7 @@ export class CommitmentMap {
 }
 
 /**
- * Kate commitment key object for verifying pairing equations.
+ * Kate noteHash key object for verifying pairing equations.
  * @see proof_system/verification_key/verification_key.hpp
  */
 export class VerificationKey {

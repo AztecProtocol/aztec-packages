@@ -151,7 +151,7 @@ export class PrivateFunctionExecution {
       getL1ToL2Message: ([msgKey]) => {
         return this.context.getL1ToL2Message(fromACVMField(msgKey));
       },
-      getCommitment: ([commitment]) => this.context.getCommitment(this.contractAddress, commitment),
+      getNoteHash: ([noteHash]) => this.context.getNoteHash(this.contractAddress, noteHash),
       debugLog: (...args) => {
         this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);

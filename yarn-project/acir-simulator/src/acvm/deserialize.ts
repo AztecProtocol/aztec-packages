@@ -4,8 +4,8 @@ import {
   ContractStorageRead,
   ContractStorageUpdateRequest,
   HistoricBlockData,
-  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -127,9 +127,9 @@ export function extractPrivateCircuitPublicInputs(
   const argsHash = witnessReader.readField();
   const returnValues = witnessReader.readFieldArray(RETURN_VALUES_LENGTH);
   const readRequests = witnessReader.readFieldArray(MAX_READ_REQUESTS_PER_CALL);
-  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
+  const newNoteHashes = witnessReader.readFieldArray(MAX_NEW_NOTE_HASHES_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
-  const nullifiedCommitments = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
+  const nullifiedNoteHashes = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const privateCallStack = witnessReader.readFieldArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
@@ -166,9 +166,9 @@ export function extractPrivateCircuitPublicInputs(
     argsHash,
     returnValues,
     readRequests,
-    newCommitments,
+    newNoteHashes,
     newNullifiers,
-    nullifiedCommitments,
+    nullifiedNoteHashes,
     privateCallStack,
     publicCallStack,
     newL2ToL1Msgs,
@@ -222,7 +222,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
   }
 
   const publicCallStack = witnessReader.readFieldArray(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-  const newCommitments = witnessReader.readFieldArray(MAX_NEW_COMMITMENTS_PER_CALL);
+  const newNoteHashes = witnessReader.readFieldArray(MAX_NEW_NOTE_HASHES_PER_CALL);
   const newNullifiers = witnessReader.readFieldArray(MAX_NEW_NULLIFIERS_PER_CALL);
   const newL2ToL1Msgs = witnessReader.readFieldArray(MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
 
@@ -251,7 +251,7 @@ export function extractPublicCircuitPublicInputs(partialWitness: ACVMWitness, ac
     >,
     contractStorageReads as Tuple<ContractStorageRead, typeof MAX_PUBLIC_DATA_READS_PER_CALL>,
     publicCallStack,
-    newCommitments,
+    newNoteHashes,
     newNullifiers,
     newL2ToL1Msgs,
     unencryptedLogsHash,

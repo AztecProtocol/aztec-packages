@@ -1,5 +1,5 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
-import { CircuitsWasm, Fr, MAX_NEW_COMMITMENTS_PER_TX } from '@aztec/circuits.js';
+import { CircuitsWasm, Fr, MAX_NEW_NOTE_HASHES_PER_TX } from '@aztec/circuits.js';
 import { Grumpkin, pedersenCompressInputs } from '@aztec/circuits.js/barretenberg';
 import { Point } from '@aztec/foundation/fields';
 import { ConstantKeyPair } from '@aztec/key-store';
@@ -34,8 +34,8 @@ describe('Note Processor', () => {
   let keyStore: MockProxy<KeyStore>;
   let simulator: MockProxy<AcirSimulator>;
   const firstBlockNum = 123;
-  const numCommitmentsPerBlock = TXS_PER_BLOCK * MAX_NEW_COMMITMENTS_PER_TX;
-  const firstBlockDataStartIndex = (firstBlockNum - 1) * numCommitmentsPerBlock;
+  const numNoteHashesPerBlock = TXS_PER_BLOCK * MAX_NEW_NOTE_HASHES_PER_TX;
+  const firstBlockDataStartIndex = (firstBlockNum - 1) * numNoteHashesPerBlock;
 
   const computeMockNoteHash = (preimage: Fr[]) =>
     Fr.fromBuffer(
@@ -51,12 +51,12 @@ describe('Note Processor', () => {
     const ownedNoteSpendingInfo: NoteSpendingInfo[] = [];
     for (let i = 0; i < TXS_PER_BLOCK; ++i) {
       const ownedDataIndices = ownedData[i] || [];
-      if (ownedDataIndices.some(index => index >= MAX_NEW_COMMITMENTS_PER_TX)) {
-        throw new Error(`Data index should be less than ${MAX_NEW_COMMITMENTS_PER_TX}.`);
+      if (ownedDataIndices.some(index => index >= MAX_NEW_NOTE_HASHES_PER_TX)) {
+        throw new Error(`Data index should be less than ${MAX_NEW_NOTE_HASHES_PER_TX}.`);
       }
 
       const logs: FunctionL2Logs[] = [];
-      const notesForTx = newNotes.slice(i * MAX_NEW_COMMITMENTS_PER_TX, (i + 1) * MAX_NEW_COMMITMENTS_PER_TX);
+      const notesForTx = newNotes.slice(i * MAX_NEW_NOTE_HASHES_PER_TX, (i + 1) * MAX_NEW_NOTE_HASHES_PER_TX);
       notesForTx.forEach((note, noteIndex) => {
         const isOwner = ownedDataIndices.includes(noteIndex);
         const publicKey = isOwner ? owner.getPublicKey() : Point.random();
@@ -85,11 +85,11 @@ describe('Note Processor', () => {
     const numberOfBlocks = prependedBlocks + appendedBlocks + 1;
     for (let i = 0; i < numberOfBlocks; ++i) {
       const block = L2Block.random(firstBlockNum + i, TXS_PER_BLOCK);
-      block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numCommitmentsPerBlock;
+      block.startPrivateDataTreeSnapshot.nextAvailableLeafIndex = firstBlockDataStartIndex + i * numNoteHashesPerBlock;
 
-      const newNotes = Array(numCommitmentsPerBlock).fill(0).map(NoteSpendingInfo.random);
+      const newNotes = Array(numNoteHashesPerBlock).fill(0).map(NoteSpendingInfo.random);
 
-      block.newCommitments = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));
+      block.newNoteHashes = newNotes.map(n => computeMockNoteHash(n.notePreimage.items));
 
       const isTargetBlock = i === prependedBlocks;
       const { encryptedLogs, ownedNoteSpendingInfo } = createEncryptedLogsAndOwnedNoteSpendingInfo(
@@ -150,7 +150,7 @@ describe('Note Processor', () => {
 
   it('should store multiple notes that belong to us', async () => {
     const prependedBlocks = 3;
-    const thisBlockDataStartIndex = firstBlockDataStartIndex + prependedBlocks * numCommitmentsPerBlock;
+    const thisBlockDataStartIndex = firstBlockDataStartIndex + prependedBlocks * numNoteHashesPerBlock;
 
     const { blockContexts, encryptedLogsArr, ownedNoteSpendingInfos } = mockData(
       [[], [1], [], [0, 2]],
@@ -163,17 +163,17 @@ describe('Note Processor', () => {
       expect.objectContaining({
         ...ownedNoteSpendingInfos[0],
         // Index 1 log in the 2nd tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (2 - 1) + 1),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (2 - 1) + 1),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[1],
         // Index 0 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 0),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 0),
       }),
       expect.objectContaining({
         ...ownedNoteSpendingInfos[2],
         // Index 2 log in the 4th tx.
-        index: BigInt(thisBlockDataStartIndex + MAX_NEW_COMMITMENTS_PER_TX * (4 - 1) + 2),
+        index: BigInt(thisBlockDataStartIndex + MAX_NEW_NOTE_HASHES_PER_TX * (4 - 1) + 2),
       }),
     ]);
   });

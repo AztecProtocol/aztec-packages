@@ -10,7 +10,7 @@ use crate::note::{
     utils::compute_inner_note_hash,
 };
 use crate::oracle::notes::{notify_created_note, notify_nullified_note};
-use crate::constants_gen::EMPTY_NULLIFIED_COMMITMENT;
+use crate::constants_gen::EMPTY_NULLIFIED_NOTE_HASH;
 
 fn create_note<Note, N>(
     context: &mut PrivateContext,
@@ -55,27 +55,27 @@ fn destroy_note<Note, N>(
     note_interface: NoteInterface<Note, N>,
 ) {
     let mut nullifier = 0;
-    let mut nullified_commitment: Field = EMPTY_NULLIFIED_COMMITMENT;
+    let mut nullified_note_hash: Field = EMPTY_NULLIFIED_NOTE_HASH;
     let compute_nullifier = note_interface.compute_nullifier;
     nullifier = compute_nullifier(note);
 
     let serialise = note_interface.serialise;
     let preimage = serialise(note);
 
-    // We also need the note commitment corresponding to the "nullifier"
+    // We also need the note note_hash corresponding to the "nullifier"
     let get_header = note_interface.get_header;
     let header = get_header(note);
-    // 0 nonce implies "transient" nullifier (must nullify a commitment in this TX).
-    // `nullified_commitment` is used to inform the kernel which pending commitment
+    // 0 nonce implies "transient" nullifier (must nullify a note_hash in this TX).
+    // `nullified_note_hash` is used to inform the kernel which pending note_hash
     // the nullifier corresponds to so they can be matched and both squashed/deleted.
     // nonzero nonce implies "persistable" nullifier (nullifies a persistent/in-tree
-    // commitment) in which case `nullified_commitment` is not used since the kernel
+    // note_hash) in which case `nullified_note_hash` is not used since the kernel
     // just siloes and forwards the nullier to its output.
     if (header.nonce == 0) {
-        // TODO(1718): Can we reuse the note commitment computed in `compute_nullifier`?
-        nullified_commitment = compute_inner_note_hash(note_interface, note);
+        // TODO(1718): Can we reuse the note note_hash computed in `compute_nullifier`?
+        nullified_note_hash = compute_inner_note_hash(note_interface, note);
     }
-    assert(notify_nullified_note(storage_slot, nullifier, preimage, nullified_commitment) == 0);
+    assert(notify_nullified_note(storage_slot, nullifier, preimage, nullified_note_hash) == 0);
 
-    context.push_new_nullifier(nullifier, nullified_commitment)
+    context.push_new_nullifier(nullifier, nullified_note_hash)
 }

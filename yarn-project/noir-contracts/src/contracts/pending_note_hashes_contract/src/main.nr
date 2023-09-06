@@ -4,7 +4,7 @@ mod storage;
 // read (eventually even nullified) in the same TX. This contract
 // also contains some "bad" test cases to ensure that notes cannot
 // be read/nullified before their creation etc.
-contract PendingCommitments {
+contract PendingNoteHashes {
     // Libs
     use dep::std::option::Option;
     use dep::value_note::{
@@ -30,7 +30,7 @@ contract PendingCommitments {
     #[aztec(private)]
     fn constructor() {}
 
-    // Confirm can access pending commitments by creating / inserting a note and then
+    // Confirm can access pending note_hashes by creating / inserting a note and then
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[aztec(private)]
@@ -66,7 +66,7 @@ contract PendingCommitments {
         note0.value
     }
 
-    // Confirm cannot access commitments inserted later in same function
+    // Confirm cannot access note_hashes inserted later in same function
     #[aztec(private)]
     fn test_bad_get_then_insert_flat(
         amount: Field,
@@ -162,8 +162,8 @@ contract PendingCommitments {
         assert(maybe_notes[1].is_none());
     }
 
-    // Test pending commitments with note insertion done in a nested call
-    // and "read" / get of that pending note/commitment in another nested call
+    // Test pending note_hashes with note insertion done in a nested call
+    // and "read" / get of that pending note/note_hash in another nested call
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[aztec(private)]
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
@@ -255,11 +255,11 @@ contract PendingCommitments {
         let _callStackItem4 = context.call_private_function(inputs.call_context.storage_contract_address, get_note_zero_fn_selector, [owner]);
     }
 
-    // Confirm cannot get/read a pending commitment in a nested call
+    // Confirm cannot get/read a pending note_hash in a nested call
     // that is created/inserted later in execution but in the parent.
     // NOTE: This test is especially important in an end-to-end context because the parent call
     // (and therefore the insertion) will be processed in an earlier kernel iteration, but the
-    // nested call (later kernel iteration) should not be able to read the commitment despite
+    // nested call (later kernel iteration) should not be able to read the note_hash despite
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
     // #[aztec(private)]

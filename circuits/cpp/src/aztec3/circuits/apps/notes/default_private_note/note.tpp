@@ -54,10 +54,10 @@ template <typename Builder, typename V> bool DefaultPrivateNote<Builder, V>::is_
 }
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commitment()
+typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_note_hash()
 {
-    if (commitment.has_value()) {
-        return *commitment;
+    if (note_hash.has_value()) {
+        return *note_hash;
     }
 
     grumpkin_point const storage_slot_point = state_var->storage_slot_point;
@@ -68,19 +68,19 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commi
     auto gen_pair_address = [&](std::optional<address> const& input, size_t const hash_sub_index) {
         if (!input) {
             throw_or_abort(
-                "Cannot commit to a partial preimage. Call compute_partial_commitment instead, or complete "
+                "Cannot commit to a partial preimage. Call compute_partial_note_hash instead, or complete "
                 "the preimage.");
         }
-        return std::make_pair((*input).to_field(), generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
+        return std::make_pair((*input).to_field(), generator_index_t({ GeneratorIndex::NOTE_HASH, hash_sub_index }));
     };
 
     auto gen_pair_fr = [&](std::optional<fr> const& input, size_t const hash_sub_index) {
         if (!input) {
             throw_or_abort(
-                "Cannot commit to a partial preimage. Call compute_partial_commitment instead, or complete "
+                "Cannot commit to a partial preimage. Call compute_partial_note_hash instead, or complete "
                 "the preimage.");
         }
-        return std::make_pair(*input, generator_index_t({ GeneratorIndex::COMMITMENT, hash_sub_index }));
+        return std::make_pair(*input, generator_index_t({ GeneratorIndex::NOTE_HASH, hash_sub_index }));
     };
 
     if (!note_preimage.salt) {
@@ -89,7 +89,7 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commi
 
     const auto& [value, owner, creator_address, memo, salt, nonce, is_dummy] = note_preimage;
 
-    const grumpkin_point commitment_point =
+    const grumpkin_point note_hash_point =
         storage_slot_point +
         CT::commit(
             { gen_pair_fr(value, PrivateStateNoteGeneratorIndex::VALUE),
@@ -98,14 +98,14 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_commi
               gen_pair_fr(memo, PrivateStateNoteGeneratorIndex::MEMO),
               gen_pair_fr(salt, PrivateStateNoteGeneratorIndex::SALT),
               gen_pair_fr(nonce, PrivateStateNoteGeneratorIndex::NONCE),
-              std::make_pair(
-                  is_dummy, generator_index_t({ GeneratorIndex::COMMITMENT, PrivateStateNoteGeneratorIndex::IS_DUMMY }))
+              std::make_pair(is_dummy,
+                             generator_index_t({ GeneratorIndex::NOTE_HASH, PrivateStateNoteGeneratorIndex::IS_DUMMY }))
 
             });
 
-    commitment = commitment_point.x;
+    note_hash = note_hash_point.x;
 
-    return *commitment;
+    return *note_hash;
 }
 
 template <typename Builder, typename V>
@@ -117,16 +117,16 @@ typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nulli
     if (nullifier && nullifier_preimage) {
         return *nullifier;
     }
-    if (!commitment) {
-        compute_commitment();
+    if (!note_hash) {
+        compute_note_hash();
     }
 
     fr const& owner_private_key = get_oracle().get_msg_sender_private_key();
 
     nullifier =
-        DefaultPrivateNote<Builder, V>::compute_nullifier(*commitment, owner_private_key, note_preimage.is_dummy);
+        DefaultPrivateNote<Builder, V>::compute_nullifier(*note_hash, owner_private_key, note_preimage.is_dummy);
     nullifier_preimage = {
-        *commitment,
+        *note_hash,
         owner_private_key,
         note_preimage.is_dummy,
     };
@@ -137,22 +137,22 @@ template <typename Builder, typename V>
 typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_dummy_nullifier()
 {
     auto& oracle = get_oracle();
-    fr const dummy_commitment = oracle.generate_random_element();
+    fr const dummy_note_hash = oracle.generate_random_element();
     fr const& owner_private_key = oracle.get_msg_sender_private_key();
-    const boolean is_dummy_commitment = true;
+    const boolean is_dummy_note_hash = true;
 
-    return DefaultPrivateNote<Builder, V>::compute_nullifier(dummy_commitment, owner_private_key, is_dummy_commitment);
+    return DefaultPrivateNote<Builder, V>::compute_nullifier(dummy_note_hash, owner_private_key, is_dummy_note_hash);
 };
 
 template <typename Builder, typename V>
-typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nullifier(fr const& commitment,
+typename CircuitTypes<Builder>::fr DefaultPrivateNote<Builder, V>::compute_nullifier(fr const& note_hash,
                                                                                      fr const& owner_private_key,
-                                                                                     boolean const& is_dummy_commitment)
+                                                                                     boolean const& is_dummy_note_hash)
 {
     const std::vector<fr> hash_inputs{
-        commitment,
+        note_hash,
         owner_private_key,
-        is_dummy_commitment,
+        is_dummy_note_hash,
     };
 
     // We compress the hash_inputs with Pedersen, because that's cheaper (constraint-wise) than compressing

@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { Tuple } from '@aztec/foundation/serialize';
 
 import {
-  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -40,17 +40,17 @@ export class PrivateCircuitPublicInputs {
      */
     public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
-     * New commitments created by the corresponding function call.
+     * New noteHashes created by the corresponding function call.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created by the corresponding function call.
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
-     * The commitments those were nullified by the above newNullifiers.
+     * The noteHashes those were nullified by the above newNullifiers.
      */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
+    public nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_CALL>,
     /**
      * Private call stack at the current kernel iteration.
      */
@@ -102,9 +102,9 @@ export class PrivateCircuitPublicInputs {
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_CALL);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
+    assertMemberLength(this, 'newNoteHashes', MAX_NEW_NOTE_HASHES_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
-    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_CALL);
+    assertMemberLength(this, 'nullifiedNoteHashes', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
@@ -130,7 +130,7 @@ export class PrivateCircuitPublicInputs {
       Fr.ZERO,
       makeTuple(RETURN_VALUES_LENGTH, Fr.zero),
       makeTuple(MAX_READ_REQUESTS_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
@@ -158,9 +158,9 @@ export class PrivateCircuitPublicInputs {
       fields.argsHash,
       fields.returnValues,
       fields.readRequests,
-      fields.newCommitments,
+      fields.newNoteHashes,
       fields.newNullifiers,
-      fields.nullifiedCommitments,
+      fields.nullifiedNoteHashes,
       fields.privateCallStack,
       fields.publicCallStack,
       fields.newL2ToL1Msgs,

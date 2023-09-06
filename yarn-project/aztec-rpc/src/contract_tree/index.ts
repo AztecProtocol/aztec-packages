@@ -26,7 +26,7 @@ import {
 } from '@aztec/circuits.js/abis';
 import { ContractAbi, FunctionSelector } from '@aztec/foundation/abi';
 import { assertLength } from '@aztec/foundation/serialize';
-import { AztecNode, ContractCommitmentProvider, ContractDao, PublicKey } from '@aztec/types';
+import { AztecNode, ContractDao, ContractNoteHashProvider, PublicKey } from '@aztec/types';
 
 /**
  * The ContractTree class represents a Merkle tree of functions for a particular contract.
@@ -45,7 +45,7 @@ export class ContractTree {
      * The contract data object containing the ABI and contract address.
      */
     public readonly contract: ContractDao,
-    private contractCommitmentProvider: ContractCommitmentProvider,
+    private contractNoteHashProvider: ContractNoteHashProvider,
     private wasm: CircuitsWasm,
     /**
      * Data associated with the contract constructor for a new contract.
@@ -161,15 +161,15 @@ export class ContractTree {
       const { completeAddress, portalContract } = this.contract;
       const root = await this.getFunctionTreeRoot();
       const newContractData = new NewContractData(completeAddress.address, portalContract, root);
-      const commitment = computeContractLeaf(this.wasm, newContractData);
-      const index = await this.contractCommitmentProvider.findContractIndex(commitment.toBuffer());
+      const noteHash = computeContractLeaf(this.wasm, newContractData);
+      const index = await this.contractNoteHashProvider.findContractIndex(noteHash.toBuffer());
       if (index === undefined) {
         throw new Error(
-          `Failed to find contract at ${completeAddress.address} with portal ${portalContract} resulting in commitment ${commitment}.`,
+          `Failed to find contract at ${completeAddress.address} with portal ${portalContract} resulting in noteHash ${noteHash}.`,
         );
       }
 
-      const siblingPath = await this.contractCommitmentProvider.getContractPath(index);
+      const siblingPath = await this.contractNoteHashProvider.getContractPath(index);
       this.contractMembershipWitness = new MembershipWitness<typeof CONTRACT_TREE_HEIGHT>(
         CONTRACT_TREE_HEIGHT,
         index,
@@ -181,7 +181,7 @@ export class ContractTree {
 
   /**
    * Calculate and return the root of the function tree for the current contract.
-   * This root is a cryptographic commitment to the set of constrained functions within the contract,
+   * This root is a cryptographic noteHash to the set of constrained functions within the contract,
    * which is used in the Aztec node's proof system. The root will be cached after the first call.
    *
    * @returns A promise that resolves to the Fr (finite field element) representation of the function tree root.

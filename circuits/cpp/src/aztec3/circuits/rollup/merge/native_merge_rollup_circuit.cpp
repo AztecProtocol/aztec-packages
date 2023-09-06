@@ -23,7 +23,7 @@ BaseOrMergeRollupPublicInputs merge_rollup_circuit(DummyBuilder& builder, MergeR
     auto right = mergeRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs;
 
     // check that both input proofs are either both "BASE" or "MERGE" and not a mix!
-    // this prevents having wonky commitment, nullifier and contract subtrees.
+    // this prevents having wonky note_hash, nullifier and contract subtrees.
     AggregationObject const aggregation_object = components::aggregate_proofs(left, right);
     components::assert_both_input_proofs_of_same_rollup_type(builder, left, right);
     auto current_height = components::assert_both_input_proofs_of_same_height_and_return(builder, left, right);

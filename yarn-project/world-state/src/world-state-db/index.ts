@@ -65,7 +65,7 @@ type WithIncludeUncommitted<F> = F extends (...args: [...infer Rest]) => infer R
   : F;
 
 /**
- * The current roots of the commitment trees
+ * The current roots of the noteHash trees
  */
 export type CurrentTreeRoots = {
   /** Private data tree root. */
@@ -114,7 +114,7 @@ export interface MerkleTreeOperations {
   getTreeInfo(treeId: MerkleTreeId): Promise<TreeInfo>;
 
   /**
-   * Gets the current roots of the commitment trees.
+   * Gets the current roots of the noteHash trees.
    */
   getTreeRoots(): Promise<CurrentTreeRoots>;
 
@@ -205,7 +205,7 @@ export interface MerkleTreeOperations {
   ): Promise<[LowLeafWitnessData<number>[], SiblingPath<number>] | [undefined, SiblingPath<number>]>;
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new noteHashes into the merkle tree).
    * @param block - The L2 block to handle.
    */
   handleL2Block(block: L2Block): Promise<void>;

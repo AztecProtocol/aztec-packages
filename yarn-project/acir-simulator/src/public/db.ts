@@ -2,7 +2,7 @@ import { EthAddress, FunctionSelector } from '@aztec/circuits.js';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../index.js';
+import { MessageLoadOracleInputs, NoteHashDataOracleInputs } from '../index.js';
 
 /**
  * Database interface for providing access to public state.
@@ -54,8 +54,8 @@ export interface PublicContractsDB {
   getPortalContractAddress(address: AztecAddress): Promise<EthAddress | undefined>;
 }
 
-/** Database interface for providing access to commitment tree and l1 to l2 messages tree (append only data trees). */
-export interface CommitmentsDB {
+/** Database interface for providing access to noteHash tree and l1 to l2 messages tree (append only data trees). */
+export interface NoteHashesDB {
   /**
    * Gets a confirmed L1 to L2 message for the given message key.
    * TODO(Maddiaa): Can be combined with aztec-node method that does the same thing.
@@ -65,10 +65,10 @@ export interface CommitmentsDB {
   getL1ToL2Message(msgKey: Fr): Promise<MessageLoadOracleInputs>;
 
   /**
-   * Gets a message index and sibling path to some commitment in the private data tree.
+   * Gets a message index and sibling path to some noteHash in the private data tree.
    * @param address - The contract address owning storage.
-   * @param commitment - The preimage of the siloed data.
-   * @returns - The Commitment data oracle object
+   * @param noteHash - The preimage of the siloed data.
+   * @returns - The NoteHash data oracle object
    */
-  getCommitmentOracle(address: AztecAddress, commitment: Fr): Promise<CommitmentDataOracleInputs>;
+  getNoteHashOracle(address: AztecAddress, noteHash: Fr): Promise<NoteHashDataOracleInputs>;
 }

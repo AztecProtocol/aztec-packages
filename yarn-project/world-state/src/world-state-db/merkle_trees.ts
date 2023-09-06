@@ -207,7 +207,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Get the current roots of the commitment trees.
+   * Get the current roots of the noteHash trees.
    * @param includeUncommitted - Indicates whether to include uncommitted data.
    * @returns The current roots of the trees.
    */
@@ -378,7 +378,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new noteHashes into the merkle tree).
    * @param block - The L2 block to handle.
    */
   public async handleL2Block(block: L2Block): Promise<void> {
@@ -523,7 +523,7 @@ export class MerkleTrees implements MerkleTreeDb {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new noteHashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
    */
   private async _handleL2Block(l2Block: L2Block) {
@@ -550,7 +550,7 @@ export class MerkleTrees implements MerkleTreeDb {
       // Sync the append only trees
       for (const [tree, leaves] of [
         [MerkleTreeId.CONTRACT_TREE, l2Block.newContracts],
-        [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newCommitments],
+        [MerkleTreeId.PRIVATE_DATA_TREE, l2Block.newNoteHashes],
         [MerkleTreeId.L1_TO_L2_MESSAGES_TREE, l2Block.newL1ToL2Messages],
       ] as const) {
         await this._appendLeaves(

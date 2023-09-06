@@ -266,8 +266,8 @@ export class HttpNode implements AztecNode {
    * @param leafValue - The value to search for.
    * @returns The index of the given leaf in the data tree or undefined if not found.
    */
-  async findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined> {
-    const url = new URL(`${this.baseUrl}/commitment-index`);
+  async findNoteHashIndex(leafValue: Buffer): Promise<bigint | undefined> {
+    const url = new URL(`${this.baseUrl}/noteHash-index`);
     url.searchParams.append('leaf', leafValue.toString('hex'));
     const response = await (await fetch(url.toString())).json();
     if (!response || !response.index) {

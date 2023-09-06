@@ -126,14 +126,14 @@ void update_end_values(DummyCircuitBuilder& builder,
 {
     // We only initialized constants member of public_inputs so far. Therefore, there must not be any
     // new nullifiers or logs as part of public_inputs.
-    builder.do_assert(is_array_empty(public_inputs.end.new_commitments),
-                      "public_inputs.end.new_commitments must start as empty in initial kernel iteration",
+    builder.do_assert(is_array_empty(public_inputs.end.new_note_hashes),
+                      "public_inputs.end.new_note_hashes must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.new_nullifiers),
                       "public_inputs.end.new_nullifiers must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
-    builder.do_assert(is_array_empty(public_inputs.end.nullified_commitments),
-                      "public_inputs.end.nullified_commitments must start as empty in initial kernel iteration",
+    builder.do_assert(is_array_empty(public_inputs.end.nullified_note_hashes),
+                      "public_inputs.end.nullified_note_hashes must start as empty in initial kernel iteration",
                       CircuitErrorCode::PRIVATE_KERNEL__UNSUPPORTED_OP);
     builder.do_assert(is_array_empty(public_inputs.end.encrypted_logs_hash),
                       "public_inputs.end.encrypted_logs_hash must start as empty in initial kernel iteration",
@@ -157,11 +157,11 @@ void update_end_values(DummyCircuitBuilder& builder,
                private_inputs.tx_request.hash(),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
-    // Push an empty nullified commitment too since each nullifier must
-    // be paired with a nonzero (real or "empty") nullified commitment
+    // Push an empty nullified note_hash too since each nullifier must
+    // be paired with a nonzero (real or "empty") nullified note_hash
     array_push(builder,
-               public_inputs.end.nullified_commitments,
-               NT::fr(EMPTY_NULLIFIED_COMMITMENT),
+               public_inputs.end.nullified_note_hashes,
+               NT::fr(EMPTY_NULLIFIED_NOTE_HASH),
                format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING,
                       "could not push tx hash nullifier into new_nullifiers array. Too many new nullifiers in one tx"));
 

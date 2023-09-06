@@ -152,7 +152,7 @@ contract PrivateTokenAirdrop {
     }
 
     // Transfers `amounts` of tokens from `sender` to 3 `recipients`. 
-    // Aztec only allows `MAX_NEW_COMMITMENTS_PER_CALL = 4` notes per tx =>
+    // Aztec only allows `MAX_NEW_NOTE_HASHES_PER_CALL = 4` notes per tx =>
     // 1 new note for sender's new balance and 1 note each for 3 recipients (for their new balance)
     #[aztec(private)]
     fn batchTransfer(
@@ -192,10 +192,10 @@ contract PrivateTokenAirdrop {
         }
 
         // Also emit an unencrypted log, eg. "Coins transferred"
-        // In this example, we emit the first output note's commitment to ensure that the unencrypted log
+        // In this example, we emit the first output note's note_hash to ensure that the unencrypted log
         // for each call to this function is distinct. This is done to detect any issues while collecting 
         // logs when building a transaction. See: https://github.com/AztecProtocol/aztec-packages/issues/987
-        emit_unencrypted_log(&mut context, context.new_commitments.storage[0]);
+        emit_unencrypted_log(&mut context, context.new_note_hashes.storage[0]);
     }
 
     // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).

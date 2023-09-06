@@ -1,5 +1,5 @@
-import { CircuitsWasm, MAX_NEW_COMMITMENTS_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
-import { computeCommitmentNonce, siloNullifier } from '@aztec/circuits.js/abis';
+import { CircuitsWasm, MAX_NEW_NOTE_HASHES_PER_TX, MAX_NEW_NULLIFIERS_PER_TX } from '@aztec/circuits.js';
+import { computeNoteHashNonce, siloNullifier } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
@@ -99,10 +99,10 @@ export class NoteProcessor {
 
       // Iterate over all the encrypted logs and try decrypting them. If successful, store the note spending info.
       for (let indexOfTxInABlock = 0; indexOfTxInABlock < txLogs.length; ++indexOfTxInABlock) {
-        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX;
-        const newCommitments = block.newCommitments.slice(
-          indexOfTxInABlock * MAX_NEW_COMMITMENTS_PER_TX,
-          (indexOfTxInABlock + 1) * MAX_NEW_COMMITMENTS_PER_TX,
+        const dataStartIndexForTx = dataStartIndexForBlock + indexOfTxInABlock * MAX_NEW_NOTE_HASHES_PER_TX;
+        const newNoteHashes = block.newNoteHashes.slice(
+          indexOfTxInABlock * MAX_NEW_NOTE_HASHES_PER_TX,
+          (indexOfTxInABlock + 1) * MAX_NEW_NOTE_HASHES_PER_TX,
         );
         const newNullifiers = block.newNullifiers.slice(
           indexOfTxInABlock * MAX_NEW_NULLIFIERS_PER_TX,
@@ -119,7 +119,7 @@ export class NoteProcessor {
               try {
                 const { index, nonce, siloedNullifier } = await this.findNoteIndexAndNullifier(
                   dataStartIndexForTx,
-                  newCommitments,
+                  newNoteHashes,
                   newNullifiers[0],
                   noteSpendingInfo,
                 );
@@ -152,35 +152,35 @@ export class NoteProcessor {
 
   /**
    * Find the index of the note in the private data tree by computing the note hash with different nonce and see which
-   * commitment for the current tx matches this value.
+   * noteHash for the current tx matches this value.
    * Compute the nullifier for a given transaction auxiliary data.
    * The nullifier is calculated using the private key of the account,
    * contract address, and note preimage associated with the noteSpendingInfo.
-   * This method assists in identifying spent commitments in the private state.
-   * @param dataStartIndex - First index of the commitments in the tx in the private data tree.
-   * @param commitments - Commitments in the tx. One of them should be the note's commitment.
+   * This method assists in identifying spent noteHashes in the private state.
+   * @param dataStartIndex - First index of the noteHashes in the tx in the private data tree.
+   * @param noteHashes - NoteHashes in the tx. One of them should be the note's noteHash.
    * @param firstNullifier - First nullifier in the tx.
    * @param noteSpendingInfo - An instance of NoteSpendingInfo containing transaction details.
    * @returns A Fr instance representing the computed nullifier.
    */
   private async findNoteIndexAndNullifier(
     dataStartIndex: number,
-    commitments: Fr[],
+    noteHashes: Fr[],
     firstNullifier: Fr,
     { contractAddress, storageSlot, notePreimage }: NoteSpendingInfo,
   ) {
     const wasm = await CircuitsWasm.get();
-    let commitmentIndex = 0;
+    let noteHashIndex = 0;
     let nonce: Fr | undefined;
     let innerNoteHash: Fr | undefined;
     let siloedNoteHash: Fr | undefined;
     let uniqueSiloedNoteHash: Fr | undefined;
     let innerNullifier: Fr | undefined;
-    for (; commitmentIndex < commitments.length; ++commitmentIndex) {
-      const commitment = commitments[commitmentIndex];
-      if (commitment.equals(Fr.ZERO)) break;
+    for (; noteHashIndex < noteHashes.length; ++noteHashIndex) {
+      const noteHash = noteHashes[noteHashIndex];
+      if (noteHash.equals(Fr.ZERO)) break;
 
-      const expectedNonce = computeCommitmentNonce(wasm, firstNullifier, commitmentIndex);
+      const expectedNonce = computeNoteHashNonce(wasm, firstNullifier, noteHashIndex);
       const {
         innerNoteHash: innerNoteHashTmp,
         siloedNoteHash: siloedNoteHashTmp,
@@ -193,7 +193,7 @@ export class NoteProcessor {
         notePreimage.items,
       );
       siloedNoteHash = siloedNoteHashTmp;
-      if (commitment.equals(uniqueSiloedNoteHashTmp)) {
+      if (noteHash.equals(uniqueSiloedNoteHashTmp)) {
         nonce = expectedNonce;
         innerNoteHash = innerNoteHashTmp;
         uniqueSiloedNoteHash = uniqueSiloedNoteHashTmp;
@@ -205,13 +205,13 @@ export class NoteProcessor {
     if (!nonce) {
       let errorString;
       if (siloedNoteHash == undefined) {
-        errorString = 'Cannot find a matching commitment for the note.';
+        errorString = 'Cannot find a matching noteHash for the note.';
       } else {
         errorString = `We decrypted a log, but couldn't find a corresponding note in the tree.
 This might be because the note was nullified in the same tx which created it.
 In that case, everything is fine. To check whether this is the case, look back through
 the logs for a notification
-'important: chopped commitment for siloed inner hash note
+'important: chopped noteHash for siloed inner hash note
 ${siloedNoteHash.toString()}'.
 If you can see that notification. Everything's fine.
 If that's not the case, and you can't find such a notification, something has gone wrong.
@@ -225,7 +225,7 @@ https://github.com/AztecProtocol/aztec-packages/issues/1641`;
     }
 
     return {
-      index: BigInt(dataStartIndex + commitmentIndex),
+      index: BigInt(dataStartIndex + noteHashIndex),
       nonce,
       innerNoteHash: innerNoteHash!,
       uniqueSiloedNoteHash: uniqueSiloedNoteHash!,

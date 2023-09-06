@@ -21,11 +21,11 @@ template <typename NCT> struct PrivateKernelInputsOrdering {
 
     PreviousKernelData<NCT> previous_kernel{};
 
-    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_commitment_hints{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_commitment_hints{};
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> read_note_hash_hints{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullifier_note_hash_hints{};
 
     // For serialization, update with new fields
-    MSGPACK_FIELDS(previous_kernel, read_commitment_hints, nullifier_commitment_hints);
+    MSGPACK_FIELDS(previous_kernel, read_note_hash_hints, nullifier_note_hash_hints);
     boolean operator==(PrivateKernelInputsOrdering<NCT> const& other) const
     {
         return msgpack_derived_equals<boolean>(*this, other);
@@ -38,8 +38,8 @@ template <typename NCT> struct PrivateKernelInputsOrdering {
 
         PrivateKernelInputsOrdering<CircuitTypes<Builder>> private_inputs = {
             previous_kernel.to_circuit_type(builder),
-            read_commitment_hints.to_circuit_type(builder),
-            nullifier_commitment_hints.to_circuit_type(builder),
+            read_note_hash_hints.to_circuit_type(builder),
+            nullifier_note_hash_hints.to_circuit_type(builder),
         };
 
         return private_inputs;

@@ -51,9 +51,9 @@ note_hash: Field = pedersen::compress(
 
 The Private Kernel circuit will modify this `note_hash` further, before it is inserted into the tree. It will:
 
-- Silo the commitment, to prevent cross-contamination of this contract's state variables with other contracts' state variables:
+- Silo the note_hash, to prevent cross-contamination of this contract's state variables with other contracts' state variables:
   `siloed_note_hash: Field = hash(note_hash, contract_address);`
-- Ensure uniqueness of the commitment, by hashing it with a nonce
+- Ensure uniqueness of the note_hash, by hashing it with a nonce
   `unique_siloed_note_hash: Field = hash(siloed_note_hash, nonce);`, where `nonce: Field = hash(new_nullifiers[0], index)`, where `index` is the position of the new note hash in all new note hashes.
 
 > Note, all hashes will be appropriately domain-separated.

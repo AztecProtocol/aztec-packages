@@ -21,7 +21,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Get the current roots of the commitment trees.
+   * Get the current roots of the noteHash trees.
    * @returns The current roots of the trees.
    */
   getTreeRoots(): Promise<CurrentTreeRoots> {
@@ -140,7 +140,7 @@ export class MerkleTreeOperationsFacade implements MerkleTreeOperations {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new noteHashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @returns Empty promise.
    */

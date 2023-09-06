@@ -341,27 +341,27 @@ describe('HttpNode', () => {
     });
   });
 
-  describe('findCommitmentIndex', () => {
+  describe('findNoteHashIndex', () => {
     it('should fetch and return the index of the given leaf', async () => {
       const leafValue = Buffer.from('0123456789', 'hex');
       const expectedIndex = BigInt(123);
       const response = { index: expectedIndex.toString() };
       setFetchMock(response);
 
-      const result = await httpNode.findCommitmentIndex(leafValue);
+      const result = await httpNode.findNoteHashIndex(leafValue);
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}commitment-index?leaf=${leafValue.toString('hex')}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}noteHash-index?leaf=${leafValue.toString('hex')}`);
       expect(result).toBe(expectedIndex);
     });
 
-    it('should return undefined if the commitment index is not found', async () => {
+    it('should return undefined if the noteHash index is not found', async () => {
       const leafValue = Buffer.from('def456', 'hex');
       const response = {};
       setFetchMock(response);
 
-      const result = await httpNode.findCommitmentIndex(leafValue);
+      const result = await httpNode.findNoteHashIndex(leafValue);
 
-      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}commitment-index?leaf=${leafValue.toString('hex')}`);
+      expect(fetch).toHaveBeenCalledWith(`${TEST_URL}noteHash-index?leaf=${leafValue.toString('hex')}`);
       expect(result).toBeUndefined();
     });
   });

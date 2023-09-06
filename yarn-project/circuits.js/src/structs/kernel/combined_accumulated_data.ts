@@ -1,10 +1,10 @@
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
@@ -288,18 +288,18 @@ export class CombinedAccumulatedData {
      */
     public readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
-     * The new commitments made in this transaction.
+     * The new noteHashes made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
+     * The noteHashes which are nullified by a nullifier in the above list. For pending nullifiers, we have:
+     * nullifiedNoteHashes[j] != 0 if and only if newNullifiers[j] nullifies nullifiedNoteHashes[j]
      */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      */
@@ -348,9 +348,9 @@ export class CombinedAccumulatedData {
     public publicDataReads: Tuple<PublicDataRead, typeof MAX_PUBLIC_DATA_READS_PER_TX>,
   ) {
     assertMemberLength(this, 'readRequests', MAX_READ_REQUESTS_PER_TX);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
+    assertMemberLength(this, 'newNoteHashes', MAX_NEW_NOTE_HASHES_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
-    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_TX);
+    assertMemberLength(this, 'nullifiedNoteHashes', MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_TX);
@@ -366,9 +366,9 @@ export class CombinedAccumulatedData {
     return serializeToBuffer(
       this.aggregationObject,
       this.readRequests,
-      this.newCommitments,
+      this.newNoteHashes,
       this.newNullifiers,
-      this.nullifiedCommitments,
+      this.nullifiedNoteHashes,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -397,7 +397,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       reader.readObject(AggregationObject),
       reader.readArray(MAX_READ_REQUESTS_PER_TX, Fr),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
@@ -418,9 +418,9 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       finalData.aggregationObject,
       makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      finalData.newCommitments,
+      finalData.newNoteHashes,
       finalData.newNullifiers,
-      finalData.nullifiedCommitments,
+      finalData.nullifiedNoteHashes,
       finalData.privateCallStack,
       finalData.publicCallStack,
       finalData.newL2ToL1Msgs,
@@ -448,7 +448,7 @@ export class CombinedAccumulatedData {
     return new CombinedAccumulatedData(
       AggregationObject.makeFake(),
       makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),
@@ -477,18 +477,18 @@ export class FinalAccumulatedData {
      */
     public aggregationObject: AggregationObject, // Contains the aggregated proof of all previous kernel iterations
     /**
-     * The new commitments made in this transaction.
+     * The new noteHashes made in this transaction.
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>,
     /**
      * The new nullifiers made in this transaction.
      */
     public newNullifiers: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
-     * The commitments which are nullified by a nullifier in the above list. For pending nullifiers, we have:
-     * nullifiedCommitments[j] != 0 if and only if newNullifiers[j] nullifies nullifiedCommitments[j]
+     * The noteHashes which are nullified by a nullifier in the above list. For pending nullifiers, we have:
+     * nullifiedNoteHashes[j] != 0 if and only if newNullifiers[j] nullifies nullifiedNoteHashes[j]
      */
-    public nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifiedNoteHashes: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     /**
      * Current private call stack.
      */
@@ -528,9 +528,9 @@ export class FinalAccumulatedData {
      */
     public optionallyRevealedData: Tuple<OptionallyRevealedData, typeof MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX>,
   ) {
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_TX);
+    assertMemberLength(this, 'newNoteHashes', MAX_NEW_NOTE_HASHES_PER_TX);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_TX);
-    assertMemberLength(this, 'nullifiedCommitments', MAX_NEW_NULLIFIERS_PER_TX);
+    assertMemberLength(this, 'nullifiedNoteHashes', MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(this, 'privateCallStack', MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_TX);
@@ -543,9 +543,9 @@ export class FinalAccumulatedData {
   toBuffer() {
     return serializeToBuffer(
       this.aggregationObject,
-      this.newCommitments,
+      this.newNoteHashes,
       this.newNullifiers,
-      this.nullifiedCommitments,
+      this.nullifiedNoteHashes,
       this.privateCallStack,
       this.publicCallStack,
       this.newL2ToL1Msgs,
@@ -571,7 +571,7 @@ export class FinalAccumulatedData {
     const reader = BufferReader.asReader(buffer);
     return new FinalAccumulatedData(
       reader.readObject(AggregationObject),
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr),
@@ -598,7 +598,7 @@ export class FinalAccumulatedData {
   static empty() {
     return new FinalAccumulatedData(
       AggregationObject.makeFake(),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_TX, Fr.zero),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
       makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero),

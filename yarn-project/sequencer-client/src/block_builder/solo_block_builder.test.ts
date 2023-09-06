@@ -6,8 +6,8 @@ import {
   Fr,
   GlobalVariables,
   KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -126,11 +126,11 @@ describe('sequencer/solo_block_builder', () => {
     return makeEmptyProcessedTxFromHistoricTreeRoots(historicTreeRoots, chainId, version);
   };
 
-  // Updates the expectedDb trees based on the new commitments, contracts, and nullifiers from these txs
+  // Updates the expectedDb trees based on the new noteHashes, contracts, and nullifiers from these txs
   const updateExpectedTreesFromTxs = async (txs: ProcessedTx[]) => {
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts.map(n => computeContractLeaf(wasm, n)));
     for (const [tree, leaves] of [
-      [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newCommitments.map(l => l.toBuffer()))],
+      [MerkleTreeId.PRIVATE_DATA_TREE, flatMap(txs, tx => tx.data.end.newNoteHashes.map(l => l.toBuffer()))],
       [MerkleTreeId.CONTRACT_TREE, newContracts.map(x => x.toBuffer())],
     ] as const) {
       await expectsDb.appendLeaves(tree, leaves);
@@ -218,7 +218,7 @@ describe('sequencer/solo_block_builder', () => {
     const txs = [...txsLeft, ...txsRight];
 
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
-    const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
+    const newNoteHashes = flatMap(txs, tx => tx.data.end.newNoteHashes);
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(wasm, cd));
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
@@ -245,7 +245,7 @@ describe('sequencer/solo_block_builder', () => {
       endL1ToL2MessageTreeSnapshot: rootRollupOutput.endL1ToL2MessageTreeSnapshot,
       startHistoricBlocksTreeSnapshot: rootRollupOutput.startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot: rootRollupOutput.endHistoricBlocksTreeSnapshot,
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newContracts,
       newContractData,
@@ -315,7 +315,7 @@ describe('sequencer/solo_block_builder', () => {
 
       const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-      processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
+      processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
       processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
       processedTx.data.end.newNullifiers[tx.data.end.newNullifiers.length - 1] = Fr.ZERO;
       processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);

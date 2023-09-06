@@ -30,9 +30,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
     std::array<fr, MAX_READ_REQUESTS_PER_CALL> read_requests{};
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> new_note_hashes{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_note_hashes{};
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
@@ -58,9 +58,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
                    args_hash,
                    return_values,
                    read_requests,
-                   new_commitments,
+                   new_note_hashes,
                    new_nullifiers,
-                   nullified_commitments,
+                   nullified_note_hashes,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -77,8 +77,8 @@ template <typename NCT> class PrivateCircuitPublicInputs {
     {
         return call_context == other.call_context && args_hash == other.args_hash &&
                return_values == other.return_values && read_requests == other.read_requests &&
-               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
-               nullified_commitments == other.nullified_commitments && private_call_stack == other.private_call_stack &&
+               new_note_hashes == other.new_note_hashes && new_nullifiers == other.new_nullifiers &&
+               nullified_note_hashes == other.nullified_note_hashes && private_call_stack == other.private_call_stack &&
                public_call_stack == other.public_call_stack && new_l2_to_l1_msgs == other.new_l2_to_l1_msgs &&
                encrypted_logs_hash == other.encrypted_logs_hash &&
                unencrypted_logs_hash == other.unencrypted_logs_hash &&
@@ -106,9 +106,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
             to_ct(read_requests),
 
-            to_ct(new_commitments),
+            to_ct(new_note_hashes),
             to_ct(new_nullifiers),
-            to_ct(nullified_commitments),
+            to_ct(nullified_note_hashes),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -145,9 +145,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
             to_nt(read_requests),
 
-            to_nt(new_commitments),
+            to_nt(new_note_hashes),
             to_nt(new_nullifiers),
-            to_nt(nullified_commitments),
+            to_nt(nullified_note_hashes),
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
@@ -183,9 +183,9 @@ template <typename NCT> class PrivateCircuitPublicInputs {
 
         spread_arr_into_vec(read_requests, inputs);
 
-        spread_arr_into_vec(new_commitments, inputs);
+        spread_arr_into_vec(new_note_hashes, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
-        spread_arr_into_vec(nullified_commitments, inputs);
+        spread_arr_into_vec(nullified_note_hashes, inputs);
 
         spread_arr_into_vec(private_call_stack, inputs);
         spread_arr_into_vec(public_call_stack, inputs);
@@ -233,9 +233,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
     std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> read_requests;
 
-    std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments;
+    std::array<opt_fr, MAX_NEW_NOTE_HASHES_PER_CALL> new_note_hashes;
     std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers;
-    std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_commitments;
+    std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> nullified_note_hashes;
 
     std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> private_call_stack;
     std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack;
@@ -259,9 +259,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
                    args_hash,
                    return_values,
                    read_requests,
-                   new_commitments,
+                   new_note_hashes,
                    new_nullifiers,
-                   nullified_commitments,
+                   nullified_note_hashes,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -284,9 +284,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         std::array<opt_fr, MAX_READ_REQUESTS_PER_CALL> const& read_requests,
 
-        std::array<opt_fr, MAX_NEW_COMMITMENTS_PER_CALL> const& new_commitments,
+        std::array<opt_fr, MAX_NEW_NOTE_HASHES_PER_CALL> const& new_note_hashes,
         std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& new_nullifiers,
-        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& nullified_commitments,
+        std::array<opt_fr, MAX_NEW_NULLIFIERS_PER_CALL> const& nullified_note_hashes,
 
         std::array<opt_fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL> const& private_call_stack,
         std::array<opt_fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> const& public_call_stack,
@@ -308,9 +308,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         , args_hash(args_hash)
         , return_values(return_values)
         , read_requests(read_requests)
-        , new_commitments(new_commitments)
+        , new_note_hashes(new_note_hashes)
         , new_nullifiers(new_nullifiers)
-        , nullified_commitments(nullified_commitments)
+        , nullified_note_hashes(nullified_note_hashes)
         , private_call_stack(private_call_stack)
         , public_call_stack(public_call_stack)
         , new_l2_to_l1_msgs(new_l2_to_l1_msgs)
@@ -336,9 +336,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         new_inputs.read_requests.fill(std::nullopt);
 
-        new_inputs.new_commitments.fill(std::nullopt);
+        new_inputs.new_note_hashes.fill(std::nullopt);
         new_inputs.new_nullifiers.fill(std::nullopt);
-        new_inputs.nullified_commitments.fill(std::nullopt);
+        new_inputs.nullified_note_hashes.fill(std::nullopt);
 
         new_inputs.private_call_stack.fill(std::nullopt);
         new_inputs.public_call_stack.fill(std::nullopt);
@@ -360,33 +360,33 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
         return new_inputs;
     };
 
-    void set_commitments(std::vector<fr> commitments)
+    void set_note_hashes(std::vector<fr> note_hashes)
     {
-        if (commitments.size() > new_commitments.size()) {
-            throw_or_abort("Too many commitments for the number supported by the public inputs ABI.");
+        if (note_hashes.size() > new_note_hashes.size()) {
+            throw_or_abort("Too many note_hashes for the number supported by the public inputs ABI.");
         }
-        for (size_t i = 0; i < commitments.size(); ++i) {
-            new_commitments[i] = commitments[i];
+        for (size_t i = 0; i < note_hashes.size(); ++i) {
+            new_note_hashes[i] = note_hashes[i];
         }
     }
 
     void set_nullifiers(std::vector<fr> nullifiers)
     {
         if (nullifiers.size() > new_nullifiers.size()) {
-            throw_or_abort("Too many commitments for the number supported by the public inputs ABI.");
+            throw_or_abort("Too many note_hashes for the number supported by the public inputs ABI.");
         }
         for (size_t i = 0; i < nullifiers.size(); ++i) {
             new_nullifiers[i] = nullifiers[i];
         }
     }
 
-    void set_nullified_commitments(std::vector<fr> input_nullified_commitments)
+    void set_nullified_note_hashes(std::vector<fr> input_nullified_note_hashes)
     {
-        if (input_nullified_commitments.size() > nullified_commitments.size()) {
-            throw_or_abort("Too many commitments nullified for the number supported by the public inputs ABI.");
+        if (input_nullified_note_hashes.size() > nullified_note_hashes.size()) {
+            throw_or_abort("Too many note_hashes nullified for the number supported by the public inputs ABI.");
         }
-        for (size_t i = 0; i < input_nullified_commitments.size(); ++i) {
-            nullified_commitments[i] = input_nullified_commitments[i];
+        for (size_t i = 0; i < input_nullified_note_hashes.size(); ++i) {
+            nullified_note_hashes[i] = input_nullified_note_hashes[i];
         }
     }
 
@@ -401,9 +401,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         make_unused_array_elements_zero(builder, read_requests);
 
-        make_unused_array_elements_zero(builder, new_commitments);
+        make_unused_array_elements_zero(builder, new_note_hashes);
         make_unused_array_elements_zero(builder, new_nullifiers);
-        make_unused_array_elements_zero(builder, nullified_commitments);
+        make_unused_array_elements_zero(builder, nullified_note_hashes);
 
         make_unused_array_elements_zero(builder, private_call_stack);
         make_unused_array_elements_zero(builder, public_call_stack);
@@ -440,9 +440,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         set_array_public(read_requests);
 
-        set_array_public(new_commitments);
+        set_array_public(new_note_hashes);
         set_array_public(new_nullifiers);
-        set_array_public(nullified_commitments);
+        set_array_public(nullified_note_hashes);
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
@@ -481,9 +481,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
             to_ct(read_requests),
 
-            to_ct(new_commitments),
+            to_ct(new_note_hashes),
             to_ct(new_nullifiers),
-            to_ct(nullified_commitments),
+            to_ct(nullified_note_hashes),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -522,9 +522,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
                                                                 to_nt(read_requests),
 
-                                                                to_nt(new_commitments),
+                                                                to_nt(new_note_hashes),
                                                                 to_nt(new_nullifiers),
-                                                                to_nt(nullified_commitments),
+                                                                to_nt(nullified_note_hashes),
 
                                                                 to_nt(private_call_stack),
                                                                 to_nt(public_call_stack),
@@ -564,9 +564,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
         spread_arr_opt_into_vec(read_requests, inputs);
 
-        spread_arr_opt_into_vec(new_commitments, inputs);
+        spread_arr_opt_into_vec(new_note_hashes, inputs);
         spread_arr_opt_into_vec(new_nullifiers, inputs);
-        spread_arr_opt_into_vec(nullified_commitments, inputs);
+        spread_arr_opt_into_vec(nullified_note_hashes, inputs);
 
         spread_arr_opt_into_vec(private_call_stack, inputs);
         spread_arr_opt_into_vec(public_call_stack, inputs);
@@ -601,9 +601,9 @@ template <typename NCT> class OptionalPrivateCircuitPublicInputs {
 
             .read_requests = map(read_requests, get_value),
 
-            .new_commitments = map(new_commitments, get_value),
+            .new_note_hashes = map(new_note_hashes, get_value),
             .new_nullifiers = map(new_nullifiers, get_value),
-            .nullified_commitments = map(nullified_commitments, get_value),
+            .nullified_note_hashes = map(nullified_note_hashes, get_value),
 
             .private_call_stack = map(private_call_stack, get_value),
             .public_call_stack = map(public_call_stack, get_value),

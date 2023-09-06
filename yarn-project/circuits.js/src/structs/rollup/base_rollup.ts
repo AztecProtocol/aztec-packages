@@ -4,8 +4,8 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import {
   CONTRACT_TREE_HEIGHT,
   HISTORIC_BLOCKS_TREE_HEIGHT,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_READS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -120,9 +120,9 @@ export class ConstantBaseRollupData {
 export class BaseRollupInputs {
   /**
    * Height of the private data subtree which is to be inserted into the private data tree.
-   * Note: There are notes from 2 kernels being processed here so kernel new commitments length is multiplied by 2.
+   * Note: There are notes from 2 kernels being processed here so kernel new noteHashes length is multiplied by 2.
    */
-  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(MAX_NEW_COMMITMENTS_PER_TX * 2);
+  public static PRIVATE_DATA_SUBTREE_HEIGHT = Math.log2(MAX_NEW_NOTE_HASHES_PER_TX * 2);
   /**
    * Height of the contract subtree which is to be inserted into the contract tree.
    */
@@ -171,9 +171,9 @@ export class BaseRollupInputs {
     public lowNullifierMembershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>[],
 
     /**
-     * Sibling path "pointing to" where the new commitments subtree should be inserted into the private data tree.
+     * Sibling path "pointing to" where the new noteHashes subtree should be inserted into the private data tree.
      */
-    public newCommitmentsSubtreeSiblingPath: Fr[],
+    public newNoteHashesSubtreeSiblingPath: Fr[],
     /**
      * Sibling path "pointing to" where the new nullifiers subtree should be inserted into the nullifier tree.
      */
@@ -209,7 +209,7 @@ export class BaseRollupInputs {
     assertMemberLength(this, 'lowNullifierMembershipWitness', 2 * MAX_NEW_NULLIFIERS_PER_TX);
     assertMemberLength(
       this,
-      'newCommitmentsSubtreeSiblingPath',
+      'newNoteHashesSubtreeSiblingPath',
       PRIVATE_DATA_TREE_HEIGHT - BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     );
     assertMemberLength(
@@ -242,7 +242,7 @@ export class BaseRollupInputs {
       fields.startHistoricBlocksTreeSnapshot,
       fields.lowNullifierLeafPreimages,
       fields.lowNullifierMembershipWitness,
-      fields.newCommitmentsSubtreeSiblingPath,
+      fields.newNoteHashesSubtreeSiblingPath,
       fields.newNullifiersSubtreeSiblingPath,
       fields.newContractsSubtreeSiblingPath,
       fields.newPublicDataUpdateRequestsSiblingPaths,

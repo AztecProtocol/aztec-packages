@@ -52,9 +52,9 @@ void common_initialise_end_values(PreviousKernelData<NT> const& previous_kernel,
     auto& end = public_inputs.end;
     const auto& start = previous_kernel.public_inputs.end;
 
-    end.new_commitments = start.new_commitments;
+    end.new_note_hashes = start.new_note_hashes;
     end.new_nullifiers = start.new_nullifiers;
-    end.nullified_commitments = start.nullified_commitments;
+    end.nullified_note_hashes = start.nullified_note_hashes;
 
     end.private_call_stack = start.private_call_stack;
     end.public_call_stack = start.public_call_stack;

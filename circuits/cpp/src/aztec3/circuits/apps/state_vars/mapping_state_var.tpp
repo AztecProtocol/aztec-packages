@@ -54,7 +54,7 @@ std::tuple<NativeTypes::grumpkin_point, bool> MappingStateVar<Builder, V>::compu
             *key, generator_index_t({ StorageSlotGeneratorIndex::MAPPING_SLOT, level_of_container_nesting }));
     } else {
         // If this mapping key has no mapping_key_value (std::nullopt), then we must be partially committing and
-        // omitting this mapping key from that partial commitment.
+        // omitting this mapping key from that partial note_hash.
         // So use a placeholder generator for this mapping key, to signify "this mapping key is missing".
         // Note: we can't just commit to a value of `0` for this mapping key, since `0` is a valid value to
         // commit to, and so "missing" is distinguished as follows.
@@ -87,7 +87,7 @@ std::tuple<typename CircuitTypes<Builder>::grumpkin_point, bool> MappingStateVar
                   this->level_of_container_nesting })));  // hash_sub_index 0 is reserved for the start_slot.
     } else {
         // If this mapping key has no mapping_key_value (std::nullopt), then we must be partially committing and
-        // omitting this mapping key from that partial commitment.
+        // omitting this mapping key from that partial note_hash.
         // So use a placeholder generator for this mapping key, to signify "this mapping key is missing".
         // Note: we can't just commit to a value of `0` for this mapping key, since `0` is a valid value to
         // commit to, and so "missing" is distinguished as follows.

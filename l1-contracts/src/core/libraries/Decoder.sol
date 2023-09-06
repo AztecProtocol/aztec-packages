@@ -48,8 +48,8 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  *  | 0x0200                                                                           | 0x04         | endL1ToL2MessageTreeSnapshot.nextAvailableLeafIndex
  *  | 0x0204                                                                           | 0x20         | endHistoricBlocksTreeSnapshot.root
  *  | 0x0224                                                                           | 0x04         | endHistoricBlocksTreeSnapshot.nextAvailableLeafIndex
- *  | 0x0228                                                                           | 0x04         | len(newCommitments) (denoted a)
- *  | 0x022c                                                                           | a * 0x20     | newCommitments
+ *  | 0x0228                                                                           | 0x04         | len(newNoteHashes) (denoted a)
+ *  | 0x022c                                                                           | a * 0x20     | newNoteHashes
  *  | 0x022c + a * 0x20                                                                | 0x04         | len(newNullifiers) (denoted b)
  *  | 0x0230 + a * 0x20                                                                | b * 0x20     | newNullifiers
  *  | 0x0230 + a * 0x20 + b * 0x20                                                     | 0x04         | len(newPublicDataWrites) (denoted c)
@@ -69,7 +69,7 @@ import {Hash} from "@aztec/core/libraries/Hash.sol";
  */
 library Decoder {
   struct ArrayOffsets {
-    uint256 commitment;
+    uint256 noteHash;
     uint256 nullifier;
     uint256 publicData;
     uint256 l2ToL1Msgs;
@@ -190,7 +190,7 @@ library Decoder {
   /**
    * @notice Computes consumables for the block
    * @param _l2Block - The L2 block calldata.
-   * @return diffRoot - The root of the diff tree (new commitments, nullifiers etc)
+   * @return diffRoot - The root of the diff tree (new note_hashes, nullifiers etc)
    * @return l1ToL2MsgsHash - The hash of the L1 to L2 messages
    * @return l2ToL1Msgs - The L2 to L1 messages of the block
    * @return l1ToL2Msgs - The L1 to L2 messages of the block
@@ -206,10 +206,10 @@ library Decoder {
     {
       uint256 offset = BLOCK_HEADER_OFFSET;
 
-      // Commitments
+      // NoteHashes
       uint256 count = read4(_l2Block, offset);
-      vars.baseLeaves = new bytes32[](count / (Constants.MAX_NEW_COMMITMENTS_PER_TX * 2));
-      offsets.commitment = BLOCK_HEADER_OFFSET + 0x4;
+      vars.baseLeaves = new bytes32[](count / (Constants.MAX_NEW_NOTE_HASHES_PER_TX * 2));
+      offsets.noteHash = BLOCK_HEADER_OFFSET + 0x4;
       offset += 0x4 + count * 0x20;
       offsets.nullifier = offset + 0x4; // + 0x4 to offset by next read4
 
@@ -259,8 +259,8 @@ library Decoder {
         /*
          * Compute the leaf to insert.
          * Leaf_i = (
-         *    newCommitmentsKernel1,
-         *    newCommitmentsKernel2,
+         *    newNoteHashesKernel1,
+         *    newNoteHashesKernel2,
          *    newNullifiersKernel1,
          *    newNullifiersKernel2,
          *    newPublicDataWritesKernel1,
@@ -299,7 +299,7 @@ library Decoder {
         // Insertions are split into multiple `bytes.concat` to work around stack too deep.
         vars.baseLeaf = bytes.concat(
           bytes.concat(
-            slice(_l2Block, offsets.commitment, Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP),
+            slice(_l2Block, offsets.noteHash, Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP),
             slice(_l2Block, offsets.nullifier, Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP),
             slice(
               _l2Block, offsets.publicData, Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP
@@ -323,7 +323,7 @@ library Decoder {
           )
         );
 
-        offsets.commitment += Constants.COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP;
+        offsets.noteHash += Constants.NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.nullifier += Constants.NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.publicData += Constants.PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP;
         offsets.l2ToL1Msgs += Constants.L2_TO_L1_MSGS_NUM_BYTES_PER_BASE_ROLLUP;

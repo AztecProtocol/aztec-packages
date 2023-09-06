@@ -1,6 +1,6 @@
 use crate::constants_gen::{
-    EMPTY_NULLIFIED_COMMITMENT,
-    MAX_NEW_COMMITMENTS_PER_CALL,
+    EMPTY_NULLIFIED_NOTE_HASH,
+    MAX_NEW_NOTE_HASHES_PER_CALL,
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
     MAX_NEW_NULLIFIERS_PER_CALL,
     MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
@@ -57,9 +57,9 @@ struct PrivateContext {
 
     read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_note_hashes: BoundedVec<Field, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+    nullified_note_hashes: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
 
     private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
@@ -82,9 +82,9 @@ impl PrivateContext {
 
             read_requests: BoundedVec::new(0),
 
-            new_commitments: BoundedVec::new(0),
+            new_note_hashes: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
-            nullified_commitments: BoundedVec::new(0),
+            nullified_note_hashes: BoundedVec::new(0),
 
             block_data: inputs.block_data,
 
@@ -130,9 +130,9 @@ impl PrivateContext {
             args_hash: self.args_hash,
             return_values: self.return_values.storage,
             read_requests: self.read_requests.storage,
-            new_commitments: self.new_commitments.storage,
+            new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
-            nullified_commitments: self.nullified_commitments.storage,
+            nullified_note_hashes: self.nullified_note_hashes.storage,
             private_call_stack: self.private_call_stack.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
@@ -153,12 +153,12 @@ impl PrivateContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        self.new_note_hashes.push(note_hash);
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, nullified_commitment: Field) {
+    fn push_new_nullifier(&mut self, nullifier: Field, nullified_note_hash: Field) {
         self.new_nullifiers.push(nullifier);
-        self.nullified_commitments.push(nullified_commitment);
+        self.nullified_note_hashes.push(nullified_note_hash);
     }
 
     fn message_portal(&mut self, content: Field) {
@@ -170,8 +170,8 @@ impl PrivateContext {
     fn consume_l1_to_l2_message(&mut self, inputs: abi::PrivateContextInputs, msg_key: Field, content: Field, secret: Field) {
         let nullifier = process_l1_to_l2_message(inputs.block_data.l1_to_l2_messages_tree_root, inputs.call_context.storage_contract_address, msg_key, content, secret);
 
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        // Push nullifier (and the "note_hash" corresponding to this can be "empty")
+        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_NOTE_HASH)
     }
 
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {
@@ -238,9 +238,9 @@ impl PrivateContext {
                 args_hash: fields[11],
                 return_values: arr_copy_slice(fields, [0; RETURN_VALUES_LENGTH], 12),
                 read_requests: arr_copy_slice(fields, [0; MAX_READ_REQUESTS_PER_CALL], 16),
-                new_commitments: arr_copy_slice(fields, [0; MAX_NEW_COMMITMENTS_PER_CALL], 20),
+                new_note_hashes: arr_copy_slice(fields, [0; MAX_NEW_NOTE_HASHES_PER_CALL], 20),
                 new_nullifiers: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 24),
-                nullified_commitments: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 28),
+                nullified_note_hashes: arr_copy_slice(fields, [0; MAX_NEW_NULLIFIERS_PER_CALL], 28),
                 private_call_stack: arr_copy_slice(fields, [0; MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL], 32),
                 public_call_stack: arr_copy_slice(fields, [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL], 36),
                 new_l2_to_l1_msgs: arr_copy_slice(fields, [0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL], 40),
@@ -345,7 +345,7 @@ impl PrivateContext {
                 contract_storage_update_requests: [ContractStorageUpdateRequest::empty(); MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL],
                 contract_storage_read: [ContractStorageRead::empty(); MAX_PUBLIC_DATA_READS_PER_CALL],
                 public_call_stack: [0; MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL],
-                new_commitments: [0; MAX_NEW_COMMITMENTS_PER_CALL],
+                new_note_hashes: [0; MAX_NEW_NOTE_HASHES_PER_CALL],
                 new_nullifiers: [0; MAX_NEW_NULLIFIERS_PER_CALL],
                 new_l2_to_l1_msgs:[0; MAX_NEW_L2_TO_L1_MSGS_PER_CALL],
                 unencrypted_logs_hash:[0; NUM_FIELDS_PER_SHA256],
@@ -390,7 +390,7 @@ struct PublicContext {
     contract_storage_read: BoundedVec<ContractStorageRead, MAX_PUBLIC_DATA_READS_PER_CALL>,
     public_call_stack: BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
+    new_note_hashes: BoundedVec<Field, MAX_NEW_NOTE_HASHES_PER_CALL>,
     new_nullifiers: BoundedVec<Field, crate::abi::MAX_NEW_NULLIFIERS_PER_CALL>,
 
     new_l2_to_l1_msgs: BoundedVec<Field, crate::abi::MAX_NEW_L2_TO_L1_MSGS_PER_CALL>,
@@ -416,7 +416,7 @@ impl PublicContext {
             contract_storage_read: BoundedVec::new(empty_storage_read),
             public_call_stack: BoundedVec::new(0),
 
-            new_commitments: BoundedVec::new(0),
+            new_note_hashes: BoundedVec::new(0),
             new_nullifiers: BoundedVec::new(0),
 
             new_l2_to_l1_msgs: BoundedVec::new(0),
@@ -475,7 +475,7 @@ impl PublicContext {
             contract_storage_update_requests: self.contract_storage_update_requests.storage,
             contract_storage_read: self.contract_storage_read.storage,
             return_values: self.return_values.storage,
-            new_commitments: self.new_commitments.storage,
+            new_note_hashes: self.new_note_hashes.storage,
             new_nullifiers: self.new_nullifiers.storage,
             public_call_stack: self.public_call_stack.storage,
             new_l2_to_l1_msgs: self.new_l2_to_l1_msgs.storage,
@@ -488,10 +488,10 @@ impl PublicContext {
     }
 
     fn push_new_note_hash(&mut self, note_hash: Field) {
-        self.new_commitments.push(note_hash);
+        self.new_note_hashes.push(note_hash);
     }
 
-    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_commitment: Field) {
+    fn push_new_nullifier(&mut self, nullifier: Field, _nullified_note_hash: Field) {
         self.new_nullifiers.push(nullifier);
     }
 
@@ -505,8 +505,8 @@ impl PublicContext {
         let this = (*self).this_address();
         let nullifier = process_l1_to_l2_message(self.block_data.l1_to_l2_messages_tree_root, this, msg_key, content, secret);
 
-        // Push nullifier (and the "commitment" corresponding to this can be "empty")
-        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_COMMITMENT)
+        // Push nullifier (and the "note_hash" corresponding to this can be "empty")
+        self.push_new_nullifier(nullifier, EMPTY_NULLIFIED_NOTE_HASH)
     }
 
     fn accumulate_encrypted_logs<N>(&mut self, log: [Field; N]) {

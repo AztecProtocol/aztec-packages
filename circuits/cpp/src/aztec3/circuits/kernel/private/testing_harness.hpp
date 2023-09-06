@@ -79,11 +79,11 @@ inline const auto& get_empty_contract_siblings()
  * @details read requests are siloed by contract address and nonce before being
  * inserted into mock private data tree
  *
- * @param first_nullifier used when computing nonce for unique_siloed_commitments (private data tree leaves)
+ * @param first_nullifier used when computing nonce for unique_siloed_note_hashes (private data tree leaves)
  * @param contract_address address to use when siloing read requests
  * @param num_read_requests if negative, use random num
  * @return tuple including read requests, their membership witnesses, their transient versions, and the
- * private data tree root that contains all of these randomly created commitments at random leaf indices
+ * private data tree root that contains all of these randomly created note_hashes at random leaf indices
  *     std::tuple<
  *      read_requests,
  *      read_request_memberships_witnesses,

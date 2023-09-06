@@ -1,8 +1,8 @@
 import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_CALL,
-  MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MembershipWitness,
@@ -42,15 +42,15 @@ describe('Kernel Prover', () => {
       owner: { x: Fr.random(), y: Fr.random() },
     }));
 
-  const createFakeSiloedCommitment = (commitment: Fr) => new Fr(commitment.value + 1n);
-  const generateFakeCommitment = (note: NewNoteData) => note.preimage[0];
-  const generateFakeSiloedCommitment = (note: NewNoteData) => createFakeSiloedCommitment(generateFakeCommitment(note));
+  const createFakeSiloedNoteHash = (noteHash: Fr) => new Fr(noteHash.value + 1n);
+  const generateFakeNoteHash = (note: NewNoteData) => note.preimage[0];
+  const generateFakeSiloedNoteHash = (note: NewNoteData) => createFakeSiloedNoteHash(generateFakeNoteHash(note));
 
   const createExecutionResult = (fnName: string, newNoteIndices: number[] = []): ExecutionResult => {
     const publicInputs = PrivateCircuitPublicInputs.empty();
-    publicInputs.newCommitments = makeTuple(
-      MAX_NEW_COMMITMENTS_PER_CALL,
-      i => (i < newNoteIndices.length ? generateFakeCommitment(notes[newNoteIndices[i]]) : Fr.ZERO),
+    publicInputs.newNoteHashes = makeTuple(
+      MAX_NEW_NOTE_HASHES_PER_CALL,
+      i => (i < newNoteIndices.length ? generateFakeNoteHash(notes[newNoteIndices[i]]) : Fr.ZERO),
       0,
     );
     return {
@@ -75,9 +75,9 @@ describe('Kernel Prover', () => {
 
   const createProofOutput = (newNoteIndices: number[]) => {
     const publicInputs = KernelCircuitPublicInputs.empty();
-    const commitments = newNoteIndices.map(idx => generateFakeSiloedCommitment(notes[idx]));
+    const noteHashes = newNoteIndices.map(idx => generateFakeSiloedNoteHash(notes[idx]));
     // TODO(AD) FIXME(AD) This cast is bad. Why is this not the correct length when this is called?
-    publicInputs.end.newCommitments = commitments as Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>;
+    publicInputs.end.newNoteHashes = noteHashes as Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_TX>;
     return {
       publicInputs,
       proof: makeEmptyProof(),
@@ -116,8 +116,8 @@ describe('Kernel Prover', () => {
     oracle.getVkMembershipWitness.mockResolvedValue(MembershipWitness.random(VK_TREE_HEIGHT));
 
     proofCreator = mock<ProofCreator>();
-    proofCreator.getSiloedCommitments.mockImplementation(publicInputs =>
-      Promise.resolve(publicInputs.newCommitments.map(createFakeSiloedCommitment)),
+    proofCreator.getSiloedNoteHashes.mockImplementation(publicInputs =>
+      Promise.resolve(publicInputs.newNoteHashes.map(createFakeSiloedNoteHash)),
     );
     proofCreator.createProofInit.mockResolvedValue(createProofOutput([]));
     proofCreator.createProofInner.mockResolvedValue(createProofOutput([]));

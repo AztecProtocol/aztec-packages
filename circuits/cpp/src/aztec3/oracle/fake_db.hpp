@@ -55,7 +55,7 @@ class FakeDB {
         std::fill(sibling_path.begin(), sibling_path.end(), 1);  // Fill with 1's to be lazy. TODO: return a valid path.
 
         return {
-            .commitment = 1,
+            .note_hash = 1,
             .contract_address = contract_address,
             .preimage = preimage,
 
@@ -103,7 +103,7 @@ class FakeDB {
             };
 
             data.push_back({
-                .commitment = 1,
+                .note_hash = 1,
                 .contract_address = contract_address,
                 .preimage = preimage,
 
@@ -147,7 +147,7 @@ class FakeDB {
         std::fill(sibling_path.begin(), sibling_path.end(), 1);  // Fill with 1's to be lazy. TODO: return a valid path.
 
         return {
-            .commitment = 1,
+            .note_hash = 1,
             .contract_address = contract_address,
             .preimage = preimage,
 

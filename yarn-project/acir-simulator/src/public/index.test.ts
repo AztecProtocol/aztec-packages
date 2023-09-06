@@ -26,7 +26,7 @@ import { type MemDown, default as memdown } from 'memdown';
 
 import { buildL1ToL2Message } from '../test/utils.js';
 import { computeSlotForMapping } from '../utils.js';
-import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
+import { NoteHashesDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution } from './execution.js';
 import { PublicExecutor } from './executor.js';
 
@@ -36,7 +36,7 @@ describe('ACIR public execution simulator', () => {
   let circuitsWasm: CircuitsWasm;
   let publicState: MockProxy<PublicStateDB>;
   let publicContracts: MockProxy<PublicContractsDB>;
-  let commitmentsDb: MockProxy<CommitmentsDB>;
+  let noteHashesDb: MockProxy<NoteHashesDB>;
   let executor: PublicExecutor;
   let blockData: HistoricBlockData;
 
@@ -47,10 +47,10 @@ describe('ACIR public execution simulator', () => {
   beforeEach(() => {
     publicState = mock<PublicStateDB>();
     publicContracts = mock<PublicContractsDB>();
-    commitmentsDb = mock<CommitmentsDB>();
+    noteHashesDb = mock<NoteHashesDB>();
 
     blockData = HistoricBlockData.empty();
-    executor = new PublicExecutor(publicState, publicContracts, commitmentsDb, blockData);
+    executor = new PublicExecutor(publicState, publicContracts, noteHashesDb, blockData);
   }, 10000);
 
   describe('PublicToken contract', () => {
@@ -283,7 +283,7 @@ describe('ACIR public execution simulator', () => {
       wasm = await CircuitsWasm.get();
     });
 
-    it('Should be able to create a commitment from the public context', async () => {
+    it('Should be able to create a noteHash from the public context', async () => {
       const shieldAbi = NonNativeTokenContractAbi.functions.find(f => f.name === 'shield')!;
       const args = encodeArguments(shieldAbi, params);
 
@@ -303,8 +303,8 @@ describe('ACIR public execution simulator', () => {
       const execution: PublicExecution = { contractAddress, functionData, args, callContext };
       const result = await executor.simulate(execution, GlobalVariables.empty());
 
-      // Assert the commitment was created
-      expect(result.newCommitments.length).toEqual(1);
+      // Assert the noteHash was created
+      expect(result.newNoteHashes.length).toEqual(1);
 
       const expectedNoteHash = pedersenPlookupCommitInputs(
         wasm,
@@ -312,7 +312,7 @@ describe('ACIR public execution simulator', () => {
       );
       const storageSlot = new Fr(2); // matches storage.nr
       const expectedInnerNoteHash = pedersenPlookupCommitInputs(wasm, [storageSlot.toBuffer(), expectedNoteHash]);
-      expect(result.newCommitments[0].toBuffer()).toEqual(expectedInnerNoteHash);
+      expect(result.newNoteHashes[0].toBuffer()).toEqual(expectedInnerNoteHash);
     });
 
     it('Should be able to create a L2 to L1 message from the public context', async () => {
@@ -384,7 +384,7 @@ describe('ACIR public execution simulator', () => {
       publicState.storageRead.mockResolvedValue(Fr.ZERO);
 
       // Mock response
-      commitmentsDb.getL1ToL2Message.mockImplementation(async () => {
+      noteHashesDb.getL1ToL2Message.mockImplementation(async () => {
         return await Promise.resolve({
           message: preimage.toFieldArray(),
           index: 0n,

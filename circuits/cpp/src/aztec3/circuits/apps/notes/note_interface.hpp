@@ -34,13 +34,13 @@ template <typename Builder> class NoteInterface {
 
     virtual void remove() = 0;
 
-    virtual fr get_commitment() = 0;
+    virtual fr get_note_hash() = 0;
 
     virtual fr get_nullifier() = 0;
 
     virtual fr get_initialisation_nullifier() = 0;
 
-    virtual fr get_initialisation_commitment() = 0;
+    virtual fr get_initialisation_note_hash() = 0;
 
     virtual void constrain_against_advice(NoteInterface<Builder> const& advice_note) = 0;
 

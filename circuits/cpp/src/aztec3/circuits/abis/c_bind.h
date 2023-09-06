@@ -34,9 +34,9 @@ WASM_EXPORT void abis__compute_partial_address(uint8_t const* contract_address_s
                                                uint8_t const* constructor_hash_buf,
                                                uint8_t* output);
 
-CBIND_DECL(abis__compute_commitment_nonce);
-CBIND_DECL(abis__compute_unique_commitment);
-CBIND_DECL(abis__silo_commitment);
+CBIND_DECL(abis__compute_note_hash_nonce);
+CBIND_DECL(abis__compute_unique_note_hash);
+CBIND_DECL(abis__silo_note_hash);
 CBIND_DECL(abis__silo_nullifier);
 CBIND_DECL(abis__compute_block_hash);
 CBIND_DECL(abis__compute_block_hash_with_globals);

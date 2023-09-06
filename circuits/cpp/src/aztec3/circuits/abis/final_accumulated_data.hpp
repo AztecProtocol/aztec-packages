@@ -30,11 +30,11 @@ template <typename NCT> struct FinalAccumulatedData {
 
     AggregationObject aggregation_object{};
 
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_TX> new_note_hashes{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
-    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_note_hashes{};
     // For pending nullifiers, we have:
-    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
+    // nullifiedNoteHashes[j] != 0 <==> newNullifiers[j] nullifies nullifiedNoteHashes[j]
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
@@ -54,9 +54,9 @@ template <typename NCT> struct FinalAccumulatedData {
 
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
-                   new_commitments,
+                   new_note_hashes,
                    new_nullifiers,
-                   nullified_commitments,
+                   nullified_note_hashes,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -89,9 +89,9 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_ct(new_commitments),
+            to_ct(new_note_hashes),
             to_ct(new_nullifiers),
-            to_ct(nullified_commitments),
+            to_ct(nullified_note_hashes),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -125,9 +125,9 @@ template <typename NCT> struct FinalAccumulatedData {
                 aggregation_object.has_data,
             },
 
-            to_nt(new_commitments),
+            to_nt(new_note_hashes),
             to_nt(new_nullifiers),
-            to_nt(nullified_commitments),
+            to_nt(nullified_note_hashes),
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
@@ -151,9 +151,9 @@ template <typename NCT> struct FinalAccumulatedData {
 
         aggregation_object.add_proof_outputs_as_public_inputs();
 
-        set_array_public(new_commitments);
+        set_array_public(new_note_hashes);
         set_array_public(new_nullifiers);
-        set_array_public(nullified_commitments);
+        set_array_public(nullified_note_hashes);
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);

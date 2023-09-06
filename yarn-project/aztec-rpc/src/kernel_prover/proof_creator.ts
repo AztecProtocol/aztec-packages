@@ -13,7 +13,7 @@ import {
   privateKernelSimInner,
   privateKernelSimOrdering,
 } from '@aztec/circuits.js';
-import { siloCommitment } from '@aztec/circuits.js/abis';
+import { siloNoteHash } from '@aztec/circuits.js/abis';
 import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 
@@ -53,16 +53,16 @@ export interface ProofOutputFinal {
 
 /**
  * ProofCreator provides functionality to create and validate proofs, and retrieve
- * siloed commitments necessary for maintaining transaction privacy and security on the network.
+ * siloed noteHashes necessary for maintaining transaction privacy and security on the network.
  */
 export interface ProofCreator {
   /**
-   * Computes the siloed commitments for a given set of public inputs.
+   * Computes the siloed noteHashes for a given set of public inputs.
    *
-   * @param publicInputs - The public inputs containing the contract address and new commitments to be used in generating siloed commitments.
-   * @returns An array of Fr (finite field) elements representing the siloed commitments.
+   * @param publicInputs - The public inputs containing the contract address and new noteHashes to be used in generating siloed noteHashes.
+   * @returns An array of Fr (finite field) elements representing the siloed noteHashes.
    */
-  getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
+  getSiloedNoteHashes(publicInputs: PrivateCircuitPublicInputs): Promise<Fr[]>;
 
   /**
    * Creates a proof output for a given signed transaction request and private call data for the first iteration.
@@ -90,20 +90,20 @@ export interface ProofCreator {
 }
 
 /**
- * The KernelProofCreator class is responsible for generating siloed commitments and zero-knowledge proofs
+ * The KernelProofCreator class is responsible for generating siloed noteHashes and zero-knowledge proofs
  * for private kernel circuit. It leverages Barretenberg and Circuits Wasm libraries
- * to perform cryptographic operations and proof creation. The class provides methods to compute commitments
+ * to perform cryptographic operations and proof creation. The class provides methods to compute noteHashes
  * based on the given public inputs and to generate proofs based on signed transaction requests, previous kernel
  * data, private call data, and a flag indicating whether it's the first iteration or not.
  */
 export class KernelProofCreator implements ProofCreator {
   constructor(private log = createDebugLogger('aztec:kernel_proof_creator')) {}
 
-  public async getSiloedCommitments(publicInputs: PrivateCircuitPublicInputs) {
+  public async getSiloedNoteHashes(publicInputs: PrivateCircuitPublicInputs) {
     const wasm = await CircuitsWasm.get();
     const contractAddress = publicInputs.callContext.storageContractAddress;
 
-    return publicInputs.newCommitments.map(commitment => siloCommitment(wasm, contractAddress, commitment));
+    return publicInputs.newNoteHashes.map(noteHash => siloNoteHash(wasm, contractAddress, noteHash));
   }
 
   public async createProofInit(privateInputs: PrivateKernelInputsInit): Promise<ProofOutput> {

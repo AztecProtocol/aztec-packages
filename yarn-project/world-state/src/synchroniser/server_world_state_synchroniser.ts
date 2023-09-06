@@ -9,7 +9,7 @@ import { WorldStateRunningState, WorldStateStatus, WorldStateSynchroniser } from
 
 /**
  * Synchronises the world state with the L2 blocks from a L2BlockSource.
- * The synchroniser will download the L2 blocks from the L2BlockSource and insert the new commitments into the merkle
+ * The synchroniser will download the L2 blocks from the L2BlockSource and insert the new noteHashes into the merkle
  * tree.
  */
 export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
@@ -154,7 +154,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   }
 
   /**
-   * Handles a list of L2 blocks (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a list of L2 blocks (i.e. Inserts the new noteHashes into the merkle tree).
    * @param l2Blocks - The L2 blocks to handle.
    */
   private async handleL2Blocks(l2Blocks: L2Block[]) {
@@ -164,7 +164,7 @@ export class ServerWorldStateSynchroniser implements WorldStateSynchroniser {
   }
 
   /**
-   * Handles a single L2 block (i.e. Inserts the new commitments into the merkle tree).
+   * Handles a single L2 block (i.e. Inserts the new noteHashes into the merkle tree).
    * @param l2Block - The L2 block to handle.
    */
   private async handleL2Block(l2Block: L2Block) {

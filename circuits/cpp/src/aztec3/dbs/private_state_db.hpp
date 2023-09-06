@@ -24,14 +24,14 @@
 //  *
 //  * [contract_Address, storage_slot] -> {
 //  *     is_partitioned,
-//  *     earliest_active_commitment,
-//  *     earliest_commitment,
+//  *     earliest_active_note_hash,
+//  *     earliest_note_hash,
 //  * }
 //  *
-//  * commitment -> {
+//  * note_hash -> {
 //  *     PrivateStateVar,
-//  *     next_active_commitment,
-//  *     next_commitment,
+//  *     next_active_note_hash,
+//  *     next_note_hash,
 //  * }
 //  */
 
@@ -42,17 +42,17 @@
 //         , max_state_var_id_(max_state_var_id)
 //     {}
 
-//     // we need a linked list through all active commitments, and another linked list through all (active & inactive)
-//     // commitments.
+//     // we need a linked list through all active note_hashes, and another linked list through all (active & inactive)
+//     // note_hashes.
 
-//     PrivateStateCommitment get_earliest_active_commitment(fr const& contract_address, fr const& state_var_id)
+//     PrivateStateNoteHash get_earliest_active_note_hash(fr const& contract_address, fr const& state_var_id)
 //     {
 //         const fr& storage_slot = state_var_id;
 //         const fr db_key =
 //             commit_native(std::vector<fr>{ contract_address, storage_slot }, GeneratorIndex::UNIVERSAL_STORAGE_SLOT);
 //     }
 
-//     PrivateStateCommitment get_earliest_active_commitment(fr const& contract_address,
+//     PrivateStateNoteHash get_earliest_active_note_hash(fr const& contract_address,
 //                                                           fr const& state_var_id,
 //                                                           fr const& mapping_key)
 //     {
@@ -70,8 +70,8 @@
 
 //     fr get_current_private_state_value(fr const& contract_address, fr const& state_var_id)
 //     {
-//         PrivateStateCommitment earliest_active_commitment =
-//             get_earliest_active_commitment(contract_address, state_var_id);
+//         PrivateStateNoteHash earliest_active_note_hash =
+//             get_earliest_active_note_hash(contract_address, state_var_id);
 //     }
 
 //     fr get_current_private_state_value(fr const& contract_address, fr const& state_var_id, fr const& mapping_key) {}

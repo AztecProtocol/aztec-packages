@@ -33,7 +33,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
     std::array<ContractStorageRead<NCT>, MAX_PUBLIC_DATA_READS_PER_CALL> contract_storage_reads{};
 
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL> public_call_stack{};
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_CALL> new_commitments{};
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_CALL> new_note_hashes{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_CALL> new_nullifiers{};
     std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_CALL> new_l2_to_l1_msgs{};
 
@@ -54,7 +54,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
                    contract_storage_update_requests,
                    contract_storage_reads,
                    public_call_stack,
-                   new_commitments,
+                   new_note_hashes,
                    new_nullifiers,
                    new_l2_to_l1_msgs,
                    unencrypted_logs_hash,
@@ -85,7 +85,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
             .contract_storage_reads = map(contract_storage_reads, to_circuit_type),
 
             .public_call_stack = to_ct(public_call_stack),
-            .new_commitments = to_ct(new_commitments),
+            .new_note_hashes = to_ct(new_note_hashes),
             .new_nullifiers = to_ct(new_nullifiers),
             .new_l2_to_l1_msgs = to_ct(new_l2_to_l1_msgs),
 
@@ -115,7 +115,7 @@ template <typename NCT> struct PublicCircuitPublicInputs {
         spread_arr_into_vec(map(contract_storage_reads, to_hashes), inputs);
 
         spread_arr_into_vec(public_call_stack, inputs);
-        spread_arr_into_vec(new_commitments, inputs);
+        spread_arr_into_vec(new_note_hashes, inputs);
         spread_arr_into_vec(new_nullifiers, inputs);
         spread_arr_into_vec(new_l2_to_l1_msgs, inputs);
 

@@ -4,7 +4,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
-import { CommitmentsDB } from '../index.js';
+import { NoteHashesDB } from '../index.js';
 
 /**
  * Information about a note needed during execution.
@@ -28,7 +28,7 @@ export interface NoteData {
  * Information about a note needed during execution.
  */
 export interface PendingNoteData extends NoteData {
-  /** The inner note hash (used as a nullified commitment). */
+  /** The inner note hash (used as a nullified noteHash). */
   innerNoteHash: Fr;
 }
 
@@ -46,23 +46,23 @@ export interface MessageLoadOracleInputs {
    */
   siblingPath: Fr[];
   /**
-   * The index of the message commitment in the merkle tree.
+   * The index of the message noteHash in the merkle tree.
    */
   index: bigint;
 }
 
 /**
- * The format noir uses to get commitments.
+ * The format noir uses to get noteHashes.
  */
-export interface CommitmentDataOracleInputs {
-  /** The siloed commitment. */
-  commitment: Fr;
+export interface NoteHashDataOracleInputs {
+  /** The siloed noteHash. */
+  noteHash: Fr;
   /**
-   * The path in the merkle tree to the commitment.
+   * The path in the merkle tree to the noteHash.
    */
   siblingPath: Fr[];
   /**
-   * The index of the message commitment in the merkle tree.
+   * The index of the message noteHash in the merkle tree.
    */
   index: bigint;
 }
@@ -80,7 +80,7 @@ export interface FunctionAbiWithDebugMetadata extends FunctionAbi {
 /**
  * The database oracle interface.
  */
-export interface DBOracle extends CommitmentsDB {
+export interface DBOracle extends NoteHashesDB {
   /**
    * Retrieve the complete address associated to a given address.
    * @param address - Address to fetch the pubkey for.

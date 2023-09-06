@@ -449,9 +449,9 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
   read_requests: Tuple<Buffer, 16>;
-  new_commitments: Tuple<Buffer, 16>;
+  new_note_hashes: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
-  nullified_commitments: Tuple<Buffer, 16>;
+  nullified_note_hashes: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -472,14 +472,14 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in CombinedAccumulatedData deserialization');
   }
-  if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in CombinedAccumulatedData deserialization');
+  if (o.new_note_hashes === undefined) {
+    throw new Error('Expected new_note_hashes in CombinedAccumulatedData deserialization');
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in CombinedAccumulatedData deserialization');
   }
-  if (o.nullified_commitments === undefined) {
-    throw new Error('Expected nullified_commitments in CombinedAccumulatedData deserialization');
+  if (o.nullified_note_hashes === undefined) {
+    throw new Error('Expected nullified_note_hashes in CombinedAccumulatedData deserialization');
   }
   if (o.private_call_stack === undefined) {
     throw new Error('Expected private_call_stack in CombinedAccumulatedData deserialization');
@@ -517,9 +517,9 @@ export function toCombinedAccumulatedData(o: MsgpackCombinedAccumulatedData): Co
   return new CombinedAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
@@ -541,14 +541,14 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in CombinedAccumulatedData serialization');
   }
-  if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in CombinedAccumulatedData serialization');
+  if (o.newNoteHashes === undefined) {
+    throw new Error('Expected newNoteHashes in CombinedAccumulatedData serialization');
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in CombinedAccumulatedData serialization');
   }
-  if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in CombinedAccumulatedData serialization');
+  if (o.nullifiedNoteHashes === undefined) {
+    throw new Error('Expected nullifiedNoteHashes in CombinedAccumulatedData serialization');
   }
   if (o.privateCallStack === undefined) {
     throw new Error('Expected privateCallStack in CombinedAccumulatedData serialization');
@@ -586,9 +586,9 @@ export function fromCombinedAccumulatedData(o: CombinedAccumulatedData): Msgpack
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_note_hashes: mapTuple(o.newNoteHashes, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
+    nullified_note_hashes: mapTuple(o.nullifiedNoteHashes, (v: Fr) => toBuffer(v)),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
@@ -1159,9 +1159,9 @@ interface MsgpackPrivateCircuitPublicInputs {
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
   read_requests: Tuple<Buffer, 4>;
-  new_commitments: Tuple<Buffer, 4>;
+  new_note_hashes: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
-  nullified_commitments: Tuple<Buffer, 4>;
+  nullified_note_hashes: Tuple<Buffer, 4>;
   private_call_stack: Tuple<Buffer, 4>;
   public_call_stack: Tuple<Buffer, 4>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -1188,14 +1188,14 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
   if (o.read_requests === undefined) {
     throw new Error('Expected read_requests in PrivateCircuitPublicInputs deserialization');
   }
-  if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in PrivateCircuitPublicInputs deserialization');
+  if (o.new_note_hashes === undefined) {
+    throw new Error('Expected new_note_hashes in PrivateCircuitPublicInputs deserialization');
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in PrivateCircuitPublicInputs deserialization');
   }
-  if (o.nullified_commitments === undefined) {
-    throw new Error('Expected nullified_commitments in PrivateCircuitPublicInputs deserialization');
+  if (o.nullified_note_hashes === undefined) {
+    throw new Error('Expected nullified_note_hashes in PrivateCircuitPublicInputs deserialization');
   }
   if (o.private_call_stack === undefined) {
     throw new Error('Expected private_call_stack in PrivateCircuitPublicInputs deserialization');
@@ -1235,9 +1235,9 @@ export function toPrivateCircuitPublicInputs(o: MsgpackPrivateCircuitPublicInput
     Fr.fromBuffer(o.args_hash),
     mapTuple(o.return_values, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.read_requests, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1265,14 +1265,14 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
   if (o.readRequests === undefined) {
     throw new Error('Expected readRequests in PrivateCircuitPublicInputs serialization');
   }
-  if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in PrivateCircuitPublicInputs serialization');
+  if (o.newNoteHashes === undefined) {
+    throw new Error('Expected newNoteHashes in PrivateCircuitPublicInputs serialization');
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in PrivateCircuitPublicInputs serialization');
   }
-  if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in PrivateCircuitPublicInputs serialization');
+  if (o.nullifiedNoteHashes === undefined) {
+    throw new Error('Expected nullifiedNoteHashes in PrivateCircuitPublicInputs serialization');
   }
   if (o.privateCallStack === undefined) {
     throw new Error('Expected privateCallStack in PrivateCircuitPublicInputs serialization');
@@ -1312,9 +1312,9 @@ export function fromPrivateCircuitPublicInputs(o: PrivateCircuitPublicInputs): M
     args_hash: toBuffer(o.argsHash),
     return_values: mapTuple(o.returnValues, (v: Fr) => toBuffer(v)),
     read_requests: mapTuple(o.readRequests, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_note_hashes: mapTuple(o.newNoteHashes, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
+    nullified_note_hashes: mapTuple(o.nullifiedNoteHashes, (v: Fr) => toBuffer(v)),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
@@ -1444,7 +1444,7 @@ interface MsgpackReadRequestMembershipWitness {
   leaf_index: Buffer;
   sibling_path: Tuple<Buffer, 32>;
   is_transient: boolean;
-  hint_to_commitment: Buffer;
+  hint_to_note_hash: Buffer;
 }
 
 export function toReadRequestMembershipWitness(o: MsgpackReadRequestMembershipWitness): ReadRequestMembershipWitness {
@@ -1457,14 +1457,14 @@ export function toReadRequestMembershipWitness(o: MsgpackReadRequestMembershipWi
   if (o.is_transient === undefined) {
     throw new Error('Expected is_transient in ReadRequestMembershipWitness deserialization');
   }
-  if (o.hint_to_commitment === undefined) {
-    throw new Error('Expected hint_to_commitment in ReadRequestMembershipWitness deserialization');
+  if (o.hint_to_note_hash === undefined) {
+    throw new Error('Expected hint_to_note_hash in ReadRequestMembershipWitness deserialization');
   }
   return new ReadRequestMembershipWitness(
     Fr.fromBuffer(o.leaf_index),
     mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
     o.is_transient,
-    Fr.fromBuffer(o.hint_to_commitment),
+    Fr.fromBuffer(o.hint_to_note_hash),
   );
 }
 
@@ -1478,14 +1478,14 @@ export function fromReadRequestMembershipWitness(o: ReadRequestMembershipWitness
   if (o.isTransient === undefined) {
     throw new Error('Expected isTransient in ReadRequestMembershipWitness serialization');
   }
-  if (o.hintToCommitment === undefined) {
-    throw new Error('Expected hintToCommitment in ReadRequestMembershipWitness serialization');
+  if (o.hintToNoteHash === undefined) {
+    throw new Error('Expected hintToNoteHash in ReadRequestMembershipWitness serialization');
   }
   return {
     leaf_index: toBuffer(o.leafIndex),
     sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
     is_transient: o.isTransient,
-    hint_to_commitment: toBuffer(o.hintToCommitment),
+    hint_to_note_hash: toBuffer(o.hintToNoteHash),
   };
 }
 
@@ -1675,24 +1675,24 @@ export function fromPrivateKernelInputsInner(o: PrivateKernelInputsInner): Msgpa
 
 interface MsgpackPrivateKernelInputsOrdering {
   previous_kernel: MsgpackPreviousKernelData;
-  read_commitment_hints: Tuple<Buffer, 16>;
-  nullifier_commitment_hints: Tuple<Buffer, 16>;
+  read_note_hash_hints: Tuple<Buffer, 16>;
+  nullifier_note_hash_hints: Tuple<Buffer, 16>;
 }
 
 export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrdering): PrivateKernelInputsOrdering {
   if (o.previous_kernel === undefined) {
     throw new Error('Expected previous_kernel in PrivateKernelInputsOrdering deserialization');
   }
-  if (o.read_commitment_hints === undefined) {
-    throw new Error('Expected read_commitment_hints in PrivateKernelInputsOrdering deserialization');
+  if (o.read_note_hash_hints === undefined) {
+    throw new Error('Expected read_note_hash_hints in PrivateKernelInputsOrdering deserialization');
   }
-  if (o.nullifier_commitment_hints === undefined) {
-    throw new Error('Expected nullifier_commitment_hints in PrivateKernelInputsOrdering deserialization');
+  if (o.nullifier_note_hash_hints === undefined) {
+    throw new Error('Expected nullifier_note_hash_hints in PrivateKernelInputsOrdering deserialization');
   }
   return new PrivateKernelInputsOrdering(
     toPreviousKernelData(o.previous_kernel),
-    mapTuple(o.read_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.nullifier_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.read_note_hash_hints, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullifier_note_hash_hints, (v: Buffer) => Fr.fromBuffer(v)),
   );
 }
 
@@ -1700,24 +1700,24 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
   if (o.previousKernel === undefined) {
     throw new Error('Expected previousKernel in PrivateKernelInputsOrdering serialization');
   }
-  if (o.readCommitmentHints === undefined) {
-    throw new Error('Expected readCommitmentHints in PrivateKernelInputsOrdering serialization');
+  if (o.readNoteHashHints === undefined) {
+    throw new Error('Expected readNoteHashHints in PrivateKernelInputsOrdering serialization');
   }
-  if (o.nullifierCommitmentHints === undefined) {
-    throw new Error('Expected nullifierCommitmentHints in PrivateKernelInputsOrdering serialization');
+  if (o.nullifierNoteHashHints === undefined) {
+    throw new Error('Expected nullifierNoteHashHints in PrivateKernelInputsOrdering serialization');
   }
   return {
     previous_kernel: fromPreviousKernelData(o.previousKernel),
-    read_commitment_hints: mapTuple(o.readCommitmentHints, (v: Fr) => toBuffer(v)),
-    nullifier_commitment_hints: mapTuple(o.nullifierCommitmentHints, (v: Fr) => toBuffer(v)),
+    read_note_hash_hints: mapTuple(o.readNoteHashHints, (v: Fr) => toBuffer(v)),
+    nullifier_note_hash_hints: mapTuple(o.nullifierNoteHashHints, (v: Fr) => toBuffer(v)),
   };
 }
 
 interface MsgpackFinalAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  new_commitments: Tuple<Buffer, 16>;
+  new_note_hashes: Tuple<Buffer, 16>;
   new_nullifiers: Tuple<Buffer, 16>;
-  nullified_commitments: Tuple<Buffer, 16>;
+  nullified_note_hashes: Tuple<Buffer, 16>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -1733,14 +1733,14 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
   if (o.aggregation_object === undefined) {
     throw new Error('Expected aggregation_object in FinalAccumulatedData deserialization');
   }
-  if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in FinalAccumulatedData deserialization');
+  if (o.new_note_hashes === undefined) {
+    throw new Error('Expected new_note_hashes in FinalAccumulatedData deserialization');
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in FinalAccumulatedData deserialization');
   }
-  if (o.nullified_commitments === undefined) {
-    throw new Error('Expected nullified_commitments in FinalAccumulatedData deserialization');
+  if (o.nullified_note_hashes === undefined) {
+    throw new Error('Expected nullified_note_hashes in FinalAccumulatedData deserialization');
   }
   if (o.private_call_stack === undefined) {
     throw new Error('Expected private_call_stack in FinalAccumulatedData deserialization');
@@ -1771,9 +1771,9 @@ export function toFinalAccumulatedData(o: MsgpackFinalAccumulatedData): FinalAcc
   }
   return new FinalAccumulatedData(
     toNativeAggregationState(o.aggregation_object),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.nullified_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullified_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.private_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
@@ -1790,14 +1790,14 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
   if (o.aggregationObject === undefined) {
     throw new Error('Expected aggregationObject in FinalAccumulatedData serialization');
   }
-  if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in FinalAccumulatedData serialization');
+  if (o.newNoteHashes === undefined) {
+    throw new Error('Expected newNoteHashes in FinalAccumulatedData serialization');
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in FinalAccumulatedData serialization');
   }
-  if (o.nullifiedCommitments === undefined) {
-    throw new Error('Expected nullifiedCommitments in FinalAccumulatedData serialization');
+  if (o.nullifiedNoteHashes === undefined) {
+    throw new Error('Expected nullifiedNoteHashes in FinalAccumulatedData serialization');
   }
   if (o.privateCallStack === undefined) {
     throw new Error('Expected privateCallStack in FinalAccumulatedData serialization');
@@ -1828,9 +1828,9 @@ export function fromFinalAccumulatedData(o: FinalAccumulatedData): MsgpackFinalA
   }
   return {
     aggregation_object: fromNativeAggregationState(o.aggregationObject),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_note_hashes: mapTuple(o.newNoteHashes, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
-    nullified_commitments: mapTuple(o.nullifiedCommitments, (v: Fr) => toBuffer(v)),
+    nullified_note_hashes: mapTuple(o.nullifiedNoteHashes, (v: Fr) => toBuffer(v)),
     private_call_stack: mapTuple(o.privateCallStack, (v: Fr) => toBuffer(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
@@ -1964,7 +1964,7 @@ interface MsgpackPublicCircuitPublicInputs {
   contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
   contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
   public_call_stack: Tuple<Buffer, 4>;
-  new_commitments: Tuple<Buffer, 4>;
+  new_note_hashes: Tuple<Buffer, 4>;
   new_nullifiers: Tuple<Buffer, 4>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
@@ -1992,8 +1992,8 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
   if (o.public_call_stack === undefined) {
     throw new Error('Expected public_call_stack in PublicCircuitPublicInputs deserialization');
   }
-  if (o.new_commitments === undefined) {
-    throw new Error('Expected new_commitments in PublicCircuitPublicInputs deserialization');
+  if (o.new_note_hashes === undefined) {
+    throw new Error('Expected new_note_hashes in PublicCircuitPublicInputs deserialization');
   }
   if (o.new_nullifiers === undefined) {
     throw new Error('Expected new_nullifiers in PublicCircuitPublicInputs deserialization');
@@ -2022,7 +2022,7 @@ export function toPublicCircuitPublicInputs(o: MsgpackPublicCircuitPublicInputs)
     ),
     mapTuple(o.contract_storage_reads, (v: MsgpackContractStorageRead) => toContractStorageRead(v)),
     mapTuple(o.public_call_stack, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_commitments, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.new_note_hashes, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_nullifiers, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.new_l2_to_l1_msgs, (v: Buffer) => Fr.fromBuffer(v)),
     mapTuple(o.unencrypted_logs_hash, (v: Buffer) => Fr.fromBuffer(v)),
@@ -2051,8 +2051,8 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
   if (o.publicCallStack === undefined) {
     throw new Error('Expected publicCallStack in PublicCircuitPublicInputs serialization');
   }
-  if (o.newCommitments === undefined) {
-    throw new Error('Expected newCommitments in PublicCircuitPublicInputs serialization');
+  if (o.newNoteHashes === undefined) {
+    throw new Error('Expected newNoteHashes in PublicCircuitPublicInputs serialization');
   }
   if (o.newNullifiers === undefined) {
     throw new Error('Expected newNullifiers in PublicCircuitPublicInputs serialization');
@@ -2081,7 +2081,7 @@ export function fromPublicCircuitPublicInputs(o: PublicCircuitPublicInputs): Msg
     ),
     contract_storage_reads: mapTuple(o.contractStorageReads, (v: ContractStorageRead) => fromContractStorageRead(v)),
     public_call_stack: mapTuple(o.publicCallStack, (v: Fr) => toBuffer(v)),
-    new_commitments: mapTuple(o.newCommitments, (v: Fr) => toBuffer(v)),
+    new_note_hashes: mapTuple(o.newNoteHashes, (v: Fr) => toBuffer(v)),
     new_nullifiers: mapTuple(o.newNullifiers, (v: Fr) => toBuffer(v)),
     new_l2_to_l1_msgs: mapTuple(o.newL2ToL1Msgs, (v: Fr) => toBuffer(v)),
     unencrypted_logs_hash: mapTuple(o.unencryptedLogsHash, (v: Fr) => toBuffer(v)),
@@ -2228,14 +2228,14 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
-export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [toBuffer(arg0), toBuffer(arg1)]));
+export function abisComputeNoteHashNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_note_hash_nonce', [toBuffer(arg0), toBuffer(arg1)]));
 }
-export function abisComputeUniqueCommitment(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_commitment', [toBuffer(arg0), toBuffer(arg1)]));
+export function abisComputeUniqueNoteHash(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__compute_unique_note_hash', [toBuffer(arg0), toBuffer(arg1)]));
 }
-export function abisSiloCommitment(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
-  return Fr.fromBuffer(callCbind(wasm, 'abis__silo_commitment', [toBuffer(arg0), toBuffer(arg1)]));
+export function abisSiloNoteHash(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
+  return Fr.fromBuffer(callCbind(wasm, 'abis__silo_note_hash', [toBuffer(arg0), toBuffer(arg1)]));
 }
 export function abisSiloNullifier(wasm: IWasmModule, arg0: Address, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__silo_nullifier', [toBuffer(arg0), toBuffer(arg1)]));

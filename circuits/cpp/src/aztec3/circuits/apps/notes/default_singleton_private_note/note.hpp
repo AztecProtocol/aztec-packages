@@ -34,7 +34,7 @@ template <typename Builder, typename ValueType> class DefaultSingletonPrivateNot
     StateVar<Builder>* state_var;
 
   private:
-    std::optional<fr> commitment;
+    std::optional<fr> note_hash;
     std::optional<fr> nullifier;
 
     NotePreimage note_preimage;
@@ -50,12 +50,12 @@ template <typename Builder, typename ValueType> class DefaultSingletonPrivateNot
 
     void remove() override;
 
-    fr get_commitment() override
+    fr get_note_hash() override
     {
-        if (commitment) {
-            return *commitment;
+        if (note_hash) {
+            return *note_hash;
         }
-        return compute_commitment();
+        return compute_note_hash();
     };
 
     fr get_nullifier() override
@@ -76,24 +76,24 @@ template <typename Builder, typename ValueType> class DefaultSingletonPrivateNot
 
     fr get_initialisation_nullifier() override;
 
-    fr get_initialisation_commitment() override;
+    fr get_initialisation_note_hash() override;
 
     // CUSTOM METHODS
 
     auto& get_oracle();
 
-    grumpkin_point compute_partial_commitment();
+    grumpkin_point compute_partial_note_hash();
 
     fr compute_dummy_nullifier();
 
-    static fr compute_nullifier(fr const& commitment,
+    static fr compute_nullifier(fr const& note_hash,
                                 fr const& owner_private_key,
-                                boolean const& is_dummy_commitment = false);
+                                boolean const& is_dummy_note_hash = false);
 
     NotePreimage& get_preimage() { return note_preimage; };
 
   private:
-    fr compute_commitment();
+    fr compute_note_hash();
     fr compute_nullifier();
 
     bool is_partial_preimage() const;

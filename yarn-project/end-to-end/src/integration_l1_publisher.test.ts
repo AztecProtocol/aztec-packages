@@ -3,8 +3,8 @@ import {
   AztecAddress,
   GlobalVariables,
   KernelCircuitPublicInputs,
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -177,7 +177,7 @@ describe('L1Publisher integration', () => {
 
     const processedTx = await makeProcessedTx(tx, kernelOutput, makeProof());
 
-    processedTx.data.end.newCommitments = makeTuple(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100);
+    processedTx.data.end.newNoteHashes = makeTuple(MAX_NEW_NOTE_HASHES_PER_TX, fr, seed + 0x100);
     processedTx.data.end.newNullifiers = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200);
     processedTx.data.end.newNullifiers[processedTx.data.end.newNullifiers.length - 1] = Fr.ZERO;
     processedTx.data.end.newL2ToL1Msgs = makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x300);

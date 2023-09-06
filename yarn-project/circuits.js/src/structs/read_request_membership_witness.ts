@@ -2,7 +2,7 @@ import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
-import { MAX_NEW_COMMITMENTS_PER_CALL, PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
+import { MAX_NEW_NOTE_HASHES_PER_CALL, PRIVATE_DATA_TREE_HEIGHT } from '../cbind/constants.gen.js';
 import { assertMemberLength, makeTuple, range } from '../utils/jsUtils.js';
 import { serializeToBuffer } from '../utils/serialize.js';
 import { MembershipWitness } from './membership_witness.js';
@@ -10,7 +10,7 @@ import { MembershipWitness } from './membership_witness.js';
 /**
  * A ReadRequestMembershipWitness is similar to a MembershipWitness but includes
  * some additional fields used to direct the kernel regarding whether a read is transient
- * and if so which commitment it corresponds to.
+ * and if so which noteHash it corresponds to.
  */
 export class ReadRequestMembershipWitness {
   constructor(
@@ -23,20 +23,20 @@ export class ReadRequestMembershipWitness {
      */
     public siblingPath: Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
     /**
-     * Whether or not the read request corresponds to a pending commitment.
+     * Whether or not the read request corresponds to a pending noteHash.
      */
     public isTransient = false,
     /**
-     * When transient, the commitment being read was created by some app circuit in the current TX.
-     * The kernel will need some hint to efficiently find that commitment for a given read request.
+     * When transient, the noteHash being read was created by some app circuit in the current TX.
+     * The kernel will need some hint to efficiently find that noteHash for a given read request.
      * When not transient, this can be 0.
      */
-    public hintToCommitment: Fr,
+    public hintToNoteHash: Fr,
   ) {
     assertMemberLength(this, 'siblingPath', PRIVATE_DATA_TREE_HEIGHT);
-    if (hintToCommitment.value > MAX_NEW_COMMITMENTS_PER_CALL) {
+    if (hintToNoteHash.value > MAX_NEW_NOTE_HASHES_PER_CALL) {
       throw new Error(
-        `Expected ReadRequestMembershipWitness' hintToCommitment(${hintToCommitment}) to be <= NEW_COMMITMENTS_LENGTH(${MAX_NEW_COMMITMENTS_PER_CALL})`,
+        `Expected ReadRequestMembershipWitness' hintToNoteHash(${hintToNoteHash}) to be <= NEW_NOTE_HASHES_LENGTH(${MAX_NEW_NOTE_HASHES_PER_CALL})`,
       );
     }
   }
@@ -46,7 +46,7 @@ export class ReadRequestMembershipWitness {
       toBufferBE(this.leafIndex.toBigInt(), 32),
       ...this.siblingPath,
       this.isTransient,
-      this.hintToCommitment,
+      this.hintToNoteHash,
     );
   }
 
@@ -95,26 +95,26 @@ export class ReadRequestMembershipWitness {
     leafIndex: Fr,
     siblingPath: Tuple<Buffer, typeof PRIVATE_DATA_TREE_HEIGHT>,
     isTransient: boolean,
-    hintToCommitment: Fr,
+    hintToNoteHash: Fr,
   ): ReadRequestMembershipWitness {
     return new ReadRequestMembershipWitness(
       leafIndex,
       siblingPath.map(x => Fr.fromBuffer(x)) as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
       isTransient,
-      hintToCommitment,
+      hintToNoteHash,
     );
   }
 
   static fromMembershipWitness(
     membershipWitness: MembershipWitness<typeof PRIVATE_DATA_TREE_HEIGHT>,
     isTransient: boolean,
-    hintToCommitment: Fr,
+    hintToNoteHash: Fr,
   ): ReadRequestMembershipWitness {
     return new ReadRequestMembershipWitness(
       new Fr(membershipWitness.leafIndex),
       membershipWitness.siblingPath as Tuple<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>,
       isTransient,
-      hintToCommitment,
+      hintToNoteHash,
     );
   }
 
@@ -128,7 +128,7 @@ export class ReadRequestMembershipWitness {
     const leafIndex = reader.readFr();
     const siblingPath = reader.readArray<Fr, typeof PRIVATE_DATA_TREE_HEIGHT>(PRIVATE_DATA_TREE_HEIGHT, Fr);
     const isTransient = reader.readBoolean();
-    const hintToCommitment = reader.readFr();
-    return new ReadRequestMembershipWitness(leafIndex, siblingPath, isTransient, hintToCommitment);
+    const hintToNoteHash = reader.readFr();
+    return new ReadRequestMembershipWitness(leafIndex, siblingPath, isTransient, hintToNoteHash);
   }
 }

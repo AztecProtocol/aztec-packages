@@ -61,13 +61,13 @@ template <typename Builder> class Opcodes {
     template <typename Note> static void UTXO_NULL(StateVar<Builder>* state_var, Note& note_to_nullify);
 
     /**
-     * @brief Compute and push a new commitment to the public inputs of this exec_ctx, BUT ALSO compute and produce an
+     * @brief Compute and push a new note_hash to the public inputs of this exec_ctx, BUT ALSO compute and produce an
      * initialisation nullifier, to prevent this note from being initialised again in the future.
      */
     template <typename Note> static void UTXO_INIT(StateVar<Builder>* state_var, Note& note_to_initialise);
 
     /**
-     * @brief Compute and push a new commitment to the public inputs of this exec_ctx.
+     * @brief Compute and push a new note_hash to the public inputs of this exec_ctx.
      */
     template <typename Note>
     static void UTXO_SSTORE(StateVar<Builder>* state_var, typename Note::NotePreimage new_note_preimage);

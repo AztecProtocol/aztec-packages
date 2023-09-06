@@ -206,9 +206,9 @@ export function appFactory(node: AztecNode, prefix: string) {
     ctx.status = 200;
   });
 
-  router.get('/commitment-index', async (ctx: Koa.Context) => {
+  router.get('/noteHash-index', async (ctx: Koa.Context) => {
     const leaf = ctx.query.leaf!;
-    const index = await node.findCommitmentIndex(Buffer.from(leaf as string, 'hex'));
+    const index = await node.findNoteHashIndex(Buffer.from(leaf as string, 'hex'));
     ctx.set('content-type', 'application/json');
     ctx.body = {
       index,

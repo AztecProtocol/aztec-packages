@@ -4,8 +4,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, Tuple } from '@aztec/foundation/serialize';
 
 import {
-  MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_L2_TO_L1_MSGS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
   MAX_NEW_NULLIFIERS_PER_CALL,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
   MAX_PUBLIC_DATA_READS_PER_CALL,
@@ -178,9 +178,9 @@ export class PublicCircuitPublicInputs {
      */
     public publicCallStack: Tuple<Fr, typeof MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
     /**
-     * New commitments created within a public execution call
+     * New noteHashes created within a public execution call
      */
-    public newCommitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_CALL>,
+    public newNoteHashes: Tuple<Fr, typeof MAX_NEW_NOTE_HASHES_PER_CALL>,
     /**
      * New nullifiers created within a public execution call
      */
@@ -199,7 +199,7 @@ export class PublicCircuitPublicInputs {
      */
     public unencryptedLogPreimagesLength: Fr,
     /**
-     * Root of the commitment trees when the call started.
+     * Root of the noteHash trees when the call started.
      */
     public historicBlockData: HistoricBlockData,
     /**
@@ -209,7 +209,7 @@ export class PublicCircuitPublicInputs {
   ) {
     assertMemberLength(this, 'returnValues', RETURN_VALUES_LENGTH);
     assertMemberLength(this, 'publicCallStack', MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL);
-    assertMemberLength(this, 'newCommitments', MAX_NEW_COMMITMENTS_PER_CALL);
+    assertMemberLength(this, 'newNoteHashes', MAX_NEW_NOTE_HASHES_PER_CALL);
     assertMemberLength(this, 'newNullifiers', MAX_NEW_NULLIFIERS_PER_CALL);
     assertMemberLength(this, 'newL2ToL1Msgs', MAX_NEW_L2_TO_L1_MSGS_PER_CALL);
     assertMemberLength(this, 'contractStorageUpdateRequests', MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL);
@@ -238,7 +238,7 @@ export class PublicCircuitPublicInputs {
       makeTuple(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL, ContractStorageUpdateRequest.empty),
       makeTuple(MAX_PUBLIC_DATA_READS_PER_CALL, ContractStorageRead.empty),
       makeTuple(MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL, Fr.zero),
-      makeTuple(MAX_NEW_COMMITMENTS_PER_CALL, Fr.zero),
+      makeTuple(MAX_NEW_NOTE_HASHES_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_NULLIFIERS_PER_CALL, Fr.zero),
       makeTuple(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, Fr.zero),
       makeTuple(2, Fr.zero),
@@ -257,7 +257,7 @@ export class PublicCircuitPublicInputs {
       isArrayEmpty(this.contractStorageUpdateRequests, item => item.isEmpty()) &&
       isArrayEmpty(this.contractStorageReads, item => item.isEmpty()) &&
       isFrArrayEmpty(this.publicCallStack) &&
-      isFrArrayEmpty(this.newCommitments) &&
+      isFrArrayEmpty(this.newNoteHashes) &&
       isFrArrayEmpty(this.newNullifiers) &&
       isFrArrayEmpty(this.newL2ToL1Msgs) &&
       isFrArrayEmpty(this.unencryptedLogsHash) &&
@@ -280,7 +280,7 @@ export class PublicCircuitPublicInputs {
       fields.contractStorageUpdateRequests,
       fields.contractStorageReads,
       fields.publicCallStack,
-      fields.newCommitments,
+      fields.newNoteHashes,
       fields.newNullifiers,
       fields.newL2ToL1Msgs,
       fields.unencryptedLogsHash,

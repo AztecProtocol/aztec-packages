@@ -1,5 +1,5 @@
 import { AcirSimulator } from '@aztec/acir-simulator';
-import { ContractCommitmentProvider, DataCommitmentProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
+import { ContractNoteHashProvider, DataNoteHashProvider, KeyStore, L1ToL2MessageProvider } from '@aztec/types';
 
 import { ContractDataOracle } from '../contract_data_oracle/index.js';
 import { Database } from '../database/database.js';
@@ -10,18 +10,18 @@ import { SimulatorOracle } from '../simulator_oracle/index.js';
  */
 export function getAcirSimulator(
   db: Database,
-  contractCommitmentProvider: ContractCommitmentProvider,
+  contractNoteHashProvider: ContractNoteHashProvider,
   l1ToL2MessageProvider: L1ToL2MessageProvider,
-  dataCommitmentProvider: DataCommitmentProvider,
+  dataNoteHashProvider: DataNoteHashProvider,
   keyStore: KeyStore,
   contractDataOracle?: ContractDataOracle,
 ) {
   const simulatorOracle = new SimulatorOracle(
-    contractDataOracle ?? new ContractDataOracle(db, contractCommitmentProvider),
+    contractDataOracle ?? new ContractDataOracle(db, contractNoteHashProvider),
     db,
     keyStore,
     l1ToL2MessageProvider,
-    dataCommitmentProvider,
+    dataNoteHashProvider,
   );
   return new AcirSimulator(simulatorOracle);
 }

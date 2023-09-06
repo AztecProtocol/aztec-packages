@@ -16,7 +16,7 @@ library Constants {
 
   uint256 internal constant ARGS_LENGTH = 16;
   uint256 internal constant RETURN_VALUES_LENGTH = 4;
-  uint256 internal constant MAX_NEW_COMMITMENTS_PER_CALL = 4;
+  uint256 internal constant MAX_NEW_NOTE_HASHES_PER_CALL = 4;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_CALL = 4;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
@@ -24,7 +24,7 @@ library Constants {
   uint256 internal constant MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL = 16;
   uint256 internal constant MAX_PUBLIC_DATA_READS_PER_CALL = 16;
   uint256 internal constant MAX_READ_REQUESTS_PER_CALL = 4;
-  uint256 internal constant MAX_NEW_COMMITMENTS_PER_TX = 16;
+  uint256 internal constant MAX_NEW_NOTE_HASHES_PER_TX = 16;
   uint256 internal constant MAX_NEW_NULLIFIERS_PER_TX = 16;
   uint256 internal constant MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
   uint256 internal constant MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
@@ -73,11 +73,11 @@ library Constants {
   uint256 internal constant CONTRACT_STORAGE_READ_LENGTH = 2;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH = 117;
   uint256 internal constant GET_NOTES_ORACLE_RETURN_LENGTH = 86;
-  uint256 internal constant EMPTY_NULLIFIED_COMMITMENT = 1000000;
+  uint256 internal constant EMPTY_NULLIFIED_NOTE_HASH = 1000000;
   uint256 internal constant CALL_PRIVATE_FUNCTION_RETURN_SIZE = 64;
   uint256 internal constant PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 63;
   uint256 internal constant PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH = 48;
-  uint256 internal constant COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP = 1024;
+  uint256 internal constant NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = 1024;
   uint256 internal constant NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = 1024;
   uint256 internal constant PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP = 2048;
   uint256 internal constant CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP = 64;

@@ -166,7 +166,7 @@ In order to link a `contractAddress`, with with a leafIndex in the `contractTree
 
 The `contractAddress` is stored within the contract's leaf of the `contractTree`, so that the private kernel circuit may validate contract address <--> vk relationships.
 
-> Aside: It would have been neat for a contract's address to be the leaf index of its mini Merkle tree (i.e. the root of the `vkTree`) in the`contractTree`. However, the leaf index is only known at the time the rollup provider runs the 'contract deployment kernel snark', whereas we need the contract address to be known earlier, at the time the deployer generates the private constructor proof. Without a contract address, the private constructor would not be able to: call other functions (and pass them a valid callContext); or silo newly-created commitments.
+> Aside: It would have been neat for a contract's address to be the leaf index of its mini Merkle tree (i.e. the root of the `vkTree`) in the`contractTree`. However, the leaf index is only known at the time the rollup provider runs the 'contract deployment kernel snark', whereas we need the contract address to be known earlier, at the time the deployer generates the private constructor proof. Without a contract address, the private constructor would not be able to: call other functions (and pass them a valid callContext); or silo newly-created note-hashes.
 
 ## Deployment overview
 
@@ -319,7 +319,7 @@ The contract deployment kernel circuit verifies the constructors' executions.
 A private constructor is only needed if we'd like private states to exist at the beginning of our contract's life. Since private states must be private _to_ a person (i.e. _owned_ by a person), such states would only be created at deployment if we want the _deployer_ to own something privately.
 
 An example might be if someone was creating a completely private cryptocurrency directly on aztec's L2, and they minted the total supply at once for themselves (to distribute themselves). Then initially, the deployer of the contract might be in control of a single 'value note' representing the entire initial supply. They could then distribute value notes thereafter by running a private circuit for 'transferring value' multiple times.
-As an extension of this example, the deployer might wish bake-into the private constructor the token distribution logic. Then with the private constructor, they could distribute value immediately and privately to a group of people by creating up-to 64 commitments (actual value TBD).
+As an extension of this example, the deployer might wish bake-into the private constructor the token distribution logic. Then with the private constructor, they could distribute value immediately and privately to a group of people by creating up-to 64 note-hashes (actual value TBD).
 
 #### Public constructor
 

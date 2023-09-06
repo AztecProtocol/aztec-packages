@@ -1,7 +1,7 @@
 import {
-  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
   MAX_NEW_L2_TO_L1_MSGS_PER_TX,
+  MAX_NEW_NOTE_HASHES_PER_TX,
   MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
 } from '@aztec/circuits.js';
@@ -27,9 +27,9 @@ export class L2Tx {
 
   constructor(
     /**
-     * New commitments created by the transaction.
+     * New noteHashes created by the transaction.
      */
-    public newCommitments: Fr[],
+    public newNoteHashes: Fr[],
     /**
      * New nullifiers created by the transaction.
      */
@@ -70,7 +70,7 @@ export class L2Tx {
   static fromBuffer(buffer: Buffer | BufferReader): L2Tx {
     const reader = BufferReader.asReader(buffer);
     return new L2Tx(
-      reader.readArray(MAX_NEW_COMMITMENTS_PER_TX, Fr),
+      reader.readArray(MAX_NEW_NOTE_HASHES_PER_TX, Fr),
       reader.readArray(MAX_NEW_NULLIFIERS_PER_TX, Fr),
       reader.readArray(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite),
       reader.readArray(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr),
@@ -87,7 +87,7 @@ export class L2Tx {
    */
   toBuffer() {
     return serializeToBuffer([
-      this.newCommitments,
+      this.newNoteHashes,
       this.newNullifiers,
       this.newPublicDataWrites,
       this.newL2ToL1Msgs,
@@ -100,7 +100,7 @@ export class L2Tx {
 
   static random() {
     return new L2Tx(
-      times(MAX_NEW_COMMITMENTS_PER_TX, Fr.random),
+      times(MAX_NEW_NOTE_HASHES_PER_TX, Fr.random),
       times(MAX_NEW_NULLIFIERS_PER_TX, Fr.random),
       times(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, PublicDataWrite.random),
       times(MAX_NEW_L2_TO_L1_MSGS_PER_TX, Fr.random),

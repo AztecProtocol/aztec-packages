@@ -60,7 +60,7 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness?.stop();
   });
 
-  it('Milestone 5.4: Should be able to create a commitment in a public function and spend in a private function', async () => {
+  it('Milestone 5.4: Should be able to create a noteHash in a public function and spend in a private function', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
@@ -84,10 +84,10 @@ describe('e2e_public_to_private_messaging', () => {
     await crossChainTestHarness.consumeMessageOnAztecAndMintPublicly(bridgeAmount, messageKey, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount);
 
-    // Create the commitment to be spent in the private domain
+    // Create the noteHash to be spent in the private domain
     await crossChainTestHarness.shieldFundsOnL2(shieldAmount, secretHash);
 
-    // Create the transaction spending the commitment
+    // Create the transaction spending the noteHash
     await crossChainTestHarness.redeemShieldPrivatelyOnL2(shieldAmount, secret);
     await crossChainTestHarness.expectPublicBalanceOnL2(ownerAddress, bridgeAmount - shieldAmount);
     await crossChainTestHarness.expectBalanceOnL2(ownerAddress, initialBalance + shieldAmount - transferAmount);

@@ -38,7 +38,7 @@ template <size_t N> AppendOnlySnapshot insert_subtree_to_snapshot_tree(DummyBuil
                                                                        std::string const& emptySubtreeCheckErrorMessage)
 {
     // TODO: Sanity check len of siblingPath > height of subtree
-    // TODO: Ensure height of subtree is correct (eg 3 for commitments, 1 for contracts)
+    // TODO: Ensure height of subtree is correct (eg 3 for note_hashes, 1 for contracts)
     auto leafIndexAtDepth = snapshot.next_available_leaf_index >> subtreeDepth;
 
     // Check that the current root is correct and that there is an empty subtree at the insertion location

@@ -204,15 +204,15 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
     AppendOnlyTreeSnapshot<NT> start_blocks_tree_snapshot = { .root = blocks_tree.root(),
                                                               .next_available_leaf_index = 1 };
 
-    // Create commitments
+    // Create note_hashes
     for (size_t kernel_j = 0; kernel_j < 4; kernel_j++) {
-        std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments;
-        for (uint8_t commitment_k = 0; commitment_k < MAX_NEW_COMMITMENTS_PER_TX; commitment_k++) {
-            auto val = fr(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k + 1);
-            new_commitments[commitment_k] = val;
-            private_data_tree.update_element(kernel_j * MAX_NEW_COMMITMENTS_PER_TX + commitment_k, val);
+        std::array<fr, MAX_NEW_NOTE_HASHES_PER_TX> new_note_hashes;
+        for (uint8_t note_hash_k = 0; note_hash_k < MAX_NEW_NOTE_HASHES_PER_TX; note_hash_k++) {
+            auto val = fr(kernel_j * MAX_NEW_NOTE_HASHES_PER_TX + note_hash_k + 1);
+            new_note_hashes[note_hash_k] = val;
+            private_data_tree.update_element(kernel_j * MAX_NEW_NOTE_HASHES_PER_TX + note_hash_k, val);
         }
-        kernels[kernel_j].public_inputs.end.new_commitments = new_commitments;
+        kernels[kernel_j].public_inputs.end.new_note_hashes = new_note_hashes;
 
         std::array<fr, MAX_NEW_L2_TO_L1_MSGS_PER_TX> new_l2_to_l1_messages;
         for (uint8_t i = 0; i < MAX_NEW_L2_TO_L1_MSGS_PER_TX; i++) {
@@ -273,7 +273,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
         rootRollupInputs.previous_rollup_data[1].base_or_merge_rollup_public_inputs.end_private_data_tree_snapshot);
     AppendOnlyTreeSnapshot<NT> const expected_private_data_tree_snapshot = { .root = private_data_tree.root(),
                                                                              .next_available_leaf_index =
-                                                                                 4 * MAX_NEW_COMMITMENTS_PER_TX };
+                                                                                 4 * MAX_NEW_NOTE_HASHES_PER_TX };
     ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_private_data_tree_snapshot);
 
     // Check public data trees

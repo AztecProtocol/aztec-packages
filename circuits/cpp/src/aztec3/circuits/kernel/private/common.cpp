@@ -60,7 +60,7 @@ void common_validate_call_stack(DummyBuilder& builder, PrivateCallData<NT> const
  * @param builder
  * @param historic_private_data_tree_root This is a reference to the historic root which all
  * read requests are checked against here.
- * @param read_requests the commitments being read by this private call - 'pending note reads' here are
+ * @param read_requests the note_hashes being read by this private call - 'pending note reads' here are
  * `inner_note_hashes` (not yet siloed, not unique), but 'pre-existing note reads' are `unique_siloed_note_hashes`
  * @param read_request_membership_witnesses used to compute the private data root
  * for a given request which is essentially a membership check
@@ -77,8 +77,8 @@ void common_validate_read_requests(DummyBuilder& builder,
         const auto& read_request = read_requests[rr_idx];
         const auto& witness = read_request_membership_witnesses[rr_idx];
 
-        // A pending commitment is the one that is not yet added to private data tree
-        // A transient read is when we try to "read" a pending commitment
+        // A pending note_hash is the one that is not yet added to private data tree
+        // A transient read is when we try to "read" a pending note_hash
         // We determine if it is a transient read depending on the leaf index from the membership witness
         // Note that the Merkle membership proof would be null and void in case of an transient read
         // but we use the leaf index as a placeholder to detect a 'pending note read'.
@@ -100,8 +100,8 @@ void common_validate_read_requests(DummyBuilder& builder,
                        witness.leaf_index,
                        "\n\tis_transient: ",
                        witness.is_transient,
-                       "\n\thint_to_commitment: ",
-                       witness.hint_to_commitment,
+                       "\n\thint_to_note_hash: ",
+                       witness.hint_to_note_hash,
                        "\n\t* got root by treating the read_request as a leaf in the private data tree "
                        "and merkle-hashing to a root using the membership witness"
                        "\n\t** for 'pre-existing note reads', the read_request is the unique_siloed_note_hash "
@@ -122,17 +122,17 @@ void common_update_end_values(DummyBuilder& builder,
     const auto& read_requests = private_call_public_inputs.read_requests;
     const auto& read_request_membership_witnesses = private_call.read_request_membership_witnesses;
 
-    const auto& new_commitments = private_call_public_inputs.new_commitments;
+    const auto& new_note_hashes = private_call_public_inputs.new_note_hashes;
     const auto& new_nullifiers = private_call_public_inputs.new_nullifiers;
-    const auto& nullified_commitments = private_call_public_inputs.nullified_commitments;
+    const auto& nullified_note_hashes = private_call_public_inputs.nullified_note_hashes;
 
     const auto& is_static_call = private_call_public_inputs.call_context.is_static_call;
 
     if (is_static_call) {
         // No state changes are allowed for static calls:
-        builder.do_assert(is_array_empty(new_commitments) == true,
-                          "new_commitments must be empty for static calls",
-                          CircuitErrorCode::PRIVATE_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
+        builder.do_assert(is_array_empty(new_note_hashes) == true,
+                          "new_note_hashes must be empty for static calls",
+                          CircuitErrorCode::PRIVATE_KERNEL__NEW_NOTE_HASHES_PROHIBITED_IN_STATIC_CALL);
         builder.do_assert(is_array_empty(new_nullifiers) == true,
                           "new_nullifiers must be empty for static calls",
                           CircuitErrorCode::PRIVATE_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
@@ -148,7 +148,7 @@ void common_update_end_values(DummyBuilder& builder,
             const auto& witness = read_request_membership_witnesses[i];
             if (witness.is_transient) {  // only forward transient to public inputs
                 const auto siloed_read_request =
-                    read_request == 0 ? 0 : silo_commitment<NT>(storage_contract_address, read_request);
+                    read_request == 0 ? 0 : silo_note_hash<NT>(storage_contract_address, read_request);
                 array_push(builder,
                            public_inputs.end.read_requests,
                            siloed_read_request,
@@ -158,7 +158,7 @@ void common_update_end_values(DummyBuilder& builder,
         }
     }
 
-    // Enhance commitments and nullifiers with domain separation whereby domain is the contract.
+    // Enhance note_hashes and nullifiers with domain separation whereby domain is the contract.
     {
         // nullifiers
         std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_new_nullifiers{};
@@ -172,39 +172,38 @@ void common_update_end_values(DummyBuilder& builder,
             public_inputs.end.new_nullifiers,
             format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullifiers in one tx"));
 
-        // commitments
-        std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
-        for (size_t i = 0; i < new_commitments.size(); ++i) {
-            siloed_new_commitments[i] =
-                new_commitments[i] == 0 ? 0 : silo_commitment<NT>(storage_contract_address, new_commitments[i]);
+        // note_hashes
+        std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_CALL> siloed_new_note_hashes{};
+        for (size_t i = 0; i < new_note_hashes.size(); ++i) {
+            siloed_new_note_hashes[i] =
+                new_note_hashes[i] == 0 ? 0 : silo_note_hash<NT>(storage_contract_address, new_note_hashes[i]);
         }
         push_array_to_array(
             builder,
-            siloed_new_commitments,
-            public_inputs.end.new_commitments,
-            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
+            siloed_new_note_hashes,
+            public_inputs.end.new_note_hashes,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new note_hashes in one tx"));
 
-        // nullified commitments (for matching transient nullifiers to transient commitments)
-        // Since every new_nullifiers entry is paired with a nullified_commitment, EMPTY
-        // is used here for nullified_commitments of persistable nullifiers. EMPTY will still
-        // take up a slot in the nullified_commitments array so that the array lines up properly
+        // nullified note_hashes (for matching transient nullifiers to transient note_hashes)
+        // Since every new_nullifiers entry is paired with a nullified_note_hash, EMPTY
+        // is used here for nullified_note_hashes of persistable nullifiers. EMPTY will still
+        // take up a slot in the nullified_note_hashes array so that the array lines up properly
         // with new_nullifiers. This is necessary since the constant-size circuit-array functions
         // we use assume that the first 0-valued array entry designates the end of the array.
-        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_commitments{};
+        std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_CALL> siloed_nullified_note_hashes{};
         for (size_t i = 0; i < MAX_NEW_NULLIFIERS_PER_CALL; ++i) {
-            siloed_nullified_commitments[i] =
-                nullified_commitments[i] == fr(0)
-                    ? fr(0)  // don't silo when empty
-                    : nullified_commitments[i] == fr(EMPTY_NULLIFIED_COMMITMENT)
-                          ? fr(EMPTY_NULLIFIED_COMMITMENT)  // don't silo when empty
-                          : silo_commitment<NT>(storage_contract_address, nullified_commitments[i]);
+            siloed_nullified_note_hashes[i] =
+                nullified_note_hashes[i] == fr(0) ? fr(0)  // don't silo when empty
+                : nullified_note_hashes[i] == fr(EMPTY_NULLIFIED_NOTE_HASH)
+                    ? fr(EMPTY_NULLIFIED_NOTE_HASH)  // don't silo when empty
+                    : silo_note_hash<NT>(storage_contract_address, nullified_note_hashes[i]);
         }
 
         push_array_to_array(
             builder,
-            siloed_nullified_commitments,
-            public_inputs.end.nullified_commitments,
-            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullified commitments in one tx"));
+            siloed_nullified_note_hashes,
+            public_inputs.end.nullified_note_hashes,
+            format(PRIVATE_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new nullified note_hashes in one tx"));
     }
 
     {  // call stacks

@@ -4,18 +4,18 @@ import { AztecAddress, Fr, FunctionData, FunctionLeafPreimage, FunctionSelector,
 import { makeAztecAddress, makeEthAddress, makePoint, makeTxRequest, makeVerificationKey } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import {
-  computeCommitmentNonce,
   computeContractAddress,
   computeContractLeaf,
   computeFunctionLeaf,
   computeFunctionSelector,
   computeFunctionTreeRoot,
-  computeUniqueCommitment,
+  computeNoteHashNonce,
+  computeUniqueNoteHash,
   computeVarArgsHash,
   hashConstructor,
   hashTxRequest,
   hashVK,
-  siloCommitment,
+  siloNoteHash,
   siloNullifier,
 } from './abis.js';
 
@@ -71,24 +71,24 @@ describe('abis wasm bindings', () => {
     expect(res).toMatchSnapshot();
   });
 
-  it('computes commitment nonce', () => {
+  it('computes noteHash nonce', () => {
     const nullifierZero = new Fr(123n);
-    const commitmentIndex = 456;
-    const res = computeCommitmentNonce(wasm, nullifierZero, commitmentIndex);
+    const noteHashIndex = 456;
+    const res = computeNoteHashNonce(wasm, nullifierZero, noteHashIndex);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes unique commitment', () => {
+  it('computes unique noteHash', () => {
     const nonce = new Fr(123n);
-    const innerCommitment = new Fr(456);
-    const res = computeUniqueCommitment(wasm, nonce, innerCommitment);
+    const innerNoteHash = new Fr(456);
+    const res = computeUniqueNoteHash(wasm, nonce, innerNoteHash);
     expect(res).toMatchSnapshot();
   });
 
-  it('computes siloed commitment', () => {
+  it('computes siloed noteHash', () => {
     const contractAddress = new AztecAddress(new Fr(123n).toBuffer());
-    const uniqueCommitment = new Fr(456);
-    const res = siloCommitment(wasm, contractAddress, uniqueCommitment);
+    const uniqueNoteHash = new Fr(456);
+    const res = siloNoteHash(wasm, contractAddress, uniqueNoteHash);
     expect(res).toMatchSnapshot();
   });
 

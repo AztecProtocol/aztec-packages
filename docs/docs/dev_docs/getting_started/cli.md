@@ -56,7 +56,7 @@ EscrowContractAbi
 LendingContractAbi
 NonNativeTokenContractAbi
 ParentContractAbi
-PendingCommitmentsContractAbi
+PendingNoteHashesContractAbi
 PokeableTokenContractAbi
 PrivateTokenAirdropContractAbi
 PrivateTokenContractAbi

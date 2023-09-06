@@ -288,8 +288,8 @@ Below is a list of the private kernel circuit's high-level responsibilities:
    - Includes a membership check of the function leaf
 10. Validate the contract data against `contract_tree_root`
     - Includes a membership check of the contract leaf
-11. Perform membership checks for commitments accessed by this function
-12. Collect new commitments, nullifiers, contracts, and messages to L1
+11. Perform membership checks for note_hashes accessed by this function
+12. Collect new note_hashes, nullifiers, contracts, and messages to L1
 13. Add recursion byproducts to `aggregation_object`
 14. TODO: L1 messages
 15. Section in progress...

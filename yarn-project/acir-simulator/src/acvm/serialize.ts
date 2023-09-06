@@ -9,7 +9,7 @@ import {
 } from '@aztec/circuits.js';
 import { Fr } from '@aztec/foundation/fields';
 
-import { CommitmentDataOracleInputs, MessageLoadOracleInputs } from '../client/db_oracle.js';
+import { MessageLoadOracleInputs, NoteHashDataOracleInputs } from '../client/db_oracle.js';
 import { ACVMField, toACVMField } from './acvm.js';
 
 // Utilities to write TS classes to ACVM Field arrays
@@ -90,9 +90,9 @@ export function toACVMPublicInputs(publicInputs: PrivateCircuitPublicInputs): AC
 
     ...publicInputs.returnValues.map(toACVMField),
     ...publicInputs.readRequests.map(toACVMField),
-    ...publicInputs.newCommitments.map(toACVMField),
+    ...publicInputs.newNoteHashes.map(toACVMField),
     ...publicInputs.newNullifiers.map(toACVMField),
-    ...publicInputs.nullifiedCommitments.map(toACVMField),
+    ...publicInputs.nullifiedNoteHashes.map(toACVMField),
     ...publicInputs.privateCallStack.map(toACVMField),
     ...publicInputs.publicCallStack.map(toACVMField),
     ...publicInputs.newL2ToL1Msgs.map(toACVMField),
@@ -161,17 +161,17 @@ export function toAcvmL1ToL2MessageLoadOracleInputs(
 }
 
 /**
- * Converts the result of loading commitments to ACVM fields.
- * @param commitmentLoadOracleInputs - The result of loading messages to convert.
+ * Converts the result of loading noteHashes to ACVM fields.
+ * @param noteHashLoadOracleInputs - The result of loading messages to convert.
  * @param l1ToL2MessagesTreeRoot - The L1 to L2 messages tree root
  * @returns The Message Oracle Fields.
  */
-export function toAcvmCommitmentLoadOracleInputs(
-  messageLoadOracleInputs: CommitmentDataOracleInputs,
+export function toAcvmNoteHashLoadOracleInputs(
+  messageLoadOracleInputs: NoteHashDataOracleInputs,
   l1ToL2MessagesTreeRoot: Fr,
 ): ACVMField[] {
   return [
-    toACVMField(messageLoadOracleInputs.commitment),
+    toACVMField(messageLoadOracleInputs.noteHash),
     toACVMField(messageLoadOracleInputs.index),
     toACVMField(l1ToL2MessagesTreeRoot),
   ];

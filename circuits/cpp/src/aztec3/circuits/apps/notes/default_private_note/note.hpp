@@ -34,9 +34,9 @@ template <typename Builder, typename ValueType> class DefaultPrivateNote : publi
     StateVar<Builder>* state_var;
 
   private:
-    std::optional<fr> commitment;
+    std::optional<fr> note_hash;
     std::optional<fr> nullifier;
-    std::optional<grumpkin_point> partial_commitment;
+    std::optional<grumpkin_point> partial_note_hash;
 
     NotePreimage note_preimage;
     std::optional<NullifierPreimage> nullifier_preimage;
@@ -51,12 +51,12 @@ template <typename Builder, typename ValueType> class DefaultPrivateNote : publi
 
     void remove() override;
 
-    fr get_commitment() override
+    fr get_note_hash() override
     {
-        if (commitment) {
-            return *commitment;
+        if (note_hash) {
+            return *note_hash;
         }
-        return compute_commitment();
+        return compute_note_hash();
     };
 
     fr get_nullifier() override
@@ -67,14 +67,14 @@ template <typename Builder, typename ValueType> class DefaultPrivateNote : publi
         return compute_nullifier();
     };
 
-    // grumpkin_point get_partial_commitment() override const
+    // grumpkin_point get_partial_note_hash() override const
     // {
-    //     if (!partial_commitment) {
+    //     if (!partial_note_hash) {
     //         throw_or_abort(
-    //             "No partial_commitment exists for this note. Are you sure you haven't accidentally created a "
-    //             "complete commitment?");
+    //             "No partial_note_hash exists for this note. Are you sure you haven't accidentally created a "
+    //             "complete note_hash?");
     //     }
-    //     return *partial_commitment;
+    //     return *partial_note_hash;
     // };
 
     void constrain_against_advice(NoteInterface<Builder> const& advice_note) override;
@@ -91,7 +91,7 @@ template <typename Builder, typename ValueType> class DefaultPrivateNote : publi
             "DefaultPrivateNote does not support initialisation. Maybe use DefaultSingletonPrivateNote instead?");
     };
 
-    fr get_initialisation_commitment() override
+    fr get_initialisation_note_hash() override
     {
         throw_or_abort(
             "DefaultPrivateNote does not support initialisation. Maybe use DefaultSingletonPrivateNote instead?");
@@ -101,18 +101,18 @@ template <typename Builder, typename ValueType> class DefaultPrivateNote : publi
 
     auto& get_oracle();
 
-    grumpkin_point compute_partial_commitment();
+    grumpkin_point compute_partial_note_hash();
 
     fr compute_dummy_nullifier();
 
-    static fr compute_nullifier(fr const& commitment,
+    static fr compute_nullifier(fr const& note_hash,
                                 fr const& owner_private_key,
-                                boolean const& is_dummy_commitment = false);
+                                boolean const& is_dummy_note_hash = false);
 
     NotePreimage& get_preimage() { return note_preimage; };
 
   private:
-    fr compute_commitment();
+    fr compute_note_hash();
     fr compute_nullifier();
 
     bool is_partial_preimage() const;

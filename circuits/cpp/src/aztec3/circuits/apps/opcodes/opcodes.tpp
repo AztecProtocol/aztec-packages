@@ -43,12 +43,12 @@ Note Opcodes<Builder>::UTXO_SLOAD(UTXOStateVar<Builder, Note>* utxo_state_var,
 
     new_note.constrain_against_advice(advice_note);
 
-    // TODO: hard-code or calculate the correct commitment in the FakeDB stub, so that the returned data passes this
+    // TODO: hard-code or calculate the correct note_hash in the FakeDB stub, so that the returned data passes this
     // check.
     // Commenting-out this check for now, so the proof verifies.
-    // info("calculated commitment: ", new_note.get_commitment());
-    // info("retrieved commitment: ", utxo_datum.commitment);
-    // new_note.get_commitment().assert_equal(utxo_datum.commitment, "UTXO_SLOAD: bad commitment");
+    // info("calculated note_hash: ", new_note.get_note_hash());
+    // info("retrieved note_hash: ", utxo_datum.note_hash);
+    // new_note.get_note_hash().assert_equal(utxo_datum.note_hash, "UTXO_SLOAD: bad note_hash");
 
     oracle.get_contract_address().assert_equal(utxo_datum.contract_address, "UTXO_SLOAD: bad contract address");
 
@@ -84,12 +84,12 @@ std::vector<Note> Opcodes<Builder>::UTXO_SLOAD(UTXOSetStateVar<Builder, Note>* u
 
         new_note.constrain_against_advice(advice_note);
 
-        // TODO: hard-code or calculate the correct commitment in the FakeDB stub, so that the returned data passes this
+        // TODO: hard-code or calculate the correct note_hash in the FakeDB stub, so that the returned data passes this
         // check.
         // Commenting-out this check for now, so the proof verifies.
-        // info("calculated commitment: ", new_note.get_commitment());
-        // info("retrieved commitment: ", utxo_datum.commitment);
-        // new_note.get_commitment().assert_equal(utxo_datum.commitment, "UTXO_SLOAD: bad commitment");
+        // info("calculated note_hash: ", new_note.get_note_hash());
+        // info("retrieved note_hash: ", utxo_datum.note_hash);
+        // new_note.get_note_hash().assert_equal(utxo_datum.note_hash, "UTXO_SLOAD: bad note_hash");
 
         oracle.get_contract_address().assert_equal(utxo_datum.contract_address, "UTXO_SLOAD: bad contract address");
 
@@ -107,12 +107,12 @@ template <typename Builder> template <typename Note>
 void Opcodes<Builder>::UTXO_NULL(StateVar<Builder>* state_var, Note& note_to_nullify)
 {
     typename CT::fr const nullifier = note_to_nullify.get_nullifier();
-    typename CT::fr const nullified_note_commitment = note_to_nullify.get_commitment();
+    typename CT::fr const nullified_note_note_hash = note_to_nullify.get_note_hash();
 
     auto& exec_ctx = state_var->exec_ctx;
 
     exec_ctx->new_nullifiers.push_back(nullifier);
-    exec_ctx->nullified_commitments.push_back(nullified_note_commitment);
+    exec_ctx->nullified_note_hashes.push_back(nullified_note_note_hash);
 
     std::shared_ptr<Note> const nullified_note_ptr = std::make_shared<Note>(note_to_nullify);
 
@@ -123,12 +123,12 @@ template <typename Builder> template <typename Note>
 void Opcodes<Builder>::UTXO_INIT(StateVar<Builder>* state_var, Note& note_to_initialise)
 {
     typename CT::fr const init_nullifier = note_to_initialise.get_initialisation_nullifier();
-    typename CT::fr const init_commitment = note_to_initialise.get_initialisation_commitment();
+    typename CT::fr const init_note_hash = note_to_initialise.get_initialisation_note_hash();
 
     auto& exec_ctx = state_var->exec_ctx;
 
     exec_ctx->new_nullifiers.push_back(init_nullifier);
-    exec_ctx->nullified_commitments.push_back(init_commitment);
+    exec_ctx->nullified_note_hashes.push_back(init_note_hash);
 
     std::shared_ptr<Note> const init_note_ptr = std::make_shared<Note>(note_to_initialise);
 

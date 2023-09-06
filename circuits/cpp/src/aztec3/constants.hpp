@@ -25,23 +25,23 @@ constexpr size_t RETURN_VALUES_LENGTH = 4;
  *  - TRANSACTION
  *
  * Agreed convention is to use MAX_XXX_PER_CALL resp. MAX_XXX_PER_TX, where XXX denotes a type of element such as
- * commitment, or nullifier, e.g.,:
+ * note_hash, or nullifier, e.g.,:
  *  - MAX_NEW_NULLIFIERS_PER_CALL
- *  - MAX_NEW_COMMITMENTS_PER_TX
+ *  - MAX_NEW_NOTE_HASHES_PER_TX
  *
- * In the kernel circuits, we accumulate elements such as commitments and the nullifiers from all functions calls in a
+ * In the kernel circuits, we accumulate elements such as note_hashes and the nullifiers from all functions calls in a
  * transaction. Therefore, we always must have:
  * MAX_XXX_PER_TX ≥ MAX_XXX_PER_CALL
  *
  * For instance:
- * MAX_NEW_COMMITMENTS_PER_TX ≥ MAX_NEW_COMMITMENTS_PER_CALL
+ * MAX_NEW_NOTE_HASHES_PER_TX ≥ MAX_NEW_NOTE_HASHES_PER_CALL
  * MAX_NEW_NULLIFIERS_PER_TX ≥ MAX_NEW_NULLIFIERS_PER_CALL
  *
  */
 
 // docs:start:constants
 // "PER CALL" CONSTANTS
-constexpr size_t MAX_NEW_COMMITMENTS_PER_CALL = 4;
+constexpr size_t MAX_NEW_NOTE_HASHES_PER_CALL = 4;
 constexpr size_t MAX_NEW_NULLIFIERS_PER_CALL = 4;
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL = 4;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL = 4;
@@ -52,7 +52,7 @@ constexpr size_t MAX_READ_REQUESTS_PER_CALL = 4;
 
 
 // "PER TRANSACTION" CONSTANTS
-constexpr size_t MAX_NEW_COMMITMENTS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_NEW_COMMITMENTS_PER_CALL;
+constexpr size_t MAX_NEW_NOTE_HASHES_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_NEW_NOTE_HASHES_PER_CALL;
 constexpr size_t MAX_NEW_NULLIFIERS_PER_TX = MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL * MAX_NEW_NULLIFIERS_PER_CALL;
 constexpr size_t MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX = 8;
 constexpr size_t MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX = 8;
@@ -72,7 +72,7 @@ constexpr size_t NUM_UNENCRYPTED_LOGS_HASHES_PER_TX = 1;
 constexpr size_t NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 16;
 // TODO(961): Use this constant everywhere instead of hard-coded "2".
 constexpr size_t KERNELS_PER_BASE_ROLLUP = 2;
-constexpr size_t COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP = KERNELS_PER_BASE_ROLLUP * MAX_NEW_COMMITMENTS_PER_TX * 32;
+constexpr size_t NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP = KERNELS_PER_BASE_ROLLUP * MAX_NEW_NOTE_HASHES_PER_TX * 32;
 constexpr size_t NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP = KERNELS_PER_BASE_ROLLUP * MAX_NEW_NULLIFIERS_PER_TX * 32;
 constexpr size_t PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP =
     KERNELS_PER_BASE_ROLLUP * MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 64;  // old value, new value
@@ -103,7 +103,7 @@ constexpr size_t ROLLUP_VK_TREE_HEIGHT = 8;  // TODO: update
 constexpr size_t CONTRACT_SUBTREE_HEIGHT = 1;
 constexpr size_t CONTRACT_SUBTREE_SIBLING_PATH_LENGTH = CONTRACT_TREE_HEIGHT - CONTRACT_SUBTREE_HEIGHT;
 constexpr size_t PRIVATE_DATA_SUBTREE_HEIGHT =
-    static_cast<size_t>(log2(KERNELS_PER_BASE_ROLLUP * MAX_NEW_COMMITMENTS_PER_TX));
+    static_cast<size_t>(log2(KERNELS_PER_BASE_ROLLUP * MAX_NEW_NOTE_HASHES_PER_TX));
 constexpr size_t PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH = PRIVATE_DATA_TREE_HEIGHT - PRIVATE_DATA_SUBTREE_HEIGHT;
 constexpr size_t NULLIFIER_SUBTREE_HEIGHT =
     static_cast<size_t>(log2(KERNELS_PER_BASE_ROLLUP * MAX_NEW_NULLIFIERS_PER_TX));
@@ -137,10 +137,10 @@ enum GeneratorIndex {
     /**
      * Indices with size ≤ 8
      */
-    COMMITMENT = 1,              // Size = 7 (unused)
-    COMMITMENT_NONCE,            // Size = 2
-    UNIQUE_COMMITMENT,           // Size = 2
-    SILOED_COMMITMENT,           // Size = 2
+    NOTE_HASH = 1,               // Size = 7 (unused)
+    NOTE_HASH_NONCE,             // Size = 2
+    UNIQUE_NOTE_HASH,            // Size = 2
+    SILOED_NOTE_HASH,            // Size = 2
     NULLIFIER,                   // Size = 4 (unused)
     INITIALISATION_NULLIFIER,    // Size = 2 (unused)
     OUTER_NULLIFIER,             // Size = 2
@@ -232,14 +232,14 @@ constexpr size_t CONTRACT_DEPLOYMENT_DATA_LENGTH = 6;
 // should change this constant as well as the offsets in private_call_stack_item.nr
 constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     CALL_CONTEXT_LENGTH + 1  // +1 for args_hash
-    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_NOTE_HASHES_PER_CALL +
     2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
     + HISTORIC_BLOCK_DATA_LENGTH + CONTRACT_DEPLOYMENT_DATA_LENGTH + 2;                 // + 2 for chain_id and version
 
 constexpr size_t PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     1 + 1  // call_context_hash + args_hash
-    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_COMMITMENTS_PER_CALL +
+    + RETURN_VALUES_LENGTH + MAX_READ_REQUESTS_PER_CALL + MAX_NEW_NOTE_HASHES_PER_CALL +
     2 * MAX_NEW_NULLIFIERS_PER_CALL + MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
     MAX_NEW_L2_TO_L1_MSGS_PER_CALL + NUM_FIELDS_PER_SHA256 + NUM_FIELDS_PER_SHA256 + 2  // + 2 for logs preimage lengths
     + HISTORIC_BLOCK_DATA_LENGTH + 3;  // + 3 for contract_deployment_data.hash(), chain_id, version
@@ -252,14 +252,14 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH =
     CALL_CONTEXT_LENGTH + 1 + RETURN_VALUES_LENGTH +  // + 1 for args_hash
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL * CONTRACT_STORAGE_UPDATE_REQUEST_LENGTH +
     MAX_PUBLIC_DATA_READS_PER_CALL * CONTRACT_STORAGE_READ_LENGTH + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
-    MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
+    MAX_NEW_NOTE_HASHES_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
     NUM_FIELDS_PER_SHA256 + 1 +      // + 1 for unencrypted logs preimage length
     HISTORIC_BLOCK_DATA_LENGTH + 2;  // + 2 for chain_id and version
 
 constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
     2 + RETURN_VALUES_LENGTH +  // + 1 for args_hash + 1 call_context.hash
     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL + MAX_PUBLIC_DATA_READS_PER_CALL + MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL +
-    MAX_NEW_COMMITMENTS_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
+    MAX_NEW_NOTE_HASHES_PER_CALL + MAX_NEW_NULLIFIERS_PER_CALL + MAX_NEW_L2_TO_L1_MSGS_PER_CALL +
     NUM_FIELDS_PER_SHA256 +          // unencrypted_logs_hash (being represented by NUM_FIELDS_PER_SHA256)
     HISTORIC_BLOCK_DATA_LENGTH + 2;  // unencrypted_log_preimages_length + prover_address
 
@@ -268,6 +268,6 @@ constexpr size_t PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH =
 constexpr size_t CALL_PRIVATE_FUNCTION_RETURN_SIZE =
     1 + FUNCTION_DATA_LENGTH + PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH + 1;
 
-constexpr size_t EMPTY_NULLIFIED_COMMITMENT = 1000000;
+constexpr size_t EMPTY_NULLIFIED_NOTE_HASH = 1000000;
 
 }  // namespace aztec3

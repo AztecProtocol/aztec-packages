@@ -58,12 +58,12 @@ template <typename Builder> class FunctionExecutionContext {
 
   private:
     std::vector<std::shared_ptr<NoteInterface<Builder>>> new_notes;
-    std::vector<fr> new_commitments;
+    std::vector<fr> new_note_hashes;
 
     // Nullifier preimages can be got from the corresponding Note that they nullify.
     std::vector<std::shared_ptr<NoteInterface<Builder>>> nullified_notes;
     std::vector<fr> new_nullifiers;
-    std::vector<fr> nullified_commitments;
+    std::vector<fr> nullified_note_hashes;
 
     PrivateCircuitPublicInputs<NT> final_private_circuit_public_inputs{};
 
@@ -257,11 +257,11 @@ template <typename Builder> class FunctionExecutionContext {
     /**
      * @brief This is an important optimisation, to save on the number of emitted nullifiers.
      *
-     * A nullifier is ideal to serve as a nonce for a new note commitment, because its uniqueness is enforced by the
+     * A nullifier is ideal to serve as a nonce for a new note note_hash, because its uniqueness is enforced by the
      * Rollup circuit. But we won't know how many non-dummy nullifiers we have at our disposal (to inject into
-     * commitments) until the end of the function.
+     * note_hashes) until the end of the function.
      *
-     * Or to put it another way, at the time we want to create a new commitment (during a function's execution), we
+     * Or to put it another way, at the time we want to create a new note_hash (during a function's execution), we
      * would need a nonce. We could certainly query the `exec_ctx` for any nullifiers which have already been created
      * earlier in this function's execution, and we could use one of those. But there might not-yet have been any
      * nullifiers created within the function. Now, at that point, we _could_ generate a dummy nullifier and use that as
@@ -271,8 +271,8 @@ template <typename Builder> class FunctionExecutionContext {
      * circuit's public inputs.
      *
      * And so, we provide the option here of deferring the injection of nonces into note_preimages (and hence deferring
-     * the computation of each new note commitment) until the very end of the function's execution, when we know how
-     * many non-dummy nullifiers we have to play with. If we find this circuit is creating more new commitments than new
+     * the computation of each new note note_hash) until the very end of the function's execution, when we know how
+     * many non-dummy nullifiers we have to play with. If we find this circuit is creating more new note_hashes than new
      * nullifiers, we can generate some dummy nullifiers at this stage to make up the difference.
      *
      * Note: Using a nullifier as a nonce is a very common and widely-applicable pattern. So much so that it feels
@@ -312,7 +312,7 @@ template <typename Builder> class FunctionExecutionContext {
                 }
             }
 
-            new_commitments.push_back(note.get_commitment());
+            new_note_hashes.push_back(note.get_note_hash());
         }
 
         // Push new_nonces to the end of new_nullifiers:
@@ -322,9 +322,9 @@ template <typename Builder> class FunctionExecutionContext {
     void finalise()
     {
         finalise_utxos();
-        private_circuit_public_inputs.set_commitments(new_commitments);
+        private_circuit_public_inputs.set_note_hashes(new_note_hashes);
         private_circuit_public_inputs.set_nullifiers(new_nullifiers);
-        private_circuit_public_inputs.set_nullified_commitments(nullified_commitments);
+        private_circuit_public_inputs.set_nullified_note_hashes(nullified_note_hashes);
         private_circuit_public_inputs.set_public(builder);
         final_private_circuit_public_inputs =
             private_circuit_public_inputs.remove_optionality().template to_native_type<Builder>();

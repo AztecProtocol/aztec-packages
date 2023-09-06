@@ -206,17 +206,17 @@ void common_validate_inputs(DummyBuilder& builder, KernelInput const& public_ker
 template <typename KernelInput, typename Builder>
 void perform_static_call_checks(Builder& builder, KernelInput const& public_kernel_inputs)
 {
-    // If the call is a static call, there should be no new commitments or nullifiers.
+    // If the call is a static call, there should be no new note_hashes or nullifiers.
     const auto& public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
 
     const auto& is_static_call = public_call_public_inputs.call_context.is_static_call;
-    const auto& new_commitments = public_call_public_inputs.new_commitments;
+    const auto& new_note_hashes = public_call_public_inputs.new_note_hashes;
     const auto& new_nullifiers = public_call_public_inputs.new_nullifiers;
 
     if (is_static_call) {
-        builder.do_assert(utils::is_array_empty(new_commitments) == true,
-                          "no new commitments must be created for static calls",
-                          CircuitErrorCode::PUBLIC_KERNEL__NEW_COMMITMENTS_PROHIBITED_IN_STATIC_CALL);
+        builder.do_assert(utils::is_array_empty(new_note_hashes) == true,
+                          "no new note_hashes must be created for static calls",
+                          CircuitErrorCode::PUBLIC_KERNEL__NEW_NOTE_HASHES_PROHIBITED_IN_STATIC_CALL);
         builder.do_assert(utils::is_array_empty(new_nullifiers) == true,
                           "no new nullifiers must be created for static calls",
                           CircuitErrorCode::PUBLIC_KERNEL__NEW_NULLIFIERS_PROHIBITED_IN_STATIC_CALL);
@@ -285,7 +285,7 @@ void propagate_valid_public_data_reads(Builder& builder,
 }
 
 /**
- * @brief Propagates new commitments from this iteration to the circuit output.
+ * @brief Propagates new note_hashes from this iteration to the circuit output.
  *
  * @tparam The type of the kernel input
  * @tparam The builder type
@@ -293,27 +293,27 @@ void propagate_valid_public_data_reads(Builder& builder,
  * @param circuit_outputs The circuit outputs to be populated
  */
 template <typename KernelInput, typename Builder>
-void propagate_new_commitments(Builder& builder,
+void propagate_new_note_hashes(Builder& builder,
                                KernelInput const& public_kernel_inputs,
                                KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
-    // Get the new commitments
+    // Get the new note_hashes
     const auto& public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
 
-    const auto& new_commitments = public_call_public_inputs.new_commitments;
+    const auto& new_note_hashes = public_call_public_inputs.new_note_hashes;
     const auto& storage_contract_address = public_call_public_inputs.call_context.storage_contract_address;
 
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_CALL> siloed_new_commitments{};
-    for (size_t i = 0; i < new_commitments.size(); ++i) {
-        if (!new_commitments[i].is_zero()) {
-            siloed_new_commitments[i] = silo_commitment<NT>(storage_contract_address, new_commitments[i]);
+    std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_CALL> siloed_new_note_hashes{};
+    for (size_t i = 0; i < new_note_hashes.size(); ++i) {
+        if (!new_note_hashes[i].is_zero()) {
+            siloed_new_note_hashes[i] = silo_note_hash<NT>(storage_contract_address, new_note_hashes[i]);
         }
     }
 
     push_array_to_array(builder,
-                        siloed_new_commitments,
-                        circuit_outputs.end.new_commitments,
-                        format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new commitments in one tx"));
+                        siloed_new_note_hashes,
+                        circuit_outputs.end.new_note_hashes,
+                        format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many new note_hashes in one tx"));
 }
 
 /**
@@ -329,7 +329,7 @@ void propagate_new_nullifiers(Builder& builder,
                               KernelInput const& public_kernel_inputs,
                               KernelCircuitPublicInputs<NT>& circuit_outputs)
 {
-    // Get the new commitments
+    // Get the new note_hashes
     const auto& public_call_public_inputs = public_kernel_inputs.public_call.call_stack_item.public_inputs;
 
     const auto& new_nullifiers = public_call_public_inputs.new_nullifiers;
@@ -438,7 +438,7 @@ void common_update_public_end_values(Builder& builder,
         circuit_outputs.end.public_call_stack,
         format(PUBLIC_KERNEL_CIRCUIT_ERROR_MESSAGE_BEGINNING, "too many public call stack items in one tx"));
 
-    propagate_new_commitments(builder, public_kernel_inputs, circuit_outputs);
+    propagate_new_note_hashes(builder, public_kernel_inputs, circuit_outputs);
     propagate_new_nullifiers(builder, public_kernel_inputs, circuit_outputs);
 
     propagate_new_l2_to_l1_messages(builder, public_kernel_inputs, circuit_outputs);

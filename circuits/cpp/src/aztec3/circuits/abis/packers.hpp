@@ -19,7 +19,7 @@ struct ConstantsPacker {
         // add it to the last call or introduce a new one if the last call is already "full".
         pack(NVP(ARGS_LENGTH,
                  RETURN_VALUES_LENGTH,
-                 MAX_NEW_COMMITMENTS_PER_CALL,
+                 MAX_NEW_NOTE_HASHES_PER_CALL,
                  MAX_NEW_NULLIFIERS_PER_CALL,
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
                  MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL,
@@ -27,7 +27,7 @@ struct ConstantsPacker {
                  MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_CALL,
                  MAX_PUBLIC_DATA_READS_PER_CALL,
                  MAX_READ_REQUESTS_PER_CALL,
-                 MAX_NEW_COMMITMENTS_PER_TX,
+                 MAX_NEW_NOTE_HASHES_PER_TX,
                  MAX_NEW_NULLIFIERS_PER_TX,
                  MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
                  MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
@@ -76,12 +76,12 @@ struct ConstantsPacker {
                  CONTRACT_STORAGE_READ_LENGTH,
                  PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH,
                  GET_NOTES_ORACLE_RETURN_LENGTH,
-                 EMPTY_NULLIFIED_COMMITMENT),
+                 EMPTY_NULLIFIED_NOTE_HASH),
              NVP(CALL_PRIVATE_FUNCTION_RETURN_SIZE,
                  PUBLIC_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
                  PRIVATE_CIRCUIT_PUBLIC_INPUTS_HASH_INPUT_LENGTH,
                  KERNELS_PER_BASE_ROLLUP,
-                 COMMITMENTS_NUM_BYTES_PER_BASE_ROLLUP,
+                 NOTE_HASHES_NUM_BYTES_PER_BASE_ROLLUP,
                  NULLIFIERS_NUM_BYTES_PER_BASE_ROLLUP,
                  PUBLIC_DATA_WRITES_NUM_BYTES_PER_BASE_ROLLUP,
                  CONTRACTS_NUM_BYTES_PER_BASE_ROLLUP,
@@ -99,10 +99,10 @@ struct GeneratorIndexPacker {
             msgpack::type::define_map<decltype(args)...>{ args... }.msgpack_pack(packer);
         };
 
-        int COMMITMENT = GeneratorIndex::COMMITMENT;
-        int COMMITMENT_NONCE = GeneratorIndex::COMMITMENT_NONCE;
-        int UNIQUE_COMMITMENT = GeneratorIndex::UNIQUE_COMMITMENT;
-        int SILOED_COMMITMENT = GeneratorIndex::SILOED_COMMITMENT;
+        int NOTE_HASH = GeneratorIndex::NOTE_HASH;
+        int NOTE_HASH_NONCE = GeneratorIndex::NOTE_HASH_NONCE;
+        int UNIQUE_NOTE_HASH = GeneratorIndex::UNIQUE_NOTE_HASH;
+        int SILOED_NOTE_HASH = GeneratorIndex::SILOED_NOTE_HASH;
         int NULLIFIER = GeneratorIndex::NULLIFIER;
         int INITIALISATION_NULLIFIER = GeneratorIndex::INITIALISATION_NULLIFIER;
         int OUTER_NULLIFIER = GeneratorIndex::OUTER_NULLIFIER;
@@ -136,10 +136,10 @@ struct GeneratorIndexPacker {
 
         // Note: NVP macro can handle up to 20 arguments so we call it multiple times here. If adding a new constant
         // add it to the last call or introduce a new one if the last call is already "full".
-        pack(NVP(COMMITMENT,
-                 COMMITMENT_NONCE,
-                 UNIQUE_COMMITMENT,
-                 SILOED_COMMITMENT,
+        pack(NVP(NOTE_HASH,
+                 NOTE_HASH_NONCE,
+                 UNIQUE_NOTE_HASH,
+                 SILOED_NOTE_HASH,
                  NULLIFIER,
                  INITIALISATION_NULLIFIER,
                  OUTER_NULLIFIER,

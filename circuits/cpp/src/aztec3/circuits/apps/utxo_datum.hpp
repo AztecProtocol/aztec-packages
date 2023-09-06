@@ -20,7 +20,7 @@ template <typename NCT, typename NotePreimage> struct UTXOSLoadDatum {
     using address = typename NCT::address;
     using uint32 = typename NCT::uint32;
 
-    fr commitment = 0;
+    fr note_hash = 0;
     address contract_address = 0;
     NotePreimage preimage{};
 
@@ -38,7 +38,7 @@ template <typename NCT, typename NotePreimage> struct UTXOSLoadDatum {
         auto preimage_ct = preimage.to_circuit_type(builder);
 
         UTXOSLoadDatum<CircuitTypes<Builder>, decltype(preimage_ct)> datum = {
-            to_ct(commitment),   to_ct(contract_address), preimage_ct,
+            to_ct(note_hash),    to_ct(contract_address), preimage_ct,
             to_ct(sibling_path), to_ct(leaf_index),       to_ct(historic_private_data_tree_root),
         };
 

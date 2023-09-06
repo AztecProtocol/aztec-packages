@@ -4,7 +4,7 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 /**
  * The NotePreimage class represents a vector of Fr (finite field) elements, used for constructing
- * and manipulating preimages of zk-SNARK commitments in the AZTEC protocol. This class provides
+ * and manipulating preimages of zk-SNARK noteHashes in the AZTEC protocol. This class provides
  * methods to create a NotePreimage instance from a buffer or generate a random one. It extends
  * the Vector class, which allows for additional operations on the underlying field elements.
  */

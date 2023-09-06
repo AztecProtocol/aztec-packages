@@ -841,7 +841,7 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_escrow_contract.test.ts
           working_directory: yarn-project/end-to-end
 
-  e2e-pending-commitments-contract:
+  e2e-pending-note_hashes-contract:
     machine:
       image: ubuntu-2004:202010-01
     resource_class: large
@@ -850,7 +850,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_commitments_contract.test.ts
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_pending_note_hashes_contract.test.ts
           working_directory: yarn-project/end-to-end
 
   e2e-ordering:
@@ -1408,7 +1408,7 @@ workflows:
       - e2e-public-to-private-messaging: *e2e_test
       - e2e-account-contracts: *e2e_test
       - e2e-escrow-contract: *e2e_test
-      - e2e-pending-commitments-contract: *e2e_test
+      - e2e-pending-note_hashes-contract: *e2e_test
       - e2e-ordering: *e2e_test
       - uniswap-trade-on-l1-from-l2: *e2e_test
       - integration-l1-publisher: *e2e_test
@@ -1439,7 +1439,7 @@ workflows:
             - e2e-public-to-private-messaging
             - e2e-account-contracts
             - e2e-escrow-contract
-            - e2e-pending-commitments-contract
+            - e2e-pending-note_hashes-contract
             - e2e-ordering
             - uniswap-trade-on-l1-from-l2
             - integration-l1-publisher

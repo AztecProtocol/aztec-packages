@@ -271,14 +271,14 @@ contract NativeToken {
         // User has sufficient balance so we decrement it by `amount`
         let _void1 = sender_balance.write(current_sender_balance - amount);
 
-        // Create a commitment to the "amount" using the "secretHash"
+        // Create a note_hash to the "amount" using the "secretHash"
         // and insert it into the set of "pending_shields" and therefore
         // (eventually) the private data tree.
         let mut note = TransparentNote::new(amount, secretHash);
         pending_shields.insert_from_public(&mut note);
     }
 
-    // The shield function takes a public balance, and creates a commitment containing the amount of tokens
+    // The shield function takes a public balance, and creates a note_hash containing the amount of tokens
     // in the private context.
     #[aztec(private)]
     fn redeemShield(

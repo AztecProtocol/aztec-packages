@@ -113,10 +113,10 @@ export class SoloBlockBuilder implements BlockBuilder {
       endHistoricBlocksTreeSnapshot,
     } = circuitsOutput;
 
-    // Collect all new nullifiers, commitments, and contracts from all txs in this block
+    // Collect all new nullifiers, noteHashes, and contracts from all txs in this block
     const wasm = await CircuitsWasm.get();
     const newNullifiers = flatMap(txs, tx => tx.data.end.newNullifiers);
-    const newCommitments = flatMap(txs, tx => tx.data.end.newCommitments);
+    const newNoteHashes = flatMap(txs, tx => tx.data.end.newNoteHashes);
     const newContracts = flatMap(txs, tx => tx.data.end.newContracts).map(cd => computeContractLeaf(wasm, cd));
     const newContractData = flatMap(txs, tx => tx.data.end.newContracts).map(
       n => new ContractData(n.contractAddress, n.portalContractAddress),
@@ -153,7 +153,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endL1ToL2MessageTreeSnapshot,
       startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
-      newCommitments,
+      newNoteHashes,
       newNullifiers,
       newL2ToL1Msgs,
       newContracts,
@@ -612,7 +612,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
 
     // Get the subtree sibling paths for the circuit
-    const newCommitmentsSubtreeSiblingPath = await this.getSubtreeSiblingPath(
+    const newNoteHashesSubtreeSiblingPath = await this.getSubtreeSiblingPath(
       MerkleTreeId.PRIVATE_DATA_TREE,
       BaseRollupInputs.PRIVATE_DATA_SUBTREE_HEIGHT,
     );
@@ -626,13 +626,13 @@ export class SoloBlockBuilder implements BlockBuilder {
     const newContracts = flatMap([left, right], tx =>
       tx.data.end.newContracts.map(cd => computeContractLeaf(wasm, cd)),
     );
-    const newCommitments = flatMap([left, right], tx => tx.data.end.newCommitments.map(x => x.toBuffer()));
+    const newNoteHashes = flatMap([left, right], tx => tx.data.end.newNoteHashes.map(x => x.toBuffer()));
     await this.db.appendLeaves(
       MerkleTreeId.CONTRACT_TREE,
       newContracts.map(x => x.toBuffer()),
     );
 
-    await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, newCommitments);
+    await this.db.appendLeaves(MerkleTreeId.PRIVATE_DATA_TREE, newNoteHashes);
 
     // Update the public data tree and get membership witnesses.
     // All public data reads are checked against the unmodified data root when the corresponding tx started,
@@ -675,7 +675,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       startPrivateDataTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       startHistoricBlocksTreeSnapshot,
-      newCommitmentsSubtreeSiblingPath,
+      newNoteHashesSubtreeSiblingPath,
       newContractsSubtreeSiblingPath,
       newNullifiersSubtreeSiblingPath: newNullifiersSubtreeSiblingPath.toFieldArray(),
       newPublicDataUpdateRequestsSiblingPaths,

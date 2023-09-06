@@ -17,7 +17,7 @@ use crate::note::{
     utils::compute_inner_note_hash,
     utils::compute_siloed_note_hash,
 };
-use crate::messaging::get_commitment_getter_data::make_commitment_getter_data;
+use crate::messaging::get_note_hash_getter_data::make_note_hash_getter_data;
 use crate::oracle;
 use crate::types::vec::BoundedVec;
 
@@ -80,8 +80,8 @@ fn ensure_note_hash_exists<Note, N>(
     // Get a note from oracle and early out if it doesn't exist.
     let inner_note_hash = compute_inner_note_hash(note_interface, *note);
 
-    let raw_oracle_ret = oracle::get_commitment::get_commitment(inner_note_hash);
-    let deserialized_oracle_ret = make_commitment_getter_data(raw_oracle_ret, 0);
+    let raw_oracle_ret = oracle::get_note_hash::get_note_hash(inner_note_hash);
+    let deserialized_oracle_ret = make_note_hash_getter_data(raw_oracle_ret, 0);
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should be
     // unique_siloed_note_hash once public kernel applies nonces
     let saved_siloed_note_hash = deserialized_oracle_ret.message;

@@ -85,43 +85,43 @@ template <typename NCT> typename NCT::address compute_contract_address(Point<NCT
     return compute_contract_address_from_partial(point, partial_address);
 }
 
-template <typename NCT> typename NCT::fr compute_commitment_nonce(typename NCT::fr const& first_nullifier,
-                                                                  typename NCT::fr const& commitment_index)
+template <typename NCT> typename NCT::fr compute_note_hash_nonce(typename NCT::fr const& first_nullifier,
+                                                                 typename NCT::fr const& note_hash_index)
 {
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
         first_nullifier,
-        commitment_index,
+        note_hash_index,
     };
 
-    return NCT::hash(inputs, aztec3::GeneratorIndex::COMMITMENT_NONCE);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::NOTE_HASH_NONCE);
 }
 
-template <typename NCT> typename NCT::fr silo_commitment(typename NCT::address const& contract_address,
-                                                         typename NCT::fr const& inner_commitment)
+template <typename NCT>
+typename NCT::fr silo_note_hash(typename NCT::address const& contract_address, typename NCT::fr const& inner_note_hash)
 {
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
         contract_address.to_field(),
-        inner_commitment,
+        inner_note_hash,
     };
 
-    return NCT::hash(inputs, aztec3::GeneratorIndex::SILOED_COMMITMENT);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::SILOED_NOTE_HASH);
 }
 
 template <typename NCT>
-typename NCT::fr compute_unique_commitment(typename NCT::fr nonce, typename NCT::fr siloed_commitment)
+typename NCT::fr compute_unique_note_hash(typename NCT::fr nonce, typename NCT::fr siloed_note_hash)
 {
     using fr = typename NCT::fr;
 
     std::vector<fr> const inputs = {
         nonce,
-        siloed_commitment,
+        siloed_note_hash,
     };
 
-    return NCT::hash(inputs, aztec3::GeneratorIndex::UNIQUE_COMMITMENT);
+    return NCT::hash(inputs, aztec3::GeneratorIndex::UNIQUE_NOTE_HASH);
 }
 
 template <typename NCT>

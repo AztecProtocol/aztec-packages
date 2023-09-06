@@ -258,44 +258,44 @@ TEST_F(base_rollup_tests, native_contract_leaf_inserted_in_non_empty_snapshot_tr
     run_cbind(inputs, outputs);
 }
 
-TEST_F(base_rollup_tests, native_new_commitments_tree)
+TEST_F(base_rollup_tests, native_new_note_hashes_tree)
 {
-    DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup_tests__native_new_commitments_tree");
-    // Create 4 new mock commitments. Add them to kernel data.
+    DummyCircuitBuilder builder = DummyCircuitBuilder("base_rollup_tests__native_new_note_hashes_tree");
+    // Create 4 new mock note_hashes. Add them to kernel data.
     // Then get sibling path so we can verify insert them into the tree.
 
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
-    std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX* 2> new_commitments = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    std::array<NT::fr, MAX_NEW_NOTE_HASHES_PER_TX* 2> new_note_hashes = { 0, 1, 2, 3, 4, 5, 6, 7 };
     for (uint8_t i = 0; i < 2; i++) {
-        std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> kernel_commitments;
-        for (uint8_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
-            kernel_commitments[j] = new_commitments[i * MAX_NEW_COMMITMENTS_PER_TX + j];
+        std::array<fr, MAX_NEW_NOTE_HASHES_PER_TX> kernel_note_hashes;
+        for (uint8_t j = 0; j < MAX_NEW_NOTE_HASHES_PER_TX; j++) {
+            kernel_note_hashes[j] = new_note_hashes[i * MAX_NEW_NOTE_HASHES_PER_TX + j];
         }
-        kernel_data[i].public_inputs.end.new_commitments = kernel_commitments;
+        kernel_data[i].public_inputs.end.new_note_hashes = kernel_note_hashes;
     }
 
     // get sibling path
     MemoryStore private_data_tree_store;
     auto private_data_tree = MerkleTree(private_data_tree_store, PRIVATE_DATA_TREE_HEIGHT);
-    AppendOnlyTreeSnapshot<NT> const expected_start_commitments_snapshot = {
+    AppendOnlyTreeSnapshot<NT> const expected_start_note_hashes_snapshot = {
         .root = private_data_tree.root(),
         .next_available_leaf_index = 0,
     };
-    for (size_t i = 0; i < new_commitments.size(); ++i) {
-        private_data_tree.update_element(i, new_commitments[i]);
+    for (size_t i = 0; i < new_note_hashes.size(); ++i) {
+        private_data_tree.update_element(i, new_note_hashes[i]);
     }
-    AppendOnlyTreeSnapshot<NT> const expected_end_commitments_snapshot = {
+    AppendOnlyTreeSnapshot<NT> const expected_end_note_hashes_snapshot = {
         .root = private_data_tree.root(),
-        .next_available_leaf_index = 2 * MAX_NEW_COMMITMENTS_PER_TX,
+        .next_available_leaf_index = 2 * MAX_NEW_NOTE_HASHES_PER_TX,
     };
 
     auto inputs = base_rollup_inputs_from_kernels(kernel_data);
     BaseOrMergeRollupPublicInputs outputs =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, inputs);
 
-    ASSERT_EQ(outputs.start_private_data_tree_snapshot, expected_start_commitments_snapshot);
+    ASSERT_EQ(outputs.start_private_data_tree_snapshot, expected_start_note_hashes_snapshot);
     ASSERT_EQ(outputs.start_private_data_tree_snapshot, inputs.start_private_data_tree_snapshot);
-    ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_end_commitments_snapshot);
+    ASSERT_EQ(outputs.end_private_data_tree_snapshot, expected_end_note_hashes_snapshot);
     ASSERT_FALSE(builder.failed()) << builder.failure_msgs;
     run_cbind(inputs, outputs);
 }
@@ -591,14 +591,14 @@ TEST_F(base_rollup_tests, native_empty_block_calldata_hash)
 
 TEST_F(base_rollup_tests, native_calldata_hash)
 {
-    // Execute the base rollup circuit with nullifiers, commitments and a contract deployment. Then check the calldata
+    // Execute the base rollup circuit with nullifiers, note_hashes and a contract deployment. Then check the calldata
     // hash against the expected value.
     std::array<PreviousKernelData<NT>, 2> kernel_data = { get_empty_kernel(), get_empty_kernel() };
 
-    // Commitments inserted are [1,2,3,4,5,6,7,8 ...]. Nullifiers inserted are [8,9,10,11,12,13,14,15 ...]
+    // NoteHashes inserted are [1,2,3,4,5,6,7,8 ...]. Nullifiers inserted are [8,9,10,11,12,13,14,15 ...]
     for (size_t i = 0; i < 2; ++i) {
         for (size_t j = 0; j < MAX_NEW_NULLIFIERS_PER_TX; j++) {
-            kernel_data[i].public_inputs.end.new_commitments[j] = fr(i * MAX_NEW_NULLIFIERS_PER_TX + j + 1);
+            kernel_data[i].public_inputs.end.new_note_hashes[j] = fr(i * MAX_NEW_NULLIFIERS_PER_TX + j + 1);
             kernel_data[i].public_inputs.end.new_nullifiers[j] = fr((2 + i) * MAX_NEW_NULLIFIERS_PER_TX + j);
         }
     }

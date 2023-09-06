@@ -83,7 +83,7 @@ impl<Note, N> Set<Note, N> {
         let mut header = get_header(note);
         // Set the nonce to nonzero so that the nullifier is treated as persistable
         // (non-transient) and so the private kernel does not attempt to match it to
-        // a pending noteHash/commitment and squash them.
+        // a pending noteHash and squash them.
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): remove
         // this hack once public kernel injects nonces.
         header.nonce = 1;

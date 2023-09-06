@@ -5,7 +5,7 @@ import { SiblingPath } from '../sibling_path.js';
 /**
  * Interface providing methods for retrieving information about a contract's location in the contract tree.
  */
-export interface ContractCommitmentProvider {
+export interface ContractNoteHashProvider {
   /**
    * Find the index of the given contract.
    * @param leafValue - The value to search for.

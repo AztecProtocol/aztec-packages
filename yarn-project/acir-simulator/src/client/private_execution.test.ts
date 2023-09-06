@@ -7,18 +7,18 @@ import {
   FunctionData,
   HistoricBlockData,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NEW_COMMITMENTS_PER_CALL,
+  MAX_NEW_NOTE_HASHES_PER_CALL,
   PRIVATE_DATA_TREE_HEIGHT,
   PublicCallRequest,
   TxContext,
 } from '@aztec/circuits.js';
 import {
   computeCallStackItemHash,
-  computeCommitmentNonce,
+  computeNoteHashNonce,
   computeSecretMessageHash,
-  computeUniqueCommitment,
+  computeUniqueNoteHash,
   computeVarArgsHash,
-  siloCommitment,
+  siloNoteHash,
 } from '@aztec/circuits.js/abis';
 import { pedersenPlookupCommitInputs } from '@aztec/circuits.js/barretenberg';
 import { makeContractDeploymentData } from '@aztec/circuits.js/factories';
@@ -35,7 +35,7 @@ import {
   ImportTestContractAbi,
   NonNativeTokenContractAbi,
   ParentContractAbi,
-  PendingCommitmentsContractAbi,
+  PendingNoteHashesContractAbi,
   PrivateTokenAirdropContractAbi,
   PrivateTokenContractAbi,
   TestContractAbi,
@@ -159,8 +159,8 @@ describe('Private Execution test suite', () => {
       const txContext = { isContractDeploymentTx: true, contractDeploymentData };
       const result = await runSimulator({ abi, txContext });
 
-      const emptyCommitments = new Array(MAX_NEW_COMMITMENTS_PER_CALL).fill(Fr.ZERO);
-      expect(result.callStackItem.publicInputs.newCommitments).toEqual(emptyCommitments);
+      const emptyNoteHashes = new Array(MAX_NEW_NOTE_HASHES_PER_CALL).fill(Fr.ZERO);
+      expect(result.callStackItem.publicInputs.newNoteHashes).toEqual(emptyNoteHashes);
       expect(result.callStackItem.publicInputs.contractDeploymentData).toEqual(contractDeploymentData);
     });
   });
@@ -183,7 +183,7 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = Math.floor(Math.random()); // mock index in TX's final newNoteHashes array
-      const nonce = computeCommitmentNonce(circuitsWasm, mockFirstNullifier, noteHashIndex);
+      const nonce = computeNoteHashNonce(circuitsWasm, mockFirstNullifier, noteHashIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random()];
       return {
         contractAddress,
@@ -229,8 +229,8 @@ describe('Private Execution test suite', () => {
       const innerNoteHash = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [storageSlot.toBuffer(), valueNoteHash]),
       );
-      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, siloedNoteHash);
+      const siloedNoteHash = siloNoteHash(circuitsWasm, contractAddress, innerNoteHash);
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(circuitsWasm, note.nonce, siloedNoteHash);
       const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [
           uniqueSiloedNoteHash.toBuffer(),
@@ -263,11 +263,11 @@ describe('Private Execution test suite', () => {
       const newNote = result.preimages.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const [commitment] = newCommitments;
-      expect(commitment).toEqual(
+      const [noteHash] = newNoteHashes;
+      expect(noteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
@@ -281,11 +281,11 @@ describe('Private Execution test suite', () => {
       const newNote = result.preimages.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const [commitment] = newCommitments;
-      expect(commitment).toEqual(
+      const [noteHash] = newNoteHashes;
+      expect(noteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
@@ -317,14 +317,14 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.preimages.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(2);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(2);
 
-      const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
-      expect(recipientNoteCommitment).toEqual(
+      const [changeNoteNoteHash, recipientNoteNoteHash] = newNoteHashes;
+      expect(recipientNoteNoteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, recipientNote.preimage),
       );
-      expect(changeNoteCommitment).toEqual(
+      expect(changeNoteNoteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, changeNote.preimage),
       );
 
@@ -395,8 +395,8 @@ describe('Private Execution test suite', () => {
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
       const customNoteHash = hash([toBufferBE(amount, 32), secret.toBuffer()]);
       const innerNoteHash = Fr.fromBuffer(hash([storageSlot.toBuffer(), customNoteHash]));
-      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, nonce, siloedNoteHash);
+      const siloedNoteHash = siloNoteHash(circuitsWasm, contractAddress, innerNoteHash);
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(circuitsWasm, nonce, siloedNoteHash);
       expect(readRequests).toEqual([uniqueSiloedNoteHash]);
     });
   });
@@ -419,7 +419,7 @@ describe('Private Execution test suite', () => {
       // array index at the output of the final kernel/ordering circuit are used to derive nonce via:
       // `hash(firstNullifier, noteHashIndex)`
       const noteHashIndex = Math.floor(Math.random()); // mock index in TX's final newNoteHashes array
-      const nonce = computeCommitmentNonce(circuitsWasm, mockFirstNullifier, noteHashIndex);
+      const nonce = computeNoteHashNonce(circuitsWasm, mockFirstNullifier, noteHashIndex);
       const preimage = [new Fr(amount), owner.toField(), Fr.random()];
       return {
         contractAddress,
@@ -465,8 +465,8 @@ describe('Private Execution test suite', () => {
       const innerNoteHash = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [storageSlot.toBuffer(), valueNoteHash]),
       );
-      const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
-      const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, siloedNoteHash);
+      const siloedNoteHash = siloNoteHash(circuitsWasm, contractAddress, innerNoteHash);
+      const uniqueSiloedNoteHash = computeUniqueNoteHash(circuitsWasm, note.nonce, siloedNoteHash);
       const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [
           uniqueSiloedNoteHash.toBuffer(),
@@ -499,11 +499,11 @@ describe('Private Execution test suite', () => {
       const newNote = result.preimages.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const [commitment] = newCommitments;
-      expect(commitment).toEqual(
+      const [noteHash] = newNoteHashes;
+      expect(noteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
@@ -517,11 +517,11 @@ describe('Private Execution test suite', () => {
       const newNote = result.preimages.newNotes[0];
       expect(newNote.storageSlot).toEqual(computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const [commitment] = newCommitments;
-      expect(commitment).toEqual(
+      const [noteHash] = newNoteHashes;
+      expect(noteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, newNote.storageSlot, newNote.preimage),
       );
     });
@@ -553,14 +553,14 @@ describe('Private Execution test suite', () => {
       const [changeNote, recipientNote] = result.preimages.newNotes;
       expect(recipientNote.storageSlot).toEqual(recipientStorageSlot);
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(2);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(2);
 
-      const [changeNoteCommitment, recipientNoteCommitment] = newCommitments;
-      expect(recipientNoteCommitment).toEqual(
+      const [changeNoteNoteHash, recipientNoteNoteHash] = newNoteHashes;
+      expect(recipientNoteNoteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, recipientStorageSlot, recipientNote.preimage),
       );
-      expect(changeNoteCommitment).toEqual(
+      expect(changeNoteNoteHash).toEqual(
         await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, changeNote.preimage),
       );
 
@@ -745,17 +745,17 @@ describe('Private Execution test suite', () => {
       const noteHash = Fr.fromBuffer(hash(preimage));
       const storageSlot = new Fr(2);
       const innerNoteHash = hash([storageSlot.toBuffer(), noteHash.toBuffer()]);
-      const siloedNoteHash = siloCommitment(wasm, contractAddress, Fr.fromBuffer(innerNoteHash));
+      const siloedNoteHash = siloNoteHash(wasm, contractAddress, Fr.fromBuffer(innerNoteHash));
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should insert
       // uniqueSiloedNoteHash in tree and that should be what is expected in Noir
-      //const uniqueSiloedNoteHash = computeUniqueCommitment(wasm, nonce, Fr.fromBuffer(innerNoteHash));
+      //const uniqueSiloedNoteHash = computeUniqueNoteHash(wasm, nonce, Fr.fromBuffer(innerNoteHash));
 
       const tree = await insertLeaves([siloedNoteHash]);
 
-      oracle.getCommitmentOracle.mockImplementation(async () => {
-        // Check the calculated commitment is correct
+      oracle.getNoteHashOracle.mockImplementation(async () => {
+        // Check the calculated noteHash is correct
         return Promise.resolve({
-          commitment: siloedNoteHash,
+          noteHash: siloedNoteHash,
           siblingPath: (await tree.getSiblingPath(0n, false)).toFieldArray(),
           index: 0n,
         });
@@ -770,7 +770,7 @@ describe('Private Execution test suite', () => {
       const newNullifiers = result.callStackItem.publicInputs.newNullifiers.filter(field => !field.equals(Fr.ZERO));
       expect(newNullifiers).toHaveLength(1);
 
-      // Check the commitment read request was created successfully.
+      // Check the noteHash read request was created successfully.
       const readRequests = result.callStackItem.publicInputs.readRequests.filter(field => !field.equals(Fr.ZERO));
       expect(readRequests).toHaveLength(1);
       expect(readRequests[0]).toEqual(siloedNoteHash);
@@ -827,7 +827,7 @@ describe('Private Execution test suite', () => {
     });
   });
 
-  describe('pending commitments contract', () => {
+  describe('pending noteHashes contract', () => {
     let owner: AztecAddress;
 
     beforeEach(async () => {
@@ -844,20 +844,20 @@ describe('Private Execution test suite', () => {
     beforeEach(() => {
       oracle.getFunctionABI.mockImplementation((_, selector) =>
         Promise.resolve(
-          PendingCommitmentsContractAbi.functions.find(f =>
+          PendingNoteHashesContractAbi.functions.find(f =>
             selector.equals(FunctionSelector.fromNameAndParameters(f.name, f.parameters)),
           )!,
         ),
       );
     });
 
-    it('should be able to insert, read, and nullify pending commitments in one call', async () => {
+    it('should be able to insert, read, and nullify pending noteHashes in one call', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(
+      const abi = PendingNoteHashesContractAbi.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_flat',
       )!;
 
@@ -874,13 +874,13 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newCommitments[0];
+      const noteHash = newNoteHashes[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage);
-      expect(commitment).toEqual(innerNoteHash);
+      expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = result.callStackItem.publicInputs.readRequests[0];
@@ -895,18 +895,18 @@ describe('Private Execution test suite', () => {
       );
     });
 
-    it('should be able to insert, read, and nullify pending commitments in nested calls', async () => {
+    it('should be able to insert, read, and nullify pending noteHashes in nested calls', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(
+      const abi = PendingNoteHashesContractAbi.functions.find(
         f => f.name === 'test_insert_then_get_then_nullify_all_in_nested_calls',
       )!;
-      const insertAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'insert_note')!;
-      const getThenNullifyAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_then_nullify_note')!;
-      const getZeroAbi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'get_note_zero_balance')!;
+      const insertAbi = PendingNoteHashesContractAbi.functions.find(f => f.name === 'insert_note')!;
+      const getThenNullifyAbi = PendingNoteHashesContractAbi.functions.find(f => f.name === 'get_then_nullify_note')!;
+      const getZeroAbi = PendingNoteHashesContractAbi.functions.find(f => f.name === 'get_note_zero_balance')!;
 
       const insertFnSelector = FunctionSelector.fromNameAndParameters(insertAbi.name, insertAbi.parameters);
       const getThenNullifyFnSelector = FunctionSelector.fromNameAndParameters(
@@ -940,15 +940,13 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = execInsert.callStackItem.publicInputs.newCommitments.filter(
-        field => !field.equals(Fr.ZERO),
-      );
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = execInsert.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newCommitments[0];
+      const noteHash = newNoteHashes[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
       const innerNoteHash = await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage);
-      expect(commitment).toEqual(innerNoteHash);
+      expect(noteHash).toEqual(innerNoteHash);
 
       // read request should match innerNoteHash for pending notes (there is no nonce, so can't compute "unique" hash)
       const readRequest = execGetThenNullify.callStackItem.publicInputs.readRequests[0];
@@ -968,13 +966,13 @@ describe('Private Execution test suite', () => {
       expect(afterNullifyingNoteValue).toEqual(0n);
     });
 
-    it('cant read a commitment that is inserted later in same call', async () => {
+    it('cant read a noteHash that is inserted later in same call', async () => {
       oracle.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
 
       const contractAddress = AztecAddress.random();
-      const abi = PendingCommitmentsContractAbi.functions.find(f => f.name === 'test_bad_get_then_insert_flat')!;
+      const abi = PendingNoteHashesContractAbi.functions.find(f => f.name === 'test_bad_get_then_insert_flat')!;
 
       const args = [amountToTransfer, owner];
       const result = await runSimulator({
@@ -989,12 +987,12 @@ describe('Private Execution test suite', () => {
 
       expect(note.preimage[0]).toEqual(new Fr(amountToTransfer));
 
-      const newCommitments = result.callStackItem.publicInputs.newCommitments.filter(field => !field.equals(Fr.ZERO));
-      expect(newCommitments).toHaveLength(1);
+      const newNoteHashes = result.callStackItem.publicInputs.newNoteHashes.filter(field => !field.equals(Fr.ZERO));
+      expect(newNoteHashes).toHaveLength(1);
 
-      const commitment = newCommitments[0];
+      const noteHash = newNoteHashes[0];
       const storageSlot = computeSlotForMapping(new Fr(1n), owner.toField(), circuitsWasm);
-      expect(commitment).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
+      expect(noteHash).toEqual(await acirSimulator.computeInnerNoteHash(contractAddress, storageSlot, note.preimage));
 
       // read requests should be empty
       const readRequest = result.callStackItem.publicInputs.readRequests[0].value;

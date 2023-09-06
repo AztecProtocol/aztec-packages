@@ -3,9 +3,9 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import {
-  ContractCommitmentProvider,
   ContractData,
-  DataCommitmentProvider,
+  ContractNoteHashProvider,
+  DataNoteHashProvider,
   ExtendedContractData,
   L1ToL2MessageProvider,
   L2Block,
@@ -21,7 +21,7 @@ import {
  * The aztec node.
  * We will probably implement the additional interfaces by means other than Aztec Node as it's currently a privacy leak
  */
-export interface AztecNode extends DataCommitmentProvider, L1ToL2MessageProvider, ContractCommitmentProvider {
+export interface AztecNode extends DataNoteHashProvider, L1ToL2MessageProvider, ContractNoteHashProvider {
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.

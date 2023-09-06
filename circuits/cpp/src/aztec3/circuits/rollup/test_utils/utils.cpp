@@ -48,12 +48,12 @@ using aztec3::circuits::kernel::private_kernel::utils::dummy_previous_kernel;
 
 namespace aztec3::circuits::rollup::test_utils::utils {
 
-// Want some helper functions for generating kernels with some commitments, nullifiers and contracts
+// Want some helper functions for generating kernels with some note_hashes, nullifiers and contracts
 
 std::vector<uint8_t> get_empty_calldata_leaf()
 {
     auto const number_of_inputs =
-        (MAX_NEW_COMMITMENTS_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
+        (MAX_NEW_NOTE_HASHES_PER_TX + MAX_NEW_NULLIFIERS_PER_TX + MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * 2 +
          MAX_NEW_L2_TO_L1_MSGS_PER_TX + MAX_NEW_CONTRACTS_PER_TX * 3 + NUM_ENCRYPTED_LOGS_HASHES_PER_TX * 2 +
          NUM_UNENCRYPTED_LOGS_HASHES_PER_TX * 2) *
         2;
@@ -123,7 +123,7 @@ BaseRollupInputs base_rollup_inputs_from_kernels(std::array<KernelData, 2> kerne
     baseRollupInputs.new_contracts_subtree_sibling_path =
         get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 0, CONTRACT_SUBTREE_HEIGHT);
 
-    baseRollupInputs.new_commitments_subtree_sibling_path =
+    baseRollupInputs.new_note_hashes_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(private_data_tree, 0, PRIVATE_DATA_SUBTREE_HEIGHT);
 
 
@@ -303,9 +303,9 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX * 2> nullifiers;
 
     for (size_t i = 0; i < 2; i++) {
-        for (size_t j = 0; j < MAX_NEW_COMMITMENTS_PER_TX; j++) {
-            private_data_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j,
-                                             kernel_data[i].public_inputs.end.new_commitments[j]);
+        for (size_t j = 0; j < MAX_NEW_NOTE_HASHES_PER_TX; j++) {
+            private_data_tree.update_element(i * MAX_NEW_NOTE_HASHES_PER_TX + j,
+                                             kernel_data[i].public_inputs.end.new_note_hashes[j]);
         }
         auto contract_data = kernel_data[i].public_inputs.end.new_contracts[0];
         if (!contract_data.is_empty()) {
@@ -327,9 +327,9 @@ std::array<PreviousRollupData<NT>, 2> get_previous_rollup_data(DummyBuilder& bui
 
     base_rollup_input_2.new_contracts_subtree_sibling_path =
         get_sibling_path<CONTRACT_SUBTREE_SIBLING_PATH_LENGTH>(contract_tree, 2, CONTRACT_SUBTREE_HEIGHT);
-    base_rollup_input_2.new_commitments_subtree_sibling_path =
+    base_rollup_input_2.new_note_hashes_subtree_sibling_path =
         get_sibling_path<PRIVATE_DATA_SUBTREE_SIBLING_PATH_LENGTH>(
-            private_data_tree, 2 * MAX_NEW_COMMITMENTS_PER_TX, PRIVATE_DATA_SUBTREE_HEIGHT);
+            private_data_tree, 2 * MAX_NEW_NOTE_HASHES_PER_TX, PRIVATE_DATA_SUBTREE_HEIGHT);
 
     auto base_public_input_2 =
         aztec3::circuits::rollup::native_base_rollup::base_rollup_circuit(builder, base_rollup_input_2);

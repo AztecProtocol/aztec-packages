@@ -40,7 +40,7 @@ template <typename Builder> class StateVar {
     fr start_slot = 0;
 
     // The 'storage slot point' of the state variable. Having a _point_ for every storage slot allows for
-    // partial-commitment functionality.
+    // partial-note_hash functionality.
     // I.e. we can generate placeholder storage slots, which can be partially-committed to in one function, and then
     // completed in some future function, once the mapping keys or array indices at which we'd like to store the data
     // are known in future. Aztec Connect does something similar (the `asset_id` of the output value note isn't known

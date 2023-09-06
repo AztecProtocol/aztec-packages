@@ -8,8 +8,8 @@ import {
   ACVMField,
   fromACVMField,
   toACVMField,
-  toAcvmCommitmentLoadOracleInputs,
   toAcvmL1ToL2MessageLoadOracleInputs,
+  toAcvmNoteHashLoadOracleInputs,
 } from '../acvm/index.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { DBOracle, PendingNoteData } from './db_oracle.js';
@@ -41,7 +41,7 @@ export class ClientTxExecutionContext {
     /** Pending notes created (and not nullified) up to current point in execution.
      *  If a nullifier for a note in this list is emitted, the note will be REMOVED. */
     private pendingNotes: PendingNoteData[] = [],
-    /** The list of nullifiers created in this transaction. The commitment/note which is nullified
+    /** The list of nullifiers created in this transaction. The noteHash/note which is nullified
      *  might be pending or not (i.e., was generated in a previous transaction)
      *  Note that their value (bigint representation) is used because Frs cannot be looked up in Sets. */
     private pendingNullifiers: Set<bigint> = new Set<bigint>(),
@@ -102,7 +102,7 @@ export class ClientTxExecutionContext {
    * here is just used to flag reads as "transient" (one in getPendingNotes)
    * or to flag non-transient reads with their leafIndex.
    * The KernelProver will use this to fully populate witnesses and provide hints to
-   * the kernel regarding which commitments each transient read request corresponds to.
+   * the kernel regarding which noteHashes each transient read request corresponds to.
    *
    * @param contractAddress - The contract address.
    * @param storageSlot - The storage slot.
@@ -213,20 +213,20 @@ export class ClientTxExecutionContext {
   }
 
   /**
-   * Fetches a path to prove existence of a commitment in the db, given its contract side commitment (before silo).
+   * Fetches a path to prove existence of a noteHash in the db, given its contract side noteHash (before silo).
    * @param contractAddress - The contract address.
-   * @param commitment - The commitment.
-   * @returns The commitment data.
+   * @param noteHash - The noteHash.
+   * @returns The noteHash data.
    */
-  public async getCommitment(contractAddress: AztecAddress, commitment: ACVMField) {
+  public async getNoteHash(contractAddress: AztecAddress, noteHash: ACVMField) {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): only works
-    // for noteHashes/commitments created by public functions! Once public kernel or
-    // base rollup circuit injects nonces, this can be used with commitments created by
+    // for noteHashes created by public functions! Once public kernel or
+    // base rollup circuit injects nonces, this can be used with noteHashes created by
     // private functions as well.
-    const commitmentInputs = await this.db.getCommitmentOracle(contractAddress, fromACVMField(commitment));
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending commitments here
-    this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(commitmentInputs.index));
-    return toAcvmCommitmentLoadOracleInputs(commitmentInputs, this.historicBlockData.privateDataTreeRoot);
+    const noteHashInputs = await this.db.getNoteHashOracle(contractAddress, fromACVMField(noteHash));
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1029): support pending noteHashes here
+    this.readRequestPartialWitnesses.push(ReadRequestMembershipWitness.empty(noteHashInputs.index));
+    return toAcvmNoteHashLoadOracleInputs(noteHashInputs, this.historicBlockData.privateDataTreeRoot);
   }
 
   /**

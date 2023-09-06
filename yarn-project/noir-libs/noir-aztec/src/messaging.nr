@@ -1,4 +1,4 @@
-mod get_commitment_getter_data;
+mod get_note_hash_getter_data;
 mod l1_to_l2_message;
 mod l1_to_l2_message_getter_data;
 

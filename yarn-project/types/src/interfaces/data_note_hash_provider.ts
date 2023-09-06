@@ -3,15 +3,15 @@ import { PRIVATE_DATA_TREE_HEIGHT } from '@aztec/circuits.js';
 import { SiblingPath } from '../sibling_path.js';
 
 /**
- * Interface for providing information about commitments within the data tree.
+ * Interface for providing information about noteHashes within the data tree.
  */
-export interface DataCommitmentProvider {
+export interface DataNoteHashProvider {
   /**
-   * Find the index of the given commitment.
+   * Find the index of the given noteHash.
    * @param leafValue - The value to search for.
    * @returns The index of the given leaf of undefined if not found.
    */
-  findCommitmentIndex(leafValue: Buffer): Promise<bigint | undefined>;
+  findNoteHashIndex(leafValue: Buffer): Promise<bigint | undefined>;
 
   /**
    * Returns the sibling path for the given index in the data tree.

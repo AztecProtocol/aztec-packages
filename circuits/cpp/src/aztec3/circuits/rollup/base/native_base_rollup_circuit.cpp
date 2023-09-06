@@ -101,32 +101,32 @@ NT::fr calculate_contract_subtree(std::vector<NT::fr> contract_leaves)
     return contracts_tree.root();
 }
 
-NT::fr calculate_commitments_subtree(DummyBuilder& builder, BaseRollupInputs const& baseRollupInputs)
+NT::fr calculate_note_hashes_subtree(DummyBuilder& builder, BaseRollupInputs const& baseRollupInputs)
 {
-    MemoryStore commitments_tree_store;
-    MerkleTree commitments_tree(commitments_tree_store, PRIVATE_DATA_SUBTREE_HEIGHT);
+    MemoryStore note_hashes_tree_store;
+    MerkleTree note_hashes_tree(note_hashes_tree_store, PRIVATE_DATA_SUBTREE_HEIGHT);
 
 
     for (size_t i = 0; i < 2; i++) {
-        auto new_commitments = baseRollupInputs.kernel_data[i].public_inputs.end.new_commitments;
+        auto new_note_hashes = baseRollupInputs.kernel_data[i].public_inputs.end.new_note_hashes;
 
-        // Our commitments size MUST be 4 to calculate our subtrees correctly
-        builder.do_assert(new_commitments.size() == MAX_NEW_COMMITMENTS_PER_TX,
-                          "New commitments in kernel data must be MAX_NEW_COMMITMENTS_PER_TX (see constants.hpp)",
-                          CircuitErrorCode::BASE__INCORRECT_NUM_OF_NEW_COMMITMENTS);
+        // Our note_hashes size MUST be 4 to calculate our subtrees correctly
+        builder.do_assert(new_note_hashes.size() == MAX_NEW_NOTE_HASHES_PER_TX,
+                          "New note_hashes in kernel data must be MAX_NEW_NOTE_HASHES_PER_TX (see constants.hpp)",
+                          CircuitErrorCode::BASE__INCORRECT_NUM_OF_NEW_NOTE_HASHES);
 
-        for (size_t j = 0; j < new_commitments.size(); j++) {
+        for (size_t j = 0; j < new_note_hashes.size(); j++) {
             // todo: batch insert
-            commitments_tree.update_element(i * MAX_NEW_COMMITMENTS_PER_TX + j, new_commitments[j]);
+            note_hashes_tree.update_element(i * MAX_NEW_NOTE_HASHES_PER_TX + j, new_note_hashes[j]);
         }
     }
 
-    // Commitments subtree
-    return commitments_tree.root();
+    // NoteHashes subtree
+    return note_hashes_tree.root();
 }
 
 /**
- * @brief Check all of the provided commitments against the historical tree roots
+ * @brief Check all of the provided note_hashes against the historical tree roots
  *
  * @param constantBaseRollupData
  * @param baseRollupInputs
@@ -473,21 +473,21 @@ BaseOrMergeRollupPublicInputs base_rollup_circuit(DummyBuilder& builder, BaseRol
     // First we compute the contract tree leaves
     std::vector<NT::fr> const contract_leaves = calculate_contract_leaves(baseRollupInputs);
 
-    // Check contracts and commitments subtrees
+    // Check contracts and note_hashes subtrees
     NT::fr const contracts_tree_subroot = calculate_contract_subtree(contract_leaves);
-    NT::fr const commitments_tree_subroot = calculate_commitments_subtree(builder, baseRollupInputs);
+    NT::fr const note_hashes_tree_subroot = calculate_note_hashes_subtree(builder, baseRollupInputs);
 
-    // Insert commitment subtrees:
-    const auto empty_commitments_subtree_root = components::calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_HEIGHT);
+    // Insert note_hash subtrees:
+    const auto empty_note_hashes_subtree_root = components::calculate_empty_tree_root(PRIVATE_DATA_SUBTREE_HEIGHT);
     auto end_private_data_tree_snapshot = components::insert_subtree_to_snapshot_tree(
         builder,
         baseRollupInputs.start_private_data_tree_snapshot,
-        baseRollupInputs.new_commitments_subtree_sibling_path,
-        empty_commitments_subtree_root,
-        commitments_tree_subroot,
+        baseRollupInputs.new_note_hashes_subtree_sibling_path,
+        empty_note_hashes_subtree_root,
+        note_hashes_tree_subroot,
         PRIVATE_DATA_SUBTREE_HEIGHT,
         format(BASE_CIRCUIT_ERROR_MESSAGE_BEGINNING,
-               "private data tree not empty at location where the new commitment subtree would be inserted"));
+               "private data tree not empty at location where the new note_hash subtree would be inserted"));
     // Insert contract subtrees:
     const auto empty_contracts_subtree_root = components::calculate_empty_tree_root(CONTRACT_SUBTREE_HEIGHT);
     auto end_contract_tree_snapshot = components::insert_subtree_to_snapshot_tree(

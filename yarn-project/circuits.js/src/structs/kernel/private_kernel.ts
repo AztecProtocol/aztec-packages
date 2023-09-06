@@ -158,13 +158,13 @@ export class PrivateKernelInputsOrdering {
      */
     public previousKernel: PreviousKernelData,
     /**
-     * Contains hints for the transient read requests to localize corresponding commitments.
+     * Contains hints for the transient read requests to localize corresponding noteHashes.
      */
-    public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readNoteHashHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
     /**
      * Contains hints for the transient nullifiers to localize corresponding commitments.
      */
-    public nullifierCommitmentHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    public nullifierNoteHashHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {}
 
   /**
@@ -172,6 +172,6 @@ export class PrivateKernelInputsOrdering {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.readCommitmentHints);
+    return serializeToBuffer(this.previousKernel, this.readNoteHashHints);
   }
 }

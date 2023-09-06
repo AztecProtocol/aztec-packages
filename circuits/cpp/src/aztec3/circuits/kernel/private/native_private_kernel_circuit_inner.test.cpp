@@ -209,20 +209,20 @@ TEST_F(native_private_kernel_inner_tests, DISABLED_private_function_incorrect_ca
               "calculated private_call_hash does not match provided private_call_hash at the top of the call stack");
 }
 
-TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_commitments)
+TEST_F(native_private_kernel_inner_tests, private_kernel_should_fail_if_aggregating_too_many_note_hashes)
 {
-    // Negative test to check if push_array_to_array fails if two many commitments are merged together
-    DummyBuilder builder = DummyBuilder("should_fail_if_aggregating_too_many_commitments");
+    // Negative test to check if push_array_to_array fails if two many note_hashes are merged together
+    DummyBuilder builder = DummyBuilder("should_fail_if_aggregating_too_many_note_hashes");
 
     PrivateKernelInputsInner<NT> private_inputs =
         do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
 
-    // Mock the previous new commitments to be full, therefore no need commitments can be added
-    std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> full_new_commitments{};
-    for (size_t i = 0; i < MAX_NEW_COMMITMENTS_PER_TX; ++i) {
-        full_new_commitments[i] = i + 1;
+    // Mock the previous new note_hashes to be full, therefore no need note_hashes can be added
+    std::array<fr, MAX_NEW_NOTE_HASHES_PER_TX> full_new_note_hashes{};
+    for (size_t i = 0; i < MAX_NEW_NOTE_HASHES_PER_TX; ++i) {
+        full_new_note_hashes[i] = i + 1;
     }
-    private_inputs.previous_kernel.public_inputs.end.new_commitments = full_new_commitments;
+    private_inputs.previous_kernel.public_inputs.end.new_note_hashes = full_new_note_hashes;
     native_private_kernel_circuit_inner(builder, private_inputs);
 
     ASSERT_TRUE(builder.failed());
