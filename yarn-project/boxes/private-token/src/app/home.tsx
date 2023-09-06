@@ -1,5 +1,6 @@
 import { CompleteAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
+import { ANIMATED_BANNER } from '../config.js';
 import { Banner, Spinner } from './components/index.js';
 import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
@@ -8,10 +9,10 @@ export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<CompleteAddress>();
   const [selectWalletError, setSelectedWalletError] = useState('');
+  const animated = ANIMATED_BANNER;
 
   const handleSelectWallet = (address: CompleteAddress | undefined) => {
     setSelectedWallet(address);
-    console.log('setSelectedWallet', address?.address.toString());
     setIsLoadingWallet(false);
   };
 
@@ -23,8 +24,8 @@ export function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between px-16">
       <div>
-        <Banner background="black" direction="forward" />
-        <Banner background="purple" direction="reverse" />
+        <Banner background="black" direction="forward" animated={ANIMATED_BANNER}/>
+        <Banner background="purple" direction="reverse" animated={ANIMATED_BANNER}/>
       </div>
 
       <div className="max-w-screen flex flex-col w-full items-center py-16 font-mono text-sm">
@@ -57,8 +58,8 @@ export function Home() {
 
       <div className="flex w-full items-center flex-col"></div>
       <div>
-        <Banner background="purple" direction="forward" />
-        <Banner background="black" direction="reverse" />
+        <Banner background="purple" direction="forward" animated={ANIMATED_BANNER}/>
+        <Banner background="black" direction="reverse" animated={ANIMATED_BANNER}/>
       </div>
     </main>
   );

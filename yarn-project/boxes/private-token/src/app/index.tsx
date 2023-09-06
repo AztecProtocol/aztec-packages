@@ -1,5 +1,6 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom/client';
+import '../../tailwind.config.cjs';
 import { Home } from './home.js';
 import './index.css';
 
