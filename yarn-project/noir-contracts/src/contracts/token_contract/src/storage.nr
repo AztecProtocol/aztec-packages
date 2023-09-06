@@ -22,7 +22,6 @@ struct Storage {
     total_supply: PublicState<Field, FIELD_SERIALISED_LEN>,
     pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
     public_balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
-    public_allowances: Map<Map<PublicState<Field, FIELD_SERIALISED_LEN>>>,
 }
 
 impl Storage {
@@ -75,26 +74,6 @@ impl Storage {
                         public_context,
                         slot,
                         FieldSerialisationMethods,
-                    )
-                },
-            ),
-            public_allowances: Map::new(
-                private_context,
-                public_context,
-                7,
-                |private_context, public_context, s1| {
-                    Map::new(
-                        private_context,
-                        public_context,
-                        s1,
-                        |private_context, public_context, s2| {
-                            PublicState::new(
-                                private_context,
-                                public_context,
-                                s2,
-                                FieldSerialisationMethods,
-                            )
-                        },
                     )
                 },
             ),

@@ -99,13 +99,13 @@ contract Token {
     fn shield(
         from: AztecAddress,
         amount: Field,
-        secret: Field,
+        secret_hash: Field,
     ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
 
         if (from.address != context.msg_sender()) {
             let selector = 420;
-            let message_field = compute_message_hash([selector, from.address, amount, secret]);
+            let message_field = compute_message_hash([selector, from.address, amount, secret_hash]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff);
         }
 
@@ -113,7 +113,7 @@ contract Token {
         let from_balance = SafeU120::new(storage.public_balances.at(from.address).read()).sub(amount);
 
         let pending_shields = storage.pending_shields;
-        let mut note = TransparentNote::new_from_secret(amount.value as Field, secret);
+        let mut note = TransparentNote::new(amount.value as Field, secret_hash);
 
         storage.public_balances.at(from.address).write(from_balance.value as Field);
         pending_shields.insert_from_public(&mut note);
@@ -258,15 +258,6 @@ contract Token {
         let storage = Storage::init(Option::none(), Option::none());
         storage.public_balances.at(owner.address).read()
     }
-
-    unconstrained fn allowance_public(
-        owner: AztecAddress,
-        spender: AztecAddress,
-    ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
-        storage.public_allowances.at(owner.address).at(spender.address).read()
-    }
-
 
     // Below this point is the stuff of nightmares.
     // This should ideally not be required. What do we do if vastly different types of preimages?
