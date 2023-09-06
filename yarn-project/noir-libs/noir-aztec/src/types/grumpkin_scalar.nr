@@ -20,11 +20,11 @@ fn deserialise_grumpkin_scalar(fields: [Field; GRUMPKIN_SCALAR_SERIALISED_LEN]) 
     }
 }
 
-fn serialiseGrumpkinScalar(scalar: GrumpkinScalar) -> [Field; GRUMPKIN_SCALAR_SERIALISED_LEN] {
+fn serialise_grumpkin_scalar(scalar: GrumpkinScalar) -> [Field; GRUMPKIN_SCALAR_SERIALISED_LEN] {
     [scalar.high, scalar.low]
 }
 
 global GrumpkinScalarSerialisationMethods = TypeSerialisationInterface {
     deserialise: deserialise_grumpkin_scalar,
-    serialise: serialiseGrumpkinScalar,
+    serialise: serialise_grumpkin_scalar,
 };
