@@ -237,4 +237,36 @@ contract DocsExample {
         actions::get_total_points(storage.cards, account, 0)
     }
     // docs:end:functions-UncontrainedFunction
+
+    /// Example of how to perform an internal function
+    #[aztec(public)]
+    fn public_entrypoint(value: Field) -> Field {
+        internal_function()
+    }
+
+    // docs:start:internal_function_call
+    #[aztec(public)]
+    internal fn internal_function(value: Field) -> Field {
+        value + 1
+    }
+    // docs:end:internal_function_call
+}
+
+struct DocsExampleInterface(
+    at: Field
+)
+
+impl {
+    fn at(address: Field) -> Self {
+      Self {
+          address,
+      }
+    }
+
+    fn internal_function(
+        context: &mut PrivateContext,
+    ) {
+        let mut args = [];
+        context.call_public_function(self.address, 0xbac98727, [])
+    }
 }
