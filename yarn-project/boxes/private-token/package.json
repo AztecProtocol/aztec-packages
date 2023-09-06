@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "./dest/index.js",
   "scripts": {
     "build": "yarn clean && webpack",
     "clean": "rm -rf ./dest .tsbuildinfo",
@@ -12,6 +13,17 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts"
+  },
+  "inherits": [
+    "../../package.common.json"
+  ],
+  "jest": {
+    "preset": "ts-jest/presets/default-esm",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.ts$",
+    "rootDir": "./src"
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
@@ -65,5 +77,11 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*"
+  ],
+  "types": "./dest/index.d.ts"
 }
