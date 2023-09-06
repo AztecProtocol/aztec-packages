@@ -97,7 +97,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
 
   program
     .command('generate-private-key')
-    .description('Generates a private key which fits into the field used by Grumpkin curve.')
+    .summary('Generates an encryption private key.')
+    .description(
+      'Generates a private key which fits into the scalar field used by Grumpkin curve, can be used as an encryption private key.',
+    )
     .option(
       '-m, --mnemonic',
       'An optional mnemonic string used for the private key generation. If not provided, random private key will be generated.',
