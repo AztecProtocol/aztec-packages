@@ -9,13 +9,12 @@
 #include "barretenberg/serialize/msgpack.hpp"
 
 #include "barretenberg/smt_verification/terms/bool.hpp"
+#include "barretenberg/smt_verification/terms/ffiterm.hpp"
 #include "barretenberg/smt_verification/terms/ffterm.hpp"
 
 namespace smt_circuit {
 using namespace smt_solver;
 using namespace smt_terms;
-
-const std::string p = "21888242871839275222246405745257275088548364400416034343698204186575808495617";
 
 struct CircuitSchema {
     std::string modulus;
@@ -24,7 +23,7 @@ struct CircuitSchema {
     std::vector<barretenberg::fr> variables;
     std::vector<std::vector<barretenberg::fr>> selectors;
     std::vector<std::vector<uint32_t>> wits;
-    MSGPACK_FIELDS(public_inps, vars_of_interest, variables, selectors, wits);
+    MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wits);
 };
 
 /**
@@ -35,6 +34,7 @@ struct CircuitSchema {
  *
  * @todo TODO(alex): think on the partial value assertion inside the circuit.
  * @todo TODO(alex): class SymCircuit?
+ * @todo TODO(alex): FFTerm operator[](uint32_t)
  */
 class Circuit {
   private:
