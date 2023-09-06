@@ -17,6 +17,7 @@ namespace proof_system::honk {
 template <UltraFlavor Flavor> class UltraProver_ {
 
     using FF = typename Flavor::FF;
+    using Commitment = typename Flavor::Commitment;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProvingKey = typename Flavor::ProvingKey;
@@ -35,6 +36,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();
+    void execute_op_queue_transcript_aggregation_round();
     void execute_shplonk_batched_quotient_round();
     void execute_shplonk_partial_evaluation_round();
     void execute_final_pcs_round();

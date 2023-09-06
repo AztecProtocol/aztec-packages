@@ -242,6 +242,72 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_
     }
 }
 
+template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transcript_aggregation_round()
+{
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        // WORKTODO: Extract degree M_{i-1} of T_{i-1}
+        size_t shift_magnitude = 1; // M_{i-1}
+        auto circuit_size = key->circuit_size;
+
+        // Construct right-shifted op wires while ensuring that the last 'shift_magnitude' coefficients of the
+        // original op wires are zero.
+        // WORKTODO: also need to ensure that M_{i-1} + m_i < n. If this is not the case then we should still be able to
+        // compute the commitment but we have to be careful. Maybe just construct shift as Polynomial(M_{i-1} + m_i)?
+        std::array<Polynomial, Flavor::NUM_WIRES> shifted_op_wires;
+        size_t wire_idx = 0;
+        for (auto& op_wire : key->get_ecc_op_wires()) {
+            shifted_op_wires[wire_idx] = Polynomial(circuit_size);
+            for (size_t idx = 0; idx < shift_magnitude; ++idx) {
+                ASSERT(op_wire[circuit_size - idx - 1].is_zero());
+                shifted_op_wires[wire_idx][idx + shift_magnitude] = op_wire[idx];
+            }
+            wire_idx++;
+        }
+
+        // Commit to the right-shifted op wire polynomials
+        std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
+        for (size_t idx = 0; idx < shifted_op_wires.size(); ++idx) {
+            // queue.add_commitment(shifted_op_wires[idx], "SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
+            shifted_op_wire_commitments[idx] = pcs_commitment_key->commit(shifted_op_wires[idx]);
+            std::string label = "SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1);
+            transcript.send_to_verifier(label, shifted_op_wire_commitments[idx]);
+        }
+
+        // Get and send commitments [T_{i-1}]
+        std::array<Commitment, Flavor::NUM_WIRES> previous_aggregate_op_queue_commitments;
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            // WORKTODO: Maybe we can store [T_{i-1}] in the ecc op queue for now?
+            previous_aggregate_op_queue_commitments[idx] = Commitment::one();
+            std::string label = "PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1);
+            transcript.send_to_verifier(label, previous_aggregate_op_queue_commitments[idx]);
+        }
+
+        // Compute and send commitments [T_i] = [T_{i-1}] + [t_i^{shift}]
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            auto aggregate_op_queue_commitment =
+                previous_aggregate_op_queue_commitments[idx] + shifted_op_wire_commitments[idx];
+            std::string label = "AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1);
+            transcript.send_to_verifier(label, aggregate_op_queue_commitment);
+        }
+
+        // // Compute evaluations T_i(γ), T_{i-1}(γ), t_i^{shift}(γ), add to transcript
+        // // - just use the polynomial.evaluate() method to evaluate as univariates
+        // auto kappa_challenge = transcript.get_challenge("kappa");
+        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+        //     auto evaluation = shifted_op_wires[idx].evaluate(kappa_challenge);
+        //     gemini_output.opening_pairs.emplace_back(kappa_challenge, evaluation);
+        //     // WORKTODO: probably want to std::move these
+        //     gemini_output.witnesses.emplace_back(shifted_op_wires[idx]);
+        //     std::string label = "op_wire_eval_" + std::to_string(idx + 1);
+        //     transcript.send_to_verifier(label, evaluation);
+        // }
+
+        // Add polynomials T_i, T_{i-1}, t_i^{shift} and their evaluations to the set of opening pairs and witness
+        // polynomials that are passed to Shplonk. This should be sufficient to make Shplonk produce the updated Q and
+        // Q_z.
+    }
+}
+
 /**
  * - Do Fiat-Shamir to get "nu" challenge.
  * - Compute commitment [Q]_1
@@ -316,6 +382,9 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
     // Compute Fold evaluations
     execute_pcs_evaluation_round();
 
+    // ECC op queue transcript aggregation
+    execute_op_queue_transcript_aggregation_round();
+
     // Fiat-Shamir: nu
     // Compute Shplonk batched quotient commitment Q
     execute_shplonk_batched_quotient_round();
@@ -328,6 +397,8 @@ template <UltraFlavor Flavor> plonk::proof& UltraProver_<Flavor>::construct_proo
     // Fiat-Shamir: z
     // Compute PCS opening proof (either KZG quotient commitment or IPA opening proof)
     execute_final_pcs_round();
+
+    transcript.print();
 
     return export_proof();
 }
