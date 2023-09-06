@@ -290,17 +290,27 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
             transcript.send_to_verifier(label, aggregate_op_queue_commitment);
         }
 
-        // // Compute evaluations T_i(γ), T_{i-1}(γ), t_i^{shift}(γ), add to transcript
-        // // - just use the polynomial.evaluate() method to evaluate as univariates
-        // auto kappa_challenge = transcript.get_challenge("kappa");
-        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        //     auto evaluation = shifted_op_wires[idx].evaluate(kappa_challenge);
-        //     gemini_output.opening_pairs.emplace_back(kappa_challenge, evaluation);
-        //     // WORKTODO: probably want to std::move these
-        //     gemini_output.witnesses.emplace_back(shifted_op_wires[idx]);
-        //     std::string label = "op_wire_eval_" + std::to_string(idx + 1);
-        //     transcript.send_to_verifier(label, evaluation);
-        // }
+        // Compute evaluations T_i(γ), T_{i-1}(γ), t_i^{shift}(γ), add to transcript
+        // - just use the polynomial.evaluate() method to evaluate as univariates
+        auto kappa_challenge = transcript.get_challenge("kappa");
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            auto evaluation = shifted_op_wires[idx].evaluate(kappa_challenge);
+            // gemini_output.opening_pairs.emplace_back(kappa_challenge, evaluation);
+            // WORKTODO: probably want to std::move these
+            // gemini_output.witnesses.emplace_back(shifted_op_wires[idx]);
+            std::string label = "op_wire_eval_" + std::to_string(idx + 1);
+            transcript.send_to_verifier(label, evaluation);
+        }
+        auto aggregate_ecc_op_transcript = key->op_queue->get_ultra_ops();
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            auto polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
+            auto evaluation = polynomial.evaluate(kappa_challenge);
+            // gemini_output.opening_pairs.emplace_back(kappa_challenge, evaluation);
+            // WORKTODO: probably want to std::move these
+            // gemini_output.witnesses.emplace_back(polynomial);
+            std::string label = "agg_ecc_op_queue_eval_" + std::to_string(idx + 1);
+            transcript.send_to_verifier(label, evaluation);
+        }
 
         // Add polynomials T_i, T_{i-1}, t_i^{shift} and their evaluations to the set of opening pairs and witness
         // polynomials that are passed to Shplonk. This should be sufficient to make Shplonk produce the updated Q and

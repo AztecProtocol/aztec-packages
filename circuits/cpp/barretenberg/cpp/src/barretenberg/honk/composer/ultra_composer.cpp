@@ -284,6 +284,7 @@ std::shared_ptr<typename Flavor::ProvingKey> UltraComposer_<Flavor>::compute_pro
 
     if constexpr (IsGoblinFlavor<Flavor>) {
         proving_key->num_ecc_op_gates = num_ecc_op_gates;
+        proving_key->op_queue = circuit_constructor.op_queue;
     }
 
     return proving_key;

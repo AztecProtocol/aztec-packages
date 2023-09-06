@@ -40,7 +40,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
 
     // Stores record of ecc operations and performs corresponding native operations internally
-    ECCOpQueue op_queue;
+    std::shared_ptr<ECCOpQueue> op_queue;
 
     struct non_native_field_witnesses {
         // first 4 array elements = limbs
@@ -597,6 +597,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     void process_non_native_field_multiplications();
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<arithmetization::Ultra<FF>>(ultra_selector_names(), size_hint)
+        , op_queue(std::make_shared<ECCOpQueue>())
     {
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);

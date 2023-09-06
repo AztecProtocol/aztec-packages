@@ -46,7 +46,7 @@ TEST(UltraCircuitBuilder, GoblinSimple)
     EXPECT_EQ(P_result_y, uint256_t(P_expected.y));
 
     // Check that the accumulator in the op queue has been reset to 0
-    auto accumulator = builder.op_queue.get_accumulator();
+    auto accumulator = builder.op_queue->get_accumulator();
     EXPECT_EQ(accumulator, g1::affine_point_at_infinity);
 
     // Check number of ecc op "gates"/rows = 3 ops * 2 rows per op = 6
@@ -98,7 +98,7 @@ TEST(UltraCircuitBuilder, GoblinEccOpQueueUltraOps)
     builder.queue_ecc_eq();
 
     // Check that the ultra ops recorded in the EccOpQueue match the ops recorded in the wires
-    auto ultra_ops = builder.op_queue.get_ultra_ops();
+    auto ultra_ops = builder.op_queue->get_ultra_ops();
     for (size_t i = 1; i < 4; ++i) {
         for (size_t j = 0; j < builder.num_ecc_op_gates; ++j) {
             auto op_wire_val = builder.variables[builder.ecc_op_wires[i][j]];
