@@ -22,6 +22,7 @@
     "aztec-rpc",
     "aztec-sandbox",
     "aztec.js",
+    "boxes",
     "canary",
     "circuits.js",
     "docs",
