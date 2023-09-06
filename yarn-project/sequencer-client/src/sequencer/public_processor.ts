@@ -109,7 +109,7 @@ export class PublicProcessor {
    */
   public async process(txs: Tx[]): Promise<[ProcessedTx[], FailedTx[]]> {
     // The processor modifies the tx objects in place, so we need to clone them.
-    txs = txs.map(tx => Tx.fromJSON(tx.toJSON()));
+    txs = txs.map(tx => Tx.clone(tx));
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
 
@@ -177,7 +177,7 @@ export class PublicProcessor {
       while (executionStack.length) {
         const current = executionStack.pop()!;
         const isExecutionRequest = !isPublicExecutionResult(current);
-        const result = isExecutionRequest ? await this.publicExecutor.execute(current, this.globalVariables) : current;
+        const result = isExecutionRequest ? await this.publicExecutor.simulate(current, this.globalVariables) : current;
         newUnencryptedFunctionLogs.push(result.unencryptedLogs);
         const functionSelector = result.execution.functionData.selector.toString();
         this.log(

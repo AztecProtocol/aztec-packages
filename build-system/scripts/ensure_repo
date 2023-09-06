@@ -1,7 +1,7 @@
 #!/bin/bash
 # Logs the shell into the ECR instance at the given region, establishes if the given repository exists, creates it if it
 # doesn't, and re-applies thie lifecycle policy (determines when images should be automatically deleted) if it does.
-set -e
+set -eu
 
 LIFECYCLE_POLICY='{
   "rules": [
@@ -24,7 +24,7 @@ LIFECYCLE_POLICY='{
 
 REPOSITORY=$1
 REGION=$2
-REFRESH_LIFECYCLE=$3
+REFRESH_LIFECYCLE=${3:-}
 
 aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT.dkr.ecr.$REGION.amazonaws.com 2> /dev/null
 

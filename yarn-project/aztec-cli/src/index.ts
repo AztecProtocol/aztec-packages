@@ -12,14 +12,15 @@ import {
 import { StructType } from '@aztec/foundation/abi';
 import { JsonStringify } from '@aztec/foundation/json-rpc';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
+import { fileURLToPath } from '@aztec/foundation/url';
 import { compileContract } from '@aztec/noir-compiler/cli';
 import { SchnorrAccountContractAbi } from '@aztec/noir-contracts/artifacts';
 import { CompleteAddress, ContractData, L2BlockL2Logs, PrivateKey, TxHash } from '@aztec/types';
 
 import { Command } from 'commander';
 import { readFileSync } from 'fs';
+import startCase from 'lodash.startcase';
 import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
@@ -434,7 +435,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       log('\nView result: ', result, '\n');
     });
 
-  // Helper for users to decode hex strings into structs if needed
+  // Helper for users to decode hex strings into structs if needed.
   program
     .command('parse-parameter-struct')
     .description("Helper for parsing an encoded string into a contract's parameter struct.")
@@ -475,6 +476,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
       const abisList = await getExampleContractArtifacts();
       const names = Object.keys(abisList);
       names.forEach(name => log(name));
+    });
+
+  program
+    .command('get-node-info')
+    .description('Gets the information of an aztec node at a URL.')
+    .requiredOption('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
+    .action(async options => {
+      const client = await createCompatibleClient(options.rpcUrl, debugLogger);
+      const info = await client.getNodeInfo();
+      log(`\nNode Info:\n`);
+      Object.entries(info).map(([key, value]) => log(`${startCase(key)}: ${value}`));
     });
 
   compileContract(program, 'compile', log);

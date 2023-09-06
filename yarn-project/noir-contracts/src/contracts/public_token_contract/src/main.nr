@@ -1,18 +1,11 @@
 mod storage;
 
 contract PublicToken {
-    use dep::aztec::abi;
-    use dep::aztec::abi::Hasher;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::{
-        PrivateContext,
-        PublicContext,
-    };
 
     // docs:start:unencrypted_import
     use dep::aztec::oracle::logs::emit_unencrypted_log;
     // docs:end:unencrypted_import
+    use dep::std::option::Option;
 
     use crate::storage::Storage;
 
@@ -22,12 +15,12 @@ contract PublicToken {
 
     // Mints `amount` of tokens to a `recipient`.
     #[aztec(public)]
-    open fn mint(
+    fn mint(
         amount: Field,
         recipient: Field,
-    ) {
+    ) -> Field {
 
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
         // docs:start:unencrypted_log
@@ -36,16 +29,16 @@ contract PublicToken {
         // docs:end:unencrypted_log
         recipient_balance.write(new_amount);
 
-        context.return_values.push(new_amount);
+        new_amount
     }
 
     // Transfers `amount` of tokens from `msg_sender` to `recipient`.
     #[aztec(public)]
-    open fn transfer(
+    fn transfer(
         amount: Field,
         recipient: Field,
-    ) {
-        let storage = Storage::init();
+    ) -> Field {
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
@@ -68,13 +61,13 @@ contract PublicToken {
             // TODO: Revert if there is not enough balance
             return_value = current_recipient_balance;
         }
-        context.return_values.push(return_value);
+        return_value
     }
 
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
         storage.balances.at(owner).read()
     }
 }

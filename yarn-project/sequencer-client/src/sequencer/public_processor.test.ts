@@ -10,19 +10,19 @@ import {
   FunctionData,
   GlobalVariables,
   HistoricBlockData,
-  KernelCircuitPublicInputs,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PUBLIC_DATA_TREE_HEIGHT,
   Proof,
   PublicCallRequest,
+  PublicKernelPublicInputs,
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
 import { computeCallStackItemHash } from '@aztec/circuits.js/abis';
 import {
   makeAztecAddress,
-  makeKernelPublicInputsFinal,
+  makePrivateKernelPublicInputsFinal,
   makePublicCallRequest,
   makeSelector,
 } from '@aztec/circuits.js/factories';
@@ -105,10 +105,9 @@ describe('public_processor', () => {
         {
           isEmpty: false,
           hash,
-          data: new KernelCircuitPublicInputs(
+          data: new PublicKernelPublicInputs(
             CombinedAccumulatedData.fromFinalAccumulatedData(tx.data.end),
             tx.data.constants,
-            tx.data.isPrivate,
           ),
           proof: tx.proof,
           encryptedLogs: tx.encryptedLogs,
@@ -119,7 +118,7 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicExecutor.execute.mockRejectedValue(new Error(`Failed`));
+      publicExecutor.simulate.mockRejectedValue(new Error(`Failed`));
 
       const tx = mockTx();
       const [processed, failed] = await processor.process([tx]);
@@ -163,7 +162,7 @@ describe('public_processor', () => {
       const callStackItems = await Promise.all(callRequests.map(call => call.toPublicCallStackItem()));
       const callStackHashes = callStackItems.map(call => computeCallStackItemHash(wasm, call));
 
-      const kernelOutput = makeKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd(callStackHashes, Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
@@ -171,7 +170,7 @@ describe('public_processor', () => {
         ExtendedContractData.random(),
       ]);
 
-      publicExecutor.execute.mockImplementation(execution => {
+      publicExecutor.simulate.mockImplementation(execution => {
         for (const request of callRequests) {
           if (execution.contractAddress.equals(request.contractAddress)) {
             return Promise.resolve(makePublicExecutionResultFromRequest(request));
@@ -185,7 +184,7 @@ describe('public_processor', () => {
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
-      expect(publicExecutor.execute).toHaveBeenCalledTimes(2);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(2);
     });
 
     it('runs a tx with an enqueued public call with nested execution', async function () {
@@ -193,7 +192,7 @@ describe('public_processor', () => {
       const callStackItem = await callRequest.toPublicCallStackItem();
       const callStackHash = computeCallStackItemHash(wasm, callStackItem);
 
-      const kernelOutput = makeKernelPublicInputsFinal(0x10);
+      const kernelOutput = makePrivateKernelPublicInputsFinal(0x10);
       kernelOutput.end.publicCallStack = padArrayEnd([callStackHash], Fr.ZERO, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX);
       kernelOutput.end.privateCallStack = padArrayEnd([], Fr.ZERO, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX);
 
@@ -214,14 +213,14 @@ describe('public_processor', () => {
           args: new Array(ARGS_LENGTH).fill(Fr.ZERO),
         }),
       ];
-      publicExecutor.execute.mockResolvedValue(publicExecutionResult);
+      publicExecutor.simulate.mockResolvedValue(publicExecutionResult);
 
       const [processed, failed] = await processor.process([tx]);
 
       expect(processed).toHaveLength(1);
       expect(processed).toEqual([await expectedTxByHash(tx)]);
       expect(failed).toHaveLength(0);
-      expect(publicExecutor.execute).toHaveBeenCalledTimes(1);
+      expect(publicExecutor.simulate).toHaveBeenCalledTimes(1);
     });
   });
 });

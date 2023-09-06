@@ -1,7 +1,7 @@
-import { CallContext, CircuitsWasm, FunctionData, TxContext } from '@aztec/circuits.js';
+import { CallContext, CircuitsWasm, FunctionData, MAX_NOTE_FIELDS_LENGTH, TxContext } from '@aztec/circuits.js';
 import { computeTxHash } from '@aztec/circuits.js/abis';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { ArrayType, FunctionType, encodeArguments } from '@aztec/foundation/abi';
+import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,11 +10,11 @@ import { AztecNode, FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { WasmBlackBoxFunctionSolver, createBlackBoxSolver } from 'acvm_js';
 
-import { PackedArgsCache } from '../packed_args_cache.js';
+import { createSimulationError } from '../common/errors.js';
+import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
 import { ExecutionResult } from './execution_result.js';
-import { computeNoteHashAndNullifierSelector, computeNoteHashAndNullifierSignature } from './function_selectors.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
 
@@ -101,7 +101,11 @@ export class AcirSimulator {
       curve,
     );
 
-    return execution.run();
+    try {
+      return await execution.run();
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   /**
@@ -151,7 +155,11 @@ export class AcirSimulator {
       callContext,
     );
 
-    return execution.run(aztecNode);
+    try {
+      return await execution.run(aztecNode);
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
+    }
   }
 
   /**
@@ -168,37 +176,49 @@ export class AcirSimulator {
     storageSlot: Fr,
     notePreimage: Fr[],
   ) {
-    try {
-      const abi = await this.db.getFunctionABI(contractAddress, computeNoteHashAndNullifierSelector);
+    let abi: FunctionAbiWithDebugMetadata | undefined = undefined;
 
-      const preimageLen = (abi.parameters[3].type as ArrayType).length;
-      const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
+    // Brute force
+    for (let i = 0; i < MAX_NOTE_FIELDS_LENGTH; i++) {
+      const signature = `compute_note_hash_and_nullifier(Field,Field,Field,[Field;${i}])`;
+      const selector = FunctionSelector.fromSignature(signature);
+      try {
+        abi = await this.db.getFunctionABI(contractAddress, selector);
+        if (abi !== undefined) break;
+      } catch (e) {
+        // ignore
+      }
+    }
 
-      const execRequest: FunctionCall = {
-        to: AztecAddress.ZERO,
-        functionData: FunctionData.empty(),
-        args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
-      };
-
-      const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
-        execRequest,
-        AztecAddress.ZERO,
-        abi,
-        AztecAddress.ZERO,
-        EthAddress.ZERO,
-      )) as bigint[];
-
-      return {
-        innerNoteHash: new Fr(innerNoteHash),
-        siloedNoteHash: new Fr(siloedNoteHash),
-        uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
-        innerNullifier: new Fr(innerNullifier),
-      };
-    } catch (e) {
+    if (abi == undefined) {
       throw new Error(
-        `Mandatory implementation of "${computeNoteHashAndNullifierSignature}" missing in noir contract ${contractAddress.toString()}.`,
+        `Mandatory implementation of "compute_note_hash_and_nullifier" missing in noir contract ${contractAddress.toString()}.`,
       );
     }
+
+    const preimageLen = (abi.parameters[3].type as ArrayType).length;
+    const extendedPreimage = notePreimage.concat(Array(preimageLen - notePreimage.length).fill(Fr.ZERO));
+
+    const execRequest: FunctionCall = {
+      to: AztecAddress.ZERO,
+      functionData: FunctionData.empty(),
+      args: encodeArguments(abi, [contractAddress, nonce, storageSlot, extendedPreimage]),
+    };
+
+    const [innerNoteHash, siloedNoteHash, uniqueSiloedNoteHash, innerNullifier] = (await this.runUnconstrained(
+      execRequest,
+      AztecAddress.ZERO,
+      abi,
+      AztecAddress.ZERO,
+      EthAddress.ZERO,
+    )) as bigint[];
+
+    return {
+      innerNoteHash: new Fr(innerNoteHash),
+      siloedNoteHash: new Fr(siloedNoteHash),
+      uniqueSiloedNoteHash: new Fr(uniqueSiloedNoteHash),
+      innerNullifier: new Fr(innerNullifier),
+    };
   }
 
   /**

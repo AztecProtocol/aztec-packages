@@ -1,9 +1,8 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, AztecRPCServer } from '@aztec/aztec-rpc';
-import { startHttpRpcServer } from '@aztec/aztec-sandbox/http';
+import { startHttpRpcServer } from '@aztec/aztec-sandbox';
 import { createDebugLogger } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
-import { DebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, CompleteAddress } from '@aztec/types';
 
 import stringArgv from 'string-argv';
@@ -12,16 +11,35 @@ import { format } from 'util';
 import { setup } from './fixtures/utils.js';
 
 const HTTP_PORT = 9009;
+const RPC_URL = `http://localhost:${HTTP_PORT}`;
+const debug = createDebugLogger('aztec:e2e_cli');
+
+let http: ReturnType<typeof startHttpRpcServer>;
+let aztecNode: AztecNodeService | undefined;
+let aztecRpcServer: AztecRPC;
+
+const testSetup = async () => {
+  const context = await setup(2);
+  debug(`Environment set up`);
+  const { deployL1ContractsValues } = context;
+  ({ aztecNode, aztecRpcServer } = context);
+  http = startHttpRpcServer(aztecRpcServer, deployL1ContractsValues, HTTP_PORT);
+  debug(`HTTP RPC server started in port ${HTTP_PORT}`);
+  return aztecRpcServer;
+};
+
+const cleanup = async () => {
+  http.close();
+  await aztecNode?.stop();
+  await (aztecRpcServer as AztecRPCServer).stop();
+};
+
 const INITIAL_BALANCE = 33000;
 const TRANSFER_BALANCE = 3000;
 
-// Spins up a new http server wrapping the set up rpc server, and tests cli commands against it
-describe('cli', () => {
+describe('CLI e2e test', () => {
   let cli: ReturnType<typeof getProgram>;
-  let http: ReturnType<typeof startHttpRpcServer>;
-  let debug: DebugLogger;
-  let aztecNode: AztecNodeService | undefined;
-  let aztecRpcServer: AztecRPC;
+  let aztecRpcClient: AztecRPC;
   let existingAccounts: CompleteAddress[];
   let contractAddress: AztecAddress;
   let log: (...args: any[]) => void;
@@ -30,29 +48,21 @@ describe('cli', () => {
   const logs: string[] = [];
 
   beforeAll(async () => {
-    debug = createDebugLogger('aztec:e2e_cli');
-    const context = await setup(2);
-    debug(`Environment set up`);
-    const { deployL1ContractsValues } = context;
-    ({ aztecNode, aztecRpcServer } = context);
-    http = startHttpRpcServer(aztecRpcServer, deployL1ContractsValues, HTTP_PORT);
-    debug(`HTTP RPC server started in port ${HTTP_PORT}`);
+    aztecRpcClient = await testSetup();
     log = (...args: any[]) => {
       logs.push(format(...args));
       debug(...args);
     };
   });
 
+  afterAll(async () => {
+    await cleanup();
+  });
+
   // in order to run the same command twice, we need to create a new CLI instance
   const resetCli = () => {
     cli = getProgram(log, debug);
   };
-
-  afterAll(async () => {
-    http.close();
-    await aztecNode?.stop();
-    await (aztecRpcServer as AztecRPCServer).stop();
-  });
 
   beforeEach(() => {
     logs.splice(0);
@@ -63,7 +73,7 @@ describe('cli', () => {
   const run = (cmd: string, addRpcUrl = true) => {
     const args = stringArgv(cmd, 'node', 'dest/bin/index.js');
     if (addRpcUrl) {
-      args.push('--rpc-url', `http://localhost:${HTTP_PORT}`);
+      args.push('--rpc-url', RPC_URL);
     }
     return cli.parseAsync(args);
   };
@@ -90,14 +100,14 @@ describe('cli', () => {
   };
 
   it('creates & retrieves an account', async () => {
-    existingAccounts = await aztecRpcServer.getAccounts();
+    existingAccounts = await aztecRpcClient.getAccounts();
     debug('Create an account');
     await run(`create-account`);
     const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
     expect(foundAddress).toBeDefined();
     const newAddress = AztecAddress.fromString(foundAddress!);
 
-    const accountsAfter = await aztecRpcServer.getAccounts();
+    const accountsAfter = await aztecRpcClient.getAccounts();
     const expectedAccounts = [...existingAccounts.map(a => a.address), newAddress];
     expect(accountsAfter.map(a => a.address)).toEqual(expectedAccounts);
     const newCompleteAddress = accountsAfter[accountsAfter.length - 1];
@@ -134,7 +144,7 @@ describe('cli', () => {
     expect(loggedAddress).toBeDefined();
     contractAddress = AztecAddress.fromString(loggedAddress!);
 
-    const deployedContract = await aztecRpcServer.getContractData(contractAddress);
+    const deployedContract = await aztecRpcClient.getContractData(contractAddress);
     expect(deployedContract?.contractAddress).toEqual(contractAddress);
 
     debug('Check contract can be found in returned address');
@@ -156,7 +166,7 @@ describe('cli', () => {
     expect(balance!).toEqual(`${BigInt(INITIAL_BALANCE).toString()}n`);
 
     debug('Transfer some tokens');
-    const existingAccounts = await aztecRpcServer.getAccounts();
+    const existingAccounts = await aztecRpcClient.getAccounts();
     // ensure we pick a different acc
     const receiver = existingAccounts.find(acc => acc.address.toString() !== ownerAddress.toString());
 
