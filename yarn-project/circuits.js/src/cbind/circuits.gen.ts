@@ -439,10 +439,10 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  read_requests: Tuple<Buffer, 16>;
-  new_commitments: Tuple<Buffer, 16>;
-  new_nullifiers: Tuple<Buffer, 16>;
-  nullified_commitments: Tuple<Buffer, 16>;
+  read_requests: Tuple<Buffer, 512>;
+  new_commitments: Tuple<Buffer, 128>;
+  new_nullifiers: Tuple<Buffer, 128>;
+  nullified_commitments: Tuple<Buffer, 128>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -1031,7 +1031,7 @@ export function fromPreviousKernelData(o: PreviousKernelData): MsgpackPreviousKe
 
 interface MsgpackPrivateKernelInputsOrdering {
   previous_kernel: MsgpackPreviousKernelData;
-  hint_to_commitments: Tuple<Buffer, 16>;
+  hint_to_commitments: Tuple<Buffer, 512>;
 }
 
 export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrdering): PrivateKernelInputsOrdering {
@@ -1090,9 +1090,9 @@ export function fromCircuitError(o: CircuitError): MsgpackCircuitError {
 
 interface MsgpackFinalAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  new_commitments: Tuple<Buffer, 16>;
-  new_nullifiers: Tuple<Buffer, 16>;
-  nullified_commitments: Tuple<Buffer, 16>;
+  new_commitments: Tuple<Buffer, 128>;
+  new_nullifiers: Tuple<Buffer, 128>;
+  nullified_commitments: Tuple<Buffer, 128>;
   private_call_stack: Tuple<Buffer, 8>;
   public_call_stack: Tuple<Buffer, 8>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
@@ -1406,8 +1406,8 @@ interface MsgpackPublicCircuitPublicInputs {
   contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
   contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
   public_call_stack: Tuple<Buffer, 4>;
-  new_commitments: Tuple<Buffer, 4>;
-  new_nullifiers: Tuple<Buffer, 4>;
+  new_commitments: Tuple<Buffer, 32>;
+  new_nullifiers: Tuple<Buffer, 32>;
   new_l2_to_l1_msgs: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_log_preimages_length: Buffer;
