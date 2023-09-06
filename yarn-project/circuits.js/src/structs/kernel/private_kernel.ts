@@ -159,7 +159,7 @@ export class PrivateKernelInputsOrdering {
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
-    public hintToCommitments: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
   ) {}
 
   /**
@@ -167,6 +167,6 @@ export class PrivateKernelInputsOrdering {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.hintToCommitments);
+    return serializeToBuffer(this.previousKernel, this.readCommitmentHints);
   }
 }

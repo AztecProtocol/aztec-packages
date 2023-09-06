@@ -36,14 +36,14 @@ namespace aztec3::circuits::kernel::private_kernel {
 
 void match_reads_to_commitments(DummyCircuitBuilder& builder,
                                 std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_requests,
-                                std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& hint_to_commitments,
+                                std::array<NT::fr, MAX_READ_REQUESTS_PER_TX> const& read_commitment_hints,
                                 std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX> const& new_commitments)
 {
     // match reads to commitments from the previous call(s)
     for (size_t rr_idx = 0; rr_idx < MAX_READ_REQUESTS_PER_TX; rr_idx++) {
         const auto& read_request = read_requests[rr_idx];
-        const auto& hint_to_commitment = hint_to_commitments[rr_idx];
-        const auto hint_pos = static_cast<size_t>(uint64_t(hint_to_commitment));
+        const auto& read_commitment_hint = read_commitment_hints[rr_idx];
+        const auto hint_pos = static_cast<size_t>(uint64_t(read_commitment_hint));
 
         if (read_request != 0) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
@@ -59,7 +59,7 @@ void match_reads_to_commitments(DummyCircuitBuilder& builder,
                        "\n\tread_request: ",
                        read_request,
                        "\n\thint_to_commitment: ",
-                       hint_to_commitment,
+                       read_commitment_hint,
                        "\n\t* the read_request position/index is not expected to match position in app-circuit "
                        "outputs because kernel iterations gradually remove non-transient read_requests as "
                        "membership checks are resolved."),
@@ -169,7 +169,7 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     // Remark: The commitments in public_inputs.end have already been siloed by contract address!
     match_reads_to_commitments(builder,
                                private_inputs.previous_kernel.public_inputs.end.read_requests,
-                               private_inputs.hint_to_commitments,
+                               private_inputs.read_commitment_hints,
                                private_inputs.previous_kernel.public_inputs.end.new_commitments);
 
     // Matching nullifiers to pending commitments requires the full list of new commitments accumulated over

@@ -171,11 +171,11 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const hintToCommitments = this.getReadRequestHints(
+    const readCommitmentHints = this.getReadRequestHints(
       output.publicInputs.end.readRequests,
       output.publicInputs.end.newCommitments,
     );
-    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, hintToCommitments);
+    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, readCommitmentHints);
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
