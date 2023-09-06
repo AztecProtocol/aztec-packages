@@ -10,7 +10,9 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   \. ~/.nvm/nvm.sh
 fi
+set +eu
 nvm install
+set -eu
 
 yarn install --immutable
 
