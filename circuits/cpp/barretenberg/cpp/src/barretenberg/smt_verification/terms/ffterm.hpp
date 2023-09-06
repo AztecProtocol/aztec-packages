@@ -4,7 +4,7 @@
 namespace smt_terms {
 using namespace smt_solver;
 
-/** 
+/**
  * @brief Finite Field element class.
  *
  * @details Can be a finite field symbolic variable or a constant.
@@ -16,12 +16,11 @@ class FFTerm {
   public:
     Solver* solver;
     cvc5::Term term;
-    bool isconst;
 
     FFTerm()
         : solver(nullptr)
-        , term(cvc5::Term())
-        , isconst(false){};
+        , term(cvc5::Term()){};
+
     explicit FFTerm(const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16);
     FFTerm(cvc5::Term& term, Solver* s)
         : solver(s)
@@ -44,7 +43,7 @@ class FFTerm {
     void operator==(const FFTerm& other) const;
     void operator!=(const FFTerm& other) const;
 
-    operator std::string() const { return isconst ? term.getFiniteFieldValue() : term.toString(); };
+    operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
 
     ~FFTerm() = default;

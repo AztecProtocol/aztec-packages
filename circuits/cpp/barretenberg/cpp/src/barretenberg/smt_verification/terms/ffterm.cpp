@@ -29,7 +29,6 @@ FFTerm Const(const std::string& val, Solver* slv, uint32_t base)
 
 FFTerm::FFTerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
     : solver(slv)
-    , isconst(isconst)
 {
     if (!isconst) {
         this->term = slv->s.mkConst(slv->fp, t);
@@ -76,13 +75,13 @@ void FFTerm::operator*=(const FFTerm& other)
 
 /**
  * @brief Division operation
- * 
+ *
  * @details Returns a result of the division by
- * creating a new symbolic variable and adding a new constraint 
+ * creating a new symbolic variable and adding a new constraint
  * to the solver.
  *
- * @param other 
- * @return FFTerm 
+ * @param other
+ * @return FFTerm
  */
 FFTerm FFTerm::operator/(const FFTerm& other) const
 {
