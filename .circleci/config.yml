@@ -725,9 +725,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-sandbox-example:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -737,9 +736,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-multi-transfer-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -929,9 +927,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-p2p:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -941,9 +938,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-browser-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -953,9 +949,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   aztec-rpc-sandbox:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -977,9 +972,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   guides-dapp-testing:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
@@ -989,9 +983,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-canary-test:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
