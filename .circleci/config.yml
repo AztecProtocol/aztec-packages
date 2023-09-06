@@ -990,7 +990,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/run_tests canary-build uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script canary-build $JOB_NAME ./scripts/run_tests_local uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
 
   build-docs:
     machine:
