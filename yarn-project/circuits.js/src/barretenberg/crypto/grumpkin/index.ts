@@ -1,6 +1,6 @@
 import { IWasmModule } from '@aztec/foundation/wasm';
 
-import { CircuitsWasm, GrumpkinScalar, Point } from '../../../index.js';
+import { CircuitsWasm, Fr, GrumpkinScalar, Point } from '../../../index.js';
 
 /**
  * Grumpkin elliptic curve operations.
@@ -77,9 +77,9 @@ export class Grumpkin {
    * Gets a random field element.
    * @returns Random field element.
    */
-  public getRandomFr(): GrumpkinScalar {
+  public getRandomFr(): Fr {
     this.wasm.call('ecc_grumpkin__get_random_scalar_mod_circuit_modulus', 0);
-    return GrumpkinScalar.fromBuffer(Buffer.from(this.wasm.getMemorySlice(0, 32)));
+    return Fr.fromBuffer(Buffer.from(this.wasm.getMemorySlice(0, 32)));
   }
 
   /**
@@ -87,9 +87,9 @@ export class Grumpkin {
    * @param uint512Buf - The buffer to convert.
    * @returns Buffer representation of the field element.
    */
-  public reduce512BufferToFr(uint512Buf: Buffer): GrumpkinScalar {
+  public reduce512BufferToFr(uint512Buf: Buffer): Fr {
     this.wasm.writeMemory(0, uint512Buf);
     this.wasm.call('ecc_grumpkin__reduce512_buffer_mod_circuit_modulus', 0, 64);
-    return GrumpkinScalar.fromBuffer(Buffer.from(this.wasm.getMemorySlice(64, 96)));
+    return Fr.fromBuffer(Buffer.from(this.wasm.getMemorySlice(64, 96)));
   }
 }
