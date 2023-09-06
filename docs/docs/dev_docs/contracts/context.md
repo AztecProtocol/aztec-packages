@@ -1,3 +1,8 @@
+---
+title: Aztec.nr Context
+description: Documentation of Aztec's Private and Public execution contexts
+hide_table_of_contents: false
+---
 # Overview of this page (change this title)
 
 We want ot include some over arching details on what is included inside the context structure, and give an overview of what it actually is.
@@ -10,7 +15,7 @@ Behind the scenes, Aztec noir will pass data the kernel needs to and from a circ
 ## What is contained within the context.
 
 The code snippet below shows what is currently contained within the private context.
-#include_code functions-OpenFunction /yarn-project/noir-libs/noir-aztec/src/context.nr rust
+#include_code private-context /yarn-project/noir-libs/noir-aztec/src/context.nr rust
 
 ### Private Context Broken Down
 #### Inputs
