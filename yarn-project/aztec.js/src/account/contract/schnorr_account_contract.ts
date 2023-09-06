@@ -3,7 +3,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { CompleteAddress, GrumpkinPrivateKey, NodeInfo } from '@aztec/types';
 
 import SchnorrAccountContractAbi from '../../abis/schnorr_account_contract.json' assert { type: 'json' };
-import { SchnorrStoredKeyAccountEntrypoint } from '../entrypoint/schnorr_stored_key_account_entrypoint.js';
+import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
 /**
@@ -19,13 +19,9 @@ export class SchnorrAccountContract implements AccountContract {
   }
 
   public async getEntrypoint({ address }: CompleteAddress, { chainId, version }: NodeInfo) {
-    return new SchnorrStoredKeyAccountEntrypoint(
-      address,
-      this.signingPrivateKey,
-      await Schnorr.new(),
-      chainId,
-      version,
-    );
+    const schnorr = await Schnorr.new();
+    const signClosure = (msg: Buffer) => schnorr.constructSignature(msg, this.signingPrivateKey);
+    return new StoredKeyAccountEntrypoint(address, signClosure, chainId, version);
   }
 
   public getContractAbi(): ContractAbi {

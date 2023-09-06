@@ -1,5 +1,5 @@
-import { AztecAddress, FunctionData, GrumpkinPrivateKey, TxContext } from '@aztec/circuits.js';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
+import { AztecAddress, FunctionData, TxContext } from '@aztec/circuits.js';
+import { Signature } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi, encodeArguments } from '@aztec/foundation/abi';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { FunctionCall, PackedArguments, TxExecutionRequest } from '@aztec/types';
@@ -10,16 +10,15 @@ import { buildPayload, hashPayload } from './entrypoint_payload.js';
 import { CreateTxRequestOpts, Entrypoint } from './index.js';
 
 /**
- * Account contract implementation that keeps a Schnorr signing public key in storage, and is retrieved on
+ * Account contract implementation that keeps a signing public key in storage, and is retrieved on
  * every new request in order to validate the payload signature.
  */
-export class SchnorrStoredKeyAccountEntrypoint implements Entrypoint {
+export class StoredKeyAccountEntrypoint implements Entrypoint {
   private log: DebugLogger;
 
   constructor(
     private address: AztecAddress,
-    private privateKey: GrumpkinPrivateKey,
-    private signer: Schnorr,
+    private sign: (msg: Buffer) => Signature,
     private chainId: number = DEFAULT_CHAIN_ID,
     private version: number = DEFAULT_VERSION,
   ) {
@@ -36,7 +35,7 @@ export class SchnorrStoredKeyAccountEntrypoint implements Entrypoint {
 
     const { payload, packedArguments: callsPackedArguments } = await buildPayload(executions);
     const message = await hashPayload(payload);
-    const signature = this.signer.constructSignature(message, this.privateKey).toBuffer();
+    const signature = this.sign(message).toBuffer();
     this.log(`Signed challenge ${message.toString('hex')} as ${signature.toString('hex')}`);
 
     const args = [payload, signature];

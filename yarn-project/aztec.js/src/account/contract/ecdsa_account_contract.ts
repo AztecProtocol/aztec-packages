@@ -3,7 +3,7 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { CompleteAddress, NodeInfo } from '@aztec/types';
 
 import EcdsaAccountContractAbi from '../../abis/ecdsa_account_contract.json' assert { type: 'json' };
-import { EcdsaStoredKeyAccountEntrypoint } from '../index.js';
+import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
 /**
@@ -18,7 +18,9 @@ import { AccountContract } from './index.js';
   }
 
   public async getEntrypoint({ address }: CompleteAddress, { chainId, version }: NodeInfo) {
-    return new EcdsaStoredKeyAccountEntrypoint(address, this.signingPrivateKey, await Ecdsa.new(), chainId, version);
+    const ecdsa = await Ecdsa.new();
+    const signClosure = (msg: Buffer) => ecdsa.constructSignature(msg, this.signingPrivateKey);
+    return new StoredKeyAccountEntrypoint(address, signClosure, chainId, version);
   }
 
   public getContractAbi(): ContractAbi {

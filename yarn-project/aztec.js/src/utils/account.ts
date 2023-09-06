@@ -4,10 +4,9 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { SchnorrStoredKeyAccountEntrypoint } from '../account/entrypoint/schnorr_stored_key_account_entrypoint.js';
 import { SingleKeyAccountEntrypoint } from '../account/entrypoint/single_key_account_entrypoint.js';
 import { EntrypointWallet, Wallet } from '../aztec_rpc_client/wallet.js';
-import { ContractDeployer, EntrypointCollection, generatePublicKey } from '../index.js';
+import { ContractDeployer, EntrypointCollection, StoredKeyAccountEntrypoint, generatePublicKey } from '../index.js';
 
 /**
  * Creates an Aztec Account.
@@ -76,6 +75,8 @@ export async function getAccountWallets(
     throw new Error('Keys and salts must be the same length');
   }
   const accountCollection = new EntrypointCollection();
+  const schnorr = await Schnorr.new();
+
   for (let i = 0; i < privateKeys.length; i++) {
     const publicKey = await generatePublicKey(privateKeys[i]);
     const signingPublicKey = await generatePublicKey(signingKeys[i]);
@@ -87,10 +88,9 @@ export async function getAccountWallets(
     );
     const address = deploymentInfo.completeAddress.address;
 
-    accountCollection.registerAccount(
-      address,
-      new SchnorrStoredKeyAccountEntrypoint(address, signingKeys[i], await Schnorr.new()),
-    );
+    const signClosure = (msg: Buffer) => schnorr.constructSignature(msg, signingKeys[i]);
+
+    accountCollection.registerAccount(address, new StoredKeyAccountEntrypoint(address, signClosure));
   }
   return new EntrypointWallet(aztecRpcClient, accountCollection);
 }
