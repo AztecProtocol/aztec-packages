@@ -1,6 +1,7 @@
 import { toBigIntBE, toBufferBE, toHex } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/index.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
+import { Fr } from './fields.js';
 
 /**
  * Represents a field element in a prime finite field with modulus defined by the constant MODULUS.
@@ -12,6 +13,10 @@ export class GrumpkinScalar {
   static MAX_VALUE = GrumpkinScalar.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
 
+  // The following constants are used to split a GrumpkinScalar into two Fr elements.
+  private static HIGH_SHIFT = BigInt((GrumpkinScalar.SIZE_IN_BYTES / 2) * 8);
+  private static LOW_MASK = (1n << GrumpkinScalar.HIGH_SHIFT) - 1n;
+
   constructor(
     /**
      * The element's value as a bigint in the finite field.
@@ -21,6 +26,24 @@ export class GrumpkinScalar {
     if (value > GrumpkinScalar.MAX_VALUE) {
       throw new Error(`GrumpkinScalar out of range ${value}.`);
     }
+  }
+
+  get low(): Fr {
+    return new Fr(this.value & GrumpkinScalar.LOW_MASK);
+  }
+
+  get high(): Fr {
+    return new Fr(this.value >> GrumpkinScalar.HIGH_SHIFT);
+  }
+
+  /**
+   * Deserialize a grumpkin scalar serialized in 2 Fr.
+   * @param high - The high Fr element.
+   * @param low - The low Fr element.
+   * @returns A GrumpkinScalar instance with the value of the two Fr elements.
+   */
+  static fromHighLow(high: Fr, low: Fr): GrumpkinScalar {
+    return new GrumpkinScalar((high.value << GrumpkinScalar.HIGH_SHIFT) + low.value);
   }
 
   /**
