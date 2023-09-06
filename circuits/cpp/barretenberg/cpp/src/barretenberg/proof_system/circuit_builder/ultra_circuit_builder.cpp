@@ -527,7 +527,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g
  */
 template <typename FF>
 ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g1::affine_element& point,
-                                                           const barretenberg::fr& scalar)
+                                                           const FF& scalar)
 {
     // Add raw op to op queue
     op_queue.mul_accumulate(point, scalar);
@@ -565,27 +565,45 @@ template <typename FF> ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_eq()
  * @return ecc_op_tuple Tuple of indices into variables array used to construct pair of ecc op gates
  */
 template <typename FF>
-ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const fr& scalar)
+ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const FF& scalar)
 {
     const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     auto x_256 = uint256_t(point.x);
     auto y_256 = uint256_t(point.y);
-    auto x_lo_idx = this->add_variable(x_256.slice(0, CHUNK_SIZE));
-    auto x_hi_idx = this->add_variable(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
-    auto y_lo_idx = this->add_variable(y_256.slice(0, CHUNK_SIZE));
-    auto y_hi_idx = this->add_variable(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+    auto x_lo = FF(x_256.slice(0, CHUNK_SIZE));
+    auto x_hi = FF(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+    auto y_lo = FF(y_256.slice(0, CHUNK_SIZE));
+    auto y_hi = FF(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2));
+    auto x_lo_idx = this->add_variable(x_lo);
+    auto x_hi_idx = this->add_variable(x_hi);
+    auto y_lo_idx = this->add_variable(y_lo);
+    auto y_hi_idx = this->add_variable(y_hi);
 
     // Split scalar into 128 bit endomorphism scalars
-    fr z_1 = 0;
-    fr z_2 = 0;
+    FF z_1 = 0;
+    FF z_2 = 0;
     // TODO(luke): do this montgomery conversion here?
     // auto converted = scalar.from_montgomery_form();
     // fr::split_into_endomorphism_scalars(converted, z_1, z_2);
     // z_1 = z_1.to_montgomery_form();
     // z_2 = z_2.to_montgomery_form();
-    fr::split_into_endomorphism_scalars(scalar, z_1, z_2);
+    FF::split_into_endomorphism_scalars(scalar, z_1, z_2);
     auto z_1_idx = this->add_variable(z_1);
     auto z_2_idx = this->add_variable(z_2);
+
+    // Populate ultra ops in OpQueue
+    // WORKTODO: Need to decide where to put this. It's possible the decompositions should take place in the EccOpQueue
+    // and the adding of variables and constructing of witnesses should take place in the builder. Decide on the right
+    // division of labor. Is there a way to have only one know about the wayn in which ops are placed across wires?
+    op_queue.ultra_ops[0].emplace_back(op);
+    op_queue.ultra_ops[1].emplace_back(x_lo);
+    op_queue.ultra_ops[2].emplace_back(x_hi);
+    op_queue.ultra_ops[3].emplace_back(y_lo);
+
+    op_queue.ultra_ops[0].emplace_back(op); // TODO(luke): second op val is sort of a dummy. use "op" again?
+    op_queue.ultra_ops[1].emplace_back(y_hi);
+    op_queue.ultra_ops[2].emplace_back(z_1);
+    op_queue.ultra_ops[3].emplace_back(z_2);
 
     return { op, x_lo_idx, x_hi_idx, y_lo_idx, y_hi_idx, z_1_idx, z_2_idx };
 }
