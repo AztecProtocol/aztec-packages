@@ -1,7 +1,7 @@
 #include "testing_harness.hpp"
 
-#include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_inner.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
+#include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/constants.hpp"
 #include "aztec3/utils/array.hpp"
 #include "aztec3/utils/circuit_errors.hpp"
@@ -31,6 +31,52 @@ class native_private_kernel_ordering_tests : public ::testing::Test {
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 };
 
+// TODO(1998): testing cbind calls private_kernel__sim_ordering, private_kernel__sim_init, private_kernel__sim_inner
+//       in their respective test suites once msgpack capabilities allow it. One current limitation is due to
+//       the lack of support to deserialize std::variant in particular CircuitResult type.
+//       See https://github.com/AztecProtocol/aztec-packages/issues/1998
+/**
+ * @brief Test cbind
+ */
+// TEST_F(native_private_kernel_ordering_tests, cbind_private_kernel__sim_ordering)
+// {
+//     auto func = [](PrivateKernelInputsOrdering<NT> private_inputs) {
+//         DummyCircuitBuilder builder = DummyCircuitBuilder("private_kernel__sim_ordering");
+//         auto const& public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
+//         return builder.result_or_error(public_inputs);
+//     };
+
+//     NT::fr const& amount = 5;
+//     NT::fr const& asset_id = 1;
+//     NT::fr const& memo = 999;
+//     std::array<NT::fr, NUM_FIELDS_PER_SHA256> const& empty_logs_hash = { NT::fr(16), NT::fr(69) };
+//     NT::fr const& empty_log_preimages_length = NT::fr(100);
+
+//     // Generate private inputs including proofs and vkeys for app circuit and previous kernel
+//     auto const& private_inputs_inner = do_private_call_get_kernel_inputs_inner(false,
+//                                                                                deposit,
+//                                                                                { amount, asset_id, memo },
+//                                                                                empty_logs_hash,
+//                                                                                empty_logs_hash,
+//                                                                                empty_log_preimages_length,
+//                                                                                empty_log_preimages_length,
+//                                                                                empty_logs_hash,
+//                                                                                empty_logs_hash,
+//                                                                                empty_log_preimages_length,
+//                                                                                empty_log_preimages_length,
+//                                                                                true);
+//     PrivateKernelInputsOrdering<NT> private_inputs{ private_inputs_inner.previous_kernel,
+//                                                     std::array<fr, MAX_READ_REQUESTS_PER_TX>{ fr(123), fr(89) } };
+
+//     auto [actual, expected] = call_func_and_wrapper(func, private_kernel__sim_ordering, private_inputs);
+
+//     std::stringstream actual_ss;
+//     std::stringstream expected_ss;
+//     actual_ss << actual;
+//     expected_ss << expected;
+//     EXPECT_EQ(actual_ss.str(), expected_ss.str());
+// }
+
 TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to_commitment_works)
 {
     auto private_inputs_inner = do_private_call_get_kernel_inputs_inner(false, deposit, standard_test_args());
@@ -39,6 +85,8 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> unique_siloed_commitments{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
+
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
@@ -50,6 +98,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
         siloed_commitments[0] == 0 ? 0 : compute_unique_commitment<NT>(nonce, siloed_commitments[0]);
 
     read_requests[0] = siloed_commitments[0];
+    // hints[0] == fr(0) due to the default initialization of hints
     read_request_membership_witnesses[0].is_transient = true;
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
@@ -58,7 +107,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_one_read_request_to
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, hints };
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_one_read_request_to_commitment_works");
@@ -77,6 +126,8 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> unique_siloed_commitments{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
+
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
@@ -96,6 +147,8 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     read_requests[1] = siloed_commitments[3];
     read_request_membership_witnesses[0].is_transient = true;
     read_request_membership_witnesses[1].is_transient = true;
+    hints[0] = fr(1);
+    hints[1] = fr(3);
 
     auto& previous_kernel = private_inputs_inner.previous_kernel;
 
@@ -103,7 +156,7 @@ TEST_F(native_private_kernel_ordering_tests, native_matching_some_read_requests_
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, hints };
 
     DummyBuilder builder =
         DummyBuilder("native_private_kernel_ordering_tests__native_matching_some_read_requests_to_commitments_works");
@@ -123,13 +176,14 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> siloed_commitments{};
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
+    std::array<fr, MAX_READ_REQUESTS_PER_TX> hints{};
     std::array<ReadRequestMembershipWitness<NT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
         read_request_membership_witnesses{};
 
     for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-        siloed_commitments[c_idx] = NT::fr::random_element();  // create random commitment
-        read_requests[c_idx] = siloed_commitments[c_idx];      // create random read requests
-        // ^ will match each other!
+        siloed_commitments[c_idx] = NT::fr::random_element();          // create random commitment
+        read_requests[c_idx] = siloed_commitments[c_idx];              // create random read requests
+        hints[c_idx] = fr(c_idx);                                      // ^ will match each other!
         read_request_membership_witnesses[c_idx].is_transient = true;  // ordering circuit only allows transient reads
     }
     read_requests[3] = NT::fr::random_element();  // force one read request not to match
@@ -139,7 +193,7 @@ TEST_F(native_private_kernel_ordering_tests, native_read_request_unknown_fails)
     previous_kernel.public_inputs.end.new_commitments = siloed_commitments;
     previous_kernel.public_inputs.end.read_requests = read_requests;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, std::array<fr, MAX_READ_REQUESTS_PER_TX>{} };
+    PrivateKernelInputsOrdering<NT> private_inputs{ previous_kernel, hints };
 
     DummyBuilder builder = DummyBuilder("native_private_kernel_ordering_tests__native_read_request_unknown_fails");
     native_private_kernel_circuit_ordering(builder, private_inputs);

@@ -3,7 +3,7 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
-  processAcvmError,
+  resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
@@ -42,6 +42,7 @@ import {
   TxReceipt,
   TxStatus,
   getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
   toContractDao,
 } from '@aztec/types';
 
@@ -73,6 +74,11 @@ export class AztecRPCServer implements AztecRPC {
 
     const { version, name } = getPackageInfo();
     this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
+  }
+
+  public async addAuthWitness(messageHash: Fr, witness: Fr[]) {
+    await this.db.addAuthWitness(messageHash, witness);
+    return Promise.resolve();
   }
 
   /**
@@ -340,7 +346,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -381,7 +386,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -406,19 +410,12 @@ export class AztecRPCServer implements AztecRPC {
           originalFailingFunction.contractAddress,
           originalFailingFunction.functionSelector,
         );
-        if (debugInfo) {
-          const noirCallStack = processAcvmError(err.message, debugInfo);
-          if (noirCallStack) {
-            err.setNoirCallStack(noirCallStack);
-            err.updateMessage(
-              `Assertion failed in public execution: '${
-                noirCallStack[noirCallStack.length - 1]?.locationText ?? 'Unknown'
-              }'`,
-            );
-          }
+        const noirCallStack = err.getNoirCallStack();
+        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
+          const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo);
+          err.setNoirCallStack(parsedCallStack);
         }
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
 
       throw err;
