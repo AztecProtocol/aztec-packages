@@ -36,6 +36,6 @@ contract SchnorrAuthWitnessAccount {
         address: Field,
     ) {
         let witness = get_auth_witness(message_hash);
-        assert(recover_address(message_hash, witness) == address, "Invalid signature");
+        assert(recover_address(message_hash, witness) == address);
     }
 }
