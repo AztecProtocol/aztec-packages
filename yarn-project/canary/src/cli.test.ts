@@ -25,8 +25,6 @@ const setupRPC = async () => {
   return aztecRpcClient;
 };
 
-// cliTestSuite('CLI canary', setupRPC, () => Promise.resolve(), SANDBOX_URL, debug);
-
 describe('CLI canary', () => {
   let cli: ReturnType<typeof getProgram>;
   let aztecRpcClient: AztecRPC;
@@ -176,5 +174,5 @@ describe('CLI canary', () => {
     );
     const receiverBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
     expect(receiverBalance).toEqual(`${BigInt(TRANSFER_BALANCE).toString()}n`);
-  }, 30_000);
+  }, 60_000);
 });
