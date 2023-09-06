@@ -10,7 +10,7 @@ const katex = require("rehype-katex");
 const config = {
   title: "Aztec Docs",
   tagline: "Ethereum, encrypted",
-  url: "https://docs.aztec.network",
+  url: "https://aztec-docs-dev.netlify.app/",
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
@@ -41,7 +41,12 @@ const config = {
         docs: {
           path: "processed-docs",
           sidebarPath: require.resolve("./sidebars.js"),
-          editUrl: "https://github.com/AztecProtocol/docs/edit/main/",
+          editUrl: (params) => {
+            return (
+              `https://github.com/AztecProtocol/aztec-packages/edit/master/docs/docs/` +
+              params.docPath
+            );
+          },
           routeBasePath: "/",
           remarkPlugins: [math],
           rehypePlugins: [katex],
@@ -50,6 +55,7 @@ const config = {
         theme: {
           customCss: require.resolve("./src/css/custom.css"),
         },
+        // removed until approved by legal (GDPR)
         //         gtag: {
         //           trackingID: "G-WSBTSFJCSF",
         //           anonymizeIP: true,
@@ -89,9 +95,9 @@ const config = {
         },
       ],
       algolia: {
-        appId: "CL4NK79B0W",
-        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
-        indexName: "aztec",
+        appId: "YOMNCJ88NY",
+        apiKey: "ef5490899a6f9618f55c7997ba5b35b4",
+        indexName: "aztec--dev",
       },
       colorMode: {
         defaultMode: "light",

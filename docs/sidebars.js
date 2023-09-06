@@ -18,6 +18,9 @@ const sidebars = {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
+
+    // ABOUT AZTEC
+
     {
       type: "html",
       className: "sidebar-title",
@@ -43,7 +46,7 @@ const sidebars = {
       },
       items: [
         "about_aztec/roadmap/features_initial_ldt",
-        "about_aztec/roadmap/milestones",
+        "about_aztec/roadmap/engineering_roadmap",
         "about_aztec/roadmap/cryptography_roadmap",
       ],
     },
@@ -54,6 +57,199 @@ const sidebars = {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
+
+    // DEVELOPER DOCUMENTATION
+
+    {
+      type: "html",
+      className: "sidebar-title",
+      value: "Developer Documentation",
+      defaultStyle: true,
+    },
+
+    {
+      label: "Getting Started",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/getting_started/main",
+      },
+      items: [
+        "dev_docs/getting_started/sandbox",
+        "dev_docs/getting_started/noir_contracts",
+        "dev_docs/getting_started/cli",
+      ],
+    },
+
+    {
+      label: "Contracts",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/contracts/main",
+      },
+      items: [
+        "dev_docs/contracts/workflow",
+        "dev_docs/contracts/syntax",
+        "dev_docs/contracts/contract",
+        "dev_docs/contracts/layout",
+        "dev_docs/contracts/types",
+        "dev_docs/contracts/storage",
+        "dev_docs/contracts/state_variables",
+        "dev_docs/contracts/functions",
+        "dev_docs/contracts/control_structure",
+        "dev_docs/contracts/visibility",
+        "dev_docs/contracts/globals",
+        "dev_docs/contracts/events",
+        "dev_docs/contracts/constrain",
+        "dev_docs/contracts/compiling",
+        "dev_docs/contracts/deploying",
+        "dev_docs/contracts/abi",
+        {
+          label: "Portals",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/contracts/portals/main",
+          },
+          items: [
+            "dev_docs/contracts/portals/data_structures",
+            "dev_docs/contracts/portals/registry",
+            "dev_docs/contracts/portals/inbox",
+            "dev_docs/contracts/portals/outbox",
+          ],
+        },
+        {
+          label: "Resources",
+          type: "category",
+          items: [
+            "dev_docs/contracts/resources/style_guide",
+            {
+              label: "Common Patterns",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "dev_docs/contracts/resources/common_patterns/main",
+              },
+              items: [
+                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
+                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
+                "dev_docs/contracts/resources/common_patterns/access_control",
+                "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
+              ],
+            },
+          ],
+        },
+        {
+          label: "Security Considerations",
+          type: "category",
+          items: [
+            {
+              label: "Breaking changes",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "dev_docs/contracts/security/breaking_changes/main",
+              },
+              items: ["dev_docs/contracts/security/breaking_changes/v0"],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      label: "DApp Development",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/dapps/main",
+      },
+      items: [
+        {
+          label: "API",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/api/main",
+          },
+          items: [
+            "dev_docs/dapps/api/aztec_rpc",
+            "dev_docs/dapps/api/contract_interaction",
+          ],
+        },
+        {
+          label: "Tutorials",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/tutorials/main",
+          },
+          items: [
+            "dev_docs/dapps/tutorials/rpc_server",
+            "dev_docs/dapps/tutorials/creating_accounts",
+            "dev_docs/dapps/tutorials/contract_deployment",
+            "dev_docs/dapps/tutorials/contract_interaction",
+          ],
+        },
+      ],
+    },
+
+    {
+      label: "Sandbox",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/sandbox/main",
+      },
+      items: ["dev_docs/sandbox/components", "dev_docs/sandbox/common_errors"],
+    },
+
+    {
+      label: "CLI",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/cli/main",
+      },
+      items: [],
+    },
+
+    {
+      label: "Testing",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/testing/main",
+      },
+      items: [
+        "dev_docs/testing/writing_a_test",
+        "dev_docs/testing/cheat_codes",
+      ],
+    },
+
+    {
+      label: "Wallets",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/wallets/main",
+      },
+      items: [
+        "dev_docs/wallets/architecture",
+        "dev_docs/wallets/writing_an_account_contract",
+      ],
+    },
+
+    "dev_docs/limitations/main",
+    "dev_docs/privacy/main",
+
+    {
+      type: "html",
+      value: '<span class="sidebar-divider" />',
+    },
+
+    // SPECIFICATION
+
     {
       type: "html",
       className: "sidebar-title",
@@ -177,152 +373,9 @@ const sidebars = {
       type: "html",
       value: '<span class="sidebar-divider" />',
     },
-    {
-      type: "html",
-      className: "sidebar-title",
-      value: "Developer Documentation",
-      defaultStyle: true,
-    },
 
-    {
-      label: "Getting Started",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/getting_started/main",
-      },
-      items: [
-        "dev_docs/getting_started/noir",
-        "dev_docs/getting_started/sandbox",
-        "dev_docs/getting_started/cli",
-      ],
-    },
+    // MISCELLANEOUS
 
-    {
-      label: "Contracts",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/contracts/main",
-      },
-      items: [
-        "dev_docs/contracts/syntax",
-        "dev_docs/contracts/contract",
-        "dev_docs/contracts/layout",
-        "dev_docs/contracts/types",
-        "dev_docs/contracts/storage",
-        "dev_docs/contracts/state_variables",
-        "dev_docs/contracts/functions",
-        "dev_docs/contracts/control_structure",
-        "dev_docs/contracts/visibility",
-        "dev_docs/contracts/globals",
-        "dev_docs/contracts/events",
-        "dev_docs/contracts/constrain",
-        "dev_docs/contracts/compiling",
-        "dev_docs/contracts/deploying",
-        {
-          label: "Portals",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "dev_docs/contracts/portals/main",
-          },
-          items: [
-            "dev_docs/contracts/portals/data_structures",
-            "dev_docs/contracts/portals/registry",
-            "dev_docs/contracts/portals/inbox",
-            "dev_docs/contracts/portals/outbox",
-          ],
-        },
-        {
-          label: "Resources",
-          type: "category",
-          items: [
-            "dev_docs/contracts/resources/style_guide",
-            {
-              label: "Common Patterns",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "dev_docs/contracts/resources/common_patterns/main",
-              },
-              items: [
-                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_user",
-                "dev_docs/contracts/resources/common_patterns/sending_tokens_to_contract",
-                "dev_docs/contracts/resources/common_patterns/access_control",
-                "dev_docs/contracts/resources/common_patterns/interacting_with_l1",
-              ],
-            },
-          ],
-        },
-        {
-          label: "Security Considerations",
-          type: "category",
-          items: [
-            {
-              label: "Breaking changes",
-              type: "category",
-              link: {
-                type: "doc",
-                id: "dev_docs/contracts/security/breaking_changes/main",
-              },
-              items: ["dev_docs/contracts/security/breaking_changes/v0"],
-            },
-          ],
-        },
-      ],
-    },
-
-    {
-      label: "Sandbox",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/sandbox/main",
-      },
-      items: ["dev_docs/sandbox/components", "dev_docs/sandbox/common_errors"],
-    },
-
-    {
-      label: "CLI",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/cli/main",
-      },
-      items: [],
-    },
-
-    {
-      label: "Testing",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/testing/main",
-      },
-      items: [
-        "dev_docs/testing/writing_a_test",
-        "dev_docs/testing/cheat_codes",
-      ],
-    },
-
-    {
-      label: "Wallets",
-      type: "category",
-      link: {
-        type: "doc",
-        id: "dev_docs/wallets/main",
-      },
-      items: [
-        "dev_docs/wallets/architecture",
-        "dev_docs/wallets/writing_an_account_contract",
-      ],
-    },
-
-    {
-      type: "html",
-      value: '<span class="sidebar-divider" />',
-    },
     {
       type: "html",
       className: "sidebar-title",
@@ -338,8 +391,6 @@ const sidebars = {
     },
 
     "misc/aztec_connect_sunset",
-
-    "embedding_github_code",
   ],
 };
 

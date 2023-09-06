@@ -10,12 +10,13 @@ import {
 } from '@aztec/circuits.js';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { createDebugLogger } from '@aztec/foundation/log';
-import { FunctionL2Logs, SimulationError } from '@aztec/types';
+import { FunctionL2Logs } from '@aztec/types';
 
 import {
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
+  extractCallStack,
   extractPublicCircuitPublicInputs,
   frToAztecAddress,
   fromACVMField,
@@ -25,8 +26,9 @@ import {
   toAcvmL1ToL2MessageLoadOracleInputs,
 } from '../acvm/index.js';
 import { oracleDebugCallToFormattedStr } from '../client/debug.js';
+import { ExecutionError, createSimulationError } from '../common/errors.js';
+import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { AcirSimulator } from '../index.js';
-import { PackedArgsCache } from '../packed_args_cache.js';
 import { CommitmentsDB, PublicContractsDB, PublicStateDB } from './db.js';
 import { PublicExecution, PublicExecutionResult } from './execution.js';
 import { ContractStorageActionsCollector } from './state_actions.js';
@@ -53,7 +55,15 @@ export class PublicExecutor {
    * @param globalVariables - The global variables to use.
    * @returns The result of the run plus all nested runs.
    */
-  public async execute(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+  public async simulate(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
+    try {
+      return await this.execute(execution, globalVariables);
+    } catch (err) {
+      throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during public execution'));
+    }
+  }
+
+  private async execute(execution: PublicExecution, globalVariables: GlobalVariables): Promise<PublicExecutionResult> {
     const selector = execution.functionData.selector;
     this.log(`Executing public external function ${execution.contractAddress.toString()}:${selector}`);
 
@@ -68,10 +78,13 @@ export class PublicExecutor {
     // We use this cache to hold the packed arguments.
     const packedArgs = await PackedArgsCache.create([]);
     const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
+      computeSelector: (...args) => {
+        const signature = oracleDebugCallToFormattedStr(args);
+        return Promise.resolve(toACVMField(FunctionSelector.fromSignature(signature).toField()));
+      },
       packArguments: async args => {
         return toACVMField(await packedArgs.pack(args.map(fromACVMField)));
       },
-
       debugLog: (...args) => {
         this.log(oracleDebugCallToFormattedStr(args));
         return Promise.resolve(ZERO_ACVM_FIELD);
@@ -140,7 +153,15 @@ export class PublicExecutor {
         return Promise.resolve(toACVMField(portalContactAddress));
       },
     }).catch((err: Error) => {
-      throw SimulationError.fromError(execution.contractAddress, selector, err);
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress: execution.contractAddress,
+          functionSelector: selector,
+        },
+        extractCallStack(err),
+        { cause: err },
+      );
     });
 
     const {

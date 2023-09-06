@@ -3,20 +3,26 @@ import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
   Fr,
-  KernelCircuitPublicInputs,
+  MAX_NEW_COMMITMENTS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
+  MAX_READ_REQUESTS_PER_TX,
   MembershipWitness,
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
+  PrivateKernelInputsInit,
+  PrivateKernelInputsInner,
+  PrivateKernelInputsOrdering,
+  PrivateKernelPublicInputs,
   ReadRequestMembershipWitness,
   TxRequest,
   VK_TREE_HEIGHT,
   VerificationKey,
   makeEmptyProof,
+  makeTuple,
 } from '@aztec/circuits.js';
-import { assertLength } from '@aztec/foundation/serialize';
+import { Tuple, assertLength } from '@aztec/foundation/serialize';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
 import { ProvingDataOracle } from './proving_data_oracle.js';
@@ -78,7 +84,7 @@ export class KernelProver {
     let previousVerificationKey = VerificationKey.makeFake();
 
     let output: ProofOutput = {
-      publicInputs: KernelCircuitPublicInputs.empty(),
+      publicInputs: PrivateKernelPublicInputs.empty(),
       proof: makeEmptyProof(),
     };
 
@@ -126,7 +132,7 @@ export class KernelProver {
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         readRequestMembershipWitnesses,
-        privateCallStackPreimages,
+        makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, i => privateCallStackPreimages[i], 0),
       );
 
       if (firstIteration) {
@@ -135,7 +141,7 @@ export class KernelProver {
         privateCallData.callStackItem.publicInputs.historicBlockData.privateDataTreeRoot =
           await this.oracle.getPrivateDataRoot();
 
-        output = await this.proofCreator.createProofInit(txRequest, privateCallData);
+        output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
@@ -145,7 +151,9 @@ export class KernelProver {
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        output = await this.proofCreator.createProofInner(previousKernelData, privateCallData);
+        output = await this.proofCreator.createProofInner(
+          new PrivateKernelInputsInner(previousKernelData, privateCallData),
+        );
       }
       (await this.getNewNotes(currentExecution)).forEach(n => {
         newNotes[n.commitment.toString()] = n;
@@ -163,7 +171,12 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const outputFinal = await this.proofCreator.createProofOrdering(previousKernelData);
+    const hintToCommitments = this.getReadRequestHints(
+      output.publicInputs.end.readRequests,
+      output.publicInputs.end.newCommitments,
+    );
+    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, hintToCommitments);
+    const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
     const finalNewCommitments = outputFinal.publicInputs.end.newCommitments;
@@ -175,7 +188,7 @@ export class KernelProver {
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
     readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
-    privateCallStackPreimages: PrivateCallStackItem[],
+    privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
@@ -203,8 +216,8 @@ export class KernelProver {
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
-      readRequestMembershipWitnesses,
-      portalContractAddress,
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      portalContractAddress.toField(),
       acirHash,
     );
   }
@@ -231,5 +244,24 @@ export class KernelProver {
       data,
       commitment: newCommitments[i],
     }));
+  }
+
+  private getReadRequestHints(
+    readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+  ): Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX> {
+    const hints = makeTuple(MAX_READ_REQUESTS_PER_TX, Fr.zero);
+    for (let i = 0; i < MAX_READ_REQUESTS_PER_TX && !readRequests[i].isZero(); i++) {
+      const equalToRR = (cmt: Fr) => cmt.equals(readRequests[i]);
+      const result = commitments.findIndex(equalToRR);
+      if (result == -1) {
+        throw new Error(
+          `The read request at index ${i} with value ${readRequests[i].toString()} does not match to any commitment.`,
+        );
+      } else {
+        hints[i] = new Fr(result);
+      }
+    }
+    return hints;
   }
 }
