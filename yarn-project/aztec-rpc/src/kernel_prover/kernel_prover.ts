@@ -258,6 +258,16 @@ export class KernelProver {
     }));
   }
 
+  /**
+   * Performs the matching between an array of read request and an array of commitments. This produces
+   * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
+   * commitment.
+   *
+   * @param readRequests - The array of read requests.
+   * @param commitments - The array of commitments.
+   * @returns An array of hints where each element is the index of the commitment in commitments array
+   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
+   */
   private getReadRequestHints(
     readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
     commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
@@ -277,6 +287,16 @@ export class KernelProver {
     return hints;
   }
 
+  /**
+   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
+   * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
+   * commitment.
+   *
+   * @param nullifiedCommitments - The array of nullified commitments.
+   * @param commitments - The array of commitments.
+   * @returns An array of hints where each element is the index of the commitment in commitments array
+   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
+   */
   private getNullifierHints(
     nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
     commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
