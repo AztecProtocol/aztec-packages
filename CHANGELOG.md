@@ -1,5 +1,102 @@
 # Changelog
 
+## [0.1.0-alpha61](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha60...v0.1.0-alpha61) (2023-09-06)
+
+
+### Bug Fixes
+
+* **sandbox:** build script for tagged commits ([#2057](https://github.com/AztecProtocol/aztec-packages/issues/2057)) ([c9d9722](https://github.com/AztecProtocol/aztec-packages/commit/c9d9722151de1e6f9a49a4cc6310e5646593ec01))
+
+## [0.1.0-alpha60](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha59...v0.1.0-alpha60) (2023-09-06)
+
+
+### Features
+
+* Goblin recursive verifier ([#1822](https://github.com/AztecProtocol/aztec-packages/issues/1822)) ([f962cb6](https://github.com/AztecProtocol/aztec-packages/commit/f962cb68f46d25047bf67a1ad2e7407a176ffc53))
+* initial `is_valid` eip1271 style wallet + minimal test changes ([#1935](https://github.com/AztecProtocol/aztec-packages/issues/1935)) ([f264c54](https://github.com/AztecProtocol/aztec-packages/commit/f264c5421424bf58d983fe104aaf7c7126259e01))
+
+
+### Bug Fixes
+
+* benchmark git repo ([#2041](https://github.com/AztecProtocol/aztec-packages/issues/2041)) ([3c696bb](https://github.com/AztecProtocol/aztec-packages/commit/3c696bba1ca4bd69c8e3f5bc004d1a07adb23cf1))
+* cli canary & deployment ([#2053](https://github.com/AztecProtocol/aztec-packages/issues/2053)) ([1ddd24a](https://github.com/AztecProtocol/aztec-packages/commit/1ddd24ad2f8702fd3d3c48ed015a652b3326bfd9))
+* **rpc:** Fixes getNodeInfo serialisation ([#1991](https://github.com/AztecProtocol/aztec-packages/issues/1991)) ([0a29fa8](https://github.com/AztecProtocol/aztec-packages/commit/0a29fa8dd95b37e490c18df2db90a7324ebe762c))
+
+
+### Miscellaneous
+
+* **circuits:** - use msgpack for cbind routines of native private kernel circuits ([#1938](https://github.com/AztecProtocol/aztec-packages/issues/1938)) ([3dc5c07](https://github.com/AztecProtocol/aztec-packages/commit/3dc5c07358d99786df8809f46638fdb04b33a6c2))
+* **docs:** API docs stucture ([#2014](https://github.com/AztecProtocol/aztec-packages/issues/2014)) ([9aab9dd](https://github.com/AztecProtocol/aztec-packages/commit/9aab9ddefac63d35ebc356afed573af268896b35))
+* Update function selector computation ([#2001](https://github.com/AztecProtocol/aztec-packages/issues/2001)) ([e07ea1a](https://github.com/AztecProtocol/aztec-packages/commit/e07ea1a887484f3a1a2ba8b5328af5abf6ccc6a2))
+
+## [0.1.0-alpha59](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha58...v0.1.0-alpha59) (2023-09-05)
+
+
+### Features
+
+* Add `info` command to bb ([#2010](https://github.com/AztecProtocol/aztec-packages/issues/2010)) ([1fd8196](https://github.com/AztecProtocol/aztec-packages/commit/1fd8196f302ee49f540dea54ce5df4c450592d05))
+
+
+### Bug Fixes
+
+* accidental git marker ([#2039](https://github.com/AztecProtocol/aztec-packages/issues/2039)) ([2be9908](https://github.com/AztecProtocol/aztec-packages/commit/2be990861ca25ec206f6bd02b604b73b30710ca8))
+
+## [0.1.0-alpha58](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha57...v0.1.0-alpha58) (2023-09-05)
+
+
+### Miscellaneous
+
+* **ci:** Clean up stale image tags ([#1818](https://github.com/AztecProtocol/aztec-packages/issues/1818)) ([3c8b7b8](https://github.com/AztecProtocol/aztec-packages/commit/3c8b7b84efe938e32c938bbcd744a335ffc50f49))
+
+## [0.1.0-alpha57](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha56...v0.1.0-alpha57) (2023-09-05)
+
+
+### Bug Fixes
+
+* undefined safety in master part 5 ([#2034](https://github.com/AztecProtocol/aztec-packages/issues/2034)) ([41eccaa](https://github.com/AztecProtocol/aztec-packages/commit/41eccaa516200bd65847e1b7b736c2f2cf858960))
+
+## [0.1.0-alpha56](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha55...v0.1.0-alpha56) (2023-09-05)
+
+
+### Bug Fixes
+
+* use COMMIT_TAG_VERSION properly in deploy_dockerhub ([#2033](https://github.com/AztecProtocol/aztec-packages/issues/2033)) ([064ddc3](https://github.com/AztecProtocol/aztec-packages/commit/064ddc3b345ac445fc9fe2385c8aee78b8fb6e47))
+
+## [0.1.0-alpha55](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha54...v0.1.0-alpha55) (2023-09-05)
+
+
+### Bug Fixes
+
+* **build-system:** undefined IMAGE_TAG and ARG_TAG ([#2030](https://github.com/AztecProtocol/aztec-packages/issues/2030)) ([dfdba4b](https://github.com/AztecProtocol/aztec-packages/commit/dfdba4b5c6fb0c75f7f463e0b5eb71e6e7d1b667))
+
+## [0.1.0-alpha54](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha53...v0.1.0-alpha54) (2023-09-05)
+
+
+### Bug Fixes
+
+* try to catch last undefined safety issues ([#2027](https://github.com/AztecProtocol/aztec-packages/issues/2027)) ([12e7486](https://github.com/AztecProtocol/aztec-packages/commit/12e7486c0750f648f51d2b43317df843a3c52bec))
+
+## [0.1.0-alpha53](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha52...v0.1.0-alpha53) (2023-09-05)
+
+
+### Bug Fixes
+
+* ensure_repo undefined-safe ([#2025](https://github.com/AztecProtocol/aztec-packages/issues/2025)) ([e36fb6b](https://github.com/AztecProtocol/aztec-packages/commit/e36fb6bb8a1ee9a3d405c3e5340ffa4e589656e2))
+
+## [0.1.0-alpha52](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha51...v0.1.0-alpha52) (2023-09-05)
+
+
+### Features
+
+* **docs:** set up noir contracts in getting-started ([#1770](https://github.com/AztecProtocol/aztec-packages/issues/1770)) ([33eb99d](https://github.com/AztecProtocol/aztec-packages/commit/33eb99d4a00831f340b1b0de0352fc272cb66d14))
+
+
+### Bug Fixes
+
+* Complete JS call stacks across ACVM wasm boundaries ([#2013](https://github.com/AztecProtocol/aztec-packages/issues/2013)) ([8e84e46](https://github.com/AztecProtocol/aztec-packages/commit/8e84e460899f11eaf7f383863e20dc5395e45c6e))
+* deploy_ecr calculating CONTENT_HASH ([#2024](https://github.com/AztecProtocol/aztec-packages/issues/2024)) ([edee198](https://github.com/AztecProtocol/aztec-packages/commit/edee1981d8d795aef64bd6de738f09ea9a1a2547))
+* Option to fail silently when retrying ([#2015](https://github.com/AztecProtocol/aztec-packages/issues/2015)) ([453c9c1](https://github.com/AztecProtocol/aztec-packages/commit/453c9c1b234213fff4d63e117f2bc6c827040125))
+
 ## [0.1.0-alpha51](https://github.com/AztecProtocol/aztec-packages/compare/v0.1.0-alpha50...v0.1.0-alpha51) (2023-09-05)
 
 

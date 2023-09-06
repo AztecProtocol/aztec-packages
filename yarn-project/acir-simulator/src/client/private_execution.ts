@@ -11,9 +11,7 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
-import { FunctionL2Logs, NotePreimage, NoteSpendingInfo, SimulationError } from '@aztec/types';
-
-import { ExecutionError } from 'acvm_js';
+import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
 import { extractPrivateCircuitPublicInputs, frToAztecAddress } from '../acvm/deserialize.js';
 import {
@@ -27,6 +25,7 @@ import {
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
+import { ExecutionError } from '../common/errors.js';
 import {
   AcirSimulator,
   ExecutionResult,
@@ -73,8 +72,16 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
+      computeSelector: (...args) => {
+        const signature = oracleDebugCallToFormattedStr(args);
+        const returnValue = toACVMField(FunctionSelector.fromSignature(signature).toField());
+        return Promise.resolve(returnValue);
+      },
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
+      },
+      getAuthWitness: async ([messageHash]) => {
+        return (await this.context.db.getAuthWitness(fromACVMField(messageHash))).map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
@@ -194,12 +201,15 @@ export class PrivateFunctionExecution {
         const portalContactAddress = await this.context.db.getPortalContractAddress(contractAddress);
         return Promise.resolve(toACVMField(portalContactAddress));
       },
-    }).catch((err: Error | ExecutionError) => {
-      throw SimulationError.fromError(
-        this.contractAddress,
-        selector,
-        err.cause instanceof Error ? err.cause : err,
+    }).catch((err: Error) => {
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress: this.contractAddress,
+          functionSelector: selector,
+        },
         extractCallStack(err, this.abi.debug),
+        { cause: err },
       );
     });
 
@@ -211,7 +221,7 @@ export class PrivateFunctionExecution {
     publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
     publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
-    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs, false);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);
