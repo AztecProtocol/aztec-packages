@@ -745,6 +745,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_multi_transfer.test.ts
+          working_directory: yarn-project/end-to-end
 
   e2e-block-building:
     machine:
@@ -840,6 +841,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_escrow_contract.test.ts
+          working_directory: yarn-project/end-to-end
 
   e2e-pending-commitments-contract:
     machine:
@@ -935,6 +937,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_p2p_network.test.ts
+          working_directory: yarn-project/end-to-end
 
   e2e-browser-sandbox:
     docker:
@@ -946,6 +949,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
 
   aztec-rpc-sandbox:
     docker:
@@ -957,6 +961,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
 
   guides-writing-an-account-contract:
     machine:
@@ -980,6 +985,7 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
 
   e2e-canary-test:
     docker:
