@@ -732,7 +732,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_sandbox_example.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_sandbox_example.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   e2e-multi-transfer-contract:
@@ -945,7 +945,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   aztec-rpc-sandbox:
@@ -956,7 +956,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   guides-writing-an-account-contract:
@@ -979,7 +979,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   e2e-canary-test:
@@ -990,7 +990,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_test_script ./scripts/run_tests canary-build uniswap_trade_on_l1_from_l2.test.ts canary-build docker-compose-e2e-sandbox.yml
+          command: cond_spot_run_test_script ./scripts/run_tests canary-build uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
 
   build-docs:
     machine:
@@ -1191,7 +1191,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-browser:
     docker:
@@ -1202,7 +1202,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
 
   run-deployment-canary-cli:
     docker:
@@ -1213,7 +1213,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary ./scripts/docker-compose.yml
 
 # Repeatable config for defining the workflow below.
 tag_regex: &tag_regex /^v.*/
