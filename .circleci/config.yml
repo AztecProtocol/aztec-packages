@@ -733,7 +733,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_sandbox_example.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_sandbox_example.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-multi-transfer-contract:
     docker:
@@ -744,7 +744,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_multi_transfer.test.ts
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_multi_transfer.test.ts
 
   e2e-block-building:
     machine:
@@ -839,7 +839,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_escrow_contract.test.ts
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_escrow_contract.test.ts
 
   e2e-pending-commitments-contract:
     machine:
@@ -934,7 +934,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_p2p_network.test.ts
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_p2p_network.test.ts
 
   e2e-browser-sandbox:
     docker:
@@ -945,7 +945,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_aztec_js_browser.test.ts docker-compose-e2e-sandbox.yml
 
   aztec-rpc-sandbox:
     docker:
@@ -956,7 +956,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local aztec_rpc_sandbox.test.ts docker-compose-e2e-sandbox.yml
 
   guides-writing-an-account-contract:
     machine:
@@ -979,7 +979,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: cond_spot_run_tests end-to-end guides/dapp_testing.test.ts docker-compose-e2e-sandbox.yml
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts docker-compose-e2e-sandbox.yml
 
   e2e-canary-test:
     docker:
