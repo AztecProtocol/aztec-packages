@@ -16,7 +16,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { AuthWitnessAccountEntrypoint, CreateTxRequestOpts, Entrypoint } from '../account/entrypoint/index.js';
+import { CreateTxRequestOpts, Entrypoint, IAuthWitnessAccountEntrypoint } from '../account/entrypoint/index.js';
 import { CompleteAddress } from '../index.js';
 
 /**
@@ -121,7 +121,7 @@ export class EntrypointWallet extends BaseWallet {
  * to provide authentication data to the contract during execution.
  */
 export class AuthWitnessEntrypointWallet extends BaseWallet {
-  constructor(rpc: AztecRPC, protected accountImpl: AuthWitnessAccountEntrypoint) {
+  constructor(rpc: AztecRPC, protected accountImpl: IAuthWitnessAccountEntrypoint) {
     super(rpc);
   }
 
