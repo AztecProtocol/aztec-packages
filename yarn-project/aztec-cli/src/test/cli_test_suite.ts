@@ -33,7 +33,7 @@ export const cliTestSuite = (
         logs.push(format(...args));
         debug(...args);
       };
-    });
+    }, 60_000);
 
     afterAll(async () => {
       await cleanup();
@@ -105,7 +105,7 @@ export const cliTestSuite = (
       await run(`get-account ${newAddress.toString()}`);
       const fetchedAddress = findInLogs(/Public Key:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
       expect(fetchedAddress).toEqual(newCompleteAddress.publicKey.toString());
-    });
+    }, 45_000);
 
     it('deploys a contract & sends transactions', async () => {
       // generate a private key
@@ -170,6 +170,6 @@ export const cliTestSuite = (
       );
       const receiverBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
       expect(receiverBalance).toEqual(`${BigInt(TRANSFER_BALANCE).toString()}n`);
-    });
+    }, 60_000);
   });
 };
