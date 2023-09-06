@@ -508,7 +508,7 @@ template <typename FF>
 ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g1::affine_element& point)
 {
     // Add raw op to queue
-    op_queue.add_accumulate(point);
+    op_queue->add_accumulate(point);
 
     // Add ecc op gates
     auto op_tuple = make_ecc_op_tuple(EccOpCode::ADD_ACCUM, point);
@@ -530,7 +530,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g
                                                            const FF& scalar)
 {
     // Add raw op to op queue
-    op_queue.mul_accumulate(point, scalar);
+    op_queue->mul_accumulate(point, scalar);
 
     // Add ecc op gates
     auto op_tuple = make_ecc_op_tuple(EccOpCode::MUL_ACCUM, point, scalar);
@@ -547,7 +547,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g
 template <typename FF> ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_eq()
 {
     // Add raw op to op queue
-    auto point = op_queue.eq();
+    auto point = op_queue->eq();
 
     // Add ecc op gates
     auto op_tuple = make_ecc_op_tuple(EccOpCode::EQUALITY, point);
@@ -595,15 +595,15 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op, const g1::
     // WORKTODO: Need to decide where to put this. It's possible the decompositions should take place in the EccOpQueue
     // and the adding of variables and constructing of witnesses should take place in the builder. Decide on the right
     // division of labor. Is there a way to have only one know about the wayn in which ops are placed across wires?
-    op_queue.ultra_ops[0].emplace_back(op);
-    op_queue.ultra_ops[1].emplace_back(x_lo);
-    op_queue.ultra_ops[2].emplace_back(x_hi);
-    op_queue.ultra_ops[3].emplace_back(y_lo);
+    op_queue->ultra_ops[0].emplace_back(op);
+    op_queue->ultra_ops[1].emplace_back(x_lo);
+    op_queue->ultra_ops[2].emplace_back(x_hi);
+    op_queue->ultra_ops[3].emplace_back(y_lo);
 
-    op_queue.ultra_ops[0].emplace_back(op); // TODO(luke): second op val is sort of a dummy. use "op" again?
-    op_queue.ultra_ops[1].emplace_back(y_hi);
-    op_queue.ultra_ops[2].emplace_back(z_1);
-    op_queue.ultra_ops[3].emplace_back(z_2);
+    op_queue->ultra_ops[0].emplace_back(op); // TODO(luke): second op val is sort of a dummy. use "op" again?
+    op_queue->ultra_ops[1].emplace_back(y_hi);
+    op_queue->ultra_ops[2].emplace_back(z_1);
+    op_queue->ultra_ops[3].emplace_back(z_2);
 
     return { op, x_lo_idx, x_hi_idx, y_lo_idx, y_hi_idx, z_1_idx, z_2_idx };
 }

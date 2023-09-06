@@ -180,8 +180,18 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
             agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
         }
 
-
         // - Receive transcript poly evaluations
+        FF kappa = transcript.get_challenge("kappa");
+        (void)kappa;
+        std::array<FF, Flavor::NUM_WIRES> shifted_op_wire_evals;
+        // std::array<FF, Flavor::NUM_WIRES> prev_agg_op_queue_evals;
+        std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            shifted_op_wire_evals[idx] = transcript.template receive_from_prover<FF>("op_wire_eval_" + std::to_string(idx + 1));
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+        }
         // - Check that aggregation identity holds: T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ)
         // - Add 3 {opening_pair, commitment} to the gemini_claim (rename univariate opening claims?)
     }
