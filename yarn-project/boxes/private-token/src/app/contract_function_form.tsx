@@ -2,9 +2,12 @@ import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { rpcClient } from '../config.js';
+import { CONTRACT_ADDRESS_PARAM_NAMES, rpcClient } from '../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../scripts/index.js';
 import { Button } from './components/index.js';
+
+// ALICE smart contract wallet public key, available on sandbox by default
+const DEFAULT_PUBLIC_ADDRESS = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
 
 // hack: add `any` at the end to get the array schema to typecheck
 type NoirFunctionYupSchema = {
@@ -20,10 +23,10 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
-      if (param.name === 'owner'){
+      if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)){
           // ALICE public key
           parameterSchema[param.name] = Yup.string().required();
-          initialValues[param.name] = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
+          initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
           continue;
       }
     // set some super crude default values
@@ -37,13 +40,16 @@ function generateYupSchema(functionAbi: FunctionAbi) {
       case 'array':
         // eslint-disable-next-line no-case-declarations
         const arrayLength = param.type.length;
-        parameterSchema[param.name] = Yup.array<number>().of(Yup.number()).min(arrayLength).max(arrayLength).transform(function(value: number[], originalValue: string) {
-      if (typeof originalValue === 'string') {
-        return originalValue.split(',').map(Number);
-      }
-      return value;
-    });
-        initialValues[param.name] = Array(arrayLength).fill(200);
+        parameterSchema[param.name] = Yup.array().of(Yup.number()).min(arrayLength).max(arrayLength)
+          .transform(function(value: number[], originalValue: string) {
+            if (typeof originalValue === 'string') {
+              return originalValue.split(',').map(Number);
+            }
+            return value;
+          });
+        initialValues[param.name] = Array(arrayLength).fill(
+          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? DEFAULT_PUBLIC_ADDRESS : 200
+        );
         break;
       case 'boolean':
         parameterSchema[param.name] = Yup.boolean().required();
