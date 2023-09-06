@@ -231,6 +231,13 @@
     "rebuildPatterns": ["^yarn-project/aztec.js/"],
     "dependencies": ["circuits.js", "foundation", "types"]
   },
+  "boxes": {
+    "buildDir": "yarn-project",
+    "projectDir": "yarn-project/boxes",
+    "dockerfile": "boxes/private-token/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/boxes/"],
+    "dependencies": ["aztec.js", "cli", "foundation", "noir-compiler", "noir-contracts", "types"]
+  },
   "canary-build": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/canary",
