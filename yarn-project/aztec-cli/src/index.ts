@@ -32,6 +32,7 @@ import {
   getExampleContractArtifacts,
   getTxSender,
   prepTx,
+  unboxContract,
 } from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
@@ -479,6 +480,17 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     });
 
   program
+    .command('unbox')
+    .description(
+      'Unboxes an example contract from @aztec/noir-contracts.  Copies `noir-libs` dependencies and setup simple frontend for the contract based on the ABI.',
+    )
+    .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
+    .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
+    .action(async (contractName, localDirectory) => {
+      const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
+      await unboxContract(contractName, unboxTo, log);
+
+   program
     .command('get-node-info')
     .description('Gets the information of an aztec node at a URL.')
     .requiredOption('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')
