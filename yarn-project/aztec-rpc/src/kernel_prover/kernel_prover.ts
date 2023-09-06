@@ -4,6 +4,7 @@ import {
   CONTRACT_TREE_HEIGHT,
   Fr,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
@@ -175,7 +176,11 @@ export class KernelProver {
       output.publicInputs.end.readRequests,
       output.publicInputs.end.newCommitments,
     );
-    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, readCommitmentHints);
+    const privateInputs = new PrivateKernelInputsOrdering(
+      previousKernelData,
+      readCommitmentHints,
+      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+    );
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.

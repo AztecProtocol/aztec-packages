@@ -1676,6 +1676,7 @@ export function fromPrivateKernelInputsInner(o: PrivateKernelInputsInner): Msgpa
 interface MsgpackPrivateKernelInputsOrdering {
   previous_kernel: MsgpackPreviousKernelData;
   read_commitment_hints: Tuple<Buffer, 16>;
+  nullifier_commitment_hints: Tuple<Buffer, 16>;
 }
 
 export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrdering): PrivateKernelInputsOrdering {
@@ -1685,9 +1686,13 @@ export function toPrivateKernelInputsOrdering(o: MsgpackPrivateKernelInputsOrder
   if (o.read_commitment_hints === undefined) {
     throw new Error('Expected read_commitment_hints in PrivateKernelInputsOrdering deserialization');
   }
+  if (o.nullifier_commitment_hints === undefined) {
+    throw new Error('Expected nullifier_commitment_hints in PrivateKernelInputsOrdering deserialization');
+  }
   return new PrivateKernelInputsOrdering(
     toPreviousKernelData(o.previous_kernel),
     mapTuple(o.read_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
+    mapTuple(o.nullifier_commitment_hints, (v: Buffer) => Fr.fromBuffer(v)),
   );
 }
 
@@ -1698,9 +1703,13 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
   if (o.readCommitmentHints === undefined) {
     throw new Error('Expected readCommitmentHints in PrivateKernelInputsOrdering serialization');
   }
+  if (o.nullifierCommitmentHints === undefined) {
+    throw new Error('Expected nullifierCommitmentHints in PrivateKernelInputsOrdering serialization');
+  }
   return {
     previous_kernel: fromPreviousKernelData(o.previousKernel),
     read_commitment_hints: mapTuple(o.readCommitmentHints, (v: Fr) => toBuffer(v)),
+    nullifier_commitment_hints: mapTuple(o.nullifierCommitmentHints, (v: Fr) => toBuffer(v)),
   };
 }
 
