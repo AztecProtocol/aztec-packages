@@ -597,10 +597,12 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
  * scalars See `bn254_endo_batch_mul` for description of algorithm
  **/
 template <typename C, class Fq, class Fr, class G>
+template <bool use_goblin>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& points,
                                                        const std::vector<Fr>& scalars,
                                                        const size_t max_num_bits)
 {
+<<<<<<< HEAD
     if constexpr (IsSimulator<C> && std::same_as<G, barretenberg::g1>) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/663) 
         auto context = points[0].get_context();
@@ -612,6 +614,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         }
         result = result.normalize();
         return from_witness(context, result);
+=======
+    if constexpr (use_goblin) {
+        return goblin_batch_mul(points, scalars);
+>>>>>>> origin/master
     }
     const size_t num_points = points.size();
     ASSERT(scalars.size() == num_points);

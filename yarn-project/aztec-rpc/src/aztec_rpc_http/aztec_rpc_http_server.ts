@@ -2,10 +2,12 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { JsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
+  AztecRPC,
+  CompleteAddress,
   ContractData,
-  ContractDeploymentTx,
-  ContractPublicData,
+  ExtendedContractData,
   L2BlockL2Logs,
+  NotePreimage,
   PrivateKey,
   Tx,
   TxExecutionRequest,
@@ -15,7 +17,7 @@ import {
 
 import { foundry } from 'viem/chains';
 
-import { AztecRPCServer, EthAddress } from '../index.js';
+import { EthAddress } from '../index.js';
 
 export const localAnvil = foundry;
 
@@ -23,21 +25,23 @@ export const localAnvil = foundry;
  * Wraps an instance of the Aztec RPC Server implementation to a JSON RPC HTTP interface.
  * @returns A new instance of the HTTP server.
  */
-export function getHttpRpcServer(aztecRpcServer: AztecRPCServer): JsonRpcServer {
+export function getHttpRpcServer(aztecRpcServer: AztecRPC): JsonRpcServer {
   const generatedRpcServer = new JsonRpcServer(
     aztecRpcServer,
     {
+      CompleteAddress,
       AztecAddress,
       TxExecutionRequest,
       ContractData,
-      ContractPublicData,
+      ExtendedContractData,
       TxHash,
       EthAddress,
       Point,
       PrivateKey,
       Fr,
+      NotePreimage,
     },
-    { Tx, ContractDeploymentTx, TxReceipt, L2BlockL2Logs },
+    { Tx, TxReceipt, L2BlockL2Logs },
     false,
     ['start', 'stop'],
   );

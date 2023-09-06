@@ -1,9 +1,8 @@
 import { Ecdsa } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { NodeInfo, PrivateKey } from '@aztec/types';
+import { CompleteAddress, NodeInfo, PrivateKey } from '@aztec/types';
 
 import EcdsaAccountContractAbi from '../../abis/ecdsa_account_contract.json' assert { type: 'json' };
-import { CompleteAddress } from '../complete_address.js';
 import { StoredKeyAccountEntrypoint } from '../entrypoint/stored_key_account_entrypoint.js';
 import { AccountContract } from './index.js';
 
@@ -23,6 +22,6 @@ import { AccountContract } from './index.js';
   }
 
   public getContractAbi(): ContractAbi {
-    return EcdsaAccountContractAbi as ContractAbi;
+    return EcdsaAccountContractAbi as unknown as ContractAbi;
   }
 }

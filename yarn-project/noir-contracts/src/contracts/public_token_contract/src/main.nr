@@ -1,44 +1,45 @@
 mod storage;
 
 contract PublicToken {
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
-    use dep::aztec::abi::PublicContextInputs;
-    use dep::aztec::context::Context;
+
+    // docs:start:unencrypted_import
     use dep::aztec::oracle::logs::emit_unencrypted_log;
+    // docs:end:unencrypted_import
+    use dep::std::option::Option;
+
     use crate::storage::Storage;
 
     // Constructs the contract.
-    fn constructor(
-        inputs: PrivateContextInputs,
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        // Return private circuit public inputs. All private functions need to return this as it is part of the input of the private kernel.
-        Context::new(inputs, 0).finish()
-    }
+    #[aztec(private)]
+    fn constructor() {}
 
     // Mints `amount` of tokens to a `recipient`.
-    open fn mint(
-        _inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn mint(
         amount: Field,
         recipient: Field,
-    ) -> pub Field {
-        let storage = Storage::init();
+    ) -> Field {
+
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
         let recipient_balance = storage.balances.at(recipient);
         let new_amount = recipient_balance.read() + amount;
+        // docs:start:unencrypted_log
         // TODO: Remove return value.
-        let hash = emit_unencrypted_log("Coins minted");
+        let _hash = emit_unencrypted_log("Coins minted");
+        // docs:end:unencrypted_log
         recipient_balance.write(new_amount);
+
         new_amount
     }
 
     // Transfers `amount` of tokens from `msg_sender` to `recipient`.
-    open fn transfer(
-        inputs: PublicContextInputs,
+    #[aztec(public)]
+    fn transfer(
         amount: Field,
         recipient: Field,
-    ) -> pub Field {
-        let storage = Storage::init();
-        let sender = inputs.call_context.msg_sender;
+    ) -> Field {
+        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let sender = context.msg_sender();
 
         let sender_balance = storage.balances.at(sender);
         let recipient_balance = storage.balances.at(recipient);
@@ -47,23 +48,26 @@ contract PublicToken {
         let current_recipient_balance = recipient_balance.read();
 
         // TODO: Should support larger numbers.
+        let mut return_value = 0;
+
         if (current_sender_balance as u126 > amount as u126) {
             sender_balance.write(current_sender_balance - amount);
             // TODO: Compiler complains if we don't assign the result of the write to anything
-            let hash = emit_unencrypted_log("Coins transferred");
+            let _hash = emit_unencrypted_log("Coins transferred");
             let amount = current_recipient_balance + amount;
             recipient_balance.write(amount);
-            amount
+            return_value = amount;
         } else {
             // TODO: Revert if there is not enough balance
-            current_recipient_balance
+            return_value = current_recipient_balance;
         }
+        return_value
     }
 
     unconstrained fn publicBalanceOf(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init();
+        let storage = Storage::init(Option::none(), Option::none());
         storage.balances.at(owner).read()
     }
 }

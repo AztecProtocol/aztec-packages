@@ -8,8 +8,8 @@ namespace grumpkin {
 
 constexpr size_t MAX_NO_WRAP_INTEGER_BIT_LENGTH = 252;
 
-typedef barretenberg::fr fq;
-typedef barretenberg::fq fr;
+using fq = barretenberg::fr;
+using fr = barretenberg::fq;
 
 struct GrumpkinG1Params {
     static constexpr bool USE_ENDOMORPHISM = true;
@@ -28,9 +28,9 @@ struct GrumpkinG1Params {
         0x11b2dff1448c41d8UL, 0x23d3446f21c77dc3UL, 0xaa7b8cf435dfafbbUL, 0x14b34cf69dc25d68UL
     };
 };
-typedef barretenberg::group<barretenberg::fr, barretenberg::fq, GrumpkinG1Params> g1;
+using g1 = barretenberg::group<barretenberg::fr, barretenberg::fq, GrumpkinG1Params>;
 
-g1::affine_element get_generator(const size_t generator_index);
+g1::affine_element get_generator(size_t generator_index);
 
 }; // namespace grumpkin
 
@@ -42,5 +42,10 @@ class Grumpkin {
     using Group = typename grumpkin::g1;
     using Element = typename Group::element;
     using AffineElement = typename Group::affine_element;
+
+    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
+    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
+    // with stdlib types, and "native" verification will be acheived via a simulated builder.
+    static constexpr bool is_stdlib_type = false;
 };
 } // namespace curve

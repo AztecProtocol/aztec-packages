@@ -14,6 +14,20 @@ TYPED_TEST_SUITE(BarycentricDataTests, FieldTypes);
 
 #define BARYCENTIC_DATA_TESTS_TYPE_ALIASES using FF = TypeParam;
 
+/**
+ * @brief Ensure auxilliary arrays (e.g. big_domain) are computed at compile time if possible (i.e. if FF is a native
+ * field)
+ *
+ */
+TYPED_TEST(BarycentricDataTests, CompileTimeComputation)
+{
+    BARYCENTIC_DATA_TESTS_TYPE_ALIASES
+    const size_t domain_size(2);
+    const size_t num_evals(10);
+
+    static_assert(BarycentricData<FF, domain_size, num_evals>::big_domain[5] == 5);
+}
+
 TYPED_TEST(BarycentricDataTests, Extend)
 {
     BARYCENTIC_DATA_TESTS_TYPE_ALIASES

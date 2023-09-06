@@ -1,26 +1,28 @@
-use dep::aztec::note::note_getter::view_notes;
-use crate::value_note::{VALUE_NOTE_LEN, ValueNoteMethods};
+use dep::aztec::note::{
+    note_getter::view_notes,
+    note_viewer_options::NoteViewerOptions,
+};
+use dep::aztec::state_vars::set::Set;
+use crate::value_note::{VALUE_NOTE_LEN, ValueNote};
 
-unconstrained fn get_balance(storage_slot: Field) -> Field {
-    get_balance_internal(storage_slot, 10, 0)
+unconstrained fn get_balance(set: Set<ValueNote, VALUE_NOTE_LEN>) -> Field {
+    get_balance_with_offset(set, 0)
 }
 
-// TODO(1.5) We don't support yet more than one page of notes
-// noir is having issues with loop handling in unconstrained functions
-// rewrite to unconstrained and integrate into noir-aztec when fixed
-unconstrained fn get_balance_internal(storage_slot: Field, limit: u32, offset: u32) -> Field {
+unconstrained fn get_balance_with_offset(set: Set<ValueNote, VALUE_NOTE_LEN>, offset: u32) -> Field {
     let mut balance = 0;
 
-    let opt_notes = view_notes(storage_slot, ValueNoteMethods, limit, offset);
+    let options = NoteViewerOptions::new().set_offset(offset);
+    let opt_notes = set.view_notes(options);
     let len = opt_notes.len();
-    let dummy = ValueNoteMethods.dummy;
     for i in 0..len {
-        balance += opt_notes[i].unwrap_or(dummy()).value;
+        if opt_notes[i].is_some() {
+            balance += opt_notes[i].unwrap_unchecked().value;
+        }
     }
-    // TODO
-    // if (notes[len - 1].is_dummy()) {
-    //     balance += get_balance(storage_slot, limit, offset + limit);
-    // }
+    if (opt_notes[len - 1].is_some()) {
+        balance += get_balance_with_offset(set, offset + opt_notes.len() as u32);
+    }
 
     balance
 }

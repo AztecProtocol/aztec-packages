@@ -1,8 +1,9 @@
 #pragma once
 #include "log.hpp"
 #include "memory.h"
+#include "wasm_export.hpp"
+#include <cstdlib>
 #include <memory>
-#include <stdlib.h>
 // #include <malloc.h>
 
 #define pad(size, alignment) (size - (size % alignment) + ((size % alignment) == 0 ? 0 : alignment))
@@ -29,9 +30,10 @@ inline void aligned_free(void* mem)
 inline void* protected_aligned_alloc(size_t alignment, size_t size)
 {
     size += (size % alignment);
-    void* t = 0;
+    void* t = nullptr;
+    // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
     t = aligned_alloc(alignment, size);
-    if (t == 0) {
+    if (t == nullptr) {
         info("bad alloc of size: ", size);
         std::abort();
     }
@@ -42,6 +44,7 @@ inline void* protected_aligned_alloc(size_t alignment, size_t size)
 
 inline void aligned_free(void* mem)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-owning-memory, cppcoreguidelines-no-malloc)
     free(mem);
 }
 #endif
@@ -73,3 +76,6 @@ inline void aligned_free(void* mem)
 //     info("Total free space (fordblks): ", minfo.fordblks);
 //     info("Top-most, releasable space (keepcost): ", minfo.keepcost);
 // }
+
+WASM_EXPORT void* bbmalloc(size_t size);
+WASM_EXPORT void bbfree(void* ptr);

@@ -1,9 +1,11 @@
-import { AztecAddress, EthAddress, Fr, PartialContractAddress, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
+  CompleteAddress,
   ContractData,
-  ContractPublicData,
+  ExtendedContractData,
   L2BlockL2Logs,
+  NotePreimage,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -20,9 +22,9 @@ export interface DeployedContract {
    */
   abi: ContractAbi;
   /**
-   * The address representing the contract on L2.
+   * The complete address representing the contract on L2.
    */
-  address: AztecAddress;
+  completeAddress: CompleteAddress;
   /**
    * The Ethereum address of the L1 portal contract.
    */
@@ -41,6 +43,14 @@ export type NodeInfo = {
    * The network's chain id.
    */
   chainId: number;
+  /**
+   * The rollup contract address
+   */
+  rollupAddress: EthAddress;
+  /**
+   * Identifier of the client software.
+   */
+  client: string;
 };
 
 /** Provides up to which block has been synced by different components. */
@@ -51,6 +61,7 @@ export type SyncStatus = {
   notes: Record<string, number>;
 };
 
+// docs:start:rpc-interface
 /**
  * Represents an Aztec RPC implementation.
  * Provides functionality for all the operations needed to interact with the Aztec network,
@@ -59,35 +70,62 @@ export type SyncStatus = {
  */
 export interface AztecRPC {
   /**
-   * Registers an account backed by an account contract.
+   * Insert a witness for a given message hash.
+   * @param messageHash - The message hash to insert witness at
+   * @param witness - The witness to insert
+   */
+  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
+
+  /**
+   * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
-   * @param address - Address of the account contract.
-   * @param partialContractAddress - The partially computed address of the account contract.
-   * @returns The address of the account contract.
+   * @param partialAddress - A partial address of the account contract corresponding to the account being registered.
+   * @returns Empty promise.
+   * @throws If the account is already registered.
    */
-  addAccount(
-    privKey: PrivateKey,
-    address: AztecAddress,
-    partialContractAddress: PartialContractAddress,
-  ): Promise<AztecAddress>;
+  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void>;
 
   /**
-   * Retrieves the list of Aztec addresses added to this rpc server
-   * The addresses are returned as a promise that resolves to an array of AztecAddress objects.
-   *
-   * @returns A promise that resolves to an array of AztecAddress instances.
+   * Registers recipient in the Aztec RPC server.
+   * @param recipient - A complete address of the recipient
+   * @returns Empty promise.
+   * @remarks Called recipient because we can only send notes to this account and not receive them via this RPC server.
+   *          This is because we don't have the associated private key and for this reason we can't decrypt
+   *          the recipient's notes. We can send notes to this account because we can encrypt them with the recipient's
+   *          public key.
    */
-  getAccounts(): Promise<AztecAddress[]>;
+  registerRecipient(recipient: CompleteAddress): Promise<void>;
 
   /**
-   * Retrieve the public key associated with an address.
-   * Throws an error if the account is not found in the key store.
+   * Retrieves the list of accounts added to this rpc server.
+   * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
    *
-   * @param address - The AztecAddress instance representing the account to get public key for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
+   * @returns A promise that resolves to an array of the accounts registered on this RPC server.
    */
-  getPublicKey(address: AztecAddress): Promise<PublicKey>;
+  getAccounts(): Promise<CompleteAddress[]>;
+
+  /**
+   * Retrieves the complete address of the account corresponding to the provided aztec address.
+   * @param address - The aztec address of the account contract.
+   * @returns A promise that resolves to the complete address of the requested account.
+   */
+  getAccount(address: AztecAddress): Promise<CompleteAddress | undefined>;
+
+  /**
+   * Retrieves the list of recipients added to this rpc server.
+   * The addresses are returned as a promise that resolves to an array of CompleteAddress objects.
+   *
+   * @returns A promise that resolves to an array registered recipients on this RPC server.
+   */
+  getRecipients(): Promise<CompleteAddress[]>;
+
+  /**
+   * Retrieves the complete address of the recipient corresponding to the provided aztec address.
+   * @param address - The aztec address of the recipient.
+   * @returns A promise that resolves to the complete address of the requested recipient.
+   */
+  getRecipient(address: AztecAddress): Promise<CompleteAddress | undefined>;
 
   /**
    * Add an array of deployed contracts to the database.
@@ -99,21 +137,20 @@ export interface AztecRPC {
   addContracts(contracts: DeployedContract[]): Promise<void>;
 
   /**
-   * Is an L2 contract deployed at this address?
-   * @param contract - The contract data address.
-   * @returns Whether the contract was deployed.
+   * Retrieves the list of addresses of contracts added to this rpc server.
+   * @returns A promise that resolves to an array of contracts addresses registered on this RPC server.
    */
-  isContractDeployed(contract: AztecAddress): Promise<boolean>;
+  getContracts(): Promise<AztecAddress[]>;
 
   /**
    * Create a transaction for a contract function call with the provided arguments.
    * Throws an error if the contract or function is unknown.
    *
    * @param txRequest - An authenticated tx request ready for simulation
-   * @param optionalFromAddress - The address to simulate from
+   * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @returns A Tx ready to send to the p2p pool for execution.
    */
-  simulateTx(txRequest: TxExecutionRequest): Promise<Tx>;
+  simulateTx(txRequest: TxExecutionRequest, simulatePublic: boolean): Promise<Tx>;
 
   /**
    * Send a transaction.
@@ -130,14 +167,15 @@ export interface AztecRPC {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Retrieves the preimage data at a specified contract address and storage slot.
-   * The returned data is an array of note preimage items, with each item containing its value.
+   * Retrieves the private storage data at a specified contract address and storage slot.
+   * The returned data is data at the storage slot or throws an error if the contract is not deployed.
    *
+   * @param owner - The address for whom the private data is encrypted.
    * @param contract - The AztecAddress of the target contract.
    * @param storageSlot - The Fr representing the storage slot to be fetched.
-   * @returns A promise that resolves to an array of note preimage items, each containing its value.
+   * @returns A set of note preimages for the owner in that contract and slot.
    */
-  getPreimagesAt(contract: AztecAddress, storageSlot: Fr): Promise<bigint[][]>;
+  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]>;
 
   /**
    * Retrieves the public storage data at a specified contract address and storage slot.
@@ -164,20 +202,19 @@ export interface AztecRPC {
   viewTx(functionName: string, args: any[], to: AztecAddress, from?: AztecAddress): Promise<any>;
 
   /**
-   * Lookup the L2 contract data for this contract.
-   * Contains the ethereum portal address and bytecode.
+   * Get the extended contract data for this contract.
    * @param contractAddress - The contract data address.
-   * @returns The complete contract data including portal address & bytecode (if we didn't throw an error).
+   * @returns The extended contract data or undefined if not found.
    */
-  getContractData(contractAddress: AztecAddress): Promise<ContractPublicData | undefined>;
+  getExtendedContractData(contractAddress: AztecAddress): Promise<ExtendedContractData | undefined>;
 
   /**
-   * Lookup the L2 contract info for this contract.
+   * Lookup the L2 contract data for this contract.
    * Contains the ethereum portal address .
    * @param contractAddress - The contract data address.
    * @returns The contract's address & portal address.
    */
-  getContractInfo(contractAddress: AztecAddress): Promise<ContractData | undefined>;
+  getContractData(contractAddress: AztecAddress): Promise<ContractData | undefined>;
 
   /**
    * Gets L2 block unencrypted logs.
@@ -188,10 +225,10 @@ export interface AztecRPC {
   getUnencryptedLogs(from: number, limit: number): Promise<L2BlockL2Logs[]>;
 
   /**
-   * Get latest L2 block number.
-   * @returns The latest block number.
+   * Fetches the current block number.
+   * @returns The block number.
    */
-  getBlockNum(): Promise<number>;
+  getBlockNumber(): Promise<number>;
 
   /**
    * Returns the information about the server's node
@@ -200,40 +237,21 @@ export interface AztecRPC {
   getNodeInfo(): Promise<NodeInfo>;
 
   /**
-   * Adds public key and partial address to a database.
-   * @param address - Address of the account to add public key and partial address for.
-   * @param publicKey - Public key of the corresponding user.
-   * @param partialAddress - The partially computed address of the account contract.
-   * @returns A Promise that resolves once the public key has been added to the database.
+   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
+   * @returns True if there are no outstanding blocks to be synched.
+   * @remarks This indicates that blocks and transactions are synched even if notes are not.
+   * @remarks Compares local block number with the block number from aztec node.
    */
-  addPublicKeyAndPartialAddress(
-    address: AztecAddress,
-    publicKey: PublicKey,
-    partialAddress: PartialContractAddress,
-  ): Promise<void>;
+  isGlobalStateSynchronised(): Promise<boolean>;
 
   /**
-   * Retrieve the public key and partial contract address associated with an address.
-   * Throws an error if the account is not found in the key store.
-   *
-   * @param address - The AztecAddress instance representing the account to get public key and partial address for.
-   * @returns A Promise resolving to the PublicKey instance representing the public key.
+   * Checks if the specified account is synchronised.
+   * @param account - The aztec address for which to query the sync status.
+   * @returns True if the account is fully synched, false otherwise.
+   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
+   *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
-  getPublicKeyAndPartialAddress(address: AztecAddress): Promise<[PublicKey, PartialContractAddress]>;
-
-  /**
-   * Return true if the top level block synchronisation is up to date
-   * This indicates that blocks and transactions are synched even if notes are not
-   * @returns True if there are no outstanding blocks to be synched
-   */
-  isSynchronised(): Promise<boolean>;
-
-  /**
-   * Returns true if the account specified by the given address is synched to the latest block
-   * @param account - The aztec address for which to query the sync status
-   * @returns True if the account is fully synched, false otherwise
-   */
-  isAccountSynchronised(account: AztecAddress): Promise<boolean>;
+  isAccountStateSynchronised(account: AztecAddress): Promise<boolean>;
 
   /**
    * Returns the latest block that has been synchronised by the synchronizer and each account.
@@ -241,3 +259,4 @@ export interface AztecRPC {
    */
   getSyncStatus(): Promise<SyncStatus>;
 }
+// docs:end:rpc-interface

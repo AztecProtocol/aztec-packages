@@ -2,8 +2,8 @@ import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { mapTuple, numToUInt32BE } from '@aztec/foundation/serialize';
 
-import { computeCallStackItemHash, computeContractAddressFromPartial } from '../abis/abis.js';
-import { Grumpkin, SchnorrSignature } from '../barretenberg/index.js';
+import { computeCallStackItemHash } from '../abis/abis.js';
+import { SchnorrSignature } from '../barretenberg/index.js';
 import {
   ARGS_LENGTH,
   AggregationObject,
@@ -11,26 +11,26 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   CONTRACT_TREE_HEIGHT,
-  CONTRACT_TREE_ROOTS_TREE_HEIGHT,
   CallContext,
   CircuitType,
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
-  CombinedHistoricTreeRoots,
   ConstantBaseRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
   FUNCTION_TREE_HEIGHT,
+  FinalAccumulatedData,
   Fq,
   Fr,
   FunctionData,
+  FunctionSelector,
   G1AffineElement,
   HISTORIC_BLOCKS_TREE_HEIGHT,
+  HistoricBlockData,
   KernelCircuitPublicInputs,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
-  L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT,
   MAX_NEW_COMMITMENTS_PER_CALL,
   MAX_NEW_COMMITMENTS_PER_TX,
   MAX_NEW_CONTRACTS_PER_TX,
@@ -58,7 +58,6 @@ import {
   NullifierLeafPreimage,
   OptionallyRevealedData,
   PRIVATE_DATA_TREE_HEIGHT,
-  PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
   Point,
   PreviousKernelData,
@@ -66,10 +65,9 @@ import {
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
-  PrivateHistoricTreeRoots,
   PrivateKernelInputsInit,
   PrivateKernelInputsInner,
-  PrivateKey,
+  PrivateKernelPublicInputsFinal,
   Proof,
   PublicCallData,
   PublicCallRequest,
@@ -107,22 +105,22 @@ export function makeTxContext(seed: number): TxContext {
 }
 
 /**
- * Creates an arbitrary private historic tree roots object with the given seed.
- * @param seed - The seed to use for generating the private historic tree roots.
- * @returns A private historic tree roots object.
- */
-export function makePrivateHistoricTreeRoots(seed: number): PrivateHistoricTreeRoots {
-  return new PrivateHistoricTreeRoots(fr(seed), fr(seed + 1), fr(seed + 2), fr(seed + 3), fr(seed + 4), fr(seed + 5));
-}
-
-/**
  * Creates an arbitrary combined historic tree roots object from the given seed.
  * Note: "Combined" indicates that it's the combined output of both private and public circuit flows.
  * @param seed - The seed to use for generating the combined historic tree roots.
  * @returns A combined historic tree roots object.
  */
-export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTreeRoots {
-  return new CombinedHistoricTreeRoots(makePrivateHistoricTreeRoots(seed));
+export function makeHistoricBlockData(seed: number): HistoricBlockData {
+  return new HistoricBlockData(
+    fr(seed),
+    fr(seed + 1),
+    fr(seed + 2),
+    fr(seed + 3),
+    fr(seed + 4),
+    fr(seed + 5),
+    fr(seed + 6),
+    fr(seed + 7),
+  );
 }
 
 /**
@@ -131,7 +129,7 @@ export function makeCombinedHistoricTreeRoots(seed: number): CombinedHistoricTre
  * @returns A constant data object.
  */
 export function makeConstantData(seed = 1): CombinedConstantData {
-  return new CombinedConstantData(makeCombinedHistoricTreeRoots(seed), makeTxContext(seed + 4));
+  return new CombinedConstantData(makeHistoricBlockData(seed), makeTxContext(seed + 4));
 }
 
 /**
@@ -139,10 +137,8 @@ export function makeConstantData(seed = 1): CombinedConstantData {
  * @param seed - The seed to use for generating the selector.
  * @returns A selector.
  */
-export function makeSelector(seed: number): Buffer {
-  const buffer = Buffer.alloc(4);
-  buffer.writeUInt32BE(seed, 0);
-  return buffer;
+export function makeSelector(seed: number): FunctionSelector {
+  return new FunctionSelector(seed);
 }
 
 /**
@@ -198,34 +194,6 @@ export function makeContractStorageRead(seed = 1): ContractStorageRead {
 }
 
 /**
- * Creates empty accumulated data.
- * @param seed - The seed to use for generating the accumulated data.
- * @returns An empty accumulated data.
- */
-export function makeEmptyAccumulatedData(seed = 1, full = false): CombinedAccumulatedData {
-  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
-
-  return new CombinedAccumulatedData(
-    makeAggregationObject(seed),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
-    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
-    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, Fr.zero), // private call stack must be empty
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x500),
-    tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
-    fr(seed + 0x800), // encrypted_log_preimages_length
-    fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xb00),
-    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makeEmptyPublicDataUpdateRequest, seed + 0xc00),
-    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makeEmptyPublicDataRead, seed + 0xd00),
-  );
-}
-
-/**
  * Creates arbitrary accumulated data.
  * @param seed - The seed to use for generating the accumulated data.
  * @returns An accumulated data.
@@ -236,20 +204,45 @@ export function makeAccumulatedData(seed = 1, full = false): CombinedAccumulated
   return new CombinedAccumulatedData(
     makeAggregationObject(seed),
     tupleGenerator(MAX_READ_REQUESTS_PER_TX, fr, seed + 0x80),
-    tupleGenerator(MAX_READ_REQUESTS_PER_TX, i => makeReadRequestMembershipWitness(i * 123), seed + 0x90),
     tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
     tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
-    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x300),
-    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
-    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x500),
-    tupleGenerator(2, fr, seed + 0x600), // encrypted logs hash
-    tupleGenerator(2, fr, seed + 0x700), // unencrypted logs hash
-    fr(seed + 0x800), // encrypted_log_preimages_length
-    fr(seed + 0x900), // unencrypted_log_preimages_length
-    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xa00),
-    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xb00),
-    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xc00),
-    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xd00),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
+    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
+    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x900), // encrypted_log_preimages_length
+    fr(seed + 0xa00), // unencrypted_log_preimages_length
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
+    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
+    tupleGenerator(MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, makePublicDataUpdateRequest, seed + 0xd00),
+    tupleGenerator(MAX_PUBLIC_DATA_READS_PER_TX, makePublicDataRead, seed + 0xe00),
+  );
+}
+
+/**
+ * Creates arbitrary final accumulated data.
+ * @param seed - The seed to use for generating the final accumulated data.
+ * @returns A final accumulated data.
+ */
+export function makeFinalAccumulatedData(seed = 1, full = false): FinalAccumulatedData {
+  const tupleGenerator = full ? makeTuple : makeHalfFullTuple;
+
+  return new FinalAccumulatedData(
+    makeAggregationObject(seed),
+    tupleGenerator(MAX_NEW_COMMITMENTS_PER_TX, fr, seed + 0x100),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x200),
+    tupleGenerator(MAX_NEW_NULLIFIERS_PER_TX, fr, seed + 0x300),
+    tupleGenerator(MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x400),
+    tupleGenerator(MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX, fr, seed + 0x500),
+    tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_TX, fr, seed + 0x600),
+    tupleGenerator(2, fr, seed + 0x700), // encrypted logs hash
+    tupleGenerator(2, fr, seed + 0x800), // unencrypted logs hash
+    fr(seed + 0x900), // encrypted_log_preimages_length
+    fr(seed + 0xa00), // unencrypted_log_preimages_length
+    tupleGenerator(MAX_NEW_CONTRACTS_PER_TX, makeNewContractData, seed + 0xb00),
+    tupleGenerator(MAX_OPTIONALLY_REVEALED_DATA_LENGTH_PER_TX, makeOptionallyRevealedData, seed + 0xc00),
   );
 }
 
@@ -329,18 +322,9 @@ export function makePublicCircuitPublicInputs(
     tupleGenerator(MAX_NEW_L2_TO_L1_MSGS_PER_CALL, fr, seed + 0x900),
     tupleGenerator(2, fr, seed + 0x901),
     fr(seed + 0x902),
-    fr(seed + 0xa00),
+    makeHistoricBlockData(seed + 0xa00),
     makeAztecAddress(seed + 0xb01),
   );
-}
-
-/**
- * Creates empty kernel circuit public inputs.
- * @param seed - The seed to use for generating the kernel circuit public inputs.
- * @returns Empty kernel circuit public inputs.
- */
-export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(makeEmptyAccumulatedData(seed), makeConstantData(seed + 0x100), true);
 }
 
 /**
@@ -348,8 +332,21 @@ export function makeEmptyKernelPublicInputs(seed = 1): KernelCircuitPublicInputs
  * @param seed - The seed to use for generating the kernel circuit public inputs.
  * @returns Kernel circuit public inputs.
  */
-export function makeKernelPublicInputs(seed = 1): KernelCircuitPublicInputs {
-  return new KernelCircuitPublicInputs(makeAccumulatedData(seed, true), makeConstantData(seed + 0x100), true);
+export function makeKernelPublicInputs(seed = 1, fullAccumulatedData = true): KernelCircuitPublicInputs {
+  return new KernelCircuitPublicInputs(
+    makeAccumulatedData(seed, fullAccumulatedData),
+    makeConstantData(seed + 0x100),
+    true,
+  );
+}
+
+/**
+ * Creates arbitrary final ordering kernel circuit public inputs.
+ * @param seed - The seed to use for generating the final ordering kernel circuit public inputs.
+ * @returns Final ordering kernel circuit public inputs.
+ */
+export function makePrivateKernelPublicInputsFinal(seed = 1): PrivateKernelPublicInputsFinal {
+  return new PrivateKernelPublicInputsFinal(makeFinalAccumulatedData(seed, true), makeConstantData(seed + 0x100));
 }
 
 /**
@@ -401,6 +398,15 @@ export function makeReadRequestMembershipWitness(start: number): ReadRequestMemb
 }
 
 /**
+ * Creates empty membership witness where the sibling paths is an array of fields filled with zeros.
+ * @param start - The start of the membership witness.
+ * @returns Non-transient empty read request membership witness.
+ */
+export function makeEmptyReadRequestMembershipWitness(): ReadRequestMembershipWitness {
+  return new ReadRequestMembershipWitness(new Fr(0), makeTuple(PRIVATE_DATA_TREE_HEIGHT, Fr.zero), false, new Fr(0));
+}
+
+/**
  * Creates arbitrary/mocked verification key.
  * @returns A verification key.
  */
@@ -434,7 +440,7 @@ export function makePoint(seed = 1): Point {
  */
 export function makePreviousKernelData(seed = 1, kernelPublicInputs?: KernelCircuitPublicInputs): PreviousKernelData {
   return new PreviousKernelData(
-    kernelPublicInputs ?? makeKernelPublicInputs(seed),
+    kernelPublicInputs ?? makeKernelPublicInputs(seed, true),
     new Proof(Buffer.alloc(16, seed + 0x80)),
     makeVerificationKey(),
     0x42,
@@ -552,16 +558,16 @@ export async function makePublicKernelInputs(seed = 1): Promise<PublicKernelInpu
 }
 
 /**
- * Makes arbitrary public kernel inputs with empty output.
+ * Makes arbitrary public kernel inputs.
  * @param seed - The seed to use for generating the public kernel inputs.
  * @param tweak - An optional function to tweak the output before computing hashes.
  * @returns Public kernel inputs.
  */
-export async function makePublicKernelInputsWithEmptyOutput(
+export async function makePublicKernelInputsWithTweak(
   seed = 1,
   tweak?: (publicKernelInputs: PublicKernelInputs) => void,
 ): Promise<PublicKernelInputs> {
-  const kernelCircuitPublicInputs = makeEmptyKernelPublicInputs(seed);
+  const kernelCircuitPublicInputs = makeKernelPublicInputs(seed, false);
   const publicKernelInputs = new PublicKernelInputs(
     makePreviousKernelData(seed, kernelCircuitPublicInputs),
     await makePublicCallData(seed + 0x1000),
@@ -601,10 +607,12 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
     vk: makeVerificationKey(),
     functionLeafMembershipWitness: makeMembershipWitness(FUNCTION_TREE_HEIGHT, seed + 0x30),
     contractLeafMembershipWitness: makeMembershipWitness(CONTRACT_TREE_HEIGHT, seed + 0x20),
-    readRequestMembershipWitnesses: range(MAX_READ_REQUESTS_PER_CALL, seed + 0x70).map(x =>
-      makeReadRequestMembershipWitness(x),
+    readRequestMembershipWitnesses: makeTuple(
+      MAX_READ_REQUESTS_PER_CALL,
+      makeReadRequestMembershipWitness,
+      seed + 0x70,
     ),
-    portalContractAddress: makeEthAddress(seed + 0x40),
+    portalContractAddress: makeEthAddress(seed + 0x40).toField(),
     acirHash: fr(seed + 0x60),
   });
 }
@@ -619,6 +627,7 @@ export function makePrivateCallStackItem(seed = 1): PrivateCallStackItem {
     makeAztecAddress(seed),
     new FunctionData(makeSelector(seed + 0x1), false, true, true),
     makePrivateCircuitPublicInputs(seed + 0x10),
+    false,
   );
 }
 
@@ -650,14 +659,10 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     unencryptedLogsHash: makeTuple(NUM_FIELDS_PER_SHA256, fr, seed + 0xa00),
     encryptedLogPreimagesLength: fr(seed + 0xb00),
     unencryptedLogPreimagesLength: fr(seed + 0xc00),
-    historicContractTreeRoot: fr(seed + 0xd00),
-    historicPrivateDataTreeRoot: fr(seed + 0xe00),
-    historicPrivateNullifierTreeRoot: fr(seed + 0xf00),
-    historicL1ToL2MessagesTreeRoot: fr(seed + 0x1000),
-    historicBlocksTreeRoot: fr(seed + 0x1100),
-    contractDeploymentData: makeContractDeploymentData(),
-    chainId: fr(seed + 0x1200),
-    version: fr(seed + 0x1300),
+    historicBlockData: makeHistoricBlockData(seed + 0xd00),
+    contractDeploymentData: makeContractDeploymentData(seed + 0xe00),
+    chainId: fr(seed + 0x1400),
+    version: fr(seed + 0x1500),
   });
 }
 
@@ -701,9 +706,6 @@ export function makeConstantBaseRollupData(
   globalVariables: GlobalVariables | undefined = undefined,
 ): ConstantBaseRollupData {
   return ConstantBaseRollupData.from({
-    startTreeOfHistoricPrivateDataTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed),
-    startTreeOfHistoricContractTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x100),
-    startTreeOfHistoricL1ToL2MsgTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x200),
     startHistoricBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
@@ -814,15 +816,11 @@ export function makePreviousRollupData(
 export function makeRootRollupInputs(seed = 0, globalVariables?: GlobalVariables): RootRollupInputs {
   return new RootRollupInputs(
     [makePreviousRollupData(seed, globalVariables), makePreviousRollupData(seed + 0x1000, globalVariables)],
-    makeTuple(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, fr, 0x2000),
-    makeTuple(CONTRACT_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeTuple(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, fr, 0x2100),
     makeTuple(L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH, fr, 0x2100),
-    makeTuple(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, fr, 0x2100),
     makeAppendOnlyTreeSnapshot(seed + 0x2200),
-    makeAppendOnlyTreeSnapshot(seed + 0x2300),
-    makeAppendOnlyTreeSnapshot(seed + 0x2400),
-    makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2500),
+    makeAppendOnlyTreeSnapshot(seed + 0x2200),
+    makeTuple(HISTORIC_BLOCKS_TREE_HEIGHT, fr, 0x2400),
   );
 }
 
@@ -920,25 +918,9 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     range(PUBLIC_DATA_TREE_HEIGHT, x).map(fr),
   );
 
-  const historicPrivateDataTreeRootMembershipWitnesses: BaseRollupInputs['historicPrivateDataTreeRootMembershipWitnesses'] =
-    [
-      makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x6000),
-      makeMembershipWitness(PRIVATE_DATA_TREE_ROOTS_TREE_HEIGHT, seed + 0x7000),
-    ];
-
-  const historicContractsTreeRootMembershipWitnesses: BaseRollupInputs['historicContractsTreeRootMembershipWitnesses'] =
-    [
-      makeMembershipWitness(CONTRACT_TREE_ROOTS_TREE_HEIGHT, seed + 0x8000),
-      makeMembershipWitness(CONTRACT_TREE_ROOTS_TREE_HEIGHT, seed + 0x9000),
-    ];
-  const historicL1ToL2MsgTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] =
-    [
-      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xa000),
-      makeMembershipWitness(L1_TO_L2_MSG_TREE_ROOTS_TREE_HEIGHT, seed + 0xb000),
-    ];
-  const historicBlocksTreeRootMembershipWitnesses: BaseRollupInputs['historicL1ToL2MsgTreeRootMembershipWitnesses'] = [
-    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xc000),
-    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0xd000),
+  const historicBlocksTreeRootMembershipWitnesses: BaseRollupInputs['historicBlocksTreeRootMembershipWitnesses'] = [
+    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0x7000),
+    makeMembershipWitness(HISTORIC_BLOCKS_TREE_HEIGHT, seed + 0x8000),
   ];
 
   const constants = makeConstantBaseRollupData(0x100);
@@ -957,9 +939,6 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
     newContractsSubtreeSiblingPath,
     newPublicDataUpdateRequestsSiblingPaths,
     newPublicDataReadsSiblingPaths,
-    historicPrivateDataTreeRootMembershipWitnesses,
-    historicContractsTreeRootMembershipWitnesses,
-    historicL1ToL2MsgTreeRootMembershipWitnesses,
     historicBlocksTreeRootMembershipWitnesses,
     constants,
   });
@@ -973,19 +952,4 @@ export function makeBaseRollupInputs(seed = 0): BaseRollupInputs {
  */
 export function fr(n: number): Fr {
   return new Fr(BigInt(n));
-}
-
-/**
- * Computes a valid address, partial address, and public key out of a private key.
- * @param privateKey - A private encryption key (optional, will use a random one if not set).
- * @returns A valid address, partial address, and public key.
- */
-export async function makeAddressWithPreimagesFromPrivateKey(privateKey?: PrivateKey) {
-  privateKey = privateKey ?? PrivateKey.random();
-  const wasm = await CircuitsWasm.get();
-  const grumpkin = new Grumpkin(wasm);
-  const publicKey = grumpkin.mul(Grumpkin.generator, privateKey);
-  const partialAddress = Fr.random();
-  const address = computeContractAddressFromPartial(wasm, publicKey, partialAddress);
-  return { address, partialAddress, publicKey, privateKey };
 }

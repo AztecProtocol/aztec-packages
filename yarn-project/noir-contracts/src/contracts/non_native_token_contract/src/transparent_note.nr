@@ -5,9 +5,6 @@ use dep::aztec::note::{
     note_interface::NoteInterface,
     utils::compute_siloed_note_hash,
 };
-use dep::aztec::oracle::{
-    create_l2_to_l1_message::create_l2_to_l1_message,
-};
 use dep::aztec::constants_gen::GENERATOR_INDEX__L1_TO_L2_MESSAGE_SECRET;
 
 global TRANSPARENT_NOTE_LEN: Field = 2;
@@ -63,6 +60,7 @@ impl TransparentNote {
     }
 
     fn compute_note_hash(self) -> Field {
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             self.amount,
             self.secret_hash,
@@ -73,16 +71,8 @@ impl TransparentNote {
         // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386): should use
         // `compute_note_hash_for_read_or_nullify` once public functions inject nonce!
         let siloed_note_hash = compute_siloed_note_hash(TransparentNoteMethods, self);
+        // TODO(#1205) Should use a non-zero generator index.
         pedersen([self.secret, siloed_note_hash])[0]
-    }
-
-    fn dummy() -> Self {
-        TransparentNote {
-            amount: 0,
-            secret_hash: 0,
-            secret: 0,
-            header: NoteHeader::empty(),
-        }
     }
 
     fn set_header(&mut self, header: NoteHeader) {
@@ -119,10 +109,6 @@ fn compute_nullifier(note: TransparentNote) -> Field {
     note.compute_nullifier()
 }
 
-fn dummy() -> TransparentNote {
-    TransparentNote::dummy()
-}
-
 fn get_header(note: TransparentNote) -> NoteHeader {
     note.header
 }
@@ -136,7 +122,6 @@ global TransparentNoteMethods = NoteInterface {
     serialise,
     compute_note_hash,
     compute_nullifier,
-    dummy,
     get_header,
     set_header,
 };

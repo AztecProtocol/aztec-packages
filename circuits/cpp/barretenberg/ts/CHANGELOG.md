@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.5.0](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.6...barretenberg.js-v0.5.0) (2023-09-01)
+
+
+### ⚠ BREAKING CHANGES
+
+* update to acvm 0.24.0 ([#1925](https://github.com/AztecProtocol/barretenberg/issues/1925))
+
+### Miscellaneous Chores
+
+* Update to acvm 0.24.0 ([#1925](https://github.com/AztecProtocol/barretenberg/issues/1925)) ([5d8db8e](https://github.com/AztecProtocol/barretenberg/commit/5d8db8eb993334b43e24a51efba9c59e123320ab))
+
+## [0.4.6](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.5...barretenberg.js-v0.4.6) (2023-08-29)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.5](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.4...barretenberg.js-v0.4.5) (2023-08-28)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.4](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.3...barretenberg.js-v0.4.4) (2023-08-28)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.3](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.2...barretenberg.js-v0.4.3) (2023-08-23)
+
+
+### Bug Fixes
+
+* Download SRS using one canonical URL across the codebase ([#1748](https://github.com/AztecProtocol/barretenberg/issues/1748)) ([5c91de7](https://github.com/AztecProtocol/barretenberg/commit/5c91de7296e054f6d5ac3dca94ca85e06d496048))
+* Proving fails when circuit has size &gt; ~500K ([#1739](https://github.com/AztecProtocol/barretenberg/issues/1739)) ([6d32383](https://github.com/AztecProtocol/barretenberg/commit/6d323838a525190618d608598357ee4608c46699))
+
+## [0.4.2](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.1...barretenberg.js-v0.4.2) (2023-08-21)
+
+
+### Miscellaneous Chores
+
+* **barretenberg.js:** Synchronize barretenberg versions
+
+## [0.4.1](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.0...barretenberg.js-v0.4.1) (2023-08-21)
+
+
+### Bug Fixes
+
+* **bb:** Fix Typo ([#1709](https://github.com/AztecProtocol/barretenberg/issues/1709)) ([286d64e](https://github.com/AztecProtocol/barretenberg/commit/286d64e6036336314114f1d2a25273f4dabe36f4))
+
+## [0.4.0](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.3.6...barretenberg.js-v0.4.0) (2023-08-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* Barretenberg binaries now take in the encoded circuit instead of a json file ([#1618](https://github.com/AztecProtocol/barretenberg/issues/1618))
+
+### Bug Fixes
+
+* Barretenberg binaries now take in the encoded circuit instead of a json file ([#1618](https://github.com/AztecProtocol/barretenberg/issues/1618)) ([180cdc9](https://github.com/AztecProtocol/barretenberg/commit/180cdc9ac7cf9aa793d9774dc866ceb4e6ec3fbc))
+* Bin reference when installing package ([#678](https://github.com/AztecProtocol/barretenberg/issues/678)) ([c734295](https://github.com/AztecProtocol/barretenberg/commit/c734295a10d2c40ede773519664170880f28b2b7))
+* Sync aztec master ([#680](https://github.com/AztecProtocol/barretenberg/issues/680)) ([3afc243](https://github.com/AztecProtocol/barretenberg/commit/3afc2438053f530e49fbebbdbadd8db8a630bb8c))
+
 ## [0.3.6](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.3.5...barretenberg.js-v0.3.6) (2023-08-08)
 
 

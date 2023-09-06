@@ -3,15 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { P2P } from '@aztec/p2p';
-import {
-  ContractData,
-  ContractPublicData,
-  L1ToL2MessageSource,
-  L2Block,
-  L2BlockSource,
-  MerkleTreeId,
-  Tx,
-} from '@aztec/types';
+import { L1ToL2MessageSource, L2Block, L2BlockSource, MerkleTreeId, Tx } from '@aztec/types';
 import { WorldStateStatus, WorldStateSynchroniser } from '@aztec/world-state';
 
 import times from 'lodash.times';
@@ -140,16 +132,18 @@ export class Sequencer {
       this.log(`Processing ${validTxs.length} txs...`);
       this.state = SequencerState.CREATING_BLOCK;
 
-      const blockNumber = (await this.l2BlockSource.getBlockHeight()) + 1;
-      const globalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
+      const blockNumber = (await this.l2BlockSource.getBlockNumber()) + 1;
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(new Fr(blockNumber));
+      const prevGlobalVariables = (await this.l2BlockSource.getL2Block(-1))?.globalVariables ?? GlobalVariables.empty();
 
       // Process txs and drop the ones that fail processing
       // We create a fresh processor each time to reset any cached state (eg storage writes)
-      const processor = this.publicProcessorFactory.create();
-      const [processedTxs, failedTxs] = await processor.process(validTxs, globalVariables);
+      const processor = await this.publicProcessorFactory.create(prevGlobalVariables, newGlobalVariables);
+      const [processedTxs, failedTxs] = await processor.process(validTxs);
       if (failedTxs.length > 0) {
-        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxs)).join(', ')}`);
-        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxs));
+        const failedTxData = failedTxs.map(fail => fail.tx);
+        this.log(`Dropping failed txs ${(await Tx.getHashes(failedTxData)).join(', ')}`);
+        await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxData));
       }
 
       if (processedTxs.length === 0) {
@@ -164,12 +158,12 @@ export class Sequencer {
 
       // Build the new block by running the rollup circuits
       this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
-      const emptyTx = await processor.makeEmptyProcessedTx(this.chainId, this.version);
 
-      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, globalVariables);
+      const emptyTx = await processor.makeEmptyProcessedTx();
+      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
       this.log(`Assembled block ${block.number}`);
 
-      await this.publishContractPublicData(validTxs, block);
+      await this.publishExtendedContractData(validTxs, block);
 
       await this.publishL2Block(block);
       this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
@@ -181,28 +175,25 @@ export class Sequencer {
   }
 
   /**
-   * Gets new contract public data from the txs and publishes it on chain.
+   * Gets new extended contract data from the txs and publishes it on chain.
    * @param validTxs - The set of real transactions being published as part of the block.
    * @param block - The L2Block to be published.
    */
-  protected async publishContractPublicData(validTxs: Tx[], block: L2Block) {
+  protected async publishExtendedContractData(validTxs: Tx[], block: L2Block) {
     // Publishes contract data for txs to the network and awaits the tx to be mined
     this.state = SequencerState.PUBLISHING_CONTRACT_DATA;
     const newContractData = validTxs
       .map(tx => {
         // Currently can only have 1 new contract per tx
         const newContract = tx.data?.end.newContracts[0];
-        if (newContract && tx.newContractPublicFunctions?.length) {
-          return new ContractPublicData(
-            new ContractData(newContract.contractAddress, newContract.portalContractAddress),
-            tx.newContractPublicFunctions,
-          );
+        if (newContract) {
+          return tx.newContracts[0];
         }
       })
       .filter((cd): cd is Exclude<typeof cd, undefined> => cd !== undefined);
 
     const blockHash = block.getCalldataHash();
-    this.log(`Publishing contract public data with block hash ${blockHash.toString('hex')}`);
+    this.log(`Publishing extended contract data with block hash ${blockHash.toString('hex')}`);
 
     const publishedContractData = await this.publisher.processNewContractData(block.number, blockHash, newContractData);
     if (publishedContractData) {

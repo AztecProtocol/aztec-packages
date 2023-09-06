@@ -6,25 +6,33 @@ import {
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
-import { FunctionAbi, decodeReturnValues } from '@aztec/foundation/abi';
+import { FunctionSelector, decodeReturnValues } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { to2Fields } from '@aztec/foundation/serialize';
 import { FunctionL2Logs, NotePreimage, NoteSpendingInfo } from '@aztec/types';
 
-import { extractPublicInputs, frToAztecAddress, frToSelector } from '../acvm/deserialize.js';
+import { extractPrivateCircuitPublicInputs, frToAztecAddress } from '../acvm/deserialize.js';
 import {
   ZERO_ACVM_FIELD,
   acvm,
   convertACVMFieldToBuffer,
+  extractCallStack,
   fromACVMField,
   toACVMField,
   toACVMWitness,
   toAcvmCallPrivateStackItem,
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
-import { ExecutionResult, NewNoteData, NewNullifierData } from '../index.js';
+import { ExecutionError } from '../common/errors.js';
+import {
+  AcirSimulator,
+  ExecutionResult,
+  FunctionAbiWithDebugMetadata,
+  NewNoteData,
+  NewNullifierData,
+} from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 
@@ -34,13 +42,13 @@ import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug
 export class PrivateFunctionExecution {
   constructor(
     private context: ClientTxExecutionContext,
-    private abi: FunctionAbi,
+    private abi: FunctionAbiWithDebugMetadata,
     private contractAddress: AztecAddress,
     private functionData: FunctionData,
     private argsHash: Fr,
     private callContext: CallContext,
     private curve: Grumpkin,
-
+    private sideEffectCounter: number = 0,
     private log = createDebugLogger('aztec:simulator:secret_execution'),
   ) {}
 
@@ -49,11 +57,11 @@ export class PrivateFunctionExecution {
    * @returns The execution result.
    */
   public async run(): Promise<ExecutionResult> {
-    const selector = this.functionData.functionSelectorBuffer.toString('hex');
-    this.log(`Executing external function ${this.contractAddress.toString()}:${selector}`);
+    const selector = this.functionData.selector;
+    this.log(`Executing external function ${this.contractAddress}:${selector}`);
 
     const acir = Buffer.from(this.abi.bytecode, 'base64');
-    const initialWitness = this.writeInputs();
+    const initialWitness = this.getInitialWitness();
 
     // TODO: Move to ClientTxExecutionContext.
     const newNotePreimages: NewNoteData[] = [];
@@ -63,18 +71,37 @@ export class PrivateFunctionExecution {
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
-    const { partialWitness } = await acvm(acir, initialWitness, {
+    const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
+      computeSelector: (...args) => {
+        const signature = oracleDebugCallToFormattedStr(args);
+        const returnValue = toACVMField(FunctionSelector.fromSignature(signature).toField());
+        return Promise.resolve(returnValue);
+      },
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
+      },
+      getAuthWitness: async ([messageHash]) => {
+        return (await this.context.db.getAuthWitness(fromACVMField(messageHash))).map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
         const address = frToAztecAddress(fromACVMField(acvmAddress));
-        const [pubKey, partialContractAddress] = await this.context.db.getPublicKey(address);
-        return [pubKey.x, pubKey.y, partialContractAddress].map(toACVMField);
+        const { publicKey, partialAddress } = await this.context.db.getCompleteAddress(address);
+        return [publicKey.x, publicKey.y, partialAddress].map(toACVMField);
       },
-      getNotes: ([slot], sortBy, sortOrder, [limit], [offset], [returnSize]) =>
-        this.context.getNotes(this.contractAddress, slot, sortBy, sortOrder, +limit, +offset, +returnSize),
+      getNotes: ([slot], [numSelects], selectBy, selectValues, sortBy, sortOrder, [limit], [offset], [returnSize]) =>
+        this.context.getNotes(
+          this.contractAddress,
+          slot,
+          +numSelects,
+          selectBy,
+          selectValues,
+          sortBy,
+          sortOrder,
+          +limit,
+          +offset,
+          +returnSize,
+        ),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       notifyCreatedNote: ([storageSlot], preimage, [innerNoteHash]) => {
         this.context.pushNewNote(
@@ -111,7 +138,7 @@ export class PrivateFunctionExecution {
 
         const childExecutionResult = await this.callPrivateFunction(
           frToAztecAddress(contractAddress),
-          frToSelector(functionSelector),
+          FunctionSelector.fromField(functionSelector),
           fromACVMField(acvmArgsHash),
           this.callContext,
           this.curve,
@@ -136,12 +163,14 @@ export class PrivateFunctionExecution {
       enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
           frToAztecAddress(fromACVMField(acvmContractAddress)),
-          frToSelector(fromACVMField(acvmFunctionSelector)),
+          FunctionSelector.fromField(fromACVMField(acvmFunctionSelector)),
           this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
 
-        this.log(`Enqueued call to public function ${acvmContractAddress}:${acvmFunctionSelector}`);
+        this.log(
+          `Enqueued call to public function (with side-effect counter #${enqueuedRequest.sideEffectCounter}) ${acvmContractAddress}:${acvmFunctionSelector}`,
+        );
         enqueuedPublicFunctionCalls.push(enqueuedRequest);
         return toAcvmEnqueuePublicFunctionResult(enqueuedRequest);
       },
@@ -152,21 +181,13 @@ export class PrivateFunctionExecution {
         this.log(`Emitted unencrypted log: "${log.toString('ascii')}"`);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      emitEncryptedLog: (
-        [acvmContractAddress],
-        [acvmStorageSlot],
-        [owner],
-        [encPubKeyX],
-        [encPubKeyY],
-        acvmPreimage,
-      ) => {
+      emitEncryptedLog: ([acvmContractAddress], [acvmStorageSlot], [encPubKeyX], [encPubKeyY], acvmPreimage) => {
         const contractAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(acvmContractAddress));
-        const ownerAddress = AztecAddress.fromBuffer(convertACVMFieldToBuffer(owner));
         const storageSlot = fromACVMField(acvmStorageSlot);
         const preimage = acvmPreimage.map(f => fromACVMField(f));
 
         const notePreimage = new NotePreimage(preimage);
-        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, ownerAddress, storageSlot);
+        const noteSpendingInfo = new NoteSpendingInfo(notePreimage, contractAddress, storageSlot);
         const ownerPublicKey = new Point(fromACVMField(encPubKeyX), fromACVMField(encPubKeyY));
 
         const encryptedNotePreimage = noteSpendingInfo.toEncryptedBuffer(ownerPublicKey, this.curve);
@@ -175,9 +196,24 @@ export class PrivateFunctionExecution {
 
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
+      getPortalContractAddress: async ([aztecAddress]) => {
+        const contractAddress = AztecAddress.fromString(aztecAddress);
+        const portalContactAddress = await this.context.db.getPortalContractAddress(contractAddress);
+        return Promise.resolve(toACVMField(portalContactAddress));
+      },
+    }).catch((err: Error) => {
+      throw new ExecutionError(
+        err.message,
+        {
+          contractAddress: this.contractAddress,
+          functionSelector: selector,
+        },
+        extractCallStack(err, this.abi.debug),
+        { cause: err },
+      );
     });
 
-    const publicInputs = extractPublicInputs(partialWitness, acir);
+    const publicInputs = extractPrivateCircuitPublicInputs(partialWitness, acir);
 
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1165) --> set this in Noir
     publicInputs.encryptedLogsHash = to2Fields(encryptedLogs.hash());
@@ -185,7 +221,7 @@ export class PrivateFunctionExecution {
     publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
     publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
-    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs, false);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);
@@ -216,8 +252,10 @@ export class PrivateFunctionExecution {
    * Writes the function inputs to the initial witness.
    * @returns The initial witness.
    */
-  private writeInputs() {
+  private getInitialWitness() {
     const contractDeploymentData = this.context.txContext.contractDeploymentData ?? ContractDeploymentData.empty();
+
+    const blockData = this.context.historicBlockData;
 
     const fields = [
       this.callContext.msgSender,
@@ -227,11 +265,7 @@ export class PrivateFunctionExecution {
       this.callContext.isStaticCall,
       this.callContext.isContractDeployment,
 
-      this.context.historicRoots.privateDataTreeRoot,
-      this.context.historicRoots.nullifierTreeRoot,
-      this.context.historicRoots.contractTreeRoot,
-      this.context.historicRoots.l1ToL2MessagesTreeRoot,
-      this.context.historicRoots.blocksTreeRoot,
+      ...blockData.toArray(),
 
       contractDeploymentData.deployerPublicKey.x,
       contractDeploymentData.deployerPublicKey.y,
@@ -260,7 +294,7 @@ export class PrivateFunctionExecution {
    */
   private async callPrivateFunction(
     targetContractAddress: AztecAddress,
-    targetFunctionSelector: Buffer,
+    targetFunctionSelector: FunctionSelector,
     targetArgsHash: Fr,
     callerContext: CallContext,
     curve: Grumpkin,
@@ -278,6 +312,8 @@ export class PrivateFunctionExecution {
       targetArgsHash,
       derivedCallContext,
       curve,
+      this.sideEffectCounter,
+      this.log,
     );
 
     return nestedExecution.run();
@@ -295,7 +331,7 @@ export class PrivateFunctionExecution {
    */
   private async enqueuePublicFunctionCall(
     targetContractAddress: AztecAddress,
-    targetFunctionSelector: Buffer,
+    targetFunctionSelector: FunctionSelector,
     targetArgs: Fr[],
     callerContext: CallContext,
   ): Promise<PublicCallRequest> {
@@ -307,7 +343,13 @@ export class PrivateFunctionExecution {
       callContext: derivedCallContext,
       functionData: FunctionData.fromAbi(targetAbi),
       contractAddress: targetContractAddress,
+      sideEffectCounter: this.sideEffectCounter++, // update after assigning current value to call
     });
+
+    // TODO($846): if enqueued public calls are associated with global
+    // side-effect counter, that will leak info about how many other private
+    // side-effects occurred in the TX. Ultimately the private kernel should
+    // just output everything in the proper order without any counters.
   }
 
   /**

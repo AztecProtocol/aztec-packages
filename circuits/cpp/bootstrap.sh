@@ -5,6 +5,7 @@ set -eu
 
 export WASI_VERSION=20
 
+# Navigate to script folder
 cd "$(dirname "$0")"
 
 # Update the submodule
@@ -57,8 +58,8 @@ if [ "$OS" == "macos" ]; then
     PRESET=default
   fi
 else
-  if [ "$(which clang++-15)" != "" ]; then
-    PRESET=clang15
+  if [ "$(which clang++-16)" != "" ]; then
+    PRESET=clang16
   else
     PRESET=default
   fi

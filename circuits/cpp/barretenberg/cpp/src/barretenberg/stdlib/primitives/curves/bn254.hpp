@@ -9,17 +9,29 @@ namespace stdlib {
 
 template <typename CircuitBuilder> struct bn254 {
     static constexpr proof_system::CurveType type = proof_system::CurveType::BN254;
+    // TODO(#673): This flag is temporary. It is needed in the verifier classes (GeminiVerifier, etc.) while these
+    // classes are instantiated with "native" curve types. Eventually, the verifier classes will be instantiated only
+    // with stdlib types, and "native" verification will be acheived via a simulated builder.
+    static constexpr bool is_stdlib_type = true;
 
-    // NOTE: Naming in flux here; maybe name should reflect "native" somehow?
-    using BaseField = curve::BN254::BaseField;
-    using fq = BaseField;
-    using ScalarField = curve::BN254::ScalarField;
-    using fr = ScalarField;
-    using Group = curve::BN254::Group;
-    using g1 = Group;
+    // Corresponding native types (used exclusively for testing)
+    using ScalarFieldNative = curve::BN254::ScalarField;
+    using BaseFieldNative = curve::BN254::BaseField;
+    using GroupNative = curve::BN254::Group;
 
+    // Stdlib types corresponding to those defined in the native description of the curve.
+    // Note: its useful to have these type names match the native analog exactly so that components that digest a Curve
+    // (e.g. Gemini) can be agnostic as to whether they're operating on native or stdlib types.
+    using ScalarField = field_t<CircuitBuilder>;
+    using BaseField = bigfield<CircuitBuilder, barretenberg::Bn254FqParams>;
+    using Group = element<CircuitBuilder, BaseField, ScalarField, GroupNative>;
+    using Element = Group;
+    using AffineElement = Group;
+
+    // Additional types with no analog in the native description of the curve
     using Builder = CircuitBuilder;
     using Composer = CircuitBuilder;
+<<<<<<< HEAD
     using witness_ct = witness_t<CircuitBuilder> ;
     using public_witness_ct = public_witness_t<CircuitBuilder> ;
     using fr_ct = field_t<CircuitBuilder> ;
@@ -31,6 +43,16 @@ template <typename CircuitBuilder> struct bn254 {
     using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams> ;
     using g1_ct = element<CircuitBuilder, fq_ct, fr_ct, Group> ;
     using g1_bigfr_ct = element<CircuitBuilder, fq_ct, bigfr_ct, Group> ;
+=======
+    using witness_ct = witness_t<CircuitBuilder>;
+    using public_witness_ct = public_witness_t<CircuitBuilder>;
+    using byte_array_ct = byte_array<CircuitBuilder>;
+    using bool_ct = bool_t<CircuitBuilder>;
+    using uint32_ct = stdlib::uint32<CircuitBuilder>;
+
+    using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams>;
+    using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
+>>>>>>> origin/master
 
 }; // namespace bn254
 } // namespace stdlib

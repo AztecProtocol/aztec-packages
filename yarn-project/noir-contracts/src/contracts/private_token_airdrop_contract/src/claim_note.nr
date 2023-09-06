@@ -35,6 +35,7 @@ impl ClaimNote {
     }
 
     fn compute_note_hash(self) -> Field {
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             self.value, 
             self.secret_hash,
@@ -43,18 +44,11 @@ impl ClaimNote {
 
     fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ClaimNoteMethods, self);
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             note_hash_for_nullify,
             self.secret_hash, // Include the secret_hash again so that the public won't know the note has been claimed.
         ])[0]
-    }
-
-    fn dummy() -> Self {
-        ClaimNote {
-            value: 0,
-            secret_hash: 0,
-            header: NoteHeader::empty(),
-        }
     }
 
     fn set_header(&mut self, header: NoteHeader) {
@@ -78,10 +72,6 @@ fn compute_nullifier(note: ClaimNote) -> Field {
     note.compute_nullifier()
 }
 
-fn dummy() -> ClaimNote {
-    ClaimNote::dummy()
-}
-
 fn get_header(note: ClaimNote) -> NoteHeader {
     note.header
 }
@@ -95,7 +85,6 @@ global ClaimNoteMethods = NoteInterface {
     serialise,
     compute_note_hash,
     compute_nullifier,
-    dummy,
     get_header,
     set_header,
 };

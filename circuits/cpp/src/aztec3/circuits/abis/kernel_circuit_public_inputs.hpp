@@ -28,7 +28,7 @@ template <typename NCT> struct KernelCircuitPublicInputs {
 
     boolean operator==(KernelCircuitPublicInputs<NCT> const& other) const
     {
-        return end == other.end && constants == other.constants && is_private == other.is_private;
+        return msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Builder> KernelCircuitPublicInputs<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
@@ -74,14 +74,5 @@ template <typename NCT> struct KernelCircuitPublicInputs {
         fr(is_private).set_public();
     }
 };
-
-template <typename NCT> std::ostream& operator<<(std::ostream& os, KernelCircuitPublicInputs<NCT> const& public_inputs)
-{
-    return os << "end:\n"
-              << public_inputs.end << "\n"
-              << "constants:\n"
-              << public_inputs.constants << "\n"
-              << "is_private: " << public_inputs.is_private << "\n";
-}
 
 }  // namespace aztec3::circuits::abis

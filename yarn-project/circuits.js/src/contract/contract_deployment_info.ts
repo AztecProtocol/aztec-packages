@@ -1,13 +1,13 @@
 import {
   computeContractAddress,
   computeFunctionTreeRoot,
-  computePartialContractAddress,
+  computePartialAddress,
   computeVarArgsHash,
   hashConstructor,
 } from '@aztec/circuits.js/abis';
-import { ContractAbi, encodeArguments, generateFunctionSelector } from '@aztec/foundation/abi';
+import { ContractAbi, FunctionSelector, encodeArguments } from '@aztec/foundation/abi';
 
-import { CircuitsWasm, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
+import { CircuitsWasm, CompleteAddress, DeploymentInfo, Fr, FunctionData, PublicKey } from '../index.js';
 import { generateFunctionLeaves, hashVKStr, isConstructor } from './contract_tree/contract_tree.js';
 
 /**
@@ -37,7 +37,7 @@ export async function getContractDeploymentInfo(
   const constructorVkHash = Fr.fromBuffer(vkHash);
   const functions = abi.functions.map(f => ({
     ...f,
-    selector: generateFunctionSelector(f.name, f.parameters),
+    selector: FunctionSelector.fromNameAndParameters(f.name, f.parameters),
   }));
   const leaves = generateFunctionLeaves(functions, wasm);
   const functionTreeRoot = computeFunctionTreeRoot(wasm, leaves);
@@ -46,7 +46,9 @@ export async function getContractDeploymentInfo(
   const argsHash = await computeVarArgsHash(wasm, flatArgs);
   const constructorHash = hashConstructor(wasm, functionData, argsHash, constructorVkHash.toBuffer());
 
-  const partialAddress = computePartialContractAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
+  // TODO(benesjan) https://github.com/AztecProtocol/aztec-packages/issues/1873: create computeCompleteAddress
+  // function --> The following is wasteful as it computes partial address twice
+  const partialAddress = computePartialAddress(wasm, contractAddressSalt, functionTreeRoot, constructorHash);
   const contractAddress = computeContractAddress(
     wasm,
     publicKey,
@@ -55,11 +57,11 @@ export async function getContractDeploymentInfo(
     constructorHash,
   );
 
+  const completeAddress = await CompleteAddress.create(contractAddress, publicKey, partialAddress);
+
   return {
-    address: contractAddress,
-    partialAddress,
+    completeAddress,
     constructorHash: constructorVkHash,
     functionTreeRoot,
-    publicKey,
   };
 }

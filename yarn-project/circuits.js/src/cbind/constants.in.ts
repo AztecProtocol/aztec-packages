@@ -1,6 +1,7 @@
+import { fileURLToPath } from '@aztec/foundation/url';
+
 import * as fs from 'fs';
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
 
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 import { callCbind } from './cbind.js';
@@ -110,7 +111,7 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
 function processConstantsNoir(constants: { [key: string]: number }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
-    code.push(`global ${prefix}${key}: comptime Field = ${value};`);
+    code.push(`global ${prefix}${key}: Field = ${value};`);
   });
   return code.join('\n') + '\n';
 }

@@ -1,9 +1,10 @@
-import { AztecAddress, Fr, PublicKey } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
+import { computeGlobalsHash } from '@aztec/circuits.js/abis';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { InterruptableSleep } from '@aztec/foundation/sleep';
-import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType, MerkleTreeId } from '@aztec/types';
+import { AztecNode, INITIAL_L2_BLOCK_NUM, KeyStore, L2BlockContext, LogType } from '@aztec/types';
 
-import { Database, TxDao } from '../database/index.js';
+import { Database } from '../database/index.js';
 import { NoteProcessor } from '../note_processor/index.js';
 
 /**
@@ -18,7 +19,7 @@ export class Synchroniser {
   private noteProcessors: NoteProcessor[] = [];
   private interruptableSleep = new InterruptableSleep();
   private running = false;
-  private initialSyncBlockHeight = 0;
+  private initialSyncBlockNumber = 0;
   private synchedToBlock = 0;
   private log: DebugLogger;
   private noteProcessorsToCatchUp: NoteProcessor[] = [];
@@ -66,13 +67,13 @@ export class Synchroniser {
   }
 
   protected async initialSync() {
-    const [blockNumber, treeRoots] = await Promise.all([
-      this.node.getBlockHeight(),
-      Promise.resolve(this.node.getTreeRoots()),
+    const [blockNumber, historicBlockData] = await Promise.all([
+      this.node.getBlockNumber(),
+      this.node.getHistoricBlockData(),
     ]);
-    this.initialSyncBlockHeight = blockNumber;
-    this.synchedToBlock = this.initialSyncBlockHeight;
-    await this.db.setTreeRoots(treeRoots);
+    this.initialSyncBlockNumber = blockNumber;
+    this.synchedToBlock = this.initialSyncBlockNumber;
+    await this.db.setHistoricBlockData(historicBlockData);
   }
 
   protected async work(limit = 1, retryInterval = 1000): Promise<void> {
@@ -118,7 +119,7 @@ export class Synchroniser {
 
       // Update latest tree roots from the most recent block
       const latestBlock = blockContexts[blockContexts.length - 1];
-      await this.setTreeRootsFromBlock(latestBlock);
+      await this.setBlockDataFromBlock(latestBlock);
 
       this.log(
         `Forwarding ${encryptedLogs.length} encrypted logs and blocks to ${this.noteProcessors.length} note processors`,
@@ -127,11 +128,9 @@ export class Synchroniser {
         await noteProcessor.process(blockContexts, encryptedLogs);
       }
 
-      await this.updateBlockInfoInBlockTxs(blockContexts);
-
       this.synchedToBlock = latestBlock.block.number;
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
@@ -185,27 +184,29 @@ export class Synchroniser {
         this.noteProcessors.push(noteProcessor);
       }
     } catch (err) {
-      this.log(err);
+      this.log.error(err);
       await this.interruptableSleep.sleep(retryInterval);
     }
   }
 
-  private async setTreeRootsFromBlock(latestBlock: L2BlockContext) {
+  private async setBlockDataFromBlock(latestBlock: L2BlockContext) {
     const { block } = latestBlock;
-    if (block.number < this.initialSyncBlockHeight) return;
+    if (block.number < this.initialSyncBlockNumber) return;
 
-    const roots: Record<MerkleTreeId, Fr> = {
-      [MerkleTreeId.CONTRACT_TREE]: block.endContractTreeSnapshot.root,
-      [MerkleTreeId.PRIVATE_DATA_TREE]: block.endPrivateDataTreeSnapshot.root,
-      [MerkleTreeId.NULLIFIER_TREE]: block.endNullifierTreeSnapshot.root,
-      [MerkleTreeId.PUBLIC_DATA_TREE]: block.endPublicDataTreeRoot,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_TREE]: block.endL1ToL2MessageTreeSnapshot.root,
-      [MerkleTreeId.L1_TO_L2_MESSAGES_ROOTS_TREE]: block.endTreeOfHistoricL1ToL2MessageTreeRootsSnapshot.root,
-      [MerkleTreeId.CONTRACT_TREE_ROOTS_TREE]: block.endTreeOfHistoricContractTreeRootsSnapshot.root,
-      [MerkleTreeId.PRIVATE_DATA_TREE_ROOTS_TREE]: block.endTreeOfHistoricPrivateDataTreeRootsSnapshot.root,
-      [MerkleTreeId.BLOCKS_TREE]: Fr.ZERO, // Mocked for this pr - see #1162
-    };
-    await this.db.setTreeRoots(roots);
+    const wasm = await CircuitsWasm.get();
+    const globalsHash = computeGlobalsHash(wasm, latestBlock.block.globalVariables);
+    const blockData = new HistoricBlockData(
+      block.endPrivateDataTreeSnapshot.root,
+      block.endNullifierTreeSnapshot.root,
+      block.endContractTreeSnapshot.root,
+      block.endL1ToL2MessageTreeSnapshot.root,
+      block.endHistoricBlocksTreeSnapshot.root,
+      Fr.ZERO, // todo: private kernel vk tree root
+      block.endPublicDataTreeRoot,
+      globalsHash,
+    );
+
+    await this.db.setHistoricBlockData(blockData);
   }
 
   /**
@@ -241,17 +242,18 @@ export class Synchroniser {
   }
 
   /**
-   * Returns true if the account specified by the given address is synched to the latest block
-   * @param account - The aztec address for which to query the sync status
-   * @returns True if the account is fully synched, false otherwise
+   * Checks if the specified account is synchronised.
+   * @param account - The aztec address for which to query the sync status.
+   * @returns True if the account is fully synched, false otherwise.
+   * @remarks Checks whether all the notes from all the blocks have been processed. If it is not the case, the
+   *          retrieved information from contracts might be old/stale (e.g. old token balance).
    */
-  public async isAccountSynchronised(account: AztecAddress) {
-    const result = await this.db.getPublicKeyAndPartialAddress(account);
-    if (!result) {
+  public async isAccountStateSynchronised(account: AztecAddress) {
+    const completeAddress = await this.db.getCompleteAddress(account);
+    if (!completeAddress) {
       return false;
     }
-    const publicKey = result[0];
-    const processor = this.noteProcessors.find(x => x.publicKey.equals(publicKey));
+    const processor = this.noteProcessors.find(x => x.publicKey.equals(completeAddress.publicKey));
     if (!processor) {
       return false;
     }
@@ -259,12 +261,13 @@ export class Synchroniser {
   }
 
   /**
-   * Return true if the top level block synchronisation is up to date
-   * This indicates that blocks and transactions are synched even if notes are not
-   * @returns True if there are no outstanding blocks to be synched
+   * Checks whether all the blocks were processed (tree roots updated, txs updated with block info, etc.).
+   * @returns True if there are no outstanding blocks to be synched.
+   * @remarks This indicates that blocks and transactions are synched even if notes are not.
+   * @remarks Compares local block number with the block number from aztec node.
    */
-  public async isSynchronised() {
-    const latest = await this.node.getBlockHeight();
+  public async isGlobalStateSynchronised() {
+    const latest = await this.node.getBlockNumber();
     return latest <= this.synchedToBlock;
   }
 
@@ -277,30 +280,5 @@ export class Synchroniser {
       blocks: this.synchedToBlock,
       notes: Object.fromEntries(this.noteProcessors.map(n => [n.publicKey.toString(), n.status.syncedToBlock])),
     };
-  }
-
-  /**
-   * Updates the block information for all transactions in a given block context.
-   * The function retrieves transaction data objects from the database using their hashes,
-   * sets the block hash and block number to the corresponding values, and saves the updated
-   * transaction data back to the database. If a transaction is not found in the database,
-   * an informational message is logged.
-   *
-   * @param blockContexts - The L2BlockContext objects containing the block information and related data.
-   */
-  private async updateBlockInfoInBlockTxs(blockContexts: L2BlockContext[]) {
-    for (const blockContext of blockContexts) {
-      for (const txHash of blockContext.getTxHashes()) {
-        const txDao: TxDao | undefined = await this.db.getTx(txHash);
-        if (txDao !== undefined) {
-          txDao.blockHash = blockContext.getBlockHash();
-          txDao.blockNumber = blockContext.block.number;
-          await this.db.addTx(txDao);
-          this.log(`Updated tx with hash ${txHash.toString()} from block ${blockContext.block.number}`);
-        } else if (!txHash.isZero()) {
-          this.log(`Tx with hash ${txHash.toString()} from block ${blockContext.block.number} not found in db`);
-        }
-      }
-    }
   }
 }

@@ -1,4 +1,3 @@
-const { match } = require("assert");
 const fs = require("fs");
 const path = require("path");
 
@@ -59,25 +58,29 @@ function processHighlighting(codeSnippet, identifier) {
   return result.trim();
 }
 
+/**
+ * Parse a code file, looking for identifiers of the form:
+ * `docs:start:${identifier}` and `docs:end:{identifier}`.
+ * Extract that section of code.
+ *
+ * It's complicated if code snippet identifiers overlap (i.e. the 'start' of one code snippet is in the
+ * middle of another code snippet). The extra logic in this function searches for all identifiers, and
+ * removes any which fall within the bounds of the code snippet for this particular `identifier` param.
+ * @param {string} filePath
+ * @param {string} identifier
+ * @returns the code snippet, and start and end line numbers which can later be used for creating a link to github source code.
+ */
 function extractCodeSnippet(filePath, identifier) {
   let fileContent = fs.readFileSync(filePath, "utf-8");
   let lineRemovalCount = 0;
   let linesToRemove = [];
 
-  // const startCommonRegexStr = "docs:start:([a-zA-Z0-9-:]+)";
-  // const startRegexStr = `\/\/\s+${startCommonRegexStr}|#s+${startCommonRegexStr}`; // Allow for languages with `//` and `#` comment symbols.
-  // const startRegex = new RegExp(startRegexStr, "g");
-
-  // const endCommonRegexStr = "docs:end:([a-zA-Z0-9-:]+)";
-  // const endRegexStr = `\/\/\s+${endCommonRegexStr}|#s+${endCommonRegexStr}`; // Allow for languages with `//` and `#` comment symbols.
-  // const endRegex = new RegExp(endRegexStr, "g");
-
   const startRegex = /(?:\/\/|#)\s+docs:start:([a-zA-Z0-9-._:]+)/g; // `g` will iterate through the regex.exec loop
   const endRegex = /(?:\/\/|#)\s+docs:end:([a-zA-Z0-9-._:]+)/g;
 
-  // const startRegex = /\/\/\s+docs:start:([a-zA-Z0-9-:]+)/g; // `g` will iterate through the regex.exec loop
-  // const endRegex = /\/\/\s+docs:end:([a-zA-Z0-9-:]+)/g;
-
+  /**
+   * Search for one of the regex statements in the code file. If it's found, return the line as a string and the line number.
+   */
   const lookForMatch = (regex) => {
     let match;
     let matchFound = false;
@@ -90,11 +93,11 @@ function extractCodeSnippet(filePath, identifier) {
         let tempMatch = identifiers.includes(identifier) ? match : null;
 
         if (tempMatch === null) {
-          // If it's not a match, we'll make a note that we should remove the matched text, because it's from some other identifier and should appear in the snippet for this identifier.
+          // If it's not a match, we'll make a note that we should remove the matched text, because it's from some other identifier and should not appear in the snippet for this identifier.
           for (let i = 0; i < lines.length; i++) {
             let line = lines[i];
             if (line.trim() == match[0].trim()) {
-              linesToRemove.push(i);
+              linesToRemove.push(i + 1); // lines are indexed from 1
               ++lineRemovalCount;
             }
           }
@@ -114,9 +117,10 @@ function extractCodeSnippet(filePath, identifier) {
     return [actualMatch, matchedLineNum];
   };
 
-  let [startMatch, lineNum1] = lookForMatch(startRegex);
-  let [endMatch, lineNum2] = lookForMatch(endRegex);
+  let [startMatch, startLineNum] = lookForMatch(startRegex);
+  let [endMatch, endLineNum] = lookForMatch(endRegex);
 
+  // Double-check that the extracted line actually contains the required start and end identifier.
   if (startMatch !== null) {
     const startIdentifiers = startMatch[1].split(":");
     startMatch = startIdentifiers.includes(identifier) ? startMatch : null;
@@ -142,30 +146,31 @@ function extractCodeSnippet(filePath, identifier) {
     }
   }
 
-  let startIndex = startMatch.index;
-  let endIndex = endMatch.index;
-
   let lines = fileContent.split("\n");
 
-  lines = lines.filter((l, i) => {
-    return !linesToRemove.includes(i);
+  // We only want to remove lines which actually fall within the bounds of our code snippet, so narrow down the list of lines that we actually want to remove.
+  linesToRemove = linesToRemove.filter((lineNum) => {
+    const removal_in_bounds = lineNum >= startLineNum && lineNum <= endLineNum;
+    return removal_in_bounds;
   });
 
+  // Remove lines which contain `docs:` comments for unrelated identifiers:
   lines = lines.filter((l, i) => {
-    return i + 1 > lineNum1 && i + 1 < lineNum2 - lineRemovalCount;
+    return !linesToRemove.includes(i + 1); // lines are indexed from 1
   });
 
-  fileContent = lines.join("\n");
+  // Remove lines from the snippet which fall outside the `docs:start` and `docs:end` values.
+  lines = lines.filter((l, i) => {
+    return i + 1 > startLineNum && i + 1 < endLineNum - linesToRemove.length; // lines are indexed from 1
+  });
 
+  // We have our code snippet!
   let codeSnippet = lines.join("\n");
 
-  const startLine = getLineNumberFromIndex(fileContent, startIndex) + 1;
-  const endLine =
-    getLineNumberFromIndex(fileContent, endIndex) - 1 - lineRemovalCount;
-
+  // The code snippet might contain some docusaurus highlighting comments for other identifiers. We should remove those.
   codeSnippet = processHighlighting(codeSnippet, identifier);
 
-  return [codeSnippet, startLine, endLine];
+  return [codeSnippet, startLineNum, endLineNum];
 }
 
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
@@ -192,8 +197,19 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
         matchesFound = true;
         const fullMatch = match[0];
         const identifier = match[1];
-        const codeFilePath = match[2]; // Absolute path to the code file from the root of the Docusaurus project
+        let codeFilePath = match[2];
         const language = match[3];
+        const opts = match[4] || "";
+
+        if (codeFilePath.slice(0) != "/") {
+          // Absolute path to the code file from the root of the Docusaurus project
+          // Note: without prefixing with `/`, the later call to `path.resolve()` gives an incorrect path (absolute instead of relative)
+          codeFilePath = `/${codeFilePath}`;
+        }
+
+        const noTitle = opts.includes("noTitle");
+        const noLineNumbers = opts.includes("noLineNumbers");
+        const noSourceLink = opts.includes("noSourceLink");
 
         try {
           const absoluteCodeFilePath = path.join(rootDir, codeFilePath);
@@ -204,12 +220,16 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
             identifier
           );
 
-          const url = `https://github.com/AztecProtocol/aztec-packages/blob/master/${path.resolve(
-            rootDir,
-            codeFilePath
-          )}#L${startLine}-L${endLine}`;
+          const relativeCodeFilePath = path.resolve(rootDir, codeFilePath);
 
-          const replacement = `\`\`\`${language} title="${identifier}" showLineNumbers \n${codeSnippet}\n\`\`\`\n> [<sup><sub>Source code: ${url}</sub></sup>](${url})\n`;
+          const url = `https://github.com/AztecProtocol/aztec-packages/blob/master/${relativeCodeFilePath}#L${startLine}-L${endLine}`;
+
+          const title = noTitle ? "" : `title="${identifier}"`;
+          const lineNumbers = noLineNumbers ? "" : "showLineNumbers";
+          const source = noSourceLink
+            ? ""
+            : `\n> [<sup><sub>Source code: ${url}</sub></sup>](${url})`;
+          const replacement = `\`\`\`${language} ${title} ${lineNumbers} \n${codeSnippet}\n\`\`\`${source}\n`;
 
           // Replace the include tag with the code snippet
           updatedContent = updatedContent.replace(fullMatch, replacement);
@@ -217,14 +237,8 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
           const lineNum = getLineNumberFromIndex(markdownContent, match.index);
           let wrapped_msg = `Error processing "${filePath}:${lineNum}": ${error.message}.`;
 
-          // Let's just output a warning, so we don't ruin our development experience.
-          // throw new Error(wrapped_msg);
-          console.warn(
-            "\n\x1b[33m%s\x1b[0m%s",
-            "[WARNING] ",
-            wrapped_msg,
-            "\n"
-          );
+          // We were warning here, but code snippets were being broken. So making this throw an error instead:
+          throw new Error(`${wrapped_msg}\n`);
         }
       }
 
@@ -243,8 +257,6 @@ async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
 
 async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
   let writePromises = [];
-
-  // if (!Array.isArray(content)) throw new Error("NOT AN ARRAY!!!!");
 
   if (Array.isArray(content)) {
     // It's a dir
@@ -352,7 +364,8 @@ async function run() {
    * `/gm`
    *   - match globally (g) across the entire input text and consider multiple lines (m) when matching. This is necessary to handle multiple include tags throughout the markdown content.
    */
-  const regex = /^(?!<!--.*)(?=.*#include_code\s+(\S+)\s+(\S+)\s+(\S+)).*$/gm;
+  const regex =
+    /^(?!<!--.*)(?=.*#include_code\s+(\S+)\s+(\S+)\s+(\S+)(?:[ ]+(\S+))?).*$/gm;
 
   const content = await processMarkdownFilesInDir(rootDir, docsDir, regex);
 

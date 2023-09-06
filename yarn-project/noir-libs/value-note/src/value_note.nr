@@ -6,18 +6,18 @@ use dep::aztec::note::{
 use dep::aztec::oracle::{
     rand::rand,
     get_secret_key::get_secret_key,
-    get_public_key::get_public_key,
 };
-use dep::aztec::types::point::Point;
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 
+// docs:start:value-note-def
 struct ValueNote {
     value: Field,
     owner: Field,
     randomness: Field,
     header: NoteHeader,
 }
+// docs:end:value-note-def
 
 impl ValueNote {
     fn new(value: Field, owner: Field) -> Self {
@@ -45,6 +45,7 @@ impl ValueNote {
     }
 
     fn compute_note_hash(self) -> Field {
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             self.value, 
             self.owner,
@@ -52,26 +53,19 @@ impl ValueNote {
         ])[0]
     }
 
+    // docs:start:nullifier
+
     fn compute_nullifier(self) -> Field {
         let note_hash_for_nullify = compute_note_hash_for_read_or_nullify(ValueNoteMethods, self);
-        let owner_nullifying_public_key = get_public_key(self.owner);
-        // TODO: get_secret_key should just accept an address
-        // TODO!
-        let secret = get_secret_key(owner_nullifying_public_key);
+        let secret = get_secret_key(self.owner);
+        // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             note_hash_for_nullify,
             secret,
         ])[0]
     }
 
-    fn dummy() -> Self {
-        ValueNote {
-            value: 0,
-            owner: 0,
-            randomness: 0,
-            header: NoteHeader::empty(),
-        }
-    }
+    // docs:end:nullifier
 
     fn set_header(&mut self, header: NoteHeader) {
         self.header = header;
@@ -94,10 +88,6 @@ fn compute_nullifier(note: ValueNote) -> Field {
     note.compute_nullifier()
 }
 
-fn dummy() -> ValueNote {
-    ValueNote::dummy()
-}
-
 fn get_header(note: ValueNote) -> NoteHeader {
     note.header
 }
@@ -111,7 +101,6 @@ global ValueNoteMethods = NoteInterface {
     serialise,
     compute_note_hash,
     compute_nullifier,
-    dummy,
     get_header,
     set_header,
 };

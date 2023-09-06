@@ -1,12 +1,11 @@
 import {
+  CompleteAddress,
   ContractDeploymentData,
   FunctionData,
-  PartialContractAddress,
   TxContext,
   getContractDeploymentInfo,
 } from '@aztec/circuits.js';
 import { ContractAbi, FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
-import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecRPC, PackedArguments, PublicKey, Tx, TxExecutionRequest } from '@aztec/types';
@@ -35,11 +34,8 @@ export interface DeployOptions extends SendMethodOptions {
  * Extends the ContractFunctionInteraction class.
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
-  /** The partially computed contract address. Known after creation of the deployment transaction. */
-  public partialContractAddress?: PartialContractAddress = undefined;
-
-  /** The complete contract address. */
-  public completeContractAddress?: AztecAddress = undefined;
+  /** The complete address of the contract. */
+  public completeAddress?: CompleteAddress = undefined;
 
   /** Constructor function to call. */
   private constructorAbi: FunctionAbi;
@@ -66,7 +62,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
     const { chainId, version } = await this.rpc.getNodeInfo();
 
-    const { address, constructorHash, functionTreeRoot, partialAddress } = await getContractDeploymentInfo(
+    const { completeAddress, constructorHash, functionTreeRoot } = await getContractDeploymentInfo(
       this.abi,
       this.args,
       contractAddressSalt,
@@ -84,7 +80,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     const txContext = new TxContext(false, false, true, contractDeploymentData, new Fr(chainId), new Fr(version));
     const args = encodeArguments(this.constructorAbi, this.args);
     const functionData = FunctionData.fromAbi(this.constructorAbi);
-    const execution = { args, functionData, to: address };
+    const execution = { args, functionData, to: completeAddress.address };
     const packedArguments = await PackedArguments.fromArgs(execution.args);
 
     const txRequest = TxExecutionRequest.from({
@@ -96,11 +92,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     });
 
     this.txRequest = txRequest;
-    this.partialContractAddress = partialAddress;
-    this.completeContractAddress = address;
+    this.completeAddress = completeAddress;
 
     // TODO: Should we add the contracts to the DB here, or once the tx has been sent or mined?
-    await this.rpc.addContracts([{ abi: this.abi, address, portalContract }]);
+    await this.rpc.addContracts([{ abi: this.abi, completeAddress, portalContract }]);
 
     return this.txRequest;
   }

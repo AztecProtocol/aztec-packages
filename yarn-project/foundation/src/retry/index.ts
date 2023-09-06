@@ -2,6 +2,9 @@ import { createDebugLogger } from '../log/index.js';
 import { sleep } from '../sleep/index.js';
 import { Timer } from '../timer/index.js';
 
+/** An error that indicates that the operation should not be retried. */
+export class NoRetryError extends Error {}
+
 /**
  * Generates a backoff sequence for retrying operations with an increasing delay.
  * The backoff sequence follows this pattern: 1, 1, 1, 2, 4, 8, 16, 32, 64, ...
@@ -19,6 +22,17 @@ export function* backoffGenerator() {
 }
 
 /**
+ * Generates a backoff sequence based on the array of retry intervals to use with the `retry` function.
+ * @param retries - Intervals to retry (in seconds).
+ * @returns A generator sequence.
+ */
+export function* makeBackoff(retries: number[]) {
+  for (const retry of retries) {
+    yield retry;
+  }
+}
+
+/**
  * Retry a given asynchronous function with a specific backoff strategy, until it succeeds or backoff generator ends.
  * It logs the error and retry interval in case an error is caught. The function can be named for better log output.
  *
@@ -26,24 +40,31 @@ export function* backoffGenerator() {
  * @param name - The optional name of the operation, used for logging purposes.
  * @param backoff - The optional backoff generator providing the intervals in seconds between retries. Defaults to a predefined series.
  * @param log - Logger to use for logging.
+ * @param failSilently - Do not log errors while retrying.
  * @returns A Promise that resolves with the successful result of the provided function, or rejects if backoff generator ends.
+ * @throws If `NoRetryError` is thrown by the `fn`, it is rethrown.
  */
 export async function retry<Result>(
   fn: () => Promise<Result>,
   name = 'Operation',
   backoff = backoffGenerator(),
   log = createDebugLogger('aztec:foundation:retry'),
+  failSilently = false,
 ) {
   while (true) {
     try {
       return await fn();
     } catch (err: any) {
+      if (err instanceof NoRetryError) {
+        // A special error that indicates that the operation should not be retried. Rethrow it.
+        throw err;
+      }
       const s = backoff.next().value;
       if (s === undefined) {
         throw err;
       }
       log(`${name} failed. Will retry in ${s}s...`);
-      log(err);
+      !failSilently && log.error(err);
       await sleep(s * 1000);
       continue;
     }

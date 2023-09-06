@@ -28,6 +28,8 @@ template <typename NCT, typename V> struct DefaultPrivateNotePreimage {
     std::optional<fr> nonce;
 
     boolean is_dummy = false;
+    // For serialization, update with new fields
+    MSGPACK_FIELDS(value, owner, creator_address, memo, salt, nonce, is_dummy);
 
     bool operator==(DefaultPrivateNotePreimage<NCT, V> const&) const = default;
 
@@ -97,44 +99,5 @@ template <typename NCT, typename V> struct DefaultPrivateNotePreimage {
         return preimage;
     };
 };
-
-template <typename NCT, typename V> void read(uint8_t const*& it, DefaultPrivateNotePreimage<NCT, V>& preimage)
-{
-    using serialize::read;
-
-    read(it, preimage.value);
-    read(it, preimage.owner);
-    read(it, preimage.creator_address);
-    read(it, preimage.memo);
-    read(it, preimage.salt);
-    read(it, preimage.nonce);
-    read(it, preimage.is_dummy);
-};
-
-template <typename NCT, typename V>
-void write(std::vector<uint8_t>& buf, DefaultPrivateNotePreimage<NCT, V> const& preimage)
-{
-    using serialize::write;
-
-    write(buf, preimage.value);
-    write(buf, preimage.owner);
-    write(buf, preimage.creator_address);
-    write(buf, preimage.memo);
-    write(buf, preimage.salt);
-    write(buf, preimage.nonce);
-    write(buf, preimage.is_dummy);
-};
-
-template <typename NCT, typename V>
-std::ostream& operator<<(std::ostream& os, DefaultPrivateNotePreimage<NCT, V> const& preimage)
-{
-    return os << "value: " << preimage.value << "\n"
-              << "owner: " << preimage.owner << "\n"
-              << "creator_address: " << preimage.creator_address << "\n"
-              << "memo: " << preimage.memo << "\n"
-              << "salt: " << preimage.salt << "\n"
-              << "nonce: " << preimage.nonce << "\n"
-              << "is_dummy: " << preimage.is_dummy << "\n";
-}
 
 }  // namespace aztec3::circuits::apps::notes

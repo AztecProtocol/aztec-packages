@@ -6,6 +6,8 @@
 
 #include "../../fields/field.hpp"
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
+
 namespace barretenberg {
 class Bn254FrParams {
   public:
@@ -61,9 +63,13 @@ class Bn254FrParams {
         0x463456c802275bedULL, 0x543ece899c2f3b1cULL, 0x180a96573d3d9f8ULL,  0xf8b21270ddbb927ULL,
         0x1d9598e8a7e39857ULL, 0x2ba010aa41eb7786ULL, 0x39aa886bdbf356b5ULL, 0x47b5002d75fb35e5ULL,
     };
+    // used in msgpack schema serialization
     static constexpr char schema_name[] = "fr";
+    static constexpr bool has_high_2adicity = true;
 };
 
-typedef field<Bn254FrParams> fr;
+using fr = field<Bn254FrParams>;
 
 } // namespace barretenberg
+
+// NOLINTEND(cppcoreguidelines-avoid-c-arrays)

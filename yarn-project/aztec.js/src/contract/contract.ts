@@ -19,10 +19,11 @@ export class Contract extends ContractBase {
    * @param wallet - The wallet to use when interacting with the contract.
    * @returns A promise that resolves to a new Contract instance.
    */
-  public static async create(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
-    if (!(await wallet.isContractDeployed(address))) {
+  public static async at(address: AztecAddress, abi: ContractAbi, wallet: Wallet): Promise<Contract> {
+    const extendedContractData = await wallet.getExtendedContractData(address);
+    if (extendedContractData === undefined) {
       throw new Error('Contract ' + address.toString() + ' is not deployed');
     }
-    return new Contract(address, abi, wallet);
+    return new Contract(extendedContractData.getCompleteAddress(), abi, wallet);
   }
 }

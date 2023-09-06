@@ -23,6 +23,7 @@ COPY aztec-node/package.json aztec-node/package.json
 COPY aztec-sandbox/package.json aztec-sandbox/package.json
 COPY aztec.js/package.json aztec.js/package.json
 COPY aztec.js/package.local.json aztec.js/package.local.json
+COPY canary/package.json canary/package.json
 COPY docs/package.json docs/package.json
 COPY end-to-end/package.json end-to-end/package.json
 COPY ethereum/package.json ethereum/package.json
@@ -43,7 +44,7 @@ COPY types/package.json types/package.json
 COPY world-state/package.json world-state/package.json
 COPY yarn-project-base/package.json yarn-project-base/package.json
 
-# Copy root files
+# Copy root files.
 COPY package.json package.*.json tsconfig.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
 
@@ -55,7 +56,7 @@ RUN echo "enableNetwork: false" >> .yarnrc.yml
 # Yarn devs won't provide an extremely simple and useful feature of pruning dev dependencies from the local cache:
 # https://github.com/yarnpkg/berry/issues/1789
 #
-# To work around this, we construct a global cache from the local cache using hard links (requires a hacky rename).
+# To work around this, we will construct a global cache from the local cache using hard links (requires a hacky rename).
 # When we build an upstream docker image, we:
 # - Do the build.
 # - Erase the local cache with a `yarn cache clean`. Files remain in global cache due to hard link.
@@ -82,6 +83,7 @@ COPY aztec-rpc/tsconfig.json aztec-rpc/tsconfig.json
 COPY aztec-node/tsconfig.json aztec-node/tsconfig.json
 COPY aztec-sandbox/tsconfig.json aztec-sandbox/tsconfig.json
 COPY aztec.js/tsconfig.json aztec.js/tsconfig.json
+COPY canary/tsconfig.json canary/tsconfig.json
 COPY end-to-end/tsconfig.json end-to-end/tsconfig.json
 COPY ethereum/tsconfig.json ethereum/tsconfig.json
 COPY foundation/tsconfig.json foundation/tsconfig.json

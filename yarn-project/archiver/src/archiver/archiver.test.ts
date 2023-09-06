@@ -3,14 +3,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { ContractDeploymentEmitterAbi, InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import {
-  ContractData,
-  ContractPublicData,
-  EncodedContractFunction,
-  L2Block,
-  L2BlockL2Logs,
-  LogType,
-} from '@aztec/types';
+import { ExtendedContractData, L2Block, L2BlockL2Logs, LogType } from '@aztec/types';
 
 import { MockProxy, mock } from 'jest-mock-extended';
 import { Chain, HttpTransport, Log, PublicClient, Transaction, encodeFunctionData, toHex } from 'viem';
@@ -42,7 +35,7 @@ describe('Archiver', () => {
       1000,
     );
 
-    let latestBlockNum = await archiver.getBlockHeight();
+    let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
     const blocks = blockNums.map(x => L2Block.random(x, 4, x, x + 1, x * 2, x * 3));
@@ -95,11 +88,11 @@ describe('Archiver', () => {
     await archiver.start(false);
 
     // Wait until block 3 is processed. If this won't happen the test will fail with timeout.
-    while ((await archiver.getBlockHeight()) !== 3) {
+    while ((await archiver.getBlockNumber()) !== 3) {
       await sleep(100);
     }
 
-    latestBlockNum = await archiver.getBlockHeight();
+    latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(3);
 
     // Check that only 2 messages (l1ToL2MessageAddedEvents[3][2] and l1ToL2MessageAddedEvents[3][3]) are pending.
@@ -155,21 +148,18 @@ function makeL2BlockProcessedEvent(l1BlockNum: bigint, l2BlockNum: bigint) {
  * @returns An ContractDeployment event.
  */
 function makeContractDeploymentEvent(l1BlockNum: bigint, l2Block: L2Block) {
-  // const contractData = ContractData.random();
-  const aztecAddress = AztecAddress.random();
-  const portalAddress = EthAddress.random();
-  const contractData = new ContractPublicData(new ContractData(aztecAddress, portalAddress), [
-    EncodedContractFunction.random(),
-    EncodedContractFunction.random(),
-  ]);
-  const acir = contractData.bytecode?.toString('hex');
+  const extendedContractData = ExtendedContractData.random();
+  const acir = extendedContractData.bytecode?.toString('hex');
   return {
     blockNumber: l1BlockNum,
     args: {
       l2BlockNum: BigInt(l2Block.number),
-      aztecAddress: aztecAddress.toString(),
-      portalAddress: portalAddress.toString(),
+      aztecAddress: extendedContractData.contractData.contractAddress.toString(),
+      portalAddress: extendedContractData.contractData.portalContractAddress.toString(),
       l2BlockHash: `0x${l2Block.getCalldataHash().toString('hex')}`,
+      partialAddress: extendedContractData.partialAddress.toString(true),
+      pubKeyX: extendedContractData.publicKey.x.toString(true),
+      pubKeyY: extendedContractData.publicKey.y.toString(true),
       acir: '0x' + acir,
     },
     transactionHash: `0x${l2Block.number}`,

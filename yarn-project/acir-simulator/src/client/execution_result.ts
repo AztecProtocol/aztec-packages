@@ -1,4 +1,5 @@
 import { PrivateCallStackItem, PublicCallRequest, ReadRequestMembershipWitness } from '@aztec/circuits.js';
+import { DecodedReturn } from '@aztec/foundation/abi';
 import { Fr } from '@aztec/foundation/fields';
 import { FunctionL2Logs } from '@aztec/types';
 
@@ -56,7 +57,7 @@ export interface ExecutionResult {
   /** The preimages of the executed function. */
   preimages: ExecutionPreimages;
   /** The decoded return values of the executed function. */
-  returnValues: any[];
+  returnValues: DecodedReturn;
   /** The nested executions. */
   nestedExecutions: this[];
   /** Enqueued public function execution requests to be picked up by the sequencer. */
@@ -99,9 +100,10 @@ export function collectUnencryptedLogs(execResult: ExecutionResult): FunctionL2L
  * @returns All enqueued public function calls.
  */
 export function collectEnqueuedPublicFunctionCalls(execResult: ExecutionResult): PublicCallRequest[] {
-  // without the .reverse(), the logs will be in a queue like fashion which is wrong as the kernel processes it like a stack.
+  // without the reverse sort, the logs will be in a queue like fashion which is wrong
+  // as the kernel processes it like a stack, popping items off and pushing them to output
   return [
     ...execResult.enqueuedPublicFunctionCalls,
-    ...[...execResult.nestedExecutions].reverse().flatMap(collectEnqueuedPublicFunctionCalls),
-  ];
+    ...[...execResult.nestedExecutions].flatMap(collectEnqueuedPublicFunctionCalls),
+  ].sort((a, b) => b.sideEffectCounter! - a.sideEffectCounter!); // REVERSE SORT!
 }

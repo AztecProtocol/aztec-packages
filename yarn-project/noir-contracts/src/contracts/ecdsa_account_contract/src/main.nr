@@ -5,16 +5,12 @@ mod ecdsa_public_key_note;
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
     use dep::std;
+    use dep::std::option::Option;
     use dep::aztec::entrypoint;
     use dep::aztec::entrypoint::EntrypointPayload;
-    use dep::aztec::abi;
-    use dep::aztec::abi::PrivateContextInputs;
     use dep::aztec::abi::CallContext;
-    use dep::aztec::context::Context;
     use dep::aztec::log::emit_encrypted_log;
     use dep::aztec::oracle::get_public_key::get_public_key;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
     use dep::aztec::types::vec::BoundedVec;
     use dep::aztec::types::point::Point;
     use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
@@ -31,64 +27,52 @@ contract EcdsaAccount {
     use crate::ecdsa_public_key_note::ECDSA_PUBLIC_KEY_NOTE_LEN;
 
     // All calls made by this account will be routed through this entrypoint
+    #[aztec(private)]
     fn entrypoint(  
-        inputs: pub PrivateContextInputs,
         payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
         signature: pub [u8;64],
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        
-        // Initialise context
-        // ENTRYPOINT_PAYLOAD_SIZE(13) + 64
-        let mut args: BoundedVec<Field, 77> = BoundedVec::new(0);
-        args.push_array(payload.serialize());
-        for byte in signature { args.push(byte as Field); }
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
-
+    ) {
         // Load public key from storage
-        let storage = Storage::init();
-        let public_key = storage.public_key.get_note(&mut context);
+        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let public_key = storage.public_key.get_note();
 
         // Verify payload signature using Ethereum's signing scheme
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let payload_fields: [Field; entrypoint::ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
         let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        let message_bytes = message_field.to_be_bytes(32);
+        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+        let message_bytes_slice = message_field.to_be_bytes(32);
+        let mut message_bytes: [u8; 32] = [0; 32];
+        for i in 0..32 {
+          message_bytes[i] = message_bytes_slice[i];
+        }
         let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
         let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
         assert(verification == true);
 
         payload.execute_calls(&mut context);
-
-        context.finish()
     }
 
+
     // Creates a new account out of an ECDSA public key to use for signature verification
+    #[aztec(private)]
     fn constructor(
-        inputs: pub PrivateContextInputs,
         signing_pub_key_x: pub [u8;32],
         signing_pub_key_y: pub [u8;32],
-    ) -> distinct pub abi::PrivateCircuitPublicInputs {
-        let storage = Storage::init();
+    ) {
+        let storage = Storage::init(Option::some(&mut context), Option::none());
         
-        let mut args: BoundedVec<Field, 64> = BoundedVec::new(0);
-        for byte in signing_pub_key_x { args.push(byte as Field); }
-        for byte in signing_pub_key_y { args.push(byte as Field); }
-        let mut context = Context::new(inputs, abi::hash_args(args.storage));
-        
-        let this = inputs.call_context.storage_contract_address;
-        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, inputs.call_context.storage_contract_address);
-        storage.public_key.initialise(&mut context, &mut pub_key_note);
+        let this = context.this_address();
+        let mut pub_key_note = EcdsaPublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        storage.public_key.initialise(&mut pub_key_note);
         
         emit_encrypted_log(
             &mut context,
             this,
             storage.public_key.storage_slot,
-            this,
             get_public_key(this),
             pub_key_note.serialise(),
         );
-
-        context.finish()
     }
 
     // Computes note hash and nullifier.

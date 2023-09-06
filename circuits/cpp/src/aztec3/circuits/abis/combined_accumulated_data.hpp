@@ -31,11 +31,12 @@ template <typename NCT> struct CombinedAccumulatedData {
     AggregationObject aggregation_object{};
 
     std::array<fr, MAX_READ_REQUESTS_PER_TX> read_requests{};
-    std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, MAX_READ_REQUESTS_PER_TX>
-        read_request_membership_witnesses{};
 
     std::array<fr, MAX_NEW_COMMITMENTS_PER_TX> new_commitments{};
     std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> new_nullifiers{};
+    std::array<fr, MAX_NEW_NULLIFIERS_PER_TX> nullified_commitments{};
+    // For pending nullifiers, we have:
+    // nullifiedCommitments[j] != 0 <==> newNullifiers[j] nullifies nullifiedCommitments[j]
 
     std::array<fr, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> private_call_stack{};
     std::array<fr, MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX> public_call_stack{};
@@ -59,9 +60,9 @@ template <typename NCT> struct CombinedAccumulatedData {
     // for serialization, update with new fields
     MSGPACK_FIELDS(aggregation_object,
                    read_requests,
-                   read_request_membership_witnesses,
                    new_commitments,
                    new_nullifiers,
+                   nullified_commitments,
                    private_call_stack,
                    public_call_stack,
                    new_l2_to_l1_msgs,
@@ -75,17 +76,7 @@ template <typename NCT> struct CombinedAccumulatedData {
                    public_data_reads);
     boolean operator==(CombinedAccumulatedData<NCT> const& other) const
     {
-        return aggregation_object == other.aggregation_object && read_requests == other.read_requests &&
-               read_request_membership_witnesses == other.read_request_membership_witnesses &&
-               new_commitments == other.new_commitments && new_nullifiers == other.new_nullifiers &&
-               private_call_stack == other.private_call_stack && public_call_stack == other.public_call_stack &&
-               new_l2_to_l1_msgs == other.new_l2_to_l1_msgs && encrypted_logs_hash == other.encrypted_logs_hash &&
-               unencrypted_logs_hash == other.unencrypted_logs_hash &&
-               encrypted_log_preimages_length == other.encrypted_log_preimages_length &&
-               unencrypted_log_preimages_length == other.unencrypted_log_preimages_length &&
-               new_contracts == other.new_contracts && optionally_revealed_data == other.optionally_revealed_data &&
-               public_data_update_requests == other.public_data_update_requests &&
-               public_data_reads == other.public_data_reads;
+        return msgpack_derived_equals<boolean>(*this, other);
     };
 
     template <typename Builder> CombinedAccumulatedData<CircuitTypes<Builder>> to_circuit_type(Builder& builder) const
@@ -107,10 +98,10 @@ template <typename NCT> struct CombinedAccumulatedData {
             },
 
             to_ct(read_requests),
-            map(read_request_membership_witnesses, to_circuit_type),
 
             to_ct(new_commitments),
             to_ct(new_nullifiers),
+            to_ct(nullified_commitments),
 
             to_ct(private_call_stack),
             to_ct(public_call_stack),
@@ -147,10 +138,10 @@ template <typename NCT> struct CombinedAccumulatedData {
             },
 
             to_nt(read_requests),
-            map(read_request_membership_witnesses, to_native_type),
 
             to_nt(new_commitments),
             to_nt(new_nullifiers),
+            to_nt(nullified_commitments),
 
             to_nt(private_call_stack),
             to_nt(public_call_stack),
@@ -177,10 +168,10 @@ template <typename NCT> struct CombinedAccumulatedData {
         aggregation_object.add_proof_outputs_as_public_inputs();
 
         set_array_public(read_requests);
-        set_array_public(read_request_membership_witnesses);
 
         set_array_public(new_commitments);
         set_array_public(new_nullifiers);
+        set_array_public(nullified_commitments);
 
         set_array_public(private_call_stack);
         set_array_public(public_call_stack);
@@ -200,15 +191,6 @@ template <typename NCT> struct CombinedAccumulatedData {
         static_assert(!(std::is_same<NativeTypes, NCT>::value));
         for (T& e : arr) {
             fr(e).set_public();
-        }
-    }
-
-    template <size_t SIZE>
-    void set_array_public(std::array<ReadRequestMembershipWitness<NCT, PRIVATE_DATA_TREE_HEIGHT>, SIZE>& arr)
-    {
-        static_assert(!(std::is_same<NativeTypes, NCT>::value));
-        for (auto& e : arr) {
-            e.set_public();
         }
     }
 
@@ -244,41 +226,5 @@ template <typename NCT> struct CombinedAccumulatedData {
         }
     }
 };
-
-template <typename NCT> std::ostream& operator<<(std::ostream& os, CombinedAccumulatedData<NCT> const& accum_data)
-{
-    return os << "aggregation_object:\n"
-              << accum_data.aggregation_object << "\n"
-              << "read_requests:\n"
-              << accum_data.read_requests << "\n"
-              << "read_request_membership_witnesses:\n"
-              << accum_data.read_request_membership_witnesses << "\n"
-              << "new_commitments:\n"
-              << accum_data.new_commitments << "\n"
-              << "new_nullifiers:\n"
-              << accum_data.new_nullifiers << "\n"
-              << "private_call_stack:\n"
-              << accum_data.private_call_stack << "\n"
-              << "public_call_stack:\n"
-              << accum_data.public_call_stack << "\n"
-              << "new_l2_to_l1_msgs:\n"
-              << accum_data.new_l2_to_l1_msgs << "\n"
-              << "encrypted_logs_hash:\n"
-              << accum_data.encrypted_logs_hash << "\n"
-              << "unencrypted_logs_hash:\n"
-              << accum_data.unencrypted_logs_hash << "\n"
-              << "encrypted_log_preimages_length:\n"
-              << accum_data.encrypted_log_preimages_length << "\n"
-              << "unencrypted_log_preimages_length:\n"
-              << accum_data.unencrypted_log_preimages_length << "\n"
-              << "new_contracts:\n"
-              << accum_data.new_contracts << "\n"
-              << "optionally_revealed_data:\n"
-              << accum_data.optionally_revealed_data << "\n"
-              << "public_data_update_requests:\n"
-              << accum_data.public_data_update_requests << "\n"
-              << "public_data_reads:\n"
-              << accum_data.public_data_reads << "\n";
-}
 
 }  // namespace aztec3::circuits::abis
