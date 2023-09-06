@@ -71,10 +71,10 @@ add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/bb)
 
 
-if(SMT)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
-    add_subdirectory(barretenberg/smt_verification)
-endif()
+#if(SMT)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
+add_subdirectory(barretenberg/smt_verification)
+#ndif()
 
 if(BENCHMARKS)
     add_subdirectory(barretenberg/benchmark)
