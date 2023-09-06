@@ -92,10 +92,14 @@ void match_nullifiers_to_commitments_and_squash(
     DummyCircuitBuilder& builder,
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX>& new_nullifiers,
     std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullified_commitments,
+    std::array<NT::fr, MAX_NEW_NULLIFIERS_PER_TX> const& nullifier_commitment_hints,
     std::array<NT::fr, MAX_NEW_COMMITMENTS_PER_TX>& new_commitments)
 {
-    // match reads to commitments from the previous call(s)
+    // match nullifiers/nullified_commitments to commitments from the previous call(s)
     for (size_t n_idx = 0; n_idx < MAX_NEW_NULLIFIERS_PER_TX; n_idx++) {
+        const auto& nullified_commitment = nullified_commitments[n_idx];
+        const auto& nullifier_commitment_hint = nullifier_commitment_hints[n_idx];
+        const auto hint_pos = static_cast<size_t>(uint64_t(nullifier_commitment_hint));
         // Nullified_commitment of value `EMPTY_NULLIFIED_COMMITMENT` implies non-transient (persistable)
         // nullifier in which case no attempt will be made to match it to a commitment.
         // Non-empty nullified_commitment implies transient nullifier which MUST be matched to a commitment below!
@@ -103,8 +107,11 @@ void match_nullifiers_to_commitments_and_squash(
         if (nullified_commitments[n_idx] != NT::fr(0) &&
             nullified_commitments[n_idx] != NT::fr(EMPTY_NULLIFIED_COMMITMENT)) {
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
-            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/837): inefficient
-            // O(n^2) inner loop will be optimized via matching hints
+
+            if (hint_pos < MAX_NEW_COMMITMENTS_PER_TX) {
+                match_pos = nullified_commitment == new_commitments[hint_pos] ? hint_pos : match_pos;
+            }
+
             for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
                 // If there are multiple matches, this picks the last one
                 match_pos = (nullified_commitments[n_idx] == new_commitments[c_idx]) ? c_idx : match_pos;
@@ -180,6 +187,7 @@ KernelCircuitPublicInputsFinal<NT> native_private_kernel_circuit_ordering(
     match_nullifiers_to_commitments_and_squash(builder,
                                                public_inputs.end.new_nullifiers,
                                                public_inputs.end.nullified_commitments,
+                                               private_inputs.nullifier_commitment_hints,
                                                public_inputs.end.new_commitments);
 
     // tx hash

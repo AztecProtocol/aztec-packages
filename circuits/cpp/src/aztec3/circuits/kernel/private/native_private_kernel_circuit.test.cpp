@@ -4,7 +4,6 @@
 #include "aztec3/circuits/abis/private_kernel/private_kernel_inputs_ordering.hpp"
 #include "aztec3/circuits/abis/read_request_membership_witness.hpp"
 #include "aztec3/circuits/apps/test_apps/escrow/deposit.hpp"
-#include "aztec3/circuits/hash.hpp"
 #include "aztec3/circuits/kernel/private/common.hpp"
 #include "aztec3/circuits/kernel/private/init.hpp"
 #include "aztec3/constants.hpp"
@@ -176,7 +175,7 @@ TEST_F(native_private_kernel_tests, native_empty_nullified_commitment_respected)
 
     private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[0] =
         fr(EMPTY_NULLIFIED_COMMITMENT);
-    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(23);
+    private_inputs_inner.private_call.call_stack_item.public_inputs.nullified_commitments[1] = fr(33);
 
     // update the private call stack contents to reflect the above changes which affect the item hash
     private_inputs_inner.previous_kernel.public_inputs.end.private_call_stack[0] =
@@ -203,7 +202,9 @@ TEST_F(native_private_kernel_tests, native_empty_nullified_commitment_respected)
     auto& previous_kernel = private_inputs_inner.previous_kernel;
     previous_kernel.public_inputs = public_inputs;
 
-    PrivateKernelInputsOrdering<NT> private_inputs{ .previous_kernel = previous_kernel };
+    PrivateKernelInputsOrdering<NT> private_inputs{ .previous_kernel = previous_kernel,
+                                                    .nullifier_commitment_hints =
+                                                        std::array<fr, MAX_NEW_NULLIFIERS_PER_TX>{ 0, 1 } };
 
     auto final_public_inputs = native_private_kernel_circuit_ordering(builder, private_inputs);
 

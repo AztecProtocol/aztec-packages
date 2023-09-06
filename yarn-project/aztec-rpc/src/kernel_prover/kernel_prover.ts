@@ -23,6 +23,7 @@ import {
   makeEmptyProof,
   makeTuple,
 } from '@aztec/circuits.js';
+import { EMPTY_NULLIFIED_COMMITMENT } from '@aztec/circuits.js';
 import { Tuple, assertLength } from '@aztec/foundation/serialize';
 
 import { KernelProofCreator, ProofCreator, ProofOutput, ProofOutputFinal } from './proof_creator.js';
@@ -176,10 +177,16 @@ export class KernelProver {
       output.publicInputs.end.readRequests,
       output.publicInputs.end.newCommitments,
     );
+
+    const nullifierCommitmentHints = this.getNullifierHints(
+      output.publicInputs.end.nullifiedCommitments,
+      output.publicInputs.end.newCommitments,
+    );
+
     const privateInputs = new PrivateKernelInputsOrdering(
       previousKernelData,
       readCommitmentHints,
-      makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero),
+      nullifierCommitmentHints,
     );
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
@@ -265,6 +272,29 @@ export class KernelProver {
         );
       } else {
         hints[i] = new Fr(result);
+      }
+    }
+    return hints;
+  }
+
+  private getNullifierHints(
+    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+  ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
+    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
+      if (!nullifiedCommitments[i].isZero() && !nullifiedCommitments[i].equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
+        const equalToCommitment = (cmt: Fr) => cmt.equals(nullifiedCommitments[i]);
+        const result = commitments.findIndex(equalToCommitment);
+        if (result == -1) {
+          throw new Error(
+            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
+              i
+            ].toString()} does not match to any commitment.`,
+          );
+        } else {
+          hints[i] = new Fr(result);
+        }
       }
     }
     return hints;
