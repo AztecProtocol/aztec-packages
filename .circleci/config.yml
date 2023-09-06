@@ -831,9 +831,8 @@ jobs:
           working_directory: yarn-project/end-to-end
 
   e2e-escrow-contract:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - *checkout
       - *setup_env
