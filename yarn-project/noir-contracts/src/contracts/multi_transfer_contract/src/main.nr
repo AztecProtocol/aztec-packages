@@ -1,19 +1,5 @@
 // Demonstrates how to perform 4 x 4 = 16 transfers in one transaction. Uses the private airdrop contract in the backend.
 contract MultiTransfer {
-    use dep::aztec::oracle::public_call;
-    use dep::aztec::private_call_stack_item::PrivateCallStackItem;
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::types::point::Point;
-
-    // Libs
-    use dep::value_note::{
-        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
-    };
-    use dep::aztec::note::{
-        note_header::NoteHeader,
-        utils as note_utils,
-    };
-
     #[aztec(private)]
     fn constructor() {}
 
