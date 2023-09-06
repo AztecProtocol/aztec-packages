@@ -39,7 +39,7 @@ class ECCOpQueue {
 
   public:
     std::vector<ECCOp> raw_ops;
-    std::vector<std::array<Fr, 4>> ultra_ops;
+    std::array<std::vector<Fr>, 4> ultra_ops;
     std::vector<std::array<Fq, 5>> eccvm_ops;
 
     uint32_t get_number_of_muls()
@@ -59,6 +59,21 @@ class ECCOpQueue {
     }
 
     Point get_accumulator() { return accumulator; }
+
+    /**
+     * @brief Get a 'view' of the ultra ops object
+     * 
+     * @return std::vector<std::span<Fr>> 
+     */
+    std::vector<std::span<Fr>> get_ultra_ops() 
+    {
+        std::vector<std::span<Fr>> result;
+        result.reserve(ultra_ops.size());
+        for (auto& entry : ultra_ops) {
+            result.emplace_back(entry);
+        }
+        return result;
+    }
 
     /**
      * @brief Write point addition op to queue and natively perform addition

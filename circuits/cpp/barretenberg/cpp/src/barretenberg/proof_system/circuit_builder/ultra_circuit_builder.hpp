@@ -708,12 +708,12 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
      * TODO(#705): Consider isolating/modularizing the goblin builder functionality
      **/
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
-    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const fr& scalar);
+    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
     ecc_op_tuple queue_ecc_eq();
 
   private:
     void populate_ecc_op_wires(const ecc_op_tuple& in);
-    ecc_op_tuple make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const fr& scalar = fr::zero());
+    ecc_op_tuple make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
 
   public:
     size_t get_num_constant_gates() const override { return 0; }
