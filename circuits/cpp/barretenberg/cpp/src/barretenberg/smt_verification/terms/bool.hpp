@@ -1,4 +1,5 @@
 #pragma once
+#include "ffiterm.hpp"
 #include "ffterm.hpp"
 
 namespace smt_terms {
@@ -6,7 +7,7 @@ using namespace smt_solver;
 
 /**
  * @brief Bool element class.
- * 
+ *
  * @details Can be used to create non trivial constraints.
  * Supports basic boolean arithmetic: &, |.
  *
@@ -21,6 +22,10 @@ class Bool {
         : solver(&slv.s)
         , term(t){};
     explicit Bool(const FFTerm& t)
+        : solver(&t.solver->s)
+        , term(t.term){};
+
+    explicit Bool(const FFITerm& t)
         : solver(&t.solver->s)
         , term(t.term){};
 
