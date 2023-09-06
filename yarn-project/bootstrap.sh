@@ -10,7 +10,7 @@ if [ "$(uname)" = "Darwin" ]; then
 else
   \. ~/.nvm/nvm.sh
 fi
-set +eu
+set +eu # nvm runs in our context - don't assume it's compatible with these flags
 nvm install
 set -eu
 
