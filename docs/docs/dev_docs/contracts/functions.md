@@ -61,34 +61,28 @@ E.g. `get()`
 ## Recursive function calls
 
 ## L1 --> L2
-<!-- TODO: Make a note to refer to the communication docs section -->
-The context available within functions includes the ability to send messages to l1. 
-
-
-
-<!-- TODO: Leave links to the whole flow of sending a message to l2, this section should just show 
-how the message can be consumed on l2 itself
- -->
+The context available within functions includes the ability to send messages to l1. For more information on how cross chain communication works in Aztec, see the [documentation on communication.](../../concepts/foundation/communication/cross_chain_calls.md)
 
 #include_code send_to_l2  /yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
 
 ### What happens behind the scenes?
-When a user sends a message from a portal contract (INCLUDE LINK HERE) to the rollup's inbox it gets processed and added to the `l1 to l2 messages tree` (INCLUDE LINK TO WHERE THIS IS DISCUSSED). The l1 to l2 messages tree contains all messages that have been sent from l1 to the l2. The good thing about this tree is that it does not reveal when it's messages have been spent, as consuming a message from the l1 to l2 messages tree is done by nullifing a message, rather than directly marking it as consumed. 
+When a user sends a message from a [portal contract](../../concepts/foundation/communication/cross_chain_calls.md#portal) to the rollup's inbox it gets processed and added to the `l1 to l2 messages tree`.
+ <-- TODO(Maddiaa): INCLUDE LINK TO WHERE the messages tree is discussed elsewhere in the docs. -->
+The l1 to l2 messages tree contains all messages that have been sent from l1 to the l2. The good thing about this tree is that it does not reveal when it's messages have been spent, as consuming a message from the l1 to l2 messages tree is done by nullifing a message, rather than marking it as consumed.
 
-When calling the `consume_l1_to_l2_message` function on a contract; a number of actions are performed.
+When calling the `consume_l1_to_l2_message` function on a contract; a number of actions are performed by `Aztec.nr`.
 
-<!-- TODO: buff out these bullet points -->
-1. As the consume message function is passed a `msgKey` value, we can look up on l1 what the full contents of the message by making an oracle call to get the data. 
-2. We check that the message recipient is the contract of the current calling context.
-3. We check that the message content matches the content reproduced earlier on. 
-4. We validate that we know the preimage to the message's `secretHash` field. (TODO: SEE MORE ON THIS FOLLOWING A LINK)
-5. We compute the nullifier for the message. 
+1. The `msgKey` value (passed to the consume message function) is used to look up the contents of the l1 message.
+2. Check that the message recipient is the contract of the current calling context.
+3. Check that the message content matches the content reproduced earlier on. 
+4. Validate that caller know's the preimage to the message's `secretHash`. See more information [here](../../concepts/foundation/communication/cross_chain_calls.md#messages).
+5. We compute the nullifier for the message.
 #include_code l1_to_l2_message_compute_nullifier  /yarn-project/noir-libs/noir-aztec/src/messaging/l1_to_l2_message.nr rust
 6. Finally we push the nullifier to the context. Allowing it to be checked for validity by the kernel and rollup circuits. 
 
 #include_code consume_l1_to_l2_message  /yarn-project/noir-libs/noir-aztec/src/context.nr rust
 
-The emitted nullifier prevents our message from being consumed again. Users cannot re consume a message as the nullifier would already exist.
+As the same nullifier cannot be created twice. We cannot consume the message again.
 
 ## L2 --> L1
 
@@ -98,7 +92,6 @@ Talk a about the dangers of delegatecall too!
 
 
 ## Deep dive
-<!-- TODO: all of the below an be considered as rough notes, and needs to be proof read and proof read and updated! -->
 ### Function type attributes explained.
 Aztec.nr uses an attribute system to annotate a function's type. Annotating a function with the `#[aztec(private)]` attribute tells the framework that this will be a private function that will be executed on a users device. Thus the compiler will create a circuit to define this function. 
 
@@ -130,9 +123,9 @@ The kernel can then check that all of the values passed to each circuit in a fun
 
 Just as the kernel passes information into the the app circuits, the application must return information about the executed app back to the kernel. This is done through a rigid structure we call the `PrivateCircuitPublicInputs`. 
 
-> *Why is it called the `PrivateCircuitPublicInputs`*
-> It is commonly asked why the return values of a function in a circuit are labelled as the `Public Inputs`. Common intuition from other programming paradigms suggests that the return values and public inputs should be distinct.
-> However; In the eyes of the circuit, anything that is publicly viewable (or checkable) is a public input. Hence in this case, the return values are also public inputs. 
+> *Why is it called the `PrivateCircuitPublicInputs`*  
+> It is commonly asked why the return values of a function in a circuit are labelled as the `Public Inputs`. Common intuition from other programming paradigms suggests that the return values and public inputs should be distinct.  
+> However; In the eyes of the circuit, anything that is publicly viewable (or checkable) is a public input. Hence in this case, the return values are also public inputs.   
 
 This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the actual return values of the function!
 

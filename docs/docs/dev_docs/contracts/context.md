@@ -3,18 +3,25 @@ title: Aztec.nr Context
 description: Documentation of Aztec's Private and Public execution contexts
 hide_table_of_contents: false
 ---
-# Overview of this page (change this title)
+# The Function Context
 
-We want ot include some over arching details on what is included inside the context structure, and give an overview of what it actually is.
+## What is the context
+The context is a variable that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity. 
 
-## What is the context.
-The context is a variable that is made available within every function in `Aztec.nr`. As mentioned in the KERNEL CIRCUIT SECTION. The application context is a structure that contains all of the infromation a function needs from the kernel circuit, as well as all the information the kernel needs after a function execution completes. 
+Behind the scenes, Aztec noir will pass data the kernel needs to and from a circuit, this is abstracted away from the developer. In an developer's eyes; the context is a useful structure that allows access and mutate the state of the `Aztec` blockchain.
 
-Behind the scenes, Aztec noir will pass data the kernel needs to and from a circuit, this is completely abstracted away from the developer. In an application developer's eyes; the context is a useful structure that allows access to anything on the aztec blockchain outside of the current circuit (REWORD THIS SECTION). 
+## Two context's one API
+The `Aztec` blockchain contains two execution environments (ADD REFERENCE). 
+- Private, for private transactions taking place on user's devices.
+- Public, for public transactions taking place on the network's sequencers.
 
-## What is contained within the context.
+As there are two distinct execution environments, they both require slightly differing execution contexts. Despite their differences; the API's for interacting with each are unified. Leading to minimal context switch when working between the two environments.
 
-The code snippet below shows what is currently contained within the private context.
+The following section will cover both contexts.
+
+## The Private Context
+
+The code snippet below shows what is contained within the private context.
 #include_code private-context /yarn-project/noir-libs/noir-aztec/src/context.nr rust
 
 ### Private Context Broken Down
@@ -51,40 +58,56 @@ Another structure that is contained within the context is the Historic Block Dat
 
 #include_code historic-block-data /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
 
-## TODO: gloss this up
-Having these tree's on hand allows for a host of interesting use cases. If you can create a merkle proof which matches the root of these trees. Then you can prove that a value exists in the current state of the system.
-
 ### Contract Deployment Data
-Just like with the `is_contract_deployment` flag mentioned earlier. This flag will only be set to true when the current transaction is one in which a contract is being deployed.
+Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#### TODO : WAT CONTAIN AND WAT DO
-
+#include_code contract-deployment-data /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
 
 ### Private Global Variables
-TODO:
-- include in this section how the global variabels can be accessed and what they contain
+In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
 
+#include_code private-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
 
+### Args Hash
+To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application. 
 
+The `args_hash` is the result of pedersen hashing all of a function's inputs.
 
-## Args Hash
+### Return Values
+The return values are a set of values that are returned from an applications execution to be passed to other functions through the kernel. Developers do not need to worry about passing their function return values to the `context` directly as `Aztec.nr` takes care of it for you. See the documentation surrounding `Aztec.nr` [macro expansion](../../dev_docs/contracts/functions.md#after-expansion) for more details.
 
-
-
-    <!-- args_hash : Field,
     return_values : BoundedVec<Field, RETURN_VALUES_LENGTH>,
 
-    read_requests: BoundedVec<Field, MAX_READ_REQUESTS_PER_CALL>,
+### Read Requests
+<!-- TODO(maddiaa): leaving as todo until their is further clarification around their implementation in the protocol -->
 
-    new_commitments: BoundedVec<Field, MAX_NEW_COMMITMENTS_PER_CALL>,
-    new_nullifiers: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
-    nullified_commitments: BoundedVec<Field, MAX_NEW_NULLIFIERS_PER_CALL>,
+### New Commitments
+New commitments contains an array of all of the commitments created in the current execution context.
 
-    private_call_stack : BoundedVec<Field, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    public_call_stack : BoundedVec<Field, MAX_PUBLIC_CALL_STACK_LENGTH_PER_CALL>,
-    new_l2_to_l1_msgs : BoundedVec<Field, MAX_NEW_L2_TO_L1_MSGS_PER_CALL>, --> -->
+### New Nullifiers
+New nullifiers contains an array of the new nullifiers emitted from the current execution context.
+
+### Nullified Commitments
+Nullified commitments is an optimisation for introduced to help reduce state growth. There are often cases where commitments are created and nullified within the same transaction.  
+In these cases there is no reason that these commitments should take up space on the node's commitment/nullifier trees. Keeping track of nullified commitments allows us to "cancel out" and prove these cases.
+
+### Private Call Stack
+The private call stack contains all of the external function calls that have been created within the current context. Any function call objects are hashed and then pushed to the execution stack. 
+The kernel circuit will orchestrate dispatching the calls and returning the values to the current context.
+
+### Public Call Stack
+The public call stack contains all of the external function calls that are created within the current context. Like the private call stack above, the calls are hashed and pushed to this stack. Unlike the private call stack, these calls are not executed client side. Whenever the function is sent to the network, it will have the public call stack attached to it. At this point the sequencer will take over and execute the transactions.
+
+### New L2 to L1 msgs
+New L2 to L1 messages contains messages that are delivered to the [l1 outbox](../../concepts/foundation/communication/cross_chain_calls.md) on the execution of each rollup.
 
 ## Public Context Inputs
 In the current version of the system, the public context is almost a clone of the private execution context. It contains the same call context data, access to the same historic tree roots, however it does NOT have access to contract deployment data, this is due to traditional contract deployments only currently being possible from private transactions.
 
 #include_code public-context-inputs /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+
+
+### Public Global Variables
+The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
+
+#include_code public-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust

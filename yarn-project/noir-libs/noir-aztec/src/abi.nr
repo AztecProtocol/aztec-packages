@@ -32,10 +32,13 @@ use crate::oracle::debug_log;
 use crate::types::vec::BoundedVec;
 use crate::types::point::Point;
 
+
+// docs:start:private-global-variables
 struct PrivateGlobalVariables {
     chain_id: Field,
     version: Field,
 }
+// docs:end:private-global-variables
 
 impl PrivateGlobalVariables {
     fn serialize(self) -> [Field; 2] {
@@ -43,12 +46,14 @@ impl PrivateGlobalVariables {
     }
 }
 
+// docs:start:public-global-variables
 struct PublicGlobalVariables {
     chain_id: Field,
     version: Field,
     block_number: Field,
     timestamp: Field,
 }
+// docs:end:public-global-variables
 
 impl PublicGlobalVariables {
     fn serialize(self) -> [Field; 4] {
@@ -56,6 +61,7 @@ impl PublicGlobalVariables {
     }
 }
 
+// docs:start:contract-deployment-data
 struct ContractDeploymentData {
     deployer_public_key: Point,
     constructor_vk_hash : Field,
@@ -63,6 +69,7 @@ struct ContractDeploymentData {
     contract_address_salt : Field,
     portal_contract_address : Field,
 }
+// docs:end:contract-deployment-data
 
 impl ContractDeploymentData {
     fn serialize(self) -> [Field; CONTRACT_DEPLOYMENT_DATA_LENGTH] {
