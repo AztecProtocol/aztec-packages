@@ -232,7 +232,11 @@ describe('Private Execution test suite', () => {
       const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, siloedNoteHash);
       const innerNullifier = Fr.fromBuffer(
-        pedersenPlookupCommitInputs(circuitsWasm, [uniqueSiloedNoteHash.toBuffer(), ownerPk.toBuffer()]),
+        pedersenPlookupCommitInputs(circuitsWasm, [
+          uniqueSiloedNoteHash.toBuffer(),
+          ownerPk.high.toBuffer(),
+          ownerPk.low.toBuffer(),
+        ]),
       );
 
       const result = await acirSimulator.computeNoteHashAndNullifier(
@@ -464,7 +468,11 @@ describe('Private Execution test suite', () => {
       const siloedNoteHash = siloCommitment(circuitsWasm, contractAddress, innerNoteHash);
       const uniqueSiloedNoteHash = computeUniqueCommitment(circuitsWasm, note.nonce, siloedNoteHash);
       const innerNullifier = Fr.fromBuffer(
-        pedersenPlookupCommitInputs(circuitsWasm, [uniqueSiloedNoteHash.toBuffer(), ownerPk.toBuffer()]),
+        pedersenPlookupCommitInputs(circuitsWasm, [
+          uniqueSiloedNoteHash.toBuffer(),
+          ownerPk.high.toBuffer(),
+          ownerPk.low.toBuffer(),
+        ]),
       );
 
       const result = await acirSimulator.computeNoteHashAndNullifier(
