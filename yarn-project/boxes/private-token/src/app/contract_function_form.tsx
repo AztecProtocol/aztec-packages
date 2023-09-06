@@ -37,7 +37,12 @@ function generateYupSchema(functionAbi: FunctionAbi) {
       case 'array':
         // eslint-disable-next-line no-case-declarations
         const arrayLength = param.type.length;
-        parameterSchema[param.name] = Yup.array().of(Yup.number()).min(arrayLength).max(arrayLength);
+        parameterSchema[param.name] = Yup.array<number>().of(Yup.number()).min(arrayLength).max(arrayLength).transform(function(value: number[], originalValue: string) {
+      if (typeof originalValue === 'string') {
+        return originalValue.split(',').map(Number);
+      }
+      return value;
+    });
         initialValues[param.name] = Array(arrayLength).fill(200);
         break;
       case 'boolean':
