@@ -612,7 +612,7 @@ export function makePrivateCallData(seed = 1): PrivateCallData {
       makeReadRequestMembershipWitness,
       seed + 0x70,
     ),
-    portalContractAddress: new Fr(seed + 0x40),
+    portalContractAddress: makeEthAddress(seed + 0x40).toField(),
     acirHash: fr(seed + 0x60),
   });
 }

@@ -794,7 +794,7 @@ sibling_path: [ 0x1075 0x1076 0x1077 0x1078 0x1079 0x107a 0x107b 0x107c 0x107d 0
 is_transient: 0
 hint_to_commitment: 0x0
  ]
-portal_contract_address: 0x1041
+portal_contract_address: 0x4141414141414141414141414141414141414141
 acir_hash: 0x1061
 
 "
@@ -1306,7 +1306,7 @@ sibling_path: [ 0x1075 0x1076 0x1077 0x1078 0x1079 0x107a 0x107b 0x107c 0x107d 0
 is_transient: 0
 hint_to_commitment: 0x0
  ]
-portal_contract_address: 0x1041
+portal_contract_address: 0x4141414141414141414141414141414141414141
 acir_hash: 0x1061
 
 "

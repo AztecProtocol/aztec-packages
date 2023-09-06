@@ -118,11 +118,9 @@ export class KernelProofCreator implements ProofCreator {
     const proof = makeEmptyProof();
     this.log('Kernel Prover Init Completed!');
 
-    const publicInputs = result as KernelCircuitPublicInputs;
-
     return {
-      publicInputs,
-      proof,
+      publicInputs: result,
+      proof: proof,
     };
   }
 
@@ -138,11 +136,9 @@ export class KernelProofCreator implements ProofCreator {
     const proof = makeEmptyProof();
     this.log('Kernel Prover Inner Completed!');
 
-    const publicInputs = result as KernelCircuitPublicInputs;
-
     return {
-      publicInputs,
-      proof,
+      publicInputs: result,
+      proof: proof,
     };
   }
 
