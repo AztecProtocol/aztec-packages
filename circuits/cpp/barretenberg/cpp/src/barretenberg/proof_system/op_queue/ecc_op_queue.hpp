@@ -39,8 +39,11 @@ class ECCOpQueue {
 
   public:
     std::vector<ECCOp> raw_ops;
-    std::array<std::vector<Fr>, 4> ultra_ops;
+    std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
     std::vector<std::array<Fq, 5>> eccvm_ops;
+
+    size_t current_ultra_transcript_size = 0; // M_i
+    size_t previous_ultra_transcript_size = 0; // M_{i-1}
 
     uint32_t get_number_of_muls()
     {
@@ -61,16 +64,43 @@ class ECCOpQueue {
     Point get_accumulator() { return accumulator; }
 
     /**
-     * @brief Get a 'view' of the ultra ops object
-     * 
-     * @return std::vector<std::span<Fr>> 
+     * @brief Set the current and previous size of the ultra_ops transcript
+     *
+     * @details previous_ultra_transcript_size = M_{i-1} is needed by the prover to extract the previous aggregate op
+     * queue transcript T_{i-1} from the current one T_i.
      */
-    std::vector<std::span<Fr>> get_ultra_ops() 
+    void set_size_data()
+    {
+        previous_ultra_transcript_size = current_ultra_transcript_size;
+        current_ultra_transcript_size = ultra_ops.size();
+    }
+
+    /**
+     * @brief Get a 'view' of the current ultra ops object
+     *
+     * @return std::vector<std::span<Fr>>
+     */
+    std::vector<std::span<Fr>> get_aggregate_transcript()
     {
         std::vector<std::span<Fr>> result;
         result.reserve(ultra_ops.size());
         for (auto& entry : ultra_ops) {
             result.emplace_back(entry);
+        }
+        return result;
+    }
+
+    /**
+     * @brief Get a 'view' of the previous ultra ops object
+     *
+     * @return std::vector<std::span<Fr>>
+     */
+    std::vector<std::span<Fr>> get_previous_aggregate_transcript()
+    {
+        std::vector<std::span<Fr>> result;
+        result.reserve(ultra_ops.size());
+        for (auto& entry : ultra_ops) {
+            result.emplace_back(entry.begin(), previous_ultra_transcript_size);
         }
         return result;
     }

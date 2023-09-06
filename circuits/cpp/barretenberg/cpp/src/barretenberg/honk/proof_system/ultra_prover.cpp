@@ -301,7 +301,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
             std::string label = "op_wire_eval_" + std::to_string(idx + 1);
             transcript.send_to_verifier(label, evaluation);
         }
-        auto aggregate_ecc_op_transcript = key->op_queue->get_ultra_ops();
+        auto aggregate_ecc_op_transcript = key->op_queue->get_aggregate_transcript();
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             auto polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
             auto evaluation = polynomial.evaluate(kappa_challenge);
@@ -311,6 +311,13 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
             std::string label = "agg_ecc_op_queue_eval_" + std::to_string(idx + 1);
             transcript.send_to_verifier(label, evaluation);
         }
+        // auto previous_aggregate_ecc_op_transcript = key->op_queue->get_previous_aggregate_transcript();
+        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+        //     auto polynomial = Polynomial(previous_aggregate_ecc_op_transcript[idx]);
+        //     auto evaluation = polynomial.evaluate(kappa_challenge);
+        //     std::string label = "prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1);
+        //     transcript.send_to_verifier(label, evaluation);
+        // }
 
         // Add polynomials T_i, T_{i-1}, t_i^{shift} and their evaluations to the set of opening pairs and witness
         // polynomials that are passed to Shplonk. This should be sufficient to make Shplonk produce the updated Q and

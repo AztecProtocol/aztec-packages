@@ -192,6 +192,9 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
         }
+        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+        //     agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+        // }
         // - Check that aggregation identity holds: T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ)
         // - Add 3 {opening_pair, commitment} to the gemini_claim (rename univariate opening claims?)
     }
