@@ -14,9 +14,9 @@ import * as path from 'path';
 const GITHUB_OWNER = 'AztecProtocol';
 const GITHUB_REPO = 'aztec-packages';
 const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts';
-// const STARTER_KIT_PATH = 'yarn-project/starter-kit';
+// const BOXES_PATH = 'yarn-project/aztec-sandbox';
 // before this commit lands, we can't grab from github, so can test with another subpackage like this
-const STARTER_KIT_PATH = 'yarn-project/boxes';
+const BOXES_PATH = 'yarn-project/boxes';
 // for now we just copy the entire noir-libs subpackage, but this should be unnecessary
 // when Nargo.toml [requirements] section supports a github URL in addition to relative paths
 const NOIR_LIBS_PATH = 'yarn-project/noir-libs';
@@ -112,9 +112,9 @@ async function _downloadNoirFilesFromGithub(
   // this is currently only implemented for PrivateToken under 'boxes/private-token/'
   const repoDirectoryPrefix = `${repo}-master/`;
 
-  const starterKitPath = `${repoDirectoryPrefix}${STARTER_KIT_PATH}/${snakeCaseContractName}`;
-  console.log('downloading from ', starterKitPath);
-  await _copyFolderFromGithub(data, starterKitPath, outputPath, log);
+  const boxPath = `${repoDirectoryPrefix}${BOXES_PATH}/${snakeCaseContractName}`;
+  console.log('downloading from ', boxPath);
+  await _copyFolderFromGithub(data, boxPath, outputPath, log);
 
   // TEMPORARY FIX - we also need the `noir-libs` subpackage, which needs to be referenced by
   // a relative path in the Nargo.toml file.  Copy those over as well.
