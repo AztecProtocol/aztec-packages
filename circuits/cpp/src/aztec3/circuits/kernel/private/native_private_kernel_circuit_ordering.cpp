@@ -112,11 +112,6 @@ void match_nullifiers_to_commitments_and_squash(
                 match_pos = nullified_commitment == new_commitments[hint_pos] ? hint_pos : match_pos;
             }
 
-            for (size_t c_idx = 0; c_idx < MAX_NEW_COMMITMENTS_PER_TX; c_idx++) {
-                // If there are multiple matches, this picks the last one
-                match_pos = (nullified_commitments[n_idx] == new_commitments[c_idx]) ? c_idx : match_pos;
-            }
-
             if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {
                 // match found!
                 // squash both the nullifier and the commitment
