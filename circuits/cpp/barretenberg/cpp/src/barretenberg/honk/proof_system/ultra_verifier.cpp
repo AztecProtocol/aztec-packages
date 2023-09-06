@@ -164,10 +164,34 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
                                                     batched_commitment_to_be_shifted,
                                                     transcript);
 
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        // Perform transcript aggregation protocol
+        // - Receive commitments, generate challenge
+        std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> prev_agg_op_queue_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> agg_op_queue_commitments;
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            shifted_op_wire_commitments[idx] = transcript.template receive_from_prover<Commitment>("SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            prev_agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
+        }
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
+        }
+
+
+        // - Receive transcript poly evaluations
+        // - Check that aggregation identity holds: T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ)
+        // - Add 3 {opening_pair, commitment} to the gemini_claim (rename univariate opening claims?)
+    }
+
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
     auto shplonk_claim = Shplonk::reduce_verification(pcs_verification_key, gemini_claim, transcript);
 
-    // // Verify the Shplonk claim with KZG or IPA
+    transcript.print();
+
+    // Verify the Shplonk claim with KZG or IPA
     return PCS::verify(pcs_verification_key, shplonk_claim, transcript);
 }
 

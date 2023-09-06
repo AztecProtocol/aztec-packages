@@ -149,6 +149,26 @@ template <typename Fr> class Polynomial {
         return std::span{ coefficients_.get() + 1, size_ };
     }
 
+    // /**
+    //  * @brief Returns the right-shift of self by given magnitude k.
+    //  *
+    //  * @details Asserts that the last k coefficients of self are zero.
+    //  */
+    // [[nodiscard]] Polynomial get_right_shifted(size_t k = 1) const
+    // {
+    //     ASSERT(size_ > 0);
+    //     // Ensure that the final k coefficients of the pre-shifted polynomial are zero
+    //     for (size_t idx = size_-k; idx < size_; ++idx) {
+    //         ASSERT(coefficients_[idx].is_zero());
+    //     }
+    //     // Compute the right-shift-by-k of the polynomial
+    //     Polynomial right_shifted(size_);
+    //     for (size_t idx = 0; idx < k; ++idx) {
+    //         right_shifted[idx + k] = coefficients_[idx];
+    //     }
+    //     return right_shifted;
+    // }
+
     /**
      * @brief adds the polynomial q(X) 'other', multiplied by a scaling factor.
      *
