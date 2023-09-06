@@ -171,7 +171,7 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
     log(
       `The noir contract named "${contractName}" was not found in "@aztec/noir-contracts" package.  Valid options are: 
         ${contractNames.join('\n\t')}
-  We recommend "PrivateToken" as a default.`,
+      We recommend "PrivateToken" as a default.`,
     );
     return;
   }

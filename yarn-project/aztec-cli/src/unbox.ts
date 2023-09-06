@@ -16,7 +16,7 @@ const GITHUB_REPO = 'aztec-packages';
 const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts';
 // const STARTER_KIT_PATH = 'yarn-project/starter-kit';
 // before this commit lands, we can't grab from github, so can test with another subpackage like this
-const STARTER_KIT_PATH = 'yarn-project/aztec.js';
+const STARTER_KIT_PATH = 'yarn-project/boxes';
 // for now we just copy the entire noir-libs subpackage, but this should be unnecessary
 // when Nargo.toml [requirements] section supports a github URL in addition to relative paths
 const NOIR_LIBS_PATH = 'yarn-project/noir-libs';
@@ -43,8 +43,10 @@ export async function downloadContractAndStarterKitFromGithub(
 ): Promise<void> {
   // small string conversion, in the ABI the contract name looks like PrivateToken
   // but in the repostory it looks like private_token
-  const contractFolder = `${NOIR_CONTRACTS_PATH}/${contractNameToFolder(contractName)}_contract`;
-  return await _downloadNoirFilesFromGithub(contractFolder, outputPath, log);
+  const snakeCaseContractName = contractNameToFolder(contractName);
+  // source noir files for the contract are in this folder
+  const contractFolder = `${NOIR_CONTRACTS_PATH}/${snakeCaseContractName}_contract`;
+  return await _downloadNoirFilesFromGithub(contractFolder, snakeCaseContractName, outputPath, log);
 }
 
 /**
@@ -90,7 +92,12 @@ async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, 
  * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
  * @returns
  */
-async function _downloadNoirFilesFromGithub(directoryPath: string, outputPath: string, log: LogFn): Promise<void> {
+async function _downloadNoirFilesFromGithub(
+  directoryPath: string,
+  snakeCaseContractName: string,
+  outputPath: string,
+  log: LogFn,
+): Promise<void> {
   const owner = GITHUB_OWNER;
   const repo = GITHUB_REPO;
   // Step 1: Fetch the ZIP from GitHub, hardcoded to the master branch
@@ -101,10 +108,12 @@ async function _downloadNoirFilesFromGithub(directoryPath: string, outputPath: s
   const zip = new JSZip();
   const data = await zip.loadAsync(buffer);
 
-  // Step 2: copy the '@aztec/starter-kit' subpackage to the output directory
+  // Step 2: copy the '@aztec/boxes/{contract-name}' subpackage to the output directory
+  // this is currently only implemented for PrivateToken under 'boxes/private-token/'
   const repoDirectoryPrefix = `${repo}-master/`;
 
-  const starterKitPath = `${repoDirectoryPrefix}${STARTER_KIT_PATH}/`;
+  const starterKitPath = `${repoDirectoryPrefix}${STARTER_KIT_PATH}/${snakeCaseContractName}`;
+  console.log('downloading from ', starterKitPath);
   await _copyFolderFromGithub(data, starterKitPath, outputPath, log);
 
   // TEMPORARY FIX - we also need the `noir-libs` subpackage, which needs to be referenced by
@@ -135,33 +144,6 @@ async function _downloadNoirFilesFromGithub(directoryPath: string, outputPath: s
 }
 
 /**
- * Sets up the .env file for the starter-kit cloned from the monorepo.
- * for standalone front end only react app, only vars prefixed with REACT_APP_ will be available.
- * @param outputPath - path to newly created directory
- * @param contractAbiFileName - copied as-is from the noir-contracts artifacts
- */
-export async function createEnvFile(outputPath: string, contractName: string) {
-  const envData = {
-    VITE_CONTRACT_ABI_FILE_NAME: `${contractName}.json`, // copied over by `unbox` command
-    VITE_CONTRACT_TYPESCRIPT_FILE_NAME: `${contractName}.ts`, // this is generated later by compile command
-    VITE_SANDBOX_RPC_URL: 'http://localhost:8080', // sandbox default and the `aztec-cli deploy` command default
-    // two accounts included in the sandbox
-    ALICE: '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360',
-    VITE_WALLET_ADDRESS: '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360',
-    BOB: '0x0d557417a3ce7d7b356a8f15d79a868fd8da2af9c5f4981feb9bcf0b614bd17e',
-    // hardcoded contract address for the PrivateToken contract in the sandbox,
-    // needs user update if they deploy something else or change the args
-    VITE_CONTRACT_ADDRESS: '0x03b030d48607ba8a0562f0f1f82be26c3f091e45e10f74c2d8cebb80d526a69f',
-  };
-  const content = Object.entries(envData)
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
-
-  const envFilePath = path.join(outputPath, '.env'); // Adjust the path as necessary
-  await fs.writeFile(envFilePath, content);
-}
-
-/**
  * quick hack to adjust the copied contract Nargo.toml file to point to the location
  * of noir-libs in the newly created/copied starter-kit directory
  * @param outputPath - relative path where we are copying everything
@@ -173,6 +155,7 @@ export async function updateNargoToml(outputPath: string, log: LogFn): Promise<v
   const newLines = lines
     .filter(line => line.startsWith('#'))
     .map(line => {
+      // hard coded mapping of dependencies that aztec noir contracts use - add more here to support more "packages"
       if (line.startsWith('aztec')) {
         return `aztec = { path = "./noir-aztec" }`;
       }
@@ -201,7 +184,7 @@ export async function updatePackageJsonVersions(outputPath: string, log: LogFn):
   const fileContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageData = JSON.parse(fileContent);
 
-  // Check and replace in dependencies
+  // Check and replace workspace pins in dependencies
   if (packageData.dependencies) {
     for (const [key, value] of Object.entries(packageData.dependencies)) {
       if (value === 'workspace:^') {

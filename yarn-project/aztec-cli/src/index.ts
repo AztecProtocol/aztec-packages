@@ -489,8 +489,9 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
       await unboxContract(contractName, unboxTo, log);
+    });
 
-   program
+  program
     .command('get-node-info')
     .description('Gets the information of an aztec node at a URL.')
     .requiredOption('-u, --rpc-url <string>', 'URL of the Aztec RPC', AZTEC_RPC_HOST || 'http://localhost:8080')

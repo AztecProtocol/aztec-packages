@@ -9,7 +9,6 @@ export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
   const [selectedWallet, setSelectedWallet] = useState<CompleteAddress>();
   const [selectWalletError, setSelectedWalletError] = useState('');
-  const animated = ANIMATED_BANNER;
 
   const handleSelectWallet = (address: CompleteAddress | undefined) => {
     setSelectedWallet(address);
