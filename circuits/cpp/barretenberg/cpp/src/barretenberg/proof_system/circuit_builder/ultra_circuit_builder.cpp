@@ -46,6 +46,10 @@ template <typename FF> void UltraCircuitBuilder_<FF>::finalize_circuit()
         process_ROM_arrays();
         process_RAM_arrays();
         process_range_lists();
+
+        // Set internally the current and previous size of the aggregate op queue transcript
+        op_queue->set_size_data();
+        
         circuit_finalised = true;
     }
 }
