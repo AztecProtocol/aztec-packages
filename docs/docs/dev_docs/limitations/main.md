@@ -241,7 +241,7 @@ Transaction output elements such as notes in encrypted logs, note hashes (commit
 ### Chopped Transient Notes are still Emitted in Logs
 A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
 
-At the time being, such chopped notes are still emitted as part of encrypted logs which is the communication channel to transmit notes. When a log containing a chopped note is processed a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurence. However, this might be the source of confusion.
+For the time being, such chopped notes are still emitted through encrypted logs (which is the communication channel to transmit notes). When a log containing a chopped note is processed, a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurence. However, this might be a source of confusion.
 This is issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).
 
 ## There's more
