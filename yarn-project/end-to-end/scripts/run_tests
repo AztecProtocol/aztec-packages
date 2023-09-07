@@ -12,7 +12,7 @@ export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 for REPO in aztec.js end-to-end aztec-sandbox; do
   retry docker pull $($calculate_image_uri $REPO)
-  docker tag $($calculate_image_uri $REPO) aztecprotocol/$REPO:latest
+  retry docker tag $($calculate_image_uri $REPO) aztecprotocol/$REPO:latest
 done
 
 docker-compose rm -f

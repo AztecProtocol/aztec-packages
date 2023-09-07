@@ -14,7 +14,7 @@ retry ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
 # Push image to deployment repo with commit hash tag e.g:
 # falafel:deadbeefcafebabe1337c0de
 IMAGE_DEPLOY_COMMIT_URI=$ECR_DEPLOY_URL/$REPOSITORY:$COMMIT_HASH
-docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_COMMIT_URI
+retry docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_COMMIT_URI
 retry docker push $IMAGE_DEPLOY_COMMIT_URI
 
 # Tag image with full version if we have one. Allows deployment of precise image version if rollback needed.
