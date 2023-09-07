@@ -4,6 +4,10 @@ mod account_interface;
 mod util;
 
 // Minimal token implementation that supports `AuthWit` accounts.
+// The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
+// The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
+// message hash = H([caller, selector, , ...args])
+// To be read as `caller` calls function defined by `selector` with `args`
 
 contract Token {
     // Libs
@@ -95,7 +99,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("shield((Field),Field,Field)");
-            let message_field = compute_message_hash([selector, from.address, amount, secret_hash]);
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
 
@@ -120,7 +124,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field)");
-            let message_field = compute_message_hash([selector, from.address, to.address, amount]);
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
 
@@ -158,7 +162,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field)");
-            let message_field = compute_message_hash([selector, from.address, to.address, amount]);
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
             assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
         }
 
@@ -179,7 +183,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field)");
-            let message_field = compute_message_hash([selector, from.address, to.address, amount]);
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
             assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
         }
 
