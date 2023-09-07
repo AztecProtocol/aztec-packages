@@ -4,7 +4,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 
 namespace {
-// TODO(#637): As a PoC we have two global variables for the two CRS, but this could be improved to avoid duplication.
+// TODO(#637): As a PoC we have two global variables for the two CRS but this could be improved to avoid duplication.
 std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::BN254>> crs_factory;
 std::shared_ptr<barretenberg::srs::factories::CrsFactory<curve::Grumpkin>> grumpkin_crs_factory;
 } // namespace
