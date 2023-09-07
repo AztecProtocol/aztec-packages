@@ -33,11 +33,11 @@ checkout: &checkout
     name: "Checkout code"
     command: |
       function retry() {
-        # Retries up to 10 times with 10 second intervals
-        for i in $(seq 1 10); do
+        # Retries up to 3 times with 10 second intervals
+        for i in $(seq 1 3); do
           "$@" && return || sleep 10
         done
-        echo "$@ failed after 10 attempts"
+        echo "$@ failed after 3 attempts"
         exit 1
       }
       cd $HOME
