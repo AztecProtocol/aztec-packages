@@ -19,7 +19,7 @@ impl Storage {
         approved_action: Map::new(
         private_context,
         public_context,
-        3,
+        1,
         |private_context, public_context, slot| {
             PublicState::new(
                 private_context,

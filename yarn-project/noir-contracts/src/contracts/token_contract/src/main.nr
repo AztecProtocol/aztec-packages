@@ -40,8 +40,9 @@ contract Token {
 
     #[aztec(private)]
     fn constructor() {
-        //let selector = compute_selector("initialize((Field))");
-        //let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
+        // Currently not possible to execute public calls from constructor as code not yet available to sequencer.
+        // let selector = compute_selector("_initialize((Field))");
+        // let _callStackItem = context.call_public_function(context.this_address(), selector, [context.msg_sender()]);
     }
 
     #[aztec(public)]
@@ -49,7 +50,7 @@ contract Token {
         new_admin: AztecAddress,
     ) {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
-        // assert(storage.admin.read() == context.msg_sender());
+        assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.admin.write(new_admin.address);
     }
 
@@ -58,8 +59,9 @@ contract Token {
         minter: AztecAddress,
         approve: Field,
     ) {
-        assert((approve == 1) | (approve == 0)); // @todo @lherskind Remove when maddia fixes the noir.
+        assert((approve == 1) | (approve == 0), "not providing boolean");
         let storage = Storage::init(Option::none(), Option::some(&mut context));
+        assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.minters.at(minter.address).write(approve as Field);
     }
 
@@ -69,7 +71,7 @@ contract Token {
         amount: Field,
     ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
-        assert(storage.minters.at(context.msg_sender()).read() == 1);
+        assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let amount = SafeU120::new(amount);
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
         let supply = SafeU120::new(storage.total_supply.read()).add(amount);
@@ -85,7 +87,7 @@ contract Token {
         secret_hash: Field,
     ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
-        assert(storage.minters.at(context.msg_sender()).read() == 1);
+        assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
         let supply = SafeU120::new(storage.total_supply.read()).add(SafeU120::new(amount));
@@ -106,7 +108,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = 420;
             let message_field = compute_message_hash([selector, from.address, amount, secret_hash]);
-            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff);
+            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
 
         let amount = SafeU120::new(amount);
@@ -120,7 +122,7 @@ contract Token {
         1
     }
 
-     #[aztec(public)]
+    #[aztec(public)]
     fn transfer_public(
         from: AztecAddress,
         to: AztecAddress,
@@ -131,7 +133,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = 420;
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
-            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff);
+            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
 
         let amount = SafeU120::new(amount);
@@ -169,7 +171,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = 420;
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
-            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0x29d25ca9);
+            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0x29d25ca9, "invalid call");
         }
 
         let from_balance = storage.balances.at(from.address);
@@ -191,7 +193,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = 420;
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
-            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff);
+            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
         }
 
         let from_balance = storage.balances.at(from.address);
@@ -201,11 +203,13 @@ contract Token {
         increment(to_balance, amount, to.address);
     }   
 
-    /// Internal ///
-
-    // We have some issues setting this in the constructor it seems
+    /// SHOULD BE Internal ///
+    
+    // We cannot do this from the constructor currently 
+    // Since this should be internal, for now, we ignore the safety checks of it, as they are 
+    // enforced by it being internal and only called from the constructor.
     #[aztec(public)]
-    internal fn initialize(
+    fn _initialize(
         new_admin: AztecAddress,
     ) {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
@@ -213,6 +217,7 @@ contract Token {
         storage.minters.at(new_admin.address).write(1);
     }
 
+    /// Internal ///
 
     #[aztec(public)]
     internal fn _increase_public_balance(

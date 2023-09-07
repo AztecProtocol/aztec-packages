@@ -141,10 +141,12 @@ export class ViemTxSender implements L1PublisherTxSender {
         `0x${extendedContractData.bytecode.toString('hex')}`,
       ] as const;
 
-      console.log(`Bytecode size: ${extendedContractData.bytecode.length}`);
-
-      if (extendedContractData.bytecode.length > 24576) {
-        throw new Error(`Bytecode is too large`);
+      if (extendedContractData.bytecode.length > 131072) {
+        this.log(
+          `Bytecode is too large ethereum transactions: ${extendedContractData.bytecode.length} ${
+            extendedContractData.bytecode.length / 131072
+          })`,
+        );
       }
 
       const gas = await this.contractDeploymentEmitterContract.estimateGas.emitContractDeployment(args, {

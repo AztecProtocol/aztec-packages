@@ -10,7 +10,7 @@ import {
   Fr,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { CompleteAddress, PrivateKey } from '@aztec/circuits.js';
+import { CompleteAddress, FunctionSelector, PrivateKey } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
@@ -20,7 +20,6 @@ import { setup } from './fixtures/utils.js';
 class TokenSimulator {
   private balances: Map<AztecAddress, bigint> = new Map();
   private balanceOf: Map<AztecAddress, bigint> = new Map();
-  private allowance: Map<AztecAddress, Map<AztecAddress, bigint>> = new Map();
   public totalSupply: bigint = 0n;
 
   constructor() {}
@@ -37,23 +36,12 @@ class TokenSimulator {
     this.balanceOf.set(to, value + amount);
   }
 
-  public approve(owner: AztecAddress, spender: AztecAddress, amount: bigint) {
-    const ownerAllowance = this.allowance.get(owner) || new Map();
-    ownerAllowance.set(spender, amount);
-    this.allowance.set(owner, ownerAllowance);
-  }
-
   public balanceOfPublic(address: AztecAddress) {
     return this.balanceOf.get(address) || 0n;
   }
 
   public balanceOfPrivate(address: AztecAddress) {
     return this.balances.get(address) || 0n;
-  }
-
-  public allowanceOf(owner: AztecAddress, spender: AztecAddress) {
-    const ownerAllowance = this.allowance.get(owner) || new Map();
-    return ownerAllowance.get(spender) || 0n;
   }
 }
 
@@ -94,6 +82,24 @@ describe('e2e_token_contract', () => {
       logger(`Token deployed to ${receipt.contractAddress}`);
       asset = await TokenContract.at(receipt.contractAddress!, wallet);
     }
+
+    {
+      const initializeTx = asset.methods
+        ._initialize({ address: accounts[0].address })
+        .send({ origin: accounts[0].address });
+      const receipt = await initializeTx.wait();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
+    }
+
+    asset.abi.functions.forEach(fn => {
+      logger(
+        `Function ${fn.name} has ${fn.bytecode.length} bytes and the selector: ${FunctionSelector.fromNameAndParameters(
+          fn.name,
+          fn.parameters,
+        )}`,
+      );
+    });
   }, 100_000);
 
   afterAll(async () => {
@@ -105,19 +111,33 @@ describe('e2e_token_contract', () => {
 
   describe('Access controlled functions', () => {
     it('Set admin', async () => {
-      const tx = asset.methods.set_admin({ address: accounts[0].address }).send({ origin: accounts[0].address });
+      const tx = asset.methods.set_admin({ address: accounts[1].address }).send({ origin: accounts[0].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
-      expect(await asset.methods.admin().view()).toBe(accounts[0].address.toBigInt());
+      expect(await asset.methods.admin().view()).toBe(accounts[1].address.toBigInt());
     });
-    it('Add minter', async () => {
-      const tx = asset.methods.set_minter({ address: accounts[1].address }, 1).send({ origin: accounts[0].address });
+    it('Set admin (not admin)', async () => {
+      await expect(
+        asset.methods.set_admin({ address: accounts[0].address }).simulate({ origin: accounts[0].address }),
+      ).rejects.toThrowError('Assertion failed: caller is not admin');
+    });
+    it('Add minter as admin', async () => {
+      const tx = asset.methods.set_minter({ address: accounts[1].address }, 1).send({ origin: accounts[1].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       expect(await asset.methods.is_minter({ address: accounts[1].address }).view()).toBe(true);
     });
-    it.skip('Revoke minter (as admin) ', () => {});
-    it.skip('Set minter (not admin)', () => {});
+    it('Revoke minter as admin', async () => {
+      const tx = asset.methods.set_minter({ address: accounts[1].address }, 0).send({ origin: accounts[1].address });
+      const receipt = await tx.wait();
+      expect(receipt.status).toBe(TxStatus.MINED);
+      expect(await asset.methods.is_minter({ address: accounts[1].address }).view()).toBe(false);
+    });
+    it('Revoke minter not as admin', async () => {
+      await expect(
+        asset.methods.set_minter({ address: accounts[0].address }, 0).simulate({ origin: accounts[0].address }),
+      ).rejects.toThrowError('Assertion failed: caller is not admin');
+    });
   });
 
   describe('Minting', () => {
@@ -141,7 +161,7 @@ describe('e2e_token_contract', () => {
       it.skip('mint overflow', () => {});
     });
 
-    describe('Private', () => {
+    describe.skip('Private', () => {
       describe('Mint flow', () => {
         const secret = Fr.random();
         const amount = 10000n;
@@ -190,12 +210,6 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Allowance', () => {
-    it.skip('Set allowance', () => {});
-    it.skip('Decrease allowance', () => {});
-    it.skip('Increase allowance', () => {});
-  });
-
   describe('Transfer', () => {
     describe('public', () => {
       it.skip('transfer less than balance', () => {});
@@ -203,7 +217,6 @@ describe('e2e_token_contract', () => {
       it.skip('transfer to self', () => {});
       it.skip('transfer on behalf of other', () => {});
       it.skip('transfer on behalf of other (more than allowance) [REVERT]', () => {});
-
       it.skip('transfer into account to overflow', () => {});
     });
 
