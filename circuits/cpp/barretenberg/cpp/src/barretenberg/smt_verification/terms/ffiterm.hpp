@@ -24,18 +24,17 @@ class FFITerm {
         , term(cvc5::Term())
         , modulus(cvc5::Term()){};
 
-    explicit FFITerm(const std::string& t, Solver* slv, bool isconst = false); //, uint32_t base = 16);
+    explicit FFITerm(const std::string& t, Solver* slv, bool isconst = false, uint32_t base = 16);
     FFITerm(cvc5::Term& term, Solver* s)
         : solver(s)
         , term(term)
-        , modulus(s->s.mkInteger(s->modulus))
-    {
-        // cvc5::Term mod = s->s.mkBitVector(modulus_size, s->modulus, 16);
-        // modulus = s->s.mkTerm(cvc5::Kind::BITVECTOR_TO_NAT, {mod});
-    }
+        , modulus(s->s.mkInteger(s->modulus)){}
 
     FFITerm(const FFITerm& other) = default;
     FFITerm(FFITerm&& other) = default;
+
+    static FFITerm Var(const std::string& name, Solver* slv);
+    static FFITerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
     FFITerm& operator=(const FFITerm& right) = default;
     FFITerm& operator=(FFITerm&& right) = default;
@@ -55,7 +54,7 @@ class FFITerm {
     operator std::string() const
     {
         return term.isIntegerValue() ? term.getIntegerValue() : term.toString();
-    }; // TODO(alex): won't work for now since the conversion during initialization.
+    };
     operator cvc5::Term() const { return term; };
 
     ~FFITerm() = default;
@@ -79,8 +78,5 @@ class FFITerm {
         return { res, slv };
     }
 };
-
-FFITerm IVar(const std::string& name, Solver* slv);
-FFITerm IConst(const std::string& val, Solver* slv); //, uint32_t base = 16);
 
 } // namespace smt_terms

@@ -9,7 +9,7 @@ namespace smt_terms {
  * @param slv  Pointer to the global solver.
  * @return Finite field symbolic variable.
  * */
-FFITerm IVar(const std::string& name, Solver* slv)
+FFITerm FFITerm::Var(const std::string& name, Solver* slv)
 {
     return FFITerm(name, slv);
 };
@@ -22,12 +22,12 @@ FFITerm IVar(const std::string& name, Solver* slv)
  * @param base Base of the string representation. 16 by default.
  * @return Finite field constant.
  * */
-FFITerm IConst(const std::string& val, Solver* slv) //, uint32_t base)
+FFITerm FFITerm::Const(const std::string& val, Solver* slv, uint32_t base)
 {
-    return FFITerm(val, slv, true); //, base);
+    return FFITerm(val, slv, true, base);
 };
 
-FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst) //, uint32_t base)
+FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
     : solver(slv)
     , modulus(slv->s.mkInteger(slv->modulus))
 {
@@ -38,7 +38,13 @@ FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst) //, uint32_t b
         slv->s.assertFormula(ge);
         slv->s.assertFormula(lt);
     } else {
-        this->term = slv->s.mkInteger(t); //, base);
+        std::string tmp = slv->s.mkFiniteFieldElem(t, slv->fp, base).getFiniteFieldValue(); // dumb but works
+        if(tmp[0] == '-'){
+            this->term = slv->s.mkInteger(tmp) + this->modulus;
+        }else{
+            this->term = slv->s.mkInteger(tmp);
+        }
+        // this->term = slv->s.mkInteger(tmp); won't work for now since the assertion will definitely fail
     }
 }
 
@@ -96,6 +102,10 @@ void FFITerm::operator*=(const FFITerm& other)
  */
 FFITerm FFITerm::operator/(const FFITerm& other) const
 {
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkInteger("0")});
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    this->solver->s.assertFormula(nz);
+
     cvc5::Term res = this->solver->s.mkConst(this->solver->s.getIntegerSort(),
                                              "fe0f65a52067384116dc1137d798e0ca00a7ed46950e4eab7db51e08481535f2_div_" +
                                                  std::string(*this) + "_" + std::string(other));
@@ -108,6 +118,10 @@ FFITerm FFITerm::operator/(const FFITerm& other) const
 
 void FFITerm::operator/=(const FFITerm& other)
 {
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkInteger("0")});
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    this->solver->s.assertFormula(nz);
+    
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,
                                              "fe0f65a52067384116dc1137d798e0ca00a7ed46950e4eab7db51e08481535f2_div_" +
                                                  std::string(*this) + "__" + std::string(other));
@@ -119,7 +133,7 @@ void FFITerm::operator/=(const FFITerm& other)
 }
 
 /**
- * Create an equality constraint between two finite field elements.
+ * Create an equality constraint between two integer mod elements.
  *
  */
 void FFITerm::operator==(const FFITerm& other) const
@@ -129,7 +143,7 @@ void FFITerm::operator==(const FFITerm& other) const
 }
 
 /**
- * Create an inequality constraint between two finite field elements.
+ * Create an inequality constraint between two integer mod elements.
  *
  */
 void FFITerm::operator!=(const FFITerm& other) const
