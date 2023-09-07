@@ -270,9 +270,9 @@ describe('L1Publisher integration', () => {
 
       const txs = [
         await makeBloatedProcessedTx(128 * i + 32),
-        await makeBloatedProcessedTx(128 * i + 64),
-        await makeBloatedProcessedTx(128 * i + 96),
-        await makeBloatedProcessedTx(128 * i + 128),
+        await makeBloatedProcessedTx(128 * i + 32 + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        await makeBloatedProcessedTx(128 * i + 32 + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        await makeBloatedProcessedTx(128 * i + 32 + 3 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
       const globalVariables = new GlobalVariables(
         new Fr(config.chainId),
