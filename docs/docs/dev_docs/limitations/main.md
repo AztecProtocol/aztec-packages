@@ -221,19 +221,22 @@ There are [plans](../../about_aztec/roadmap/engineering_roadmap.md#proper-circui
 
 Each function call is represented by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. In doing so, the processing order differs from the execution order. Firstly, the private kernel has to handle one function call in its entirety at a time because a zk proof cannot be verified partially. This property alone makes it impossible for the ordering of kernel circuit validation to match the order in which the functions of the transaction were executed. Secondly, the private kernel processes function calls in a stack-based order, i.e., after having processed a function call, it processes all direct child function calls in an order which is the reverse of the execution order.
 
+Note that there is no plan to change this in the future.
+
 ### Example
-Let us assume that the main function named f_1 is calling in order f_2, f_3 (which calls f_5 folllowed by f_6), and f_4.
+Let us assume that the main function named $f_1$ is calling in order $f_2$, $f_3$ (which calls $f_5$ folllowed by $f_6$), and $f_4$.
 
 Call Dependency:
-> f_1 ---> f_2, f_3, f_4 \
- f_3 ---> f_5, f_6
+> $f_1 \longrightarrow f_2$, $f_3$, $f_4$
+
+> $f_3 \longrightarrow f_5$, $f_6$
 
 Execution Order:
-> f_1, f_2, f_3, f_5, f_6, f_4
+> $f_1$, $f_2$, $f_3$, $f_5$, $f_6$, $f_4$
 
 
 Private Kernel Processing Order:
-> f_1, f_4, f_3, f_6, f_5, f_2
+> $f_1$, $f_4$, $f_3$, $f_6$, $f_5$, $f_2$
 
 #### What are the consequences?
 Transaction output elements such as notes in encrypted logs, note hashes (commitments), nullifiers might be ordered differently than the one exepected by the execution.
@@ -242,7 +245,7 @@ Transaction output elements such as notes in encrypted logs, note hashes (commit
 A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
 
 For the time being, such chopped notes are still emitted through encrypted logs (which is the communication channel to transmit notes). When a log containing a chopped note is processed, a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurence. However, this might be a source of confusion.
-This is issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).
+This issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).
 
 ## There's more
 
