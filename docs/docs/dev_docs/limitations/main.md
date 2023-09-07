@@ -219,7 +219,21 @@ There are [plans](../../about_aztec/roadmap/engineering_roadmap.md#proper-circui
 
 ### Circuits Processing Order Differ from Execution
 
-Each function call is representing by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. By doing so, the processing order differ from the execution order.
+Each function call is representing by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. By doing so, the processing order differ from the execution order. Firstly, the private kernel has to handle one function call in its entirety at a time because a zk proof cannot be verified partially. This property alone makes it impossible to follow an execution process. Secondly, the private kernel is processing function calls in a stack-based order, i.e., after having processed a function call, it processes all direct children function call in an order which is the reverse than execution.
+
+### Example
+Let us assume that the main function named f_1 is calling in order f_2, f_3 (which calls f_5 folllowed by f_6), and f_4.
+
+Call Dependency:
+> f_1 ---> f_2, f_3, f_4 \
+ f_3 ---> f_5, f_6
+
+Execution Order:
+> f_1, f_2, f_3, f_5, f_6, f_4
+
+
+Private Kernel Processing Order:
+> f_1, f_4, f_3, f_6, f_5, f_2
 
 #### What are the consequences?
 Transaction output elements such as notes in encrypted logs, note hashes (commitments), nullifiers might be ordered differently than the one exepected by the execution.
