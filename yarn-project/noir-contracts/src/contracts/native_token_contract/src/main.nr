@@ -23,10 +23,16 @@ contract NativeToken {
             compute_selector::compute_selector,
             logs::emit_unencrypted_log,
         },
-        state_vars::{map::Map, public_state::PublicState, set::Set},
-        types::type_serialisation::field_serialisation::{
-            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        state_vars::{
+            map::Map,
+            public_state::PublicState,
+            set::Set,
         },
+        types::type_serialisation::field_serialisation::{
+            FieldSerialisationMethods,
+            FIELD_SERIALISED_LEN,
+        },
+        auth::assert_valid_message_for,
     };
     use dep::non_native::{
         hash::{get_mint_content_hash, get_withdraw_content_hash},
@@ -385,9 +391,8 @@ contract NativeToken {
                 ], 
                 GENERATOR_INDEX__SIGNATURE_PAYLOAD
             )[0];
-            let is_valid_selector = compute_selector("is_valid(Field)");
-            let _callStackItem0 = context.call_private_function(from, is_valid_selector, [message_field]);
-            assert(_callStackItem0[0] == is_valid_selector);
+            
+            assert_valid_message_for(&mut context, from, message_field);
         }
 
         // Reduce user balance

@@ -140,7 +140,7 @@ void common_update_end_values(DummyBuilder& builder,
 
     const auto& storage_contract_address = private_call_public_inputs.call_context.storage_contract_address;
 
-    // Transient read requests and witnessess are accumulated in public_inputs.end
+    // Transient read requests and witnesses are accumulated in public_inputs.end
     // We silo the read requests (domain separation per contract address)
     {
         for (size_t i = 0; i < read_requests.size(); ++i) {
