@@ -35,6 +35,7 @@ echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
 
+# Fetch images with retries
 function fetch_image() {
   echo "Pulling: $1"
   if ! retry_10 docker pull $1 > /dev/null 2>&1; then
@@ -43,6 +44,17 @@ function fetch_image() {
   fi
   return 0
 }
+
+# Fetch images, but don't assume this will work
+function try_fetch_image() {
+  echo "Pulling: $1"
+  if ! docker pull $1 > /dev/null 2>&1; then
+    echo "Image not found: $1"
+    return 1
+  fi
+  return 0
+}
+
 echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 
 # Ensure ECR repository exists.
@@ -167,7 +179,7 @@ done
 if [ -n "$CONTENT_HASH" ]; then
   LAST_SUCCESSFUL_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
   echo "Pulling previous build of $REPOSITORY..."
-  fetch_image $LAST_SUCCESSFUL_URI || true
+  try_fetch_image $LAST_SUCCESSFUL_URI || true
   CACHE_FROM="--cache-from $LAST_SUCCESSFUL_URI $CACHE_FROM"
   echo
 fi

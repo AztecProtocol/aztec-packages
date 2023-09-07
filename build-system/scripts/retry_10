@@ -1,7 +1,8 @@
 set -eu
-# Retries up to 10 times with 10 second intervals
-for i in $(seq 1 10); do
+ATTEMPTS=4
+# Retries up to 4 times with 10 second intervals
+for i in $(seq 1 $ATTEMPTS); do
     "$@" && exit || sleep 10
 done
-echo "$@ failed after 10 attempts"
+echo "$@ failed after $ATTEMPTS attempts"
 exit 1
