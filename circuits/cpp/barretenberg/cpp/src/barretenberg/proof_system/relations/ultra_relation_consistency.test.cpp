@@ -36,7 +36,7 @@ struct InputElements {
         return result;
     }
 
-    static InputElements get_special()
+    static InputElements get_special() // use non-random values
     {
         InputElements result;
         FF idx = 0;
@@ -531,4 +531,3 @@ TEST_F(UltraRelationConsistency, AuxiliaryRelation)
 };
 
 } // namespace proof_system::ultra_relation_consistency_tests
-

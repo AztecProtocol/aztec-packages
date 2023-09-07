@@ -6,9 +6,18 @@
 
 namespace barretenberg {
 
+/**
+ * @brief A view of a univariate, also used to truncate univariates.
+ *
+ * @details For optimization purposes, it makes sense to define univariates with large lengths and then reuse only some
+ * of the data in those univariates. We do that by taking a view of those elements and then, as needed, using this to
+ * populate new containers.
+ */
 template <class Fr, size_t view_length> class UnivariateView;
 
-// IMPROVEMENT(Cody) this is not used anywhere? Move to memeber function of U/snivariate?
+/**
+ * @brief A univariate polynomial represented by its values on {0,1,..., _length-1}
+ */
 template <class Fr, size_t _length> class Univariate {
   public:
     static constexpr size_t LENGTH = _length;

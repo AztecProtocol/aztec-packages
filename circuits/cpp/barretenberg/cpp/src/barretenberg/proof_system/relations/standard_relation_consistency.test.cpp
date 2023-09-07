@@ -16,7 +16,6 @@
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include <gtest/gtest.h>
 
-
 using namespace proof_system;
 
 namespace proof_system::standard_relation_consistency_tests {
@@ -33,7 +32,7 @@ struct InputElements {
         return result;
     }
 
-    static InputElements get_special()
+    static InputElements get_special() // Use non-random values
     {
         InputElements result;
         FF idx = 0;

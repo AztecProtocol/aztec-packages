@@ -3,8 +3,10 @@
 #include "relation_parameters.hpp"
 
 namespace proof_system {
-template <typename T>
-concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUBRELATION_LINEARLY_INDEPENDENT; };
+template <typename T> concept HasSubrelationLinearlyIndependentMember = requires(T)
+{
+    T::Relation::SUBRELATION_LINEARLY_INDEPENDENT;
+};
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the verifier.
  *
@@ -18,6 +20,9 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUB
  * std::tuple<UnivariateView>. For the verifier, who accumulates FFs, both types are simply aliases for std::array<FF>
  * (since no "view" type is necessary). The containers std::tuple and std::array are needed to accommodate multiple
  * sub-relations within each relation, where, for efficiency, each sub-relation has its own specified degree.
+ *
+ * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/720)
+ *
  */
 
 /**
@@ -26,9 +31,9 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) { T::Relation::SUB
  * @return requires
  */
 template <typename FF, typename AccumulatorTypes, typename T>
-    requires std::is_same<std::span<FF>, T>::value
-inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type get_view(const T& input,
-                                                                                                  const size_t index)
+requires std::is_same<std::span<FF>, T>::value inline
+    typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type
+    get_view(const T& input, const size_t index)
 {
     return input[index];
 }
@@ -65,9 +70,13 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     };
 
   public:
-    using UnivariateAccumulatorsAndViews = typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
-    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect. 
-    using ValueAccumulatorsAndViews = typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
+    // Each `RelationImpl` defines a template `GetAccumulatorTypes` that supplies the `subrelation_lengths` parameters
+    // of the different `AccumulatorsAndViewsTemplate`s.
+    using UnivariateAccumulatorsAndViews =
+        typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
+    // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
+    using ValueAccumulatorsAndViews =
+        typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
     using RelationUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
     using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
@@ -78,7 +87,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                              const RelationParameters<FF>& relation_parameters,
                                              const FF& scaling_factor)
     {
-        Relation::template accumulate<UnivariateAccumulatorsAndViews>(accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<UnivariateAccumulatorsAndViews>(
+            accumulator, input, relation_parameters, scaling_factor);
     }
 
     static void add_full_relation_value_contribution(RelationValues& accumulator,
@@ -86,7 +96,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
                                                      const RelationParameters<FF>& relation_parameters,
                                                      const FF& scaling_factor = 1)
     {
-        Relation::template accumulate<ValueAccumulatorsAndViews>(accumulator, input, relation_parameters, scaling_factor);
+        Relation::template accumulate<ValueAccumulatorsAndViews>(
+            accumulator, input, relation_parameters, scaling_factor);
     }
 
     /**
@@ -96,8 +107,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
      * @tparam size_t
      */
     template <size_t>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(!HasSubrelationLinearlyIndependentMember<Relation>)
+    static constexpr bool is_subrelation_linearly_independent() requires(
+        !HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return true;
     }
@@ -108,8 +119,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
      * @tparam size_t
      */
     template <size_t subrelation_index>
-    static constexpr bool is_subrelation_linearly_independent()
-        requires(HasSubrelationLinearlyIndependentMember<Relation>)
+    static constexpr bool is_subrelation_linearly_independent() requires(
+        HasSubrelationLinearlyIndependentMember<Relation>)
     {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     }

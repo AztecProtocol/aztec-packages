@@ -21,9 +21,9 @@ template <typename FF_> class ArithmeticRelationImpl {
      *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
      *
      * @param accumulator the term being calculated by a sequence of calls to this function
-     * @param new_term the term to be accumulated
+     * @param new_term the term added to the accumulator in this iteration of the function
      * @param parameters inputs not varying between successive executions of this function
-     * @param scaling_factor term to scale the new accumulator contribution by before incorporating it
+     * @param scaling_factor scales the new_term before incorporating it into the accumulator
      */
     template <typename AccumulatorTypes>
     void static accumulate(typename AccumulatorTypes::Accumulators& accumulators,
