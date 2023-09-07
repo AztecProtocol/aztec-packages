@@ -65,7 +65,7 @@ With both contracts ready, we'll now proceed to deployment.
 
 Let's now write a script for deploying your contracts to the Sandbox. We'll create an RPC client, and then use the `ContractDeployer` class to deploy our contracts, and store the deployment address to a local JSON file.
 
-Create a new file `src/deploy.mjs`, importing the contract artifacts we have generated plus the dependencies we'll need:
+Create a new file `src/deploy.mjs`, importing the contract artifacts we have generated plus the dependencies we'll need, and with a call to a `main` function that we'll populate in a second:
 
 ```js
 // src/deploy.mjs
@@ -73,6 +73,13 @@ import { writeFileSync } from 'fs';
 import { createAztecRpcClient, ContractDeployer } from '@aztec/aztec.js';
 import PrivateTokenArtifact from '../contracts/private_token/target/PrivateToken.json' assert { type: 'json' };
 import PublicTokenArtifact from '../contracts/public_token/target/PublicToken.json' assert { type: 'json' };
+
+async function main() { }
+
+main().catch(err => {
+  console.error(`Error in deployment script: ${err}`);
+  process.exit(1);
+});
 ```
 
 Now we can deploy the contracts by adding the following code to the `src/deploy.mjs` file. Here, we are using the `ContractDeployer` class with the compiled artifact to send a new deployment transaction. The `wait` method will block execution until the transaction is successfully mined, and return a receipt with the deployed contract address. 

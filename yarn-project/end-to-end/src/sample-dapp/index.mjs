@@ -1,4 +1,7 @@
 import { L2BlockL2Logs, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/foundation/url';
+
+
 
 import { getPrivateToken, getPublicToken } from './contracts.mjs';
 
@@ -86,11 +89,17 @@ async function main() {
   await transferPrivateFunds(client);
 
   await mintPublicFunds(client);
-
-  process.exit(0);
 }
 
-main().catch(err => {
-  console.error(`Error in app: ${err}`);
-  process.exit(1);
-});
+// Execute main only if run directly
+if (process.argv[1].replace(/\/index\.m?js$/, '') === fileURLToPath(import.meta.url).replace(/\/index\.m?js$/, '')) {
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  main()
+    .then(() => process.exit(0))
+    .catch(err => {
+      console.error(`Error in app: ${err}`);
+      process.exit(1);
+    });
+}
+
+export { main };
