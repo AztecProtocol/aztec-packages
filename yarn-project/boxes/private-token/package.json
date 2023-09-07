@@ -5,7 +5,8 @@
   "type": "module",
   "main": "./dest/index.js",
   "scripts": {
-    "build": "yarn clean && webpack && docker pull aztecprotocol/aztec-sandbox:latest",
+    "build": "yarn clean && webpack && docker pull aztecprotocol/aztec-sandbox:latest && yarn install && yarn install:noir",
+    "install:noir": "curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash noirup -v aztec",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
     "start:dev": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" && webpack serve --mode=development",
@@ -14,9 +15,6 @@
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "jest"
   },
-  "inherits": [
-    "../../package.common.json"
-  ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "moduleNameMapper": {
