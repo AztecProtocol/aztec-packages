@@ -42,6 +42,12 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
 
+    // Indices for constant variables corresponding to ECCOpQueue op codes
+    uint32_t null_op_idx;
+    uint32_t add_accum_op_idx;
+    uint32_t mul_accum_op_idx;
+    uint32_t equality_op_idx;
+
     struct non_native_field_witnesses {
         // first 4 array elements = limbs
         // 5th element = prime basis limb
@@ -605,6 +611,11 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         w_4.reserve(size_hint);
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        // Set indices to constants corresponding to Goblin ECC op codes
+        null_op_idx = this->zero_idx;
+        add_accum_op_idx = put_constant_variable(FF(EccOpCode::ADD_ACCUM));
+        mul_accum_op_idx = put_constant_variable(FF(EccOpCode::MUL_ACCUM));
+        equality_op_idx = put_constant_variable(FF(EccOpCode::EQUALITY));
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = delete;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
