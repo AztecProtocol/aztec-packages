@@ -11,6 +11,25 @@
 
 using namespace barretenberg;
 
+/**
+ * @brief Ensure evaluate() gives consistent result for polynomials of different size but same non-zero coefficients.
+ */
+TEST(polynomials, evaluate)
+{
+    auto poly1 = polynomial(15); // non power of 2
+    auto poly2 = polynomial(64);
+    for (size_t i = 0; i < poly1.size(); ++i) {
+        poly1[i] = fr::random_element();
+        poly2[i] = poly1[i];
+    }
+
+    auto challenge = fr::random_element();
+    auto eval1 = poly1.evaluate(challenge);
+    auto eval2 = poly2.evaluate(challenge);
+
+    EXPECT_EQ(eval1, eval2);
+}
+
 TEST(polynomials, fft_with_small_degree)
 {
     constexpr size_t n = 16;
