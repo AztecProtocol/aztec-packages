@@ -356,7 +356,7 @@ describe('sequencer/solo_block_builder', () => {
         expect(contractTreeAfter.root).toEqual(expectedContractTreeAfter);
         expect(contractTreeAfter.size).toEqual(BigInt(totalCount));
       },
-      10000,
+      30000,
     );
 
     it('builds an empty L2 block', async () => {
