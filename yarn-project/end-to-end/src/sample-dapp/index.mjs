@@ -1,8 +1,6 @@
 import { L2BlockL2Logs, createAztecRpcClient, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-
-
 import { getPrivateToken, getPublicToken } from './contracts.mjs';
 
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;

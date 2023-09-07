@@ -1,11 +1,11 @@
 import { ContractDeployer, createAztecRpcClient } from '@aztec/aztec.js';
-import { PrivateTokenContractAbi as PrivateTokenArtifact, PublicTokenContractAbi as PublicTokenArtifact } from '@aztec/noir-contracts/artifacts';
-
-
+import {
+  PrivateTokenContractAbi as PrivateTokenArtifact,
+  PublicTokenContractAbi as PublicTokenArtifact,
+} from '@aztec/noir-contracts/artifacts';
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-
 
 // docs:start:dapp-deploy
 const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
