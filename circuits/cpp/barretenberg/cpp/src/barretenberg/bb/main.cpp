@@ -141,7 +141,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
 }
 
 /**
- * @brief Writes a verification key for an ACIR circuit to a file
+ * @brief Writes a verification key for an ACIR circuit to a file.
  *
  * Communication:
  * - stdout: The verification key is written to stdout as a byte array
