@@ -247,33 +247,22 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
     if constexpr (IsGoblinFlavor<Flavor>) {
         // WORKTODO: Extract degree M_{i-1} of T_{i-1}
         size_t shift_magnitude = 0; // M_{i-1}
-        auto circuit_size = key->circuit_size;
+        (void)shift_magnitude;
+        // auto circuit_size = key->circuit_size;
 
         // Construct right-shifted op wires while ensuring that the last 'shift_magnitude' coefficients of the
         // original op wires are zero.
         // WORKTODO: Need to ensure that M_{i-1} + m_i < n. If this is not the case then we should still be able to
         // compute the commitment but we have to be careful. Maybe just construct shift as Polynomial(M_{i-1} + m_i)?
         std::array<Polynomial, Flavor::NUM_WIRES> shifted_op_wires;
-        size_t wire_idx = 0;
-        for (auto& op_wire : key->get_ecc_op_wires()) {
-            shifted_op_wires[wire_idx] = Polynomial(circuit_size);
-            // Ensure final M_{i-1} elements are zero
-            for (size_t idx = 0; idx < shift_magnitude; ++idx) {
-                ASSERT(op_wire[circuit_size - idx - 1].is_zero());
-            }
-            // Construct right shift by M_{i-1}
-            for (size_t idx = 0; idx < circuit_size; ++idx) {
-                shifted_op_wires[wire_idx][idx + shift_magnitude] = op_wire[idx];
-            }
-            wire_idx++;
+        auto op_wires = key->get_ecc_op_wires();
+        for (size_t i = 0; i < op_wires.size(); ++i) {
+            auto op_wire = Polynomial(op_wires[i]);
+            // WORKTODO: shifting one to the left right now to account for the zero-row-offset that is not present in
+            // T_i. Need to make a decision on whether to account for this issue in the t_i or in the T_i.
+            shifted_op_wires[i] = Polynomial(op_wire.shifted());
+            // shifted_op_wires[i] = op_wire.get_right_shifted(shift_magnitude);
         }
-
-        // for (auto& wire : key->get_ecc_op_wires()) {
-        //     info("WIRE \n");
-        //     for (auto& coeff : wire) {
-        //         info("coeff = ", coeff);
-        //     }
-        // }
 
         // Commit to the right-shifted op wire polynomials
         std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
@@ -324,9 +313,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
         }
 
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            auto polynomial = Polynomial(shifted_op_wires[idx]);
-            // WORKTODO: Does this need to be a power of 2 to work properly for some reason?
-            // auto polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
+            auto polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
             auto evaluation = polynomial.evaluate(kappa_challenge);
             info("T_i eval = ", evaluation);
             univariate_openings.opening_pairs.emplace_back(kappa_challenge, evaluation);
