@@ -78,7 +78,7 @@ if [ -d $ROOT_PATH/$PROJECT_DIR/terraform ]; then
 fi
 
 # Pull latest parents that are not ours. We also do not want to pull images suffixed by _, this is how we scope intermediate build images.
-#echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
+echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 PARENTS=$(cat $DOCKERFILE | sed -n -e 's/^FROM \([^[:space:]]\+\).*/\1/p' | sed '/_$/d' | grep -v $ECR_DEPLOY_URL  | sort | uniq)
 for PARENT in $PARENTS; do
   fetch_image $PARENT

@@ -42,7 +42,7 @@ retry_10 ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
 docker pull $IMAGE_COMMIT_URI
 
 # Login to dockerhub.
-#echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
+echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 
 # Tag with commit tag
 docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_URI
