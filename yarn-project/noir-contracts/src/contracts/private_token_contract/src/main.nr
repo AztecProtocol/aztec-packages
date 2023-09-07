@@ -1,3 +1,4 @@
+// docs:start:all
 contract PrivateToken {
     use dep::std::option::Option;
     use dep::value_note::{
@@ -113,3 +114,4 @@ contract PrivateToken {
     }
     // docs:end:compute_note_hash_and_nullifier
 }
+// docs:end:all
