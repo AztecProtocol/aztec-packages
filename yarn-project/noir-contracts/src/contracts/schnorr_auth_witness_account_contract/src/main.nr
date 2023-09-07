@@ -57,7 +57,8 @@ contract SchnorrAuthWitnessAccount {
         value: Field,
     ) {
         assert((value == 0) | (value == 1), "value must be a boolean");
-        assert(_inner_is_valid(message_hash, context.this_address()), "only the owner can set the storage");
+        assert(context.msg_sender() == context.this_address(), "only the owner can set the storage");
+        // assert(_inner_is_valid(message_hash, context.this_address()), "only the owner can set the storage");
 
         let selector = compute_selector("_set_is_valid_storage(Field,Field)");
         let _void = context.call_public_function(context.this_address(), selector, [message_hash, value]);

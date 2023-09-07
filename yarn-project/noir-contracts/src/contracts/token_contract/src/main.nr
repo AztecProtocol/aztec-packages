@@ -3,40 +3,28 @@ mod types;
 mod account_interface;
 mod util;
 
-// Testing token that can be bridged in and out.
-// TODOS:
-// - Add role based access control to mint functions
-// - Add function for managing roles
-// - Add public self-burn function for users to burn their own tokens
+// Minimal token implementation that supports `AuthWit` accounts.
+
 contract Token {
     // Libs
     use dep::std::option::Option;
+    use dep::safe_math::SafeU120;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
-    use dep::std;
-
-    use crate::storage::Storage;
-
     use dep::aztec::{
-        types::point::Point,
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
     };
-    use dep::aztec::oracle::{
-        debug_log::{debug_log_format},
-        compute_selector::compute_selector,
-    };
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-
-    use crate::types::{AztecAddress, EthereumAddress, TransparentNote, TransparentNoteMethods};
+    use dep::aztec::oracle::compute_selector::compute_selector;
+    use crate::storage::Storage;
+    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods};
     use crate::account_interface::AccountContract;
     use crate::util::compute_message_hash;
-    use dep::safe_math::SafeU120;
 
     #[aztec(private)]
     fn constructor() {
@@ -106,7 +94,7 @@ contract Token {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
 
         if (from.address != context.msg_sender()) {
-            let selector = 420;
+            let selector = compute_selector("shield((Field),Field,Field)");
             let message_field = compute_message_hash([selector, from.address, amount, secret_hash]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
@@ -131,16 +119,16 @@ contract Token {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
 
         if (from.address != context.msg_sender()) {
-            let selector = 420;
+            let selector = compute_selector("transfer_public((Field),(Field),Field)");
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
         }
 
         let amount = SafeU120::new(amount);
         let from_balance = SafeU120::new(storage.public_balances.at(from.address).read()).sub(amount);
-        let to_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
-
         storage.public_balances.at(from.address).write(from_balance.value as Field);
+
+        let to_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
         storage.public_balances.at(to.address).write(to_balance.value as Field);
     }
 
@@ -169,16 +157,15 @@ contract Token {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         if (from.address != context.msg_sender()) {
-            let selector = 420;
+            let selector = compute_selector("unshield((Field),(Field),Field)");
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
-            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0x29d25ca9, "invalid call");
+            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
         }
 
         let from_balance = storage.balances.at(from.address);
         decrement(from_balance, amount, from.address);
 
-        // _increase_public_balance(to, amount);
-        let selector = compute_selector("_increase_public_balance((Field), (Field))");
+        let selector = compute_selector("_increase_public_balance((Field),Field)");
         let _void = context.call_public_function(context.this_address(), selector, [to.address, amount]);
     }
 
@@ -191,7 +178,7 @@ contract Token {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         if (from.address != context.msg_sender()) {
-            let selector = 420;
+            let selector = compute_selector("transfer((Field),(Field),Field)");
             let message_field = compute_message_hash([selector, from.address, to.address, amount]);
             assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
         }
@@ -204,7 +191,7 @@ contract Token {
     }   
 
     /// SHOULD BE Internal ///
-    
+
     // We cannot do this from the constructor currently 
     // Since this should be internal, for now, we ignore the safety checks of it, as they are 
     // enforced by it being internal and only called from the constructor.
