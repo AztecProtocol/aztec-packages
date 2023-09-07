@@ -11,7 +11,7 @@ $(aws ecr get-login --region us-east-2 --no-include-email) 2> /dev/null
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 
 for REPO in aztec.js end-to-end aztec-sandbox; do
-  retry_10 docker pull $($calculate_image_uri $REPO)
+  retry docker pull $($calculate_image_uri $REPO)
   docker tag $($calculate_image_uri $REPO) aztecprotocol/$REPO:latest
 done
 

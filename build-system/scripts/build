@@ -38,7 +38,7 @@ echo "Build directory: $BUILD_DIR"
 # Fetch images with retries
 function fetch_image() {
   echo "Pulling: $1"
-  if ! retry_10 docker pull $1 > /dev/null 2>&1; then
+  if ! retry docker pull $1 > /dev/null 2>&1; then
     echo "Image not found: $1"
     return 1
   fi
@@ -58,7 +58,7 @@ function try_fetch_image() {
 echo "$DOCKERHUB_PASSWORD" | docker login -u aztecprotocolci --password-stdin
 
 # Ensure ECR repository exists.
-retry_10 ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
+retry ensure_repo $REPOSITORY $ECR_REGION refresh_lifecycle
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 echo "Content hash: $CONTENT_HASH"
@@ -171,7 +171,7 @@ for STAGE in $STAGES; do
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
   
   echo "Pushing stage: $STAGE"
-  retry_10 docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
+  retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
 done
 
@@ -191,5 +191,5 @@ echo "Building image: $IMAGE_COMMIT_URI"
 docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
 | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
-retry_10 docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted

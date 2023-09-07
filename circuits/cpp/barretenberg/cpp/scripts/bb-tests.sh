@@ -8,7 +8,7 @@ export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 REPOSITORY=barretenberg-x86_64-linux-clang-assert
 # use the image rebuild patterns to compute a content hash, use this to get a URI
 IMAGE_URI=$(calculate_image_uri $REPOSITORY)
-retry_10 docker pull $IMAGE_URI
+retry docker pull $IMAGE_URI
 
 TESTS=(
   crypto_aes128_tests

@@ -16,11 +16,11 @@ aws ecr get-login-password --region us-east-2 | docker login --username AWS --pa
 
 export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 IMAGE_URI=$(calculate_image_uri $IMAGE)
-retry_10 docker pull $IMAGE_URI
+retry docker pull $IMAGE_URI
 docker tag $IMAGE_URI aztecprotocol/canary:latest
 
 SANDBOX_IMAGE_URI=$(calculate_image_uri aztec-sandbox)
-retry_10 docker pull $SANDBOX_IMAGE_URI
+retry docker pull $SANDBOX_IMAGE_URI
 docker tag $SANDBOX_IMAGE_URI aztecprotocol/sandbox:latest
 
 docker-compose -f $COMPOSE_FILE rm -f
