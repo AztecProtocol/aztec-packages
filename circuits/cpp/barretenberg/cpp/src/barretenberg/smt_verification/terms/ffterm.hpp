@@ -28,6 +28,9 @@ class FFTerm {
     FFTerm(const FFTerm& other) = default;
     FFTerm(FFTerm&& other) = default;
 
+    static FFTerm Var(const std::string& name, Solver* slv);
+    static FFTerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
+
     FFTerm& operator=(const FFTerm& right) = default;
     FFTerm& operator=(FFTerm&& right) = default;
 
@@ -45,7 +48,7 @@ class FFTerm {
 
     operator std::string() const { return term.isFiniteFieldValue() ? term.getFiniteFieldValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
-
+    
     ~FFTerm() = default;
     friend std::ostream& operator<<(std::ostream& out, const FFTerm& k) { return out << k.term; }
 
@@ -65,8 +68,5 @@ class FFTerm {
         return { res, slv };
     }
 };
-
-FFTerm Var(const std::string& name, Solver* slv);
-FFTerm Const(const std::string& val, Solver* slv, uint32_t base = 16);
 
 } // namespace smt_terms

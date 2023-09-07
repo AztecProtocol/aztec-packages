@@ -9,7 +9,7 @@ namespace smt_terms {
  * @param slv  Pointer to the global solver.
  * @return Finite field symbolic variable.
  * */
-FFTerm Var(const std::string& name, Solver* slv)
+FFTerm FFTerm::Var(const std::string& name, Solver* slv)
 {
     return FFTerm(name, slv);
 };
@@ -22,7 +22,7 @@ FFTerm Var(const std::string& name, Solver* slv)
  * @param base Base of the string representation. 16 by default.
  * @return Finite field constant.
  * */
-FFTerm Const(const std::string& val, Solver* slv, uint32_t base)
+FFTerm FFTerm::Const(const std::string& val, Solver* slv, uint32_t base)
 {
     return FFTerm(val, slv, true, base);
 };
@@ -40,7 +40,6 @@ FFTerm::FFTerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
 FFTerm FFTerm::operator+(const FFTerm& other) const
 {
     cvc5::Term res = this->solver->s.mkTerm(cvc5::Kind::FINITE_FIELD_ADD, { this->term, other.term });
-    ;
     return { res, this->solver };
 }
 
@@ -85,6 +84,10 @@ void FFTerm::operator*=(const FFTerm& other)
  */
 FFTerm FFTerm::operator/(const FFTerm& other) const
 {
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp)});
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    this->solver->s.assertFormula(nz);
+
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,
                                              "fe0f65a52067384116dc1137d798e0ca00a7ed46950e4eab7db51e08481535f2_div_" +
                                                  std::string(*this) + "_" + std::string(other));
@@ -96,6 +99,10 @@ FFTerm FFTerm::operator/(const FFTerm& other) const
 
 void FFTerm::operator/=(const FFTerm& other)
 {
+    cvc5::Term nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {other.term, this->solver->s.mkFiniteFieldElem("0", this->solver->fp)});
+    nz = this->solver->s.mkTerm(cvc5::Kind::EQUAL, {nz, this->solver->s.mkBoolean(false)});
+    this->solver->s.assertFormula(nz);
+
     cvc5::Term res = this->solver->s.mkConst(this->solver->fp,
                                              "fe0f65a52067384116dc1137d798e0ca00a7ed46950e4eab7db51e08481535f2_div_" +
                                                  std::string(*this) + "__" + std::string(other));
