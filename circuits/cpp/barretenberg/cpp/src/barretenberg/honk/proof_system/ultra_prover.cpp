@@ -245,7 +245,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transcript_aggregation_round()
 {
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // WORKTODO: Extract degree M_{i-1} of T_{i-1}
+        // WORKTODO: Extract degree M_{i-1} of T_{i-1} from op_queue
         size_t shift_magnitude = 0; // M_{i-1}
         (void)shift_magnitude;
         // auto circuit_size = key->circuit_size;
@@ -264,77 +264,51 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
             // shifted_op_wires[i] = op_wire.get_right_shifted(shift_magnitude);
         }
 
-        // Commit to the right-shifted op wire polynomials
+        // Get commitments [t_i^{shift}], [T_{i-1}], and [T_i] and add to transcript
         std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
+        // std::array<Commitment, Flavor::NUM_WIRES> prev_aggregate_op_queue_commitments;
+        std::array<Commitment, Flavor::NUM_WIRES> aggregate_op_queue_commitments;
         for (size_t idx = 0; idx < shifted_op_wires.size(); ++idx) {
-            // queue.add_commitment(shifted_op_wires[idx], "SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
             shifted_op_wire_commitments[idx] = pcs_commitment_key->commit(shifted_op_wires[idx]);
-            std::string label = "SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1);
-            transcript.send_to_verifier(label, shifted_op_wire_commitments[idx]);
+            // prev_aggregate_op_queue_commitments[idx] = WORKTODO: get_previous_agg_op_queue_commitments();
+            aggregate_op_queue_commitments[idx] = shifted_op_wire_commitments[idx]; // WORKTODO: plus [T_{i-1}]
+
+            std::string suffix = std::to_string(idx + 1);
+            transcript.send_to_verifier("SHIFTED_ECC_OP_WIRE_" + suffix, shifted_op_wire_commitments[idx]);
+            // transcript.send_to_verifier("PREV_AGG_ECC_OP_QUEUE_" + suffix, prev_aggregate_op_queue_commitments[idx]);
+            transcript.send_to_verifier("AGG_ECC_OP_QUEUE_" + suffix, aggregate_op_queue_commitments[idx]);
         }
 
-        // // Get and send commitments [T_{i-1}]
-        // std::array<Commitment, Flavor::NUM_WIRES> previous_aggregate_op_queue_commitments;
-        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        //     // WORKTODO: Maybe we can store [T_{i-1}] in the ecc op queue for now?
-        //     previous_aggregate_op_queue_commitments[idx] = Commitment::one();
-        //     std::string label = "PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1);
-        //     transcript.send_to_verifier(label, previous_aggregate_op_queue_commitments[idx]);
-        // }
-
-        // Compute and send commitments [T_i] = [T_{i-1}] + [t_i^{shift}]
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            // WORKTODO: add prev agg commitment to RHS
-            auto aggregate_op_queue_commitment = shifted_op_wire_commitments[idx];
-            std::string label = "AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1);
-            transcript.send_to_verifier(label, aggregate_op_queue_commitment);
-        }
-
-        // Compute evaluations T_i(γ), T_{i-1}(γ), t_i^{shift}(γ), add to transcript
-        // - just use the polynomial.evaluate() method to evaluate as univariates
-        auto kappa_challenge = transcript.get_challenge("kappa");
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            auto evaluation = shifted_op_wires[idx].evaluate(kappa_challenge);
-            info("t_i eval = ", evaluation);
-            univariate_openings.opening_pairs.emplace_back(kappa_challenge, evaluation);
-            univariate_openings.witnesses.emplace_back(shifted_op_wires[idx]); // WORKTODO: std::move these
-            // info("univariate_openings.witnesses.size() = ", univariate_openings.witnesses.size());
-            std::string label = "op_wire_eval_" + std::to_string(idx + 1);
-            transcript.send_to_verifier(label, evaluation);
-        }
-
-        for (size_t idx = 0; idx < shifted_op_wires[0].size(); ++idx) {
-            info(idx, ": ", shifted_op_wires[0][idx]);
-        }
-
+        // Compute evaluations T_i(γ), T_{i-1}(γ), t_i^{shift}(γ), add to transcript.
+        // Note: For each polynomial we add a univariate opening claim {(γ, p(γ)), p(X)} to the set of claims to be
+        // combined in the batch polynomial Q in Shplonk. (The other univariate claims come from the output of Gemini).
+        auto kappa = transcript.get_challenge("kappa");
+        auto evaluation = FF(0);
+        // auto prev_aggregate_ecc_op_transcript = key->op_queue->get_previous_aggregate_transcript();
         auto aggregate_ecc_op_transcript = key->op_queue->get_aggregate_transcript();
-        for (size_t idx = 0; idx < aggregate_ecc_op_transcript[0].size(); ++idx) {
-            info(idx, ": ", aggregate_ecc_op_transcript[0][idx]);
-        }
-
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            std::string suffix = std::to_string(idx + 1);
+
+            // t_i^{shift}(γ)
+            evaluation = shifted_op_wires[idx].evaluate(kappa);
+            univariate_openings.opening_pairs.emplace_back(kappa, evaluation);
+            univariate_openings.witnesses.emplace_back(shifted_op_wires[idx]); // WORKTODO: std::move these
+            transcript.send_to_verifier("op_wire_eval_", evaluation);
+
+            // T_{i-1}(γ)
+            // auto polynomial = Polynomial(prev_aggregate_ecc_op_transcript[idx]);
+            // evaluation = polynomial.evaluate(kappa);
+            // univariate_openings.opening_pairs.emplace_back(kappa, evaluation);
+            // univariate_openings.witnesses.emplace_back(polynomial); // WORKTODO: std::move these
+            // transcript.send_to_verifier("prev_agg_ecc_op_queue_eval_" + suffix, evaluation);
+
+            // T_i(γ)
             auto polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
-            auto evaluation = polynomial.evaluate(kappa_challenge);
-            info("T_i eval = ", evaluation);
-            univariate_openings.opening_pairs.emplace_back(kappa_challenge, evaluation);
-            // WORKTODO: probably want to std::move these
-            univariate_openings.witnesses.emplace_back(polynomial);
-            // info("univariate_openings.witnesses.size() = ", univariate_openings.witnesses.size());
-            std::string label = "agg_ecc_op_queue_eval_" + std::to_string(idx + 1);
-            transcript.send_to_verifier(label, evaluation);
+            evaluation = polynomial.evaluate(kappa);
+            univariate_openings.opening_pairs.emplace_back(kappa, evaluation);
+            univariate_openings.witnesses.emplace_back(polynomial); // WORKTODO: std::move these
+            transcript.send_to_verifier("agg_ecc_op_queue_eval_" + suffix, evaluation);
         }
-
-        // auto previous_aggregate_ecc_op_transcript = key->op_queue->get_previous_aggregate_transcript();
-        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        //     auto polynomial = Polynomial(previous_aggregate_ecc_op_transcript[idx]);
-        //     auto evaluation = polynomial.evaluate(kappa_challenge);
-        //     std::string label = "prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1);
-        //     transcript.send_to_verifier(label, evaluation);
-        // }
-
-        // Add polynomials T_i, T_{i-1}, t_i^{shift} and their evaluations to the set of opening pairs and witness
-        // polynomials that are passed to Shplonk. This should be sufficient to make Shplonk produce the updated Q and
-        // Q_z.
     }
 }
 
