@@ -259,7 +259,6 @@ async function createDirectory(outputDirectoryName: string, log: LogFn): Promise
  * and generates a UI to deploy + interact with the contract on a local aztec testnet.
  * @param contractName - name of contract from `@aztec/noir-contracts`, in a format like "PrivateToken" (rather than "private_token", as it appears in the noir-contracts repo)
  * @param log - Logger instance that will output to the CLI
- * TODO: add the jest tests
  */
 export async function unboxContract(contractName: string, outputDirectoryName: string, log: LogFn) {
   const contractNames = ['PrivateToken'];
@@ -279,5 +278,5 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
   await downloadContractAndStarterKitFromGithub(contractName, outputPath, log);
 
   await updateNargoToml(outputDirectoryName, log);
-  // await updatePackageJsonVersions(outputDirectoryName, log);
+  await updatePackageJsonVersions(outputDirectoryName, log);
 }

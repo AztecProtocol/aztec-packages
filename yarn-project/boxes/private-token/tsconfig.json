@@ -23,7 +23,7 @@
   "include": ["src", "src/**/*.json"],
   "references": [
     { "path": "../../aztec.js" },
-    { "path": "../../aztec-cli" },
+    { "path": "../../cli" },
     { "path": "../../foundation" },
     { "path": "../../noir-compiler" },
     { "path": "../../noir-contracts" },
