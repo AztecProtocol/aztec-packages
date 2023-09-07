@@ -69,7 +69,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     work_queue<Curve> queue;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
-    pcs::gemini::ProverOutput<Curve> gemini_output;
+    pcs::gemini::ProverOutput<Curve> univariate_openings;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
 
