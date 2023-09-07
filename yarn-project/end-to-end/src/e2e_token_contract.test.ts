@@ -528,6 +528,32 @@ describe('e2e_token_contract', () => {
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
         });
 
+        it('transfer on behalf of other, wrong designated caller', async () => {
+          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
+          const balance1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
+          const amount = balance0 + 2n;
+          expect(amount).toBeGreaterThan(0n);
+
+          // We need to compute the message we want to sign.
+          const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount);
+
+          // Add it to the wallet as approved
+          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+          const validTxReceipt = await setValidTx.wait();
+          expect(validTxReceipt.status).toBe(TxStatus.MINED);
+
+          // Perform the transfer
+          await expect(
+            asset.methods
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .simulate({ origin: accounts[1].address }),
+          ).rejects.toThrowError('Assertion failed: invalid call');
+
+          expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
+          expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
+        });
+
         it.skip('transfer into account to overflow', () => {
           // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
           // a way to get funds enough to overflow.
@@ -872,6 +898,31 @@ describe('e2e_token_contract', () => {
             .withWallet(wallets[2])
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
+        ).rejects.toThrowError('Assertion failed: invalid call');
+
+        expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
+        expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
+      });
+
+      it('on behalf of other (wrong designated caller)', async () => {
+        const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
+        const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
+        const amount = balancePub + 1n;
+        expect(amount).toBeGreaterThan(0n);
+
+        // We need to compute the message we want to sign.
+        const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash);
+
+        // Add it to the wallet as approved
+        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+        const validTxReceipt = await setValidTx.wait();
+        expect(validTxReceipt.status).toBe(TxStatus.MINED);
+
+        await expect(
+          asset.methods
+            .shield({ address: accounts[0].address }, amount, secretHash)
+            .simulate({ origin: accounts[2].address }),
         ).rejects.toThrowError('Assertion failed: invalid call');
 
         expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
@@ -1294,6 +1345,36 @@ describe('e2e_token_contract', () => {
             asset.withWallet(wallets[2]).methods.burn({ address: accounts[0].address }, amount, nonce).simulate(),
           ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
         });
+      });
+
+      it('on behalf of other (invalid designated caller)', async () => {
+        const balancePub0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
+        const balancePub1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
+        const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
+        const balancePriv1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
+        const amount = balancePriv0 + 2n;
+        expect(amount).toBeGreaterThan(0n);
+
+        // We need to compute the message we want to sign.
+        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount);
+        const expectedMessageHash = await unshieldMessageHash(accounts[2], accounts[0], accounts[1], amount);
+
+        // Both wallets are connected to same node and rpc so we could just insert directly using
+        // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
+        // But doing it in two actions to show the flow.
+        const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
+        await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
+
+        await expect(
+          asset.methods
+            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+            .simulate({ origin: accounts[2].address }),
+        ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
+
+        expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub0);
+        expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv0);
+        expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balancePub1);
+        expect(await asset.methods.balance_of_private({ address: accounts[1].address }).view()).toEqual(balancePriv1);
       });
     });
   });
