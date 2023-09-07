@@ -63,6 +63,7 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> coefficients)
     memcpy(static_cast<void*>(coefficients_.get()),
            static_cast<void const*>(coefficients.data()),
            sizeof(Fr) * coefficients.size());
+    zero_memory_beyond(size_);
 }
 
 template <typename Fr>
