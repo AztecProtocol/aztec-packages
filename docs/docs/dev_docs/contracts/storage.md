@@ -1,7 +1,5 @@
 # Storage
 
-> A common convention in Noir Contracts is to declare the state variables in the `main.nr` file inside your project (see [directory structure](./layout.md#directory-structure)).
-
 State variables must be declared inside a struct. (This enables us to declare types composed of nested generics in Noir - see [types](./types.md)).
 
 We could define any kinds of state variables in the Storage struct:
@@ -10,6 +8,6 @@ We could define any kinds of state variables in the Storage struct:
 
 See [State Variables](./state_variables.md) for how to initialise them.
 
-Using Storage in a contract is like using any other struct in Noir. For each function that needs access to the storage, initialise the storage inside the function, and call the state variables in it:
+Using Storage in a contract is like using any other struct in Noir. For each function that needs access to the storage, initialise the storage inside the function, and then access its state variable members:
 
 #include_code storage-init /yarn-project/noir-contracts/src/contracts/docs_example_contract/src/main.nr rust
