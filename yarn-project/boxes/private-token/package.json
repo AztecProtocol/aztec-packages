@@ -13,10 +13,15 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
-    "test": "jest"
+    "test": "node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
   "jest": {
-    "preset": "ts-jest/presets/default-esm",
+  "testEnvironment": "node",
+  "extensionsToTreatAsEsm": [".ts"],
+    "preset": "ts-jest/presets/js-with-ts-esm",
+    "transform":  {
+        "^.+\\.(ts|js)$": ["ts-jest", { "useESM": true }]
+    },
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.js$": "$1"
     },
