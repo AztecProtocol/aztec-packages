@@ -7,7 +7,7 @@ set -eu
 BIN=${BIN:-../cpp/build/bin/bb}
 FLOW=${FLOW:-prove_and_verify}
 CRS_PATH=~/.bb-crs
-BRANCH=master
+BRANCH=kw/fix-scalar-mul
 VERBOSE=${VERBOSE:-}
 NAMED_TEST=${1:-}
 
