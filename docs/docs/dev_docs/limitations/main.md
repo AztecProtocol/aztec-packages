@@ -217,6 +217,18 @@ There are [plans](../../about_aztec/roadmap/engineering_roadmap.md#proper-circui
 
 > **In the mean time**, if you encounter a per-transaction limit when testing, and you're feeling adventurous, you could 'hack' the Sandbox to increase the limits. See here (TODO: link) for a guide. **However**, the limits cannot be increased indefinitely. So although we do anticipate that we'll be able to increase them a little bit, don't go mad and provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
 
+### Circuits Processing Order Differ from Execution
+
+Each function call is representing by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. By doing so, the processing order differ from the execution order.
+
+#### What are the consequences?
+Transaction output elements such as notes in encrypted logs, note hashes (commitments), nullifiers might be ordered differently than the one exepected by the execution.
+
+### Chopped Transient Notes are still Emitted in Logs
+A note which is created and nullified during the very same transaction is called transient. Such a note is chopped by the [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) and is never stored in any persistent data tree.
+
+At the time being, such chopped notes are still emitted as part of encrypted logs which is the communication channel to transmit notes. When a log containing a chopped note is processed a warning will be logged about a decrypted note which does not exist in data tree. We [improved](https://github.com/AztecProtocol/aztec-packages/issues/1603) error logging to help identify such an occurence. However, this might be the source of confusion.
+This is issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-packages/issues/1641).
 
 ## There's more
 
