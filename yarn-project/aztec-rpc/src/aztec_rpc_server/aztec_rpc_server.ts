@@ -76,6 +76,11 @@ export class AztecRPCServer implements AztecRPC {
     this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
+  public async addAuthWitness(messageHash: Fr, witness: Fr[]) {
+    await this.db.addAuthWitness(messageHash, witness);
+    return Promise.resolve();
+  }
+
   /**
    * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
    *
@@ -170,6 +175,18 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
+  }
+
+  public async getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr) {
+    if ((await this.getContractData(contract)) === undefined) {
+      throw new Error(`Contract ${contract.toString()} is not deployed`);
+    }
+    const notes = await this.db.getNoteSpendingInfo(contract, storageSlot);
+    const ownerCompleteAddress = await this.db.getCompleteAddress(owner);
+    if (!ownerCompleteAddress) throw new Error(`Owner ${owner} not registered in RPC server`);
+    const { publicKey: ownerPublicKey } = ownerCompleteAddress;
+    const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
+    return ownerNotes.map(n => n.notePreimage);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {

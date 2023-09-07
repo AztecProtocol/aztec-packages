@@ -2,13 +2,17 @@ import { AztecRPCServer } from '@aztec/aztec-rpc';
 import {
   Account,
   AccountContract,
+  AuthWitnessAccountContract,
+  AuthWitnessAccountEntrypoint,
+  AuthWitnessEntrypointWallet,
+  AztecRPC,
   EcdsaAccountContract,
   Fr,
   SchnorrAccountContract,
   SingleKeyAccountContract,
   Wallet,
 } from '@aztec/aztec.js';
-import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
+import { CompleteAddress, GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
 import { toBigInt } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts/types';
 
@@ -18,6 +22,12 @@ import { setup } from './fixtures/utils.js';
 
 function itShouldBehaveLikeAnAccountContract(
   getAccountContract: (encryptionKey: GrumpkinPrivateKey) => AccountContract,
+  walletSetup: (
+    rpc: AztecRPC,
+    encryptionPrivateKey: GrumpkinPrivateKey,
+    accountContract: AccountContract,
+    address?: CompleteAddress,
+  ) => Promise<{ account: Account; wallet: Wallet }>,
 ) {
   describe(`behaves like an account contract`, () => {
     let context: Awaited<ReturnType<typeof setup>>;
@@ -27,10 +37,14 @@ function itShouldBehaveLikeAnAccountContract(
     let encryptionPrivateKey: GrumpkinPrivateKey;
 
     beforeEach(async () => {
-      context = await setup();
+      context = await setup(0);
       encryptionPrivateKey = GrumpkinScalar.random();
-      account = new Account(context.aztecRpcServer, encryptionPrivateKey, getAccountContract(encryptionPrivateKey));
-      wallet = await account.deploy().then(tx => tx.getWallet());
+
+      ({ account, wallet } = await walletSetup(
+        context.aztecRpcServer,
+        encryptionPrivateKey,
+        getAccountContract(encryptionPrivateKey),
+      ));
       child = await ChildContract.deploy(wallet).send().deployed();
     }, 60_000);
 
@@ -58,12 +72,12 @@ function itShouldBehaveLikeAnAccountContract(
 
     it('fails to call a function using an invalid signature', async () => {
       const accountAddress = await account.getCompleteAddress();
-      const invalidWallet = await new Account(
+      const { wallet: invalidWallet } = await walletSetup(
         context.aztecRpcServer,
         encryptionPrivateKey,
         getAccountContract(GrumpkinScalar.random()),
         accountAddress,
-      ).getWallet();
+      );
       const childWithInvalidWallet = await ChildContract.at(child.address, invalidWallet);
       await expect(childWithInvalidWallet.methods.value(42).simulate()).rejects.toThrowError(
         /Cannot satisfy constraint.*/,
@@ -73,17 +87,50 @@ function itShouldBehaveLikeAnAccountContract(
 }
 
 describe('e2e_account_contracts', () => {
+  const base = async (
+    rpc: AztecRPC,
+    encryptionPrivateKey: GrumpkinPrivateKey,
+    accountContract: AccountContract,
+    address?: CompleteAddress,
+  ) => {
+    const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
+    const wallet = !address ? await account.deploy().then(tx => tx.getWallet()) : await account.getWallet();
+    return { account, wallet };
+  };
+
   describe('schnorr single-key account', () => {
     itShouldBehaveLikeAnAccountContract(
       (encryptionKey: GrumpkinPrivateKey) => new SingleKeyAccountContract(encryptionKey),
+      base,
     );
   });
 
   describe('schnorr multi-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()), base);
   });
 
   describe('ecdsa stored-key account', () => {
-    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)));
+    itShouldBehaveLikeAnAccountContract(() => new EcdsaAccountContract(randomBytes(32)), base);
+  });
+
+  describe('eip single-key account', () => {
+    itShouldBehaveLikeAnAccountContract(
+      (encryptionKey: GrumpkinPrivateKey) => new AuthWitnessAccountContract(encryptionKey),
+      async (
+        rpc: AztecRPC,
+        encryptionPrivateKey: GrumpkinPrivateKey,
+        accountContract: AccountContract,
+        address?: CompleteAddress,
+      ) => {
+        const account = new Account(rpc, encryptionPrivateKey, accountContract, address);
+        if (!address) {
+          const tx = await account.deploy();
+          await tx.wait();
+        }
+        const entryPoint = (await account.getEntrypoint()) as unknown as AuthWitnessAccountEntrypoint;
+        const wallet = new AuthWitnessEntrypointWallet(rpc, entryPoint);
+        return { account, wallet };
+      },
+    );
   });
 });
