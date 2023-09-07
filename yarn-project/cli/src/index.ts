@@ -486,10 +486,10 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
   program
     .command('unbox')
     .description(
-      'Unboxes an example contract from @aztec/noir-contracts.  Copies `noir-libs` dependencies and setup simple frontend for the contract based on the ABI.',
+      'Unboxes an example contract from @aztec/boxes.  Also Copies `noir-libs` dependencies and setup simple frontend for the contract using its ABI.',
     )
     .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
-    .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
+    .argument('[localDirectory]', 'Local directory to unbox to (relative or absolute), defaults to `<contractName>`')
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
       await unboxContract(contractName, unboxTo, log);

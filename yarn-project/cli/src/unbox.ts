@@ -156,9 +156,10 @@ async function _downloadNoirFilesFromGithub(
 async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
+  log(`read Nargo.toml file: ${fileContent}`);
   const lines = fileContent.split('\n');
   const newLines = lines
-    .filter(line => line.startsWith('#'))
+    .filter(line => !line.startsWith('#'))
     .map(line => {
       // hard coded mapping of dependencies that aztec noir contracts use - add more here to support more "packages"
       if (line.startsWith('aztec')) {
@@ -173,6 +174,7 @@ async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
       return line;
     });
   const updatedContent = newLines.join('\n');
+  log(`transformed as ${updatedContent}`);
   await fs.writeFile(nargoTomlPath, updatedContent);
   log(`Updated Nargo.toml to point to local copy of noir-libs`);
 }
@@ -276,6 +278,6 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
   const outputPath = await createDirectory(outputDirectoryName, log);
   await downloadContractAndStarterKitFromGithub(contractName, outputPath, log);
 
-  // await updateNargoToml(outputDirectoryName, log);
+  await updateNargoToml(outputDirectoryName, log);
   // await updatePackageJsonVersions(outputDirectoryName, log);
 }
