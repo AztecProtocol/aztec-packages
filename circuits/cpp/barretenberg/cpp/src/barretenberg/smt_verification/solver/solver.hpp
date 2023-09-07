@@ -1,8 +1,23 @@
 #pragma once
 #include <cvc5/cvc5.h>
 #include <string>
+#include <unordered_map>
 
 namespace smt_solver {
+
+/**
+ * @brief Solver configuration
+ * 
+ * @param produce_model tells the solver to actually compute the values of the variables in SAT case.
+ * @param timeout tells the solver to stop trying after `timeout` msecs.
+ *
+ * @todo TODO(alex): more cvc5 options.
+ * @todo TODO(alex): make it class if it's more comfortable
+ */
+struct SolverConfiguration{
+    bool produce_model;
+    uint32_t timeout;
+};
 
 /**
  * @brief Class for the solver.
@@ -15,24 +30,22 @@ namespace smt_solver {
  * @todo TODO(alex) perhaps add the << operator to make it easier to read the constraints.
  */
 class Solver {
-  private:
-    bool res = false;
-    bool checked = false;
-
   public:
     cvc5::Solver s;
     cvc5::Sort fp;
-    std::string modulus;
+    std::string modulus; // modulus in base 10
+    bool res = false;
+    bool checked = false;
 
-    explicit Solver(const std::string& modulus, bool produce_model = false, uint32_t base = 16, uint32_t timeout = 0)
-        : modulus(modulus)
+    explicit Solver(const std::string& modulus, const SolverConfiguration& config = {false, 0}, uint32_t base = 16)
     {
-        fp = s.mkFiniteFieldSort(modulus, base);
-        if (produce_model) {
+        this->fp = s.mkFiniteFieldSort(modulus, base);
+        this->modulus = fp.getFiniteFieldSize();
+        if (config.produce_model) {
             s.setOption("produce-models", "true");
         }
-        if (timeout > 0) {
-            s.setOption("tlimit-per", std::to_string(timeout));
+        if (config.timeout > 0) {
+            s.setOption("tlimit-per", std::to_string(config.timeout));
         }
     }
 
