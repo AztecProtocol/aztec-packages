@@ -515,7 +515,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenberg::g
     op_queue->add_accumulate(point);
 
     // Add ecc op gates
-    auto op_tuple = make_ecc_op_tuple(EccOpCode::ADD_ACCUM, point);
+    auto op_tuple = make_ecc_op_tuple(add_accum_op_idx, point);
     populate_ecc_op_wires(op_tuple);
 
     return op_tuple;
@@ -537,7 +537,7 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g
     op_queue->mul_accumulate(point, scalar);
 
     // Add ecc op gates
-    auto op_tuple = make_ecc_op_tuple(EccOpCode::MUL_ACCUM, point, scalar);
+    auto op_tuple = make_ecc_op_tuple(mul_accum_op_idx, point, scalar);
     populate_ecc_op_wires(op_tuple);
 
     return op_tuple;
@@ -554,7 +554,7 @@ template <typename FF> ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_eq()
     auto point = op_queue->eq();
 
     // Add ecc op gates
-    auto op_tuple = make_ecc_op_tuple(EccOpCode::EQUALITY, point);
+    auto op_tuple = make_ecc_op_tuple(equality_op_idx, point);
     populate_ecc_op_wires(op_tuple);
 
     return op_tuple;
@@ -569,7 +569,7 @@ template <typename FF> ecc_op_tuple UltraCircuitBuilder_<FF>::queue_ecc_eq()
  * @return ecc_op_tuple Tuple of indices into variables array used to construct pair of ecc op gates
  */
 template <typename FF>
-ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const FF& scalar)
+ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op_idx, const g1::affine_element& point, const FF& scalar)
 {
     const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     auto x_256 = uint256_t(point.x);
@@ -599,17 +599,17 @@ ecc_op_tuple UltraCircuitBuilder_<FF>::make_ecc_op_tuple(uint32_t op, const g1::
     // WORKTODO: Need to decide where to put this. It's possible the decompositions should take place in the EccOpQueue
     // and the adding of variables and constructing of witnesses should take place in the builder. Decide on the right
     // division of labor. Is there a way to have only one know about the wayn in which ops are placed across wires?
-    op_queue->ultra_ops[0].emplace_back(op);
+    op_queue->ultra_ops[0].emplace_back(op_idx);
     op_queue->ultra_ops[1].emplace_back(x_lo);
     op_queue->ultra_ops[2].emplace_back(x_hi);
     op_queue->ultra_ops[3].emplace_back(y_lo);
 
-    op_queue->ultra_ops[0].emplace_back(op); // TODO(luke): second op val is sort of a dummy. use "op" again?
+    op_queue->ultra_ops[0].emplace_back(op_idx); // TODO(luke): second op val is sort of a dummy. use "op" again?
     op_queue->ultra_ops[1].emplace_back(y_hi);
     op_queue->ultra_ops[2].emplace_back(z_1);
     op_queue->ultra_ops[3].emplace_back(z_2);
 
-    return { op, x_lo_idx, x_hi_idx, y_lo_idx, y_hi_idx, z_1_idx, z_2_idx };
+    return { op_idx, x_lo_idx, x_hi_idx, y_lo_idx, y_hi_idx, z_1_idx, z_2_idx };
 }
 
 /**
