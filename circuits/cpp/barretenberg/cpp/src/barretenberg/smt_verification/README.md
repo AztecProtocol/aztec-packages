@@ -190,4 +190,39 @@ To store it on the disk just do
 }
 ```
 
+```cpp
+    StandardCircuitBuilder builder = StandardCircuitBuilder();
+
+    field_t a(pub_witness_t(&builder, fr::random_element()));
+    field_t b(pub_witness_t(&builder, fr::random_element()));
+    info("a = ", a);
+    info("b = ", b);
+    builder.set_variable_name(a.witness_index, "a");
+    builder.set_variable_name(b.witness_index, "b");
+    field_t z(witness_t(&builder, fr::random_element()));
+    field_t ev = z * z + a * z + b;
+    info("ev = ", ev);
+    builder.set_variable_name(z.witness_index, "z");
+    builder.set_variable_name(ev.witness_index, "ev");
+
+    auto buf = builder.export_circuit();
+
+    smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
+    smt_solver::Solver s(circuit_info.modulus, {true, 0});
+
+    std::pair<smt_circuit::Circuit<smt_terms::FFTerm>, smt_circuit::Circuit<smt_terms::FFTerm>> cirs =
+        smt_circuit::unique_witness(circuit_info, &s, { "ev" }, { "z" });
+
+    bool res = s.check();
+    ASSERT_TRUE(res);
+    for (auto x : s.s.getAssertions()) {
+        info(x);
+        info();
+    }
+
+    std::unordered_map<std::string, cvc5::Term> terms = { { "z_c1", cirs.first["z"] }, { "z_c2", cirs.second["z"] } };
+    std::unordered_map<std::string, std::string> vals = s.model(terms);
+    info(vals["z_c1"]);
+    info(vals["z_c2"]);
+```
 More examples can be found in *.test.cpp files
