@@ -13,6 +13,7 @@ namespace aztec3::circuits::abis {
 
 template <typename NCT> struct BaseRollupInputs {
     using fr = typename NCT::fr;
+    using boolean = typename NCT::boolean;
 
     std::array<PreviousKernelData<NCT>, 2> kernel_data{};
 
@@ -56,7 +57,11 @@ template <typename NCT> struct BaseRollupInputs {
                    new_public_data_reads_sibling_paths,
                    historic_blocks_tree_root_membership_witnesses,
                    constants);
-    bool operator==(BaseRollupInputs<NCT> const&) const = default;
+
+    boolean operator==(BaseRollupInputs<NCT> const& other) const
+    {
+        return msgpack_derived_equals<boolean>(*this, other);
+    };
 };
 
 }  // namespace aztec3::circuits::abis
