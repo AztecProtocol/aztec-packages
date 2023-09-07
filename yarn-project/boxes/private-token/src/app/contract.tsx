@@ -1,7 +1,7 @@
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { useState } from 'react';
-import { contractAbi } from '../config.js';
+import { FILTERED_FUNCTION_NAMES, contractAbi } from '../config.js';
 import { Popup } from './components/index.js';
 import { ContractFunctionForm } from './contract_function_form.js';
 
@@ -62,7 +62,7 @@ export function Contract({wallet}: Props) {
       {!!contractAddress && (
         <div>
           {contractAbi.functions
-            .filter(f => f.name !== 'constructor' && !f.isInternal)
+            .filter(f => f.name !== 'constructor' && !f.isInternal && FILTERED_FUNCTION_NAMES.includes(f.name))
             .sort((a, b) => functionTypeSortOrder[a.functionType] - functionTypeSortOrder[b.functionType])
             .map((functionAbi: FunctionAbi) => (
               <ContractFunctionForm

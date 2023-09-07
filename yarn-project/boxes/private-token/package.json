@@ -11,7 +11,8 @@
     "start:dev": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" && webpack serve --mode=development",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts"
+    "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
+    "test": "jest"
   },
   "inherits": [
     "../../package.common.json"

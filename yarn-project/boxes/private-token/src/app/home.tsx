@@ -1,9 +1,10 @@
 import { CompleteAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
-import { ANIMATED_BANNER } from '../config.js';
 import { Banner, Spinner } from './components/index.js';
 import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
+
+const ANIMATED_BANNER = false;
 
 export function Home() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);

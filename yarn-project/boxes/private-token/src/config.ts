@@ -7,4 +7,4 @@ const SANDBOX_URL = process.env.SANDBOX_URL || 'http://localhost:8080';
 export const rpcClient = createAztecRpcClient(SANDBOX_URL);
 
 export const CONTRACT_ADDRESS_PARAM_NAMES = ['owner', 'contract_address', 'recipient', 'preimage'];
-export const ANIMATED_BANNER: boolean = true;
+export const FILTERED_FUNCTION_NAMES = ['compute_note_hash_and_nullifier'];
