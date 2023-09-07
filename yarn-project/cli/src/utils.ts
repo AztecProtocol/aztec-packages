@@ -8,12 +8,7 @@ import * as path from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
-import {
-  createEnvFile,
-  downloadContractAndStarterKitFromGithub,
-  updateNargoToml,
-  updatePackageJsonVersions,
-} from './unbox.js';
+import { downloadContractAndStarterKitFromGithub, updateNargoToml, updatePackageJsonVersions } from './unbox.js';
 
 export { createClient } from './client.js';
 /**
@@ -190,8 +185,6 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
   const contractAbiFileName = `${contractName}.json`;
   fs.writeFileSync(path.join(contractAbiOutputPath, contractAbiFileName), JSON.stringify(chosenContractAbi, null, 4));
   log(`copied contract ABI to ${contractAbiOutputPath}`);
-
-  await createEnvFile(starterKitPath, contractName);
 
   await updateNargoToml(outputDirectoryName, log);
   await updatePackageJsonVersions(outputDirectoryName, log);

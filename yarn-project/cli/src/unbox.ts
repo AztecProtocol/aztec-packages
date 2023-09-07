@@ -59,21 +59,21 @@ async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, 
   const repositoryDirectories = Object.values(data.files).filter(file => {
     return file.dir && file.name.startsWith(repositoryFolderPath);
   });
+  log(
+    'copying directories ',
+    repositoryDirectories.map(dir => dir.name),
+  );
 
   for (const directory of repositoryDirectories) {
     const relativePath = directory.name.replace(repositoryFolderPath, '');
     const targetPath = `${localOutputPath}/${relativePath}`;
     await fs.mkdir(targetPath, { recursive: true });
   }
-  log(
-    'copying directories ',
-    repositoryDirectories.map(dir => dir.name),
-  );
 
   const starterFiles = Object.values(data.files).filter(file => {
     return !file.dir && file.name.startsWith(repositoryFolderPath);
   });
-  // log('copying repository files', starterFiles);
+  log('copying repository files', starterFiles);
 
   for (const file of starterFiles) {
     const relativePath = file.name.replace(repositoryFolderPath, '');
