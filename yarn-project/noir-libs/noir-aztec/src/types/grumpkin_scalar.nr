@@ -7,6 +7,7 @@ struct GrumpkinScalar {
 
 impl GrumpkinScalar {
     fn new(high: Field, low: Field) -> Self {
+        // TODO: max value check
         GrumpkinScalar { high, low }
     }
 }
