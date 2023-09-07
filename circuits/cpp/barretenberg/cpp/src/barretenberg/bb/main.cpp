@@ -141,7 +141,7 @@ bool verify(const std::string& proof_path, bool recursive, const std::string& vk
 }
 
 /**
- * @brief Writes a verification key for an ACIR circuit to a file.
+ * @brief Writes a verification key for an ACIR circuit to a file
  *
  * Communication:
  * - stdout: The verification key is written to stdout as a byte array
@@ -174,7 +174,7 @@ void writeVk(const std::string& bytecodePath, const std::string& outputPath)
  * - Filesystem: The Solidity verifier contract is written to the path specified by outputPath
  *
  * Note: The fact that the contract was computed is for an ACIR circuit is not of importance
- * because this method uses the verification key to compute the Solidity verifier contract.
+ * because this method uses the verification key to compute the Solidity verifier contract
  *
  * @param output_path Path to write the contract to
  * @param vk_path Path to the file containing the serialized verification key
