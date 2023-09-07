@@ -165,47 +165,40 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
                                                     batched_commitment_to_be_shifted,
                                                     transcript);
 
+
+    // Perform ECC op queue transcript aggregation protocol
     if constexpr (IsGoblinFlavor<Flavor>) {
-        // Perform transcript aggregation protocol
-        // - Receive commitments, generate challenge
+        // Receive commitments [t_i^{shift}], [T_{i-1}], and [T_i]
         std::array<Commitment, Flavor::NUM_WIRES> shifted_op_wire_commitments;
         // std::array<Commitment, Flavor::NUM_WIRES> prev_agg_op_queue_commitments;
         std::array<Commitment, Flavor::NUM_WIRES> agg_op_queue_commitments;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             shifted_op_wire_commitments[idx] = transcript.template receive_from_prover<Commitment>("SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
-        }
-        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        //     prev_agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
-        // }
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            // prev_agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
             agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
         }
 
-        // - Receive transcript poly evaluations
+        // Receive transcript poly evaluations
         FF kappa = transcript.get_challenge("kappa");
-        (void)kappa;
         std::array<FF, Flavor::NUM_WIRES> shifted_op_wire_evals;
         // std::array<FF, Flavor::NUM_WIRES> prev_agg_op_queue_evals;
         std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             shifted_op_wire_evals[idx] = transcript.template receive_from_prover<FF>("op_wire_eval_" + std::to_string(idx + 1));
             univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, shifted_op_wire_evals[idx]}, shifted_op_wire_commitments[idx] });
-            // info("univariate_opening_claims.size() = ", univariate_opening_claims.size());
-        }
-        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            // prev_agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+            // univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, prev_agg_op_queue_evals[idx]}, prev_agg_op_queue_commitments[idx] });
             agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
             univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, agg_op_queue_evals[idx]}, agg_op_queue_commitments[idx] });
-            // info("univariate_opening_claims.size() = ", univariate_opening_claims.size());
         }
-        // for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-        //     prev_agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
-        // }
 
-        // - Check that aggregation identity holds: T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ)
-
-        // - Add 3 {opening_pair, commitment} to the univariate_opening_claims (rename univariate opening claims?)
-        
-
+        // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ). If it fails, return false
+        for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+            // WORKTODO: add T_{i-1}(γ) to this check
+            if (agg_op_queue_evals[idx] != shifted_op_wire_evals[idx]) {
+                return false;
+            }
+        }
     }
 
     // Produce a Shplonk claim: commitment [Q] - [Q_z], evaluation zero (at random challenge z)
