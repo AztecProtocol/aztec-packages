@@ -217,7 +217,7 @@ There are [plans](../../about_aztec/roadmap/engineering_roadmap.md#proper-circui
 
 > **In the mean time**, if you encounter a per-transaction limit when testing, and you're feeling adventurous, you could 'hack' the Sandbox to increase the limits. See here (TODO: link) for a guide. **However**, the limits cannot be increased indefinitely. So although we do anticipate that we'll be able to increase them a little bit, don't go mad and provide yourself with 1 million state transitions per transaction. That would be as unrealistic as artificially increasing Ethereum gas limits to 1 trillion.
 
-### Circuits Processing Order Differ from Execution
+### Circuits Processing Order Differs from Execution Order
 
 Each function call is representing by a circuit with a dedicated zero-knowledge proof of its execution. The [private kernel circuit](../../concepts/advanced/circuits/kernels/private_kernel.md) is in charge of stitching all these proofs together to produce a zero-knowledge proof that the whole execution of all function calls within a transaction is correct. By doing so, the processing order differ from the execution order. Firstly, the private kernel has to handle one function call in its entirety at a time because a zk proof cannot be verified partially. This property alone makes it impossible to follow an execution process. Secondly, the private kernel is processing function calls in a stack-based order, i.e., after having processed a function call, it processes all direct children function call in an order which is the reverse than execution.
 
