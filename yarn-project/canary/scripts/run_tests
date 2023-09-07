@@ -22,5 +22,5 @@ SANDBOX_IMAGE_URI=$($(git rev-parse --show-toplevel)/build-system/scripts/calcul
 docker pull $SANDBOX_IMAGE_URI
 docker tag $SANDBOX_IMAGE_URI aztecprotocol/sandbox:latest
 
-docker-compose rm -f $COMPOSE_FILE -f
+docker-compose -f $COMPOSE_FILE rm -f
 docker-compose -f $COMPOSE_FILE up --exit-code-from canary
