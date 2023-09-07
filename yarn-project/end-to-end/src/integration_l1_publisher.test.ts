@@ -268,11 +268,12 @@ describe('L1Publisher integration', () => {
         expect(event.sender).toEqual(deployerAccount.address);
       }
 
+      const totalNullifiers = 4 * MAX_NEW_NULLIFIERS_PER_TX;
       const txs = [
-        await makeBloatedProcessedTx(128 * i + 32),
-        await makeBloatedProcessedTx(128 * i + 32 + 1 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(128 * i + 32 + 2 * MAX_NEW_NULLIFIERS_PER_TX),
-        await makeBloatedProcessedTx(128 * i + 32 + 3 * MAX_NEW_NULLIFIERS_PER_TX),
+        await makeBloatedProcessedTx(totalNullifiers * i + 32),
+        await makeBloatedProcessedTx(totalNullifiers * i + 32 + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        await makeBloatedProcessedTx(totalNullifiers * i + 32 + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        await makeBloatedProcessedTx(totalNullifiers * i + 32 + 3 * MAX_NEW_NULLIFIERS_PER_TX),
       ];
       const globalVariables = new GlobalVariables(
         new Fr(config.chainId),
