@@ -10,6 +10,7 @@
     "strict": true,
     "declaration": true,
     "allowSyntheticDefaultImports": true,
+    "allowJs": true,
     "esModuleInterop": true,
     "downlevelIteration": true,
     "inlineSourceMap": true,

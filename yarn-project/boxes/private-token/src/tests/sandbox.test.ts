@@ -1,21 +1,13 @@
-import {
-  AztecAddress,
-  CompleteAddress,
-  Contract,
-  GrumpkinScalar,
-  Wallet,
-  getSandboxAccountsWallet,
-} from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress, Contract, Wallet, getSandboxAccountsWallet } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { rpcClient } from '../config.js';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
-export const privateKey = GrumpkinScalar.fromString('ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
-
 const INITIAL_BALANCE = 333n;
-const SECONDARY_AMOUNT = 33n;
+const TRANSFER_AMOUNT = 33n;
+const MINT_AMOUNT = 11n;
 
 async function deployZKContract(owner: AztecAddress, wallet: Wallet) {
   logger('Deploying L2 contract...');
@@ -51,18 +43,18 @@ describe('ZK Contract Tests', () => {
   });
 
   test('Balance after mint is correct', async () => {
-    const mintTx = zkContract.methods.mint(SECONDARY_AMOUNT, owner.address).send({ origin: owner.address });
+    const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send({ origin: owner.address });
     await mintTx.wait({ interval: 0.5 });
     const balanceAfterMint = await getBalance(zkContract, owner.address);
-    expect(balanceAfterMint).toEqual(INITIAL_BALANCE + SECONDARY_AMOUNT);
+    expect(balanceAfterMint).toEqual(INITIAL_BALANCE + MINT_AMOUNT);
   });
 
   test('Balance after transfer is correct for both sender and receiver', async () => {
-    const transferTx = zkContract.methods.transfer(SECONDARY_AMOUNT, account2.address).send({ origin: owner.address });
+    const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send({ origin: owner.address });
     await transferTx.wait({ interval: 0.5 });
     const balanceAfterTransfer = await getBalance(zkContract, owner.address);
     const receiverBalance = await getBalance(zkContract, account2.address);
-    expect(balanceAfterTransfer).toEqual(INITIAL_BALANCE + SECONDARY_AMOUNT - SECONDARY_AMOUNT);
-    expect(receiverBalance).toEqual(SECONDARY_AMOUNT);
+    expect(balanceAfterTransfer).toEqual(INITIAL_BALANCE + MINT_AMOUNT - TRANSFER_AMOUNT);
+    expect(receiverBalance).toEqual(TRANSFER_AMOUNT);
   });
 });

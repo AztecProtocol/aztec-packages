@@ -15,7 +15,7 @@
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "node --experimental-vm-modules $(yarn bin jest) --runInBand"
   },
-  "jest": {
+  "jest-BROKEN": {
   "testEnvironment": "node",
   "extensionsToTreatAsEsm": [".ts"],
     "preset": "ts-jest/presets/js-with-ts-esm",
