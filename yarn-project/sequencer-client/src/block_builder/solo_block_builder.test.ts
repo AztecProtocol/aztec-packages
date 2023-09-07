@@ -374,9 +374,9 @@ describe('sequencer/solo_block_builder', () => {
     it('builds a mixed L2 block', async () => {
       const txs = await Promise.all([
         makeBloatedProcessedTx(32),
-        makeBloatedProcessedTx(64),
-        makeBloatedProcessedTx(96),
-        makeBloatedProcessedTx(128),
+        makeBloatedProcessedTx(32 + 1 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(32 + 2 * MAX_NEW_NULLIFIERS_PER_TX),
+        makeBloatedProcessedTx(32 + 3 * MAX_NEW_NULLIFIERS_PER_TX),
       ]);
 
       const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
