@@ -1,8 +1,6 @@
-This is a minimal [Aztec3]() noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/aztec-cli). It is recommended you use the `aztec-cli unbox` command so that the repository is cloned with an example noir smart contract from the [`noir-contracts`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts) repostiroy.# React + TypeScript + Vite
+This is a minimal [Aztec3]() noir smart contract and frontend bootstrapped with [`aztec-cli unbox`](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/cli). It is recommended you use the `aztec-cli unbox PrivateToken` command so that the repository is copied with needed modifications from the monorepo subpackage.
 
-This was probably created by running the command `aztec-cli unbox {CONTRACT_NAME}`. Some settings assume that CONTRACT_NAME was `PrivateToken` and will require some manual changes (listed below). `aztec-cli` can be installed with `npm i -g @aztec/cli`, if you don't have it already.
-
-The above command copied an example [noir contract](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts) into `/src/contracts` as well as the entire `starter-kit` [subpackage](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/starter-project). This includes a minimal frontend for the copied smart contract.
+Some settings assume that CONTRACT_NAME was `PrivateToken` and will require some manual updates if this changes (listed below). `aztec-cli` can be installed with `npm i -g @aztec/cli`, if you don't have it already.
 
 ## Setup
 
@@ -12,28 +10,33 @@ Dependencies can be installed with one command from the root of the package:
 yarn build
 ```
 
-This project requires `nargo` (package manager) and `noir` (Aztec ZK smart contract language) in addition to `@aztec/aztec-cli`.
+In addition to the usual javascript dependencies, this project requires `nargo` (package manager) and `noir` (Aztec ZK smart contract language) in addition to `@aztec/aztec-cli`.
+
 The former are installed within `yarn build` via
 
 ```bash
-# install noirup
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
 
 noirup -v aztec
-
 ```
 
-`yarn build` also sets up a local sandbox instance of the Aztec Network, which can also be done manually via
+`yarn build` also sets up a [local sandbox](https://sandbox.aztec.network/) instance of the Aztec Network, which can also be done manually via
 
 ```bash
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally.
+This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run
+
+```bash
+docker pull aztecprotocol/aztec-sandbox:latest
+```
+
+Which is also run automatically by `yarn build`.
 
 ## Getting started
 
-After `yarn build`, the frontend can be launched with `yarn start:dev`, which will launch a local instance of the Aztec sandbox via Docker Compose as well as a simple frontend for deploying and interacting with the contract.
+After `yarn build` has run, `yarn start:dev` will launch a local instance of the Aztec sandbox via Docker Compose as well as a simple frontend for deploying and interacting with the PrivateToken contract.
 
 This folder should have the following directory structure:
 
