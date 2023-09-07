@@ -8,7 +8,7 @@ import {
   createAztecRpcClient,
   getL1ContractAddresses,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
+import { GrumpkinScalar } from '@aztec/circuits.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { UniswapPortalAbi, UniswapPortalBytecode } from '@aztec/l1-artifacts';
 import { SchnorrSingleKeyAccountContractAbi } from '@aztec/noir-contracts/artifacts';
@@ -37,7 +37,7 @@ const aztecRpcUrl = 'http://localhost:8080';
 const ethRpcUrl = 'http://localhost:8545';
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
-const privateKey = new PrivateKey(Buffer.from(hdAccount.getHdKey().privateKey!));
+const privateKey = GrumpkinScalar.fromBuffer(Buffer.from(hdAccount.getHdKey().privateKey!));
 
 const walletClient = createWalletClient({
   account: hdAccount,
@@ -234,12 +234,10 @@ async function main() {
   // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
   logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
   // recipient is the uniswap portal
-  const selector = wethL2Contract.methods.withdraw.selector.toField();
   const minimumOutputAmount = 0n;
 
   const withdrawTx = uniswapL2Contract.methods
     .swap(
-      selector,
       wethL2Contract.address.toField(),
       wethAmountToBridge,
       new Fr(3000),

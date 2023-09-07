@@ -2,7 +2,6 @@ import {
   AztecAddress,
   EthAddress,
   Fr,
-  PrivateKey,
   TxStatus,
   Wallet,
   computeMessageSecretHash,
@@ -51,7 +50,6 @@ const aztecRpcUrl = SANDBOX_URL;
 const ethRpcUrl = ETHEREUM_HOST;
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
-const privateKey = new PrivateKey(Buffer.from(hdAccount.getHdKey().privateKey!));
 
 const aztecRpcClient = createAztecRpcClient(aztecRpcUrl, makeFetch([1, 2, 3], true));
 let wallet: Wallet;
@@ -262,12 +260,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
     logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
     // recipient is the uniswap portal
-    const selector = wethL2Contract.methods.withdraw.selector.toField();
     const minimumOutputAmount = 0n;
 
     const withdrawTx = uniswapL2Contract.methods
       .swap(
-        selector,
         wethL2Contract.address.toField(),
         wethAmountToBridge,
         new Fr(3000),
