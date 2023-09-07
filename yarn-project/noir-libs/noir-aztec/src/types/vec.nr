@@ -40,8 +40,10 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
 
     fn any<Env>(self, predicate: fn[Env](T) -> bool) -> bool {
         let mut ret = false;
+        let mut exceeded_len = false;
         for i in 0..MaxLen {
-            if (i < self.len as u64) {
+            exceeded_len |= i == self.len;
+            if (!exceeded_len) {
                 ret |= predicate(self.storage[i]);
             }
         }
@@ -60,8 +62,39 @@ fn test_vec_push_pop() {
     vec.push(6);
     assert(vec.len == 3);
     let x = vec.pop();
-    assert(vec.len == 2);
     assert(x == 6);
+    assert(vec.len == 2);
+    assert(vec.get(0) == 2);
+    assert(vec.get(1) == 4);
+}
+
+#[test]
+fn test_vec_push_array() {
+    let mut vec: BoundedVec<Field, 3> = BoundedVec::new(0);
+    vec.push_array([2, 4]);
+    assert(vec.len == 2);
+    assert(vec.get(0) == 2);
+    assert(vec.get(1) == 4);
+}
+
+#[test(should_fail)]
+fn test_vec_get_out_of_bound() {
+    let mut vec: BoundedVec<Field, 2> = BoundedVec::new(0);
+    vec.push_array([2, 4]);
+    let _x = vec.get(2);
+}
+
+#[test(should_fail)]
+fn test_vec_get_not_declared() {
+    let mut vec: BoundedVec<Field, 2> = BoundedVec::new(0);
+    vec.push_array([2]);
+    let _x = vec.get(1);
+}
+
+#[test(should_fail)]
+fn test_vec_get_uninitialised() {
+    let mut vec: BoundedVec<Field, 2> = BoundedVec::new(0);
+    let _x = vec.get(0);
 }
 
 #[test(should_fail)]
@@ -74,9 +107,17 @@ fn test_vec_push_overflow() {
 #[test]
 fn test_vec_any() {
     let mut vec: BoundedVec<Field, 3> = BoundedVec::new(0);
-    vec.push(0);
-    vec.push(1);
-    vec.push(2);
+    vec.push_array([2, 4, 6]);
     assert(vec.any(|v| v == 2) == true);
+    assert(vec.any(|v| v == 4) == true);
+    assert(vec.any(|v| v == 6) == true);
     assert(vec.any(|v| v == 3) == false);
+}
+
+#[test]
+fn test_vec_any_not_default() {
+    let default_value = 1;
+    let mut vec: BoundedVec<Field, 3> = BoundedVec::new(default_value);
+    vec.push_array([2, 4]);
+    assert(vec.any(|v| v == default_value) == false);
 }
