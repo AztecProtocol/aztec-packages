@@ -4,11 +4,9 @@ import { ContractAbi } from '@aztec/foundation/abi';
 import { DebugLogger, LogFn } from '@aztec/foundation/log';
 
 import fs from 'fs';
-import * as path from 'path';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { encodeArgs } from './encoding.js';
-import { downloadContractAndStarterKitFromGithub, updateNargoToml, updatePackageJsonVersions } from './unbox.js';
 
 export { createClient } from './client.js';
 /**
@@ -142,50 +140,4 @@ export async function prepTx(
   const functionArgs = encodeArgs(_functionArgs, functionAbi.parameters);
 
   return { contractAddress, functionArgs, contractAbi };
-}
-
-/**
- * Unboxes a contract from `@aztec/noir-contracts` and generates a simple frontend.
- * Performs the following operations in order:
- * 1. Checks if the contract exists in `@aztec/noir-contracts`
- * 2. Copies the contract from the `@aztec/noir-contracts` to the current working directory under "starter-kit/"
- * This is done via brute force search of the master branch of the monorepo, within the yarn-projects/noir-contracts folder.
- * 3. Copies the frontend template from `@aztec/starter-kit` to the current working directory under "starter-kit"
- *
- * These will be used by a simple next.js/React app in `@aztec/starter-kit` which parses the contract ABI
- * and generates a UI to deploy + interact with the contract on a local aztec testnet.
- * @param contractName - name of contract from `@aztec/noir-contracts`, in a format like "PrivateToken" (rather than "private_token", as it appears in the noir-contracts repo)
- * @param log - Logger instance that will output to the CLI
- * TODO: add the jest tests
- */
-export async function unboxContract(contractName: string, outputDirectoryName: string, log: LogFn) {
-  const contracts = await import('@aztec/noir-contracts/artifacts');
-
-  const contractNames = Object.values(contracts).map(contract => contract.name);
-  if (!contractNames.includes(contractName)) {
-    log(
-      `The noir contract named "${contractName}" was not found in "@aztec/noir-contracts" package.  Valid options are: 
-        ${contractNames.join('\n\t')}
-      We recommend "PrivateToken" as a default.`,
-    );
-    return;
-  }
-  // downloads the selected contract's noir source code into `${outputDirectoryName}/src/contracts`,
-  // along with the @aztec/starter-kit and @aztec/noir-libs
-  const starterKitPath = path.join(process.cwd(), outputDirectoryName);
-  await downloadContractAndStarterKitFromGithub(contractName, starterKitPath, log);
-  log(`Downloaded 'starter-kit' and ${contractName} from @aztec/noir-contracts. to ${starterKitPath}`);
-
-  const chosenContractAbi = Object.values(contracts).filter(contract => contract.name === contractName)[0];
-  const contractAbiOutputPath = path.join(starterKitPath, 'src', 'artifacts');
-  fs.mkdir(contractAbiOutputPath, { recursive: true }, err => {
-    log('error creating artifacts directory', err);
-  });
-
-  const contractAbiFileName = `${contractName}.json`;
-  fs.writeFileSync(path.join(contractAbiOutputPath, contractAbiFileName), JSON.stringify(chosenContractAbi, null, 4));
-  log(`copied contract ABI to ${contractAbiOutputPath}`);
-
-  await updateNargoToml(outputDirectoryName, log);
-  await updatePackageJsonVersions(outputDirectoryName, log);
 }

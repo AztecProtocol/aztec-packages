@@ -26,6 +26,7 @@ import { mnemonicToAccount } from 'viem/accounts';
 
 import { createCompatibleClient } from './client.js';
 import { encodeArgs, parseStructString } from './encoding.js';
+import { unboxContract } from './unbox.js';
 import {
   deployAztecContracts,
   getAbiFunction,
@@ -33,7 +34,6 @@ import {
   getExampleContractArtifacts,
   getTxSender,
   prepTx,
-  unboxContract,
 } from './utils.js';
 
 const accountCreationSalt = Fr.ZERO;
@@ -491,7 +491,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('<contractName>', 'Name of the contract to unbox, e.g. "PrivateToken"')
     .argument('[localDirectory]', 'name of the local directory to unbox to, defaults to `starter-kit`')
     .action(async (contractName, localDirectory) => {
-      const unboxTo: string = localDirectory ? localDirectory : 'starter-kit';
+      const unboxTo: string = localDirectory ? localDirectory : contractName;
       await unboxContract(contractName, unboxTo, log);
     });
 
