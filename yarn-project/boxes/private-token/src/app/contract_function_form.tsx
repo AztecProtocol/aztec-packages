@@ -7,10 +7,10 @@ import { callContractFunction, deployContract, viewContractFunction } from '../s
 import { Button } from './components/index.js';
 
 // ALICE smart contract wallet public key, available on sandbox by default
-const DEFAULT_PUBLIC_ADDRESS = '0x2e13f0201905944184fc2c09d29fcf0cac07647be171656a275f63d99b819360';
+const DEFAULT_PUBLIC_ADDRESS = '0x183253b9bb70e447c2bddce766b199111bec335d3396cd403ff5306ddf2f8a43';
 
-// hack: add `any` at the end to get the array schema to typecheck
 type NoirFunctionYupSchema = {
+  // hack: add `any` at the end to get the array schema to typecheck
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: Yup.NumberSchema | Yup.ArraySchema<number[], object> | Yup.BooleanSchema | any;
 };
@@ -24,7 +24,7 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
       if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)){
-          // ALICE public key
+        // these are hex strings instead, but yup doesn't support bigint so convert back on execution
           parameterSchema[param.name] = Yup.string().required();
           initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
           continue;
@@ -32,8 +32,6 @@ function generateYupSchema(functionAbi: FunctionAbi) {
     // set some super crude default values
     switch (param.type.kind) {
       case 'field':
-        // todo: make these hex strings instead, because they are bigints
-        // and yup doesn't support bigint
         parameterSchema[param.name] = Yup.number().required();
         initialValues[param.name] = 1000000;
         break;

@@ -17,10 +17,7 @@ export async function callContractFunction(
   const functionAbi = abi.functions.find(f => f.name === functionName);
   // false to skip the foundation encoder - need to look into why passing the address as an Fr fails on re-encoding
   const typedArgs = convertArgs(functionAbi!, args, false);
-  // TODO: put in actual function instead of hardcoded test method
   const returnVal = await contract.methods[functionName](...typedArgs)
-    // const returnVal = await contract.methods
-    // .transfer(...typedArgs)
     .send({ origin: wallet.address })
     .wait();
 

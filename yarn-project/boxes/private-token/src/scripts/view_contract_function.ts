@@ -2,8 +2,6 @@ import { AztecAddress, AztecRPC, CompleteAddress, Contract, getSandboxAccountsWa
 import { ContractAbi } from '@aztec/foundation/abi';
 import { convertArgs } from './arg_conversion.js';
 
-// REMOVE THIS
-/* eslint-disable @typescript-eslint/no-unused-vars */
 export async function viewContractFunction(
   address: AztecAddress,
   abi: ContractAbi,

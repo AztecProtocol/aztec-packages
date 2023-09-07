@@ -6,7 +6,7 @@ import { rpcClient } from '../config.js';
 const logger = createDebugLogger('aztec:http-rpc-client');
 
 const INITIAL_BALANCE = 333n;
-const TRANSFER_AMOUNT = 33n;
+const TRANSFER_AMOUNT = 44n;
 const MINT_AMOUNT = 11n;
 
 async function deployZKContract(owner: AztecAddress, wallet: Wallet) {
@@ -45,6 +45,7 @@ describe('ZK Contract Tests', () => {
   test('Balance after mint is correct', async () => {
     const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send({ origin: owner.address });
     await mintTx.wait({ interval: 0.5 });
+
     const balanceAfterMint = await getBalance(zkContract, owner.address);
     expect(balanceAfterMint).toEqual(INITIAL_BALANCE + MINT_AMOUNT);
   });
@@ -52,9 +53,11 @@ describe('ZK Contract Tests', () => {
   test('Balance after transfer is correct for both sender and receiver', async () => {
     const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send({ origin: owner.address });
     await transferTx.wait({ interval: 0.5 });
+
     const balanceAfterTransfer = await getBalance(zkContract, owner.address);
-    const receiverBalance = await getBalance(zkContract, account2.address);
     expect(balanceAfterTransfer).toEqual(INITIAL_BALANCE + MINT_AMOUNT - TRANSFER_AMOUNT);
+
+    const receiverBalance = await getBalance(zkContract, account2.address);
     expect(receiverBalance).toEqual(TRANSFER_AMOUNT);
   });
 });

@@ -86,7 +86,7 @@ export default (_, argv) => ({
     },
   },
   devServer: {
-    port: 3000,
+    port: 5173,
     historyApiFallback: true,
     client: {
       overlay: false,
