@@ -2,6 +2,7 @@
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
+#include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/pcs/gemini/gemini.hpp"
 #include "barretenberg/honk/pcs/shplonk/shplonk.hpp"
 #include "barretenberg/honk/proof_system/work_queue.hpp"
@@ -27,7 +28,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
   public:
     explicit UltraProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<CommitmentKey> commitment_key);
-
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
@@ -45,7 +45,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     ProverTranscript<FF> transcript;
 
     std::vector<FF> public_inputs;
-    size_t pub_inputs_offset; // offset of the PI relative to 0th index in the wire polynomials
+    size_t pub_inputs_offset;
 
     proof_system::RelationParameters<FF> relation_parameters;
 
@@ -54,6 +54,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
     ProverPolynomials prover_polynomials;
 
+    // what do I do w this?
     CommitmentLabels commitment_labels;
 
     // Container for d + 1 Fold polynomials produced by Gemini

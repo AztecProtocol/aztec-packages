@@ -8,21 +8,20 @@ namespace proof_system::honk {
  * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
  *
  * @tparam Flavor
- * @param circuit_constructor
+ * @param circuit
  */
-template <UltraFlavor Flavor>
-void Instance<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit_constructor)
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit)
 {
     // Compute total length of the tables and the number of lookup gates; their sum is the minimum circuit size
-    for (const auto& table : circuit_constructor.lookup_tables) {
+    for (const auto& table : circuit.lookup_tables) {
         tables_size += table.size;
         lookups_size += table.lookup_gates.size();
     }
 
     // Get num conventional gates, num public inputs and num Goblin style ECC op gates
-    const size_t num_gates = circuit_constructor.num_gates;
-    num_public_inputs = circuit_constructor.public_inputs.size();
-    num_ecc_op_gates = circuit_constructor.num_ecc_op_gates;
+    const size_t num_gates = circuit.num_gates;
+    num_public_inputs = circuit.public_inputs.size();
+    num_ecc_op_gates = circuit.num_ecc_op_gates;
 
     // minimum circuit size due to the length of lookups plus tables
     const size_t minimum_circuit_size_due_to_lookups = tables_size + lookups_size + num_zero_rows;
@@ -35,21 +34,21 @@ void Instance<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit_c
     total_num_gates = std::max(minimum_circuit_size_due_to_lookups, num_rows_populated_in_execution_trace);
 
     // Next power of 2
-    dyadic_circuit_size = circuit_constructor.get_circuit_subgroup_size(total_num_gates);
+    dyadic_circuit_size = circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
 /**
  * @brief Compute witness polynomials
  *
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(CircuitBuilder& circuit_constructor)
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(CircuitBuilder& circuit)
 {
     if (computed_witness) {
         return;
     }
 
     // Construct the conventional wire polynomials
-    auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit_constructor, dyadic_circuit_size);
+    auto wire_polynomials = construct_wire_polynomials_base<Flavor>(circuit, dyadic_circuit_size);
 
     proving_key->w_l = wire_polynomials[0];
     proving_key->w_r = wire_polynomials[1];
@@ -74,7 +73,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(CircuitBuil
     size_t s_index = dyadic_circuit_size - tables_size - lookups_size;
     ASSERT(s_index > 0); // We need at least 1 row of zeroes for the permutation argument
 
-    for (auto& table : circuit_constructor.lookup_tables) {
+    for (auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
         auto& lookup_gates = table.lookup_gates;
         for (size_t i = 0; i < table.size; ++i) {
@@ -135,12 +134,12 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(CircuitBuil
     proving_key->memory_read_records = std::vector<uint32_t>();
     proving_key->memory_write_records = std::vector<uint32_t>();
 
-    std::transform(circuit_constructor.memory_read_records.begin(),
-                   circuit_constructor.memory_read_records.end(),
+    std::transform(circuit.memory_read_records.begin(),
+                   circuit.memory_read_records.end(),
                    std::back_inserter(proving_key->memory_read_records),
                    add_public_inputs_offset);
-    std::transform(circuit_constructor.memory_write_records.begin(),
-                   circuit_constructor.memory_write_records.end(),
+    std::transform(circuit.memory_write_records.begin(),
+                   circuit.memory_write_records.end(),
                    std::back_inserter(proving_key->memory_write_records),
                    add_public_inputs_offset);
 
@@ -180,8 +179,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::construct_ecc_op_wire_polyn
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(
-    const CircuitBuilder& circuit_constructor)
+std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(const CircuitBuilder& circuit)
 {
     if (proving_key) {
         return proving_key;
@@ -189,9 +187,9 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
 
     proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, num_public_inputs);
 
-    construct_selector_polynomials<Flavor>(circuit_constructor, proving_key.get());
+    construct_selector_polynomials<Flavor>(circuit, proving_key.get());
 
-    compute_honk_generalized_sigma_permutations<Flavor>(circuit_constructor, proving_key.get());
+    compute_honk_generalized_sigma_permutations<Flavor>(circuit, proving_key.get());
 
     compute_first_and_last_lagrange_polynomials<Flavor>(proving_key.get());
 
@@ -217,7 +215,7 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
         poly_q_table_column_4[i] = 0;
     }
 
-    for (const auto& table : circuit_constructor.lookup_tables) {
+    for (const auto& table : circuit.lookup_tables) {
         const fr table_index(table.table_index);
 
         for (size_t i = 0; i < table.size; ++i) {
@@ -248,6 +246,69 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
     return proving_key;
 }
 
+template <UltraFlavor Flavor> typename Flavor::ProverPolynomials Instance<Flavor>::construct_prover_polynomials()
+{
+    ProverPolynomials prover_polynomials;
+    prover_polynomials.q_c = key->q_c;
+    prover_polynomials.q_l = key->q_l;
+    prover_polynomials.q_r = key->q_r;
+    prover_polynomials.q_o = key->q_o;
+    prover_polynomials.q_4 = key->q_4;
+    prover_polynomials.q_m = key->q_m;
+    prover_polynomials.q_arith = key->q_arith;
+    prover_polynomials.q_sort = key->q_sort;
+    prover_polynomials.q_elliptic = key->q_elliptic;
+    prover_polynomials.q_aux = key->q_aux;
+    prover_polynomials.q_lookup = key->q_lookup;
+    prover_polynomials.sigma_1 = key->sigma_1;
+    prover_polynomials.sigma_2 = key->sigma_2;
+    prover_polynomials.sigma_3 = key->sigma_3;
+    prover_polynomials.sigma_4 = key->sigma_4;
+    prover_polynomials.id_1 = key->id_1;
+    prover_polynomials.id_2 = key->id_2;
+    prover_polynomials.id_3 = key->id_3;
+    prover_polynomials.id_4 = key->id_4;
+    prover_polynomials.table_1 = key->table_1;
+    prover_polynomials.table_2 = key->table_2;
+    prover_polynomials.table_3 = key->table_3;
+    prover_polynomials.table_4 = key->table_4;
+    prover_polynomials.table_1_shift = key->table_1.shifted();
+    prover_polynomials.table_2_shift = key->table_2.shifted();
+    prover_polynomials.table_3_shift = key->table_3.shifted();
+    prover_polynomials.table_4_shift = key->table_4.shifted();
+    prover_polynomials.lagrange_first = key->lagrange_first;
+    prover_polynomials.lagrange_last = key->lagrange_last;
+    prover_polynomials.w_l = key->w_l;
+    prover_polynomials.w_r = key->w_r;
+    prover_polynomials.w_o = key->w_o;
+    prover_polynomials.w_l_shift = key->w_l.shifted();
+    prover_polynomials.w_r_shift = key->w_r.shifted();
+    prover_polynomials.w_o_shift = key->w_o.shifted();
+
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        prover_polynomials.ecc_op_wire_1 = key->ecc_op_wire_1;
+        prover_polynomials.ecc_op_wire_2 = key->ecc_op_wire_2;
+        prover_polynomials.ecc_op_wire_3 = key->ecc_op_wire_3;
+        prover_polynomials.ecc_op_wire_4 = key->ecc_op_wire_4;
+        prover_polynomials.lagrange_ecc_op = key->lagrange_ecc_op;
+    }
+
+    // Add public inputs to transcript from the second wire polynomial; This requires determination of the offset at
+    // which the PI have been written into the wires relative to the 0th index.
+    std::span<FF> public_wires_source = prover_polynomials.w_r;
+    pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
+    if constexpr (IsGoblinFlavor<Flavor>) {
+        pub_inputs_offset += key->num_ecc_op_gates;
+    }
+
+    for (size_t i = 0; i < key->num_public_inputs; ++i) {
+        size_t idx = i + pub_inputs_offset;
+        public_inputs.emplace_back(public_wires_source[idx]);
+    }
+
+    return prover_polynomials;
+}
+
 /**
  * Compute verification key consisting of selector precommitments.
  *
@@ -255,14 +316,14 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
  * */
 template <UltraFlavor Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> Instance<Flavor>::compute_verification_key(
-    const CircuitBuilder& circuit_constructor)
+    const CircuitBuilder& circuit)
 {
     if (verification_key) {
         return verification_key;
     }
 
     if (!proving_key) {
-        compute_proving_key(circuit_constructor);
+        compute_proving_key(circuit);
     }
 
     verification_key =

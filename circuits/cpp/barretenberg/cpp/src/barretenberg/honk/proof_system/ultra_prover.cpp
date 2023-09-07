@@ -24,6 +24,7 @@ UltraProver_<Flavor>::UltraProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     , queue(commitment_key, transcript)
     , pcs_commitment_key(commitment_key)
 {
+    // move in separate function as used by both folding and non-folding prover?
     prover_polynomials.q_c = key->q_c;
     prover_polynomials.q_l = key->q_l;
     prover_polynomials.q_r = key->q_r;
@@ -148,6 +149,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
     prover_polynomials.w_4_shift = key->w_4.shifted();
 }
 
+// to here things need to be done for folding as well?
+
 /**
  * @brief Compute permutation and lookup grand product polynomials and commitments
  *
@@ -172,6 +175,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_c
     queue.add_commitment(key->z_perm, commitment_labels.z_perm);
     queue.add_commitment(key->z_lookup, commitment_labels.z_lookup);
 }
+
+// up ot here things go in the Instance !!!!!!!!!!!
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.

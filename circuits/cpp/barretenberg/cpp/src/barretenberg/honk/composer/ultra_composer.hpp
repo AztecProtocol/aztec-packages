@@ -1,5 +1,8 @@
 #pragma once
 
+#include "barretenberg/honk/instance/instance.hpp"
+#include "barretenberg/honk/proof_system/folding_prover.hpp"
+#include "barretenberg/honk/proof_system/folding_verifier.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
 #include "barretenberg/honk/proof_system/ultra_verifier.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
@@ -31,19 +34,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
 
     // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
     std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
-
     // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
     std::shared_ptr<CommitmentKey> commitment_key;
-
-    std::vector<uint32_t> recursive_proof_public_input_indices;
-    bool contains_recursive_proof = false;
-    bool computed_witness = false;
-    size_t total_num_gates = 0; // num_gates + num_pub_inputs + tables + zero_row_offset (used to compute dyadic size)
-    size_t dyadic_circuit_size = 0; // final power-of-2 circuit size
-    size_t lookups_size = 0;        // total number of lookup gates
-    size_t tables_size = 0;         // total number of table entries
-    size_t num_public_inputs = 0;
-    size_t num_ecc_op_gates = 0;
 
     UltraComposer_() { crs_factory_ = barretenberg::srs::get_crs_factory(); }
 
@@ -51,6 +43,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         : crs_factory_(std::move(crs_factory))
     {}
 
+    // I don't really want this
     UltraComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
@@ -62,30 +55,20 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraComposer_& operator=(UltraComposer_ const& other) noexcept = default;
     ~UltraComposer_() = default;
 
-    // abstract method
-    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    // abstract method
-    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_constructor);
-
-    void compute_circuit_size_parameters(CircuitBuilder& circuit_constructor);
-
-    void compute_witness(CircuitBuilder& circuit_constructor);
-
-    void construct_ecc_op_wire_polynomials(auto&);
-
-    // an ultra composer can create either folding prover and verifier or ultra prover and verifier based on what kind
-    // of instance it receives
-    // we can see the composer as an orchestrator
-
-    UltraProver_<Flavor> create_prover(Instance& instance);
-    UltraVerifier_<Flavor> create_verifier(const Instance& instance);
-
-    void add_table_column_selector_poly_to_proving_key(polynomial& small, const std::string& tag);
-
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
     };
+
+    Instance<Flavor> create_instance(CircuitBuilder& circuit);
+    Instance<Flavor> create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
+
+    UltraProver_<Flavor> create_prover(Instance<Flavor>& instance);
+    UltraVerifier_<Flavor> create_verifier(const Instance<Flavor>& instance);
+
+    // underlying assumption that the first instance should be the one we fold on?
+    FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);
+    FoldingVerifier_<Flavor> create_folding_verifier(std::vector<Instance<Flavor>&> instances);
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;
 // TODO: the UltraGrumpkin flavor still works on BN254 because plookup needs to be templated to be able to construct

@@ -9,15 +9,14 @@
 #include <utility>
 #include <vector>
 namespace proof_system::honk {
-// abstract class Instance has everything
-// class FoldingInstance that extends Instance -- has an array of instances and will be used to initialise a
-// FoldingProver and Folding Verifier
-// AccumulatorInstance for actually creating a Prover and Verifier
 template <UltraFlavor Flavor> class Instance {
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using FF = typename Flavor::Curve::FF;
+    using FoldingParameters = typename Flavor::FoldingParameters;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -27,11 +26,8 @@ template <UltraFlavor Flavor> class Instance {
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
 
-    // The crs_factory holds the path to the srs and exposes methods to extract the srs elements
-    std::shared_ptr<srs::factories::CrsFactory<typename Flavor::Curve>> crs_factory_;
-
-    // The commitment key is passed to the prover but also used herein to compute the verfication key commitments
-    std::shared_ptr<CommitmentKey> commitment_key;
+    std::shared_ptr<ProverPolynomials> prover_polynomials;
+    std::shared_ptr<std::vector<FF>> public_inputs;
 
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
@@ -43,22 +39,36 @@ template <UltraFlavor Flavor> class Instance {
     size_t num_public_inputs = 0;
     size_t num_ecc_op_gates = 0;
 
-    // have sth like create_instance ?
+    FoldingParameters folding_params;
 
-    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit_constructor);
-    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit_constructor);
+    Instance(const CircuitBuilder& circuit)
+    {
+        compute_circuit_size_parameters(circuit);
+        compute_proving_key(circuit);
+        compute_witness(circuit);
+        compute_verification_key(circuit);
+    }
 
-    void compute_circuit_size_parameters(CircuitBuilder& circuit_constructor);
+    Instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+        : proving_key(std::move(p_key))
+        , verification_key(std::move(v_key))
+    {}
 
-    void compute_witness(CircuitBuilder& circuit_constructor);
+    Instance(Instance&& other) noexcept = default;
+    Instance(Instance const& other) noexcept = default;
+    Instance& operator=(Instance&& other) noexcept = default;
+    Instance& operator=(Instance const& other) noexcept = default;
+    ~Instance() = default;
+
+    std::shared_ptr<ProvingKey> compute_proving_key(const CircuitBuilder& circuit);
+    std::shared_ptr<VerificationKey> compute_verification_key(const CircuitBuilder& circuit);
+
+    void compute_circuit_size_parameters(CircuitBuilder& circuit);
+
+    void compute_witness(CircuitBuilder& circuit);
 
     void construct_ecc_op_wire_polynomials(auto&);
 
     void add_table_column_selector_poly_to_proving_key(barretenberg::polynomial& small, const std::string& tag);
-
-    void compute_commitment_key(size_t circuit_size)
-    {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
-    };
 };
 } // namespace proof_system::honk

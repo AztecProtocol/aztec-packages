@@ -28,6 +28,8 @@ template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::opera
     return *this;
 }
 
+// verifier completely different
+
 /**
  * @brief This function verifies an Ultra Honk proof for given program settings.
  *
