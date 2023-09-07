@@ -2,8 +2,10 @@ import { ExecutionResult, NewNoteData } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CONTRACT_TREE_HEIGHT,
+  EMPTY_NULLIFIED_COMMITMENT,
   Fr,
   MAX_NEW_COMMITMENTS_PER_TX,
+  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
@@ -11,6 +13,8 @@ import {
   PreviousKernelData,
   PrivateCallData,
   PrivateCallStackItem,
+  PrivateKernelInputsInit,
+  PrivateKernelInputsInner,
   PrivateKernelInputsOrdering,
   PrivateKernelPublicInputs,
   ReadRequestMembershipWitness,
@@ -130,7 +134,7 @@ export class KernelProver {
       const privateCallData = await this.createPrivateCallData(
         currentExecution,
         readRequestMembershipWitnesses,
-        privateCallStackPreimages,
+        makeTuple(MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, i => privateCallStackPreimages[i], 0),
       );
 
       if (firstIteration) {
@@ -139,7 +143,7 @@ export class KernelProver {
         privateCallData.callStackItem.publicInputs.historicBlockData.privateDataTreeRoot =
           await this.oracle.getPrivateDataRoot();
 
-        output = await this.proofCreator.createProofInit(txRequest, privateCallData);
+        output = await this.proofCreator.createProofInit(new PrivateKernelInputsInit(txRequest, privateCallData));
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(previousVerificationKey);
         const previousKernelData = new PreviousKernelData(
@@ -149,7 +153,9 @@ export class KernelProver {
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
-        output = await this.proofCreator.createProofInner(previousKernelData, privateCallData);
+        output = await this.proofCreator.createProofInner(
+          new PrivateKernelInputsInner(previousKernelData, privateCallData),
+        );
       }
       (await this.getNewNotes(currentExecution)).forEach(n => {
         newNotes[n.commitment.toString()] = n;
@@ -167,11 +173,21 @@ export class KernelProver {
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
 
-    const hintToCommitments = this.getReadRequestHints(
+    const readCommitmentHints = this.getReadRequestHints(
       output.publicInputs.end.readRequests,
       output.publicInputs.end.newCommitments,
     );
-    const privateInputs = new PrivateKernelInputsOrdering(previousKernelData, hintToCommitments);
+
+    const nullifierCommitmentHints = this.getNullifierHints(
+      output.publicInputs.end.nullifiedCommitments,
+      output.publicInputs.end.newCommitments,
+    );
+
+    const privateInputs = new PrivateKernelInputsOrdering(
+      previousKernelData,
+      readCommitmentHints,
+      nullifierCommitmentHints,
+    );
     const outputFinal = await this.proofCreator.createProofOrdering(privateInputs);
 
     // Only return the notes whose commitment is in the commitments of the final proof.
@@ -184,7 +200,7 @@ export class KernelProver {
   private async createPrivateCallData(
     { callStackItem, vk }: ExecutionResult,
     readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
-    privateCallStackPreimages: PrivateCallStackItem[],
+    privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
   ) {
     const { contractAddress, functionData, publicInputs } = callStackItem;
     const { portalContractAddress } = publicInputs.callContext;
@@ -212,8 +228,8 @@ export class KernelProver {
       VerificationKey.fromBuffer(vk),
       functionLeafMembershipWitness,
       contractLeafMembershipWitness,
-      readRequestMembershipWitnesses,
-      portalContractAddress,
+      makeTuple(MAX_READ_REQUESTS_PER_CALL, i => readRequestMembershipWitnesses[i], 0),
+      portalContractAddress.toField(),
       acirHash,
     );
   }
@@ -242,6 +258,16 @@ export class KernelProver {
     }));
   }
 
+  /**
+   * Performs the matching between an array of read request and an array of commitments. This produces
+   * hints for the private kernel ordering circuit to efficiently match a read request with the corresponding
+   * commitment.
+   *
+   * @param readRequests - The array of read requests.
+   * @param commitments - The array of commitments.
+   * @returns An array of hints where each element is the index of the commitment in commitments array
+   *  corresponding to the read request. In other words we have readRequests[i] == commitments[hints[i]].
+   */
   private getReadRequestHints(
     readRequests: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
     commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
@@ -256,6 +282,39 @@ export class KernelProver {
         );
       } else {
         hints[i] = new Fr(result);
+      }
+    }
+    return hints;
+  }
+
+  /**
+   *  Performs the matching between an array of nullified commitments and an array of commitments. This produces
+   * hints for the private kernel ordering circuit to efficiently match a nullifier with the corresponding
+   * commitment.
+   *
+   * @param nullifiedCommitments - The array of nullified commitments.
+   * @param commitments - The array of commitments.
+   * @returns An array of hints where each element is the index of the commitment in commitments array
+   *  corresponding to the nullified commitments. In other words we have nullifiedCommitments[i] == commitments[hints[i]].
+   */
+  private getNullifierHints(
+    nullifiedCommitments: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
+    commitments: Tuple<Fr, typeof MAX_NEW_COMMITMENTS_PER_TX>,
+  ): Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX> {
+    const hints = makeTuple(MAX_NEW_NULLIFIERS_PER_TX, Fr.zero);
+    for (let i = 0; i < MAX_NEW_NULLIFIERS_PER_TX; i++) {
+      if (!nullifiedCommitments[i].isZero() && !nullifiedCommitments[i].equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
+        const equalToCommitment = (cmt: Fr) => cmt.equals(nullifiedCommitments[i]);
+        const result = commitments.findIndex(equalToCommitment);
+        if (result == -1) {
+          throw new Error(
+            `The nullified commitment at index ${i} with value ${nullifiedCommitments[
+              i
+            ].toString()} does not match to any commitment.`,
+          );
+        } else {
+          hints[i] = new Fr(result);
+        }
       }
     }
     return hints;

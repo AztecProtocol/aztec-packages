@@ -32,7 +32,9 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
  * The supported oracle names.
  */
 type ORACLE_NAMES =
+  | 'computeSelector'
   | 'packArguments'
+  | 'getAuthWitness'
   | 'getSecretKey'
   | 'getNote'
   | 'getNotes'

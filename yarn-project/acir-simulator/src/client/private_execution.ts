@@ -72,8 +72,16 @@ export class PrivateFunctionExecution {
     const unencryptedLogs = new FunctionL2Logs([]);
 
     const { partialWitness } = await acvm(await AcirSimulator.getSolver(), acir, initialWitness, {
+      computeSelector: (...args) => {
+        const signature = oracleDebugCallToFormattedStr(args);
+        const returnValue = toACVMField(FunctionSelector.fromSignature(signature).toField());
+        return Promise.resolve(returnValue);
+      },
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
+      },
+      getAuthWitness: async ([messageHash]) => {
+        return (await this.context.db.getAuthWitness(fromACVMField(messageHash))).map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
@@ -213,7 +221,7 @@ export class PrivateFunctionExecution {
     publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
     publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
-    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs, false);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);

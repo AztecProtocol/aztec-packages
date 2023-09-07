@@ -1,13 +1,37 @@
-mod storage;
-
 // A contract used along with `Parent` contract to test nested calls.
 contract Child {
-    use crate::storage::Storage;
+    use dep::std::option::Option;
+
     use dep::aztec::{
         abi::CallContext,
-        oracle::logs::emit_unencrypted_log,
+        context::{PrivateContext, PublicContext},
+        oracle::{
+            logs::emit_unencrypted_log,
+            compute_selector::compute_selector,
+        },
+        state_vars::public_state::PublicState,
+        types::type_serialisation::field_serialisation::{FieldSerialisationMethods, FIELD_SERIALISED_LEN},
     };
-    use dep::std::option::Option;
+
+    struct Storage {
+        current_value: PublicState<Field, FIELD_SERIALISED_LEN>,
+    }
+
+    impl Storage {
+        fn init(
+            private_context: Option<&mut PrivateContext>,
+            public_context: Option<&mut PublicContext>,
+        ) -> pub Self {
+            Storage {
+                current_value: PublicState::new(
+                    private_context,
+                    public_context,
+                    1,
+                    FieldSerialisationMethods,
+                ),
+            }
+        }
+    }
 
     #[aztec(private)]
     fn constructor()  {}
@@ -34,7 +58,7 @@ contract Child {
         input + context.chain_id() + context.version()
     }
 
-    // Returns base_value + 42.
+    // Returns base_value + chain_id + version + block_number + timestamp
     #[aztec(public)]
     fn pubGetValue(base_value: Field) -> Field {
         let returnValue = base_value + context.chain_id() + context.version() + context.block_number() + context.timestamp();
@@ -77,7 +101,7 @@ contract Child {
 
     #[aztec(public)]
     fn setValueTwiceWithNestedFirst() {
-        let pubSetValueSelector = 0x5b0f91b0;
+        let pubSetValueSelector = compute_selector("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
 
         let storage = Storage::init(Option::none(), Option::some(&mut context));
@@ -91,7 +115,7 @@ contract Child {
         storage.current_value.write(20);
         let _hash = emit_unencrypted_log(20);
 
-        let pubSetValueSelector = 0x5b0f91b0;
+        let pubSetValueSelector = compute_selector("pubSetValue(Field)");
         let _ret = context.call_public_function(context.this_address(), pubSetValueSelector, [10]);
     }
 }
