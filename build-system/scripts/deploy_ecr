@@ -6,7 +6,7 @@ IMAGE_COMMIT_URI=$(calculate_image_uri $REPOSITORY)
 
 # Login to build region and pull the build.
 retry_10 ensure_repo $REPOSITORY $ECR_REGION
-docker pull $IMAGE_COMMIT_URI > /dev/null 2>&1
+retry_10 docker pull $IMAGE_COMMIT_URI > /dev/null 2>&1
 
 # Ensure ECR repository exists in deployment region.
 retry_10 ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
@@ -15,7 +15,7 @@ retry_10 ensure_repo $REPOSITORY $ECR_DEPLOY_REGION
 # falafel:deadbeefcafebabe1337c0de
 IMAGE_DEPLOY_COMMIT_URI=$ECR_DEPLOY_URL/$REPOSITORY:$COMMIT_HASH
 docker tag $IMAGE_COMMIT_URI $IMAGE_DEPLOY_COMMIT_URI
-docker push $IMAGE_DEPLOY_COMMIT_URI
+retry_10 docker push $IMAGE_DEPLOY_COMMIT_URI
 
 # Tag image with full version if we have one. Allows deployment of precise image version if rollback needed.
 if [ -n "${COMMIT_TAG:-}" ]; then
