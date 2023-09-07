@@ -30,7 +30,6 @@ const hashPayload = async (payload: Fr[]) => {
     GeneratorIndex.SIGNATURE_PAYLOAD,
   );
 };
-
 class TokenSimulator {
   private balancesPrivate: Map<AztecAddress, bigint> = new Map();
   private balancePublic: Map<AztecAddress, bigint> = new Map();
