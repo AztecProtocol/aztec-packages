@@ -4,7 +4,6 @@ import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 export function convertArgs(functionAbi: FunctionAbi, args: any, encode: boolean = true) {
   const untypedArgs = functionAbi.parameters.map(param => {
     // param => args[param.name],
-    console.log('param', param);
     switch (param.type.kind) {
       case 'field':
         return BigInt(args[param.name]);

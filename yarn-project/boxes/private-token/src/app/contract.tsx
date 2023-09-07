@@ -62,7 +62,7 @@ export function Contract({wallet}: Props) {
       {!!contractAddress && (
         <div>
           {contractAbi.functions
-            .filter(f => f.name !== 'constructor' && !f.isInternal && FILTERED_FUNCTION_NAMES.includes(f.name))
+            .filter(f => f.name !== 'constructor' && !f.isInternal && !FILTERED_FUNCTION_NAMES.includes(f.name))
             .sort((a, b) => functionTypeSortOrder[a.functionType] - functionTypeSortOrder[b.functionType])
             .map((functionAbi: FunctionAbi) => (
               <ContractFunctionForm

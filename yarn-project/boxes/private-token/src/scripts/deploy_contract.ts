@@ -21,7 +21,7 @@ export async function deployContract(
   // convert those back to bigints before sending
   console.log('converting args', args);
   const typedArgs = convertArgs(functionAbi, args);
-  console.log(`typedArgs: ${JSON.stringify(typedArgs)}`);
+  console.log(`typedArgs:`, typedArgs);
 
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,
