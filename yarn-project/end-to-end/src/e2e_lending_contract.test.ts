@@ -4,7 +4,6 @@ import {
   Account,
   AuthEntrypointCollection,
   AuthWitnessAccountContract,
-  AuthWitnessAccountEntrypoint,
   AuthWitnessEntrypointWallet,
   AztecAddress,
   CheatCodes,

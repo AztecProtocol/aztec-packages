@@ -2,12 +2,7 @@ import { AztecAddress, Fr } from '@aztec/circuits.js';
 import { FunctionCall, TxExecutionRequest } from '@aztec/types';
 
 import { Account } from '../account.js';
-import {
-  AuthWitnessAccountEntrypoint,
-  CreateTxRequestOpts,
-  Entrypoint,
-  IAuthWitnessAccountEntrypoint,
-} from './index.js';
+import { CreateTxRequestOpts, Entrypoint, IAuthWitnessAccountEntrypoint } from './index.js';
 
 /**
  * An entrypoint that groups together multiple concrete entrypoints.

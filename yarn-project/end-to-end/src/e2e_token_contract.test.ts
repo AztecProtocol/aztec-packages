@@ -14,8 +14,6 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrAuthWitnessAccountContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
-import { rpc } from 'viem/utils';
-
 import { setup } from './fixtures/utils.js';
 
 const hashPayload = async (payload: Fr[]) => {
