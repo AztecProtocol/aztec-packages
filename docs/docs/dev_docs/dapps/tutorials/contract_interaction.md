@@ -94,7 +94,7 @@ Since this is a public token contract we are working with, we can now query the 
 
 Here, since the public token contract does not mint any initial funds upon deployment, the balances for all of our user's accounts will be zero. But we can send a transaction to mint tokens to change this, using very similar code to the one for sending private funds:
 
-#include_code transferPublicBalances yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
+#include_code mintPublicFunds yarn-project/end-to-end/src/sample-dapp/index.mjs javascript
 
 And get the expected results:
 
