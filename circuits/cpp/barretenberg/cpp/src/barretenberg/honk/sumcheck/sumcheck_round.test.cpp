@@ -1,13 +1,11 @@
+#include "barretenberg/common/mem.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "sumcheck_round.hpp"
-
-#include <tuple>
-
-#include "barretenberg/common/mem.hpp"
 #include <gtest/gtest.h>
+#include <tuple>
 /**
  * We want to test if the univariate (S_l in the thesis) computed by the prover in a particular round is correct. We
  * also want to verify given the purported evaluations of all the relevant polynomials, the verifer can correctly verify
@@ -20,12 +18,13 @@ using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
 using namespace proof_system;
 
-using barretenberg::Univariate;
-using barretenberg::PowUnivariate;
 using barretenberg::BarycentricData;
+using barretenberg::PowUnivariate;
+using barretenberg::Univariate;
 
 using Flavor = flavor::Standard;
 using FF = typename Flavor::FF;
+using Utils = barretenberg::RelationUtils<Flavor>;
 using ProverPolynomials = typename Flavor::ProverPolynomials;
 using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
 
@@ -303,7 +302,7 @@ TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
     // Use scale_univariate_accumulators to scale by challenge powers
     FF challenge = 5;
     FF running_challenge = 1;
-    SumcheckProverRound<Flavor>::scale_univariates(tuple_of_tuples, challenge, running_challenge);
+    Utils::scale_univariates(tuple_of_tuples, challenge, running_challenge);
 
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     PowUnivariate<FF> pow_univariate(1);
@@ -319,7 +318,7 @@ TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
     EXPECT_EQ(result, result_expected);
 
     // Reinitialize univariate accumulators to zero
-    SumcheckProverRound<Flavor>::zero_univariates(tuple_of_tuples);
+    Utils::zero_univariates(tuple_of_tuples);
 
     // Check that reinitialization was successful
     Univariate<FF, 3> expected_1({ 0, 0, 0 });
@@ -395,7 +394,7 @@ TEST(SumcheckRound, AddTuplesOfTuplesOfUnivariates)
     auto tuple_of_tuples_2 =
         std::make_tuple(std::make_tuple(univariate_4), std::make_tuple(univariate_5, univariate_6));
 
-    SumcheckProverRound<Flavor>::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
+    Utils::add_nested_tuples(tuple_of_tuples_1, tuple_of_tuples_2);
 
     EXPECT_EQ(std::get<0>(std::get<0>(tuple_of_tuples_1)), expected_sum_1);
     EXPECT_EQ(std::get<0>(std::get<1>(tuple_of_tuples_1)), expected_sum_2);
