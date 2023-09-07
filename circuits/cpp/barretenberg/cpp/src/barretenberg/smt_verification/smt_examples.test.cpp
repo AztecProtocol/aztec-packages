@@ -35,14 +35,14 @@ TEST(circuit_verification, multiplication_true)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, true);
-    smt_circuit::Circuit circuit(circuit_info, &s);
+    smt_solver::Solver s(circuit_info.modulus, {true, 0});
+    smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
     smt_terms::FFTerm c1 = circuit["c"];
-    smt_terms::FFTerm two = smt_terms::Const("2", &s, 10);
-    smt_terms::FFTerm thr = smt_terms::Const("3", &s, 10);
-    smt_terms::FFTerm cr = smt_terms::Var("cr", &s);
+    smt_terms::FFTerm two = smt_terms::FFTerm::Const("2", &s, 10);
+    smt_terms::FFTerm thr = smt_terms::FFTerm::Const("3", &s, 10);
+    smt_terms::FFTerm cr = smt_terms::FFTerm::Var("cr", &s);
     cr = (two * a1) / (thr * b1);
     c1 != cr;
 
@@ -66,16 +66,16 @@ TEST(circuit_verification, multiplication_false)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, true);
-    smt_circuit::Circuit circuit(circuit_info, &s);
+    smt_solver::Solver s(circuit_info.modulus, {true, 0});
+    smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
 
     smt_terms::FFTerm a1 = circuit["a"];
     smt_terms::FFTerm b1 = circuit["b"];
     smt_terms::FFTerm c1 = circuit["c"];
 
-    smt_terms::FFTerm two = smt_terms::Const("2", &s, 10);
-    smt_terms::FFTerm thr = smt_terms::Const("3", &s, 10);
-    smt_terms::FFTerm cr = smt_terms::Var("cr", &s);
+    smt_terms::FFTerm two = smt_terms::FFTerm::Const("2", &s, 10);
+    smt_terms::FFTerm thr = smt_terms::FFTerm::Const("3", &s, 10);
+    smt_terms::FFTerm cr = smt_terms::FFTerm::Var("cr", &s);
     cr = (two * a1) / (thr * b1);
     c1 != cr;
 
@@ -112,9 +112,9 @@ TEST(circuit_verifiaction, unique_witness)
     auto buf = builder.export_circuit();
 
     smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
-    smt_solver::Solver s(circuit_info.modulus, true);
+    smt_solver::Solver s(circuit_info.modulus, {true, 0});
 
-    std::pair<smt_circuit::Circuit, smt_circuit::Circuit> cirs =
+    std::pair<smt_circuit::Circuit<smt_terms::FFTerm>, smt_circuit::Circuit<smt_terms::FFTerm>> cirs =
         smt_circuit::unique_witness(circuit_info, &s, { "ev" }, { "z" });
 
     bool res = s.check();

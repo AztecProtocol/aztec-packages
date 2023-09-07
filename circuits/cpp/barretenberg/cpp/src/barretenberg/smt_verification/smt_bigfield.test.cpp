@@ -41,6 +41,8 @@ using fq_ct = bn254::BaseField;
 using public_witness_ct = bn254::public_witness_ct;
 using witness_ct = bn254::witness_ct;
 
+SolverConfiguration config = {true, 0};
+
 msgpack::sbuffer create_circuit(bool pub_ab, bool ab)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -88,7 +90,7 @@ msgpack::sbuffer create_circuit(bool pub_ab, bool ab)
 
 const std::string q = "21888242871839275222246405745257275088696311157297823662689037894645226208583";
 
-std::vector<FFTerm> correct_result(Circuit& c, Solver* s)
+std::vector<FFTerm> correct_result(Circuit<FFTerm>& c, Solver* s)
 {
     FFTerm a_limb0 = c["a_limb_0"];
     FFTerm a_limb1 = c["a_limb_1"];
@@ -105,20 +107,20 @@ std::vector<FFTerm> correct_result(Circuit& c, Solver* s)
     FFTerm c_limb2 = c["c_limb_2"];
     FFTerm c_limb3 = c["c_limb_3"];
 
-    FFTerm two68 = Const("100000000000000000", s);
+    FFTerm two68 = FFTerm::Const("100000000000000000", s);
     FFTerm two136 = two68 * two68;
     FFTerm two204 = two136 * two68;
 
     FFTerm a = a_limb0 + two68 * a_limb1 + two136 * a_limb2 + two204 * a_limb3;
     FFTerm b = b_limb0 + two68 * b_limb1 + two136 * b_limb2 + two204 * b_limb3;
     FFTerm cr = c_limb0 + two68 * c_limb1 + two136 * c_limb2 + two204 * c_limb3;
-    FFTerm n = Var("n", s);
-    FFTerm q_ = Const(q, s, 10); // Const(q_hex, s)
+    FFTerm n = FFTerm::Var("n", s);
+    FFTerm q_ = FFTerm::Const(q, s, 10); // Const(q_hex, s)
     a* b != cr + n* q_;
     return { cr, n };
 }
 
-void model_variables(Circuit& c, Solver* s, std::vector<FFTerm>& evaluation)
+void model_variables(Circuit<FFTerm>& c, Solver* s, std::vector<FFTerm>& evaluation)
 {
     std::unordered_map<std::string, cvc5::Term> terms;
     for (size_t i = 0; i < 4; i++) {
@@ -147,7 +149,7 @@ void model_variables(Circuit& c, Solver* s, std::vector<FFTerm>& evaluation)
     info("n = ", values["n"]);
 }
 
-void model_variables1(Circuit& c1, Circuit& c2, Solver* s)
+void model_variables1(Circuit<FFTerm>& c1, Circuit<FFTerm>& c2, Solver* s)
 {
     std::unordered_map<std::string, cvc5::Term> terms;
     for (size_t i = 0; i < 4; i++) {
@@ -180,8 +182,8 @@ TEST(bigfield, multiplication_equal)
     auto buf = create_circuit(public_a_b, a_neq_b);
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
-    Solver s(circuit_info.modulus, true);
-    Circuit circuit(circuit_info, &s);
+    Solver s(circuit_info.modulus, config);
+    Circuit<FFTerm> circuit(circuit_info, &s);
     std::vector<FFTerm> ev = correct_result(circuit, &s);
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -205,9 +207,9 @@ TEST(bigfield, unique_square)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-    Solver s(circuit_info.modulus, true, 16); //, 1000);
+    Solver s(circuit_info.modulus, config);
 
-    std::pair<Circuit, Circuit> cs = unique_witness(circuit_info,
+    std::pair<Circuit<FFTerm>, Circuit<FFTerm>> cs = unique_witness(circuit_info,
                                                     &s,
                                                     { "a_limb_0", "a_limb_1", "a_limb_2", "a_limb_3" },
                                                     { "c_limb_0", "c_limb_1", "c_limb_2", "c_limb_3" });

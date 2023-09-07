@@ -81,7 +81,7 @@ msgpack::sbuffer create_circuit(size_t n, bool pub_coeffs)
     return builder.export_circuit();
 }
 
-FFTerm polynomial_evaluation(Circuit& c, size_t n, bool is_correct = true)
+FFTerm polynomial_evaluation(Circuit<smt_terms::FFTerm>& c, size_t n, bool is_correct = true)
 {
     std::vector<smt_terms::FFTerm> coeffs(n);
     for (size_t i = 0; i < n; i++) {
@@ -100,7 +100,7 @@ FFTerm polynomial_evaluation(Circuit& c, size_t n, bool is_correct = true)
     return ev;
 }
 
-void model_variables(Circuit& c, Solver* s, FFTerm& evaluation)
+void model_variables(Circuit<smt_terms::FFTerm>& c, Solver* s, FFTerm& evaluation)
 {
     std::unordered_map<std::string, cvc5::Term> terms;
     terms.insert({ "point", c["point"] });
@@ -121,8 +121,8 @@ TEST(polynomial_evaluation, correct)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-    Solver s(circuit_info.modulus, true);
-    Circuit circuit(circuit_info, &s);
+    Solver s(circuit_info.modulus, {true, 0});
+    Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     FFTerm ev = polynomial_evaluation(circuit, n, true);
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -144,8 +144,8 @@ TEST(polynomial_evaluation, incorrect)
 
     CircuitSchema circuit_info = unpack_from_buffer(buf);
 
-    Solver s(circuit_info.modulus, true);
-    Circuit circuit(circuit_info, &s);
+    Solver s(circuit_info.modulus, {true, 0});
+    Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
     FFTerm ev = polynomial_evaluation(circuit, n, false);
 
     auto start = std::chrono::high_resolution_clock::now();

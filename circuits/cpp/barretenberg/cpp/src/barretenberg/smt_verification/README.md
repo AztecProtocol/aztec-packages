@@ -1,5 +1,7 @@
 # Building cvc5
 
+TODO(alex): update the docunmentation after all the fixes
+
 As for now it's required to build cvc5 library manually.
 
 <!-- 
@@ -79,6 +81,7 @@ To store it on the disk just do
         In case you want to create two similar circuits with the same solver and schema, then you should specify the tag(name) of a circuit. 
 
 	Then you can get the previously named variables via `circuit[name]`.
+    Or if you want to check the value without the name you can simply call `circuit[idx]`.
 4. Terms creation
 
 	You are able to create two types of ff terms:
