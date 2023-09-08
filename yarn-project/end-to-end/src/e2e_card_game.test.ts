@@ -34,6 +34,15 @@ interface Game {
   current_round: bigint;
 }
 
+interface NoirOption<T> {
+  _is_some: boolean;
+  _value: T;
+}
+
+function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
+  return options.filter((option: any) => option._is_some).map((option: any) => option._value);
+}
+
 describe('e2e_card_game', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
@@ -41,14 +50,16 @@ describe('e2e_card_game', () => {
   let logger: DebugLogger;
   let firstPlayer: AztecAddress;
   let secondPlayer: AztecAddress;
+  let thirdPlayer: AztecAddress;
 
   let contract: CardGameContract;
 
   beforeEach(async () => {
     let accounts: CompleteAddress[];
-    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
+    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(3));
     firstPlayer = accounts[0].address;
     secondPlayer = accounts[1].address;
+    thirdPlayer = accounts[2].address;
     await deployContract();
   }, 100_000);
 
@@ -83,9 +94,7 @@ describe('e2e_card_game', () => {
   it('should be able to buy packs', async () => {
     await contract.methods.buyPack(27n).send({ origin: firstPlayer }).wait();
     const collection = await contract.methods.viewCollectionCards(firstPlayer, 0).view({ from: firstPlayer });
-    expect(collection.filter((option: any) => option._is_some).map((option: any) => option._value)).toEqual(
-      firstPlayerCollection,
-    );
+    expect(unwrapOptions(collection)).toEqual(firstPlayerCollection);
   }, 30_000);
 
   describe('game join', () => {
@@ -101,7 +110,7 @@ describe('e2e_card_game', () => {
         .wait();
 
       const collection = await contract.methods.viewCollectionCards(firstPlayer, 0).view({ from: firstPlayer });
-      expect(collection.filter((option: any) => option._is_some).map((option: any) => option._value)).toEqual([
+      expect(unwrapOptions(collection)).toEqual([
         {
           points: 60338n,
           strength: 53787n,
@@ -129,11 +138,11 @@ describe('e2e_card_game', () => {
     }, 30_000);
 
     it('should start games', async () => {
-      const secondPlayerCollection = (
-        await contract.methods.viewCollectionCards(secondPlayer, 0).view({ from: secondPlayer })
-      )
-        .filter((option: any) => option._is_some)
-        .map((option: any) => option._value);
+      const secondPlayerCollection = unwrapOptions(
+        (await contract.methods
+          .viewCollectionCards(secondPlayer, 0)
+          .view({ from: secondPlayer })) as NoirOption<Card>[],
+      );
 
       await contract.methods
         .joinGame(42, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
@@ -168,57 +177,109 @@ describe('e2e_card_game', () => {
     }, 30_000);
   });
 
-  describe.only('game play', () => {
-    let players: AztecAddress[];
-    let cards: Card[][];
+  describe('game play', () => {
+    let playerCards: { address: AztecAddress; cards: Card[] }[];
+
+    let secondPlayerCollection: Card[];
+    let thirdPlayerCOllection: Card[];
 
     beforeEach(async () => {
-      players = [firstPlayer, secondPlayer];
       await contract.methods.buyPack(27n).send({ origin: firstPlayer }).wait();
       await contract.methods.buyPack(27n).send({ origin: secondPlayer }).wait();
+      await contract.methods.buyPack(27n).send({ origin: thirdPlayer }).wait();
 
-      const secondPlayerCollection = (
-        await contract.methods.viewCollectionCards(secondPlayer, 0).view({ from: secondPlayer })
-      )
-        .filter((option: any) => option._is_some)
-        .map((option: any) => option._value);
+      secondPlayerCollection = unwrapOptions(
+        await contract.methods.viewCollectionCards(secondPlayer, 0).view({ from: secondPlayer }),
+      );
 
-      cards = [
-        [firstPlayerCollection[0], firstPlayerCollection[2]],
-        [secondPlayerCollection[1], secondPlayerCollection[2]],
+      thirdPlayerCOllection = unwrapOptions(
+        await contract.methods.viewCollectionCards(thirdPlayer, 0).view({ from: thirdPlayer }),
+      );
+
+      playerCards = [
+        { address: firstPlayer, cards: [firstPlayerCollection[0], firstPlayerCollection[2]] },
+        { address: secondPlayer, cards: [secondPlayerCollection[0], secondPlayerCollection[2]] },
+        { address: thirdPlayer, cards: [thirdPlayerCOllection[0], thirdPlayerCOllection[1]] },
       ];
-
-      await contract.methods.joinGame(42, cards[0].map(cardToField)).send({ origin: firstPlayer }).wait();
-
-      await contract.methods.joinGame(42, cards[1].map(cardToField)).send({ origin: secondPlayer }).wait();
-
-      await contract.methods.startGame(42).send({ origin: firstPlayer }).wait();
     }, 60_000);
 
-    it('should play a game and claim the winned cards', async () => {
+    async function joinGame(playerAddress: AztecAddress, cards: Card[], id = 42) {
+      await contract.methods.joinGame(id, cards.map(cardToField)).send({ origin: playerAddress }).wait();
+    }
+
+    async function playGame(id = 42) {
+      const initialGameState = (await contract.methods.viewGame(id).view({ from: firstPlayer })) as Game;
+      const players = initialGameState.players.map(player => player.address);
+      const cards = players.map(
+        player => playerCards.find(playerCardsEntry => playerCardsEntry.address.toBigInt() === player)!.cards,
+      );
+
       for (let roundIndex = 0; roundIndex < cards.length; roundIndex++) {
         for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
           const player = players[playerIndex];
           const card = cards[playerIndex][roundIndex];
-          await contract.methods.playCard(42, card).send({ origin: player }).wait();
+          await contract.methods
+            .playCard(id, card)
+            .send({ origin: AztecAddress.fromBigInt(player) })
+            .wait();
         }
       }
 
-      const game = (await contract.methods.viewGame(42).view({ from: firstPlayer })) as Game;
+      const finalGameState = (await contract.methods.viewGame(id).view({ from: firstPlayer })) as Game;
 
-      expect(game.finished).toBe(true);
+      expect(finalGameState.finished).toBe(true);
 
-      const winner = AztecAddress.fromBigInt(
-        game.players.reduce((currentWinner, player) => (player.points > currentWinner.points ? player : currentWinner))
-          .address,
-      );
+      console.log(finalGameState.players);
+
+      return finalGameState;
+    }
+
+    it('should play a game and claim the winned cards', async () => {
+      await joinGame(playerCards[0].address, playerCards[0].cards);
+      await joinGame(playerCards[1].address, playerCards[1].cards);
+      await contract.methods.startGame(42).send({ origin: playerCards[0].address }).wait();
+
+      const game = await playGame();
+
+      const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
+
+      const winner = AztecAddress.fromBigInt(sotedByPoints[0].address);
+      const loser = AztecAddress.fromBigInt(sotedByPoints[1].address);
+
+      await expect(
+        contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
+      ).rejects.toThrow(/Not the winner/);
 
       await contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
-      const winnerCollection = (await contract.methods.viewCollectionCards(winner, 0).view({ from: winner }))
-        .filter((option: any) => option._is_some)
-        .map((option: any) => option._value);
-
-      expect(winnerCollection).toEqual(expect.arrayContaining(cards.flat()));
+      const winnerCollection = unwrapOptions(
+        await contract.methods.viewCollectionCards(winner, 0).view({ from: winner }),
+      );
+      expect(winnerCollection).toEqual(expect.arrayContaining([playerCards[0].cards, playerCards[1].cards].flat()));
     }, 120_000);
+
+    it('should allow to play with cards won', async () => {
+      await joinGame(playerCards[0].address, playerCards[0].cards);
+      await joinGame(playerCards[1].address, playerCards[1].cards);
+      await contract.methods.startGame(42).send({ origin: playerCards[0].address }).wait();
+
+      let game = await playGame();
+      const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
+      const winner = AztecAddress.fromBigInt(sotedByPoints[0].address);
+      await contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
+
+      const winnerCollection = unwrapOptions(
+        (await contract.methods.viewCollectionCards(winner, 0).view({ from: winner })) as NoirOption<Card>[],
+      );
+
+      const winnerPlayercards = playerCards.find(playerCardsEntry => playerCardsEntry.address.equals(winner))!;
+      winnerPlayercards.cards = [winnerCollection[0], winnerCollection[3]];
+
+      await joinGame(winnerPlayercards.address, winnerPlayercards.cards, 43);
+      await joinGame(playerCards[2].address, playerCards[2].cards, 43);
+      await contract.methods.startGame(43).send({ origin: playerCards[0].address }).wait();
+      game = await playGame(43);
+
+      expect(game.finished).toBe(true);
+    }, 180_000);
   });
 });

@@ -216,27 +216,27 @@ contract CardGame {
         let mut collection = storage.collections.at(player);
         let _inserted_cards = collection.add_cards(cards_notes, player);
 
-        let selector = compute_selector("onCardsClaimed(u32,Field,[Field;4])");
+        let selector = compute_selector("onCardsClaimed(u32,Field,Field)");
         context.call_public_function(
             context.this_address(), 
             selector, 
-            [game as Field, player, cards_fields[0], cards_fields[1], cards_fields[2], cards_fields[3]]
+            [game as Field, player, dep::std::hash::pedersen(cards_fields)[0]]
         );
     }
 
     #[aztec(public)]
-    internal fn onCardsClaimed(game: u32, player: Field, cards_fields: [Field; PLAYABLE_CARDS]) {
+    internal fn onCardsClaimed(game: u32, player: Field, cards_hash: Field) {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         let game_storage = storage.games.at(game as Field);
         let mut game_data = game_storage.read();
         
         assert(!game_data.claimed, "Already claimed");
         game_data.claimed = true;
-        
-        for i in 0..cards_fields.len() {
-            let game_card_field = game_data.rounds_cards[i].to_field();
-            assert_eq(game_card_field, cards_fields[i], "Claim card mismatch");
-        }
+
+        assert_eq(
+            cards_hash, 
+            dep::std::hash::pedersen(game_data.rounds_cards.map(|card: Card| card.to_field()))[0]
+        );
 
         let winner = game_data.winner();
         assert_eq(player, winner.address, "Not the winner");
