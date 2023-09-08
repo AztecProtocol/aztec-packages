@@ -135,19 +135,7 @@ We called the `transfer` function of the contract and provided these arguments:
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
-```bash
-% aztec-cli get-tx-receipt 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
-
-Transaction receipt:
-{
-  "txHash": "15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c",
-  "status": "mined",
-  "error": "",
-  "blockHash": "163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4",
-  "blockNumber": 5,
-  "origin": "0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe"
-}
-```
+// #include_code get-tx-receipt yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Let's now call `getBalance()` on each of our accounts and we should see updated values:
 

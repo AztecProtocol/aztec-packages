@@ -1,6 +1,6 @@
 import { AztecAddress, createAztecRpcClient, createDebugLogger, makeFetch, waitForSandbox } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
-import { AztecRPC } from '@aztec/types';
+import { AztecRPC, TxHash } from '@aztec/types';
 
 import stringArgv from 'string-argv';
 import { format } from 'util';
@@ -299,12 +299,44 @@ Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
       .replace('$ADDRESS2', address2.toString())
       .replace('$CONTRACT_ADDRESS', contractAddress.toString())
       .replace('$PRIVATE_KEY', foundPrivateKey!);
-
     await run(command);
 
-    const foundTxHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
+    let foundTxHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
     expect(foundTxHash).toBeDefined();
 
     clearLogs();
+
+    // Save the tx hash for later use
+    const transferTxHash = TxHash.fromString(foundTxHash!);
+
+    // Test get-tx-receipt
+    docs = `
+// docs:start:get-tx-receipt
+% aztec-cli get-tx-receipt 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
+
+Transaction receipt:
+{
+  "txHash": "15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c",
+  "status": "mined",
+  "error": "",
+  "blockHash": "163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4",
+  "blockNumber": 5,
+  "origin": "0x2337f1d5cfa6c03796db5539b0b2d5a57e9aed42665df2e0907f66820cb6eebe"
+}
+// docs:end:get-tx-receipt
+`;
+
+    command = docs
+      .split('\n')[2]
+      .split('aztec-cli ')[1]
+      .replace('15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c', transferTxHash.toString());
+    await run(command);
+
+    foundTxHash = findInLogs(/"txHash":\s+"(?<txHash>\S+)"/)?.groups?.txHash;
+    expect(foundTxHash).toEqual(transferTxHash.toString());
+    const status = findInLogs(/"status":\s+"(?<status>\S+)"/)?.groups?.status;
+    expect(status).toEqual('mined');
+    const error = findInLogs(/"error":\s+"(?<error>\S*)"/)?.groups?.error;
+    expect(error).toEqual('');
   }, 60_000);
 });
