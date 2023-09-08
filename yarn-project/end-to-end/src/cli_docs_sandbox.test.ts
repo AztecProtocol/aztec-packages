@@ -295,6 +295,7 @@ Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
 
     command = docs
       .split('\n')[2]
+      .split('aztec-cli ')[1]
       .replace('$ADDRESS2', address2.toString())
       .replace('$CONTRACT_ADDRESS', contractAddress.toString())
       .replace('$PRIVATE_KEY', foundPrivateKey!);
@@ -305,5 +306,5 @@ Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
     expect(foundTxHash).toBeDefined();
 
     clearLogs();
-  });
+  }, 60_000);
 });

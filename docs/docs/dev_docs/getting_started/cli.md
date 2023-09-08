@@ -124,19 +124,7 @@ As you can see from the result, this address has a balance of 1000000, as expect
 
 We can now send a transaction to the network. We will transfer funds from the owner of the initial minted tokens to our other account. For this we will use the `send` command, which expects as arguments the quantity of tokens to be transferred, the sender's address, and the recipient's address. Make sure to replace all addresses in this command with the ones for your run.
 
-```bash
-% aztec-cli send transfer \
-  --args 543 $ADDRESS2 \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS \
-  --private-key $PRIVATE_KEY
-
-Transaction has been mined
-Transaction hash: 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
-Status: mined
-Block number: 5
-Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
-```
+// #include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 We called the `transfer` function of the contract and provided these arguments:
 
