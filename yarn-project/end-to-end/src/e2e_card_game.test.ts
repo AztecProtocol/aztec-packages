@@ -43,6 +43,8 @@ function unwrapOptions<T>(options: NoirOption<T>[]): T[] {
   return options.filter((option: any) => option._is_some).map((option: any) => option._value);
 }
 
+const GAME_ID = 42;
+
 describe('e2e_card_game', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
@@ -105,7 +107,7 @@ describe('e2e_card_game', () => {
 
     it('should be able to join games', async () => {
       await contract.methods
-        .joinGame(42, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
+        .joinGame(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
         .send({ origin: firstPlayer })
         .wait();
 
@@ -117,7 +119,7 @@ describe('e2e_card_game', () => {
         },
       ]);
 
-      expect((await contract.methods.viewGame(42).view({ from: firstPlayer })) as Game).toMatchObject({
+      expect((await contract.methods.viewGame(GAME_ID).view({ from: firstPlayer })) as Game).toMatchObject({
         players: [
           {
             address: firstPlayer.toBigInt(),
@@ -145,18 +147,18 @@ describe('e2e_card_game', () => {
       );
 
       await contract.methods
-        .joinGame(42, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
+        .joinGame(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
         .send({ origin: firstPlayer })
         .wait();
 
       await contract.methods
-        .joinGame(42, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
+        .joinGame(GAME_ID, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
         .send({ origin: secondPlayer })
         .wait();
 
-      await contract.methods.startGame(42).send({ origin: firstPlayer }).wait();
+      await contract.methods.startGame(GAME_ID).send({ origin: firstPlayer }).wait();
 
-      expect((await contract.methods.viewGame(42).view({ from: firstPlayer })) as Game).toMatchObject({
+      expect((await contract.methods.viewGame(GAME_ID).view({ from: firstPlayer })) as Game).toMatchObject({
         players: expect.arrayContaining([
           {
             address: firstPlayer.toBigInt(),
@@ -178,8 +180,6 @@ describe('e2e_card_game', () => {
   });
 
   describe('game play', () => {
-    let playerCards: { address: AztecAddress; cards: Card[] }[];
-
     let secondPlayerCollection: Card[];
     let thirdPlayerCOllection: Card[];
 
@@ -195,23 +195,17 @@ describe('e2e_card_game', () => {
       thirdPlayerCOllection = unwrapOptions(
         await contract.methods.viewCollectionCards(thirdPlayer, 0).view({ from: thirdPlayer }),
       );
-
-      playerCards = [
-        { address: firstPlayer, cards: [firstPlayerCollection[0], firstPlayerCollection[2]] },
-        { address: secondPlayer, cards: [secondPlayerCollection[0], secondPlayerCollection[2]] },
-        { address: thirdPlayer, cards: [thirdPlayerCOllection[0], thirdPlayerCOllection[1]] },
-      ];
     }, 60_000);
 
-    async function joinGame(playerAddress: AztecAddress, cards: Card[], id = 42) {
+    async function joinGame(playerAddress: AztecAddress, cards: Card[], id = GAME_ID) {
       await contract.methods.joinGame(id, cards.map(cardToField)).send({ origin: playerAddress }).wait();
     }
 
-    async function playGame(id = 42) {
+    async function playGame(playerDecks: { address: AztecAddress; deck: Card[] }[], id = GAME_ID) {
       const initialGameState = (await contract.methods.viewGame(id).view({ from: firstPlayer })) as Game;
       const players = initialGameState.players.map(player => player.address);
       const cards = players.map(
-        player => playerCards.find(playerCardsEntry => playerCardsEntry.address.toBigInt() === player)!.cards,
+        player => playerDecks.find(playerDeckEntry => playerDeckEntry.address.toBigInt() === player)!.deck,
       );
 
       for (let roundIndex = 0; roundIndex < cards.length; roundIndex++) {
@@ -228,18 +222,20 @@ describe('e2e_card_game', () => {
       const finalGameState = (await contract.methods.viewGame(id).view({ from: firstPlayer })) as Game;
 
       expect(finalGameState.finished).toBe(true);
-
-      console.log(finalGameState.players);
-
       return finalGameState;
     }
 
     it('should play a game and claim the winned cards', async () => {
-      await joinGame(playerCards[0].address, playerCards[0].cards);
-      await joinGame(playerCards[1].address, playerCards[1].cards);
-      await contract.methods.startGame(42).send({ origin: playerCards[0].address }).wait();
+      const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
+      const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
+      await joinGame(firstPlayer, firstPlayerGameDeck);
+      await joinGame(secondPlayer, secondPlayerGameDeck);
+      await contract.methods.startGame(GAME_ID).send({ origin: firstPlayer }).wait();
 
-      const game = await playGame();
+      const game = await playGame([
+        { address: firstPlayer, deck: firstPlayerGameDeck },
+        { address: secondPlayer, deck: secondPlayerGameDeck },
+      ]);
 
       const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
 
@@ -247,37 +243,53 @@ describe('e2e_card_game', () => {
       const loser = AztecAddress.fromBigInt(sotedByPoints[1].address);
 
       await expect(
-        contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
+        contract.methods.claimCards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
       ).rejects.toThrow(/Not the winner/);
 
-      await contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
+      await contract.methods.claimCards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
       const winnerCollection = unwrapOptions(
         await contract.methods.viewCollectionCards(winner, 0).view({ from: winner }),
       );
-      expect(winnerCollection).toEqual(expect.arrayContaining([playerCards[0].cards, playerCards[1].cards].flat()));
+      expect(winnerCollection).toEqual(expect.arrayContaining([firstPlayerGameDeck, secondPlayerGameDeck].flat()));
     }, 120_000);
 
-    it('should allow to play with cards won', async () => {
-      await joinGame(playerCards[0].address, playerCards[0].cards);
-      await joinGame(playerCards[1].address, playerCards[1].cards);
-      await contract.methods.startGame(42).send({ origin: playerCards[0].address }).wait();
+    it.only('should allow to play with cards won', async () => {
+      const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
+      const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
+      await joinGame(firstPlayer, firstPlayerGameDeck);
+      await joinGame(secondPlayer, secondPlayerGameDeck);
+      await contract.methods.startGame(GAME_ID).send({ origin: firstPlayer }).wait();
 
-      let game = await playGame();
+      let game = await playGame([
+        { address: firstPlayer, deck: firstPlayerGameDeck },
+        { address: secondPlayer, deck: secondPlayerGameDeck },
+      ]);
+
       const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
       const winner = AztecAddress.fromBigInt(sotedByPoints[0].address);
-      await contract.methods.claimCards(42, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
+      await contract.methods.claimCards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
 
       const winnerCollection = unwrapOptions(
         (await contract.methods.viewCollectionCards(winner, 0).view({ from: winner })) as NoirOption<Card>[],
       );
 
-      const winnerPlayercards = playerCards.find(playerCardsEntry => playerCardsEntry.address.equals(winner))!;
-      winnerPlayercards.cards = [winnerCollection[0], winnerCollection[3]];
+      const winnerGameDeck = [winnerCollection[0], winnerCollection[3]];
+      const thirdPlayerGameDeck = [thirdPlayerCOllection[0], thirdPlayerCOllection[2]];
 
-      await joinGame(winnerPlayercards.address, winnerPlayercards.cards, 43);
-      await joinGame(playerCards[2].address, playerCards[2].cards, 43);
-      await contract.methods.startGame(43).send({ origin: playerCards[0].address }).wait();
-      game = await playGame(43);
+      await joinGame(winner, winnerGameDeck, GAME_ID + 1);
+      await joinGame(thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1);
+
+      await contract.methods
+        .startGame(GAME_ID + 1)
+        .send({ origin: winner })
+        .wait();
+      game = await playGame(
+        [
+          { address: winner, deck: winnerGameDeck },
+          { address: thirdPlayer, deck: thirdPlayerGameDeck },
+        ],
+        GAME_ID + 1,
+      );
 
       expect(game.finished).toBe(true);
     }, 180_000);
