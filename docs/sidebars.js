@@ -189,6 +189,7 @@ const sidebars = {
             "dev_docs/dapps/tutorials/rpc_server",
             "dev_docs/dapps/tutorials/contract_deployment",
             "dev_docs/dapps/tutorials/contract_interaction",
+            "dev_docs/dapps/tutorials/testing",
           ],
         },
       ],
