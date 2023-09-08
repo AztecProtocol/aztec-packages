@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr, PartialAddress, PrivateKey, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, GrumpkinPrivateKey, PartialAddress, TxContext } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
@@ -7,6 +7,7 @@ import {
   FunctionCall,
   L2BlockL2Logs,
   NodeInfo,
+  NotePreimage,
   PackedArguments,
   SyncStatus,
   Tx,
@@ -31,7 +32,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
 
-  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void> {
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void> {
     return this.rpc.registerAccount(privKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
@@ -63,6 +64,9 @@ export abstract class BaseWallet implements Wallet {
   }
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.rpc.getTxReceipt(txHash);
+  }
+  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]> {
+    return this.rpc.getPrivateStorageAt(owner, contract, storageSlot);
   }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.rpc.getPublicStorageAt(contract, storageSlot);
@@ -172,6 +176,11 @@ export class AccountWallet extends EntrypointWallet {
   /** Returns the complete address of the account that implements this wallet. */
   public getCompleteAddress() {
     return this.address;
+  }
+
+  /** Returns the address of the account that implements this wallet. */
+  public getAddress() {
+    return this.address.address;
   }
 }
 

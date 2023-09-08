@@ -39,22 +39,6 @@
     ],
     "dependencies": []
   },
-  "barretenberg-circuits-x86_64-linux-clang-builder-runner": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
-    "dockerfile": "dockerfiles/Dockerfile.circuits-x86_64-linux-clang-builder-runner",
-    "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
-    ],
-    "dependencies": []
-  },
-  "barretenberg-circuits-wasm-linux-clang-builder-runner": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
-    "dockerfile": "dockerfiles/Dockerfile.circuits-wasm-linux-clang-builder-runner",
-    "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
-    ],
-    "dependencies": []
-  },
   "bb.js": {
     "buildDir": "circuits/cpp/barretenberg/ts",
     "rebuildPatterns": ["^circuits/cpp/barretenberg/ts/"],
@@ -180,11 +164,11 @@
       "types"
     ]
   },
-  "aztec-cli": {
+  "cli": {
     "buildDir": "yarn-project",
-    "projectDir": "yarn-project/aztec-cli",
-    "dockerfile": "aztec-cli/Dockerfile",
-    "rebuildPatterns": ["^yarn-project/aztec-cli/"],
+    "projectDir": "yarn-project/cli",
+    "dockerfile": "cli/Dockerfile",
+    "rebuildPatterns": ["^yarn-project/cli/"],
     "dependencies": [
       "aztec.js",
       "ethereum",
@@ -272,6 +256,7 @@
       "aztec-sandbox",
       "aztec.js",
       "circuits.js",
+      "cli",
       "ethereum",
       "foundation",
       "l1-artifacts",

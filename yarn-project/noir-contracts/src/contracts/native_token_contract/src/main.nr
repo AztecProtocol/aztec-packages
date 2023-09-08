@@ -1,5 +1,3 @@
-mod storage;
-
 // Testing token that can be bridged in and out.
 // TODOS:
 // - Add role based access control to mint functions
@@ -11,31 +9,105 @@ contract NativeToken {
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
     };
     use dep::std;
-    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
-
-    use dep::non_native::{
-        hash::{get_mint_content_hash, get_withdraw_content_hash},
-        transparent_note::{
-            TransparentNote,
-            TransparentNoteMethods
-        },
-    };
-
-    use crate::storage::Storage;
-
-    use dep::aztec::types::point::Point;
     use dep::aztec::{
+        constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+        context::{PrivateContext, PublicContext},
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
+        oracle::{
+            compute_selector::compute_selector,
+            logs::emit_unencrypted_log,
+        },
+        state_vars::{
+            map::Map,
+            public_state::PublicState,
+            set::Set,
+        },
+        types::type_serialisation::field_serialisation::{
+            FieldSerialisationMethods,
+            FIELD_SERIALISED_LEN,
+        },
+        auth::assert_valid_message_for,
+    };
+    use dep::non_native::{
+        hash::{get_mint_content_hash, get_withdraw_content_hash},
+        transparent_note::{
+            TransparentNote,
+            TransparentNoteMethods,
+            TRANSPARENT_NOTE_LEN,
+        },
     };
 
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
-    use dep::aztec::oracle::compute_selector::compute_selector;
+    struct Storage {
+        balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        total_supply: PublicState<Field, FIELD_SERIALISED_LEN>,
+        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
+        public_balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        public_allowances: Map<Map<PublicState<Field, FIELD_SERIALISED_LEN>>>,
+    }
+
+    impl Storage {
+        fn init(
+            private_context: Option<&mut PrivateContext>,
+            public_context: Option<&mut PublicContext>,
+        ) -> pub Self {
+            Storage {
+                balances: Map::new(
+                    private_context,
+                    public_context,
+                    1, // Storage slot
+                    |private_context, public_context, slot| {
+                        Set::new(private_context, public_context, slot, ValueNoteMethods)
+                    },
+                ),
+                total_supply: PublicState::new(
+                    private_context,
+                    public_context,
+                    2,
+                    FieldSerialisationMethods,
+                ),
+                pending_shields: Set::new(private_context, public_context, 3, TransparentNoteMethods),
+                public_balances: Map::new(
+                    private_context,
+                    public_context,
+                    4,
+                    |private_context, public_context, slot| {
+                        PublicState::new(
+                            private_context,
+                            public_context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+                public_allowances: Map::new(
+                    private_context,
+                    public_context,
+                    5,
+                    |private_context, public_context, s1| {
+                        Map::new(
+                            private_context,
+                            public_context,
+                            s1,
+                            |private_context, public_context, s2| {
+                                PublicState::new(
+                                    private_context,
+                                    public_context,
+                                    s2,
+                                    FieldSerialisationMethods,
+                                )
+                            },
+                        )
+                    },
+                ),
+            }
+        }
+    }
 
     #[aztec(private)]
     fn constructor(
@@ -57,7 +129,8 @@ contract NativeToken {
         let new_balance = storage.public_balances.at(to).read() + amount;
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
-        
+        let _hash = emit_unencrypted_log("Coins minted");
+
         1
     }
 
@@ -190,7 +263,7 @@ contract NativeToken {
         let sender = context.msg_sender();
         let sender_balance = storage.public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
-        assert(current_sender_balance as u120 >= amount as u120);
+        assert(current_sender_balance as u120 >= amount as u120, "Balance too low");
 
         let to_balance = storage.public_balances.at(to);
         let current_to_balance: Field = to_balance.read();
@@ -198,6 +271,8 @@ contract NativeToken {
         // User has sufficient balance so we decrement it by `amount`
         sender_balance.write(current_sender_balance - amount);
         to_balance.write(current_to_balance + amount);
+
+        let _hash = emit_unencrypted_log("Coins transferred");
     }
 
     #[aztec(public)]
@@ -316,9 +391,8 @@ contract NativeToken {
                 ], 
                 GENERATOR_INDEX__SIGNATURE_PAYLOAD
             )[0];
-            let is_valid_selector = compute_selector("is_valid(Field)");
-            let _callStackItem0 = context.call_private_function(from, is_valid_selector, [message_field]);
-            assert(_callStackItem0[0] == is_valid_selector);
+            
+            assert_valid_message_for(&mut context, from, message_field);
         }
 
         // Reduce user balance

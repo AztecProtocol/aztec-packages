@@ -10,10 +10,10 @@ import {
   CompleteAddress,
   EthAddress,
   FunctionData,
+  GrumpkinPrivateKey,
   KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
-  PrivateKey,
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -104,7 +104,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async registerAccount(privKey: PrivateKey, partialAddress: PartialAddress) {
+  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress) {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
@@ -175,6 +175,18 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
+  }
+
+  public async getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr) {
+    if ((await this.getContractData(contract)) === undefined) {
+      throw new Error(`Contract ${contract.toString()} is not deployed`);
+    }
+    const notes = await this.db.getNoteSpendingInfo(contract, storageSlot);
+    const ownerCompleteAddress = await this.db.getCompleteAddress(owner);
+    if (!ownerCompleteAddress) throw new Error(`Owner ${owner} not registered in RPC server`);
+    const { publicKey: ownerPublicKey } = ownerCompleteAddress;
+    const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
+    return ownerNotes.map(n => n.notePreimage);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
