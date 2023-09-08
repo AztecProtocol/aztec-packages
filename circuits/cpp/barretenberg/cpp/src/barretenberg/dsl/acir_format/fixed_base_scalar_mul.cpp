@@ -15,6 +15,9 @@ void create_fixed_base_constraint(Builder& builder, const FixedBaseScalarMul& in
     field_ct low_as_field = field_ct::from_witness_index(&builder, input.low);
     field_ct high_as_field = field_ct::from_witness_index(&builder, input.high);
 
+    low_as_field.create_range_constraint(128);
+    high_as_field.create_range_constraint(128);
+
     auto low_value = grumpkin::fr(low_as_field.get_value());
     auto high_value = grumpkin::fr(high_as_field.get_value());
     auto pow_128 = grumpkin::fr(2).pow(128);
