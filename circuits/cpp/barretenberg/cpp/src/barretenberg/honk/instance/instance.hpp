@@ -1,9 +1,9 @@
 #pragma once
 
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
 
 #include <cstddef>
@@ -32,12 +32,12 @@ template <UltraFlavor Flavor> class Instance {
     static constexpr std::string_view NAME_STRING = "UltraHonk";
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     std::shared_ptr<ProvingKey> proving_key;
-    // std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<VerificationKey> verification_key;
 
     std::shared_ptr<ProverPolynomials> prover_polynomials;
     std::shared_ptr<std::vector<FF>> public_inputs;
 
-    sumcheck::RelationParameters<FF> relation_parameters;
+    proof_system::RelationParameters<FF> relation_parameters;
 
     std::vector<uint32_t> recursive_proof_public_input_indices;
     bool contains_recursive_proof = false;
@@ -53,7 +53,7 @@ template <UltraFlavor Flavor> class Instance {
     // Used by the prover for domain separation in the transcript
     uint32_t instance_index;
 
-    Instance(const Circuit& circuit)
+    Instance(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
@@ -71,7 +71,7 @@ template <UltraFlavor Flavor> class Instance {
     Instance& operator=(Instance const& other) noexcept = default;
     ~Instance() = default;
 
-    std::shared_ptr<ProvingKey> compute_proving_key(const Circuit&);
+    std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
     std::shared_ptr<VerificationKey> compute_verification_key(std::shared_ptr<CommitmentKey> commitment_key);
 
     void compute_circuit_size_parameters(Circuit&);

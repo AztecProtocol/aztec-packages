@@ -179,7 +179,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::construct_ecc_op_wire_polyn
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(const Circuit& circuit)
+std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(Circuit& circuit)
 {
     if (proving_key) {
         return proving_key;

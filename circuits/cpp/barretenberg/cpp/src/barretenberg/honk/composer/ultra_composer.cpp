@@ -11,7 +11,7 @@ template <UltraFlavor Flavor> Instance<Flavor> UltraComposer_<Flavor>::create_in
     // this could be either here or in the Instance idk
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
-    Instance<Flavor> instance = Instance(circuit);
+    Instance<Flavor> instance = Instance<Flavor>(circuit);
     return instance;
 }
 
@@ -29,8 +29,7 @@ template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::creat
  *
  * @return The verifier.
  * */
-template <UltraFlavor Flavor>
-UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const Instance<Flavor>& instance)
+template <UltraFlavor Flavor> UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(Instance<Flavor>& instance)
 {
     // for the folding composer we compute the commitment keys here!
     auto verification_key = instance.compute_verification_key(commitment_key);

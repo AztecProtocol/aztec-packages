@@ -68,7 +68,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     work_queue<Curve> queue;
 
-    std::shared_ptr<Instance> instance;
+    Instance& instance;
 
     // this should be ProverOutput
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;

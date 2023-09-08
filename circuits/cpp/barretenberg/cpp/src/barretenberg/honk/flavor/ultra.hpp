@@ -75,7 +75,7 @@ class Ultra {
      */
     class PrecomputedEntities : public PrecomputedEntities_<DataType, HandleType, NUM_PRECOMPUTED_ENTITIES> {
       public:
-        DataType& q_m = std::get<0>(this->_Pdata);
+        DataType& q_m = std::get<0>(this->_data);
         DataType& q_c = std::get<1>(this->_data);
         DataType& q_l = std::get<2>(this->_data);
         DataType& q_r = std::get<3>(this->_data);

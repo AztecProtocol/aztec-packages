@@ -59,14 +59,14 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     // TODO: can instances share commitment key?
     void compute_commitment_key(size_t circuit_size)
     {
-        commitment_key = std::make_shared<CommitmentKey>(circuit_size);
+        commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
     };
 
     Instance<Flavor> create_instance(CircuitBuilder& circuit);
     Instance<Flavor> create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
 
     UltraProver_<Flavor> create_prover(Instance<Flavor>& instance);
-    UltraVerifier_<Flavor> create_verifier(const Instance<Flavor>& instance);
+    UltraVerifier_<Flavor> create_verifier(Instance<Flavor>& instance);
 
     // underlying assumption that the first instance should be the one we fold on?
     // FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);
