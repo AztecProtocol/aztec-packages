@@ -30,6 +30,7 @@ const hashPayload = async (payload: Fr[]) => {
     GeneratorIndex.SIGNATURE_PAYLOAD,
   );
 };
+
 class TokenSimulator {
   private balances: Map<AztecAddress, bigint> = new Map();
   private balanceOf: Map<AztecAddress, bigint> = new Map();
@@ -287,13 +288,15 @@ describe('e2e_token_contract', () => {
         from: CompleteAddress,
         to: CompleteAddress,
         amount: bigint,
+        nonce: Fr,
       ) => {
         return await hashPayload([
           caller.address.toField(),
-          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field)').toField(),
+          FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)').toField(),
           from.address.toField(),
           to.address.toField(),
           new Fr(amount),
+          nonce,
         ]);
       };
       it('transfer less than balance', async () => {
@@ -301,7 +304,7 @@ describe('e2e_token_contract', () => {
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const tx = asset.methods
-          .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+          .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, 0)
           .send({ origin: accounts[0].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -316,7 +319,7 @@ describe('e2e_token_contract', () => {
         const amount = balance / 2n;
         expect(amount).toBeGreaterThan(0n);
         const tx = asset.methods
-          .transfer_public({ address: accounts[0].address }, { address: accounts[0].address }, amount)
+          .transfer_public({ address: accounts[0].address }, { address: accounts[0].address }, amount, 0)
           .send({ origin: accounts[0].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -328,9 +331,10 @@ describe('e2e_token_contract', () => {
         const balance1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
+        const nonce = Fr.random();
 
         // We need to compute the message we want to sign.
-        const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
+        const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
         // Add it to the wallet as approved
         const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -340,7 +344,7 @@ describe('e2e_token_contract', () => {
 
         // Perform the transfer
         const tx = asset.methods
-          .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+          .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
           .send({ origin: accounts[1].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -350,25 +354,46 @@ describe('e2e_token_contract', () => {
         expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(
           balance1 + amount,
         );
-      });
+
+        // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
+        const txReplay = asset.methods
+          .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
+          .send({ origin: accounts[1].address });
+        await txReplay.isMined();
+        const receiptReplay = await txReplay.getReceipt();
+        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
+      }, 30_000);
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
           const amount = balance0 + 1n;
+          const nonce = 0;
           await expect(
             asset.methods
-              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[0].address }),
           ).rejects.toThrowError('Assertion failed: Underflow');
+        });
+
+        it('transfer on behalf of self with non-zero nonce', async () => {
+          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
+          const amount = balance0 - 1n;
+          const nonce = 1;
+          await expect(
+            asset.methods
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
+              .simulate({ origin: accounts[0].address }),
+          ).rejects.toThrowError('Assertion failed: invalid nonce');
         });
 
         it('transfer on behalf of other without "approval"', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
           const amount = balance0 + 1n;
+          const nonce = Fr.random();
           await expect(
             asset.methods
-              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[1].address }),
           ).rejects.toThrowError('Assertion failed: invalid call');
         });
@@ -377,10 +402,11 @@ describe('e2e_token_contract', () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
           const balance1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
           const amount = balance0 + 1n;
+          const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign.
-          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
+          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
           // Add it to the wallet as approved
           const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -391,7 +417,7 @@ describe('e2e_token_contract', () => {
           // Perform the transfer
           await expect(
             asset.methods
-              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[1].address }),
           ).rejects.toThrowError('Assertion failed: Underflow');
 
@@ -403,10 +429,11 @@ describe('e2e_token_contract', () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
           const balance1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
           const amount = balance0 + 2n;
+          const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign.
-          const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount);
+          const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount, nonce);
 
           // Add it to the wallet as approved
           const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -417,7 +444,7 @@ describe('e2e_token_contract', () => {
           // Perform the transfer
           await expect(
             asset.methods
-              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[1].address }),
           ).rejects.toThrowError('Assertion failed: invalid call');
 
@@ -438,13 +465,15 @@ describe('e2e_token_contract', () => {
         from: CompleteAddress,
         to: CompleteAddress,
         amount: bigint,
+        nonce: Fr,
       ) => {
         return await hashPayload([
           caller.address.toField(),
-          FunctionSelector.fromSignature('transfer((Field),(Field),Field)').toField(),
+          FunctionSelector.fromSignature('transfer((Field),(Field),Field,Field)').toField(),
           from.address.toField(),
           to.address.toField(),
           new Fr(amount),
+          nonce,
         ]);
       };
       it('transfer less than balance', async () => {
@@ -452,7 +481,7 @@ describe('e2e_token_contract', () => {
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const tx = asset.methods
-          .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+          .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, 0)
           .send({ origin: accounts[0].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -467,7 +496,7 @@ describe('e2e_token_contract', () => {
         const amount = balance0 / 2n;
         expect(amount).toBeGreaterThan(0n);
         const tx = asset.methods
-          .transfer({ address: accounts[0].address }, { address: accounts[0].address }, amount)
+          .transfer({ address: accounts[0].address }, { address: accounts[0].address }, amount, 0)
           .send({ origin: accounts[0].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -478,10 +507,11 @@ describe('e2e_token_contract', () => {
         const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const balance1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
         const amount = balance0 / 2n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
+        const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
@@ -491,7 +521,7 @@ describe('e2e_token_contract', () => {
 
         // Perform the transfer
         const tx = asset.methods
-          .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+          .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
           .send({ origin: accounts[1].address });
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
@@ -502,6 +532,14 @@ describe('e2e_token_contract', () => {
         expect(await asset.methods.balance_of_private({ address: accounts[1].address }).view()).toEqual(
           balance1 + amount,
         );
+
+        // Perform the transfer again, should fail
+        const txReplay = asset.methods
+          .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
+          .send({ origin: accounts[1].address });
+        await txReplay.isMined();
+        const receiptReplay = await txReplay.getReceipt();
+        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
       });
 
       describe('failure cases', () => {
@@ -511,19 +549,31 @@ describe('e2e_token_contract', () => {
           expect(amount).toBeGreaterThan(0n);
           await expect(
             asset.methods
-              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, 0)
               .simulate({ origin: accounts[0].address }),
           ).rejects.toThrowError('Assertion failed: Balance too low');
+        });
+
+        it('transfer on behalf of self with non-zero nonce', async () => {
+          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
+          const amount = balance0 - 1n;
+          expect(amount).toBeGreaterThan(0n);
+          await expect(
+            asset.methods
+              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, 1)
+              .simulate({ origin: accounts[0].address }),
+          ).rejects.toThrowError('Assertion failed: invalid nonce');
         });
 
         it('transfer more than balance on behalf of other', async () => {
           const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
           const balance1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
           const amount = balance0 + 1n;
+          const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign.
-          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
+          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
           // Both wallets are connected to same node and rpc so we could just insert directly using
           // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
@@ -534,7 +584,7 @@ describe('e2e_token_contract', () => {
           // Perform the transfer
           await expect(
             asset.methods
-              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[1].address }),
           ).rejects.toThrowError('Assertion failed: Balance too low');
           expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balance0);
@@ -546,14 +596,15 @@ describe('e2e_token_contract', () => {
         it('transfer on behalf of other without approval', async () => {
           const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
           const amount = balance0 / 2n;
+          const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign.
-          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
+          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
           await expect(
             asset.methods
-              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[1].address }),
           ).rejects.toThrowError(`Unknown auth witness for message hash 0x${messageHash.toString('hex')}`);
         });
@@ -561,18 +612,19 @@ describe('e2e_token_contract', () => {
         it('transfer on behalf of other, wrong designated caller', async () => {
           const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
           const amount = balance0 / 2n;
+          const nonce = Fr.random();
           expect(amount).toBeGreaterThan(0n);
 
           // We need to compute the message we want to sign.
-          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount);
-          const expectedMessageHash = await transferMessageHash(accounts[2], accounts[0], accounts[1], amount);
+          const messageHash = await transferMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
+          const expectedMessageHash = await transferMessageHash(accounts[2], accounts[0], accounts[1], amount, nonce);
 
           const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
           await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
 
           await expect(
             asset.methods
-              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+              .transfer({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
               .simulate({ origin: accounts[2].address }),
           ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
           expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balance0);
@@ -594,13 +646,15 @@ describe('e2e_token_contract', () => {
       from: CompleteAddress,
       amount: bigint,
       secretHash: Fr,
+      nonce: Fr,
     ) => {
       return await hashPayload([
         caller.address.toField(),
-        FunctionSelector.fromSignature('shield((Field),Field,Field)').toField(),
+        FunctionSelector.fromSignature('shield((Field),Field,Field,Field)').toField(),
         from.address.toField(),
         new Fr(amount),
         secretHash,
+        nonce,
       ]);
     };
 
@@ -611,7 +665,7 @@ describe('e2e_token_contract', () => {
       expect(amount).toBeGreaterThan(0n);
 
       const tx = asset.methods
-        .shield({ address: accounts[0].address }, amount, secretHash)
+        .shield({ address: accounts[0].address }, amount, secretHash, 0)
         .send({ origin: accounts[0].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -639,10 +693,11 @@ describe('e2e_token_contract', () => {
       const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
       const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
       const amount = balancePub / 2n;
+      const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign.
-      const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash);
+      const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
 
       // Add it to the wallet as approved
       const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -651,7 +706,7 @@ describe('e2e_token_contract', () => {
       expect(validTxReceipt.status).toBe(TxStatus.MINED);
 
       const tx = asset.methods
-        .shield({ address: accounts[0].address }, amount, secretHash)
+        .shield({ address: accounts[0].address }, amount, secretHash, nonce)
         .send({ origin: accounts[1].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -660,6 +715,14 @@ describe('e2e_token_contract', () => {
         balancePub - amount,
       );
       expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
+
+      // Check that replaying the shield should fail!
+      const txReplay = asset.methods
+        .shield({ address: accounts[0].address }, amount, secretHash, nonce)
+        .send({ origin: accounts[1].address });
+      await txReplay.isMined();
+      const receiptReplay = await txReplay.getReceipt();
+      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
 
       // Redeem it
       const txClaim = asset.methods
@@ -674,7 +737,7 @@ describe('e2e_token_contract', () => {
         balancePriv + amount,
       );
 
-      // Check that claiming again will hit a double-spend and fail.
+      // Check that claiming again will hit a double-spend and fail due to pending note already consumed.
       const txClaimDoubleSpend = asset.methods
         .redeem_shield({ address: accounts[0].address }, amount, secret)
         .send({ origin: accounts[0].address });
@@ -691,19 +754,32 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .shield({ address: accounts[0].address }, amount, secretHash)
+            .shield({ address: accounts[0].address }, amount, secretHash, 0)
             .simulate({ origin: accounts[0].address }),
         ).rejects.toThrowError('Assertion failed: Underflow');
+      });
+
+      it('on behalf of self (invalid nonce)', async () => {
+        const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
+        const amount = balancePub + 1n;
+        expect(amount).toBeGreaterThan(0n);
+
+        await expect(
+          asset.methods
+            .shield({ address: accounts[0].address }, amount, secretHash, 1)
+            .simulate({ origin: accounts[0].address }),
+        ).rejects.toThrowError('Assertion failed: invalid nonce');
       });
 
       it('on behalf of other (more than balance)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
         const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const amount = balancePub + 1n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash);
+        const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
 
         // Add it to the wallet as approved
         const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -713,7 +789,7 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .shield({ address: accounts[0].address }, amount, secretHash)
+            .shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate({ origin: accounts[1].address }),
         ).rejects.toThrowError('Assertion failed: Underflow');
 
@@ -725,10 +801,11 @@ describe('e2e_token_contract', () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
         const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const amount = balancePub + 1n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash);
+        const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
 
         // Add it to the wallet as approved
         const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
@@ -738,7 +815,7 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .shield({ address: accounts[0].address }, amount, secretHash)
+            .shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate({ origin: accounts[2].address }),
         ).rejects.toThrowError('Assertion failed: invalid call');
 
@@ -749,11 +826,12 @@ describe('e2e_token_contract', () => {
       it('on behalf of other (without approval)', async () => {
         const balance = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
         const amount = balance / 2n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         await expect(
           asset.methods
-            .shield({ address: accounts[0].address }, amount, secretHash)
+            .shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate({ origin: accounts[1].address }),
         ).rejects.toThrowError(`Assertion failed: invalid call`);
       });
@@ -766,13 +844,15 @@ describe('e2e_token_contract', () => {
       from: CompleteAddress,
       to: CompleteAddress,
       amount: bigint,
+      nonce: Fr,
     ) => {
       return await hashPayload([
         caller.address.toField(),
-        FunctionSelector.fromSignature('unshield((Field),(Field),Field)').toField(),
+        FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
         accounts[0].address.toField(),
         accounts[1].address.toField(),
         new Fr(amount),
+        nonce,
       ]);
     };
 
@@ -783,7 +863,7 @@ describe('e2e_token_contract', () => {
       expect(amount).toBeGreaterThan(0n);
 
       const tx = asset.methods
-        .unshield({ address: accounts[0].address }, { address: accounts[0].address }, amount)
+        .unshield({ address: accounts[0].address }, { address: accounts[0].address }, amount, 0)
         .send({ origin: accounts[0].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -802,10 +882,11 @@ describe('e2e_token_contract', () => {
       const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
       const balancePriv1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
       const amount = balancePriv0 / 2n;
+      const nonce = Fr.random();
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign.
-      const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount);
+      const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
       // Both wallets are connected to same node and rpc so we could just insert directly using
       // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
@@ -814,7 +895,7 @@ describe('e2e_token_contract', () => {
       await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
 
       const tx = asset.methods
-        .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+        .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
         .send({ origin: accounts[1].address });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -827,6 +908,14 @@ describe('e2e_token_contract', () => {
         balancePub1 + amount,
       );
       expect(await asset.methods.balance_of_private({ address: accounts[1].address }).view()).toEqual(balancePriv1);
+
+      // Perform the transfer again, should fail
+      const txReplay = asset.methods
+        .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
+        .send({ origin: accounts[1].address });
+      await txReplay.isMined();
+      const receiptReplay = await txReplay.getReceipt();
+      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
     });
 
     describe('failure cases', () => {
@@ -837,9 +926,21 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .unshield({ address: accounts[0].address }, { address: accounts[0].address }, amount)
+            .unshield({ address: accounts[0].address }, { address: accounts[0].address }, amount, 0)
             .simulate({ origin: accounts[0].address }),
         ).rejects.toThrowError('Assertion failed: Balance too low');
+      });
+
+      it('on behalf of self (invalid nonce)', async () => {
+        const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
+        const amount = balancePriv + 1n;
+        expect(amount).toBeGreaterThan(0n);
+
+        await expect(
+          asset.methods
+            .unshield({ address: accounts[0].address }, { address: accounts[0].address }, amount, 1)
+            .simulate({ origin: accounts[0].address }),
+        ).rejects.toThrowError('Assertion failed: invalid nonce');
       });
 
       it('on behalf of other (more than balance)', async () => {
@@ -848,10 +949,11 @@ describe('e2e_token_contract', () => {
         const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const balancePriv1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
         const amount = balancePriv0 + 2n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount);
+        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
@@ -861,7 +963,7 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
             .simulate({ origin: accounts[1].address }),
         ).rejects.toThrowError('Assertion failed: Balance too low');
 
@@ -877,11 +979,12 @@ describe('e2e_token_contract', () => {
         const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const balancePriv1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
         const amount = balancePriv0 + 2n;
+        const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount);
-        const expectedMessageHash = await unshieldMessageHash(accounts[2], accounts[0], accounts[1], amount);
+        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
+        const expectedMessageHash = await unshieldMessageHash(accounts[2], accounts[0], accounts[1], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
@@ -891,7 +994,7 @@ describe('e2e_token_contract', () => {
 
         await expect(
           asset.methods
-            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount)
+            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
             .simulate({ origin: accounts[2].address }),
         ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
 
