@@ -9,10 +9,13 @@ import mapValues from 'lodash.mapvalues';
 import { callCbind } from './cbind.js';
 import {
   Address,
+  AppendOnlyTreeSnapshot,
+  BaseOrMergeRollupPublicInputs,
   CallContext,
   CircuitError,
   CombinedAccumulatedData,
   CombinedConstantData,
+  ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -27,12 +30,15 @@ import {
   KernelCircuitPublicInputs,
   KernelCircuitPublicInputsFinal,
   MembershipWitness4,
+  MembershipWitness8,
   MembershipWitness16,
+  MergeRollupInputs,
   NativeAggregationState,
   NewContractData,
   OptionallyRevealedData,
   Point,
   PreviousKernelData,
+  PreviousRollupData,
   PrivateCallData,
   PrivateCallStackItem,
   PrivateCircuitPublicInputs,
@@ -2228,6 +2234,346 @@ export function fromPublicKernelInputs(o: PublicKernelInputs): MsgpackPublicKern
   };
 }
 
+interface MsgpackAppendOnlyTreeSnapshot {
+  root: Buffer;
+  next_available_leaf_index: number;
+}
+
+export function toAppendOnlyTreeSnapshot(o: MsgpackAppendOnlyTreeSnapshot): AppendOnlyTreeSnapshot {
+  if (o.root === undefined) {
+    throw new Error('Expected root in AppendOnlyTreeSnapshot deserialization');
+  }
+  if (o.next_available_leaf_index === undefined) {
+    throw new Error('Expected next_available_leaf_index in AppendOnlyTreeSnapshot deserialization');
+  }
+  return new AppendOnlyTreeSnapshot(Fr.fromBuffer(o.root), o.next_available_leaf_index);
+}
+
+export function fromAppendOnlyTreeSnapshot(o: AppendOnlyTreeSnapshot): MsgpackAppendOnlyTreeSnapshot {
+  if (o.root === undefined) {
+    throw new Error('Expected root in AppendOnlyTreeSnapshot serialization');
+  }
+  if (o.nextAvailableLeafIndex === undefined) {
+    throw new Error('Expected nextAvailableLeafIndex in AppendOnlyTreeSnapshot serialization');
+  }
+  return {
+    root: toBuffer(o.root),
+    next_available_leaf_index: o.nextAvailableLeafIndex,
+  };
+}
+
+interface MsgpackConstantRollupData {
+  start_historic_blocks_tree_roots_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  private_kernel_vk_tree_root: Buffer;
+  public_kernel_vk_tree_root: Buffer;
+  base_rollup_vk_hash: Buffer;
+  merge_rollup_vk_hash: Buffer;
+  global_variables: MsgpackGlobalVariables;
+}
+
+export function toConstantRollupData(o: MsgpackConstantRollupData): ConstantRollupData {
+  if (o.start_historic_blocks_tree_roots_snapshot === undefined) {
+    throw new Error('Expected start_historic_blocks_tree_roots_snapshot in ConstantRollupData deserialization');
+  }
+  if (o.private_kernel_vk_tree_root === undefined) {
+    throw new Error('Expected private_kernel_vk_tree_root in ConstantRollupData deserialization');
+  }
+  if (o.public_kernel_vk_tree_root === undefined) {
+    throw new Error('Expected public_kernel_vk_tree_root in ConstantRollupData deserialization');
+  }
+  if (o.base_rollup_vk_hash === undefined) {
+    throw new Error('Expected base_rollup_vk_hash in ConstantRollupData deserialization');
+  }
+  if (o.merge_rollup_vk_hash === undefined) {
+    throw new Error('Expected merge_rollup_vk_hash in ConstantRollupData deserialization');
+  }
+  if (o.global_variables === undefined) {
+    throw new Error('Expected global_variables in ConstantRollupData deserialization');
+  }
+  return new ConstantRollupData(
+    toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_roots_snapshot),
+    Fr.fromBuffer(o.private_kernel_vk_tree_root),
+    Fr.fromBuffer(o.public_kernel_vk_tree_root),
+    Fr.fromBuffer(o.base_rollup_vk_hash),
+    Fr.fromBuffer(o.merge_rollup_vk_hash),
+    toGlobalVariables(o.global_variables),
+  );
+}
+
+export function fromConstantRollupData(o: ConstantRollupData): MsgpackConstantRollupData {
+  if (o.startHistoricBlocksTreeRootsSnapshot === undefined) {
+    throw new Error('Expected startHistoricBlocksTreeRootsSnapshot in ConstantRollupData serialization');
+  }
+  if (o.privateKernelVkTreeRoot === undefined) {
+    throw new Error('Expected privateKernelVkTreeRoot in ConstantRollupData serialization');
+  }
+  if (o.publicKernelVkTreeRoot === undefined) {
+    throw new Error('Expected publicKernelVkTreeRoot in ConstantRollupData serialization');
+  }
+  if (o.baseRollupVkHash === undefined) {
+    throw new Error('Expected baseRollupVkHash in ConstantRollupData serialization');
+  }
+  if (o.mergeRollupVkHash === undefined) {
+    throw new Error('Expected mergeRollupVkHash in ConstantRollupData serialization');
+  }
+  if (o.globalVariables === undefined) {
+    throw new Error('Expected globalVariables in ConstantRollupData serialization');
+  }
+  return {
+    start_historic_blocks_tree_roots_snapshot: fromAppendOnlyTreeSnapshot(o.startHistoricBlocksTreeRootsSnapshot),
+    private_kernel_vk_tree_root: toBuffer(o.privateKernelVkTreeRoot),
+    public_kernel_vk_tree_root: toBuffer(o.publicKernelVkTreeRoot),
+    base_rollup_vk_hash: toBuffer(o.baseRollupVkHash),
+    merge_rollup_vk_hash: toBuffer(o.mergeRollupVkHash),
+    global_variables: fromGlobalVariables(o.globalVariables),
+  };
+}
+
+interface MsgpackBaseOrMergeRollupPublicInputs {
+  rollup_type: number;
+  rollup_subtree_height: Buffer;
+  end_aggregation_object: MsgpackNativeAggregationState;
+  constants: MsgpackConstantRollupData;
+  start_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_private_data_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_nullifier_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  end_contract_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  start_public_data_tree_root: Buffer;
+  end_public_data_tree_root: Buffer;
+  calldata_hash: Tuple<Buffer, 2>;
+}
+
+export function toBaseOrMergeRollupPublicInputs(
+  o: MsgpackBaseOrMergeRollupPublicInputs,
+): BaseOrMergeRollupPublicInputs {
+  if (o.rollup_type === undefined) {
+    throw new Error('Expected rollup_type in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.rollup_subtree_height === undefined) {
+    throw new Error('Expected rollup_subtree_height in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.end_aggregation_object === undefined) {
+    throw new Error('Expected end_aggregation_object in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.start_private_data_tree_snapshot === undefined) {
+    throw new Error('Expected start_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.end_private_data_tree_snapshot === undefined) {
+    throw new Error('Expected end_private_data_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.start_nullifier_tree_snapshot === undefined) {
+    throw new Error('Expected start_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.end_nullifier_tree_snapshot === undefined) {
+    throw new Error('Expected end_nullifier_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.start_contract_tree_snapshot === undefined) {
+    throw new Error('Expected start_contract_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.end_contract_tree_snapshot === undefined) {
+    throw new Error('Expected end_contract_tree_snapshot in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.start_public_data_tree_root === undefined) {
+    throw new Error('Expected start_public_data_tree_root in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.end_public_data_tree_root === undefined) {
+    throw new Error('Expected end_public_data_tree_root in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  if (o.calldata_hash === undefined) {
+    throw new Error('Expected calldata_hash in BaseOrMergeRollupPublicInputs deserialization');
+  }
+  return new BaseOrMergeRollupPublicInputs(
+    o.rollup_type,
+    Fr.fromBuffer(o.rollup_subtree_height),
+    toNativeAggregationState(o.end_aggregation_object),
+    toConstantRollupData(o.constants),
+    toAppendOnlyTreeSnapshot(o.start_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_private_data_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_nullifier_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_nullifier_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.start_contract_tree_snapshot),
+    toAppendOnlyTreeSnapshot(o.end_contract_tree_snapshot),
+    Fr.fromBuffer(o.start_public_data_tree_root),
+    Fr.fromBuffer(o.end_public_data_tree_root),
+    mapTuple(o.calldata_hash, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromBaseOrMergeRollupPublicInputs(
+  o: BaseOrMergeRollupPublicInputs,
+): MsgpackBaseOrMergeRollupPublicInputs {
+  if (o.rollupType === undefined) {
+    throw new Error('Expected rollupType in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.rollupSubtreeHeight === undefined) {
+    throw new Error('Expected rollupSubtreeHeight in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.endAggregationObject === undefined) {
+    throw new Error('Expected endAggregationObject in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.constants === undefined) {
+    throw new Error('Expected constants in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.startPrivateDataTreeSnapshot === undefined) {
+    throw new Error('Expected startPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.endPrivateDataTreeSnapshot === undefined) {
+    throw new Error('Expected endPrivateDataTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.startNullifierTreeSnapshot === undefined) {
+    throw new Error('Expected startNullifierTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.endNullifierTreeSnapshot === undefined) {
+    throw new Error('Expected endNullifierTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.startContractTreeSnapshot === undefined) {
+    throw new Error('Expected startContractTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.endContractTreeSnapshot === undefined) {
+    throw new Error('Expected endContractTreeSnapshot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.startPublicDataTreeRoot === undefined) {
+    throw new Error('Expected startPublicDataTreeRoot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.endPublicDataTreeRoot === undefined) {
+    throw new Error('Expected endPublicDataTreeRoot in BaseOrMergeRollupPublicInputs serialization');
+  }
+  if (o.calldataHash === undefined) {
+    throw new Error('Expected calldataHash in BaseOrMergeRollupPublicInputs serialization');
+  }
+  return {
+    rollup_type: o.rollupType,
+    rollup_subtree_height: toBuffer(o.rollupSubtreeHeight),
+    end_aggregation_object: fromNativeAggregationState(o.endAggregationObject),
+    constants: fromConstantRollupData(o.constants),
+    start_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startPrivateDataTreeSnapshot),
+    end_private_data_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endPrivateDataTreeSnapshot),
+    start_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startNullifierTreeSnapshot),
+    end_nullifier_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endNullifierTreeSnapshot),
+    start_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startContractTreeSnapshot),
+    end_contract_tree_snapshot: fromAppendOnlyTreeSnapshot(o.endContractTreeSnapshot),
+    start_public_data_tree_root: toBuffer(o.startPublicDataTreeRoot),
+    end_public_data_tree_root: toBuffer(o.endPublicDataTreeRoot),
+    calldata_hash: mapTuple(o.calldataHash, (v: Fr) => toBuffer(v)),
+  };
+}
+
+interface MsgpackMembershipWitness8 {
+  leaf_index: Buffer;
+  sibling_path: Tuple<Buffer, 8>;
+}
+
+export function toMembershipWitness8(o: MsgpackMembershipWitness8): MembershipWitness8 {
+  if (o.leaf_index === undefined) {
+    throw new Error('Expected leaf_index in MembershipWitness8 deserialization');
+  }
+  if (o.sibling_path === undefined) {
+    throw new Error('Expected sibling_path in MembershipWitness8 deserialization');
+  }
+  return new MembershipWitness8(
+    Fr.fromBuffer(o.leaf_index),
+    mapTuple(o.sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+  );
+}
+
+export function fromMembershipWitness8(o: MembershipWitness8): MsgpackMembershipWitness8 {
+  if (o.leafIndex === undefined) {
+    throw new Error('Expected leafIndex in MembershipWitness8 serialization');
+  }
+  if (o.siblingPath === undefined) {
+    throw new Error('Expected siblingPath in MembershipWitness8 serialization');
+  }
+  return {
+    leaf_index: toBuffer(o.leafIndex),
+    sibling_path: mapTuple(o.siblingPath, (v: Fr) => toBuffer(v)),
+  };
+}
+
+interface MsgpackPreviousRollupData {
+  base_or_merge_rollup_public_inputs: MsgpackBaseOrMergeRollupPublicInputs;
+  proof: Buffer;
+  vk: MsgpackVerificationKeyData;
+  vk_index: number;
+  vk_sibling_path: MsgpackMembershipWitness8;
+}
+
+export function toPreviousRollupData(o: MsgpackPreviousRollupData): PreviousRollupData {
+  if (o.base_or_merge_rollup_public_inputs === undefined) {
+    throw new Error('Expected base_or_merge_rollup_public_inputs in PreviousRollupData deserialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousRollupData deserialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousRollupData deserialization');
+  }
+  if (o.vk_index === undefined) {
+    throw new Error('Expected vk_index in PreviousRollupData deserialization');
+  }
+  if (o.vk_sibling_path === undefined) {
+    throw new Error('Expected vk_sibling_path in PreviousRollupData deserialization');
+  }
+  return new PreviousRollupData(
+    toBaseOrMergeRollupPublicInputs(o.base_or_merge_rollup_public_inputs),
+    Proof.fromMsgpackBuffer(o.proof),
+    toVerificationKeyData(o.vk),
+    o.vk_index,
+    toMembershipWitness8(o.vk_sibling_path),
+  );
+}
+
+export function fromPreviousRollupData(o: PreviousRollupData): MsgpackPreviousRollupData {
+  if (o.baseOrMergeRollupPublicInputs === undefined) {
+    throw new Error('Expected baseOrMergeRollupPublicInputs in PreviousRollupData serialization');
+  }
+  if (o.proof === undefined) {
+    throw new Error('Expected proof in PreviousRollupData serialization');
+  }
+  if (o.vk === undefined) {
+    throw new Error('Expected vk in PreviousRollupData serialization');
+  }
+  if (o.vkIndex === undefined) {
+    throw new Error('Expected vkIndex in PreviousRollupData serialization');
+  }
+  if (o.vkSiblingPath === undefined) {
+    throw new Error('Expected vkSiblingPath in PreviousRollupData serialization');
+  }
+  return {
+    base_or_merge_rollup_public_inputs: fromBaseOrMergeRollupPublicInputs(o.baseOrMergeRollupPublicInputs),
+    proof: o.proof.toMsgpackBuffer(),
+    vk: fromVerificationKeyData(o.vk),
+    vk_index: o.vkIndex,
+    vk_sibling_path: fromMembershipWitness8(o.vkSiblingPath),
+  };
+}
+
+interface MsgpackMergeRollupInputs {
+  previous_rollup_data: Tuple<MsgpackPreviousRollupData, 2>;
+}
+
+export function toMergeRollupInputs(o: MsgpackMergeRollupInputs): MergeRollupInputs {
+  if (o.previous_rollup_data === undefined) {
+    throw new Error('Expected previous_rollup_data in MergeRollupInputs deserialization');
+  }
+  return new MergeRollupInputs(
+    mapTuple(o.previous_rollup_data, (v: MsgpackPreviousRollupData) => toPreviousRollupData(v)),
+  );
+}
+
+export function fromMergeRollupInputs(o: MergeRollupInputs): MsgpackMergeRollupInputs {
+  if (o.previousRollupData === undefined) {
+    throw new Error('Expected previousRollupData in MergeRollupInputs serialization');
+  }
+  return {
+    previous_rollup_data: mapTuple(o.previousRollupData, (v: PreviousRollupData) => fromPreviousRollupData(v)),
+  };
+}
+
 export function abisComputeCommitmentNonce(wasm: IWasmModule, arg0: Fr, arg1: Fr): Fr {
   return Fr.fromBuffer(callCbind(wasm, 'abis__compute_commitment_nonce', [toBuffer(arg0), toBuffer(arg1)]));
 }
@@ -2323,5 +2669,14 @@ export function publicKernelSim(wasm: IWasmModule, arg0: PublicKernelInputs): Ci
   return ((v: MsgpackCircuitError | MsgpackKernelCircuitPublicInputs) =>
     isCircuitError(v) ? toCircuitError(v) : toKernelCircuitPublicInputs(v))(
     callCbind(wasm, 'public_kernel__sim', [fromPublicKernelInputs(arg0)]),
+  );
+}
+export function mergeRollupSim(
+  wasm: IWasmModule,
+  arg0: MergeRollupInputs,
+): CircuitError | BaseOrMergeRollupPublicInputs {
+  return ((v: MsgpackCircuitError | MsgpackBaseOrMergeRollupPublicInputs) =>
+    isCircuitError(v) ? toCircuitError(v) : toBaseOrMergeRollupPublicInputs(v))(
+    callCbind(wasm, 'merge_rollup__sim', [fromMergeRollupInputs(arg0)]),
   );
 }
