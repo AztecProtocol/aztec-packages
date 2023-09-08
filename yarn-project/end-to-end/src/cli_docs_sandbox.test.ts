@@ -161,7 +161,7 @@ Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b
     expect(foundPartialAddress).toBeDefined();
   });
 
-  it('creates an account, gets account, deploys, checks deployed, view method, sending a tx... [SEQUENTIAL]', async () => {
+  it.only('creates an account, gets account, deploys, checks deployed, view method, sending a tx... [SEQUENTIAL]', async () => {
     // Test create-account
     let docs = `
 // docs:start:create-account
@@ -182,6 +182,8 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
     expect(foundAddress).toBeDefined();
     const foundPublicKey = findInLogs(/Public\skey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
     expect(foundPublicKey).toBeDefined();
+    const foundPrivateKey = findInLogs(/Private\skey:\s+(?<privateKey>0x[a-fA-F0-9]+)/)?.groups?.privateKey;
+    expect(foundPrivateKey).toBeDefined();
     const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
       ?.partialAddress;
     expect(foundPartialAddress).toBeDefined();
@@ -213,6 +215,9 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
     expect(foundFetchedAddress).toBeDefined();
 
     clearLogs();
+
+    // Set some of the found addresses as address2 for later use
+    const address2 = AztecAddress.fromString(fetchedAddresses[1].groups?.address as string);
 
     // Test deploy
     docs = `
@@ -251,7 +256,10 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
     // Test call
     docs = `
 // docs:start:call
-% aztec-cli call getBalance --args $ADDRESS --contract-abi PrivateTokenContractAbi --contract-address $CONTRACT_ADDRESS
+% aztec-cli call getBalance \
+  --args $ADDRESS \
+  --contract-abi PrivateTokenContractAbi \
+  --contract-address $CONTRACT_ADDRESS
 
 View result:  1000000n
 // docs:end:call
@@ -265,6 +273,36 @@ View result:  1000000n
 
     const foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
     expect(foundBalance!).toEqual(`${BigInt(1000000).toString()}n`);
+
+    clearLogs();
+
+    // Test send
+    docs = `
+// docs:start:send
+% aztec-cli send transfer \
+  --args 543 $ADDRESS2 \
+  --contract-abi PrivateTokenContractAbi \
+  --contract-address $CONTRACT_ADDRESS \
+  --private-key $PRIVATE_KEY
+
+Transaction has been mined
+Transaction hash: 15c5a8e58d5f895c7e3017a706efbad693635e01f67345fa60a64a340d83c78c
+Status: mined
+Block number: 5
+Block hash: 163697608599543b2bee9652f543938683e4cdd0f94ac506e5764d8b908d43d4
+// docs:end:send
+`;
+
+    command = docs
+      .split('\n')[2]
+      .replace('$ADDRESS2', address2.toString())
+      .replace('$CONTRACT_ADDRESS', contractAddress.toString())
+      .replace('$PRIVATE_KEY', foundPrivateKey!);
+
+    await run(command);
+
+    const foundTxHash = findInLogs(/Transaction\shash:\s+(?<txHash>\S+)/)?.groups?.txHash;
+    expect(foundTxHash).toBeDefined();
 
     clearLogs();
   });
