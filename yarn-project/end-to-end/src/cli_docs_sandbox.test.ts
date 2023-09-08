@@ -212,6 +212,8 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
     const foundFetchedAddress = fetchedAddresses.find(match => match.groups?.address === newAddress.toString());
     expect(foundFetchedAddress).toBeDefined();
 
+    clearLogs();
+
     // Test deploy
     docs = `
 // docs:start:deploy
@@ -224,8 +226,24 @@ Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc5
     command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$ADDRESS', newAddress.toString());
     await run(command);
 
-    const foundContractAddress = findInLogs(/Contract\sdeployed\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    let foundContractAddress = findInLogs(/Contract\sdeployed\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
     expect(foundContractAddress).toBeDefined();
     const contractAddress = AztecAddress.fromString(foundContractAddress!);
+
+    clearLogs();
+
+    // Test check-deploy
+    docs = `
+// docs:start:check-deploy
+% aztec-cli check-deploy --contract-address $CONTRACT_ADDRESS
+
+Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+// docs:end:check-deploy
+`;
+    command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$CONTRACT_ADDRESS', contractAddress.toString());
+    await run(command);
+
+    foundContractAddress = findInLogs(/Contract\sfound\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundContractAddress).toEqual(contractAddress.toString());
   });
 });

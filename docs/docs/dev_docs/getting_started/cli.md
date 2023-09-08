@@ -100,15 +100,11 @@ Alternatively you can pass the name of an example contract as exported by `@azte
 
 The command takes a few optional arguments while the most important one is:
 
-- `--args` - Arguments to the constructor of the contract. In this case we have minted 1000000 initial tokens to the aztec address 0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c.
+- `--args` - Arguments to the constructor of the contract. In this case we have minted 1000000 initial tokens to the aztec address 0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599.
 
 The CLI tells us that the contract was successfully deployed. We can use the `check-deploy` command to verify that a contract has been successfully deployed to that address:
 
-```bash
-% aztec-cli check-deploy --contract-address $CONTRACT_ADDRESS
-
-Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
-```
+// #include_code check-deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 ## Calling a View Method
 
