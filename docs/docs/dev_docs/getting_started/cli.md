@@ -47,25 +47,7 @@ You should see the current block number (1) printed to the screen!
 
 We have shipped a number of example contracts in the `@aztec/noir-contracts` npm package. This is included with the cli by default so you are able to use these contracts to test with. To get a list of the names of the contracts run:
 
-```bash
-% aztec-cli example-contracts
-ChildContractAbi
-EasyPrivateTokenContractAbi
-EcdsaAccountContractAbi
-EscrowContractAbi
-LendingContractAbi
-NonNativeTokenContractAbi
-ParentContractAbi
-PendingCommitmentsContractAbi
-PokeableTokenContractAbi
-PrivateTokenAirdropContractAbi
-PrivateTokenContractAbi
-PublicTokenContractAbi
-SchnorrAccountContractAbi
-SchnorrSingleKeyAccountContractAbi
-TestContractAbi
-UniswapContractAbi
-```
+#include_code example-contracts yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 In the following sections there will be commands that require contracts as options. You can either specify the full directory path to the contract abi, or you can use the name of one of these examples as the option value. This will become clearer later on.
 
