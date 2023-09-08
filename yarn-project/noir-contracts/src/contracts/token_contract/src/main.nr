@@ -1,4 +1,3 @@
-mod storage;
 mod types;
 mod account_interface;
 mod util;
@@ -12,23 +11,99 @@ mod util;
 contract Token {
     // Libs
     use dep::std::option::Option;
+
     use dep::safe_math::SafeU120;
+
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNoteMethods, ValueNote},
     };
+
     use dep::aztec::{
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
+        context::{PrivateContext, PublicContext},
+        state_vars::{map::Map, public_state::PublicState, set::Set},
+        types::type_serialisation::field_serialisation::{
+            FieldSerialisationMethods, FIELD_SERIALISED_LEN,
+        },
+        oracle::compute_selector::compute_selector,
     };
-    use dep::aztec::oracle::compute_selector::compute_selector;
-    use crate::storage::Storage;
-    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods};
+
+    use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
     use crate::account_interface::AccountContract;
     use crate::util::compute_message_hash;
+
+    
+
+    struct Storage {
+        admin: PublicState<Field, FIELD_SERIALISED_LEN>,
+        minters: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+        balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+        total_supply: PublicState<Field, FIELD_SERIALISED_LEN>,
+        pending_shields: Set<TransparentNote, TRANSPARENT_NOTE_LEN>,
+        public_balances: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+    }
+
+    impl Storage {
+        fn init(
+            private_context: Option<&mut PrivateContext>,
+            public_context: Option<&mut PublicContext>,
+        ) -> pub Self {
+            Storage {
+                admin: PublicState::new(
+                    private_context,
+                    public_context,
+                    1,
+                    FieldSerialisationMethods,
+                ),
+                minters: Map::new(
+                    private_context,
+                    public_context,
+                    2,
+                    |private_context, public_context, slot| {
+                        PublicState::new(
+                            private_context,
+                            public_context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+                balances: Map::new(
+                    private_context,
+                    public_context,
+                    3,
+                    |private_context, public_context, slot| {
+                        Set::new(private_context, public_context, slot, ValueNoteMethods)
+                    },
+                ),
+                total_supply: PublicState::new(
+                    private_context,
+                    public_context,
+                    4,
+                    FieldSerialisationMethods,
+                ),
+                pending_shields: Set::new(private_context, public_context, 5, TransparentNoteMethods),
+                public_balances: Map::new(
+                    private_context,
+                    public_context,
+                    6,
+                    |private_context, public_context, slot| {
+                        PublicState::new(
+                            private_context,
+                            public_context,
+                            slot,
+                            FieldSerialisationMethods,
+                        )
+                    },
+                ),
+            }
+        }
+    }
 
     #[aztec(private)]
     fn constructor() {
