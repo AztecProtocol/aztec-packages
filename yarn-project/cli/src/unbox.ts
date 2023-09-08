@@ -180,6 +180,32 @@ async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
 }
 
 /**
+ *
+ * The `tsconfig.json` also needs to be updated to remove the "references" section, which
+ * points to the monorepo's subpackages.  Those are unavailable in the cloned subpackage,
+ * so remove them to install from npm.
+ * @param outputPath - directory we are unboxing to
+ */
+async function _updateTsConfig(outputPath: string, log: LogFn) {
+  try {
+    const tsconfigJsonPath = path.join(outputPath, 'tsconfig.json');
+    const data = await fs.readFile(tsconfigJsonPath, 'utf8');
+    const config = JSON.parse(data);
+
+    delete config.references;
+
+    // Convert the object back to a JSON string and write it back to the file
+    const updatedData = JSON.stringify(config, null, 2);
+    await fs.writeFile(tsconfigJsonPath, updatedData, 'utf8');
+
+    log('tsconfig.json has been updated');
+  } catch (error) {
+    log('Error updating tsconfig.json:', error);
+    throw error;
+  }
+}
+
+/**
  * We pin to "workspace:^" in the package.json for subpackages, but we need to replace it with
  * an the actual version number in the cloned starter kit
  * We modify the copied package.json and pin to the version of the package that was downloaded

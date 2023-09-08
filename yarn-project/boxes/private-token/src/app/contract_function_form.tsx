@@ -55,7 +55,6 @@ function generateYupSchema(functionAbi: FunctionAbi) {
         break;
     }
   }
-
   return { validationSchema: Yup.object().shape(parameterSchema), initialValues };
 }
 
@@ -67,6 +66,8 @@ async function handleFunctionCall(
   wallet: CompleteAddress,
 ) {
   if (functionName === 'constructor' && !!wallet) {
+    // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
+    // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
     const salt = Fr.ZERO;
     return await deployContract(wallet, contractAbi, args, salt, rpcClient);
   }

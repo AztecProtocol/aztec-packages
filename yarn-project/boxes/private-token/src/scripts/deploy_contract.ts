@@ -21,12 +21,14 @@ export async function deployContract(
   // convert those back to bigints before sending
   console.log('converting args', args);
   const typedArgs = convertArgs(functionAbi, args);
-  console.log(`typedArgs:`, typedArgs);
+  console.log(`calling DeployMethod with typedArgs:`, typedArgs);
 
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,
   });
+  console.log('awaiting tx ');
   await tx.wait();
+  console.log('tx awaited, awaiting receipt');
   const receipt = await tx.getReceipt();
   if (receipt.contractAddress) {
     return receipt.contractAddress;
