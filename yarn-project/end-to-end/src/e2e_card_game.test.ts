@@ -253,7 +253,7 @@ describe('e2e_card_game', () => {
       expect(winnerCollection).toEqual(expect.arrayContaining([firstPlayerGameDeck, secondPlayerGameDeck].flat()));
     }, 120_000);
 
-    it.only('should allow to play with cards won', async () => {
+    it('should allow to play with cards won', async () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
       await joinGame(firstPlayer, firstPlayerGameDeck);
