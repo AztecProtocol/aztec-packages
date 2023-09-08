@@ -103,7 +103,6 @@ contract CardGame {
         PACK_CARDS,
         Deck, 
         Card,
-        CardNote,
         get_pack_cards,
         compute_deck_strength,
     };
@@ -127,7 +126,7 @@ contract CardGame {
         let mut cards = get_pack_cards(seed, buyer);
 
         let mut collection = storage.collections.at(buyer);
-        let _inserted_cards = collection.add_cards(cards.map(|card| CardNote::from_card(card, buyer)), buyer);
+        let _inserted_cards = collection.add_cards(cards, buyer);
     }
 
     #[aztec(private)]
@@ -142,9 +141,7 @@ contract CardGame {
         let mut collection = storage.collections.at(player);
         collection.remove_cards(cards, player);
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
-        let _added_to_game_deck = game_deck.add_cards(cards.map(|card: Card| {
-            CardNote::new(card.strength, card.points, player)
-        }), player);
+        let _added_to_game_deck = game_deck.add_cards(cards, player);
         let selector = compute_selector("onGameJoined(u32,Field,u32)");
         let strength = compute_deck_strength(cards);
         context.call_public_function(context.this_address(), selector, [game as Field, player, strength]);
@@ -212,10 +209,10 @@ contract CardGame {
     )  {
         let storage = Storage::init(Option::some(&mut context), Option::none());
         let player = context.msg_sender();
-        let cards_notes = cards_fields.map(|card_field| CardNote::from_card(Card::from_field(card_field), player));
+        let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
         let mut collection = storage.collections.at(player);
-        let _inserted_cards = collection.add_cards(cards_notes, player);
+        let _inserted_cards = collection.add_cards(cards, player);
 
         let selector = compute_selector("onCardsClaimed(u32,Field,Field)");
         context.call_public_function(
@@ -248,27 +245,15 @@ contract CardGame {
     unconstrained fn viewCollectionCards(owner: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let storage = Storage::init(Option::none(), Option::none());
         let collection = storage.collections.at(owner);
-        let mut cards = [Option::none(); MAX_NOTES_PER_PAGE];
-        let card_notes = collection.view_cards(offset);
 
-        for i in 0..MAX_NOTES_PER_PAGE {
-            cards[i] = card_notes[i].map(|card_note: CardNote| card_note.card);
-        }
-
-        cards
+        collection.view_cards(offset)
     } 
 
     unconstrained fn viewGameCards(game: u32, player: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let storage = Storage::init(Option::none(), Option::none());
         let game_deck = storage.game_decks.at(game as Field).at(player);
-        let mut cards = [Option::none(); MAX_NOTES_PER_PAGE];
-        let card_notes = game_deck.view_cards(offset);
 
-        for i in 0..MAX_NOTES_PER_PAGE {
-            cards[i] = card_notes[i].map(|card_note: CardNote| card_note.card);
-        }
-
-        cards
+        game_deck.view_cards(offset)
     } 
 
     unconstrained fn viewGame(game: u32) -> Game {

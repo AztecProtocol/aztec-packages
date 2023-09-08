@@ -133,22 +133,22 @@ impl Deck {
         }
     }
 
-    fn add_cards<N>(&mut self, cards: [CardNote; N], owner: Field) -> [CardNote]{
+    fn add_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote]{
         let owner_key = get_public_key(owner);
         let context = self.set.private_context.unwrap();
 
         let mut inserted_cards = [];
         for card in cards {
-            let mut mutable_card = card;
-            self.set.insert(&mut mutable_card.note);
+            let mut card_note = CardNote::from_card(card, owner);
+            self.set.insert(&mut card_note.note);
             emit_encrypted_log(
                 context,
                 (*context).this_address(),
                 self.set.storage_slot,
                 owner_key,
-                mutable_card.note.serialise(),
+                card_note.note.serialise(),
             );
-            inserted_cards = inserted_cards.push_back(mutable_card);
+            inserted_cards = inserted_cards.push_back(card_note);
         }
 
         inserted_cards
@@ -184,13 +184,13 @@ impl Deck {
         }
     }
 
-    unconstrained fn view_cards(self, offset: u32) -> [Option<CardNote>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_cards(self, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let options = NoteViewerOptions::new().set_offset(offset);
         let opt_notes = self.set.view_notes(options);
         let mut opt_cards = [Option::none(); MAX_NOTES_PER_PAGE];
         
         for i in 0..opt_notes.len() {
-            opt_cards[i] = opt_notes[i].map(CardNote::from_note);
+            opt_cards[i] = opt_notes[i].map(|note: ValueNote| Card::from_field(note.value));
         }
 
         opt_cards
