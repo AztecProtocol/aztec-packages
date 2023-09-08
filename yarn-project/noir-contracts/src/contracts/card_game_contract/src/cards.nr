@@ -154,10 +154,10 @@ impl Deck {
         inserted_cards
     }
 
-    fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
+    fn get_cards<N>(&mut self, cards: [Card; N], owner: Field) -> [CardNote; N] {
         let options = NoteGetterOptions::with_filter(filter_cards, cards);
         let maybe_notes = self.set.get_notes(options);
-        let mut removed = [false; N];
+        let mut found_cards = [Option::none(); N];
         for i in 0..maybe_notes.len() {
             if maybe_notes[i].is_some() {
                 let card_note = CardNote::from_note(
@@ -167,20 +167,24 @@ impl Deck {
                 // spending someone else's notes).
                 assert(card_note.note.owner == owner);
 
-                // Removes the note from the owner's set of notes.
-                self.set.remove(card_note.note);
-                // set the removed flag to true
                 for j in 0..cards.len() {
-                    if !removed[j] & (cards[j].strength == card_note.card.strength) & (cards[j].points == card_note.card.points) {
-                        removed[j] = true;
+                    if found_cards[j].is_none() & (cards[j].strength == card_note.card.strength) & (cards[j].points == card_note.card.points) {
+                        found_cards[j] = Option::some(card_note);
                     }
                 }
-                
             }
         }
 
-        for i in 0..removed.len() {
-            assert(removed[i], "Could not find card");
+        found_cards.map(|card_note: Option<CardNote>| {
+            assert(card_note.is_some(), "Card not found");
+            card_note.unwrap_unchecked()
+        })
+    }
+
+    fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
+        let card_notes = self.get_cards(cards, owner);
+        for card_note in card_notes {
+            self.set.remove(card_note.note);
         }
     }
 
