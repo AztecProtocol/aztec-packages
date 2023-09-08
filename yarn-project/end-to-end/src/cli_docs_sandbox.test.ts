@@ -20,13 +20,18 @@ describe('CLI docs sandbox', () => {
     const aztecRpc = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
     await waitForSandbox(aztecRpc);
 
-    // Requesting node info with the fetch which retries to ensure sandbox is ready
-    await aztecRpc.getNodeInfo();
-
     log = (...args: any[]) => {
       logs.push(format(...args));
       debug(...args);
     };
+
+    // Requesting block number here with CLI to ensure sandbox is ready
+    resetCli();
+    try {
+      await run('block-number', false);
+    } catch (e) {
+      // Failure is expected during first run in CI
+    }
   }, 60_000);
 
   // in order to run the same command twice, we need to create a new CLI instance
