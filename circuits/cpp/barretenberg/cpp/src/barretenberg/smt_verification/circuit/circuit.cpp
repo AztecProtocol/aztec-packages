@@ -1,4 +1,5 @@
 #include "circuit.hpp"
+
 namespace smt_circuit {
 
 /**
@@ -61,18 +62,17 @@ CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf)
  * @param eqall all the variables that should not be equal at the same time
  * @param neqall all the variables that should not be different at the same time
  * @return std::pair<Circuit, Circuit>
- *
- * @todo TODO(alex): didn't figure out how to separate them.
  */
-std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
+template <typename FF>
+std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
                                            const std::vector<std::string>& equal,
                                            const std::vector<std::string>& nequal,
                                            const std::vector<std::string>& eqall,
                                            const std::vector<std::string>& neqall)
 {
-    Circuit<FFTerm> c1(circuit_info, s, "circuit1");
-    Circuit<FFTerm> c2(circuit_info, s, "circuit2");
+    Circuit<FF> c1(circuit_info, s, "circuit1");
+    Circuit<FF> c2(circuit_info, s, "circuit2");
 
     for (const auto& term : equal) {
         c1[term] == c2[term];
@@ -106,5 +106,19 @@ std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circui
     }
     return { c1, c2 };
 }
+
+template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           const std::vector<std::string>& equal,
+                                           const std::vector<std::string>& nequal,
+                                           const std::vector<std::string>& eqall = {},
+                                           const std::vector<std::string>& neqall = {});
+
+template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           const std::vector<std::string>& equal,
+                                           const std::vector<std::string>& nequal,
+                                           const std::vector<std::string>& eqall = {},
+                                           const std::vector<std::string>& neqall = {});
 
 }; // namespace smt_circuit

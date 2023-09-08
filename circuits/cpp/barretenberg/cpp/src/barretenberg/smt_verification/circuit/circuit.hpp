@@ -33,8 +33,6 @@ struct CircuitSchema {
  * symbolic variables, specified names and global solver.
  *
  * @tparam FF FFTerm or FFITerm
- *
- * @todo TODO(alex): think on the partial value assertion inside the circuit.
  */
 template<typename FF>
 class Circuit {
@@ -97,7 +95,6 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
         terms.insert({ x.second, x.first });
     }
 
-    // I hope they are still at these idxs
     vars_of_interest.insert({ 0, "zero" });
     vars_of_interest.insert({ 1, "one" });
     terms.insert({ "zero", 0 });
@@ -223,12 +220,29 @@ FF Circuit<FF>::operator[](const std::string& name)
 CircuitSchema unpack_from_buffer(const msgpack::sbuffer& buf);
 CircuitSchema unpack_from_file(const std::string& fname);
 
-std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
+template <typename FF>
+std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
                                            const std::vector<std::string>& equal,
                                            const std::vector<std::string>& nequal,
                                            const std::vector<std::string>& eqall = {},
                                            const std::vector<std::string>& neqall = {});
+
+extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           const std::vector<std::string>& equal,
+                                           const std::vector<std::string>& nequal,
+                                           const std::vector<std::string>& eqall = {},
+                                           const std::vector<std::string>& neqall = {});
+
+extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(CircuitSchema& circuit_info,
+                                           Solver* s,
+                                           const std::vector<std::string>& equal,
+                                           const std::vector<std::string>& nequal,
+                                           const std::vector<std::string>& eqall = {},
+                                           const std::vector<std::string>& neqall = {});
+
+
 
 // TODO(alex): Do we need the function that will do recheck based on the current model to consequently find all the
 // solutions?
