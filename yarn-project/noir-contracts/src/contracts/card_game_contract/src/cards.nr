@@ -1,6 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    constants_gen::{MAX_NOTES_PER_PAGE},
+    constants_gen::{MAX_NOTES_PER_PAGE, MAX_READ_REQUESTS_PER_CALL},
     log::emit_encrypted_log,
     note::{
         note_getter_options::NoteGetterOptions,
@@ -28,6 +28,34 @@ struct Card {
     points: u16,
 }
 
+impl Card {
+    fn from_field(field: Field) -> Card {
+        let value_bytes = field.to_le_bytes(32);
+        let strength = (value_bytes[0] as u16) + (value_bytes[1] as u16) * 256;
+        let points = (value_bytes[2] as u16) + (value_bytes[3] as u16) * 256;
+        Card {
+            strength,
+            points,
+        }
+    }
+
+    fn to_field(self) -> Field {
+        self.strength as Field + (self.points as Field)*65536
+    }
+
+    fn serialize(self) -> [Field; 2] {
+        [self.strength as Field, self.points as Field]
+    }
+}
+
+#[test]
+fn test_to_from_field() {
+    let field = 1234567890;
+    let card = Card::from_field(field);
+    assert(card.to_field() == field);
+}
+
+
 struct CardNote {
     card: Card,
     note: ValueNote,
@@ -39,25 +67,23 @@ impl CardNote {
         points: u16,
         owner: Field,
     ) -> Self {
+        let card = Card {
+            strength,
+            points,
+        };
+        CardNote::from_card(card, owner)
+    }
+
+    fn from_card(card: Card, owner: Field) -> CardNote {
         CardNote {
-            card: Card {
-                strength,
-                points,
-            },
-            note: ValueNote::new(strength as Field + (points as Field)*65536, owner),
+            card,
+            note: ValueNote::new(card.to_field(), owner),
         }
     }
 
     fn from_note(note: ValueNote) -> CardNote {
-        let value_bytes = note.value.to_le_bytes(32);
-        let points = (value_bytes[0] as u16) + (value_bytes[1] as u16) * 256;
-        let strength = (value_bytes[2] as u16) + (value_bytes[3] as u16) * 256;
-
         CardNote {
-            card: Card {
-                strength,
-                points,
-            },
+            card: Card::from_field(note.value),
             note,
         }
     }
@@ -66,6 +92,30 @@ impl CardNote {
 struct Deck {
     set: Set<ValueNote, VALUE_NOTE_LEN>,
 }
+
+fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desired_cards: [Card; N]) -> [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL] {
+    let mut selected = [Option::none(); MAX_READ_REQUESTS_PER_CALL];
+
+    let mut found = [false; N];
+
+    for i in 0..notes.len() {
+        let note = notes[i];
+        if note.is_some() {
+            let card_note = CardNote::from_note(
+                note.unwrap_unchecked()
+            );
+            for j in 0..N {
+                if !found[j] & (card_note.card.strength == desired_cards[j].strength) & (card_note.card.points == desired_cards[j].points) {
+                    selected[i] = note;
+                }
+            }
+        }
+       
+    }
+
+    selected
+}
+
 
 impl Deck {
     fn new(
@@ -105,6 +155,36 @@ impl Deck {
         inserted_cards
     }
 
+    fn remove_cards<N>(&mut self, cards: [Card; N], owner: Field) {
+        let options = NoteGetterOptions::with_filter(filter_cards, cards);
+        let maybe_notes = self.set.get_notes(options);
+        let mut removed = [false; N];
+        for i in 0..maybe_notes.len() {
+            if maybe_notes[i].is_some() {
+                let card_note = CardNote::from_note(
+                    maybe_notes[i].unwrap_unchecked()
+                );
+                // Ensure the notes are actually owned by the owner (to prevent user from generating a valid proof while
+                // spending someone else's notes).
+                assert(card_note.note.owner == owner);
+
+                // Removes the note from the owner's set of notes.
+                self.set.remove(card_note.note);
+                // set the removed flag to true
+                for j in 0..cards.len() {
+                    if !removed[j] & (cards[j].strength == card_note.card.strength) & (cards[j].points == card_note.card.points) {
+                        removed[j] = true;
+                    }
+                }
+                
+            }
+        }
+
+        for i in 0..removed.len() {
+            assert(removed[i], "Could not find card");
+        }
+    }
+
     unconstrained fn view_cards(self, offset: u32) -> [Option<CardNote>; MAX_NOTES_PER_PAGE] {
         let options = NoteViewerOptions::new().set_offset(offset);
         let opt_notes = self.set.view_notes(options);
@@ -140,4 +220,10 @@ fn get_pack_cards(
     }
 
     cards
+}
+
+fn compute_deck_strength<N>(cards: [Card; N]) -> Field {
+    cards.fold(0, |acc, card: Card| {
+        acc + card.strength as Field
+    })
 }
