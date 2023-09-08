@@ -15,20 +15,25 @@ void create_fixed_base_constraint(Builder& builder, const FixedBaseScalarMul& in
     field_ct low_as_field = field_ct::from_witness_index(&builder, input.low);
     field_ct high_as_field = field_ct::from_witness_index(&builder, input.high);
 
-    low_as_field.create_range_constraint(128);
-    high_as_field.create_range_constraint(128);
+    auto low_value = grumpkin::fr(low_as_field.get_value());
+    auto high_value = grumpkin::fr(high_as_field.get_value());
+    auto pow_128 = grumpkin::fr(2).pow(128);
 
-    field_ct pow128 = field_ct(2).pow(128);
+    grumpkin::g1::element result = grumpkin::g1::one * low_value + grumpkin::g1::one * (high_value * pow_128);
+    grumpkin::g1::affine_element result_affine = result.normalize();
 
-    field_ct high_times_pow128 = high_as_field * pow128;
+    auto x_var = builder.add_variable(result_affine.x);
+    auto y_var = builder.add_variable(result_affine.y);
+    builder.create_add_gate({ x_var,
+                              y_var,
+                              x_var,
+                              barretenberg::fr::zero(),
+                              barretenberg::fr::zero(),
+                              barretenberg::fr::zero(),
+                              barretenberg::fr::zero() });
 
-    auto low_point = group_ct::fixed_base_scalar_mul_g1<128>(low_as_field);
-    auto high_point = group_ct::fixed_base_scalar_mul_g1<254>(high_times_pow128);
-
-    auto result = low_point + high_point;
-
-    builder.assert_equal(result.x.witness_index, input.pub_key_x);
-    builder.assert_equal(result.y.witness_index, input.pub_key_y);
+    builder.assert_equal(x_var, input.pub_key_x);
+    builder.assert_equal(y_var, input.pub_key_y);
 }
 
 } // namespace acir_format
