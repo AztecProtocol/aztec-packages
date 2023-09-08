@@ -118,7 +118,7 @@ contract CardGame {
     fn constructor() {}
 
     #[aztec(private)]
-    fn buyPack(
+    fn buy_pack(
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     )  {
         let storage = Storage::init(Option::some(&mut context), Option::none());
@@ -130,7 +130,7 @@ contract CardGame {
     }
 
     #[aztec(private)]
-    fn joinGame(
+    fn join_game(
         game: u32,
         cards_fields: [Field; 2],
     )  {
@@ -142,13 +142,13 @@ contract CardGame {
         collection.remove_cards(cards, player);
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         let _added_to_game_deck = game_deck.add_cards(cards, player);
-        let selector = compute_selector("onGameJoined(u32,Field,u32)");
+        let selector = compute_selector("on_game_joined(u32,Field,u32)");
         let strength = compute_deck_strength(cards);
         context.call_public_function(context.this_address(), selector, [game as Field, player, strength]);
     }
 
     #[aztec(public)]
-    internal fn onGameJoined(
+    internal fn on_game_joined(
         game: u32,
         player: Field,
         deck_strength: u32,
@@ -163,7 +163,7 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    fn startGame(game: u32)  {
+    fn start_game(game: u32)  {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         let game_storage = storage.games.at(game as Field);
         
@@ -173,7 +173,7 @@ contract CardGame {
     }
 
     #[aztec(private)]
-    fn playCard(
+    fn play_card(
         game: u32,
         card: Card,
     )  {
@@ -183,12 +183,12 @@ contract CardGame {
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         game_deck.remove_cards([card], player);
 
-        let selector = compute_selector("onCardPlayed(u32,Field,Field)");
+        let selector = compute_selector("on_card_played(u32,Field,Field)");
         context.call_public_function(context.this_address(), selector, [game as Field, player, card.to_field()]);
     }
 
     #[aztec(public)]
-    internal fn onCardPlayed(game: u32, player: Field, card_as_field: Field) {
+    internal fn on_card_played(game: u32, player: Field, card_as_field: Field) {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         let game_storage = storage.games.at(game as Field);
         
@@ -203,7 +203,7 @@ contract CardGame {
     }
 
     #[aztec(private)]
-    fn claimCards(
+    fn claim_cards(
         game: u32,
         cards_fields: [Field; PLAYABLE_CARDS],
     )  {
@@ -214,7 +214,7 @@ contract CardGame {
         let mut collection = storage.collections.at(player);
         let _inserted_cards = collection.add_cards(cards, player);
 
-        let selector = compute_selector("onCardsClaimed(u32,Field,Field)");
+        let selector = compute_selector("on_cards_claimed(u32,Field,Field)");
         context.call_public_function(
             context.this_address(), 
             selector, 
@@ -223,7 +223,7 @@ contract CardGame {
     }
 
     #[aztec(public)]
-    internal fn onCardsClaimed(game: u32, player: Field, cards_hash: Field) {
+    internal fn on_cards_claimed(game: u32, player: Field, cards_hash: Field) {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
         let game_storage = storage.games.at(game as Field);
         let mut game_data = game_storage.read();
@@ -242,21 +242,21 @@ contract CardGame {
         game_storage.write(game_data);
     }
 
-    unconstrained fn viewCollectionCards(owner: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_collection_cards(owner: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let storage = Storage::init(Option::none(), Option::none());
         let collection = storage.collections.at(owner);
 
         collection.view_cards(offset)
     } 
 
-    unconstrained fn viewGameCards(game: u32, player: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
+    unconstrained fn view_game_cards(game: u32, player: Field, offset: u32) -> [Option<Card>; MAX_NOTES_PER_PAGE] {
         let storage = Storage::init(Option::none(), Option::none());
         let game_deck = storage.game_decks.at(game as Field).at(player);
 
         game_deck.view_cards(offset)
     } 
 
-    unconstrained fn viewGame(game: u32) -> Game {
+    unconstrained fn view_game(game: u32) -> Game {
         Storage::init(Option::none(), Option::none()).games.at(game as Field).read()
     } 
 
