@@ -36,10 +36,7 @@ Lets first establish that we are able to communicate with the Sandbox. Most comm
 
 To test communication with the Sandbox, let's run the command:
 
-```bash
-% aztec-cli block-number
-1
-```
+#include_code block-number yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 You should see the current block number (1) printed to the screen!
 

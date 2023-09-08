@@ -103,4 +103,20 @@ UniswapContractAbi
     await run(command, false);
     expect(logs).toEqual(expectedConsoleOutput);
   });
+
+  it('correctly gets block number', async () => {
+    const docs = `
+// docs:start:block-number
+% aztec-cli block-number
+1
+// docs:end:block-number
+`;
+
+    const command = docs.split('\n')[2].split('aztec-cli ')[1];
+
+    await run(command, false);
+    // expect logs to contain a number and nothing else
+    expect(logs.length).toEqual(1);
+    expect(logs[0]).toMatch(/\d+/);
+  });
 });
