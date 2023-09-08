@@ -50,6 +50,37 @@ TEST(circuit_verification, multiplication_true)
     ASSERT_FALSE(res);
 }
 
+TEST(circuit_verification, multiplication_true_kind)
+{
+    StandardCircuitBuilder builder = StandardCircuitBuilder();
+
+    field_t a(witness_t(&builder, fr::random_element()));
+    field_t b(witness_t(&builder, fr::random_element()));
+    field_t c = (a + a) / (b + b + b);
+
+    builder.set_variable_name(a.witness_index, "a");
+    builder.set_variable_name(b.witness_index, "b");
+    builder.set_variable_name(c.witness_index, "c");
+    ASSERT_TRUE(builder.check_circuit());
+
+    auto buf = builder.export_circuit();
+
+    smt_circuit::CircuitSchema circuit_info = smt_circuit::unpack_from_buffer(buf);
+    smt_solver::Solver s(circuit_info.modulus, {true, 0});
+    smt_circuit::Circuit<smt_terms::FFTerm> circuit(circuit_info, &s);
+    smt_terms::FFTerm a1 = circuit["a"];
+    smt_terms::FFTerm b1 = circuit["b"];
+    smt_terms::FFTerm c1 = circuit["c"];
+    smt_terms::FFTerm two = smt_terms::FFTerm::Const("2", &s, 10);
+    smt_terms::FFTerm thr = smt_terms::FFTerm::Const("3", &s, 10);
+    smt_terms::FFTerm cr = smt_terms::FFTerm::Var("cr", &s);
+    cr * thr * b1 == two * a1;
+    c1 != cr;
+
+    bool res = s.check();
+    ASSERT_FALSE(res);
+}
+
 TEST(circuit_verification, multiplication_false)
 {
     StandardCircuitBuilder builder = StandardCircuitBuilder();
@@ -115,7 +146,7 @@ TEST(circuit_verifiaction, unique_witness)
     smt_solver::Solver s(circuit_info.modulus, {true, 0});
 
     std::pair<smt_circuit::Circuit<smt_terms::FFTerm>, smt_circuit::Circuit<smt_terms::FFTerm>> cirs =
-        smt_circuit::unique_witness(circuit_info, &s, { "ev" }, { "z" });
+        smt_circuit::unique_witness<smt_terms::FFTerm>(circuit_info, &s, { "ev" }, { "z" });
 
     bool res = s.check();
     ASSERT_TRUE(res);
@@ -128,4 +159,28 @@ TEST(circuit_verifiaction, unique_witness)
     std::unordered_map<std::string, std::string> vals = s.model(terms);
     info(vals["z_c1"]);
     info(vals["z_c2"]);
+}
+
+using namespace smt_terms;
+
+TEST(solver_use_case, solver){
+    Solver s("11", {true, 0}, 10);
+    FFTerm x = FFTerm::Var("x", &s);
+    FFTerm y = FFTerm::Var("y", &s);
+
+    FFTerm z = x * y + x * x;
+    z == FFTerm::Const("15", &s, 10);
+    x != y;
+    x != FFTerm::Const("0", &s);
+    y != FFTerm::Const("0", &s);
+
+    bool res = s.check();
+    ASSERT_TRUE(res);
+    info(s.getResult());
+
+    std::unordered_map<std::string, cvc5::Term> vars = {{"x", x}, {"y", y}};
+    std::unordered_map<std::string, std::string> mvars = s.model(vars);
+
+    info("x = ", mvars["x"]);
+    info("y = ", mvars["y"]);
 }
