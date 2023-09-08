@@ -8,7 +8,7 @@ import { appFactory } from './app.js';
 
 const logger = createDebugLogger('aztec:rollup_provider');
 
-const { SERVER_PORT = 9000 } = process.env;
+const { SERVER_PORT = 9000, API_PREFIX = '' } = process.env;
 
 /**
  * Entrypoint for the rollup provider service
@@ -27,7 +27,7 @@ async function main() {
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
 
-  const app = appFactory(node, '');
+  const app = appFactory(node, API_PREFIX);
 
   const httpServer = http.createServer(app.callback());
   httpServer.listen(SERVER_PORT);
