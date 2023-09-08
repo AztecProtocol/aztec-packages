@@ -101,8 +101,10 @@ describe('e2e_card_game', () => {
 
   describe('game join', () => {
     beforeEach(async () => {
-      await contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait();
-      await contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait();
+      await Promise.all([
+        contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait(),
+        contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait(),
+      ]);
     }, 30_000);
 
     it('should be able to join games', async () => {
@@ -153,15 +155,16 @@ describe('e2e_card_game', () => {
           .view({ from: secondPlayer })) as NoirOption<Card>[],
       );
 
-      await contract.methods
-        .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
-        .send({ origin: firstPlayer })
-        .wait();
-
-      await contract.methods
-        .join_game(GAME_ID, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
-        .send({ origin: secondPlayer })
-        .wait();
+      await Promise.all([
+        contract.methods
+          .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
+          .send({ origin: firstPlayer })
+          .wait(),
+        contract.methods
+          .join_game(GAME_ID, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
+          .send({ origin: secondPlayer })
+          .wait(),
+      ]);
 
       await contract.methods.start_game(GAME_ID).send({ origin: firstPlayer }).wait();
 
@@ -191,9 +194,11 @@ describe('e2e_card_game', () => {
     let thirdPlayerCOllection: Card[];
 
     beforeEach(async () => {
-      await contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait();
-      await contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait();
-      await contract.methods.buy_pack(27n).send({ origin: thirdPlayer }).wait();
+      await Promise.all([
+        contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait(),
+        contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait(),
+        contract.methods.buy_pack(27n).send({ origin: thirdPlayer }).wait(),
+      ]);
 
       secondPlayerCollection = unwrapOptions(
         await contract.methods.view_collection_cards(secondPlayer, 0).view({ from: secondPlayer }),
@@ -235,8 +240,7 @@ describe('e2e_card_game', () => {
     it('should play a game, claim the winned cards and play another match with winned cards', async () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
-      await joinGame(firstPlayer, firstPlayerGameDeck);
-      await joinGame(secondPlayer, secondPlayerGameDeck);
+      await Promise.all([joinGame(firstPlayer, firstPlayerGameDeck), joinGame(secondPlayer, secondPlayerGameDeck)]);
       await contract.methods.start_game(GAME_ID).send({ origin: firstPlayer }).wait();
 
       let game = await playGame([
@@ -261,8 +265,10 @@ describe('e2e_card_game', () => {
       const winnerGameDeck = [winnerCollection[0], winnerCollection[3]];
       const thirdPlayerGameDeck = [thirdPlayerCOllection[0], thirdPlayerCOllection[2]];
 
-      await joinGame(winner, winnerGameDeck, GAME_ID + 1);
-      await joinGame(thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1);
+      await Promise.all([
+        joinGame(winner, winnerGameDeck, GAME_ID + 1),
+        joinGame(thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1),
+      ]);
 
       await contract.methods
         .start_game(GAME_ID + 1)
