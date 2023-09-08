@@ -85,7 +85,7 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
 
 Once the account is set up, the CLI returns the resulting address, its privacy key, and partial address. You can read more about these [here](../../concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys).
 
-Save the Address and Private key as environement variables. We will be using them later.
+Save the Address and Private key as environment variables. We will be using them later.
 
 ```bash
 export ADDRESS=<Address printed when you run the command>
