@@ -849,8 +849,8 @@ describe('e2e_token_contract', () => {
       return await hashPayload([
         caller.address.toField(),
         FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
-        accounts[0].address.toField(),
-        accounts[1].address.toField(),
+        from.address.toField(),
+        to.address.toField(),
         new Fr(amount),
         nonce,
       ]);

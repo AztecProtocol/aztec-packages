@@ -13,7 +13,12 @@ import {
 import { CircuitsWasm, CompleteAddress, FunctionSelector, GeneratorIndex, GrumpkinScalar } from '@aztec/circuits.js';
 import { pedersenPlookupCommitInputs, pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
-import { LendingContract, NativeTokenContract, PriceFeedContract } from '@aztec/noir-contracts/types';
+import {
+  LendingContract,
+  PriceFeedContract,
+  SchnorrAuthWitnessAccountContract,
+  TokenContract,
+} from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
@@ -34,8 +39,8 @@ describe('e2e_lending_contract', () => {
     let lendingContract: LendingContract;
     let priceFeedContract: PriceFeedContract;
 
-    let collateralAsset: NativeTokenContract;
-    let stableCoin: NativeTokenContract;
+    let collateralAsset: TokenContract;
+    let stableCoin: TokenContract;
 
     {
       logger(`Deploying price feed contract...`);
@@ -49,26 +54,38 @@ describe('e2e_lending_contract', () => {
 
     {
       logger(`Deploying collateral asset feed contract...`);
-      const tx = NativeTokenContract.deploy(wallet, 10000n, owner).send();
+      const tx = TokenContract.deploy(wallet).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Collateral asset deployed to ${receipt.contractAddress}`);
-      collateralAsset = await NativeTokenContract.at(receipt.contractAddress!, wallet);
+      collateralAsset = await TokenContract.at(receipt.contractAddress!, wallet);
+
+      {
+        const initTx = collateralAsset.methods._initialize({ address: owner }).send({ origin: owner });
+        const receipt = await initTx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+      }
     }
 
     {
       logger(`Deploying stable coin contract...`);
-      const tx = NativeTokenContract.deploy(wallet, 0n, owner).send();
+      const tx = TokenContract.deploy(wallet).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
       logger(`Stable coin asset deployed to ${receipt.contractAddress}`);
-      stableCoin = await NativeTokenContract.at(receipt.contractAddress!, wallet);
+      stableCoin = await TokenContract.at(receipt.contractAddress!, wallet);
+
+      {
+        const initTx = stableCoin.methods._initialize({ address: owner }).send({ origin: owner });
+        const receipt = await initTx.wait();
+        expect(receipt.status).toBe(TxStatus.MINED);
+      }
     }
 
     {
-      logger(`Deploying L2 public contract...`);
+      logger(`Deploying lending contract...`);
       const tx = LendingContract.deploy(wallet).send();
       logger(`Tx sent with hash ${await tx.getTxHash()}`);
       const receipt = await tx.wait();
@@ -76,6 +93,12 @@ describe('e2e_lending_contract', () => {
       logger(`CDP deployed at ${receipt.contractAddress}`);
       lendingContract = await LendingContract.at(receipt.contractAddress!, wallet);
     }
+    {
+      const minterTx = stableCoin.methods.set_minter({ address: lendingContract.address }, 1).send({ origin: owner });
+      const receipt = await minterTx.wait();
+      expect(receipt.status).toBe(TxStatus.MINED);
+    }
+
     return { priceFeedContract, lendingContract, collateralAsset, stableCoin };
   };
 
@@ -111,11 +134,45 @@ describe('e2e_lending_contract', () => {
     );
   };
 
+  const unshieldMessageHash = async (
+    caller: AztecAddress,
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: bigint,
+    nonce: Fr,
+  ) => {
+    return await hashPayload([
+      caller.toField(),
+      FunctionSelector.fromSignature('unshield((Field),(Field),Field,Field)').toField(),
+      from.toField(),
+      to.toField(),
+      new Fr(amount),
+      nonce,
+    ]);
+  };
+
+  const transferPublicMessageHash = async (
+    caller: AztecAddress,
+    from: AztecAddress,
+    to: AztecAddress,
+    amount: bigint,
+    nonce: Fr,
+  ) => {
+    return await hashPayload([
+      caller.toField(),
+      FunctionSelector.fromSignature('transfer_public((Field),(Field),Field,Field)').toField(),
+      from.toField(),
+      to.toField(),
+      new Fr(amount),
+      nonce,
+    ]);
+  };
+
   // Fetch a storage snapshot from the contract that we can use to compare between transitions.
   const getStorageSnapshot = async (
     lendingContract: LendingContract,
-    collateralAsset: NativeTokenContract,
-    stableCoin: NativeTokenContract,
+    collateralAsset: TokenContract,
+    stableCoin: TokenContract,
     account: LendingAccount,
   ) => {
     logger('Fetching storage snapshot 📸 ');
@@ -124,7 +181,9 @@ describe('e2e_lending_contract', () => {
     const tot = await lendingContract.methods.get_asset(0).view();
     const privatePos = await lendingContract.methods.get_position(accountKey).view();
     const publicPos = await lendingContract.methods.get_position(account.address.toField()).view();
-    const totalCollateral = await collateralAsset.methods.public_balance_of(lendingContract.address).view();
+    const totalCollateral = await collateralAsset.methods
+      .balance_of_public({ address: lendingContract.address })
+      .view();
 
     return {
       interestAccumulator: new Fr(tot['interest_accumulator']),
@@ -136,10 +195,12 @@ describe('e2e_lending_contract', () => {
       publicStaticDebt: new Fr(publicPos['static_debt']),
       publicDebt: new Fr(publicPos['debt']),
       totalCollateral: new Fr(totalCollateral),
-      stableCoinLending: new Fr(await stableCoin.methods.public_balance_of(lendingContract.address).view()),
-      stableCoinPublic: new Fr(await stableCoin.methods.public_balance_of(account.address).view()),
-      stableCoinPrivate: new Fr(await stableCoin.methods.balance_of(account.address).view()),
+      stableCoinLending: new Fr(
+        await stableCoin.methods.balance_of_public({ address: lendingContract.address }).view(),
+      ),
       stableCoinSupply: new Fr(await stableCoin.methods.total_supply().view()),
+      stableCoinPublic: new Fr(await stableCoin.methods.balance_of_public({ address: account.address }).view()),
+      stableCoinPrivate: new Fr(await stableCoin.methods.balance_of_private({ address: account.address }).view()),
     };
   };
 
@@ -307,30 +368,38 @@ describe('e2e_lending_contract', () => {
     await setPrice(2n * 10n ** 9n);
 
     {
-      // Minting some collateral in public so we got it at hand.
-      const tx = collateralAsset.methods.owner_mint_pub(lendingAccount.address, 10000n).send({ origin: recipient });
-      const receipt = await tx.wait();
-      expect(receipt.status).toBe(TxStatus.MINED);
-
-      const tx2 = collateralAsset.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
-      const receipt2 = await tx2.wait();
-      expect(receipt2.status).toBe(TxStatus.MINED);
-
-      // Minting some collateral in private so we got it at hand.
-      const secret = Fr.random();
-      const secretHash = await computeMessageSecretHash(secret);
-      const shieldAmount = 10000n;
-      const tx3 = stableCoin.methods.owner_mint_priv(shieldAmount, secretHash).send({ origin: recipient });
-      const receipt3 = await tx3.wait();
-      expect(receipt3.status).toBe(TxStatus.MINED);
-
-      const tx4 = stableCoin.methods.redeemShield(shieldAmount, secret, recipient).send({ origin: recipient });
-      const receipt4 = await tx4.wait();
-      expect(receipt4.status).toBe(TxStatus.MINED);
-
-      const tx5 = stableCoin.methods.approve(lendingContract.address, 10000n).send({ origin: recipient });
-      const receipt5 = await tx5.wait();
-      expect(receipt5.status).toBe(TxStatus.MINED);
+      // Minting assets so we have them at hand.
+      const amount = 10000n;
+      {
+        const mintPubTx = collateralAsset.methods.mint_pub({ address: recipient }, amount).send({ origin: recipient });
+        const mintPubReceipt = await mintPubTx.wait();
+        expect(mintPubReceipt.status).toBe(TxStatus.MINED);
+        const secret = Fr.random();
+        const secretHash = await computeMessageSecretHash(secret);
+        const mintPrivTx = collateralAsset.methods.mint_priv(amount, secretHash).send({ origin: recipient });
+        const mintPrivReceipt = await mintPrivTx.wait();
+        expect(mintPrivReceipt.status).toBe(TxStatus.MINED);
+        const claimTx = collateralAsset.methods
+          .redeem_shield({ address: recipient }, amount, secret)
+          .send({ origin: recipient });
+        const claimReceipt = await claimTx.wait();
+        expect(claimReceipt.status).toBe(TxStatus.MINED);
+      }
+      {
+        const mintPubTx = stableCoin.methods.mint_pub({ address: recipient }, amount).send({ origin: recipient });
+        const mintPubReceipt = await mintPubTx.wait();
+        expect(mintPubReceipt.status).toBe(TxStatus.MINED);
+        const secret = Fr.random();
+        const secretHash = await computeMessageSecretHash(secret);
+        const mintPrivTx = stableCoin.methods.mint_priv(amount, secretHash).send({ origin: recipient });
+        const mintPrivReceipt = await mintPrivTx.wait();
+        expect(mintPrivReceipt.status).toBe(TxStatus.MINED);
+        const claimTx = stableCoin.methods
+          .redeem_shield({ address: recipient }, amount, secret)
+          .send({ origin: recipient });
+        const claimReceipt = await claimTx.wait();
+        expect(claimReceipt.status).toBe(TxStatus.MINED);
+      }
     }
 
     // Also specified in `noir-contracts/src/contracts/lending_contract/src/main.nr`
@@ -339,6 +408,7 @@ describe('e2e_lending_contract', () => {
     await lendingSim.prepare();
     // To handle initial mint (we use these funds to refund privately without shielding first).
     lendingSim.mintStable(await lendingAccount.key(), 10000n);
+    lendingSim.mintStable(lendingAccount.address.toField(), 10000n);
 
     {
       // Initialize the contract values, setting the interest accumulator to 1e9 and the last updated timestamp to now.
@@ -361,12 +431,14 @@ describe('e2e_lending_contract', () => {
     {
       const depositAmount = 420n;
 
-      const messageHash = await hashPayload([
-        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
-        recipientFull.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(depositAmount),
-      ]);
+      const nonce = Fr.random();
+      const messageHash = await unshieldMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        depositAmount,
+        nonce,
+      );
       await wallet.signAndAddAuthWitness(messageHash);
       await lendingSim.progressTime(10);
       lendingSim.deposit(await lendingAccount.key(), depositAmount);
@@ -378,7 +450,7 @@ describe('e2e_lending_contract', () => {
       // - increase the private collateral.
       logger('Depositing 🥸 : 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_private(lendingAccount.secret, lendingAccount.address, 0n, depositAmount, collateralAsset.address)
+        .deposit_private(lendingAccount.secret, 0n, depositAmount, collateralAsset.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -394,12 +466,14 @@ describe('e2e_lending_contract', () => {
 
     {
       const depositAmount = 421n;
-      const messageHash = await hashPayload([
-        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
-        recipientFull.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(depositAmount),
-      ]);
+      const nonce = Fr.random();
+      const messageHash = await unshieldMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        depositAmount,
+        nonce,
+      );
       await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
@@ -411,7 +485,7 @@ describe('e2e_lending_contract', () => {
       // - increase the public collateral.
       logger('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_private(0n, lendingAccount.address, recipient.toField(), depositAmount, collateralAsset.address)
+        .deposit_private(0n, recipient.toField(), depositAmount, collateralAsset.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -427,6 +501,21 @@ describe('e2e_lending_contract', () => {
 
     {
       const depositAmount = 211n;
+      const nonce = Fr.random();
+      const messageHash = await transferPublicMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        depositAmount,
+        nonce,
+      );
+
+      // Add it to the wallet as approved
+      const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+      const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+      const validTxReceipt = await setValidTx.wait();
+      expect(validTxReceipt.status).toBe(TxStatus.MINED);
+
       await lendingSim.progressTime(10);
       lendingSim.deposit(recipient.toField(), depositAmount);
 
@@ -438,7 +527,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Depositing: 💰 -> 🏦');
       const tx = lendingContract.methods
-        .deposit_public(lendingAccount.address, depositAmount, collateralAsset.address)
+        .deposit_public(lendingAccount.address, depositAmount, collateralAsset.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -507,12 +596,14 @@ describe('e2e_lending_contract', () => {
 
     {
       const repayAmount = 20n;
-      const messageHash = await hashPayload([
-        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
-        recipientFull.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(repayAmount),
-      ]);
+      const nonce = Fr.random();
+      const messageHash = await unshieldMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        repayAmount,
+        nonce,
+      );
       await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
@@ -526,7 +617,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay 🥸 : 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_private(lendingAccount.secret, lendingAccount.address, 0n, repayAmount, stableCoin.address)
+        .repay_private(lendingAccount.secret, 0n, repayAmount, stableCoin.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -542,12 +633,14 @@ describe('e2e_lending_contract', () => {
 
     {
       const repayAmount = 21n;
-      const messageHash = await hashPayload([
-        FunctionSelector.fromSignature('unshieldTokens(Field,Field,Field)').toField(),
-        recipientFull.address.toField(),
-        lendingContract.address.toField(),
-        new Fr(repayAmount),
-      ]);
+      const nonce = Fr.random();
+      const messageHash = await unshieldMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        repayAmount,
+        nonce,
+      );
       await wallet.signAndAddAuthWitness(messageHash);
 
       await lendingSim.progressTime(10);
@@ -561,7 +654,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay 🥸  on behalf of public: 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_private(0n, lendingAccount.address, recipient.toField(), repayAmount, stableCoin.address)
+        .repay_private(0n, recipient.toField(), repayAmount, stableCoin.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);
@@ -577,6 +670,21 @@ describe('e2e_lending_contract', () => {
 
     {
       const repayAmount = 20n;
+      const nonce = Fr.random();
+      const messageHash = await transferPublicMessageHash(
+        lendingContract.address,
+        recipient,
+        lendingContract.address,
+        repayAmount,
+        nonce,
+      );
+
+      // Add it to the wallet as approved
+      const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
+      const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+      const validTxReceipt = await setValidTx.wait();
+      expect(validTxReceipt.status).toBe(TxStatus.MINED);
+
       await lendingSim.progressTime(10);
       lendingSim.repay(lendingAccount.address.toField(), lendingAccount.address.toField(), repayAmount);
 
@@ -588,7 +696,7 @@ describe('e2e_lending_contract', () => {
 
       logger('Repay: 🍌 -> 🏦');
       const tx = lendingContract.methods
-        .repay_public(recipient.toField(), 20n, stableCoin.address)
+        .repay_public(recipient.toField(), 20n, stableCoin.address, nonce)
         .send({ origin: recipient });
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.MINED);

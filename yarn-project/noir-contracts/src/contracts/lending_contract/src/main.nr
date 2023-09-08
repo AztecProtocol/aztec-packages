@@ -170,34 +170,34 @@ contract Lending {
     #[aztec(private)]
     fn deposit_private(
         secret: Field,
-        asset_owner: Field,
-        on_behalf_of: Field,
+        to: Field,
         amount: Field,
         collateral_asset: Field,
+        nonce: Field,
     ) {
-        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
-        let _res = Token::at(collateral_asset).unshield(&mut context, asset_owner, context.this_address(), amount);
-        // _deposit(on_behalf_of, amount, collateral_asset)
+        let on_behalf_of = compute_identifier(secret, to, context.msg_sender());
+        let _res = Token::at(collateral_asset).unshield(&mut context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_deposit(Field,Field,Field)");
         let _callStackItem2 = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, collateral_asset]);
     }
 
     #[aztec(public)]
     fn deposit_public(
-        owner: Field,
+        to: Field,
         amount: Field,
         collateral_asset: Field,
+        nonce: Field,
     ) -> Field {
-        Token::at(collateral_asset).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        Token::at(collateral_asset).transfer_public(context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_deposit(Field,Field,Field)");
-        let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, collateral_asset]);
+        let return_values = context.call_public_function(context.this_address(), selector, [to, amount, collateral_asset]);
         
         return_values[0]
     }
 
     #[aztec(public)]
     internal fn _deposit(
-        owner: Field,
+        to: Field,
         amount: Field,
         collateral_asset: Field,
     ) -> Field {
@@ -207,7 +207,7 @@ contract Lending {
         let coll_asset = storage.collateral_asset.read();
         assert(coll_asset == collateral_asset);
 
-        let coll_loc = storage.collateral.at(owner);
+        let coll_loc = storage.collateral.at(to);
         let collateral = coll_loc.read();
         coll_loc.write(collateral + amount);
 
@@ -264,7 +264,7 @@ contract Lending {
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
         let collateral_asset = storage.collateral_asset.read();
-        Token::at(collateral_asset).transfer_pub(context, recipient, amount);
+        Token::at(collateral_asset).transfer_public(context, context.this_address(), recipient, amount, 0);
 
         1
     }
@@ -315,7 +315,7 @@ contract Lending {
 
         // @todo @LHerskind Need to support both private and public minting.
         let stable_coin = storage.stable_coin.read();
-        Token::at(stable_coin).owner_mint_pub(context, to, amount);
+        Token::at(stable_coin).mint_pub(context, to, amount);
 
         1
     }
@@ -323,13 +323,13 @@ contract Lending {
     #[aztec(private)]
     fn repay_private(
         secret: Field,
-        asset_owner: Field,
-        on_behalf_of: Field,
+        to: Field,
         amount: Field,
         stable_coin: Field,
+        nonce: Field,
     ) {
-        let on_behalf_of = compute_identifier(secret, on_behalf_of, context.msg_sender());
-        let _res = Token::at(stable_coin).unshield(&mut context, asset_owner, context.this_address(), amount);
+        let on_behalf_of = compute_identifier(secret, to, context.msg_sender());
+        let _res = Token::at(stable_coin).unshield(&mut context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         let _callStackItem = context.call_public_function(context.this_address(), selector, [on_behalf_of, amount, stable_coin]);
     }
@@ -339,9 +339,10 @@ contract Lending {
         owner: Field,
         amount: Field,
         stable_coin: Field,
+        nonce: Field,
     ) -> Field {
         // Should probably just burn the tokens actually :thinking:
-        Token::at(stable_coin).transfer_from_pub(context, context.msg_sender(), context.this_address(), amount);
+        Token::at(stable_coin).transfer_public(context, context.msg_sender(), context.this_address(), amount, nonce);
         let selector = compute_selector("_repay(Field,Field,Field)");
         let return_values = context.call_public_function(context.this_address(), selector, [owner, amount, stable_coin]);
         
