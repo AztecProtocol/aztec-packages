@@ -136,7 +136,7 @@ Created new account:
 Address:         0x26e831b1b146d1faf0c1d27fc72f2243887e9963cc87a6b3af64fe6481920a80
 Public key:      0x1003732857c052c1d6af4dd74b5631863a056c90a586c4e3ea6d94782ee712d317cdb713ed1ba02d3df0ac2b581d269490f9e24916c1b677c7259444aa0ad66b
 Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b4ed
-// docs:end:create-account
+// docs:end:create-account-from-private-key
 `;
 
     const generateCommand = docs.split('\n')[2].split('aztec-cli ')[1];
