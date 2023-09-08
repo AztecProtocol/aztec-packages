@@ -7,7 +7,7 @@ import { callContractFunction, deployContract, viewContractFunction } from '../s
 import { Button } from './components/index.js';
 
 // ALICE smart contract wallet public key, available on sandbox by default
-const DEFAULT_PUBLIC_ADDRESS = '0x183253b9bb70e447c2bddce766b199111bec335d3396cd403ff5306ddf2f8a43';
+const DEFAULT_PUBLIC_ADDRESS = '0x0c8a6673d7676cc80aaebe7fa7504cf51daa90ba906861bfad70a58a98bf5a7d'
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
