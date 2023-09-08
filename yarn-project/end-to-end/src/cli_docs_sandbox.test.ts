@@ -144,4 +144,45 @@ Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042e
       ?.partialAddress;
     expect(foundPartialAddress).toBeDefined();
   });
+
+  it('creates an account from private key', async () => {
+    const docs = `
+// docs:start:create-account-from-private-key
+% aztec-cli generate-private-key
+
+Private Key: 0x12684562c8676e66be100878434b01286a757dea468233f818b906f66fb34984
+Public Key: 0x1003732857c052c1d6af4dd74b5631863a056c90a586c4e3ea6d94782ee712d317cdb713ed1ba02d3df0ac2b581d269490f9e24916c1b677c7259444aa0ad66b
+
+
+% aztec-cli create-account --private-key 0x12684562c8676e66be100878434b01286a757dea468233f818b906f66fb34984
+
+Created new account:
+
+Address:         0x26e831b1b146d1faf0c1d27fc72f2243887e9963cc87a6b3af64fe6481920a80
+Public key:      0x1003732857c052c1d6af4dd74b5631863a056c90a586c4e3ea6d94782ee712d317cdb713ed1ba02d3df0ac2b581d269490f9e24916c1b677c7259444aa0ad66b
+Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b4ed
+// docs:end:create-account
+`;
+
+    const generateCommand = docs.split('\n')[2].split('aztec-cli ')[1];
+    await run(generateCommand, false);
+
+    const foundPrivateKey = findInLogs(/Private\sKey:\s+(?<privateKey>0x[a-fA-F0-9]+)/)?.groups?.privateKey;
+    expect(foundPrivateKey).toBeDefined();
+    const foundPublicKeyGenerate = findInLogs(/Public\sKey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
+    expect(foundPublicKeyGenerate).toBeDefined();
+
+    clearLogs();
+
+    const createCommand = docs.split('\n')[8].split('aztec-cli ')[1];
+
+    await run(createCommand);
+    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundAddress).toBeDefined();
+    const foundPublicKey = findInLogs(/Public\skey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
+    expect(foundPublicKey).toBeDefined();
+    const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
+      ?.partialAddress;
+    expect(foundPartialAddress).toBeDefined();
+  });
 });

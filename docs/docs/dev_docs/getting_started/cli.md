@@ -65,21 +65,7 @@ export PRIVATE_KEY=<Private key printed when you run the command>
 
 Alternatively, we can also manually generate a private key and use it for creating the account, either via a `-k` option or by setting the `PRIVATE_KEY` environment variable.
 
-```bash
-% aztec-cli generate-private-key
-
-Private Key: 0x6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
-Public Key: 0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
-
-
-% aztec-cli create-account --private-key 0x6622c828e9cd5adc86f10878765fe921d2b8cb2c79bdbc391157e43811ce88e3
-
-Created new account:
-
-Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-```
+#include_code create-account-from-private-key yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 For all commands that require a user's private key, the CLI will look for the `PRIVATE_KEY` environment variable in absence of an optional argument.
 
