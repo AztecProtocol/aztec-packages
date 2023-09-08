@@ -40,7 +40,7 @@ FFITerm::FFITerm(const std::string& t, Solver* slv, bool isconst, uint32_t base)
     } else {
         std::string tmp = slv->s.mkFiniteFieldElem(t, slv->fp, base).getFiniteFieldValue(); // dumb but works
         if(tmp[0] == '-'){
-            this->term = slv->s.mkInteger(tmp) + this->modulus;
+            this->term = slv->s.mkTerm(cvc5::Kind::ADD, {slv->s.mkInteger(tmp), this->modulus});
         }else{
             this->term = slv->s.mkInteger(tmp);
         }
