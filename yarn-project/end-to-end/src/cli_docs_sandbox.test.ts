@@ -278,6 +278,9 @@ View result:  1000000n
 
     clearLogs();
 
+    // We reset CLI so that we can call the same command again later on
+    resetCli();
+
     // Test send
     docs = `
 // docs:start:send
@@ -361,24 +364,25 @@ View result:  543n
       .replace('$ADDRESS', newAddress.toString())
       .replace('$CONTRACT_ADDRESS', contractAddress.toString());
 
-    // await run(command);
+    await run(command);
 
     foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    // expect(foundBalance!).toEqual(`${BigInt(999457).toString()}n`);
+    expect(foundBalance!).toEqual(`${BigInt(999457).toString()}n`);
 
-    // clearLogs();
+    clearLogs();
+    resetCli();
 
-    // command = docs
-    //   .split('\n')[6]
-    //   .split('aztec-cli ')[1]
-    //   .replace('$ADDRESS2', address2.toString())
-    //   .replace('$CONTRACT_ADDRESS', contractAddress.toString());
+    command = docs
+      .split('\n')[6]
+      .split('aztec-cli ')[1]
+      .replace('$ADDRESS2', address2.toString())
+      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
 
-    // await run(command);
+    await run(command);
 
-    // foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
-    // expect(foundBalance!).toEqual(`${BigInt(543).toString()}n`);
+    foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(foundBalance!).toEqual(`${BigInt(543).toString()}n`);
 
-    // clearLogs();
+    clearLogs();
   }, 60_000);
 });
