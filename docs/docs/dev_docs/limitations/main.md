@@ -249,7 +249,7 @@ This issue is tracked in ticket [#1641](https://github.com/AztecProtocol/aztec-p
 
 ### Note Terminology: Note Commitments and Note Hashes
 
-The notes or UTXOs in aztec need to be compressed before they are added to the trees. To do so, we need to hash all the data inside a note using a collision-resistant hash function. Currently, we use Pedersen hash (using lookup tables) to compress note data. The compressed note data is referred to as "note commitments" in our architecture. However, note commitments are referred to as "note hashes" in aztec-noir code. Be mindful of that fact that note commitments and note hashes mean the same thing.   
+The notes or UTXOs in Aztec need to be compressed before they are added to the trees. To do so, we need to hash all the data inside a note using a collision-resistant hash function. Currently, we use Pedersen hash (using lookup tables) to compress note data. The compressed note data is referred to as "note commitments" in our architecture. However, note commitments are referred to as "note hashes" in aztec-noir code. Be mindful of that fact that note commitments and note hashes mean the same thing. Note that we only mean to talk about terminology here and in no way one should infer security/cryptographic properties (e.g., hiding, binding) based on the name. Namely, notes come with different flavours of security properties depending on the use case.   
 
 ## There's more
 
