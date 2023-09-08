@@ -123,10 +123,11 @@ contract CardGame {
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     )  {
         let storage = Storage::init(Option::some(&mut context), Option::none());
-        let mut cards = get_pack_cards(seed, context.msg_sender());
+        let buyer = context.msg_sender();
+        let mut cards = get_pack_cards(seed, buyer);
 
-        let mut collection = storage.collections.at(context.msg_sender());
-        let _inserted_cards = collection.add_cards(cards, context.msg_sender());
+        let mut collection = storage.collections.at(buyer);
+        let _inserted_cards = collection.add_cards(cards.map(|card| CardNote::from_card(card, buyer)), buyer);
     }
 
     #[aztec(private)]

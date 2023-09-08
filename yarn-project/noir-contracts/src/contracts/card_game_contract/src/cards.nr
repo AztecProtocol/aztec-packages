@@ -16,7 +16,6 @@ use dep::aztec::{
 };
 use dep::std;
 use dep::std::{
-    unsafe::zeroed,
     option::Option,
 };
 use dep::value_note::{
@@ -204,19 +203,21 @@ global PACK_CARDS = 3; // Limited by number of write requests (max 4)
 fn get_pack_cards(
     seed: Field,
     owner_address: Field
-) -> [CardNote; PACK_CARDS] {
+) -> [Card; PACK_CARDS] {
     // generate pseudo randomness deterministically from 'seed' and user secret
     let secret = get_secret_key(owner_address);
     let mix = secret.high + secret.low + seed;
     let random_bytes = std::hash::sha256(mix.to_le_bytes(32));
 
-    let mut cards = [zeroed(); PACK_CARDS];
+    let mut cards = [Card::from_field(0); PACK_CARDS];
     // we generate PACK_CARDS cards
     assert((PACK_CARDS as u64) < 8, "Cannot generate more than 8 cards");
     for i in 0..PACK_CARDS {
         let strength = (random_bytes[i] as u16) + (random_bytes[i + 1] as u16) * 256;
         let points = (random_bytes[i + 2] as u16) + (random_bytes[i + 3] as u16) * 256;
-        cards[i] = CardNote::new(strength, points, owner_address);
+        cards[i] = Card {
+            strength, points
+        };
     }
 
     cards
