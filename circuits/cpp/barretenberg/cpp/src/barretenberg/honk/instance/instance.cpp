@@ -10,7 +10,7 @@ namespace proof_system::honk {
  * @tparam Flavor
  * @param circuit
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parameters(CircuitBuilder& circuit)
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
 {
     // Compute total length of the tables and the number of lookup gates; their sum is the minimum circuit size
     for (const auto& table : circuit.lookup_tables) {
@@ -41,7 +41,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parame
  * @brief Compute witness polynomials
  *
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(CircuitBuilder& circuit)
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(Circuit& circuit)
 {
     if (computed_witness) {
         return;
@@ -179,7 +179,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::construct_ecc_op_wire_polyn
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(const CircuitBuilder& circuit)
+std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(const Circuit& circuit)
 {
     if (proving_key) {
         return proving_key;
@@ -246,7 +246,7 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
     return proving_key;
 }
 
-template <UltraFlavor Flavor> typename Flavor::ProverPolynomials Instance<Flavor>::construct_prover_polynomials()
+template <UltraFlavor Flavor> void Instance<Flavor>::initialise_prover_polynomials()
 {
     ProverPolynomials prover_polynomials;
     prover_polynomials.q_c = key->q_c;
@@ -305,8 +305,36 @@ template <UltraFlavor Flavor> typename Flavor::ProverPolynomials Instance<Flavor
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
     }
+}
 
-    return prover_polynomials;
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
+{
+    relation_parameters.eta = eta;
+    // Compute sorted witness-table accumulator and its commitment
+    key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(key, eta);
+
+    // Finalize fourth wire polynomial by adding lookup memory records, then commit
+    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(key, eta);
+
+    prover_polynomials.sorted_accum_shift = key->sorted_accum.shifted();
+    prover_polynomials.sorted_accum = key->sorted_accum;
+    prover_polynomials.w_4 = key->w_4;
+    prover_polynomials.w_4_shift = key->w_4.shifted();
+}
+
+template <UltraFlavor Flavor> void Instance<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
+{
+    auto public_input_delta =
+        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, key->circuit_size, pub_inputs_offset);
+    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, key->circuit_size);
+
+    relation_parameters.beta = beta;
+    relation_parameters.gamma = gamma;
+    relation_parameters.public_input_delta = public_input_delta;
+    relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
+
+    // Compute permutation + lookup grand product and their commitments
+    grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
 }
 
 /**
@@ -316,15 +344,16 @@ template <UltraFlavor Flavor> typename Flavor::ProverPolynomials Instance<Flavor
  * */
 template <UltraFlavor Flavor>
 std::shared_ptr<typename Flavor::VerificationKey> Instance<Flavor>::compute_verification_key(
-    const CircuitBuilder& circuit)
+    std::shared_ptr<CommitmentKey> commitment_key)
 {
     if (verification_key) {
         return verification_key;
     }
 
-    if (!proving_key) {
-        compute_proving_key(circuit);
-    }
+    // To have an instance you have to have a proving key so this can go away
+    // if (!proving_key) {
+    //     compute_proving_key(circuit);
+    // }
 
     verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);

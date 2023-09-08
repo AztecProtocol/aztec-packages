@@ -8,6 +8,7 @@ namespace proof_system::honk {
 
 template <UltraFlavor Flavor> Instance<Flavor> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
+    // this could be either here or in the Instance idk
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
     Instance<Flavor> instance = Instance(circuit);
@@ -16,11 +17,8 @@ template <UltraFlavor Flavor> Instance<Flavor> UltraComposer_<Flavor>::create_in
 
 template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(Instance<Flavor>& instance)
 {
-    auto proving_key = instance->proving_key;
-
-    compute_commitment_key(instance->proving_key->circuit_size);
-
-    UltraProver_<Flavor> output_state(proving_key, commitment_key);
+    compute_commitment_key(instance.proving_key->circuit_size);
+    UltraProver_<Flavor> output_state(instance, commitment_key);
 
     return output_state;
 }
@@ -34,7 +32,7 @@ template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::creat
 template <UltraFlavor Flavor>
 UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(const Instance<Flavor>& instance)
 {
-    auto verification_key = instance->verification_key;
+    auto verification_key = instance.compute_verification_key(commitment_key);
     UltraVerifier_<Flavor> output_state(verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);
     output_state.pcs_verification_key = std::move(pcs_verification_key);

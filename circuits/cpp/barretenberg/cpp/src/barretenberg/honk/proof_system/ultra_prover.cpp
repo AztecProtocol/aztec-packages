@@ -18,69 +18,12 @@ namespace proof_system::honk {
  * @tparam settings Settings class.
  * */
 template <UltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(std::shared_ptr<typename Flavor::ProvingKey> input_key,
-                                   std::shared_ptr<CommitmentKey> commitment_key)
-    : key(input_key)
-    , queue(commitment_key, transcript)
-    , pcs_commitment_key(commitment_key)
+UltraProver_<Flavor>::UltraProver_(Instance& instance)
+    : key(instance.proving_key)
+    , queue(instance.commitment_key, transcript)
+    , pcs_commitment_key(instance.commitment_key)
 {
-    // move in separate function as used by both folding and non-folding prover?
-    prover_polynomials.q_c = key->q_c;
-    prover_polynomials.q_l = key->q_l;
-    prover_polynomials.q_r = key->q_r;
-    prover_polynomials.q_o = key->q_o;
-    prover_polynomials.q_4 = key->q_4;
-    prover_polynomials.q_m = key->q_m;
-    prover_polynomials.q_arith = key->q_arith;
-    prover_polynomials.q_sort = key->q_sort;
-    prover_polynomials.q_elliptic = key->q_elliptic;
-    prover_polynomials.q_aux = key->q_aux;
-    prover_polynomials.q_lookup = key->q_lookup;
-    prover_polynomials.sigma_1 = key->sigma_1;
-    prover_polynomials.sigma_2 = key->sigma_2;
-    prover_polynomials.sigma_3 = key->sigma_3;
-    prover_polynomials.sigma_4 = key->sigma_4;
-    prover_polynomials.id_1 = key->id_1;
-    prover_polynomials.id_2 = key->id_2;
-    prover_polynomials.id_3 = key->id_3;
-    prover_polynomials.id_4 = key->id_4;
-    prover_polynomials.table_1 = key->table_1;
-    prover_polynomials.table_2 = key->table_2;
-    prover_polynomials.table_3 = key->table_3;
-    prover_polynomials.table_4 = key->table_4;
-    prover_polynomials.table_1_shift = key->table_1.shifted();
-    prover_polynomials.table_2_shift = key->table_2.shifted();
-    prover_polynomials.table_3_shift = key->table_3.shifted();
-    prover_polynomials.table_4_shift = key->table_4.shifted();
-    prover_polynomials.lagrange_first = key->lagrange_first;
-    prover_polynomials.lagrange_last = key->lagrange_last;
-    prover_polynomials.w_l = key->w_l;
-    prover_polynomials.w_r = key->w_r;
-    prover_polynomials.w_o = key->w_o;
-    prover_polynomials.w_l_shift = key->w_l.shifted();
-    prover_polynomials.w_r_shift = key->w_r.shifted();
-    prover_polynomials.w_o_shift = key->w_o.shifted();
-
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        prover_polynomials.ecc_op_wire_1 = key->ecc_op_wire_1;
-        prover_polynomials.ecc_op_wire_2 = key->ecc_op_wire_2;
-        prover_polynomials.ecc_op_wire_3 = key->ecc_op_wire_3;
-        prover_polynomials.ecc_op_wire_4 = key->ecc_op_wire_4;
-        prover_polynomials.lagrange_ecc_op = key->lagrange_ecc_op;
-    }
-
-    // Add public inputs to transcript from the second wire polynomial; This requires determination of the offset at
-    // which the PI have been written into the wires relative to the 0th index.
-    std::span<FF> public_wires_source = prover_polynomials.w_r;
-    pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
-    if constexpr (IsGoblinFlavor<Flavor>) {
-        pub_inputs_offset += key->num_ecc_op_gates;
-    }
-
-    for (size_t i = 0; i < key->num_public_inputs; ++i) {
-        size_t idx = i + pub_inputs_offset;
-        public_inputs.emplace_back(public_wires_source[idx]);
-    }
+    instance.initialise_prover_polynomials();
 }
 
 /**
@@ -131,22 +74,12 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitment
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_accumulator_round()
 {
-    // Compute and add eta to relation parameters
     auto eta = transcript.get_challenge("eta");
-    relation_parameters.eta = eta;
 
-    // Compute sorted witness-table accumulator and its commitment
-    key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(key, eta);
+    instance.compute_sorted_accumulator_polynomials(eta);
+
     queue.add_commitment(key->sorted_accum, commitment_labels.sorted_accum);
-
-    // Finalize fourth wire polynomial by adding lookup memory records, then commit
-    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(key, eta);
     queue.add_commitment(key->w_4, commitment_labels.w_4);
-
-    prover_polynomials.sorted_accum_shift = key->sorted_accum.shifted();
-    prover_polynomials.sorted_accum = key->sorted_accum;
-    prover_polynomials.w_4 = key->w_4;
-    prover_polynomials.w_4_shift = key->w_4.shifted();
 }
 
 // to here things need to be done for folding as well?
@@ -160,23 +93,11 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_c
     // Compute and store parameters required by relations in Sumcheck
     auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
 
-    auto public_input_delta =
-        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, key->circuit_size, pub_inputs_offset);
-    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, key->circuit_size);
-
-    relation_parameters.beta = beta;
-    relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = public_input_delta;
-    relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
-
-    // Compute permutation + lookup grand product and their commitments
-    grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
+    instance.compute_grand_product_polynomials(beta, gamma);
 
     queue.add_commitment(key->z_perm, commitment_labels.z_perm);
     queue.add_commitment(key->z_lookup, commitment_labels.z_lookup);
 }
-
-// up ot here things go in the Instance !!!!!!!!!!!
 
 /**
  * @brief Run Sumcheck resulting in u = (u_1,...,u_d) challenges and all evaluations at u being calculated.

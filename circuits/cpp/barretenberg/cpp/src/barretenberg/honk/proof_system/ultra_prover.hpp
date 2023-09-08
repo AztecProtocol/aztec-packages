@@ -16,7 +16,6 @@ namespace proof_system::honk {
 // We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
 // with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 template <UltraFlavor Flavor> class UltraProver_ {
-
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -25,13 +24,15 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
+    using Instance = Instance<Flavor>;
 
   public:
-    explicit UltraProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<CommitmentKey> commitment_key);
+    explicit UltraProver_(Instance& instance);
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_grand_product_computation_round();
+    void execute_commitment_finalisation_round();
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();
@@ -67,6 +68,9 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     work_queue<Curve> queue;
 
+    std::shared_ptr<Instance> instance;
+
+    // this should be ProverOutput
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;
