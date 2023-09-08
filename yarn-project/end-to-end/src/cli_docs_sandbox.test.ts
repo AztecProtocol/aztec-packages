@@ -25,7 +25,7 @@ describe('CLI docs sandbox', () => {
       logs.push(format(...args));
       debug(...args);
     };
-  });
+  }, 60_000);
 
   // in order to run the same command twice, we need to create a new CLI instance
   const resetCli = () => {
@@ -161,7 +161,7 @@ Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b
     expect(foundPartialAddress).toBeDefined();
   });
 
-  it.only('creates an account, gets account, deploys, checks deployed, view method, sending a tx... [SEQUENTIAL]', async () => {
+  it('creates an account, gets account, deploys, checks deployed, view method, sending a tx... [SEQUENTIAL]', async () => {
     // Test create-account
     let docs = `
 // docs:start:create-account
@@ -271,7 +271,7 @@ View result:  1000000n
       .replace('$CONTRACT_ADDRESS', contractAddress.toString());
     await run(command);
 
-    const foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    let foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
     expect(foundBalance!).toEqual(`${BigInt(1000000).toString()}n`);
 
     clearLogs();
@@ -338,5 +338,45 @@ Transaction receipt:
     expect(status).toEqual('mined');
     const error = findInLogs(/"error":\s+"(?<error>\S*)"/)?.groups?.error;
     expect(error).toEqual('');
+
+    clearLogs();
+
+    // get balance
+    docs = `
+// docs:start:calls
+% aztec-cli call getBalance -a $ADDRESS -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
+
+View result:  999457n
+
+% aztec-cli call getBalance -a $ADDRESS2 -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
+
+View result:  543n
+// docs:end:calls
+`;
+    command = docs
+      .split('\n')[2]
+      .split('aztec-cli ')[1]
+      .replace('$ADDRESS', newAddress.toString())
+      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
+
+    await run(command);
+
+    foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(foundBalance!).toEqual(`${BigInt(999457).toString()}n`);
+
+    clearLogs();
+
+    command = docs
+      .split('\n')[6]
+      .split('aztec-cli ')[1]
+      .replace('$ADDRESS2', address2.toString())
+      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
+
+    await run(command);
+
+    foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(foundBalance!).toEqual(`${BigInt(543).toString()}n`);
+
+    clearLogs();
   }, 60_000);
 });

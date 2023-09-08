@@ -139,16 +139,4 @@ The command output tells us the details of the transaction such as its hash and 
 
 Let's now call `getBalance()` on each of our accounts and we should see updated values:
 
-```bash
-% aztec-cli call getBalance -a $ADDRESS -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
-
-View result:  [
-  "{\"type\":\"bigint\",\"data\":\"999457\"}"
-]
-
-% aztec-cli call getBalance -a $ADDRESS2 -c PrivateTokenContractAbi -ca $CONTRACT_ADDRESS
-
-View result:  [
-  "{\"type\":\"bigint\",\"data\":\"543\"}"
-]
-```
+// #include_code calls yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
