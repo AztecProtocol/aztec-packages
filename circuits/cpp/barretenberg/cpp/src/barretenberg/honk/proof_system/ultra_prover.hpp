@@ -27,7 +27,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Instance = Instance<Flavor>;
 
   public:
-    explicit UltraProver_(Instance& instance);
+    explicit UltraProver_(Instance&, std::shared_ptr<CommitmentKey>);
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();

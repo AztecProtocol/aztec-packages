@@ -69,8 +69,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraVerifier_<Flavor> create_verifier(const Instance<Flavor>& instance);
 
     // underlying assumption that the first instance should be the one we fold on?
-    FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);
-    FoldingVerifier_<Flavor> create_folding_verifier(std::vector<Instance<Flavor>&> instances);
+    // FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);
+    // FoldingVerifier_<Flavor> create_folding_verifier(std::vector<Instance<Flavor>&> instances);
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;
 // TODO: the UltraGrumpkin flavor still works on BN254 because plookup needs to be templated to be able to construct

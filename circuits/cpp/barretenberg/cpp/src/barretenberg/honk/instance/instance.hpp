@@ -84,8 +84,8 @@ template <UltraFlavor Flavor> class Instance {
 
     void initialise_prover_polynomials();
 
-    void compute_sorted_accumulator_polynomials();
+    void compute_sorted_accumulator_polynomials(FF);
 
-    void compute_grand_product_polynomials();
+    void compute_grand_product_polynomials(FF, FF);
 };
 } // namespace proof_system::honk

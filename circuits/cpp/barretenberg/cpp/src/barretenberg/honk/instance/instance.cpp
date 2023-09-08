@@ -322,6 +322,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_sorted_accumulator_
     prover_polynomials.w_4_shift = key->w_4.shifted();
 }
 
+// get rid of the libraries in the end
 template <UltraFlavor Flavor> void Instance<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta =

@@ -18,10 +18,10 @@ namespace proof_system::honk {
  * @tparam settings Settings class.
  * */
 template <UltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(Instance& instance)
+UltraProver_<Flavor>::UltraProver_(Instance& instance, std::shared_ptr<CommitmentKey> commitment_key)
     : key(instance.proving_key)
-    , queue(instance.commitment_key, transcript)
-    , pcs_commitment_key(instance.commitment_key)
+    , queue(commitment_key, transcript)
+    , pcs_commitment_key(commitment_key)
 {
     instance.initialise_prover_polynomials();
 }
