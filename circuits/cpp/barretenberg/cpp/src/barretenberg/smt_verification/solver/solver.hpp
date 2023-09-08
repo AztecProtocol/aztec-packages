@@ -12,11 +12,10 @@ namespace smt_solver {
  * @param timeout tells the solver to stop trying after `timeout` msecs.
  *
  * @todo TODO(alex): more cvc5 options.
- * @todo TODO(alex): make it class if it's more comfortable
  */
 struct SolverConfiguration{
     bool produce_model;
-    uint32_t timeout;
+    uint64_t timeout;
 };
 
 /**
@@ -25,9 +24,6 @@ struct SolverConfiguration{
  * @details Solver class that can be used to create
  * a solver, finite field terms and the circuit.
  * Check the satisfability of a system and get it's model.
- *
- * @todo TODO(alex): more cvc5 options inside the constructor.
- * @todo TODO(alex) perhaps add the << operator to make it easier to read the constraints.
  */
 class Solver {
   public:
