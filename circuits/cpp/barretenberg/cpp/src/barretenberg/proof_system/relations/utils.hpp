@@ -12,7 +12,6 @@ template <typename Flavor> class RelationUtils {
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using RelationUnivariates = typename Flavor::RelationUnivariates;
-    using PowUnivariate = PowUnivariate<FF>;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -125,7 +124,7 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename ExtendedUnivariate>
     static void extend_and_batch_univariates(const auto& tuple, // WORKTODO: explicit type
-                                             const PowUnivariate& pow_univariate,
+                                             const PowUnivariate<FF>& pow_univariate,
                                              ExtendedUnivariate& result)
     {
         // Random poly R(X) = (1-X) + X.zeta_pow
@@ -162,7 +161,7 @@ template <typename Flavor> class RelationUtils {
     template <typename ExtendedUnivariate> // WORKTODO: no template argument?
     static ExtendedUnivariate batch_over_relations(/* WORKTODO const */ RelationUnivariates& univariate_accumulators,
                                                    const FF& challenge,
-                                                   const PowUnivariate& pow_univariate)
+                                                   const PowUnivariate<FF>& pow_univariate)
     {
         FF running_challenge = 1;
         scale_univariates(univariate_accumulators, challenge, running_challenge);
