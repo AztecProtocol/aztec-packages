@@ -110,16 +110,7 @@ The CLI tells us that the contract was successfully deployed. We can use the `ch
 
 When we deployed the token contract, an initial supply of tokens was minted to the address provided in the constructor. We can now query the `getBalance()` method on the contract to retrieve the balance of that address. Make sure to replace the `contract-address` with the deployment address you got from the previous command, and the `args` with the account you used in the constructor.
 
-```bash
-% aztec-cli call getBalance \
-  --args $ADDRESS \
-  --contract-abi PrivateTokenContractAbi \
-  --contract-address $CONTRACT_ADDRESS
-
-View result:  [
-  "{\"type\":\"bigint\",\"data\":\"1000000\"}"
-]
-```
+// #include_code call yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 The `call` command calls a read-only method on a contract, one that will not generate a transaction to be sent to the network. The arguments here are:
 

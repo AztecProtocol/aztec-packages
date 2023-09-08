@@ -245,5 +245,27 @@ Contract found at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c0
 
     foundContractAddress = findInLogs(/Contract\sfound\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
     expect(foundContractAddress).toEqual(contractAddress.toString());
+
+    clearLogs();
+
+    // Test call
+    docs = `
+// docs:start:call
+% aztec-cli call getBalance --args $ADDRESS --contract-abi PrivateTokenContractAbi --contract-address $CONTRACT_ADDRESS
+
+View result:  1000000n
+// docs:end:call
+`;
+    command = docs
+      .split('\n')[2]
+      .split('aztec-cli ')[1]
+      .replace('$ADDRESS', newAddress.toString())
+      .replace('$CONTRACT_ADDRESS', contractAddress.toString());
+    await run(command);
+
+    const foundBalance = findInLogs(/View\sresult:\s+(?<data>\S+)/)?.groups?.data;
+    expect(foundBalance!).toEqual(`${BigInt(1000000).toString()}n`);
+
+    clearLogs();
   });
 });
