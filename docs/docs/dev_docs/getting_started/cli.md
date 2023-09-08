@@ -71,18 +71,7 @@ For all commands that require a user's private key, the CLI will look for the `P
 
 Let's double check that the accounts have been registered with the sandbox using the `get-accounts` command:
 
-```bash
-% aztec-cli get-accounts
-Accounts found:
-
-Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
-Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-
-Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-```
+#include_code get-accounts yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Save one of the printed accounts (not the one that you generated above) in an environment variable. We will use it later.
 
