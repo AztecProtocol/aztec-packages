@@ -67,7 +67,7 @@ describe('CLI docs sandbox', () => {
     logs.splice(0);
   };
 
-  it('correctly prints example contracts', async () => {
+  it('prints example contracts', async () => {
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
@@ -104,7 +104,7 @@ UniswapContractAbi
     expect(logs).toEqual(expectedConsoleOutput);
   });
 
-  it('correctly gets block number', async () => {
+  it('gets a block number', async () => {
     const docs = `
 // docs:start:block-number
 % aztec-cli block-number
@@ -118,5 +118,30 @@ UniswapContractAbi
     // expect logs to contain a number and nothing else
     expect(logs.length).toEqual(1);
     expect(logs[0]).toMatch(/\d+/);
+  });
+
+  it('creates an account', async () => {
+    const docs = `
+// docs:start:create-account
+% aztec-cli create-account
+Created new account:
+
+Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
+Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
+Private key:     0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+// docs:end:create-account
+`;
+
+    const command = docs.split('\n')[2].split('aztec-cli ')[1];
+
+    await run(command);
+    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundAddress).toBeDefined();
+    const foundPublicKey = findInLogs(/Public\skey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
+    expect(foundPublicKey).toBeDefined();
+    const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
+      ?.partialAddress;
+    expect(foundPartialAddress).toBeDefined();
   });
 });
