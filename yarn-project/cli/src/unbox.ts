@@ -1,9 +1,13 @@
-// heavily inspired by https://github.com/trufflesuite/truffle/blob/develop/packages/box/lib/utils/unbox.ts
+// inspired by https://github.com/trufflesuite/truffle/blob/develop/packages/box/lib/utils/unbox.ts
+// however, their boxes are stored as standalone git repositories, while ours are subpackages in a monorepo
+// so we do some hacky conversions post copy to make them work as standalone packages.
 // We download the master branch of the monorepo, and then
-// (1) copy "starter-kit" subpackage to the current working directory, into a new subdirectory "starter-kit".
-// (2) copy the specified contract from the "noir-contracts" subpackage to into a new subdirectory "starter-kit/noir-contracts",
-// (3) copy the specified contract's ABI into the "starter-kit/noir-contracts" subdirectory.
-// These will be used by a simple frontend to interact with the contract and deploy to a local sandbox instance of aztec3.
+// (1) copy "starter-kit" subpackage to the current working directory, into a new subdirectory X
+// (2) copy the specified contract from the "noir-contracts" subpackage to into a new subdirectory "X/src/contracts",
+// (3) copy the specified contract's ABI into the "X/src/contracts" subdirectory.
+// These are used by a simple frontend to interact with the contract and deploy to a local sandbox instance of aztec3.
+// The unbox logic can be tested locally by running `$ts-node --esm src/bin/index.ts unbox PrivateToken`
+// from `yarn-project/cli/`
 import { LogFn } from '@aztec/foundation/log';
 
 import { promises as fs } from 'fs';
@@ -92,8 +96,8 @@ async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, 
 
 /**
  * Not flexible at at all, but quick fix to download a noir smart contract from our
- * monorepo on github.  this will copy over the `yarn-projects/starter-kit` folder in its entirey
- * as well as the specfieid directoryPath, which should point to a single noir contract in
+ * monorepo on github.  this will copy over the `yarn-projects/boxes/{contract_name}` folder
+ * as well as the specified directoryPath, which should point to a single noir contract in
  * `yarn-projects/noir-contracts/src/contracts/...`
  * @param directoryPath - path to the directory in the github repo
  * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
@@ -107,7 +111,7 @@ async function _downloadNoirFilesFromGithub(
 ): Promise<void> {
   const owner = GITHUB_OWNER;
   const repo = GITHUB_REPO;
-  // Step 1: Fetch the ZIP from GitHub, hardcoded to the master branch
+  // Step 1: Fetch the monorepo ZIP from GitHub, hardcoded to the master branch
   const url = `https://github.com/${owner}/${repo}/archive/refs/heads/master.zip`;
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
@@ -147,21 +151,35 @@ async function _downloadNoirFilesFromGithub(
     log(`Copied ${file.name} to ${targetPath}`);
   }
 }
+/**
+ * Does some conversion from the package/build configurations in the monorepo to the
+ * something usable by the copied standalone unboxed folder.  Adjusts relative paths
+ * and package versions.
+ * @param outputPath - relative path where we are copying everything
+ * @param log - logger
+ */
+async function updatePackagingConfigurations(outputPath: string, log: LogFn): Promise<void> {
+  await _updateNargoToml(outputPath, log);
+  await _updatePackageJsonVersions(outputPath, log);
+  await _updateTsConfig(outputPath, log);
+}
 
 /**
- * quick hack to adjust the copied contract Nargo.toml file to point to the location
- * of noir-libs in the newly created/copied starter-kit directory
+ * hack to adjust the copied contract Nargo.toml file to point to the location
+ * of noir-libs in the newly created/copied directory
  * @param outputPath - relative path where we are copying everything
+ * @param log - logger
  */
-async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
+async function _updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
-  log(`read Nargo.toml file: ${fileContent}`);
   const lines = fileContent.split('\n');
   const newLines = lines
     .filter(line => !line.startsWith('#'))
     .map(line => {
       // hard coded mapping of dependencies that aztec noir contracts use - add more here to support more "packages"
+      // TODO: consider just storing a copy of everything in the /boxes/ subpackage, and then we don't need to
+      // update the Nargo.toml file at all or copy from the noir-libs subpackage
       if (line.startsWith('aztec')) {
         return `aztec = { path = "./noir-aztec" }`;
       }
@@ -174,7 +192,6 @@ async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
       return line;
     });
   const updatedContent = newLines.join('\n');
-  log(`transformed as ${updatedContent}`);
   await fs.writeFile(nargoTomlPath, updatedContent);
   log(`Updated Nargo.toml to point to local copy of noir-libs`);
 }
@@ -183,7 +200,7 @@ async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
  *
  * The `tsconfig.json` also needs to be updated to remove the "references" section, which
  * points to the monorepo's subpackages.  Those are unavailable in the cloned subpackage,
- * so remove them to install from npm.
+ * so we remove the entries to install the the workspace packages from npm.
  * @param outputPath - directory we are unboxing to
  */
 async function _updateTsConfig(outputPath: string, log: LogFn) {
@@ -194,7 +211,6 @@ async function _updateTsConfig(outputPath: string, log: LogFn) {
 
     delete config.references;
 
-    // Convert the object back to a JSON string and write it back to the file
     const updatedData = JSON.stringify(config, null, 2);
     await fs.writeFile(tsconfigJsonPath, updatedData, 'utf8');
 
@@ -212,12 +228,12 @@ async function _updateTsConfig(outputPath: string, log: LogFn) {
  * @param outputPath - directory we are unboxing to
  * @param log - logger
  */
-async function updatePackageJsonVersions(outputPath: string, log: LogFn): Promise<void> {
+async function _updatePackageJsonVersions(outputPath: string, log: LogFn): Promise<void> {
   const packageJsonPath = path.join(outputPath, 'package.json');
   const fileContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageData = JSON.parse(fileContent);
 
-  // Check and replace workspace pins in dependencies
+  // Check and replace "workspace^" pins in dependencies, which are monorepo yarn workspace references
   if (packageData.dependencies) {
     for (const [key, value] of Object.entries(packageData.dependencies)) {
       if (value === 'workspace:^') {
@@ -230,15 +246,15 @@ async function updatePackageJsonVersions(outputPath: string, log: LogFn): Promis
   if (packageData.devDependencies) {
     for (const [key, value] of Object.entries(packageData.devDependencies)) {
       if (value === 'workspace:^') {
+        // TODO: check if this right post landing.  the package.json version looks like 0.1.0
+        // but the npm versions look like v0.1.0-alpha63 so we are not fully pinned
         packageData.devDependencies[key] = `^${packageData.version}`;
       }
     }
   }
 
-  // Convert the modified object back to a string
+  // Convert back to a string and write back to the package.json file
   const updatedContent = JSON.stringify(packageData, null, 2);
-
-  // Write the modified content back to the package.json file
   await fs.writeFile(packageJsonPath, updatedContent);
 
   log(`Updated package.json versions to ${packageData.version}`);
@@ -260,12 +276,10 @@ async function createDirectory(outputDirectoryName: string, log: LogFn): Promise
       throw new Error(`The specified path ${outputDirectoryName} is not a directory/folder.`);
     }
   } catch (error: any) {
-    // If the directory does not exist, create it
     if (error.code === 'ENOENT') {
       await fs.mkdir(absolutePath, { recursive: true });
       log(`The directory did not exist and has been created: ${absolutePath}`);
     } else {
-      // If there was another error, rethrow it
       throw error;
     }
   }
@@ -298,11 +312,8 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
     return;
   }
   // downloads the selected contract's noir source code into `${outputDirectoryName}/src/contracts`,
-  // along with the @aztec/starter-kit and @aztec/noir-libs
-  // const outputPath = path.join(process.cwd(), outputDirectoryName);
+  // along with the relevant folders in @aztec/boxes/{contract_name} and @aztec/noir-libs
   const outputPath = await createDirectory(outputDirectoryName, log);
   await downloadContractAndStarterKitFromGithub(contractName, outputPath, log);
-
-  await updateNargoToml(outputDirectoryName, log);
-  await updatePackageJsonVersions(outputDirectoryName, log);
+  await updatePackagingConfigurations(outputPath, log);
 }
