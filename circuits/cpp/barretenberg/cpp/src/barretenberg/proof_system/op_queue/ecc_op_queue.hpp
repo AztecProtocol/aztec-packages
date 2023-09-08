@@ -4,7 +4,7 @@
 
 namespace proof_system {
 
-enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY};
+enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
 
 /**
  * @brief Raw description of an ECC operation used to produce equivalent descriptions over different curves.
@@ -42,8 +42,11 @@ class ECCOpQueue {
     std::array<std::vector<Fr>, 4> ultra_ops; // ops encoded in the width-4 Ultra format
     std::vector<std::array<Fq, 5>> eccvm_ops;
 
-    size_t current_ultra_transcript_size = 0; // M_i
-    size_t previous_ultra_transcript_size = 0; // M_{i-1}
+    size_t current_ultra_ops_size = 0;  // M_i
+    size_t previous_ultra_ops_size = 0; // M_{i-1}
+
+    std::array<Point, 4> ultra_ops_commitments;
+    std::array<Point, 4> previous_ultra_ops_commitments;
 
     uint32_t get_number_of_muls()
     {
@@ -66,14 +69,16 @@ class ECCOpQueue {
     /**
      * @brief Set the current and previous size of the ultra_ops transcript
      *
-     * @details previous_ultra_transcript_size = M_{i-1} is needed by the prover to extract the previous aggregate op
-     * queue transcript T_{i-1} from the current one T_i.
+     * @details previous_ultra_ops_size = M_{i-1} is needed by the prover to extract the previous aggregate op
+     * queue transcript T_{i-1} from the current one T_i. This method should be called when a circuit is 'finalized'.
      */
     void set_size_data()
     {
-        previous_ultra_transcript_size = current_ultra_transcript_size;
-        current_ultra_transcript_size = ultra_ops.size();
+        previous_ultra_ops_size = current_ultra_ops_size;
+        current_ultra_ops_size = ultra_ops.size();
     }
+
+    [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
 
     /**
      * @brief Get a 'view' of the current ultra ops object
@@ -99,8 +104,9 @@ class ECCOpQueue {
     {
         std::vector<std::span<Fr>> result;
         result.reserve(ultra_ops.size());
+        // Construct T_{i-1} as a view of size M_{i-1} into T_i
         for (auto& entry : ultra_ops) {
-            result.emplace_back(entry.begin(), previous_ultra_transcript_size);
+            result.emplace_back(entry.begin(), previous_ultra_ops_size);
         }
         return result;
     }
