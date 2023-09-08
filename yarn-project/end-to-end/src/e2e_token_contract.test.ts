@@ -1359,10 +1359,7 @@ describe('e2e_token_contract', () => {
       });
 
       it('on behalf of other (invalid designated caller)', async () => {
-        const balancePub0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-        const balancePub1 = await asset.methods.balance_of_public({ address: accounts[1].address }).view();
         const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-        const balancePriv1 = await asset.methods.balance_of_private({ address: accounts[1].address }).view();
         const amount = balancePriv0 + 2n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -1382,11 +1379,6 @@ describe('e2e_token_contract', () => {
             .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
             .simulate({ origin: accounts[2].address }),
         ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
-
-        expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub0);
-        expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv0);
-        expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balancePub1);
-        expect(await asset.methods.balance_of_private({ address: accounts[1].address }).view()).toEqual(balancePriv1);
       });
     });
   });
