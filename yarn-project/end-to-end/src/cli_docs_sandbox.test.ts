@@ -120,56 +120,6 @@ UniswapContractAbi
     expect(logs[0]).toMatch(/\d+/);
   });
 
-  it('creates an account', async () => {
-    const docsCreate = `
-// docs:start:create-account
-% aztec-cli create-account
-Created new account:
-
-Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
-Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
-Private key:     0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-// docs:end:create-account
-`;
-
-    const command = docsCreate.split('\n')[2].split('aztec-cli ')[1];
-
-    await run(command);
-    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
-    expect(foundAddress).toBeDefined();
-    const foundPublicKey = findInLogs(/Public\skey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
-    expect(foundPublicKey).toBeDefined();
-    const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
-      ?.partialAddress;
-    expect(foundPartialAddress).toBeDefined();
-    const newAddress = AztecAddress.fromString(foundAddress!);
-
-    clearLogs();
-
-    const docsGetAccounts = `
-// docs:start:get-accounts
-% aztec-cli get-accounts
-Accounts found:
-
-Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
-Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-
-Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
-Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
-Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
-// docs:end:get-accounts
-`;
-
-    const commandGetAccounts = docsGetAccounts.split('\n')[2].split('aztec-cli ')[1];
-    await run(commandGetAccounts);
-
-    const fetchedAddresses = findMultipleInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/);
-    const foundFetchedAddress = fetchedAddresses.find(match => match.groups?.address === newAddress.toString());
-    expect(foundFetchedAddress).toBeDefined();
-  });
-
   it('creates an account from private key', async () => {
     const docs = `
 // docs:start:create-account-from-private-key
@@ -209,5 +159,73 @@ Partial address: 0x01e5e7b2abbfb98a93b7549ae80faa6886f8ea8e8f412416fb330b565fd2b
     const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
       ?.partialAddress;
     expect(foundPartialAddress).toBeDefined();
+  });
+
+  it('creates an account, gets account, deploys, checks deployed, view method, sending a tx... [SEQUENTIAL]', async () => {
+    // Test create-account
+    let docs = `
+// docs:start:create-account
+% aztec-cli create-account
+Created new account:
+
+Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
+Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
+Private key:     0x2aba9e7de7075deee3e3f4ad1e47749f985f0f72543ed91063cc97a40d851f1e
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+// docs:end:create-account
+`;
+
+    let command = docs.split('\n')[2].split('aztec-cli ')[1];
+
+    await run(command);
+    const foundAddress = findInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundAddress).toBeDefined();
+    const foundPublicKey = findInLogs(/Public\skey:\s+(?<publicKey>0x[a-fA-F0-9]+)/)?.groups?.publicKey;
+    expect(foundPublicKey).toBeDefined();
+    const foundPartialAddress = findInLogs(/Partial\saddress:\s+(?<partialAddress>0x[a-fA-F0-9]+)/)?.groups
+      ?.partialAddress;
+    expect(foundPartialAddress).toBeDefined();
+    const newAddress = AztecAddress.fromString(foundAddress!);
+
+    clearLogs();
+
+    // Test get-account
+    docs = `
+// docs:start:get-accounts
+% aztec-cli get-accounts
+Accounts found:
+
+Address:         0x20d3321707d53cebb168568e25c5c62a853ae1f0766d965e00d6f6c4eb05d599
+Public key:      0x02d18745eadddd496be95274367ee2cbf0bf667b81373fb6bed715c18814a09022907c273ec1c469fcc678738bd8efc3e9053fe1acbb11fa32da0d6881a1370e
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+
+Address:         0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c
+Public key:      0x08aad54f32f1b6621ee5f25267166e160147cd355a2dfc129fa646a651dd29471d814ac749c2cda831fcca361c830ba56db4b4bd5951d4953c81865d0ae0cbe7
+Partial address: 0x72bf7c9537875b0af267b4a8c497927e251f5988af6e30527feb16299042ed
+// docs:end:get-accounts
+`;
+
+    command = docs.split('\n')[2].split('aztec-cli ')[1];
+    await run(command);
+
+    const fetchedAddresses = findMultipleInLogs(/Address:\s+(?<address>0x[a-fA-F0-9]+)/);
+    const foundFetchedAddress = fetchedAddresses.find(match => match.groups?.address === newAddress.toString());
+    expect(foundFetchedAddress).toBeDefined();
+
+    // Test deploy
+    docs = `
+// docs:start:deploy
+% aztec-cli deploy PrivateTokenContractAbi --args 1000000 $ADDRESS
+
+Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
+// docs:end:deploy
+    `;
+
+    command = docs.split('\n')[2].split('aztec-cli ')[1].replace('$ADDRESS', newAddress.toString());
+    await run(command);
+
+    const foundContractAddress = findInLogs(/Contract\sdeployed\sat\s(?<address>0x[a-fA-F0-9]+)/)?.groups?.address;
+    expect(foundContractAddress).toBeDefined();
+    const contractAddress = AztecAddress.fromString(foundContractAddress!);
   });
 });

@@ -83,11 +83,7 @@ export ADDRESS2=<Account address printed by the above command>
 
 We will now deploy the private token contract using the `deploy` command, minting 1000000 initial tokens to address `0x175310d40cd3412477db1c2a2188efd586b63d6830115fbb46c592a6303dbf6c`. Make sure to replace this address with one of the two you created earlier.
 
-```bash
-% aztec-cli deploy PrivateTokenContractAbi --args 1000000 $ADDRESS
-
-Contract deployed at 0x1ae8eea0dc265fb7f160dae62cc8912686d8a9ed78e821fbdd8bcedc54c06d0f
-```
+#include_code deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Save the contract address as an environment variable. We will use it later.
 
