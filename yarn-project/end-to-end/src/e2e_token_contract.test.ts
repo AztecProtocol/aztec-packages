@@ -8,7 +8,14 @@ import {
   AztecAddress,
   computeMessageSecretHash,
 } from '@aztec/aztec.js';
-import { CircuitsWasm, CompleteAddress, Fr, FunctionSelector, GeneratorIndex, PrivateKey } from '@aztec/circuits.js';
+import {
+  CircuitsWasm,
+  CompleteAddress,
+  Fr,
+  FunctionSelector,
+  GeneratorIndex,
+  GrumpkinScalar,
+} from '@aztec/circuits.js';
 import { pedersenPlookupCompressWithHashIndex } from '@aztec/circuits.js/barretenberg';
 import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrAuthWitnessAccountContract, TokenContract } from '@aztec/noir-contracts/types';
@@ -68,7 +75,7 @@ describe('e2e_token_contract', () => {
     {
       const _accounts = [];
       for (let i = 0; i < 3; i++) {
-        const privateKey = PrivateKey.random();
+        const privateKey = GrumpkinScalar.random();
         const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
         const deployTx = await account.deploy();
         await deployTx.wait({ interval: 0.1 });

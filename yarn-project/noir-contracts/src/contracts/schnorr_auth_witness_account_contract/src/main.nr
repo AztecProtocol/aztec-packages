@@ -1,16 +1,61 @@
 mod util;
 mod auth_oracle;
-mod storage;
 
 contract SchnorrAuthWitnessAccount {
-    use dep::std::hash::pedersen_with_separator;
-    use dep::aztec::entrypoint::EntrypointPayload;
-    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
-    use dep::std::option::Option;
-    use dep::aztec::oracle::compute_selector::compute_selector;
+    use dep::std::{
+        hash::pedersen_with_separator,
+        option::Option,
+    };
+
+    use dep::aztec::{
+        entrypoint::EntrypointPayload,
+        constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD,
+        oracle::compute_selector::compute_selector,
+        context::{
+            PrivateContext, 
+            PublicContext
+        },
+        state_vars::{
+            map::Map,
+            public_state::PublicState,
+        },
+        types::type_serialisation::{
+            field_serialisation::{
+                FieldSerialisationMethods, 
+                FIELD_SERIALISED_LEN,
+            }
+        }
+    };
+
     use crate::util::recover_address;
     use crate::auth_oracle::get_auth_witness;
-    use crate::storage::Storage;
+
+    struct Storage {
+        approved_action: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+    }
+
+    impl Storage {
+        fn init(
+            private_context: Option<&mut PrivateContext>,
+            public_context: Option<&mut PublicContext>,
+        ) -> pub Self {
+            Storage {
+                approved_action: Map::new(
+                private_context,
+                public_context,
+                1,
+                |private_context, public_context, slot| {
+                    PublicState::new(
+                        private_context,
+                        public_context,
+                        slot,
+                        FieldSerialisationMethods,
+                    )
+                },
+                ),
+            }
+        }
+    }
 
     #[aztec(private)]
     fn constructor() {}
