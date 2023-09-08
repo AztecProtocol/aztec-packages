@@ -111,6 +111,13 @@ describe('e2e_card_game', () => {
         .send({ origin: firstPlayer })
         .wait();
 
+      await expect(
+        contract.methods
+          .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[1])])
+          .send({ origin: secondPlayer })
+          .wait(),
+      ).rejects.toThrow(/Card not found/);
+
       const collection = await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer });
       expect(unwrapOptions(collection)).toEqual([
         {
@@ -225,35 +232,7 @@ describe('e2e_card_game', () => {
       return finalGameState;
     }
 
-    it('should play a game and claim the winned cards', async () => {
-      const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
-      const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
-      await joinGame(firstPlayer, firstPlayerGameDeck);
-      await joinGame(secondPlayer, secondPlayerGameDeck);
-      await contract.methods.start_game(GAME_ID).send({ origin: firstPlayer }).wait();
-
-      const game = await playGame([
-        { address: firstPlayer, deck: firstPlayerGameDeck },
-        { address: secondPlayer, deck: secondPlayerGameDeck },
-      ]);
-
-      const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
-
-      const winner = AztecAddress.fromBigInt(sotedByPoints[0].address);
-      const loser = AztecAddress.fromBigInt(sotedByPoints[1].address);
-
-      await expect(
-        contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
-      ).rejects.toThrow(/Not the winner/);
-
-      await contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
-      const winnerCollection = unwrapOptions(
-        await contract.methods.view_collection_cards(winner, 0).view({ from: winner }),
-      );
-      expect(winnerCollection).toEqual(expect.arrayContaining([firstPlayerGameDeck, secondPlayerGameDeck].flat()));
-    }, 120_000);
-
-    it('should allow to play with cards won', async () => {
+    it('should play a game, claim the winned cards and play another match with winned cards', async () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
       await joinGame(firstPlayer, firstPlayerGameDeck);
@@ -267,6 +246,12 @@ describe('e2e_card_game', () => {
 
       const sotedByPoints = game.players.sort((a, b) => Number(b.points - a.points));
       const winner = AztecAddress.fromBigInt(sotedByPoints[0].address);
+      const loser = AztecAddress.fromBigInt(sotedByPoints[1].address);
+
+      await expect(
+        contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
+      ).rejects.toThrow(/Not the winner/);
+
       await contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
 
       const winnerCollection = unwrapOptions(
