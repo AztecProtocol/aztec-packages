@@ -283,8 +283,16 @@ export class Sequencer {
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     this.log(`Building block ${globalVariables.blockNumber}`);
 
-    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
-    return block;
+    // If the block is invalid, drop the transactions
+    try {
+      const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
+      return block;
+    } catch (err) {
+      const hashes = txs.map(tx => tx.hash);
+      this.log.error(`Dropping failed txs ${hashes.join(', ')}`);
+      await this.p2pClient.deleteTxs(hashes);
+      throw err;
+    }
   }
 
   /**

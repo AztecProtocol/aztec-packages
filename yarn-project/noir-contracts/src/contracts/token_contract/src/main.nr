@@ -7,6 +7,7 @@ mod util;
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
 // message hash = H([caller, selector, , ...args])
 // To be read as `caller` calls function defined by `selector` with `args`
+// Including a nonce in the message hash ensures that the message can only be used once.
 
 contract Token {
     // Libs
@@ -35,9 +36,7 @@ contract Token {
 
     use crate::types::{AztecAddress, TransparentNote, TransparentNoteMethods, TRANSPARENT_NOTE_LEN};
     use crate::account_interface::AccountContract;
-    use crate::util::compute_message_hash;
-
-    
+    use crate::util::{compute_message_hash};
 
     struct Storage {
         admin: PublicState<Field, FIELD_SERIALISED_LEN>,
@@ -169,13 +168,18 @@ contract Token {
         from: AztecAddress,
         amount: Field,
         secret_hash: Field,
+        nonce: Field,
     ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
 
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("shield((Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash]);
+            // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
+            let selector = compute_selector("shield((Field),Field,Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash, nonce]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
+            context.push_new_nullifier(message_field, 0);
+        } else {
+            assert(nonce == 0, "invalid nonce");
         }
 
         let amount = SafeU120::new(amount);
@@ -194,13 +198,17 @@ contract Token {
         from: AztecAddress,
         to: AztecAddress,
         amount: Field,
+        nonce: Field,
     ) -> Field {
         let storage = Storage::init(Option::none(), Option::some(&mut context));
 
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("transfer_public((Field),(Field),Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
+            let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
+            context.push_new_nullifier(message_field, 0);
+        } else {
+            assert(nonce == 0, "invalid nonce");
         }
 
         let amount = SafeU120::new(amount);
@@ -232,13 +240,17 @@ contract Token {
         from: AztecAddress,
         to: AztecAddress,
         amount: Field,
+        nonce: Field,
     ) -> Field {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("unshield((Field),(Field),Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
+            let selector = compute_selector("unshield((Field),(Field),Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
+            context.push_new_nullifier(message_field, 0);
+        } else {
+            assert(nonce == 0, "invalid nonce");
         }
 
         let from_balance = storage.balances.at(from.address);
@@ -253,13 +265,17 @@ contract Token {
         from: AztecAddress,
         to: AztecAddress,
         amount: Field,
+        nonce: Field,
     ) -> Field {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
         if (from.address != context.msg_sender()) {
-            let selector = compute_selector("transfer((Field),(Field),Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount]);
+            let selector = compute_selector("transfer((Field),(Field),Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
+            context.push_new_nullifier(message_field, 0);
+        } else {
+            assert(nonce == 0, "invalid nonce");
         }
 
         let from_balance = storage.balances.at(from.address);
