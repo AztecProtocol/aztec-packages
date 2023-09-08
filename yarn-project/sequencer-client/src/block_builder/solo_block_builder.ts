@@ -3,7 +3,7 @@ import {
   BaseOrMergeRollupPublicInputs,
   BaseRollupInputs,
   CircuitsWasm,
-  ConstantBaseRollupData,
+  ConstantRollupData,
   GlobalVariables,
   HISTORIC_BLOCKS_TREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
@@ -528,8 +528,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     return this.getMembershipWitnessFor(blockHash, MerkleTreeId.BLOCKS_TREE, HISTORIC_BLOCKS_TREE_HEIGHT);
   }
 
-  protected async getConstantBaseRollupData(globalVariables: GlobalVariables): Promise<ConstantBaseRollupData> {
-    return ConstantBaseRollupData.from({
+  protected async getConstantRollupData(globalVariables: GlobalVariables): Promise<ConstantRollupData> {
+    return ConstantRollupData.from({
       baseRollupVkHash: DELETE_FR,
       mergeRollupVkHash: DELETE_FR,
       privateKernelVkTreeRoot: FUTURE_FR,
@@ -604,7 +604,7 @@ export class SoloBlockBuilder implements BlockBuilder {
     const wasm = await CircuitsWasm.get();
 
     // Get trees info before any changes hit
-    const constants = await this.getConstantBaseRollupData(globalVariables);
+    const constants = await this.getConstantRollupData(globalVariables);
     const startNullifierTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.NULLIFIER_TREE);
     const startContractTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.CONTRACT_TREE);
     const startPrivateDataTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.PRIVATE_DATA_TREE);

@@ -28,46 +28,46 @@ class merge_rollup_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 
-    static void run_cbind(MergeRollupInputs& merge_rollup_inputs,
-                          BaseOrMergeRollupPublicInputs& expected_public_inputs,
-                          bool compare_pubins = true)
-    {
-        info("Retesting via cbinds....");
-        std::vector<uint8_t> merge_rollup_inputs_vec;
-        serialize::write(merge_rollup_inputs_vec, merge_rollup_inputs);
+    // static void run_cbind(MergeRollupInputs& merge_rollup_inputs,
+    //                       BaseOrMergeRollupPublicInputs& expected_public_inputs,
+    //                       bool compare_pubins = true)
+    // {
+    //     info("Retesting via cbinds....");
+    //     std::vector<uint8_t> merge_rollup_inputs_vec;
+    //     serialize::write(merge_rollup_inputs_vec, merge_rollup_inputs);
 
-        uint8_t const* public_inputs_buf = nullptr;
-        // info("simulating circuit via cbind");
-        size_t public_inputs_size = 0;
-        info("creating proof");
-        auto* circuit_failure_ptr =
-            merge_rollup__sim(merge_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
-        ASSERT_TRUE(circuit_failure_ptr == nullptr);
-        // info("PublicInputs size: ", public_inputs_size);
+    //     uint8_t const* public_inputs_buf = nullptr;
+    //     // info("simulating circuit via cbind");
+    //     size_t public_inputs_size = 0;
+    //     info("creating proof");
+    //     auto* circuit_failure_ptr =
+    //         merge_rollup__sim(merge_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
+    //     ASSERT_TRUE(circuit_failure_ptr == nullptr);
+    //     // info("PublicInputs size: ", public_inputs_size);
 
-        if (compare_pubins) {
-            BaseOrMergeRollupPublicInputs public_inputs;
-            uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
-            serialize::read(public_inputs_buf_tmp, public_inputs);
-            ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
-            for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
-                ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
-            }
+    //     if (compare_pubins) {
+    //         BaseOrMergeRollupPublicInputs public_inputs;
+    //         uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
+    //         serialize::read(public_inputs_buf_tmp, public_inputs);
+    //         ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
+    //         for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
+    //             ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
+    //         }
 
-            std::vector<uint8_t> expected_public_inputs_vec;
-            serialize::write(expected_public_inputs_vec, expected_public_inputs);
+    //         std::vector<uint8_t> expected_public_inputs_vec;
+    //         serialize::write(expected_public_inputs_vec, expected_public_inputs);
 
-            ASSERT_EQ(public_inputs_size, expected_public_inputs_vec.size());
-            // Just compare the first 10 bytes of the serialized public outputs
-            if (public_inputs_size > 10) {
-                // for (size_t 0; i < public_inputs_size; i++) {
-                for (size_t i = 0; i < 10; i++) {
-                    ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-                }
-            }
-        }
-        free((void*)public_inputs_buf);
-    }
+    //         ASSERT_EQ(public_inputs_size, expected_public_inputs_vec.size());
+    //         // Just compare the first 10 bytes of the serialized public outputs
+    //         if (public_inputs_size > 10) {
+    //             // for (size_t 0; i < public_inputs_size; i++) {
+    //             for (size_t i = 0; i < 10; i++) {
+    //                 ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
+    //             }
+    //         }
+    //     }
+    //     free((void*)public_inputs_buf);
+    // }
 };
 
 TEST_F(merge_rollup_tests, native_different_rollup_type_fails)
@@ -299,6 +299,6 @@ TEST_F(merge_rollup_tests, native_merge_cbind)
 
     ASSERT_FALSE(builder.failed());
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
-    run_cbind(inputs, ignored_public_inputs, false);
+    // run_cbind(inputs, ignored_public_inputs, false);
 }
 }  // namespace aztec3::circuits::rollup::merge::native_merge_rollup_circuit

@@ -16,7 +16,7 @@ import {
   CircuitsWasm,
   CombinedAccumulatedData,
   CombinedConstantData,
-  ConstantBaseRollupData,
+  ConstantRollupData,
   ContractDeploymentData,
   ContractStorageRead,
   ContractStorageUpdateRequest,
@@ -704,8 +704,8 @@ export function makeGlobalVariables(seed = 1, blockNumber: number | undefined = 
 export function makeConstantBaseRollupData(
   seed = 1,
   globalVariables: GlobalVariables | undefined = undefined,
-): ConstantBaseRollupData {
-  return ConstantBaseRollupData.from({
+): ConstantRollupData {
+  return ConstantRollupData.from({
     startHistoricBlocksTreeRootsSnapshot: makeAppendOnlyTreeSnapshot(seed + 0x300),
     privateKernelVkTreeRoot: fr(seed + 0x401),
     publicKernelVkTreeRoot: fr(seed + 0x402),
