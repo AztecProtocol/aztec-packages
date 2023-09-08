@@ -9,7 +9,8 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Skipping firefox because this headless firefox is so slow.
-#export BROWSER=${BROWSER:-chrome,webkit} # Skipping webkit as well due to intermittent errors
+# Skipping webkit as well due to intermittent errors, see https://github.com/AztecProtocol/aztec-packages/issues/2104
+#export BROWSER=${BROWSER:-chrome,webkit}
 export BROWSER=${BROWSER:-chrome}
 
 # Can be "mt" or "st".
