@@ -307,7 +307,7 @@ TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
     // Use extend_and_batch_univariates to extend to MAX_LENGTH then accumulate
     PowUnivariate<FF> pow_univariate(1);
     auto result = Univariate<FF, MAX_LENGTH>();
-    SumcheckProverRound<Flavor>::extend_and_batch_univariates(tuple_of_tuples, pow_univariate, result);
+    Utils::extend_and_batch_univariates(tuple_of_tuples, pow_univariate, result);
 
     // Repeat the batching process manually
     auto result_expected = barycentric_util_1.extend(univariate_1) * 1 +

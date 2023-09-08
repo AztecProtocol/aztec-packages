@@ -83,26 +83,6 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
-     * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
-     * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
-     *
-     * @tparam T : In practice, this is a Univariate<FF, MAX_NUM_RELATIONS>.
-     */
-    barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH> batch_over_relations(
-        FF challenge, const barretenberg::PowUnivariate<FF>& pow_univariate)
-    {
-        FF running_challenge = 1;
-        Utils::scale_univariates(univariate_accumulators, challenge, running_challenge);
-
-        auto result = barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>(0);
-        extend_and_batch_univariates(univariate_accumulators, pow_univariate, result);
-
-        // Reset all univariate accumulators to 0 before beginning accumulation in the next round
-        Utils::zero_univariates(univariate_accumulators);
-        return result;
-    }
-
-    /**
      * @brief Extend each edge in the edge group at to max-relation-length-many values.
      *
      * @details Should only be called externally with relation_idx equal to 0.
@@ -187,7 +167,8 @@ template <typename Flavor> class SumcheckProverRound {
             Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(alpha, pow_univariate);
+        return Utils::template batch_over_relations<barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>>(
+            univariate_accumulators, alpha, pow_univariate);
     }
 
   private:
@@ -220,53 +201,6 @@ template <typename Flavor> class SumcheckProverRound {
             accumulate_relation_univariates<relation_idx + 1>(
                 univariate_accumulators, extended_edges, relation_parameters, scaling_factor);
         }
-    }
-
-  public:
-    // TODO(luke): Potentially make RelationUnivarites (tuple of tuples of Univariates) a class and make these utility
-    // functions class methods. Alternatively, move all of these tuple utilities (and the ones living elsewhere) to
-    // their own module.
-    /**
-     * Utility methods for tuple of tuples of Univariates
-     */
-
-    /**
-     * @brief Extend Univariates to specified size then sum them
-     *
-     * @tparam extended_size Size after extension
-     * @param tuple A tuple of tuples of Univariates
-     * @param result A Univariate of length extended_size
-     */
-    template <size_t extended_size>
-    static void extend_and_batch_univariates(auto& tuple,
-                                             const barretenberg::PowUnivariate<FF>& pow_univariate,
-                                             barretenberg::Univariate<FF, extended_size>& result)
-    {
-        // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_poly_edge = barretenberg::Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
-        barretenberg::BarycentricData<FF, 2, extended_size> pow_zeta_univariate_extender =
-            barretenberg::BarycentricData<FF, 2, extended_size>();
-        barretenberg::Univariate<FF, extended_size> extended_random_polynomial_edge =
-            pow_zeta_univariate_extender.extend(random_poly_edge);
-
-        auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
-            using Relation = typename std::tuple_element<relation_idx, Relations>::type;
-
-            // TODO(#224)(Cody): this barycentric stuff should be more built-in?
-            barretenberg::BarycentricData<FF, Element::LENGTH, extended_size> barycentric_utils;
-            auto extended = barycentric_utils.extend(element);
-
-            const bool is_subrelation_linearly_independent =
-                Relation::template is_subrelation_linearly_independent<subrelation_idx>();
-            if (is_subrelation_linearly_independent) {
-                // if subrelation is linearly independent, multiply by random polynomial
-                result += extended * extended_random_polynomial_edge;
-            } else {
-                // if subrelation is pure sum over hypercube, don't multiply by random polynomial
-                result += extended;
-            }
-        };
-        Utils::apply_to_tuple_of_tuples(tuple, extend_and_sum);
     }
 };
 

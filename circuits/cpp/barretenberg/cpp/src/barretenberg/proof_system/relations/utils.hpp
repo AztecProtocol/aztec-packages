@@ -12,37 +12,11 @@ template <typename Flavor> class RelationUtils {
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
     using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using PowUnivariate = PowUnivariate<FF>;
 
     /**
-     * @brief Set all coefficients of Univariates to zero
-     *
-     * @details After computing the round univariate, it is necessary to zero-out the accumulators used to compute it.
-     * WORKTODO: rename
+     * Utility methods for tuple of tuples of Univariates
      */
-    static void zero_univariates(auto& tuple)
-    {
-        auto set_to_zero = []<size_t, size_t>(auto& element) {
-            std::fill(element.evaluations.begin(), element.evaluations.end(), FF(0));
-        };
-        apply_to_tuple_of_tuples(tuple, set_to_zero);
-    }
-
-    /**
-     * @brief Scale Univaraites by consecutive powers of the provided challenge
-     *
-     * @param tuple Tuple of tuples of Univariates
-     * @param challenge
-     * @param current_scalar power of the challenge
-     */
-    static void scale_univariates(auto& tuple, const FF& challenge, FF current_scalar)
-    {
-        auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
-            element *= current_scalar;
-            current_scalar *= challenge;
-        };
-        apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
-    }
-
     /**
      * @brief General purpose method for applying an operation to a tuple of tuples of Univariates
      *
@@ -70,6 +44,36 @@ template <typename Flavor> class RelationUtils {
         } else if constexpr (outer_idx + 1 < outer_size) {
             apply_to_tuple_of_tuples<Operation, outer_idx + 1, 0>(tuple, std::forward<Operation>(operation));
         }
+    }
+
+    /**
+     * @brief Set all coefficients of Univariates to zero
+     *
+     * @details After computing the round univariate, it is necessary to zero-out the accumulators used to compute it.
+     * WORKTODO: rename
+     */
+    static void zero_univariates(auto& tuple)
+    {
+        /* WORKTODO const */ auto set_to_zero = []<size_t, size_t>(auto& element) {
+            std::fill(element.evaluations.begin(), element.evaluations.end(), FF(0));
+        };
+        apply_to_tuple_of_tuples(tuple, set_to_zero);
+    }
+
+    /**
+     * @brief Scale Univaraites by consecutive powers of the provided challenge
+     *
+     * @param tuple Tuple of tuples of Univariates
+     * @param challenge
+     * @param current_scalar power of the challenge
+     */
+    static void scale_univariates(auto& tuple, const FF& challenge, FF current_scalar)
+    {
+        auto scale_by_consecutive_powers_of_challenge = [&]<size_t, size_t>(auto& element) {
+            element *= current_scalar;
+            current_scalar *= challenge;
+        };
+        apply_to_tuple_of_tuples(tuple, scale_by_consecutive_powers_of_challenge);
     }
 
     /**
@@ -112,24 +116,63 @@ template <typename Flavor> class RelationUtils {
         }
     }
 
-    // /**
-    //  * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
-    //  * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
-    //  *
-    //  * @tparam T : In practice, this is a Univariate<FF, MAX_NUM_RELATIONS>.
-    //  */
-    // template <typename T> T batch_over_relations(auto& univariate_accumulators, FF challenge, const
-    // barretenberg::PowUnivariate<FF>& pow_univariate)
-    // {
-    //     FF running_challenge = 1;
-    //     scale_univariates(univariate_accumulators, challenge, running_challenge);
+    /**
+     * @brief Extend Univariates to specified size then sum them
+     *
+     * @tparam extended_size Size after extension
+     * @param tuple A tuple of tuples of Univariates
+     * @param result A Univariate of length extended_size
+     */
+    template <typename ExtendedUnivariate>
+    static void extend_and_batch_univariates(const auto& tuple, // WORKTODO: explicit type
+                                             const PowUnivariate& pow_univariate,
+                                             ExtendedUnivariate& result)
+    {
+        // Random poly R(X) = (1-X) + X.zeta_pow
+        auto random_poly_edge = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
+        BarycentricData<FF, 2, ExtendedUnivariate::LENGTH> pow_zeta_univariate_extender;
+        ExtendedUnivariate extended_random_polynomial_edge = pow_zeta_univariate_extender.extend(random_poly_edge);
 
-    //     auto result = barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>(0);
-    //     extend_and_batch_univariates(univariate_accumulators, pow_univariate, result);
+        auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
+            using Relation = typename std::tuple_element<relation_idx, Relations>::type;
 
-    //     // Reset all univariate accumulators to 0 before beginning accumulation in the next round
-    //     zero_univariates(univariate_accumulators);
-    //     return result;
-    // }
+            // TODO(#224)(Cody): this barycentric stuff should be more built-in?
+            BarycentricData<FF, Element::LENGTH, ExtendedUnivariate::LENGTH> barycentric_utils;
+            auto extended = barycentric_utils.extend(element);
+
+            const bool is_subrelation_linearly_independent =
+                Relation::template is_subrelation_linearly_independent<subrelation_idx>();
+            if (is_subrelation_linearly_independent) {
+                // if subrelation is linearly independent, multiply by random polynomial
+                result += extended * extended_random_polynomial_edge;
+            } else {
+                // if subrelation is pure sum over hypercube, don't multiply by random polynomial
+                result += extended;
+            }
+        };
+        apply_to_tuple_of_tuples(tuple, extend_and_sum);
+    }
+
+    /**
+     * @brief Given a tuple t = (t_0, t_1, ..., t_{NUM_RELATIONS-1}) and a challenge α,
+     * return t_0 + αt_1 + ... + α^{NUM_RELATIONS-1}t_{NUM_RELATIONS-1}).
+     *
+     * @tparam T : In practice, this is a Univariate<FF, MAX_NUM_RELATIONS>.
+     */
+    template <typename ExtendedUnivariate> // WORKTODO: no template argument?
+    static ExtendedUnivariate batch_over_relations(/* WORKTODO const */ RelationUnivariates& univariate_accumulators,
+                                                   const FF& challenge,
+                                                   const PowUnivariate& pow_univariate)
+    {
+        FF running_challenge = 1;
+        scale_univariates(univariate_accumulators, challenge, running_challenge);
+
+        auto result = ExtendedUnivariate(0);
+        extend_and_batch_univariates(univariate_accumulators, pow_univariate, result);
+
+        // Reset all univariate accumulators to 0 before beginning accumulation in the next round
+        zero_univariates(univariate_accumulators);
+        return result;
+    }
 };
 } // namespace barretenberg
