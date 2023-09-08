@@ -104,4 +104,4 @@ Public token deployed to 0x2b54f68fd1e18f7dcfa71e3be3c91bb06ecbe727a28d609e964c2
 ```
 ## Next steps
 
-Now that we have our contracts set up, it's time to actually start writing our application that will be interacting with them. 
+Now that we have our contracts set up, it's time to actually [start writing our application that will be interacting with them](./contract_interaction.md).

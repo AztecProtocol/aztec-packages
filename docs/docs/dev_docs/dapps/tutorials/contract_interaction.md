@@ -132,4 +132,4 @@ At the time of this writing, there is no event-based mechanism in the `aztec.js`
 
 ## Next steps
 
-In the next and final section, we'll set up automated tests for our application using [jest](https://jestjs.io/).
+In the next and final section, we'll [set up automated tests for our application](./testing.md).

@@ -22,4 +22,4 @@ Basic understanding of NodeJS and Javascript should be enough to follow this tut
 
 ## Get started
 
-Let's get started with setting up a new javascript project.
+Let's get started with [setting up a new javascript project](./project_setup.md).

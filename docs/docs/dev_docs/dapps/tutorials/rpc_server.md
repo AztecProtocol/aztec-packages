@@ -40,4 +40,4 @@ User accounts:
 
 ## Next steps
 
-With a working connection to the RPC Server, let's now setup our application by compiling and deploying our contracts.
+With a working connection to the RPC Server, let's now setup our application by [compiling and deploying our contracts](./contract_deployment.md).
