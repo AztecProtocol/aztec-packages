@@ -39,6 +39,22 @@
     ],
     "dependencies": []
   },
+  "barretenberg-circuits-x86_64-linux-clang-builder-runner": {
+    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "dockerfile": "dockerfiles/Dockerfile.circuits-x86_64-linux-clang-builder-runner",
+    "rebuildPatterns": [
+      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+    ],
+    "dependencies": []
+  },
+  "barretenberg-circuits-wasm-linux-clang-builder-runner": {
+    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "dockerfile": "dockerfiles/Dockerfile.circuits-wasm-linux-clang-builder-runner",
+    "rebuildPatterns": [
+      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+    ],
+    "dependencies": []
+  },
   "bb.js": {
     "buildDir": "circuits/cpp/barretenberg/ts",
     "rebuildPatterns": ["^circuits/cpp/barretenberg/ts/"],
@@ -127,12 +143,8 @@
     "buildDir": "yarn-project",
     "dockerfile": "yarn-project-base/Dockerfile",
     "rebuildPatterns": [
-      "^circuits/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/.*CMakeLists\\.txt$",
-      "^l1-contracts/",
-      "^yarn-project/l1-artifacts/",
-      "^yarn-project/noir-contracts/",
-      "^yarn-project/noir-libs/",
-      "^yarn-project/noir-compiler/",
+      "^yarn-project/.**\\.ts",
+      "^yarn-project/.**\\/package.json",
       "^yarn-project/yarn-project-base/",
       "^yarn-project/yarn.lock"
     ],
