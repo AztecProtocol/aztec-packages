@@ -106,6 +106,7 @@ fn filter_cards<N>(notes: [Option<ValueNote>; MAX_READ_REQUESTS_PER_CALL], desir
             for j in 0..N {
                 if !found[j] & (card_note.card.strength == desired_cards[j].strength) & (card_note.card.points == desired_cards[j].points) {
                     selected[i] = note;
+                    found[j] = true;
                 }
             }
         }
