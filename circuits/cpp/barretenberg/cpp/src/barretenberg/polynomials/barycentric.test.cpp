@@ -64,7 +64,7 @@ TYPED_TEST(BarycentricDataTests, BarycentricData2to3)
     // e1(X) = 1*(1-X) + 2*X = 1 + X
     Univariate<FF, 2> e1{ { 1, 2 } };
     FF u = FF::random_element();
-    FF calculated_val_at_u = barycentric.evaluate(e1, u);
+    FF calculated_val_at_u = e1.evaluate(u);
     EXPECT_EQ(u + 1, calculated_val_at_u);
 
     Univariate<FF, 3> ext1 = e1.template extend_to<num_evals>();
@@ -82,11 +82,8 @@ TYPED_TEST(BarycentricDataTests, BarycentricData5to6)
     // Note: we are able to represent a degree 4 polynomial with 5 points thus this
     // extension will succeed. It would fail for values on a polynomial of degree > 4.
     Univariate<FF, domain_size> e1{ { 1, 3, 25, 109, 321 } }; // X^4 + X^3 + 1
-
     Univariate<FF, num_evals> ext1 = e1.template extend_to<num_evals>();
-
     Univariate<FF, num_evals> expected{ { 1, 3, 25, 109, 321, 751 } };
-
     EXPECT_EQ(ext1, expected);
 }
 

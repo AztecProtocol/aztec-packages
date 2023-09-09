@@ -1,5 +1,5 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barycentric.hpp"
+#include "univariate.hpp"
 #include <gtest/gtest.h>
 
 namespace barretenberg::test_univariate {
