@@ -71,9 +71,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     RelationUnivariates univariate_accumulators;
 
-    // TODO(#224)(Cody): this should go away
-    barretenberg::BarycentricData<FF, 2, MAX_RELATION_LENGTH> barycentric_2_to_max;
-
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
@@ -94,7 +91,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t univariate_idx = 0; // TODO(#391) zip
         for (auto& poly : multivariates) {
             auto edge = barretenberg::Univariate<FF, 2>({ poly[edge_idx], poly[edge_idx + 1] });
-            extended_edges[univariate_idx] = barycentric_2_to_max.extend(edge);
+            extended_edges[univariate_idx] = edge.template extend_to<MAX_RELATION_LENGTH>();
             ++univariate_idx;
         }
     }
@@ -283,11 +280,8 @@ template <typename Flavor> class SumcheckVerifierRound {
     FF compute_next_target_sum(barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH>& univariate,
                                FF& round_challenge)
     {
-        // IMPROVEMENT(Cody): Use barycentric static method, maybe implement evaluation as member
-        // function on Univariate.
-        auto barycentric = barretenberg::BarycentricData<FF, MAX_RANDOM_RELATION_LENGTH, MAX_RANDOM_RELATION_LENGTH>();
         // Evaluate T^{l}(u_{l})
-        target_total_sum = barycentric.evaluate(univariate, round_challenge);
+        target_total_sum = univariate.evaluate(round_challenge);
 
         return target_total_sum;
     }

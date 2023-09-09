@@ -129,15 +129,14 @@ template <typename Flavor> class RelationUtils {
     {
         // Random poly R(X) = (1-X) + X.zeta_pow
         auto random_poly_edge = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
-        BarycentricData<FF, 2, ExtendedUnivariate::LENGTH> pow_zeta_univariate_extender;
-        ExtendedUnivariate extended_random_polynomial_edge = pow_zeta_univariate_extender.extend(random_poly_edge);
+        ExtendedUnivariate extended_random_polynomial_edge =
+            random_poly_edge.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
             using Relation = typename std::tuple_element<relation_idx, Relations>::type;
 
             // TODO(#224)(Cody): this barycentric stuff should be more built-in?
-            BarycentricData<FF, Element::LENGTH, ExtendedUnivariate::LENGTH> barycentric_utils;
-            auto extended = barycentric_utils.extend(element);
+            auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
             const bool is_subrelation_linearly_independent =
                 Relation::template is_subrelation_linearly_independent<subrelation_idx>();

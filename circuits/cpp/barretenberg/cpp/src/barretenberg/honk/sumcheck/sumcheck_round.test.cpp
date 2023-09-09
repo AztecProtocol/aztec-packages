@@ -75,11 +75,9 @@ static Univariate<FF, max_relation_length> compute_expected_round_univariate(
     const RelationParameters<FF>& relation_parameters,
     const FF alpha)
 {
-    BarycentricData<FF, input_polynomial_length, max_relation_length> barycentric_2_to_max =
-        BarycentricData<FF, input_polynomial_length, max_relation_length>();
     std::array<Univariate<FF, max_relation_length>, NUM_POLYNOMIALS> extended_univariates;
     for (size_t i = 0; i < NUM_POLYNOMIALS; ++i) {
-        extended_univariates[i] = barycentric_2_to_max.extend(input_univariates[i]);
+        extended_univariates[i] = input_univariates[i].template extend_to<max_relation_length>();
     }
     auto w_l_univariate = Univariate<FF, max_relation_length>(extended_univariates[0]);
     auto w_r_univariate = Univariate<FF, max_relation_length>(extended_univariates[1]);
@@ -291,11 +289,6 @@ TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
     Univariate<FF, 5> univariate_3({ 3, 4, 5, 6, 7 });
     const size_t MAX_LENGTH = 5;
 
-    // Instantiate some barycentric extension utility classes
-    auto barycentric_util_1 = BarycentricData<FF, 3, MAX_LENGTH>();
-    auto barycentric_util_2 = BarycentricData<FF, 2, MAX_LENGTH>();
-    auto barycentric_util_3 = BarycentricData<FF, 5, MAX_LENGTH>();
-
     // Construct a tuple of tuples of the form { {univariate_1}, {univariate_2, univariate_3} }
     auto tuple_of_tuples = std::make_tuple(std::make_tuple(univariate_1), std::make_tuple(univariate_2, univariate_3));
 
@@ -310,9 +303,9 @@ TEST(SumcheckRound, TupleOfTuplesOfUnivariates)
     Utils::extend_and_batch_univariates(tuple_of_tuples, pow_univariate, result);
 
     // Repeat the batching process manually
-    auto result_expected = barycentric_util_1.extend(univariate_1) * 1 +
-                           barycentric_util_2.extend(univariate_2) * challenge +
-                           barycentric_util_3.extend(univariate_3) * challenge * challenge;
+    auto result_expected = univariate_1.template extend_to<MAX_LENGTH>() * 1 +
+                           univariate_2.template extend_to<MAX_LENGTH>() * challenge +
+                           univariate_3.template extend_to<MAX_LENGTH>() * challenge * challenge;
 
     // Compare final batched univarites
     EXPECT_EQ(result, result_expected);
