@@ -1,4 +1,4 @@
-import { AztecAddress, createAztecRpcClient, createDebugLogger, makeFetch, waitForSandbox } from '@aztec/aztec.js';
+import { AztecAddress, createDebugLogger, sleep } from '@aztec/aztec.js';
 import { getProgram } from '@aztec/cli';
 import { TxHash } from '@aztec/types';
 
@@ -17,22 +17,25 @@ describe('CLI docs sandbox', () => {
   const logs: string[] = [];
 
   beforeAll(async () => {
-    const aztecRpc = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
-    await waitForSandbox(aztecRpc);
-
     log = (...args: any[]) => {
       logs.push(format(...args));
       debug(...args);
     };
 
-    // Requesting block number here with CLI to ensure sandbox is ready
-    resetCli();
-    try {
-      await run('block-number', false);
-    } catch (e) {
-      // Failure is expected during first run in CI
-    }
+    await waitForSandboxWithCli();
   }, 60_000);
+
+  const waitForSandboxWithCli = async () => {
+    while (true) {
+      resetCli();
+      try {
+        await run('get-node-info', false);
+        break;
+      } catch (err) {
+        await sleep(1000);
+      }
+    }
+  };
 
   // in order to run the same command twice, we need to create a new CLI instance
   const resetCli = () => {
@@ -78,6 +81,7 @@ describe('CLI docs sandbox', () => {
     const docs = `
 // docs:start:example-contracts
 % aztec-cli example-contracts
+CardGameContractAbi
 ChildContractAbi
 DocsExampleContractAbi
 EasyPrivateTokenContractAbi
