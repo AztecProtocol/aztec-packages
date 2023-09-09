@@ -29,7 +29,7 @@ describe('CLI docs sandbox', () => {
     while (true) {
       resetCli();
       try {
-        await run('get-node-info', false);
+        await run('get-node-info');
         break;
       } catch (err) {
         await sleep(1000);
@@ -125,7 +125,7 @@ UniswapContractAbi
 
     const command = docs.split('\n')[2].split('aztec-cli ')[1];
 
-    await run(command, false);
+    await run(command);
     // expect logs to contain a number and nothing else
     expect(logs.length).toEqual(1);
     expect(logs[0]).toMatch(/\d+/);
