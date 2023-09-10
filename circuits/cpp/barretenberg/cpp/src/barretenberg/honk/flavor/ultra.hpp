@@ -4,17 +4,17 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
+#include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
+#include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/lookup_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
-#include "barretenberg/proof_system/flavor/flavor.hpp"
 
 namespace proof_system::honk::flavor {
 
@@ -294,7 +294,7 @@ class Ultra {
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
+     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH? WORKTODO
      */
     template <size_t MAX_RELATION_LENGTH>
     using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
