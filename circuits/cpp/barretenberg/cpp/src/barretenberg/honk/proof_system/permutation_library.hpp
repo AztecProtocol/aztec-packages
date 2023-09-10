@@ -45,11 +45,11 @@ namespace proof_system::honk::permutation_library {
 template <typename Flavor, typename PermutationRelation>
 void compute_permutation_grand_product(const size_t circuit_size,
                                        auto& full_polynomials,
-                                       sumcheck::RelationParameters<typename Flavor::FF>& relation_parameters)
+                                       proof_system::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using FF = typename Flavor::FF;
     using Polynomial = typename Flavor::Polynomial;
-    using ValueAccumTypes = typename PermutationRelation::ValueAccumTypes;
+    using ValueAccumulatorsAndViews = typename PermutationRelation::ValueAccumulatorsAndViews;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
@@ -69,9 +69,9 @@ void compute_permutation_grand_product(const size_t circuit_size,
             for (size_t k = 0; k < Flavor::NUM_ALL_ENTITIES; ++k) {
                 evaluations[k] = full_polynomials[k].size() > i ? full_polynomials[k][i] : 0;
             }
-            numerator[i] = PermutationRelation::template compute_permutation_numerator<ValueAccumTypes>(
+            numerator[i] = PermutationRelation::template compute_permutation_numerator<ValueAccumulatorsAndViews>(
                 evaluations, relation_parameters, i);
-            denominator[i] = PermutationRelation::template compute_permutation_denominator<ValueAccumTypes>(
+            denominator[i] = PermutationRelation::template compute_permutation_denominator<ValueAccumulatorsAndViews>(
                 evaluations, relation_parameters, i);
         }
     });
@@ -138,7 +138,7 @@ void compute_permutation_grand_product(const size_t circuit_size,
 template <typename Flavor>
 void compute_permutation_grand_products(std::shared_ptr<typename Flavor::ProvingKey>& key,
                                         typename Flavor::ProverPolynomials& full_polynomials,
-                                        sumcheck::RelationParameters<typename Flavor::FF>& relation_parameters)
+                                        proof_system::RelationParameters<typename Flavor::FF>& relation_parameters)
 {
     using GrandProductRelations = typename Flavor::GrandProductRelations;
     using FF = typename Flavor::FF;

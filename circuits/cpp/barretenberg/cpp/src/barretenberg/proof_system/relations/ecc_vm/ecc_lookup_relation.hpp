@@ -10,8 +10,9 @@
 
 namespace proof_system::honk::sumcheck {
 
-template <typename FF> class ECCVMLookupRelationBase {
+template <typename FF_> class ECCVMLookupRelationBase {
   public:
+    using FF = FF_;
     static constexpr size_t READ_TERMS = 4;
     static constexpr size_t WRITE_TERMS = 2;
     // 1 + polynomial degree of this relation
@@ -20,7 +21,7 @@ template <typename FF> class ECCVMLookupRelationBase {
     static constexpr size_t LEN_1 = RELATION_LENGTH; // grand product construction sub-relation
     static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_2>;
+    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_2>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
     static constexpr std::array<bool, 2> SUBRELATION_LINEARLY_INDEPENDENT = { true, false };
@@ -250,12 +251,12 @@ template <typename FF> class ECCVMLookupRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                    const auto& extended_edges,
-                                    const RelationParameters<FF>& relation_params,
-                                    const FF& /*unused*/) const;
+    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                           const auto& extended_edges,
+                           const RelationParameters<FF>& relation_params,
+                           const FF& /*unused*/);
 };
 
-template <typename FF> using ECCVMLookupRelation = RelationWrapper<FF, ECCVMLookupRelationBase>;
+template <typename FF> using ECCVMLookupRelation = Relation<ECCVMLookupRelationBase<FF>>;
 
 } // namespace proof_system::honk::sumcheck

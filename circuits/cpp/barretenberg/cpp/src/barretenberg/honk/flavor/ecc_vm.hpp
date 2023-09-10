@@ -26,13 +26,13 @@
 namespace proof_system::honk {
 namespace flavor {
 
-template <typename CycleGroup_T, typename Curve_T, template <typename> typename PCS_T> class ECCVMBase {
+template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBase {
   public:
     // forward template params into the ECCVMBase namespace
     using CycleGroup = CycleGroup_T;
     using Curve = Curve_T;
     using G1 = typename Curve::Group;
-    using PCS = PCS_T<Curve>;
+    using PCS = PCS_T;
 
     using FF = typename G1::subgroup_field;
     using Polynomial = barretenberg::Polynomial<FF>;
@@ -697,8 +697,8 @@ template <typename CycleGroup_T, typename Curve_T, template <typename> typename 
      * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
      */
     template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges =
-        AllEntities<sumcheck::Univariate<FF, MAX_RELATION_LENGTH>, sumcheck::Univariate<FF, MAX_RELATION_LENGTH>>;
+    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
+                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
@@ -824,8 +824,8 @@ template <typename CycleGroup_T, typename Curve_T, template <typename> typename 
     };
 };
 
-class ECCVM : public ECCVMBase<grumpkin::g1, curve::BN254, pcs::kzg::KZG> {};
-class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA> {};
+class ECCVM : public ECCVMBase<grumpkin::g1, curve::BN254, pcs::kzg::KZG<curve::BN254, true>> {};
+class ECCVMGrumpkin : public ECCVMBase<barretenberg::g1, curve::Grumpkin, pcs::ipa::IPA<curve::Grumpkin>> {};
 
 // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 

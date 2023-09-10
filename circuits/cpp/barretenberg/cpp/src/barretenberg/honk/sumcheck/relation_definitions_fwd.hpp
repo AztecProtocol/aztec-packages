@@ -7,39 +7,47 @@
 #define EntityEdge(Flavor) Flavor::AllEntities<Flavor::FF, Flavor::FF>
 
 #define ADD_EDGE_CONTRIBUTION(...) _ADD_EDGE_CONTRIBUTION(__VA_ARGS__)
-#define _ADD_EDGE_CONTRIBUTION(Preface, Relation, Flavor, AccumulatorType, EdgeType)                                   \
+#define _ADD_EDGE_CONTRIBUTION(Preface, RelationBase, Flavor, AccumulatorType, EdgeType)                               \
     Preface template void                                                                                              \
-    Relation<Flavor::FF>::add_edge_contribution_impl<RelationWrapper<Flavor::FF, Relation>::AccumulatorType,           \
-                                                     EdgeType(Flavor)>(                                                \
-        RelationWrapper<Flavor::FF, Relation>::AccumulatorType::Accumulators&,                                         \
+    RelationBase<Flavor::FF>::accumulate<proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType,            \
+                                         EdgeType(Flavor)>(                                                            \
+        proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType::Accumulators&,                              \
         EdgeType(Flavor) const&,                                                                                       \
         RelationParameters<Flavor::FF> const&,                                                                         \
-        Flavor::FF const&) const;
+        Flavor::FF const&);
 
 #define PERMUTATION_METHOD(...) _PERMUTATION_METHOD(__VA_ARGS__)
-#define _PERMUTATION_METHOD(Preface, MethodName, Relation, Flavor, AccumulatorType, EdgeType)                          \
-    Preface template Relation<Flavor::FF>::template Accumulator<                                                       \
-        RelationWrapper<Flavor::FF, Relation>::AccumulatorType>                                                        \
-    Relation<Flavor::FF>::MethodName<RelationWrapper<Flavor::FF, Relation>::AccumulatorType, EdgeType(Flavor)>(        \
+#define _PERMUTATION_METHOD(Preface, MethodName, RelationBase, Flavor, AccumulatorType, EdgeType)                      \
+    Preface template RelationBase<Flavor::FF>::template Accumulator<                                                   \
+        proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType>                                             \
+    RelationBase<Flavor::FF>::MethodName<proof_system::Relation<RelationBase<Flavor::FF>>::AccumulatorType,            \
+                                         EdgeType(Flavor)>(                                                            \
         EdgeType(Flavor) const&, RelationParameters<Flavor::FF> const&, size_t const);
 
 #define SUMCHECK_RELATION_CLASS(...) _SUMCHECK_RELATION_CLASS(__VA_ARGS__)
-#define _SUMCHECK_RELATION_CLASS(Preface, Relation, Flavor)                                                            \
-    ADD_EDGE_CONTRIBUTION(Preface, Relation, Flavor, UnivariateAccumTypes, ExtendedEdge)                               \
-    ADD_EDGE_CONTRIBUTION(Preface, Relation, Flavor, ValueAccumTypes, EvaluationEdge)                                  \
-    ADD_EDGE_CONTRIBUTION(Preface, Relation, Flavor, ValueAccumTypes, EntityEdge)
+#define _SUMCHECK_RELATION_CLASS(Preface, RelationBase, Flavor)                                                        \
+    ADD_EDGE_CONTRIBUTION(Preface, RelationBase, Flavor, UnivariateAccumulatorsAndViews, ExtendedEdge)                 \
+    ADD_EDGE_CONTRIBUTION(Preface, RelationBase, Flavor, ValueAccumulatorsAndViews, EvaluationEdge)                    \
+    ADD_EDGE_CONTRIBUTION(Preface, RelationBase, Flavor, ValueAccumulatorsAndViews, EntityEdge)
 
-#define DECLARE_SUMCHECK_RELATION_CLASS(Relation, Flavor) SUMCHECK_RELATION_CLASS(extern, Relation, Flavor)
-#define DEFINE_SUMCHECK_RELATION_CLASS(Relation, Flavor) SUMCHECK_RELATION_CLASS(, Relation, Flavor)
+#define DECLARE_SUMCHECK_RELATION_CLASS(RelationBase, Flavor) SUMCHECK_RELATION_CLASS(extern, RelationBase, Flavor)
+#define DEFINE_SUMCHECK_RELATION_CLASS(RelationBase, Flavor) SUMCHECK_RELATION_CLASS(, RelationBase, Flavor)
 
 #define SUMCHECK_PERMUTATION_CLASS(...) _SUMCHECK_PERMUTATION_CLASS(__VA_ARGS__)
-#define _SUMCHECK_PERMUTATION_CLASS(Preface, Relation, Flavor)                                                         \
-    PERMUTATION_METHOD(Preface, compute_permutation_numerator, Relation, Flavor, UnivariateAccumTypes, ExtendedEdge)   \
-    PERMUTATION_METHOD(Preface, compute_permutation_numerator, Relation, Flavor, ValueAccumTypes, EvaluationEdge)      \
-    PERMUTATION_METHOD(Preface, compute_permutation_numerator, Relation, Flavor, ValueAccumTypes, EntityEdge)          \
-    PERMUTATION_METHOD(Preface, compute_permutation_denominator, Relation, Flavor, UnivariateAccumTypes, ExtendedEdge) \
-    PERMUTATION_METHOD(Preface, compute_permutation_denominator, Relation, Flavor, ValueAccumTypes, EvaluationEdge)    \
-    PERMUTATION_METHOD(Preface, compute_permutation_denominator, Relation, Flavor, ValueAccumTypes, EntityEdge)
+#define _SUMCHECK_PERMUTATION_CLASS(Preface, RelationBase, Flavor)                                                     \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_numerator, RelationBase, Flavor, UnivariateAccumulatorsAndViews, ExtendedEdge)    \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_numerator, RelationBase, Flavor, ValueAccumulatorsAndViews, EvaluationEdge)       \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_numerator, RelationBase, Flavor, ValueAccumulatorsAndViews, EntityEdge)           \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_denominator, RelationBase, Flavor, UnivariateAccumulatorsAndViews, ExtendedEdge)  \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_denominator, RelationBase, Flavor, ValueAccumulatorsAndViews, EvaluationEdge)     \
+    PERMUTATION_METHOD(                                                                                                \
+        Preface, compute_permutation_denominator, RelationBase, Flavor, ValueAccumulatorsAndViews, EntityEdge)
 
-#define DECLARE_SUMCHECK_PERMUTATION_CLASS(Relation, Flavor) SUMCHECK_PERMUTATION_CLASS(extern, Relation, Flavor)
-#define DEFINE_SUMCHECK_PERMUTATION_CLASS(Relation, Flavor) SUMCHECK_PERMUTATION_CLASS(, Relation, Flavor)
+#define DECLARE_SUMCHECK_PERMUTATION_CLASS(RelationBase, Flavor)                                                       \
+    SUMCHECK_PERMUTATION_CLASS(extern, RelationBase, Flavor)
+#define DEFINE_SUMCHECK_PERMUTATION_CLASS(RelationBase, Flavor) SUMCHECK_PERMUTATION_CLASS(, RelationBase, Flavor)

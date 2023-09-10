@@ -34,50 +34,52 @@ namespace proof_system::honk::sumcheck {
  * @param parameters contains beta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
-template <typename FF> class ECCVMMSMRelationBase {
+template <typename FF_> class ECCVMMSMRelationBase {
   public:
+    using FF = FF_;
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 8;
 
     // blarp... add
     static constexpr size_t LEN_1 = 8; // arithmetic sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1>;
+    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1>;
+
     /**
      * @brief Expression for the StandardArithmetic gate.
      * @details The relation is defined as C(extended_edges(X)...) =
@@ -89,12 +91,12 @@ template <typename FF> class ECCVMMSMRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                    const auto& extended_edges,
-                                    const RelationParameters<FF>& /*unused*/,
-                                    const FF& scaling_factor) const;
+    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                           const auto& extended_edges,
+                           const RelationParameters<FF>& /*unused*/,
+                           const FF& scaling_factor);
 };
 
-template <typename FF> using ECCVMMSMRelation = RelationWrapper<FF, ECCVMMSMRelationBase>;
+template <typename FF> using ECCVMMSMRelation = Relation<ECCVMMSMRelationBase<FF>>;
 
 } // namespace proof_system::honk::sumcheck

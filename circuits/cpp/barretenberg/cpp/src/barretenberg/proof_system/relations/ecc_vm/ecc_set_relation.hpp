@@ -10,15 +10,16 @@
 
 namespace proof_system::honk::sumcheck {
 
-template <typename FF> class ECCVMSetRelationBase {
+template <typename FF_> class ECCVMSetRelationBase {
   public:
+    using FF = FF_;
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 19;
 
     static constexpr size_t LEN_1 = RELATION_LENGTH; // grand product construction sub-relation
     static constexpr size_t LEN_2 = RELATION_LENGTH; // left-shiftable polynomial sub-relation
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1, LEN_1>;
+    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1>;
     template <typename T> using Accumulator = typename std::tuple_element<0, typename T::Accumulators>::type;
 
     template <typename AccumulatorTypes>
@@ -55,12 +56,12 @@ template <typename FF> class ECCVMSetRelationBase {
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>
-    void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                    const auto& extended_edges,
-                                    const RelationParameters<FF>& relation_params,
-                                    const FF& scaling_factor) const;
+    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                           const auto& extended_edges,
+                           const RelationParameters<FF>& relation_params,
+                           const FF& scaling_factor);
 };
 
-template <typename FF> using ECCVMSetRelation = RelationWrapper<FF, ECCVMSetRelationBase>;
+template <typename FF> using ECCVMSetRelation = Relation<ECCVMSetRelationBase<FF>>;
 
 } // namespace proof_system::honk::sumcheck

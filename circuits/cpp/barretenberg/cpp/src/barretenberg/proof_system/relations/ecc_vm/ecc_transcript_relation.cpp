@@ -3,7 +3,7 @@
 
 #include "./ecc_transcript_relation.hpp"
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
+#include "barretenberg/honk/sumcheck/relation_definitions_fwd.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace proof_system::honk::sumcheck {
@@ -32,10 +32,10 @@ namespace proof_system::honk::sumcheck {
  */
 template <typename FF>
 template <typename AccumulatorTypes, typename PolynomialTypes>
-void ECCVMTranscriptRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                                                 const PolynomialTypes& extended_edges,
-                                                                 const RelationParameters<FF>& /*unused*/,
-                                                                 const FF& scaling_factor) const
+void ECCVMTranscriptRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                                                 const PolynomialTypes& extended_edges,
+                                                 const RelationParameters<FF>& /*unused*/,
+                                                 const FF& scaling_factor)
 {
     using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
     using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;

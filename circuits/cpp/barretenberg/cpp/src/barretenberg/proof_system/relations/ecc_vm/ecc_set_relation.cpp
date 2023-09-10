@@ -1,5 +1,5 @@
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
+#include "barretenberg/honk/sumcheck/relation_definitions_fwd.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "ecc_msm_relation.hpp"
 
@@ -354,10 +354,10 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
  */
 template <typename FF>
 template <typename AccumulatorTypes>
-void ECCVMSetRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                                          const auto& extended_edges,
-                                                          const RelationParameters<FF>& relation_params,
-                                                          const FF& scaling_factor) const
+void ECCVMSetRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                                          const auto& extended_edges,
+                                          const RelationParameters<FF>& relation_params,
+                                          const FF& scaling_factor)
 {
     using View = typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorViews>::type;
     using Accumulator = typename std::tuple_element<0, typename AccumulatorTypes::Accumulators>::type;

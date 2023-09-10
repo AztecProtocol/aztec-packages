@@ -405,7 +405,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         auto eccvm_set_permutation_delta =
             gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
         eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
-        proof_system::honk::sumcheck::RelationParameters<typename Flavor::FF> params{
+        proof_system::RelationParameters<typename Flavor::FF> params{
             .eta = eta,
             .beta = 0,
             .gamma = gamma,

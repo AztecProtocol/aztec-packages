@@ -31,42 +31,43 @@ namespace proof_system::honk::sumcheck {
  *
  * @tparam FF
  */
-template <typename FF> class ECCVMWnafRelationBase {
+template <typename FF_> class ECCVMWnafRelationBase {
   public:
+    using FF = FF_;
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 5;
 
     static constexpr size_t LEN_1 = 5;
     template <template <size_t...> typename AccumulatorTypesContainer>
-    using AccumulatorTypesBase = AccumulatorTypesContainer<LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1,
-                                                           LEN_1>;
+    using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1,
+                                                          LEN_1>;
 
     template <typename AccumulatorTypes>
-    void add_edge_contribution_impl(typename AccumulatorTypes::Accumulators& accumulator,
-                                    const auto& extended_edges,
-                                    const RelationParameters<FF>& /*unused*/,
-                                    const FF& scaling_factor) const;
+    static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
+                           const auto& extended_edges,
+                           const RelationParameters<FF>& /*unused*/,
+                           const FF& scaling_factor);
 };
 
-template <typename FF> using ECCVMWnafRelation = RelationWrapper<FF, ECCVMWnafRelationBase>;
+template <typename FF> using ECCVMWnafRelation = Relation<ECCVMWnafRelationBase<FF>>;
 
 } // namespace proof_system::honk::sumcheck
