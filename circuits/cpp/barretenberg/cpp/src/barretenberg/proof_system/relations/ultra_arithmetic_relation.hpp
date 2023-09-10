@@ -63,7 +63,8 @@ template <typename FF_> class UltraArithmeticRelationImpl {
      *      (q_arith - 2) * (q_arith - 1) * (w_l + w_4 - w_l_shift + q_m)
      *
      * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
+     * @param extended_edges an std::array containing the fully extended Univariate edges. // WORKTODO: it's not
+     * extended_edges
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
