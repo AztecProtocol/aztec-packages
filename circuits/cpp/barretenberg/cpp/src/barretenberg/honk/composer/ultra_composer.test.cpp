@@ -6,6 +6,7 @@
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
+#include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/proof_system/prover.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck_round.hpp"
@@ -69,18 +70,19 @@ TEST_F(UltraHonkComposerTests, ANonZeroPolynomialIsAGoodPolynomial)
     auto circuit_builder = UltraCircuitBuilder();
 
     auto composer = UltraComposer();
-    auto prover = composer.create_prover(circuit_builder);
+    auto instance = composer.create_instance(circuit_builder);
+    auto prover = composer.create_prover(instance);
     auto proof = prover.construct_proof();
 
-    for (auto& poly : prover.key->get_selectors()) {
+    for (auto& poly : instance.proving_key->get_selectors()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : prover.key->get_table_polynomials()) {
+    for (auto& poly : instance.proving_key->get_table_polynomials()) {
         ensure_non_zero(poly);
     }
 
-    for (auto& poly : prover.key->get_wires()) {
+    for (auto& poly : instance.proving_key->get_wires()) {
         ensure_non_zero(poly);
     }
 }

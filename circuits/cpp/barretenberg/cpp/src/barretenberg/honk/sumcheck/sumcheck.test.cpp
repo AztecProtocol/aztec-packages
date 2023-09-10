@@ -490,7 +490,6 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 {
     using Flavor = honk::flavor::Ultra;
     using FF = typename Flavor::FF;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // Create a composer and a dummy circuit with a few gates
     auto circuit_constructor = UltraCircuitBuilder();
@@ -606,92 +605,29 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     // Create a prover (it will compute proving key and witness)
     auto composer = UltraComposer();
-    auto prover = composer.create_prover(circuit_constructor);
+    auto instance = composer.create_instance(circuit_constructor);
 
     // Generate eta, beta and gamma
     fr eta = fr::random_element();
     fr beta = fr::random_element();
     fr gamma = fr::random_element();
 
-    // Compute public input delta
-    const auto public_inputs = circuit_constructor.get_public_inputs();
-    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
-    auto public_input_delta = honk::compute_public_input_delta<Flavor>(
-        public_inputs, beta, gamma, prover.key->circuit_size, pub_inputs_offset);
-    auto lookup_grand_product_delta =
-        honk::compute_lookup_grand_product_delta<FF>(beta, gamma, prover.key->circuit_size);
-
-    proof_system::RelationParameters<FF> relation_parameters{
-        .eta = eta,
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = public_input_delta,
-        .lookup_grand_product_delta = lookup_grand_product_delta,
-    };
-
-    // Compute sorted witness-table accumulator
-    prover.key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(prover.key, eta);
-
-    // Add RAM/ROM memory records to wire four
-    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(prover.key, eta);
-
-    ProverPolynomials prover_polynomials;
-
-    prover_polynomials.w_l = prover.key->w_l;
-    prover_polynomials.w_r = prover.key->w_r;
-    prover_polynomials.w_o = prover.key->w_o;
-    prover_polynomials.w_4 = prover.key->w_4;
-    prover_polynomials.w_l_shift = prover.key->w_l.shifted();
-    prover_polynomials.w_r_shift = prover.key->w_r.shifted();
-    prover_polynomials.w_o_shift = prover.key->w_o.shifted();
-    prover_polynomials.w_4_shift = prover.key->w_4.shifted();
-    prover_polynomials.sorted_accum = prover.key->sorted_accum;
-    prover_polynomials.sorted_accum_shift = prover.key->sorted_accum.shifted();
-    prover_polynomials.table_1 = prover.key->table_1;
-    prover_polynomials.table_2 = prover.key->table_2;
-    prover_polynomials.table_3 = prover.key->table_3;
-    prover_polynomials.table_4 = prover.key->table_4;
-    prover_polynomials.table_1_shift = prover.key->table_1.shifted();
-    prover_polynomials.table_2_shift = prover.key->table_2.shifted();
-    prover_polynomials.table_3_shift = prover.key->table_3.shifted();
-    prover_polynomials.table_4_shift = prover.key->table_4.shifted();
-    prover_polynomials.z_lookup = prover.key->z_lookup;
-    prover_polynomials.z_lookup_shift = prover.key->z_lookup.shifted();
-    prover_polynomials.q_m = prover.key->q_m;
-    prover_polynomials.q_l = prover.key->q_l;
-    prover_polynomials.q_r = prover.key->q_r;
-    prover_polynomials.q_o = prover.key->q_o;
-    prover_polynomials.q_c = prover.key->q_c;
-    prover_polynomials.q_4 = prover.key->q_4;
-    prover_polynomials.q_arith = prover.key->q_arith;
-    prover_polynomials.q_sort = prover.key->q_sort;
-    prover_polynomials.q_elliptic = prover.key->q_elliptic;
-    prover_polynomials.q_aux = prover.key->q_aux;
-    prover_polynomials.q_lookup = prover.key->q_lookup;
-    prover_polynomials.sigma_1 = prover.key->sigma_1;
-    prover_polynomials.sigma_2 = prover.key->sigma_2;
-    prover_polynomials.sigma_3 = prover.key->sigma_3;
-    prover_polynomials.sigma_4 = prover.key->sigma_4;
-    prover_polynomials.id_1 = prover.key->id_1;
-    prover_polynomials.id_2 = prover.key->id_2;
-    prover_polynomials.id_3 = prover.key->id_3;
-    prover_polynomials.id_4 = prover.key->id_4;
-    prover_polynomials.lagrange_first = prover.key->lagrange_first;
-    prover_polynomials.lagrange_last = prover.key->lagrange_last;
-
-    grand_product_library::compute_grand_products<Flavor>(prover.key, prover_polynomials, relation_parameters);
+    instance.initialise_prover_polynomials();
+    instance.compute_sorted_accumulator_polynomials(eta);
+    instance.compute_grand_product_polynomials(beta, gamma);
 
     auto prover_transcript = ProverTranscript<FF>::init_empty();
+    auto circuit_size = instance.proving_key->circuit_size;
 
-    auto sumcheck_prover = SumcheckProver<Flavor>(prover.key->circuit_size, prover_transcript);
+    auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.prove(prover_polynomials, relation_parameters);
+    auto prover_output = sumcheck_prover.prove(instance.prover_polynomials, instance.relation_parameters);
 
     auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
-    auto sumcheck_verifier = SumcheckVerifier<Flavor>(prover.key->circuit_size);
+    auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
 
-    std::optional verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_transcript);
+    std::optional verifier_output = sumcheck_verifier.verify(instance.relation_parameters, verifier_transcript);
 
     ASSERT_TRUE(verifier_output.has_value());
 }

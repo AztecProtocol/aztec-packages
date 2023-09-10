@@ -1,4 +1,6 @@
 #include "instance.hpp"
+#include "barretenberg/honk/proof_system/grand_product_library.hpp"
+#include "barretenberg/honk/proof_system/prover_library.hpp"
 #include "barretenberg/proof_system/circuit_builder/ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/composer/permutation_lib.hpp"
@@ -10,7 +12,7 @@ namespace proof_system::honk {
  * @tparam Flavor
  * @param circuit
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
+template <UltraFlavor Flavor> void Instance_<Flavor>::compute_circuit_size_parameters(Circuit& circuit)
 {
     // Compute total length of the tables and the number of lookup gates; their sum is the minimum circuit size
     for (const auto& table : circuit.lookup_tables) {
@@ -41,7 +43,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_circuit_size_parame
  * @brief Compute witness polynomials
  *
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(Circuit& circuit)
+template <UltraFlavor Flavor> void Instance_<Flavor>::compute_witness(Circuit& circuit)
 {
     if (computed_witness) {
         return;
@@ -154,7 +156,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_witness(Circuit& ci
  * @tparam Flavor
  * @param wire_polynomials
  */
-template <UltraFlavor Flavor> void Instance<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
+template <UltraFlavor Flavor> void Instance_<Flavor>::construct_ecc_op_wire_polynomials(auto& wire_polynomials)
 {
     std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
@@ -179,7 +181,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::construct_ecc_op_wire_polyn
 }
 
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_key(Circuit& circuit)
+std::shared_ptr<typename Flavor::ProvingKey> Instance_<Flavor>::compute_proving_key(Circuit& circuit)
 {
     if (proving_key) {
         return proving_key;
@@ -246,51 +248,50 @@ std::shared_ptr<typename Flavor::ProvingKey> Instance<Flavor>::compute_proving_k
     return proving_key;
 }
 
-template <UltraFlavor Flavor> void Instance<Flavor>::initialise_prover_polynomials()
+template <UltraFlavor Flavor> void Instance_<Flavor>::initialise_prover_polynomials()
 {
-    ProverPolynomials prover_polynomials;
-    prover_polynomials.q_c = key->q_c;
-    prover_polynomials.q_l = key->q_l;
-    prover_polynomials.q_r = key->q_r;
-    prover_polynomials.q_o = key->q_o;
-    prover_polynomials.q_4 = key->q_4;
-    prover_polynomials.q_m = key->q_m;
-    prover_polynomials.q_arith = key->q_arith;
-    prover_polynomials.q_sort = key->q_sort;
-    prover_polynomials.q_elliptic = key->q_elliptic;
-    prover_polynomials.q_aux = key->q_aux;
-    prover_polynomials.q_lookup = key->q_lookup;
-    prover_polynomials.sigma_1 = key->sigma_1;
-    prover_polynomials.sigma_2 = key->sigma_2;
-    prover_polynomials.sigma_3 = key->sigma_3;
-    prover_polynomials.sigma_4 = key->sigma_4;
-    prover_polynomials.id_1 = key->id_1;
-    prover_polynomials.id_2 = key->id_2;
-    prover_polynomials.id_3 = key->id_3;
-    prover_polynomials.id_4 = key->id_4;
-    prover_polynomials.table_1 = key->table_1;
-    prover_polynomials.table_2 = key->table_2;
-    prover_polynomials.table_3 = key->table_3;
-    prover_polynomials.table_4 = key->table_4;
-    prover_polynomials.table_1_shift = key->table_1.shifted();
-    prover_polynomials.table_2_shift = key->table_2.shifted();
-    prover_polynomials.table_3_shift = key->table_3.shifted();
-    prover_polynomials.table_4_shift = key->table_4.shifted();
-    prover_polynomials.lagrange_first = key->lagrange_first;
-    prover_polynomials.lagrange_last = key->lagrange_last;
-    prover_polynomials.w_l = key->w_l;
-    prover_polynomials.w_r = key->w_r;
-    prover_polynomials.w_o = key->w_o;
-    prover_polynomials.w_l_shift = key->w_l.shifted();
-    prover_polynomials.w_r_shift = key->w_r.shifted();
-    prover_polynomials.w_o_shift = key->w_o.shifted();
+    prover_polynomials.q_c = proving_key->q_c;
+    prover_polynomials.q_l = proving_key->q_l;
+    prover_polynomials.q_r = proving_key->q_r;
+    prover_polynomials.q_o = proving_key->q_o;
+    prover_polynomials.q_4 = proving_key->q_4;
+    prover_polynomials.q_m = proving_key->q_m;
+    prover_polynomials.q_arith = proving_key->q_arith;
+    prover_polynomials.q_sort = proving_key->q_sort;
+    prover_polynomials.q_elliptic = proving_key->q_elliptic;
+    prover_polynomials.q_aux = proving_key->q_aux;
+    prover_polynomials.q_lookup = proving_key->q_lookup;
+    prover_polynomials.sigma_1 = proving_key->sigma_1;
+    prover_polynomials.sigma_2 = proving_key->sigma_2;
+    prover_polynomials.sigma_3 = proving_key->sigma_3;
+    prover_polynomials.sigma_4 = proving_key->sigma_4;
+    prover_polynomials.id_1 = proving_key->id_1;
+    prover_polynomials.id_2 = proving_key->id_2;
+    prover_polynomials.id_3 = proving_key->id_3;
+    prover_polynomials.id_4 = proving_key->id_4;
+    prover_polynomials.table_1 = proving_key->table_1;
+    prover_polynomials.table_2 = proving_key->table_2;
+    prover_polynomials.table_3 = proving_key->table_3;
+    prover_polynomials.table_4 = proving_key->table_4;
+    prover_polynomials.table_1_shift = proving_key->table_1.shifted();
+    prover_polynomials.table_2_shift = proving_key->table_2.shifted();
+    prover_polynomials.table_3_shift = proving_key->table_3.shifted();
+    prover_polynomials.table_4_shift = proving_key->table_4.shifted();
+    prover_polynomials.lagrange_first = proving_key->lagrange_first;
+    prover_polynomials.lagrange_last = proving_key->lagrange_last;
+    prover_polynomials.w_l = proving_key->w_l;
+    prover_polynomials.w_r = proving_key->w_r;
+    prover_polynomials.w_o = proving_key->w_o;
+    prover_polynomials.w_l_shift = proving_key->w_l.shifted();
+    prover_polynomials.w_r_shift = proving_key->w_r.shifted();
+    prover_polynomials.w_o_shift = proving_key->w_o.shifted();
 
     if constexpr (IsGoblinFlavor<Flavor>) {
-        prover_polynomials.ecc_op_wire_1 = key->ecc_op_wire_1;
-        prover_polynomials.ecc_op_wire_2 = key->ecc_op_wire_2;
-        prover_polynomials.ecc_op_wire_3 = key->ecc_op_wire_3;
-        prover_polynomials.ecc_op_wire_4 = key->ecc_op_wire_4;
-        prover_polynomials.lagrange_ecc_op = key->lagrange_ecc_op;
+        prover_polynomials.ecc_op_wire_1 = proving_key->ecc_op_wire_1;
+        prover_polynomials.ecc_op_wire_2 = proving_key->ecc_op_wire_2;
+        prover_polynomials.ecc_op_wire_3 = proving_key->ecc_op_wire_3;
+        prover_polynomials.ecc_op_wire_4 = proving_key->ecc_op_wire_4;
+        prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op;
     }
 
     // Add public inputs to transcript from the second wire polynomial; This requires determination of the offset at
@@ -298,36 +299,37 @@ template <UltraFlavor Flavor> void Instance<Flavor>::initialise_prover_polynomia
     std::span<FF> public_wires_source = prover_polynomials.w_r;
     pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
     if constexpr (IsGoblinFlavor<Flavor>) {
-        pub_inputs_offset += key->num_ecc_op_gates;
+        pub_inputs_offset += proving_key->num_ecc_op_gates;
     }
 
-    for (size_t i = 0; i < key->num_public_inputs; ++i) {
+    for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
     }
 }
 
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
+template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
 {
     relation_parameters.eta = eta;
     // Compute sorted witness-table accumulator and its commitment
-    key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(key, eta);
+    // work only ftom instance
+    proving_key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(proving_key, eta);
 
     // Finalize fourth wire polynomial by adding lookup memory records, then commit
-    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(key, eta);
+    prover_library::add_plookup_memory_records_to_wire_4<Flavor>(proving_key, eta);
 
-    prover_polynomials.sorted_accum_shift = key->sorted_accum.shifted();
-    prover_polynomials.sorted_accum = key->sorted_accum;
-    prover_polynomials.w_4 = key->w_4;
-    prover_polynomials.w_4_shift = key->w_4.shifted();
+    prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
+    prover_polynomials.sorted_accum = proving_key->sorted_accum;
+    prover_polynomials.w_4 = proving_key->w_4;
+    prover_polynomials.w_4_shift = proving_key->w_4.shifted();
 }
 
 // get rid of the libraries in the end
-template <UltraFlavor Flavor> void Instance<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
+template <UltraFlavor Flavor> void Instance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta =
-        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, key->circuit_size, pub_inputs_offset);
-    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, key->circuit_size);
+        compute_public_input_delta<Flavor>(public_inputs, beta, gamma, proving_key->circuit_size, pub_inputs_offset);
+    auto lookup_grand_product_delta = compute_lookup_grand_product_delta(beta, gamma, proving_key->circuit_size);
 
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
@@ -335,7 +337,7 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_grand_product_polyn
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
     // Compute permutation + lookup grand product and their commitments
-    grand_product_library::compute_grand_products<Flavor>(key, prover_polynomials, relation_parameters);
+    grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
 }
 
 /**
@@ -344,14 +346,14 @@ template <UltraFlavor Flavor> void Instance<Flavor>::compute_grand_product_polyn
  * @return Pointer to created circuit verification key.
  * */
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> Instance<Flavor>::compute_verification_key(
+std::shared_ptr<typename Flavor::VerificationKey> Instance_<Flavor>::compute_verification_key(
     std::shared_ptr<CommitmentKey> commitment_key)
 {
     if (verification_key) {
         return verification_key;
     }
 
-    // To have an instance you have to have a proving key so this can go away
+    // To have an instance_ you have to have a proving key so this can go away
     // if (!proving_key) {
     //     compute_proving_key(circuit);
     // }
@@ -401,5 +403,9 @@ std::shared_ptr<typename Flavor::VerificationKey> Instance<Flavor>::compute_veri
 
     return verification_key;
 }
+
+template class Instance_<honk::flavor::Ultra>;
+template class Instance_<honk::flavor::UltraGrumpkin>;
+template class Instance_<honk::flavor::GoblinUltra>;
 
 } // namespace proof_system::honk

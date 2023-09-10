@@ -224,11 +224,21 @@ void construct_proof_with_specified_num_iterations(State& state,
         test_circuit_function(builder, num_iterations);
 
         auto composer = Composer();
-        auto ext_prover = composer.create_prover(builder);
-        state.ResumeTiming();
+        if constexpr (Composer::NAME_STRING == "UltraHonk") {
+            auto instance = composer.create_instance(builder);
+            auto ext_prover = composer.create_prover(instance);
+            state.ResumeTiming();
 
-        // Construct proof
-        auto proof = ext_prover.construct_proof();
+            // Construct proof
+            auto proof = ext_prover.construct_proof();
+
+        } else {
+            auto ext_prover = composer.create_prover(builder);
+            state.ResumeTiming();
+
+            // Construct proof
+            auto proof = ext_prover.construct_proof();
+        }
     }
 }
 

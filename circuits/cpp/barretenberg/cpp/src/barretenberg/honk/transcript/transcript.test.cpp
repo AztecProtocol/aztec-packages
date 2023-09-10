@@ -296,11 +296,12 @@ TYPED_TEST(TranscriptTests, UltraVerifierManifestConsistency)
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
-    auto prover = composer.create_prover(circuit_constructor);
+    auto instance = composer.create_instance(circuit_constructor);
+    auto prover = composer.create_prover(instance);
     plonk::proof proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verifier = composer.create_verifier(circuit_constructor);
+    auto verifier = composer.create_verifier(instance);
     verifier.verify_proof(proof);
 
     prover.transcript.print();

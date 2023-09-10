@@ -1,4 +1,5 @@
 #include "ultra_prover.hpp"
+#include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/prover_library.hpp"
@@ -19,8 +20,7 @@ namespace proof_system::honk {
  * */
 template <UltraFlavor Flavor>
 UltraProver_<Flavor>::UltraProver_(Instance& inst, std::shared_ptr<CommitmentKey> commitment_key)
-    : key(inst.proving_key)
-    , queue(commitment_key, transcript)
+    : queue(commitment_key, transcript)
     , instance(inst)
     , pcs_commitment_key(commitment_key)
 {
@@ -33,15 +33,15 @@ UltraProver_<Flavor>::UltraProver_(Instance& inst, std::shared_ptr<CommitmentKey
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(key->num_public_inputs);
+    const auto circuit_size = static_cast<uint32_t>(instance.proving_key->circuit_size);
+    const auto num_public_inputs = static_cast<uint32_t>(instance.proving_key->num_public_inputs);
 
     transcript.send_to_verifier("circuit_size", circuit_size);
     transcript.send_to_verifier("public_input_size", num_public_inputs);
-    transcript.send_to_verifier("pub_inputs_offset", static_cast<uint32_t>(pub_inputs_offset));
+    transcript.send_to_verifier("pub_inputs_offset", static_cast<uint32_t>(instance.pub_inputs_offset));
 
-    for (size_t i = 0; i < key->num_public_inputs; ++i) {
-        auto public_input_i = public_inputs[i];
+    for (size_t i = 0; i < instance.proving_key->num_public_inputs; ++i) {
+        auto public_input_i = instance.public_inputs[i];
         transcript.send_to_verifier("public_input_" + std::to_string(i), public_input_i);
     }
 }
@@ -53,7 +53,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_round(
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitments_round()
 {
     // Commit to the first three wire polynomials; the fourth is committed to after the addition of memory records.
-    auto wire_polys = key->get_wires();
+    auto wire_polys = instance.proving_key->get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < 3; ++idx) {
         queue.add_commitment(wire_polys[idx], labels[idx]);
@@ -61,7 +61,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitment
 
     // If Goblin, commit to the ECC op wire polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
-        auto op_wire_polys = key->get_ecc_op_wires();
+        auto op_wire_polys = instance.proving_key->get_ecc_op_wires();
         auto labels = commitment_labels.get_ecc_op_wires();
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             queue.add_commitment(op_wire_polys[idx], labels[idx]);
@@ -79,8 +79,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
 
     instance.compute_sorted_accumulator_polynomials(eta);
 
-    queue.add_commitment(key->sorted_accum, commitment_labels.sorted_accum);
-    queue.add_commitment(key->w_4, commitment_labels.w_4);
+    queue.add_commitment(instance.proving_key->sorted_accum, commitment_labels.sorted_accum);
+    queue.add_commitment(instance.proving_key->w_4, commitment_labels.w_4);
 }
 
 // to here things need to be done for folding as well?
@@ -96,8 +96,8 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_c
 
     instance.compute_grand_product_polynomials(beta, gamma);
 
-    queue.add_commitment(key->z_perm, commitment_labels.z_perm);
-    queue.add_commitment(key->z_lookup, commitment_labels.z_lookup);
+    queue.add_commitment(instance.proving_key->z_perm, commitment_labels.z_perm);
+    queue.add_commitment(instance.proving_key->z_lookup, commitment_labels.z_lookup);
 }
 
 /**
@@ -108,9 +108,9 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_relation_check_
 {
     using Sumcheck = sumcheck::SumcheckProver<Flavor>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    auto sumcheck = Sumcheck(instance.proving_key->circuit_size, transcript);
 
-    sumcheck_output = sumcheck.prove(prover_polynomials, relation_parameters);
+    sumcheck_output = sumcheck.prove(instance.prover_polynomials, instance.relation_parameters);
 }
 
 /**
@@ -127,15 +127,15 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatizatio
     std::vector<FF> rhos = pcs::gemini::powers_of_rho(rho, NUM_POLYNOMIALS);
 
     // Batch the unshifted polynomials and the to-be-shifted polynomials using ρ
-    Polynomial batched_poly_unshifted(key->circuit_size); // batched unshifted polynomials
-    size_t poly_idx = 0;                                  // TODO(#391) zip
-    for (auto& unshifted_poly : prover_polynomials.get_unshifted()) {
+    Polynomial batched_poly_unshifted(instance.proving_key->circuit_size); // batched unshifted polynomials
+    size_t poly_idx = 0;                                                   // TODO(#391) zip
+    for (auto& unshifted_poly : instance.prover_polynomials.get_unshifted()) {
         batched_poly_unshifted.add_scaled(unshifted_poly, rhos[poly_idx]);
         ++poly_idx;
     }
 
-    Polynomial batched_poly_to_be_shifted(key->circuit_size); // batched to-be-shifted polynomials
-    for (auto& to_be_shifted_poly : prover_polynomials.get_to_be_shifted()) {
+    Polynomial batched_poly_to_be_shifted(instance.proving_key->circuit_size); // batched to-be-shifted polynomials
+    for (auto& to_be_shifted_poly : instance.prover_polynomials.get_to_be_shifted()) {
         batched_poly_to_be_shifted.add_scaled(to_be_shifted_poly, rhos[poly_idx]);
         ++poly_idx;
     };
@@ -145,7 +145,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatizatio
         sumcheck_output.challenge_point, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
 
     // Compute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
-    for (size_t l = 0; l < key->log_circuit_size - 1; ++l) {
+    for (size_t l = 0; l < instance.proving_key->log_circuit_size - 1; ++l) {
         queue.add_commitment(fold_polynomials[l + 2], "Gemini:FOLD_" + std::to_string(l + 1));
     }
 }
@@ -162,7 +162,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
         sumcheck_output.challenge_point, std::move(fold_polynomials), r_challenge);
 
-    for (size_t l = 0; l < key->log_circuit_size; ++l) {
+    for (size_t l = 0; l < instance.proving_key->log_circuit_size; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
         const auto& evaluation = gemini_output.opening_pairs[l + 1].evaluation;
         transcript.send_to_verifier(label, evaluation);

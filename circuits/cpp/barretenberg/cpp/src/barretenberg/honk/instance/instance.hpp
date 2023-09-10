@@ -1,6 +1,7 @@
 #pragma once
-
-#include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/honk/flavor/goblin_ultra.hpp"
+#include "barretenberg/honk/flavor/ultra.hpp"
+#include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
@@ -16,7 +17,8 @@ namespace proof_system::honk {
 // circuit Then a Prover and a Verifier is created from an Instance or several instances and each manages their own
 // polynomials
 // The responsability of a Prover is to commit, add to transcript while the Instance manages its polynomials
-template <UltraFlavor Flavor> class Instance {
+template <UltraFlavor Flavor> class Instance_ {
+  public:
     using Circuit = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -25,7 +27,6 @@ template <UltraFlavor Flavor> class Instance {
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
-  public:
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
 
@@ -34,8 +35,10 @@ template <UltraFlavor Flavor> class Instance {
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
 
-    std::shared_ptr<ProverPolynomials> prover_polynomials;
-    std::shared_ptr<std::vector<FF>> public_inputs;
+    // TODO: should this be a shared_ptr?
+    ProverPolynomials prover_polynomials;
+    std::vector<FF> public_inputs;
+    size_t pub_inputs_offset;
 
     proof_system::RelationParameters<FF> relation_parameters;
 
@@ -53,23 +56,23 @@ template <UltraFlavor Flavor> class Instance {
     // Used by the prover for domain separation in the transcript
     uint32_t instance_index;
 
-    Instance(Circuit& circuit)
+    Instance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);
         compute_proving_key(circuit);
         compute_witness(circuit);
     }
 
-    Instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
+    explicit Instance_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))
     {}
 
-    Instance(Instance&& other) noexcept = default;
-    Instance(Instance const& other) noexcept = default;
-    Instance& operator=(Instance&& other) noexcept = default;
-    Instance& operator=(Instance const& other) noexcept = default;
-    ~Instance() = default;
+    Instance_(Instance_&& other) noexcept = default;
+    Instance_(Instance_ const& other) noexcept = default;
+    Instance_& operator=(Instance_&& other) noexcept = default;
+    Instance_& operator=(Instance_ const& other) noexcept = default;
+    ~Instance_() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
     std::shared_ptr<VerificationKey> compute_verification_key(std::shared_ptr<CommitmentKey> commitment_key);
@@ -88,4 +91,11 @@ template <UltraFlavor Flavor> class Instance {
 
     void compute_grand_product_polynomials(FF, FF);
 };
+
+extern template class Instance_<honk::flavor::Ultra>;
+extern template class Instance_<honk::flavor::UltraGrumpkin>;
+extern template class Instance_<honk::flavor::GoblinUltra>;
+
+using Instance = Instance_<honk::flavor::Ultra>;
+
 } // namespace proof_system::honk

@@ -23,6 +23,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
+    using Instance = Instance_<Flavor>;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -62,11 +63,11 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
     };
 
-    Instance<Flavor> create_instance(CircuitBuilder& circuit);
-    Instance<Flavor> create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
+    Instance create_instance(CircuitBuilder& circuit);
+    Instance create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
 
-    UltraProver_<Flavor> create_prover(Instance<Flavor>& instance);
-    UltraVerifier_<Flavor> create_verifier(Instance<Flavor>& instance);
+    UltraProver_<Flavor> create_prover(Instance& instance);
+    UltraVerifier_<Flavor> create_verifier(Instance& instance);
 
     // underlying assumption that the first instance should be the one we fold on?
     // FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);

@@ -55,8 +55,9 @@ TEST_F(GoblinUltraHonkComposerTests, SimpleCircuit)
     }
 
     auto composer = GoblinUltraComposer();
-    auto prover = composer.create_prover(builder);
-    auto verifier = composer.create_verifier(builder);
+    auto instance = composer.create_instance(builder);
+    auto prover = composer.create_prover(instance);
+    auto verifier = composer.create_verifier(instance);
     auto proof = prover.construct_proof();
     bool verified = verifier.verify_proof(proof);
     EXPECT_EQ(verified, true);

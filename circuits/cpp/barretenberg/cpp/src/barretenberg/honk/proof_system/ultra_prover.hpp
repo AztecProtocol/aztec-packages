@@ -24,7 +24,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
-    using Instance = Instance<Flavor>;
+    using Instance = Instance_<Flavor>;
 
   public:
     explicit UltraProver_(Instance&, std::shared_ptr<CommitmentKey>);
@@ -48,14 +48,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset;
 
-    proof_system::RelationParameters<FF> relation_parameters;
-
-    std::shared_ptr<ProvingKey> key;
-
-    // Container for spans of all polynomials required by the prover (i.e. all multivariates evaluated by Sumcheck).
-    ProverPolynomials prover_polynomials;
-
-    // what do I do w this?
     CommitmentLabels commitment_labels;
 
     // Container for d + 1 Fold polynomials produced by Gemini
