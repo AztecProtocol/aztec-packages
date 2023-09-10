@@ -77,12 +77,14 @@ export class ClientTxExecutionContext {
    * @returns An array of partially filled in read request membership witnesses.
    */
   public getReadRequestPartialWitnesses(readRequests: Fr[]) {
-    return readRequests.map(r => {
-      const index = this.gotNotes.get(r.value);
-      return index !== undefined
-        ? ReadRequestMembershipWitness.empty(index)
-        : ReadRequestMembershipWitness.emptyTransient();
-    });
+    return readRequests
+      .filter(r => !r.isZero())
+      .map(r => {
+        const index = this.gotNotes.get(r.value);
+        return index !== undefined
+          ? ReadRequestMembershipWitness.empty(index)
+          : ReadRequestMembershipWitness.emptyTransient();
+      });
   }
 
   /**
@@ -178,7 +180,8 @@ export class ClientTxExecutionContext {
     const wasm = await CircuitsWasm.get();
     notes.forEach(n => {
       if (n.index !== undefined) {
-        const uniqueSiloedNoteHash = computeUniqueCommitment(wasm, n.nonce, n.innerNoteHash);
+        const siloedNoteHash = siloCommitment(wasm, n.contractAddress, n.innerNoteHash);
+        const uniqueSiloedNoteHash = computeUniqueCommitment(wasm, n.nonce, siloedNoteHash);
         this.gotNotes.set(uniqueSiloedNoteHash.value, n.index);
       }
     });
