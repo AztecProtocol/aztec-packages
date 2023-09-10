@@ -65,8 +65,8 @@
 
 #pragma once
 #include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
 #include <concepts>
@@ -221,6 +221,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
  * @details This is the container for storing the univariate contributions from each identity in each relation. Each
  * Relation contributes a tuple with num-identities many Univariates and there are num-relations many tuples in the
  * outer tuple.
+ * WORKTODO: unused FF?
  */
 template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_univariates_container()
 {
