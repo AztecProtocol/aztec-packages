@@ -23,6 +23,7 @@ template <typename ComposerContext> class pedersen_hash_refactor {
   public:
     // TODO(@suyash67) as part of refactor project, can we remove this and replace with `hash`
     // (i.e. simplify the name as we no longer have a need for `hash_single`)
+    // TODO update to new interface
     static field_t hash_multiple(const std::vector<field_t>& in,
                                  size_t hash_index = 0,
                                  const std::string& domain_separator = grumpkin::g1::DEFAULT_DOMAIN_SEPARATOR,
