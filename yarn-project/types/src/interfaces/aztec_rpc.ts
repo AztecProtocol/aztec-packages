@@ -1,10 +1,11 @@
-import { AztecAddress, EthAddress, Fr, PartialAddress, PrivateKey } from '@aztec/circuits.js';
+import { AztecAddress, EthAddress, Fr, GrumpkinPrivateKey, PartialAddress } from '@aztec/circuits.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import {
   CompleteAddress,
   ContractData,
   ExtendedContractData,
   L2BlockL2Logs,
+  NotePreimage,
   Tx,
   TxExecutionRequest,
   TxHash,
@@ -69,6 +70,13 @@ export type SyncStatus = {
  */
 export interface AztecRPC {
   /**
+   * Insert a witness for a given message hash.
+   * @param messageHash - The message hash to insert witness at
+   * @param witness - The witness to insert
+   */
+  addAuthWitness(messageHash: Fr, witness: Fr[]): Promise<void>;
+
+  /**
    * Registers an account in the Aztec RPC server.
    *
    * @param privKey - Private key of the corresponding user master public key.
@@ -76,7 +84,7 @@ export interface AztecRPC {
    * @returns Empty promise.
    * @throws If the account is already registered.
    */
-  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void>;
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void>;
 
   /**
    * Registers recipient in the Aztec RPC server.
@@ -157,6 +165,17 @@ export interface AztecRPC {
    * @returns A receipt of the transaction.
    */
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
+
+  /**
+   * Retrieves the private storage data at a specified contract address and storage slot.
+   * The returned data is data at the storage slot or throws an error if the contract is not deployed.
+   *
+   * @param owner - The address for whom the private data is encrypted.
+   * @param contract - The AztecAddress of the target contract.
+   * @param storageSlot - The Fr representing the storage slot to be fetched.
+   * @returns A set of note preimages for the owner in that contract and slot.
+   */
+  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]>;
 
   /**
    * Retrieves the public storage data at a specified contract address and storage slot.

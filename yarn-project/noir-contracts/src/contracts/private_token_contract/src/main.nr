@@ -1,20 +1,37 @@
-mod storage;
-
 contract PrivateToken {
-    // Libs
     use dep::std::option::Option;
     use dep::value_note::{
         balance_utils,
         utils::{increment, decrement},
-        value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
+        value_note::{VALUE_NOTE_LEN, ValueNote, ValueNoteMethods},
+    };
+    use dep::aztec::{
+        context::{PrivateContext, PublicContext, Context},
+        note::{
+            note_header::NoteHeader,
+            utils as note_utils,
+        },
+        state_vars::{map::Map, set::Set},
     };
 
-    use dep::aztec::note::{
-        note_header::NoteHeader,
-        utils as note_utils,
-    };
+    struct Storage {
+        // maps an aztec address to its balance
+        balances: Map<Set<ValueNote, VALUE_NOTE_LEN>>,
+    }
 
-    use crate::storage::Storage;
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                balances: Map::new(
+                    context,
+                    1, // Storage slot
+                    |context, slot| {
+                        Set::new(context, slot, ValueNoteMethods)
+                    },
+                ),
+            }
+        }
+    }
 
     // docs:start:constructor
     // Constructs the contract and sets `initial_supply` which is fully owned by `owner`.
@@ -23,7 +40,7 @@ contract PrivateToken {
         initial_supply: Field, 
         owner: Field
     )  {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
         if (initial_supply != 0) {
@@ -39,7 +56,7 @@ contract PrivateToken {
         amount: Field, 
         owner: Field
     )  {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         // Insert new note to a set of user notes and emit the newly created encrypted note preimage via oracle call.
         let owner_balance = storage.balances.at(owner);
@@ -54,7 +71,7 @@ contract PrivateToken {
         amount: Field, 
         recipient: Field,
     )  {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let sender = context.msg_sender();
 
         // Pick from the set of sender's notes to spend amount.
@@ -72,7 +89,7 @@ contract PrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
 
         // Get the set of notes owned by the user.
         let owner_balance = storage.balances.at(owner);
