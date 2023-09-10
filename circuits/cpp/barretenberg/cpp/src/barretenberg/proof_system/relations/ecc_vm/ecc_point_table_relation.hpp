@@ -1,5 +1,5 @@
 #pragma once
-#include "barretenberg/honk/sumcheck/relations/relation_types.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace proof_system::honk::sumcheck {
 
