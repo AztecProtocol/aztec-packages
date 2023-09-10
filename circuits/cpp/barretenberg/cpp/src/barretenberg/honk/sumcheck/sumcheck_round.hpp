@@ -64,7 +64,6 @@ template <typename Flavor> class SumcheckProverRound {
 
     size_t round_size; // a power of 2
 
-    Relations relations;
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
@@ -190,7 +189,8 @@ template <typename Flavor> class SumcheckProverRound {
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
-        std::get<relation_idx>(relations).add_edge_contribution(
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::add_edge_contribution(
             std::get<relation_idx>(univariate_accumulators), extended_edges, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -302,11 +302,11 @@ template <typename Flavor> class SumcheckVerifierRound {
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& partial_evaluation_constant)
     {
-        std::get<relation_idx>(relations).add_full_relation_value_contribution(
-            std::get<relation_idx>(relation_evaluations),
-            purported_evaluations,
-            relation_parameters,
-            partial_evaluation_constant);
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::add_full_relation_value_contribution(std::get<relation_idx>(relation_evaluations),
+                                                       purported_evaluations,
+                                                       relation_parameters,
+                                                       partial_evaluation_constant);
 
         // Repeat for the next relation.
         if constexpr (relation_idx + 1 < NUM_RELATIONS) {
