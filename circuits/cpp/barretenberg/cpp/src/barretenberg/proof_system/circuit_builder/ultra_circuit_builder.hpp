@@ -601,9 +601,9 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     bool circuit_finalised = false;
 
     void process_non_native_field_multiplications();
-    UltraCircuitBuilder_(const size_t size_hint = 0)
+    UltraCircuitBuilder_(const size_t size_hint = 0, std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
         : CircuitBuilderBase<arithmetization::Ultra<FF>>(ultra_selector_names(), size_hint)
-        , op_queue(std::make_shared<ECCOpQueue>())
+        , op_queue(op_queue_in)
     {
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);
@@ -617,6 +617,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         mul_accum_op_idx = put_constant_variable(FF(EccOpCode::MUL_ACCUM));
         equality_op_idx = put_constant_variable(FF(EccOpCode::EQUALITY));
     };
+    UltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
+        : UltraCircuitBuilder_(0, op_queue_in) {}
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = delete;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<arithmetization::Ultra<FF>>(std::move(other))
