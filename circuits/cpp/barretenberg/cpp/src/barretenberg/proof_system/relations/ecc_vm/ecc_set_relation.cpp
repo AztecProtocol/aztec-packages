@@ -1,6 +1,6 @@
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "ecc_msm_relation.hpp"
 
 namespace proof_system::honk::sumcheck {
@@ -158,7 +158,8 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         scalar_sum_full += scalar_sum_full;
         scalar_sum_full += row_slice + adjusted_skew;
 
-        auto precompute_point_transition = get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
+        auto precompute_point_transition =
+            get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
 
         auto point_table_init_read = (precompute_pc + table_x * eta + table_y * eta_sqr + scalar_sum_full * eta_cube);
         point_table_init_read =
@@ -302,8 +303,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         transcript_input2 = (transcript_input2 + gamma) * lookup_second + (-lookup_second + 1);
         // point_table_init_write = degree 2
 
-        auto point_table_init_write =
-            transcript_mul * transcript_input1 * transcript_input2 + (-transcript_mul + 1);
+        auto point_table_init_write = transcript_mul * transcript_input1 * transcript_input2 + (-transcript_mul + 1);
         denominator *= point_table_init_write; // degree-13
 
         // auto point_table_init_write_1 = transcript_mul * transcript_input1 + (-transcript_mul + 1);

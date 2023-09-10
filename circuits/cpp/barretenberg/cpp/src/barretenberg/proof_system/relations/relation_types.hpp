@@ -2,7 +2,13 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "relation_parameters.hpp"
 
+namespace barretenberg {
+template <typename FF> class Polynomial;
+}
 namespace proof_system {
+
+// forward-declare Polynomial so we can use in a concept
+
 template <typename T, size_t subrelation_idx> concept HasSubrelationLinearlyIndependentMember = requires(T)
 {
     {

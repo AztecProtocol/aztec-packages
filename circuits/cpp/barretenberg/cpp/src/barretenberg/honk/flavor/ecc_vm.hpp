@@ -1,12 +1,11 @@
 #pragma once
-#include "../sumcheck/relations/relation_definitions_fwd.hpp"
-#include "../sumcheck/relations/relation_types.hpp"
+#include "../sumcheck/relation_definitions_fwd.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/ipa/ipa.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_lookup_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_msm_relation.hpp"
@@ -14,6 +13,7 @@
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_set_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_transcript_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_vm/ecc_wnaf_relation.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 #include <array>
 #include <concepts>
 #include <span>

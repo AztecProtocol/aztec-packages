@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 // TODO(@zac-williamson). We used to include `program_settings.hpp` in this file. Needed to remove due to circular
 // dependency. `program_settings.hpp` included header files that added "using namespace proof_system" and "using

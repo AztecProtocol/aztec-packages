@@ -3,10 +3,10 @@
 #include <tuple>
 
 #include "barretenberg/common/constexpr_utils.hpp"
-#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_types.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_types.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -94,10 +94,12 @@ template <typename FF> class ECCVMLookupRelationBase {
 
     {
         if constexpr (write_index == 0) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
+            return Accumulator<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
         if constexpr (write_index == 1) {
-            return Accumulator<AccumulatorTypes>(get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
+            return Accumulator<AccumulatorTypes>(
+                get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index));
         }
         return Accumulator<AccumulatorTypes>(1);
     }

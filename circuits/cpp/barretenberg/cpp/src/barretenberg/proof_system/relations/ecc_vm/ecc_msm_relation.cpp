@@ -1,7 +1,7 @@
 #include "ecc_msm_relation.hpp"
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -361,8 +361,7 @@ void ECCVMMSMRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorTy
 
     // if msm_transition = 1, pc = pc_shift + msm_size
     // `ecc_set_relation` ensures `msm_size` maps to `transcript.msm_count` for the current value of `pc`
-    std::get<27>(accumulator) +=
-        is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
+    std::get<27>(accumulator) += is_not_first_row * msm_transition_shift * (msm_size + pc_shift - pc) * scaling_factor;
 
     // Addition continuity checks
     // We want to RULE OUT the following scenarios:

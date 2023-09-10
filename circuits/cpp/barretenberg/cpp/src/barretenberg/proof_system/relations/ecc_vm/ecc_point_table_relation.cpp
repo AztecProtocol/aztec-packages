@@ -1,7 +1,7 @@
 #include "ecc_point_table_relation.hpp"
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -74,8 +74,8 @@ void ECCVMPointTableRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      *
      * The relations that constrain `precompute_point_transition` and `precompute_pc` are in `ecc_wnaf_relation.hpp`
      *
-     * When precompute_point_transition = 1, we use a strict lookup protocol in `ecc_set_relation.hpp` to validate (pc, Tx,
-     * Ty) belong to the set of points present in our transcript columns.
+     * When precompute_point_transition = 1, we use a strict lookup protocol in `ecc_set_relation.hpp` to validate (pc,
+     * Tx, Ty) belong to the set of points present in our transcript columns.
      * ("strict" lookup protocol = every item in the table must be read from once, and only once)
      *
      * For every row, we use a lookup protocol in `ecc_lookup_relation.hpp` to write the following tuples into a lookup
@@ -88,8 +88,8 @@ void ECCVMPointTableRelationBase<FF>::add_edge_contribution_impl(typename Accumu
      * The value `precompute_round` describes the *negative multiplier* applied to P at the current row.
      * This is also expanded into a wnaf value by taking `2x - 15` where `x = precompute_round`.
      *
-     * The following table describes how taking (15 - precompute_round) for positive values and (precompute_round) for negative
-     * values produces the WNAF slice values that correspond to the multipliers for (Tx, Ty) and (Tx, -Ty):
+     * The following table describes how taking (15 - precompute_round) for positive values and (precompute_round) for
+     * negative values produces the WNAF slice values that correspond to the multipliers for (Tx, Ty) and (Tx, -Ty):
      *
      * | Tx    | Ty    | x = 15 - precompute_round | 2x - 15 | y = precompute_round | 2y - 15 |
      * | ----- | ----- | -------------------- | ------- | --------------- | ------- |
@@ -165,8 +165,10 @@ void ECCVMPointTableRelationBase<FF>::add_edge_contribution_impl(typename Accumu
     const auto lambda_denominator = x2 - x1;
     auto x_add_check = (x3 + x2 + x1) * lambda_denominator * lambda_denominator - lambda_numerator * lambda_numerator;
     auto y_add_check = (y3 + y1) * lambda_denominator + (x3 - x1) * lambda_numerator;
-    std::get<4>(accumulator) += (-lagrange_first + 1) * (-precompute_point_transition + 1) * x_add_check * scaling_factor;
-    std::get<5>(accumulator) += (-lagrange_first + 1) * (-precompute_point_transition + 1) * y_add_check * scaling_factor;
+    std::get<4>(accumulator) +=
+        (-lagrange_first + 1) * (-precompute_point_transition + 1) * x_add_check * scaling_factor;
+    std::get<5>(accumulator) +=
+        (-lagrange_first + 1) * (-precompute_point_transition + 1) * y_add_check * scaling_factor;
 }
 
 template class ECCVMPointTableRelationBase<barretenberg::fr>;

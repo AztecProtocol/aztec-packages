@@ -1,7 +1,7 @@
 #include "ecc_wnaf_relation.hpp"
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/sumcheck/relations/relation_definitions_fwd.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace proof_system::honk::sumcheck {
 
@@ -56,8 +56,9 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     const auto& precompute_skew = View(extended_edges.precompute_skew);
 
     const std::array<View, 8> slices{
-        View(extended_edges.precompute_s1hi), View(extended_edges.precompute_s1lo), View(extended_edges.precompute_s2hi),
-        View(extended_edges.precompute_s2lo), View(extended_edges.precompute_s3hi), View(extended_edges.precompute_s3lo),
+        View(extended_edges.precompute_s1hi), View(extended_edges.precompute_s1lo),
+        View(extended_edges.precompute_s2hi), View(extended_edges.precompute_s2lo),
+        View(extended_edges.precompute_s3hi), View(extended_edges.precompute_s3lo),
         View(extended_edges.precompute_s4hi), View(extended_edges.precompute_s4lo),
     };
 
@@ -207,10 +208,10 @@ void ECCVMWnafRelationBase<FF>::add_edge_contribution_impl(typename AccumulatorT
     // if precompute_select = 0, validate pc, round, slice values are all zero
     // If we do this we can reduce the degree of the set equivalence relations
     // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,
-    //  we conditionally include tuples depending on if precompute_select = 1 (for WNAF columns) or if q_add1/2/3/4 = 1 (for MSM
-    //  columns).
-    // If we KNOW that the wnaf tuple values are 0 when precompute_select = 0, we can remove the conditional checks in the set
-    // equivalence relation
+    //  we conditionally include tuples depending on if precompute_select = 1 (for WNAF columns) or if q_add1/2/3/4 = 1
+    //  (for MSM columns).
+    // If we KNOW that the wnaf tuple values are 0 when precompute_select = 0, we can remove the conditional checks in
+    // the set equivalence relation
 }
 
 template class ECCVMWnafRelationBase<barretenberg::fr>;

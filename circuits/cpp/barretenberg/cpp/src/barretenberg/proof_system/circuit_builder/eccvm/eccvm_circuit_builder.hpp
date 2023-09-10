@@ -10,7 +10,7 @@
 #include "barretenberg/honk/flavor/ecc_vm.hpp"
 #include "barretenberg/honk/proof_system/lookup_library.hpp"
 #include "barretenberg/honk/proof_system/permutation_library.hpp"
-#include "barretenberg/honk/sumcheck/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace proof_system {
 
@@ -303,7 +303,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         }
         for (size_t i = 0; i < precompute_table_state.size(); ++i) {
             // first row is always an empty row (to accomodate shifted polynomials which must have 0 as 1st
-            // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e. precompute_select = 1)
+            // coefficient). All other rows in the precompute_table_state represent active wnaf gates (i.e.
+            // precompute_select = 1)
             rows.precompute_select[i] = (i != 0) ? 1 : 0;
             rows.precompute_pc[i] = precompute_table_state[i].pc;
             rows.precompute_point_transition[i] = static_cast<uint64_t>(precompute_table_state[i].point_transition);
@@ -319,7 +320,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             rows.precompute_s4hi[i] = precompute_table_state[i].s7;
             rows.precompute_s4lo[i] = precompute_table_state[i].s8;
             // If skew is active (i.e. we need to subtract a base point from the msm result),
-            // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted into WNAF form
+            // write `7` into rows.precompute_skew. `7`, in binary representation, equals `-1` when converted into WNAF
+            // form
             rows.precompute_skew[i] = precompute_table_state[i].skew ? 7 : 0;
 
             rows.precompute_dx[i] = precompute_table_state[i].precompute_double.x;
