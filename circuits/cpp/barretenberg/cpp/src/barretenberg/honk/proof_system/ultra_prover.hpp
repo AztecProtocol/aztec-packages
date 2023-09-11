@@ -25,6 +25,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using Curve = typename Flavor::Curve;
+    using OpenPair = pcs::OpeningPair<Curve>;
 
   public:
     explicit UltraProver_(std::shared_ptr<ProvingKey> input_key, std::shared_ptr<CommitmentKey> commitment_key);
