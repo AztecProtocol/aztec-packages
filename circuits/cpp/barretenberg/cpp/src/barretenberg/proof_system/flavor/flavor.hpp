@@ -223,14 +223,13 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
  * outer tuple.
  * WORKTODO: unused FF?
  */
-template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_univariates_container()
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_univariates_container()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationUnivariates;
-        return std::tuple_cat(std::tuple<UnivariateTuple>{},
-                              create_relation_univariates_container<FF, Tuple, Index + 1>());
+        return std::tuple_cat(std::tuple<UnivariateTuple>{}, create_relation_univariates_container<Tuple, Index + 1>());
     }
 }
 
@@ -239,13 +238,13 @@ template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto
  * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
  * length num-identities.
  */
-template <class FF, typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_values_container()
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_values_container()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using ValuesArray = typename std::tuple_element_t<Index, Tuple>::RelationValues;
-        return std::tuple_cat(std::tuple<ValuesArray>{}, create_relation_values_container<FF, Tuple, Index + 1>());
+        return std::tuple_cat(std::tuple<ValuesArray>{}, create_relation_values_container<Tuple, Index + 1>());
     }
 }
 
