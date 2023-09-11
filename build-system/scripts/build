@@ -134,14 +134,14 @@ if [[ -n "$COMMIT_TAG" ]]; then
   else
     COMMIT_TAG_VERSION=$COMMIT_TAG
   fi
-  
-  # We are building a tagged commit. Check it's a valid semver.
-  VERSION=$(npx semver $COMMIT_TAG_VERSION)
-  if [ -z "$VERSION" ]; then
-    COMMIT_TAG_VERSION=""
-  else
-    COMMIT_TAG_VERSION=$VERSION
-  fi
+
+  ## We are building a tagged commit. Check it's a valid semver.
+  #VERSION=$(npx semver $COMMIT_TAG_VERSION)
+  #if [ -z "$VERSION" ]; then
+  #  COMMIT_TAG_VERSION=""
+  #else
+  #  COMMIT_TAG_VERSION=$VERSION
+  #fi
 else
   COMMIT_TAG_VERSION=""
 fi

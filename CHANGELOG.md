@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.6.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.5...aztec-packages-v0.6.6) (2023-09-11)
+
+
+### Features
+
+* **noir:** Introduce context union to simplify storage declarations ([#2143](https://github.com/AztecProtocol/aztec-packages/issues/2143)) ([2288e44](https://github.com/AztecProtocol/aztec-packages/commit/2288e44a5b817076c9d51db5f99905deeeffc418)), closes [#2012](https://github.com/AztecProtocol/aztec-packages/issues/2012)
+
+
+### Bug Fixes
+
+* **test:** Fix regex in canary test ([#2165](https://github.com/AztecProtocol/aztec-packages/issues/2165)) ([e5f50df](https://github.com/AztecProtocol/aztec-packages/commit/e5f50df55e68f6c94b602fc16b33abbcea15674e))
+
+## [0.6.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.4...aztec-packages-v0.6.5) (2023-09-08)
+
+
+### Bug Fixes
+
+* Revert "fix: commit tags and rebuilds" ([#2159](https://github.com/AztecProtocol/aztec-packages/issues/2159)) ([50396a0](https://github.com/AztecProtocol/aztec-packages/commit/50396a068f11216947eac0137baa198424da9b81))
+
+## [0.6.4](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.3...aztec-packages-v0.6.4) (2023-09-08)
+
+
+### Bug Fixes
+
+* Commit tags and rebuilds ([#2156](https://github.com/AztecProtocol/aztec-packages/issues/2156)) ([7669b43](https://github.com/AztecProtocol/aztec-packages/commit/7669b43253f8c2633e96f483ec12c75478dcf539))
+
+## [0.6.3](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.2...aztec-packages-v0.6.3) (2023-09-08)
+
+
+### Bug Fixes
+
+* Revert bad spot-ification ([#2153](https://github.com/AztecProtocol/aztec-packages/issues/2153)) ([d993d47](https://github.com/AztecProtocol/aztec-packages/commit/d993d47b4df93544c9d0128460eefea286212d77))
+
+## [0.6.2](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.1...aztec-packages-v0.6.2) (2023-09-08)
+
+
+### Bug Fixes
+
+* Setup_env commit check ([#2149](https://github.com/AztecProtocol/aztec-packages/issues/2149)) ([08ade47](https://github.com/AztecProtocol/aztec-packages/commit/08ade4706e250945be3764587b6863b824092fdd))
+
 ## [0.6.1](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.5.2...aztec-packages-v0.6.1) (2023-09-08)
 
 
