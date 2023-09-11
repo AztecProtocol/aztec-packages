@@ -1,6 +1,7 @@
 import { CompleteAddress } from '@aztec/aztec.js';
 import { useState } from 'react';
-import { Banner, Contract, Spinner } from './components/index.js';
+import { Banner, Spinner } from './components/index.js';
+import { Contract } from './contract.js';
 import { WalletDropdown } from './wallet_dropdown.js';
 
 const ANIMATED_BANNER = false;
