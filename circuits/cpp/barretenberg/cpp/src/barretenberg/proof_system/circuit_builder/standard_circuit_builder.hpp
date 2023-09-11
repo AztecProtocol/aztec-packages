@@ -123,8 +123,8 @@ template <typename FF> class StandardCircuitBuilder_ : public CircuitBuilderBase
         std::unordered_map<uint32_t, std::string> vars_of_interest;
         std::vector<FF> variables;
         std::vector<std::vector<FF>> selectors;
-        std::vector<std::vector<uint32_t>> wits;
-        MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wits);
+        std::vector<std::vector<uint32_t>> wires;
+        MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wires);
     } circuit_schema;
 };
 

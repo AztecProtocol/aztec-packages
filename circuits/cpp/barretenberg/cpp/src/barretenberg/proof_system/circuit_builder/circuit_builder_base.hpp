@@ -276,7 +276,7 @@ template <typename Arithmetization> class CircuitBuilderBase {
     }
 
     /**
-     * Export the existing circuit into msgpack compatible buffer.
+     * Export the existing circuit as msgpack compatible buffer.
      *
      * @return msgpack compatible buffer
      */

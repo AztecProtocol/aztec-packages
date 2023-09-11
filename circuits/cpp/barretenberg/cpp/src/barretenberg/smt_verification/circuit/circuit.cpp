@@ -67,9 +67,9 @@ template <typename FF>
 std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
                                            const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall,
-                                           const std::vector<std::string>& neqall)
+                                           const std::vector<std::string>& not_equal,
+                                           const std::vector<std::string>& equal_at_the_same_time,
+                                           const std::vector<std::string>& not_equal_at_the_same_time)
 {
     Circuit<FF> c1(circuit_info, s, "circuit1");
     Circuit<FF> c2(circuit_info, s, "circuit2");
@@ -77,12 +77,12 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
     for (const auto& term : equal) {
         c1[term] == c2[term];
     }
-    for (const auto& term : nequal) {
+    for (const auto& term : not_equal) {
         c1[term] != c2[term];
     }
 
     std::vector<Bool> eqs;
-    for (const auto& term : eqall) {
+    for (const auto& term : equal_at_the_same_time) {
         Bool tmp = Bool(c1[term]) == Bool(c2[term]);
         eqs.push_back(tmp);
     }
@@ -94,7 +94,7 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
     }
 
     std::vector<Bool> neqs;
-    for (const auto& term : neqall) {
+    for (const auto& term : not_equal_at_the_same_time) {
         Bool tmp = Bool(c1[term]) != Bool(c2[term]);
         neqs.push_back(tmp);
     }
@@ -109,16 +109,16 @@ std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
 
 template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
-                                           const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall = {},
-                                           const std::vector<std::string>& neqall = {});
+                                           const std::vector<std::string>& equal = {},
+                                           const std::vector<std::string>& not_equal = {},
+                                           const std::vector<std::string>& equal_at_the_same_time = {},
+                                           const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
-                                           const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall = {},
-                                           const std::vector<std::string>& neqall = {});
+                                           const std::vector<std::string>& equal = {},
+                                           const std::vector<std::string>& not_equal = {},
+                                           const std::vector<std::string>& equal_at_the_same_time = {},
+                                           const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 }; // namespace smt_circuit

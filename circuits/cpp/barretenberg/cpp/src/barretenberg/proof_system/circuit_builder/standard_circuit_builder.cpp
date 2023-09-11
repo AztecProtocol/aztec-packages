@@ -512,7 +512,7 @@ template <typename FF> bool StandardCircuitBuilder_<FF>::check_circuit()
 }
 
 /**
- * Export the existing circuit into msgpack compatible buffer.
+ * Export the existing circuit as msgpack compatible buffer.
  *
  * @return msgpack compatible buffer
  */
@@ -539,20 +539,19 @@ template <typename FF> msgpack::sbuffer StandardCircuitBuilder_<FF>::export_circ
         cir.vars_of_interest.insert({ this->real_variable_index[tup.first], tup.second });
     }
 
-    std::string tmp;
     for (auto var : this->variables) {
         cir.variables.push_back(var);
     }
 
     for (size_t i = 0; i < this->num_gates; i++) {
         std::vector<FF> tmp_sel = { q_m[i], q_1[i], q_2[i], q_3[i], q_c[i] };
-        std::vector<uint32_t> tmp_wit = {
+        std::vector<uint32_t> tmp_w = {
             this->real_variable_index[w_l[i]],
             this->real_variable_index[w_r[i]],
             this->real_variable_index[w_o[i]],
         };
         cir.selectors.push_back(tmp_sel);
-        cir.wits.push_back(tmp_wit);
+        cir.wires.push_back(tmp_w);
     }
 
     msgpack::sbuffer buffer;

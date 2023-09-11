@@ -22,8 +22,8 @@ struct CircuitSchema {
     std::unordered_map<uint32_t, std::string> vars_of_interest;
     std::vector<barretenberg::fr> variables;
     std::vector<std::vector<barretenberg::fr>> selectors;
-    std::vector<std::vector<uint32_t>> wits;
-    MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wits);
+    std::vector<std::vector<uint32_t>> wires;
+    MSGPACK_FIELDS(modulus, public_inps, vars_of_interest, variables, selectors, wires);
 };
 
 /**
@@ -46,8 +46,8 @@ class Circuit {
     std::unordered_map<uint32_t, std::string> vars_of_interest; // names of the variables
     std::unordered_map<std::string, uint32_t> terms;            // inverse map of the previous memeber
     std::vector<std::vector<std::string>> selectors;            // selectors from the circuit
-    std::vector<std::vector<uint32_t>> wit_idxs;                // values used in gates from the circuit
-    std::vector<FF> vars;                                   // all the symbolic variables in the circuit
+    std::vector<std::vector<uint32_t>> wires_idxs;              // values of the gates' wires
+    std::vector<FF> vars;                                       // all the symbolic variables from the circuit
 
     Solver* solver;  // pointer to the solver
     std::string tag; // tag of the symbolic circuit.
@@ -73,7 +73,7 @@ template <typename FF>
 Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::string& tag)
     : public_inps(circuit_info.public_inps)
     , vars_of_interest(circuit_info.vars_of_interest)
-    , wit_idxs(circuit_info.wits)
+    , wires_idxs(circuit_info.wires)
     , solver(solver)
     , tag(tag)
 {
@@ -87,7 +87,7 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
         std::stringstream buf; // TODO(alex): looks bad. Would be great to create tostring() converter
         buf << var;
         std::string tmp = buf.str();
-        tmp[1] = '0'; // avoiding x in 0x part
+        tmp[1] = '0'; // avoiding `x` in 0x prefix
         variables.push_back(tmp);
     }
 
@@ -106,7 +106,7 @@ Circuit<FF>::Circuit(CircuitSchema& circuit_info, Solver* solver, const std::str
             std::stringstream buf; // TODO(alex): #2
             buf << sel[j];
             std::string q_i = buf.str();
-            q_i[1] = '0'; // avoiding x in 0x part
+            q_i[1] = '0'; // avoiding `x` in 0x prefix
             tmp_sel.push_back(q_i);
         }
         selectors.push_back(tmp_sel);
@@ -160,9 +160,9 @@ void Circuit<FF>::add_gates()
         FF q_3 = FF::Const(selectors[i][3], this->solver);
         FF q_c = FF::Const(selectors[i][4], this->solver);
 
-        uint32_t w_l = wit_idxs[i][0];
-        uint32_t w_r = wit_idxs[i][1];
-        uint32_t w_o = wit_idxs[i][2];
+        uint32_t w_l = wires_idxs[i][0];
+        uint32_t w_r = wires_idxs[i][1];
+        uint32_t w_o = wires_idxs[i][2];
 
         // Binary gate. Relaxes the solver. 
         // TODO(alex): Probably we can add other basic gates here too to relax the stuff.
@@ -223,29 +223,23 @@ CircuitSchema unpack_from_file(const std::string& fname);
 template <typename FF>
 std::pair<Circuit<FF>, Circuit<FF>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
-                                           const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall = {},
-                                           const std::vector<std::string>& neqall = {});
+                                           const std::vector<std::string>& equal = {},
+                                           const std::vector<std::string>& not_equal = {},
+                                           const std::vector<std::string>& equal_at_the_same_time = {},
+                                           const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 extern template std::pair<Circuit<FFTerm>, Circuit<FFTerm>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
-                                           const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall = {},
-                                           const std::vector<std::string>& neqall = {});
+                                           const std::vector<std::string>& equal = {},
+                                           const std::vector<std::string>& not_equal = {},
+                                           const std::vector<std::string>& equal_at_the_same_time = {},
+                                           const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 extern template std::pair<Circuit<FFITerm>, Circuit<FFITerm>> unique_witness(CircuitSchema& circuit_info,
                                            Solver* s,
-                                           const std::vector<std::string>& equal,
-                                           const std::vector<std::string>& nequal,
-                                           const std::vector<std::string>& eqall = {},
-                                           const std::vector<std::string>& neqall = {});
-
-
-
-// TODO(alex): Do we need the function that will do recheck based on the current model to consequently find all the
-// solutions?
-// void get_all_solutions(std::unordered_map<std::string, cvc5::Term>, std::unordered_map)
+                                           const std::vector<std::string>& equal = {},
+                                           const std::vector<std::string>& not_equal = {},
+                                           const std::vector<std::string>& equal_at_the_same_time = {},
+                                           const std::vector<std::string>& not_eqaul_at_the_same_time = {});
 
 }; // namespace smt_circuit
