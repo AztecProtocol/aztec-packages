@@ -1,21 +1,35 @@
-import { AztecAddress, CompleteAddress, Contract, Wallet, getSandboxAccountsWallet } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress, Contract, Fr, Wallet, getSandboxAccountsWallet } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { rpcClient } from '../config.js';
+import { deployContract } from '../scripts/deploy_contract.js';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
-const INITIAL_BALANCE = 333n;
+function getRandomInt(min: number, max: number): bigint {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return BigInt(Math.floor(Math.random() * (max - min)) + min);
+}
+
+const MIN_INITIAL_BALANCE = 300;
+const MAX_INITIAL_BALANCE = 600;
+const INITIAL_BALANCE = getRandomInt(MIN_INITIAL_BALANCE, MAX_INITIAL_BALANCE);
 const TRANSFER_AMOUNT = 44n;
 const MINT_AMOUNT = 11n;
 
-async function deployZKContract(owner: AztecAddress, wallet: Wallet) {
+async function deployZKContract(owner: CompleteAddress, wallet: Wallet) {
   logger('Deploying L2 contract...');
-  const tx = PrivateTokenContract.deploy(rpcClient, INITIAL_BALANCE, owner).send();
-  const receipt = await tx.getReceipt();
-  const contract = await PrivateTokenContract.at(receipt.contractAddress!, wallet);
-  await tx.wait();
-  logger('L2 contract deployed');
+  // const constructorFunctionAbi = PrivateTokenContract.abi.functions.find(f => f.name === 'constructor');
+  const constructorArgs = {
+    // eslint-disable-next-line camelcase
+    initial_supply: INITIAL_BALANCE,
+    owner: owner.address,
+  };
+  const contractAddress = await deployContract(owner, PrivateTokenContract.abi, constructorArgs, Fr.ZERO, rpcClient);
+
+  logger(`L2 contract deployed at ${contractAddress}`);
+  const contract = await PrivateTokenContract.at(contractAddress, wallet);
   return contract;
 }
 
@@ -27,20 +41,21 @@ describe('ZK Contract Tests', () => {
   let wallet: Wallet;
   let owner: CompleteAddress;
   let account2: CompleteAddress;
+  let _account3: CompleteAddress;
   let zkContract: Contract;
 
   beforeAll(async () => {
     wallet = await getSandboxAccountsWallet(rpcClient);
     const accounts = await rpcClient.getAccounts();
-    [owner, account2] = accounts;
+    [owner, account2, _account3] = accounts;
 
-    zkContract = await deployZKContract(owner.address, wallet);
-  });
+    zkContract = await deployZKContract(owner, wallet);
+  }, 30000);
 
   test('Initial balance is correct', async () => {
     const balance = await getBalance(zkContract, owner.address);
     expect(balance).toEqual(INITIAL_BALANCE);
-  });
+  }, 41000);
 
   test('Balance after mint is correct', async () => {
     const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send({ origin: owner.address });
@@ -48,7 +63,7 @@ describe('ZK Contract Tests', () => {
 
     const balanceAfterMint = await getBalance(zkContract, owner.address);
     expect(balanceAfterMint).toEqual(INITIAL_BALANCE + MINT_AMOUNT);
-  });
+  }, 42000);
 
   test('Balance after transfer is correct for both sender and receiver', async () => {
     const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send({ origin: owner.address });
@@ -59,5 +74,5 @@ describe('ZK Contract Tests', () => {
 
     const receiverBalance = await getBalance(zkContract, account2.address);
     expect(receiverBalance).toEqual(TRANSFER_AMOUNT);
-  });
+  }, 43000);
 });

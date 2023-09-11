@@ -12,10 +12,10 @@ import {
   Wallet,
 } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Point } from '@aztec/foundation/fields';
 import { AztecRPC, PublicKey } from '@aztec/types';
 
-import PrivateTokenContractAbiJson from '../artifacts/private_token_contract.json' assert { type: 'json' };
+import PrivateTokenContractAbiJson from './private_token_contract.json' assert { type: 'json' };
 
 export const PrivateTokenContractAbi = PrivateTokenContractAbiJson as unknown as ContractAbi;
 
