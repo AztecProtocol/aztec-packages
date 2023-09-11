@@ -275,8 +275,6 @@ template <typename CycleGroup_T, typename Curve_T, typename PCS_T> class ECCVMBa
      * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + "ShiftedEntities". It could be
      * implemented as such, but we have this now.
      */
-    // SUEHRGFPIEAUHFPAWEIUFHEAWP9UFH NEED TO MAKE SURE POINTS ARE NOT POINTS AT INFINITY
-    // I3EUBFPEWUBEWOPFUHEWPIFUHEPWFUHEQWOIFUHEOLRFHEQPFUHEQPFUH I.E. ALL ARE NONZERO EPFHUEPFHUEPGRFGHBEWOFIEHUPOFUHRNF
     template <typename DataType, typename HandleType>
     class AllEntities : public AllEntities_<DataType, HandleType, NUM_ALL_ENTITIES> {
       public:
