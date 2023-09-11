@@ -1,9 +1,9 @@
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
 import { FunctionAbi } from '@aztec/foundation/abi';
 import { useState } from 'react';
-import { FILTERED_FUNCTION_NAMES, contractAbi } from '../config.js';
-import { Popup } from './components/index.js';
+import { FILTERED_FUNCTION_NAMES, contractAbi } from '../../config.js';
 import { ContractFunctionForm } from './contract_function_form.js';
+import { Popup } from './index.js';
 
 const functionTypeSortOrder = {
   secret: 0,
