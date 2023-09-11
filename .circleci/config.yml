@@ -1346,7 +1346,10 @@ workflows:
           requires:
             - barretenberg-wasm-linux-clang
           <<: *defaults
-      - circuits-x86_64-linux-clang-tidy: *defaults
+      - circuits-x86_64-linux-clang-tidy:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
       - circuits-x86_64-linux-clang:
           requires:
             - barretenberg-x86_64-linux-clang

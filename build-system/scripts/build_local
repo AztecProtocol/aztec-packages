@@ -18,6 +18,22 @@ fi
 ROOT=$(git rev-parse --show-toplevel)
 source $ROOT/build_manifest.sh
 
+# If given a name, check it exists.
+if [ -n "$TARGET_PROJECT" ]; then
+  EXISTS=0
+  for E in ${PROJECTS[@]}; do
+    ARR=(${E//:/ })
+    PROJECT_DIR_NAME=${ARR[0]}
+    if [ "$PROJECT_DIR_NAME" = "$TARGET_PROJECT" ]; then
+      EXISTS=1
+    fi
+  done
+  if [ "$EXISTS" -eq 0 ]; then
+    echo "Unknown project $TARGET_PROJECT, check build_manifest.sh";
+    exit 1
+  fi
+fi
+
 for E in ${PROJECTS[@]}; do
   ARR=(${E//:/ })
   PROJECT_DIR_NAME=${ARR[0]}

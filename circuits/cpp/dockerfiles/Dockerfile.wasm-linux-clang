@@ -5,7 +5,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-es
 WORKDIR /usr/src/circuits/cpp
 COPY . .
 # Replace symlink to barretenberg.
-COPY --from=bb /usr/src/barretenberg/cpp /usr/src/barretenberg/cpp
+COPY --from=bb /usr/src/barretenberg/cpp /usr/src/circuits/cpp/barretenberg/cpp
 RUN cmake --preset wasm && cmake --build --preset wasm --target aztec3-circuits.wasm
 
 FROM scratch
