@@ -1,16 +1,9 @@
-import {
-  AccountWallet,
-  AztecAddress,
-  CompleteAddress,
-  Contract,
-  Fr,
-  Wallet,
-  getSandboxAccountsWallets,
-} from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, CompleteAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { rpcClient } from '../config.js';
 import { deployContract } from '../scripts/deploy_contract.js';
+import { getWallet } from '../scripts/util.js';
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
@@ -53,9 +46,10 @@ describe('ZK Contract Tests', () => {
   let zkContract: Contract;
 
   beforeAll(async () => {
-    wallet = (await getSandboxAccountsWallets(rpcClient))[0];
     const accounts = await rpcClient.getAccounts();
     [owner, account2, _account3] = accounts;
+
+    wallet = await getWallet(owner, rpcClient);
 
     zkContract = await deployZKContract(owner, wallet);
   }, 30000);

@@ -1,13 +1,6 @@
-import {
-  AccountWallet,
-  AztecAddress,
-  AztecRPC,
-  CompleteAddress,
-  Contract,
-  getSandboxAccountsWallets,
-} from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC, CompleteAddress, Contract } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
-import { convertArgs } from './arg_conversion.js';
+import { convertArgs, getWallet } from './util.js';
 
 export async function callContractFunction(
   address: AztecAddress,
@@ -17,14 +10,10 @@ export async function callContractFunction(
   rpc: AztecRPC,
   wallet: CompleteAddress,
 ) {
-  const realWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
-  const selectedWallet: AccountWallet = realWallets.find(
-    w => w.getAddress().toShortString() === wallet.address.toShortString(),
-  )!;
-  console.log('picked ', selectedWallet.getAddress());
+  const selectedWallet = await getWallet(wallet, rpc);
 
   // TODO: switch to the generated typescript class?
-  // realWallet is how we specify the sender of the transaction
+  // selectedWallet is how we specify the "sender" of the transaction
   const contract = await Contract.at(address, abi, selectedWallet);
 
   const functionAbi = abi.functions.find(f => f.name === functionName);

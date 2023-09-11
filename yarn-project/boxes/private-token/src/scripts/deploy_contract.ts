@@ -1,7 +1,7 @@
 import { AztecAddress, CompleteAddress, DeployMethod, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { AztecRPC } from '@aztec/types';
-import { convertArgs } from './arg_conversion.js';
+import { convertArgs } from './util.js';
 
 export async function deployContract(
   activeWallet: CompleteAddress,
