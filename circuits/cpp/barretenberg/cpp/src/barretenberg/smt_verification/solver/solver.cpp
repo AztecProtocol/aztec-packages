@@ -4,9 +4,9 @@
 namespace smt_solver {
 
 /**
- * Check if the symbolic model is solvable.
+ * Check if the system is solvable.
  *
- * @return true if the model is solvable.
+ * @return true if the system is solvable.
  * */
 bool Solver::check()
 {
@@ -24,6 +24,9 @@ bool Solver::check()
  * */
 std::unordered_map<std::string, std::string> Solver::model(std::unordered_map<std::string, cvc5::Term>& terms) const
 {
+    if (!this->checked){
+        throw std::length_error("Haven't checked yet");
+    }
     if (!this->res) {
         throw std::length_error("There's no solution");
     }
