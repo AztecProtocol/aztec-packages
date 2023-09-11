@@ -1,4 +1,11 @@
-import { AztecAddress, AztecRPC, CompleteAddress, Contract, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  AztecAddress,
+  AztecRPC,
+  CompleteAddress,
+  Contract,
+  getSandboxAccountsWallets,
+} from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { convertArgs } from './arg_conversion.js';
 
@@ -10,7 +17,7 @@ export async function callContractFunction(
   rpc: AztecRPC,
   wallet: CompleteAddress,
 ) {
-  const realWallets = await getSandboxAccountsWallets(rpc);
+  const realWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
   console.log(realWallets);
   // TODO: switch to the generated typescript class?
   const contract = await Contract.at(address, abi, realWallets[0]);
