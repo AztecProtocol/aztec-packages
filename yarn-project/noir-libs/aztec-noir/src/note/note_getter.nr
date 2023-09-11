@@ -123,15 +123,15 @@ fn get_notes<Note, N, FILTER_ARGS>(
     let opt_notes = get_notes_internal(storage_slot, note_interface, options);
     for i in 0..opt_notes.len() {
         let opt_note = opt_notes[i];
-        let mut note_hash_for_read_request = 0;
         if opt_note.is_some() {
             let note = opt_note.unwrap_unchecked();
             check_note_header(*context, storage_slot, note_interface, note);
-            note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
+
+            let note_hash_for_read_request = compute_note_hash_for_read_or_nullify(note_interface, note);
+            // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
+            // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
+            context.push_read_request(note_hash_for_read_request);
         };
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1410): test to ensure
-        // failure if malicious oracle injects 0 nonce here for a "pre-existing" note.
-        context.push_read_request(note_hash_for_read_request);
     };
     opt_notes
 }
