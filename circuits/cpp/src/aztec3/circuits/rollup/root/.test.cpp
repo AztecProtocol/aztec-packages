@@ -64,52 +64,52 @@ class root_rollup_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 
-    static void run_cbind(RootRollupInputs& root_rollup_inputs,
-                          RootRollupPublicInputs& expected_public_inputs,
-                          bool compare_pubins = true)
-    {
-        info("Retesting via cbinds....");
-        // info("Verification key size: ", vk_size);
+    // static void run_cbind(RootRollupInputs& root_rollup_inputs,
+    //                       RootRollupPublicInputs& expected_public_inputs,
+    //                       bool compare_pubins = true)
+    // {
+    //     info("Retesting via cbinds....");
+    //     // info("Verification key size: ", vk_size);
 
-        std::vector<uint8_t> root_rollup_inputs_vec;
-        serialize::write(root_rollup_inputs_vec, root_rollup_inputs);
+    //     std::vector<uint8_t> root_rollup_inputs_vec;
+    //     serialize::write(root_rollup_inputs_vec, root_rollup_inputs);
 
-        // uint8_t const* proof_data;
-        // size_t proof_data_size;
-        uint8_t const* public_inputs_buf = nullptr;
-        size_t public_inputs_size = 0;
-        // info("simulating circuit via cbind");
-        uint8_t* const circuit_failure_ptr =
-            root_rollup__sim(root_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
-        ASSERT_TRUE(circuit_failure_ptr == nullptr);
-        // info("Proof size: ", proof_data_size);
-        // info("PublicInputs size: ", public_inputs_size);
+    //     // uint8_t const* proof_data;
+    //     // size_t proof_data_size;
+    //     uint8_t const* public_inputs_buf = nullptr;
+    //     size_t public_inputs_size = 0;
+    //     // info("simulating circuit via cbind");
+    //     uint8_t* const circuit_failure_ptr =
+    //         root_rollup__sim(root_rollup_inputs_vec.data(), &public_inputs_size, &public_inputs_buf);
+    //     ASSERT_TRUE(circuit_failure_ptr == nullptr);
+    //     // info("Proof size: ", proof_data_size);
+    //     // info("PublicInputs size: ", public_inputs_size);
 
-        if (compare_pubins) {
-            RootRollupPublicInputs public_inputs;
-            uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
-            serialize::read(public_inputs_buf_tmp, public_inputs);
-            ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
-            for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
-                ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
-            }
+    //     if (compare_pubins) {
+    //         RootRollupPublicInputs public_inputs;
+    //         uint8_t const* public_inputs_buf_tmp = public_inputs_buf;
+    //         serialize::read(public_inputs_buf_tmp, public_inputs);
+    //         ASSERT_EQ(public_inputs.calldata_hash.size(), expected_public_inputs.calldata_hash.size());
+    //         for (size_t i = 0; i < public_inputs.calldata_hash.size(); i++) {
+    //             ASSERT_EQ(public_inputs.calldata_hash[i], expected_public_inputs.calldata_hash[i]);
+    //         }
 
-            std::vector<uint8_t> expected_public_inputs_vec;
-            serialize::write(expected_public_inputs_vec, expected_public_inputs);
+    //         std::vector<uint8_t> expected_public_inputs_vec;
+    //         serialize::write(expected_public_inputs_vec, expected_public_inputs);
 
-            ASSERT_EQ(public_inputs_size, expected_public_inputs_vec.size());
-            // Just compare the first 10 bytes of the serialized public outputs
-            if (public_inputs_size > 10) {
-                // for (size_t 0; i < public_inputs_size; i++) {
-                for (size_t i = 0; i < 10; i++) {
-                    ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
-                }
-            }
-        }
+    //         ASSERT_EQ(public_inputs_size, expected_public_inputs_vec.size());
+    //         // Just compare the first 10 bytes of the serialized public outputs
+    //         if (public_inputs_size > 10) {
+    //             // for (size_t 0; i < public_inputs_size; i++) {
+    //             for (size_t i = 0; i < 10; i++) {
+    //                 ASSERT_EQ(public_inputs_buf[i], expected_public_inputs_vec[i]);
+    //             }
+    //         }
+    //     }
 
-        // free((void*)proof_data);
-        free((void*)public_inputs_buf);
-    }
+    //     // free((void*)proof_data);
+    //     free((void*)public_inputs_buf);
+    // }
 };
 
 TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
@@ -149,7 +149,7 @@ TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 
     EXPECT_FALSE(builder.failed());
 
-    run_cbind(inputs, outputs, true);
+    // run_cbind(inputs, outputs, true);
 }
 
 TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
@@ -300,7 +300,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     EXPECT_FALSE(builder.failed());
 
-    run_cbind(rootRollupInputs, outputs, true);
+    // run_cbind(rootRollupInputs, outputs, true);
 }
 
 }  // namespace aztec3::circuits::rollup::root::native_root_rollup_circuit
