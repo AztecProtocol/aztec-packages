@@ -363,14 +363,14 @@ jobs:
           command: cond_spot_run_tests circuits-x86_64-linux-clang-assert 1 x86_64 scripts/a3-tests -*.skip*
       - *save_logs
 
-  circuits-end:
-    docker:
-      - image: cimg/base:current
-    resource_class: small
-    steps:
-      - run:
-          name: "Noop"
-          command: echo Noop
+  # circuits-end:
+  #   docker:
+  #     - image: cimg/base:current
+  #   resource_class: small
+  #   steps:
+  #     - run:
+  #         name: "Noop"
+  #         command: echo Noop
 
   l1-contracts:
     machine:
@@ -1002,7 +1002,7 @@ jobs:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
-        
+
   guides-sample-dapp:
     machine:
       image: ubuntu-2004:202010-01
@@ -1364,14 +1364,14 @@ workflows:
             - circuits-x86_64-linux-clang-assert
           <<: *defaults
 
-      - circuits-end:
-          requires:
-            - circuits-wasm-linux-clang
-            - circuits-x86_64-linux-clang-tidy
-            - circuits-x86_64-linux-clang
-            - circuits-wasm-tests
-            - circuits-x86_64-tests
-          <<: *defaults
+      # - circuits-end:
+      #     requires:
+      #       - circuits-wasm-linux-clang
+      #       - circuits-x86_64-linux-clang-tidy
+      #       - circuits-x86_64-linux-clang
+      #       - circuits-wasm-tests
+      #       - circuits-x86_64-tests
+      #     <<: *defaults
 
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
