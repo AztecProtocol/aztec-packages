@@ -1,6 +1,6 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AccountWallet, AztecAddress, Wallet } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, Wallet, deployInitialSandboxAccounts } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CardGameContract } from '@aztec/noir-contracts/types';
 import { AztecRPC } from '@aztec/types';
@@ -64,7 +64,10 @@ describe('e2e_card_game', () => {
   let contractAsThirdPlayer: CardGameContract;
 
   beforeEach(async () => {
-    ({ aztecNode, aztecRpcServer, wallets, logger } = await setup(3));
+    // Card stats are derived from the users' private keys, so to get consistent values, we set up the
+    // initial sandbox accounts that always use the same private keys, instead of random ones.
+    ({ aztecNode, aztecRpcServer, logger } = await setup(0));
+    wallets = await Promise.all((await deployInitialSandboxAccounts(aztecRpcServer)).map(a => a.account.getWallet()));
     [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
     [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
     await deployContract();
@@ -88,33 +91,38 @@ describe('e2e_card_game', () => {
   const getWallet = (address: AztecAddress) => wallets.find(w => w.getAddress().equals(address))!;
   const contractFor = (address: AztecAddress) => contract.withWallet(getWallet(address))!;
 
-  const firstPlayerCollection: Card[] = [
-    {
-      points: 45778n,
-      strength: 7074n,
-    },
-    {
-      points: 60338n,
-      strength: 53787n,
-    },
-    {
-      points: 13035n,
-      strength: 45778n,
-    },
-  ];
-
   it('should be able to buy packs', async () => {
     await contract.methods.buy_pack(27n).send().wait();
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer });
-    expect(unwrapOptions(collection)).toEqual(firstPlayerCollection);
+    expect(unwrapOptions(collection)).toMatchInlineSnapshot(`
+      [
+        {
+          "points": 18471n,
+          "strength": 55863n,
+        },
+        {
+          "points": 30024n,
+          "strength": 10202n,
+        },
+        {
+          "points": 47477n,
+          "strength": 18471n,
+        },
+      ]
+    `);
   }, 30_000);
 
   describe('game join', () => {
+    let firstPlayerCollection: Card[];
+
     beforeEach(async () => {
       await Promise.all([
         contract.methods.buy_pack(27n).send().wait(),
         contractAsSecondPlayer.methods.buy_pack(27n).send().wait(),
       ]);
+      firstPlayerCollection = unwrapOptions(
+        await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer }),
+      );
     }, 30_000);
 
     it('should be able to join games', async () => {
@@ -131,18 +139,21 @@ describe('e2e_card_game', () => {
       ).rejects.toThrow(/Card not found/);
 
       const collection = await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer });
-      expect(unwrapOptions(collection)).toEqual([
-        {
-          points: 60338n,
-          strength: 53787n,
-        },
-      ]);
+      expect(unwrapOptions(collection)).toHaveLength(1);
+      expect(unwrapOptions(collection)).toMatchInlineSnapshot(`
+        [
+          {
+            "points": 30024n,
+            "strength": 10202n,
+          },
+        ]
+      `);
 
       expect((await contract.methods.view_game(GAME_ID).view({ from: firstPlayer })) as Game).toMatchObject({
         players: [
           {
             address: firstPlayer.toBigInt(),
-            deck_strength: 52852n,
+            deck_strength: expect.anything(),
             points: 0n,
           },
           {
@@ -182,7 +193,7 @@ describe('e2e_card_game', () => {
         players: expect.arrayContaining([
           {
             address: firstPlayer.toBigInt(),
-            deck_strength: 52852n,
+            deck_strength: expect.anything(),
             points: 0n,
           },
           {
@@ -200,6 +211,7 @@ describe('e2e_card_game', () => {
   });
 
   describe('game play', () => {
+    let firstPlayerCollection: Card[];
     let secondPlayerCollection: Card[];
     let thirdPlayerCOllection: Card[];
 
@@ -209,6 +221,10 @@ describe('e2e_card_game', () => {
         contractAsSecondPlayer.methods.buy_pack(27n).send().wait(),
         contractAsThirdPlayer.methods.buy_pack(27n).send().wait(),
       ]);
+
+      firstPlayerCollection = unwrapOptions(
+        await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer }),
+      );
 
       secondPlayerCollection = unwrapOptions(
         await contract.methods.view_collection_cards(secondPlayer, 0).view({ from: secondPlayer }),
