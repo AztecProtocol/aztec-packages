@@ -1,28 +1,69 @@
 #!/usr/bin/env -S node --no-warnings
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
-import { deployL1Contracts } from '@aztec/ethereum';
+import { EthAddress, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
+import { DeployL1Contracts, createEthereumChain, deployL1Contracts } from '@aztec/ethereum';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { HDAccount, createPublicClient, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import {
+  Account,
+  Chain,
+  HDAccount,
+  HttpTransport,
+  createPublicClient,
+  createWalletClient,
+  http,
+  http as httpViemTransport,
+} from 'viem';
+import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-const { MNEMONIC = 'test test test test test test test test test test test junk' } = process.env;
+const {
+  MNEMONIC = 'test test test test test test test test test test test junk',
+  OUTBOX_CONTRACT_ADDRESS = '',
+  REGISTRY_CONTRACT_ADDRESS = '',
+} = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
 
 const localAnvil = foundry;
 
 /**
+ * Helper function that retrieves the addresses of configured deployed contracts.
+ */
+function retrieveL1Contracts(config: AztecNodeConfig, account: Account): Promise<DeployL1Contracts> {
+  const chain = createEthereumChain(config.rpcUrl, config.apiKey);
+  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
+    account,
+    chain: chain.chainInfo,
+    transport: http(chain.rpcUrl),
+  });
+  const publicClient = createPublicClient({
+    chain: chain.chainInfo,
+    transport: http(chain.rpcUrl),
+  });
+  const contracts: DeployL1Contracts = {
+    rollupAddress: config.rollupContract,
+    registryAddress: EthAddress.fromString(REGISTRY_CONTRACT_ADDRESS),
+    inboxAddress: config.inboxContract,
+    outboxAddress: EthAddress.fromString(OUTBOX_CONTRACT_ADDRESS),
+    contractDeploymentEmitterAddress: config.contractDeploymentEmitterContract,
+    decoderHelperAddress: undefined,
+    walletClient,
+    publicClient,
+  };
+  return Promise.resolve(contracts);
+}
+
+/**
  * Helper function that waits for the Ethereum RPC server to respond before deploying L1 contracts.
  */
-async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
+async function waitThenDeploy(config: AztecNodeConfig, deployFunction: () => Promise<DeployL1Contracts>) {
+  const chain = createEthereumChain(config.rpcUrl, config.apiKey);
   // wait for ETH RPC to respond to a request.
   const publicClient = createPublicClient({
-    chain: foundry,
-    transport: httpViemTransport(rpcUrl),
+    chain: chain.chainInfo,
+    transport: httpViemTransport(chain.rpcUrl),
   });
   const chainID = await retryUntil(
     async () => {
@@ -30,7 +71,7 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
       try {
         chainId = await publicClient.getChainId();
       } catch (err) {
-        logger.warn(`Failed to connect to Ethereum node at ${rpcUrl}. Retrying...`);
+        logger.warn(`Failed to connect to Ethereum node at ${chain.rpcUrl}. Retrying...`);
       }
       return chainId;
     },
@@ -40,12 +81,11 @@ async function waitThenDeploy(rpcUrl: string, hdAccount: HDAccount) {
   );
 
   if (!chainID) {
-    throw Error(`Ethereum node unresponsive at ${rpcUrl}.`);
+    throw Error(`Ethereum node unresponsive at ${chain.rpcUrl}.`);
   }
 
   // Deploy L1 contracts
-  const deployedL1Contracts = await deployL1Contracts(rpcUrl, hdAccount, localAnvil, logger);
-  return deployedL1Contracts;
+  return await deployFunction();
 }
 
 /** Sandbox settings. */
@@ -65,8 +105,38 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}) {
   const hdAccount = mnemonicToAccount(config.l1Mnemonic ?? MNEMONIC);
   const privKey = hdAccount.getHdKey().privateKey;
 
-  const l1Contracts = await waitThenDeploy(aztecNodeConfig.rpcUrl, hdAccount);
+  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
+    deployL1Contracts(aztecNodeConfig.rpcUrl, hdAccount, localAnvil, logger),
+  );
   aztecNodeConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
+  aztecNodeConfig.rollupContract = l1Contracts.rollupAddress;
+  aztecNodeConfig.contractDeploymentEmitterContract = l1Contracts.contractDeploymentEmitterAddress;
+  aztecNodeConfig.inboxContract = l1Contracts.inboxAddress;
+
+  const node = await AztecNodeService.createAndSync(aztecNodeConfig);
+  const rpcServer = await createAztecRPCServer(node, rpcConfig);
+
+  const stop = async () => {
+    await rpcServer.stop();
+    await node.stop();
+  };
+
+  return { node, rpcServer, l1Contracts, stop };
+}
+
+/**
+ * Create and start a new Aztec Node and RPC Server. Designed for interaction with a node network.
+ * Does not start any HTTP services nor populate any initial accounts.
+ * @param config - Optional Sandbox settings.
+ */
+export async function createP2PSandbox() {
+  const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
+  const rpcConfig = getRpcConfigEnvVars();
+  const privateKeyAccount = privateKeyToAccount(aztecNodeConfig.publisherPrivateKey);
+
+  const l1Contracts = await waitThenDeploy(aztecNodeConfig, () =>
+    retrieveL1Contracts(aztecNodeConfig, privateKeyAccount),
+  );
   aztecNodeConfig.rollupContract = l1Contracts.rollupAddress;
   aztecNodeConfig.contractDeploymentEmitterContract = l1Contracts.contractDeploymentEmitterAddress;
   aztecNodeConfig.inboxContract = l1Contracts.inboxAddress;

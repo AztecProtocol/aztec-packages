@@ -7,13 +7,38 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { setupFileDebugLog } from '../logging.js';
-import { createSandbox } from '../sandbox.js';
+import { createP2PSandbox, createSandbox } from '../sandbox.js';
 import { startHttpRpcServer } from '../server.js';
 import { github, splash } from '../splash.js';
 
-const { SERVER_PORT = 8080 } = process.env;
+const { SERVER_PORT = 8080, P2P_ENABLED = 'false' } = process.env;
 
 const logger = createDebugLogger('aztec:sandbox');
+
+/**
+ * Creates the sandbox from provided config and deploys any initial L1 and L2 contracts
+ * @param isP2PSandbox - Flag indicating if this sandbox is to connect to a P2P network
+ */
+async function createAndDeploySandbox(isP2PSandbox: boolean) {
+  if (!isP2PSandbox) {
+    const { l1Contracts, rpcServer, stop } = await createSandbox();
+    logger.info('Setting up test accounts...');
+    const accounts = await deployInitialSandboxAccounts(rpcServer);
+    return {
+      l1Contracts,
+      rpcServer,
+      stop,
+      accounts,
+    };
+  }
+  const { l1Contracts, rpcServer, stop } = await createP2PSandbox();
+  return {
+    l1Contracts,
+    rpcServer,
+    stop,
+    accounts: [],
+  };
+}
 
 /**
  * Create and start a new Aztec RCP HTTP Server
@@ -25,10 +50,12 @@ async function main() {
 
   logger.info(`Setting up Aztec Sandbox v${version}, please stand by...`);
 
-  const { l1Contracts, rpcServer, stop } = await createSandbox();
+  const p2pSandbox = P2P_ENABLED === 'true';
+  if (p2pSandbox) {
+    logger.info(`Setting up Aztec Sandbox as P2P Node`);
+  }
 
-  logger.info('Setting up test accounts...');
-  const accounts = await deployInitialSandboxAccounts(rpcServer);
+  const { l1Contracts, rpcServer, stop, accounts } = await createAndDeploySandbox(p2pSandbox);
 
   const shutdown = async () => {
     logger.info('Shutting down...');
