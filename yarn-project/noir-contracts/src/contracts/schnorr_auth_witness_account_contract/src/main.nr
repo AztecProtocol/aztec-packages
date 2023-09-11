@@ -13,7 +13,8 @@ contract SchnorrAuthWitnessAccount {
         oracle::compute_selector::compute_selector,
         context::{
             PrivateContext, 
-            PublicContext
+            PublicContext, 
+            Context,
         },
         state_vars::{
             map::Map,
@@ -35,19 +36,14 @@ contract SchnorrAuthWitnessAccount {
     }
 
     impl Storage {
-        fn init(
-            private_context: Option<&mut PrivateContext>,
-            public_context: Option<&mut PublicContext>,
-        ) -> pub Self {
+        fn init(context: Context) -> pub Self {
             Storage {
                 approved_action: Map::new(
-                private_context,
-                public_context,
+                context,
                 1,
-                |private_context, public_context, slot| {
+                |context, slot| {
                     PublicState::new(
-                        private_context,
-                        public_context,
+                        context,
                         slot,
                         FieldSerialisationMethods,
                     )
@@ -87,7 +83,7 @@ contract SchnorrAuthWitnessAccount {
     fn is_valid_public(
         message_hash: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let value = storage.approved_action.at(message_hash).read();
         if (value == 1){
             0xe86ab4ff
@@ -114,7 +110,7 @@ contract SchnorrAuthWitnessAccount {
         message_hash: Field,
         value: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         storage.approved_action.at(message_hash).write(value);
     }
 

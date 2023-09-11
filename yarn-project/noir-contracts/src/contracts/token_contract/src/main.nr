@@ -26,7 +26,7 @@ contract Token {
             note_header::NoteHeader,
             utils as note_utils,
         },
-        context::{PrivateContext, PublicContext},
+        context::{PrivateContext, PublicContext, Context},
         state_vars::{map::Map, public_state::PublicState, set::Set},
         types::type_serialisation::field_serialisation::{
             FieldSerialisationMethods, FIELD_SERIALISED_LEN,
@@ -48,53 +48,43 @@ contract Token {
     }
 
     impl Storage {
-        fn init(
-            private_context: Option<&mut PrivateContext>,
-            public_context: Option<&mut PublicContext>,
-        ) -> pub Self {
+        fn init(context: Context) -> pub Self {
             Storage {
                 admin: PublicState::new(
-                    private_context,
-                    public_context,
+                    context,
                     1,
                     FieldSerialisationMethods,
                 ),
                 minters: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     2,
-                    |private_context, public_context, slot| {
+                    |context, slot| {
                         PublicState::new(
-                            private_context,
-                            public_context,
+                            context,
                             slot,
                             FieldSerialisationMethods,
                         )
                     },
                 ),
                 balances: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     3,
-                    |private_context, public_context, slot| {
-                        Set::new(private_context, public_context, slot, ValueNoteMethods)
+                    |context, slot| {
+                        Set::new(context, slot, ValueNoteMethods)
                     },
                 ),
                 total_supply: PublicState::new(
-                    private_context,
-                    public_context,
+                    context,
                     4,
                     FieldSerialisationMethods,
                 ),
-                pending_shields: Set::new(private_context, public_context, 5, TransparentNoteMethods),
+                pending_shields: Set::new(context, 5, TransparentNoteMethods),
                 public_balances: Map::new(
-                    private_context,
-                    public_context,
+                    context,
                     6,
-                    |private_context, public_context, slot| {
+                    |context, slot| {
                         PublicState::new(
-                            private_context,
-                            public_context,
+                            context,
                             slot,
                             FieldSerialisationMethods,
                         )
@@ -115,7 +105,7 @@ contract Token {
     fn set_admin(
         new_admin: AztecAddress,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.admin.write(new_admin.address);
     }
@@ -126,7 +116,7 @@ contract Token {
         approve: Field,
     ) {
         assert((approve == 1) | (approve == 0), "not providing boolean");
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         assert(storage.admin.read() == context.msg_sender(), "caller is not admin");
         storage.minters.at(minter.address).write(approve as Field);
     }
@@ -136,7 +126,7 @@ contract Token {
         to: AztecAddress,
         amount: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let amount = SafeU120::new(amount);
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
@@ -152,7 +142,7 @@ contract Token {
         amount: Field,
         secret_hash: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         assert(storage.minters.at(context.msg_sender()).read() == 1, "caller is not minter");
         let pending_shields = storage.pending_shields;
         let mut note = TransparentNote::new(amount, secret_hash);
@@ -170,7 +160,7 @@ contract Token {
         secret_hash: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
@@ -200,7 +190,7 @@ contract Token {
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
@@ -226,7 +216,7 @@ contract Token {
         secret: Field,
     ) -> Field {
         // @todo @lherskind consider Altering the value note as well to be safemath
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
         let balance = storage.balances.at(to.address);
         let public_note = TransparentNote::new_from_secret(amount, secret);
@@ -242,7 +232,7 @@ contract Token {
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
@@ -267,7 +257,7 @@ contract Token {
         amount: Field,
         nonce: Field,
     ) -> Field {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
@@ -294,7 +284,7 @@ contract Token {
     fn _initialize(
         new_admin: AztecAddress,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         storage.admin.write(new_admin.address);
         storage.minters.at(new_admin.address).write(1);
     }
@@ -306,7 +296,7 @@ contract Token {
         to: AztecAddress,
         amount: Field,
     ) {
-        let storage = Storage::init(Option::none(), Option::some(&mut context));
+        let storage = Storage::init(Context::public(&mut context));
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(SafeU120::new(amount));
         storage.public_balances.at(to.address).write(new_balance.value as Field);
     }
@@ -314,26 +304,26 @@ contract Token {
     /// Unconstrained /// 
 
     unconstrained fn admin() -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.admin.read()
     }
 
     unconstrained fn is_minter(
         minter: AztecAddress,
     ) -> bool {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.minters.at(minter.address).read() as bool
     }
 
     unconstrained fn total_supply() -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.total_supply.read()
     }
 
     unconstrained fn balance_of_private(
         owner: AztecAddress,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         let owner_balance = storage.balances.at(owner.address);
 
         balance_utils::get_balance(owner_balance)
@@ -342,7 +332,7 @@ contract Token {
     unconstrained fn balance_of_public(
         owner: AztecAddress,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         storage.public_balances.at(owner.address).read()
     }
 
