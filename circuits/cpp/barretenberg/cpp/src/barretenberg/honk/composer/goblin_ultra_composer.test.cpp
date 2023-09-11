@@ -58,51 +58,53 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
      * @brief Populate ECC op queue with mock data as stand in for "previous circuit" in tests
      * @details We currently cannot support Goblin proofs (specifically, transcript aggregation) if there is not
      * existing data in the ECC op queue (since this leads to zero-commitment issues). This method populates the op
-     * queue with mock data so that the prover for a non-trivial circuit can behave as if it were not the prover over
-     * the first circuit in the stack.
+     * queue with mock data so that the prover of an arbitrary 'first' circuit can behave as if it were not the prover
+     * over the first circuit in the stack.
      *
      * @param op_queue
      */
     static void populate_ecc_op_queue_with_mock_data(std::shared_ptr<ECCOpQueue>& op_queue)
     {
-        // WORKTODO: try to simplify this back to the 1 row example using g1(1) to commit?
-        size_t num_mock_rows = 2;
-        auto crs_factory = std::make_shared<barretenberg::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
-        auto commitment_key = std::make_shared<CommitmentKey>(num_mock_rows, crs_factory);
-
+        // Add a single row of data to the op queue and commit to each column as [1] * FF(data)
         std::array<Commitment, 4> mock_op_queue_commitments;
         size_t idx = 0;
         for (auto& entry : op_queue->ultra_ops) {
-            for (size_t i = 0; i < num_mock_rows; ++i) {
-                auto mock_data = FF::random_element();
-                entry.emplace_back(mock_data);
-            }
-            mock_op_queue_commitments[idx++] = commitment_key->commit(entry);
+            auto mock_data = FF::random_element();
+            entry.emplace_back(mock_data);
+            mock_op_queue_commitments[idx++] = Commitment::one() * mock_data;
         }
+        // Set some internal data based on the size of the op queue data
         op_queue->set_size_data();
+        // Add the commitments to the op queue data for use by the next circuit
         op_queue->set_commitment_data(mock_op_queue_commitments);
     }
 };
 
-// WORKTODO: currently cant support this test since T_{i-1} is empty. Either resolve this or ditch the test.
-// /**
-//  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
-//  * gates
-//  *
-//  */
-// TEST_F(GoblinUltraHonkComposerTests, SimpleCircuit)
-// {
-//     auto builder = UltraCircuitBuilder();
+/**
+ * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
+ * gates
+ * @note We simulate op queue interactions with a previous circuit so the actual circuit under test utilizes an op queue
+ * with non-empty 'previous' data. This avoid complications with zero-commitments etc.
+ *
+ */
+TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
+{
+    auto op_queue = std::make_shared<ECCOpQueue>();
 
-//     generate_test_circuit(builder);
+    // Add mock data to op queue to simulate interaction with a previous circuit
+    populate_ecc_op_queue_with_mock_data(op_queue);
 
-//     auto composer = GoblinUltraComposer();
-//     auto prover = composer.create_prover(builder);
-//     auto verifier = composer.create_verifier(builder);
-//     auto proof = prover.construct_proof();
-//     bool verified = verifier.verify_proof(proof);
-//     EXPECT_EQ(verified, true);
-// }
+    auto builder = UltraCircuitBuilder(op_queue);
+
+    generate_test_circuit(builder);
+
+    auto composer = GoblinUltraComposer();
+    auto prover = composer.create_prover(builder);
+    auto verifier = composer.create_verifier(builder);
+    auto proof = prover.construct_proof();
+    bool verified = verifier.verify_proof(proof);
+    EXPECT_EQ(verified, true);
+}
 
 /**
  * @brief Test proof construction/verification for a circuit with ECC op gates, public inputs, and basic arithmetic
@@ -114,13 +116,18 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<ECCOpQueue>();
 
+    // Add mock data to op queue to simulate interaction with a previous circuit
     populate_ecc_op_queue_with_mock_data(op_queue);
+
+    // Track the expected size of the op queue transcript
+    size_t expected_op_queue_size = 1; // +1 from mock data
 
     // Construct first circuit and its proof
     {
         auto builder = UltraCircuitBuilder(op_queue);
 
         generate_test_circuit(builder);
+        expected_op_queue_size += builder.num_ecc_op_gates;
 
         auto composer = GoblinUltraComposer();
         auto prover = composer.create_prover(builder);
@@ -130,19 +137,34 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
         EXPECT_EQ(verified, true);
     }
 
-    // // Construct second circuit
-    // {
-    //     auto builder = UltraCircuitBuilder(op_queue);
+    // Construct second circuit
+    {
+        auto builder = UltraCircuitBuilder(op_queue);
 
-    //     generate_test_circuit(builder);
+        generate_test_circuit(builder);
+        expected_op_queue_size += builder.num_ecc_op_gates;
 
-    //     auto composer = GoblinUltraComposer();
-    //     auto prover = composer.create_prover(builder);
-    //     auto verifier = composer.create_verifier(builder);
-    //     auto proof = prover.construct_proof();
-    //     bool verified = verifier.verify_proof(proof);
-    //     EXPECT_EQ(verified, true);
-    // }
+        auto composer = GoblinUltraComposer();
+        auto prover = composer.create_prover(builder);
+        auto verifier = composer.create_verifier(builder);
+        auto proof = prover.construct_proof();
+        bool verified = verifier.verify_proof(proof);
+        EXPECT_EQ(verified, true);
+    }
+
+    // Check that the op queue contains the expected number of entries
+    size_t aggregate_op_queue_size = op_queue->current_ultra_ops_size;
+    EXPECT_EQ(expected_op_queue_size, aggregate_op_queue_size);
+
+    // Compute the commitments to the aggregate op queue directly and check that they match those that were computed
+    // iteratively during transcript aggregation by the provers and stored in the op queue.
+    auto crs_factory = std::make_shared<barretenberg::srs::factories::FileCrsFactory<Curve>>("../srs_db/ignition");
+    auto commitment_key = std::make_shared<CommitmentKey>(aggregate_op_queue_size, crs_factory);
+    size_t idx = 0;
+    for (auto& result : op_queue->ultra_ops_commitments) {
+        auto expected = commitment_key->commit(op_queue->ultra_ops[idx++]);
+        EXPECT_EQ(result, expected);
+    }
 }
 
 } // namespace test_ultra_honk_composer
