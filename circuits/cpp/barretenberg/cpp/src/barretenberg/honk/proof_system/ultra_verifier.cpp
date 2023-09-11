@@ -185,16 +185,16 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
             shifted_op_wire_evals[idx] = transcript.template receive_from_prover<FF>("op_wire_eval_" + std::to_string(idx + 1));
-            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, shifted_op_wire_evals[idx]}, shifted_op_wire_commitments[idx] });
             prev_agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
-            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, prev_agg_op_queue_evals[idx]}, prev_agg_op_queue_commitments[idx] });
             agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+        
+            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, shifted_op_wire_evals[idx]}, shifted_op_wire_commitments[idx] });
+            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, prev_agg_op_queue_evals[idx]}, prev_agg_op_queue_commitments[idx] });
             univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, agg_op_queue_evals[idx]}, agg_op_queue_commitments[idx] });
         }
 
         // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ). If it fails, return false
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            // WORKTODO: add T_{i-1}(γ) to this check
             if (agg_op_queue_evals[idx] != prev_agg_op_queue_evals[idx] + shifted_op_wire_evals[idx]) {
                 return false;
             }
