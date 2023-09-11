@@ -104,13 +104,13 @@ The command takes a few optional arguments while the most important one is:
 
 The CLI tells us that the contract was successfully deployed. We can use the `check-deploy` command to verify that a contract has been successfully deployed to that address:
 
-// #include_code check-deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code check-deploy yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 ## Calling a View Method
 
 When we deployed the token contract, an initial supply of tokens was minted to the address provided in the constructor. We can now query the `getBalance()` method on the contract to retrieve the balance of that address. Make sure to replace the `contract-address` with the deployment address you got from the previous command, and the `args` with the account you used in the constructor.
 
-// #include_code call yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code call yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 The `call` command calls a read-only method on a contract, one that will not generate a transaction to be sent to the network. The arguments here are:
 
@@ -124,7 +124,7 @@ As you can see from the result, this address has a balance of 1000000, as expect
 
 We can now send a transaction to the network. We will transfer funds from the owner of the initial minted tokens to our other account. For this we will use the `send` command, which expects as arguments the quantity of tokens to be transferred, the sender's address, and the recipient's address. Make sure to replace all addresses in this command with the ones for your run.
 
-// #include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code send yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 We called the `transfer` function of the contract and provided these arguments:
 
@@ -135,8 +135,8 @@ We called the `transfer` function of the contract and provided these arguments:
 
 The command output tells us the details of the transaction such as its hash and status. We can use this hash to query the receipt of the transaction at a later time:
 
-// #include_code get-tx-receipt yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code get-tx-receipt yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
 Let's now call `getBalance()` on each of our accounts and we should see updated values:
 
-// #include_code calls yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
+#include_code calls yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
