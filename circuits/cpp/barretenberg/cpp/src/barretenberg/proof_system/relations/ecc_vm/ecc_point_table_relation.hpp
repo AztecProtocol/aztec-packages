@@ -26,16 +26,6 @@ template <typename FF_> class ECCVMPointTableRelationBase {
     template <template <size_t...> typename AccumulatorTypesContainer>
     using GetAccumulatorTypes = AccumulatorTypesContainer<LEN_1, LEN_1, LEN_1, LEN_1, LEN_1, LEN_1>;
 
-    /**
-     * @brief Expression for the StandardArithmetic gate.
-     * @details The relation is defined as C(extended_edges(X)...) =
-     *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
-     *
-     * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
-     * @param extended_edges an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
-     */
     template <typename AccumulatorTypes>
     static void accumulate(typename AccumulatorTypes::Accumulators& accumulator,
                            const auto& extended_edges,

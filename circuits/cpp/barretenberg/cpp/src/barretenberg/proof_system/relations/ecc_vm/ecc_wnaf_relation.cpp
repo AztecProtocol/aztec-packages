@@ -122,8 +122,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
      * i.e. next_scalar_sum - 2^{16} * current_scalar_sum - 2^12 * w_0 - 2^8 * w_1 - 2^4 * w_2 - w_3 = 0
      * @note We only perform slice_consistency check when next row is processing the same scalar as the current row!
      *       i.e. when q_transition  = 0
-     * TODO(@zac-williamson) Future work; probably don't need to convert to WNAF here. We can convert the final scalar
-     * sum into WNAF form when comparing scalar_sum with original input scalar
+     * TODO(@zac-williamson) Optimize WNAF use (#2224)
      */
     auto row_slice = w0;
     row_slice += row_slice;
@@ -163,7 +162,8 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
      * greater than all valid msm pc values (assuming the set equivalence check on the scalar sums is satisfied).
      * The resulting msm output of such a computation cannot be mapped into the set of msm outputs in
      * the transcript columns (see relations in ecc_msm_relation.cpp).
-     * Conclusion: not applying a strict range-check on `round` does not affect soundness (TODO validate this!)
+     * Conclusion: not applying a strict range-check on `round` does not affect soundness (TODO(@zac-williamson)
+     * validate this! #2225)
      */
     // We combine checks 0, 1 into a single relation
     // q_transition * (round - 7) + (-q_transition + 1) * (round_shift - round - 1)
@@ -206,7 +206,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
     std::get<18>(accumulator) += precompute_select_zero * round;
     std::get<19>(accumulator) += precompute_select_zero * pc;
 
-    // TODO(@zac-williamson)
+    // TODO(@zac-williamson #2226)
     // if precompute_select = 0, validate pc, round, slice values are all zero
     // If we do this we can reduce the degree of the set equivalence relations
     // (currently when checking pc/round/wnaf tuples from WNAF columns match those from MSM columns,

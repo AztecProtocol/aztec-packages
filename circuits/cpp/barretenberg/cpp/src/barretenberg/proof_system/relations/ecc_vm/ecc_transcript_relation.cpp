@@ -88,9 +88,9 @@ void ECCVMTranscriptRelationBase<FF>::accumulate(typename AccumulatorTypes::Accu
 
     /**
      * @brief Validate `op` opcode is well formed.
-     * `op` is defined to be q_reset_accumulator + 2 * q_eq + 2 * q_mul + 4 * q_add,
+     * `op` is defined to be q_reset_accumulator + 2 * q_eq + 4 * q_mul + 8 * q_add,
      * where q_reset_accumulator, q_eq, q_mul, q_add are all boolean
-     * (todo, bool constrain?)
+     * (TODO: bool constrain these efficiently #2223)
      */
     auto tmp = q_add + q_add;
     tmp += q_mul;

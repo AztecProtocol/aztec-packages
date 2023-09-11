@@ -133,7 +133,7 @@ void ECCVMMSMRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulator
      * If a Prover sets `q_add = 0` when an honest Prover would set `q_add = 1`,
      * this will produce an inequality in the set of reads / writes into the (pc, round, wnaf_slice) table.
      *
-     * The addition algorithm has several IF/ELSE statements based on comparing `cound` with `msm_size`.
+     * The addition algorithm has several IF/ELSE statements based on comparing `count` with `msm_size`.
      * Instead of directly constraining these, we define 4 boolean columns `q_add1, q_add2, q_add3, q_add4`.
      * Like `q_add`, their values are Prover-defined. We need to ensure they are set correctly.
      * We update the above conditions on reads into (pc, round, wnaf_slice) to the following:
@@ -303,7 +303,7 @@ void ECCVMMSMRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulator
 
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // TODO(@zac-williamson) Once we have a stable base to work off of, remove q_add1 and replace with q_msm_add +
-    // q_msm_skew
+    // q_msm_skew (issue #2222)
     std::get<32>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;
 
     // If add_i = 0, slice_i = 0
