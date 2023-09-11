@@ -122,7 +122,7 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn mint_pub(
+    fn mint_public(
         to: AztecAddress,
         amount: Field,
     ) -> Field {
@@ -138,7 +138,7 @@ contract Token {
     }
 
     #[aztec(public)]
-    fn mint_priv(
+    fn mint_private(
         amount: Field,
         secret_hash: Field,
     ) -> Field {
@@ -205,6 +205,8 @@ contract Token {
 
         let to_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(amount);
         storage.public_balances.at(to.address).write(to_balance.value as Field);
+
+        1
     }
 
     #[aztec(public)]
@@ -229,6 +231,8 @@ contract Token {
 
         let new_supply = SafeU120::new(storage.total_supply.read()).sub(amount);
         storage.total_supply.write(new_supply.value as Field);
+
+        1
     }
 
     #[aztec(private)]
@@ -244,6 +248,8 @@ contract Token {
         
         pending_shields.assert_contains_and_remove(public_note);
         increment(balance, amount, to.address);
+
+        1
     }
 
     #[aztec(private)]
@@ -268,6 +274,8 @@ contract Token {
 
         let selector = compute_selector("_increase_public_balance((Field),Field)");
         let _void = context.call_public_function(context.this_address(), selector, [to.address, amount]);
+
+        1
     }
 
     #[aztec(private)]
@@ -292,6 +300,8 @@ contract Token {
 
         decrement(from_balance, amount, from.address);
         increment(to_balance, amount, to.address);
+
+        1
     }
 
     #[aztec(private)]
@@ -316,6 +326,8 @@ contract Token {
 
         let selector = compute_selector("_reduce_total_supply(Field)");
         let _void = context.call_public_function(context.this_address(), selector, [amount]);
+
+        1
     }
 
     /// SHOULD BE Internal ///

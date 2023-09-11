@@ -135,10 +135,10 @@ export class PrivateFunctionExecution {
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       enqueuePublicFunctionCall: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
-        const selector = frToAztecAddress(fromACVMField(acvmContractAddress));
+        const selector = FunctionSelector.fromField(fromACVMField(acvmFunctionSelector));
         const enqueuedRequest = await this.enqueuePublicFunctionCall(
+          frToAztecAddress(fromACVMField(acvmContractAddress)),
           selector,
-          FunctionSelector.fromField(fromACVMField(acvmFunctionSelector)),
           this.context.packedArgsCache.unpack(fromACVMField(acvmArgsHash)),
           this.callContext,
         );
