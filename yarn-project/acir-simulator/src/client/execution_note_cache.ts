@@ -19,11 +19,13 @@ const generateKeyForContractStorageSlot = (contractAddress: AztecAddress, storag
 export class ExecutionNoteCache {
   /**
    * Notes created during execution.
+   * The key of the mapping is a value representing a contract address and storage slot combination.
    */
-  private newNotes: NoteData[] = [];
+  private newNotes: Map<string, NoteData[]> = new Map();
 
   /**
    * The list of nullifiers created in this transaction.
+   * The key of the mapping is a value representing a contract address and storage slot combination.
    * The note which is nullified might be new or not (i.e., was generated in a previous transaction).
    * Note that their value (bigint representation) is used because Frs cannot be looked up in Sets.
    */
@@ -34,7 +36,10 @@ export class ExecutionNoteCache {
    * @param note - New note created during execution.
    */
   public addNewNote(note: NoteData) {
-    this.newNotes.push(note);
+    const key = generateKeyForContractStorageSlot(note.contractAddress, note.storageSlot);
+    const notes = this.newNotes.get(key) ?? [];
+    notes.push(note);
+    this.newNotes.set(key, notes);
   }
 
   /**
@@ -59,21 +64,18 @@ export class ExecutionNoteCache {
 
     // Find and remove the matching new note if the emitted innerNoteHash is not empty.
     if (!innerNoteHash.equals(new Fr(EMPTY_NULLIFIED_COMMITMENT))) {
+      const notes = this.newNotes.get(key) ?? [];
       /**
        * The identifier used to determine matching is the inner note hash value.
        * However, we adopt a defensive approach and ensure that the contract address
        * and storage slot do match.
        */
-      const noteIndexToRemove = this.newNotes.findIndex(
-        n =>
-          n.innerNoteHash.equals(innerNoteHash) &&
-          n.contractAddress.equals(contractAddress) &&
-          n.storageSlot.equals(storageSlot),
-      );
+      const noteIndexToRemove = notes.findIndex(n => n.innerNoteHash.equals(innerNoteHash));
       if (noteIndexToRemove === -1) {
         throw new Error('Attemp to remove a pending note that does not exist.');
       }
-      this.newNotes.splice(noteIndexToRemove, 1);
+      notes.splice(noteIndexToRemove, 1);
+      this.newNotes.set(key, notes);
     }
   }
 
@@ -84,17 +86,8 @@ export class ExecutionNoteCache {
    * @param storageSlot - Storage slot of the notes.
    **/
   public getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
-    return this.newNotes.filter(n => n.contractAddress.equals(contractAddress) && n.storageSlot.equals(storageSlot));
-  }
-
-  /**
-   * Return notes whose note hash is in the given inner note hashes array.
-   * @param innerNoteHashes - Inner note hashes of the notes.
-   */
-  public getNotesByNoteHashes(innerNoteHashes: Fr[]) {
-    const noteHashSet = new Set();
-    innerNoteHashes.forEach(h => noteHashSet.add(h.value));
-    return this.newNotes.filter(n => noteHashSet.has(n.innerNoteHash.value));
+    const key = generateKeyForContractStorageSlot(contractAddress, storageSlot);
+    return this.newNotes.get(key) ?? [];
   }
 
   /**

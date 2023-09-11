@@ -22,8 +22,11 @@ import { pickNotes } from './pick_notes.js';
  */
 export class ClientTxExecutionContext {
   /**
-   * TODO
-   * New notes created during this execution. They might've been nullified.
+   * New notes created during this execution.
+   * It's possible that a note in this list has been nullified (in the same or other executions) and doen't exist in the ExecutionNoteCache and the final proof data.
+   * But we still include those notes in the execution result because their commitments are still in the public inputs of this execution.
+   * This information is only for references (currently used for tests), and is not used for any sort of constrains.
+   * Users can also use this to get a clearer idea of what's happened during a simulation.
    */
   private newNotes: NewNoteData[] = [];
   /**
@@ -92,11 +95,6 @@ export class ClientTxExecutionContext {
    * @param innerNoteHashes - Inner note hashes for the notes.
    */
   public getNewNotes(): NewNoteData[] {
-    // TODO
-    // return this.noteCache.getNotesByNoteHashes(innerNoteHashes).map(n => ({
-    //   storageSlot: n.storageSlot,
-    //   preimage: n.preimage,
-    // }));
     return this.newNotes;
   }
 
