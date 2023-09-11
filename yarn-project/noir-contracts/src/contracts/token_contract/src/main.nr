@@ -207,13 +207,36 @@ contract Token {
         storage.public_balances.at(to.address).write(to_balance.value as Field);
     }
 
+    #[aztec(public)]
+    fn burn_public(
+        from: AztecAddress,
+        amount: Field,
+        nonce: Field,
+    ) -> Field {
+        let storage = Storage::init(Context::public(&mut context));
+
+        if (from.address != context.msg_sender()) {
+            let selector = compute_selector("burn_public((Field),Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, nonce]);
+            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        let amount = SafeU120::new(amount);
+        let from_balance = SafeU120::new(storage.public_balances.at(from.address).read()).sub(amount);
+        storage.public_balances.at(from.address).write(from_balance.value as Field);
+
+        let new_supply = SafeU120::new(storage.total_supply.read()).sub(amount);
+        storage.total_supply.write(new_supply.value as Field);
+    }
+
     #[aztec(private)]
     fn redeem_shield(
         to: AztecAddress,
         amount: Field,
         secret: Field,
     ) -> Field {
-        // @todo @lherskind consider Altering the value note as well to be safemath
         let storage = Storage::init(Context::private(&mut context));
         let pending_shields = storage.pending_shields;
         let balance = storage.balances.at(to.address);
@@ -269,7 +292,31 @@ contract Token {
 
         decrement(from_balance, amount, from.address);
         increment(to_balance, amount, to.address);
-    }   
+    }
+
+    #[aztec(private)]
+    fn burn(
+        from: AztecAddress,
+        amount: Field,
+        nonce: Field,
+    ) -> Field {
+        let storage = Storage::init(Context::private(&mut context));
+
+        if (from.address != context.msg_sender()) {
+            let selector = compute_selector("burn((Field),Field,Field)");
+            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, nonce]);
+            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
+        } else {
+            assert(nonce == 0, "invalid nonce");
+        }
+
+        let from_balance = storage.balances.at(from.address);
+
+        decrement(from_balance, amount, from.address);
+
+        let selector = compute_selector("_reduce_total_supply(Field)");
+        let _void = context.call_public_function(context.this_address(), selector, [amount]);
+    }
 
     /// SHOULD BE Internal ///
 
@@ -301,6 +348,7 @@ contract Token {
     internal fn _reduce_total_supply(
         amount: Field,
     ) {
+        // Only to be called from burn.
         let storage = Storage::init(Context::public(&mut context));
         let new_supply = SafeU120::new(storage.total_supply.read()).sub(SafeU120::new(amount));
         storage.total_supply.write(new_supply.value as Field);
