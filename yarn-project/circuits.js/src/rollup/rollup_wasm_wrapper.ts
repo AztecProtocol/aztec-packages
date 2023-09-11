@@ -1,4 +1,4 @@
-import { BaseOrMergeRollupPublicInputs, BaseRollupInputs, RootRollupInputs, RootRollupPublicInputs } from '../index.js';
+import { BaseOrMergeRollupPublicInputs, BaseRollupInputs } from '../index.js';
 import { callWasm } from '../utils/call_wasm.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 
