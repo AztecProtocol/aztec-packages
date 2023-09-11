@@ -15,13 +15,13 @@ RUN apk update \
 WORKDIR /usr/src/circuits/cpp
 COPY . .
 # Replace symlink to barretenberg.
-COPY --from=bb /usr/src/barretenberg/cpp /usr/src/circuits/cpp/barretenberg/cpp
+COPY --from=bb /usr/src/barretenberg/cpp /usr/src/barretenberg/cpp
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
 RUN cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON && cmake --build --preset default
 
 FROM alpine:3.17
 RUN apk update && apk add curl bash
-COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/barretenberg/cpp/srs_db
+COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/circuits/cpp/src/aztec3/circuits/kernel/private/fixtures /usr/src/circuits/cpp/src/aztec3/circuits/kernel/private/fixtures
 COPY --from=builder /usr/src/circuits/cpp/scripts /usr/src/circuits/cpp/scripts
 COPY --from=builder /usr/src/circuits/cpp/build/bin/*_tests /usr/src/circuits/cpp/build/bin/

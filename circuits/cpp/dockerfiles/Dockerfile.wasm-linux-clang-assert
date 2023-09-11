@@ -5,13 +5,13 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-es
 WORKDIR /usr/src/circuits/cpp
 COPY . .
 # Replace symlink to barretenberg.
-COPY --from=bb /usr/src/barretenberg/cpp /usr/src/circuits/cpp/barretenberg/cpp
+COPY --from=bb /usr/src/barretenberg/cpp /usr/src/barretenberg/cpp
 RUN cmake --preset wasm && cmake --build --preset wasm
 
 FROM ubuntu:kinetic
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y xz-utils curl
 RUN curl https://wasmtime.dev/install.sh -sSf | bash /dev/stdin --version v3.0.1
-COPY --from=builder /usr/src/circuits/cpp/barretenberg/cpp/srs_db /usr/src/circuits/cpp/barretenberg/cpp/srs_db
+COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/circuits/cpp/src/aztec3/circuits/kernel/private/fixtures /usr/src/circuits/cpp/src/aztec3/circuits/kernel/private/fixtures
 COPY --from=builder /usr/src/circuits/cpp/scripts /usr/src/circuits/cpp/scripts
 COPY --from=builder /usr/src/circuits/cpp/build-wasm/bin/*_tests /usr/src/circuits/cpp/build-wasm/bin/

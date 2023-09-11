@@ -43,11 +43,11 @@ docker run --rm -t $IMAGE_URI /bin/sh -c "\
   git clone https://github.com/AztecProtocol/aztec3-packages.git; \
   cd /usr/src/aztec3-packages/circuits/cpp; \
   git checkout $AZTEC_COMMIT; \
-  rm -rf /usr/src/aztec3-packages/circuits/cpp/barretenberg;
+  rm -rf /usr/src/aztec3-packages/barretenberg;
   mv /usr/src/barretenberg .; \
   cmake --preset $PRESET $CONFIGURE_OPTS; \
   cmake --build --preset $PRESET; \
-  cd /usr/src/aztec3-packages/circuits/cpp/barretenberg/cpp/srs_db; \
+  cd /usr/src/aztec3-packages/barretenberg/cpp/srs_db; \
   ./download_ignition.sh $NUM_TRANSCRIPTS; \
   cd /usr/src/aztec3-packages/circuits/cpp; \
   export PATH=\$PATH:~/.wasmtime/bin/; \

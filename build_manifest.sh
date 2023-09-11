@@ -14,13 +14,13 @@
 # commit them, so that the most important build path remains fast and simple.
 
 PROJECTS=(
-  # bb-x86_64-linux-clang:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:barretenberg-x86_64-linux-clang
-  # bb-x86_64-linux-gcc:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-gcc:barretenberg-x86_64-linux-gcc
-  bb-wasm-linux-clang:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
-  # bb-x86:circuits/cpp/barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
-  # bb.js:circuits/cpp/barretenberg/ts:Dockerfile:bb.js::1
-  # run-acir-tests-bb:circuits/cpp/barretenberg/acir_tests:Dockerfile.bb
-  # run-acir-tests-bb.js:circuits/cpp/barretenberg/acir_tests:Dockerfile.bb.js
+  # bb-x86_64-linux-clang:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:barretenberg-x86_64-linux-clang
+  # bb-x86_64-linux-gcc:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-gcc:barretenberg-x86_64-linux-gcc
+  bb-wasm-linux-clang:barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
+  # bb-x86:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
+  # bb.js:barretenberg/ts:Dockerfile:bb.js::1
+  # run-acir-tests-bb:barretenberg/acir_tests:Dockerfile.bb
+  # run-acir-tests-bb.js:barretenberg/acir_tests:Dockerfile.bb.js
   # circuits-x86_64-linux-clang:circuits/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:circuits-x86_64-linux-clang
   circuits-wasm-linux-clang:circuits/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:circuits-wasm-linux-clang
   l1-contracts:l1-contracts

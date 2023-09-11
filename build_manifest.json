@@ -1,59 +1,59 @@
 {
   "barretenberg-x86_64-linux-clang": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "buildDir": "barretenberg/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang",
     "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+      "^barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^barretenberg/.*CMakeLists\\.txt$"
     ],
     "dependencies": []
   },
   "barretenberg-x86_64-linux-clang-assert": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "buildDir": "barretenberg/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang-assert",
     "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+      "^barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^barretenberg/.*CMakeLists\\.txt$"
     ],
     "dependencies": []
   },
   "barretenberg-x86_64-linux-clang-fuzzing": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "buildDir": "barretenberg/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-clang-fuzzing",
     "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+      "^barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^barretenberg/.*CMakeLists\\.txt$"
     ],
     "dependencies": []
   },
   "barretenberg-x86_64-linux-gcc": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "buildDir": "barretenberg/cpp",
     "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-gcc",
     "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+      "^barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^barretenberg/.*CMakeLists\\.txt$"
     ],
     "dependencies": []
   },
   "barretenberg-wasm-linux-clang": {
-    "buildDir": "circuits/cpp/barretenberg/cpp",
+    "buildDir": "barretenberg/cpp",
     "dockerfile": "dockerfiles/Dockerfile.wasm-linux-clang",
     "rebuildPatterns": [
-      "^circuits/cpp/barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/cpp/barretenberg/.*CMakeLists\\.txt$"
+      "^barretenberg/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^barretenberg/.*CMakeLists\\.txt$"
     ],
     "dependencies": []
   },
   "bb.js": {
-    "buildDir": "circuits/cpp/barretenberg/ts",
-    "rebuildPatterns": ["^circuits/cpp/barretenberg/ts/"],
+    "buildDir": "barretenberg/ts",
+    "rebuildPatterns": ["^barretenberg/ts/"],
     "dependencies": ["barretenberg-wasm-linux-clang"]
   },
   "barretenberg-acir-tests-bb": {
-    "buildDir": "circuits/cpp/barretenberg/acir_tests",
+    "buildDir": "barretenberg/acir_tests",
     "dockerfile": "Dockerfile.bb",
-    "rebuildPatterns": ["^circuits/cpp/barretenberg/acir_tests/"],
+    "rebuildPatterns": ["^barretenberg/acir_tests/"],
     "dependencies": ["barretenberg-x86_64-linux-clang-assert"]
   },
   "barretenberg-acir-tests-bb.js": {
-    "buildDir": "circuits/cpp/barretenberg/acir_tests",
+    "buildDir": "barretenberg/acir_tests",
     "dockerfile": "Dockerfile.bb.js",
-    "rebuildPatterns": ["^circuits/cpp/barretenberg/acir_tests/"],
+    "rebuildPatterns": ["^barretenberg/acir_tests/"],
     "dependencies": ["bb.js"]
   },
   "circuits-wasm-linux-clang": {

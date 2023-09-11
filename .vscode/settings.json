@@ -114,7 +114,7 @@
     "**/.yalc": true,
     "**/node_modules": true,
     "**/.pnp.*": true,
-    "circuits/cpp/barretenberg/**": true,
+    "barretenberg/**": true,
     "**/msgpack-c/**": true
   },
   "[terraform]": {
