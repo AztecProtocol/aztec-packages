@@ -150,7 +150,7 @@ fn assert_contains_card<RERUEN_LEN, FILTER_PARAMS>(
     state_var: Set<CardNote, CARD_NOTE_LEN>,
     card: CardNote,
 ) {
-    state_var.assert_contains_and_remove(card);
+    state_var.assert_contains_note_and_remove(card);
 }
 // docs:end:state_vars-SetContains
 

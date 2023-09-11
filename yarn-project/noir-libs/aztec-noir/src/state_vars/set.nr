@@ -49,10 +49,13 @@ impl<Note, N> Set<Note, N> {
         );
     }
 
-    fn assert_contains_and_remove(self, note: Note) {
+    // TODO(1386): rename `assert_contains_and_remove`
+    // once `get_commitment` works for privately created note hashes
+    fn assert_contains_note_and_remove(self, note: Note) {
         let mut note_with_header = note;
-        // Modifies note with the header which is necessary for the next step (remove).
-        ensure_note_hash_exists(
+        // TODO(1386): replace with `ensure_note_hash_exists`
+        // once `get_commitment` works for privately created note hashes
+        ensure_note_exists(
             self.context.private.unwrap(),
             self.storage_slot,
             self.note_interface,
@@ -66,7 +69,7 @@ impl<Note, N> Set<Note, N> {
         );
     }
 
-    // TODO(1386): remove this function and use `assert_contains_and_remove`
+    // TODO(1386): remove this function and replace with `assert_contains_and_remove`
     // once public kernel injects nonces to note hashes.
     // NOTE: this function should ONLY be used for PUBLICLY-CREATED note hashes!
     // WARNING: function will be deprecated/removed eventually
