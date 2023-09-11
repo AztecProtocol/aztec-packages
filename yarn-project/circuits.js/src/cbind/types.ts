@@ -122,6 +122,8 @@ export {
   BaseOrMergeRollupPublicInputs,
   ConstantRollupData,
   MergeRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
 } from '../structs/index.js';
 export { FunctionSelector } from '@aztec/foundation/abi';
 

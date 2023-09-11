@@ -92,7 +92,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
 
     // Check correct l1 to l2 tree given
     // Compute subtree inserting l1 to l2 messages
-    auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.l1_to_l2_messages);
+    auto l1_to_l2_subtree_root = calculate_subtree(rootRollupInputs.new_l1_to_l2_messages);
 
     // Insert subtree into the l1 to l2 data tree
     const auto empty_l1_to_l2_subtree_root = components::calculate_empty_tree_root(L1_TO_L2_MSG_SUBTREE_HEIGHT);
@@ -143,7 +143,7 @@ RootRollupPublicInputs root_rollup_circuit(DummyBuilder& builder, RootRollupInpu
         .start_historic_blocks_tree_snapshot = rootRollupInputs.start_historic_blocks_tree_snapshot,
         .end_historic_blocks_tree_snapshot = end_historic_blocks_tree_snapshot,
         .calldata_hash = components::compute_calldata_hash(rootRollupInputs.previous_rollup_data),
-        .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.l1_to_l2_messages)
+        .l1_to_l2_messages_hash = compute_messages_hash(rootRollupInputs.new_l1_to_l2_messages)
     };
 
     return public_inputs;
