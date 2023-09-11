@@ -21,29 +21,15 @@ using FF = barretenberg::fr;
 
 template <typename Flavor, typename Relation> void execute_relation(::benchmark::State& state)
 {
-    // Generate beta and gamma
-    auto beta = FF::random_element();
-    auto gamma = FF::random_element();
-    auto public_input_delta = FF::random_element();
-
-    RelationParameters<FF> params{
-        .beta = beta,
-        .gamma = gamma,
-        .public_input_delta = public_input_delta,
-    };
-
     using ClaimedEvaluations = typename Flavor::ClaimedEvaluations;
     using RelationValues = typename Relation::RelationValues;
 
-    // Extract an array containing all the polynomial evaluations at a given row i
-    ClaimedEvaluations new_value;
-    // Define the appropriate RelationValues type for this relation and initialize to zero
     RelationValues accumulator;
-    // Evaluate each constraint in the relation and check that each is satisfied
+    ClaimedEvaluations new_value;
+    auto params = RelationParameters<FF>::get_random();
 
-    Relation relation;
     for (auto _ : state) {
-        relation.add_full_relation_value_contribution(accumulator, new_value, params);
+        Relation::add_full_relation_value_contribution(accumulator, new_value, params);
     }
 }
 
