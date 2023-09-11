@@ -69,16 +69,6 @@ class root_rollup_tests : public ::testing::Test {
                           bool compare_pubins = true)
     {
         info("Retesting via cbinds....");
-        // TODO might be able to get rid of proving key buffer
-        uint8_t const* pk_buf = nullptr;
-        size_t const pk_size = root_rollup__init_proving_key(&pk_buf);
-        (void)pk_size;
-        // info("Proving key size: ", pk_size);
-
-        // TODO might be able to get rid of verification key buffer
-        uint8_t const* vk_buf = nullptr;
-        size_t const vk_size = root_rollup__init_verification_key(pk_buf, &vk_buf);
-        (void)vk_size;
         // info("Verification key size: ", vk_size);
 
         std::vector<uint8_t> root_rollup_inputs_vec;
@@ -117,8 +107,6 @@ class root_rollup_tests : public ::testing::Test {
             }
         }
 
-        free((void*)pk_buf);
-        free((void*)vk_buf);
         // free((void*)proof_data);
         free((void*)public_inputs_buf);
     }
