@@ -58,7 +58,7 @@ checkout: &checkout
 
       # Only download metadata when fetching.
       retry git fetch --depth 1 --filter=blob:none origin $CIRCLE_SHA1
-      git checkout FETCH_HEAD
+      retry git checkout FETCH_HEAD
 
 # Called setup_env to setup a bunch of global variables used throughout the rest of the build process.
 # It takes the required CCI environment variables as inputs, and gives them normalised names for the rest of
@@ -227,18 +227,18 @@ jobs:
           command: cond_spot_run_tests barretenberg-x86_64-linux-clang-assert 3 join_split_example_proofs_join_split_tests --gtest_filter=-*full_proof*
       - *save_logs
 
-  barretenberg-benchmark-aggregator:
-    docker:
-      - image: aztecprotocol/alpine-build-image
-    resource_class: small
-    steps:
-      - attach_workspace:
-          at: /tmp/test-logs
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Test"
-          command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
+  # barretenberg-benchmark-aggregator:
+  #   docker:
+  #     - image: aztecprotocol/alpine-build-image
+  #   resource_class: small
+  #   steps:
+  #     - attach_workspace:
+  #         at: /tmp/test-logs
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Test"
+  #         command: ./scripts/ci/store_test_benchmark_logs $AZTEC_GITHUB_TOKEN
 
   barretenberg-acir-tests-bb:
     docker:
@@ -947,6 +947,17 @@ jobs:
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_aztec_js_browser.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
+  e2e-card-game:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local e2e_card_game.test.ts
+          working_directory: yarn-project/end-to-end
+
   aztec-rpc-sandbox:
     machine:
       image: ubuntu-2004:202010-01
@@ -956,6 +967,17 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local aztec_rpc_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
+
+  cli-docs-sandbox:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local cli_docs_sandbox.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   guides-writing-an-account-contract:
@@ -979,6 +1001,17 @@ jobs:
       - run:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
+          working_directory: yarn-project/end-to-end
+        
+  guides-sample-dapp:
+    machine:
+      image: ubuntu-2004:202010-01
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Test"
+          command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local sample-dapp ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
 
   e2e-canary-test:
@@ -1191,7 +1224,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary ./scripts/docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary uniswap_trade_on_l1_from_l2.test.ts canary docker-compose.yml
 
   run-deployment-canary-browser:
     docker:
@@ -1202,7 +1235,7 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary ./scripts/docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary aztec_js_browser.test.ts canary docker-compose.yml
 
   run-deployment-canary-cli:
     docker:
@@ -1213,10 +1246,10 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
-          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary ./scripts/docker-compose.yml
+          command: spot_run_test_script ./scripts/run_tests canary cli.test.ts canary docker-compose.yml
 
 # Repeatable config for defining the workflow below.
-tag_regex: &tag_regex /^v.*/
+tag_regex: &tag_regex /^aztec-packages-v.*/
 defaults: &defaults
   filters:
     tags:
@@ -1281,18 +1314,18 @@ workflows:
       - barretenberg-stdlib-recursion-turbo-tests: *bb_test
       - barretenberg-stdlib-recursion-ultra-tests: *bb_test
       - barretenberg-join-split-tests: *bb_test
-      - barretenberg-benchmark-aggregator:
-          requires:
-            - barretenberg-tests
-            - barretenberg-stdlib-tests
-            - barretenberg-stdlib-recursion-turbo-tests
-            - barretenberg-stdlib-recursion-ultra-tests
-            - barretenberg-join-split-tests
-          filters:
-            branches:
-              only:
-                - master
-          <<: *defaults
+      # - barretenberg-benchmark-aggregator:
+      #     requires:
+      #       - barretenberg-tests
+      #       - barretenberg-stdlib-tests
+      #       - barretenberg-stdlib-recursion-turbo-tests
+      #       - barretenberg-stdlib-recursion-ultra-tests
+      #       - barretenberg-join-split-tests
+      #     filters:
+      #       branches:
+      #         only:
+      #           - master
+      #     <<: *defaults
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
@@ -1416,9 +1449,12 @@ workflows:
       - e2e-p2p: *e2e_test
       - e2e-canary-test: *e2e_test
       - e2e-browser-sandbox: *e2e_test
+      - e2e-card-game: *e2e_test
       - aztec-rpc-sandbox: *e2e_test
+      - cli-docs-sandbox: *e2e_test
       - guides-writing-an-account-contract: *e2e_test
       - guides-dapp-testing: *e2e_test
+      - guides-sample-dapp: *e2e_test
 
       - e2e-end:
           requires:
@@ -1447,9 +1483,12 @@ workflows:
             - e2e-p2p
             - e2e-browser-sandbox
             - e2e-canary-test
+            - e2e-card-game
             - aztec-rpc-sandbox
+            - cli-docs-sandbox
             - guides-writing-an-account-contract
             - guides-dapp-testing
+            - guides-sample-dapp
           <<: *defaults
 
       - deploy-dockerhub:
