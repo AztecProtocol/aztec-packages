@@ -38,11 +38,11 @@ TYPED_TEST(ECCVMCircuitBuilderTests, BaseCase)
     circuit.mul_accumulate(b, y);
     circuit.add_accumulate(a);
     circuit.mul_accumulate(b, x);
-    circuit.eq(expected_1);
+    circuit.eq_and_reset(expected_1);
     circuit.add_accumulate(c);
     circuit.mul_accumulate(a, x);
     circuit.mul_accumulate(b, x);
-    circuit.eq(expected_2);
+    circuit.eq_and_reset(expected_2);
     circuit.mul_accumulate(a, x);
     circuit.mul_accumulate(b, x);
     circuit.mul_accumulate(c, x);
@@ -98,7 +98,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, ShortMul)
     Fr x = small_x;
 
     circuit.mul_accumulate(a, x);
-    circuit.eq(a * small_x);
+    circuit.eq_and_reset(a * small_x);
 
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, true);
@@ -116,7 +116,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EqFails)
     Fr x = Fr::random_element(&engine);
 
     circuit.mul_accumulate(a, x);
-    circuit.eq(a);
+    circuit.eq_and_reset(a);
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, false);
 }
@@ -147,7 +147,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EmptyRowBetweenOps)
 
     circuit.mul_accumulate(a, x);
     circuit.empty_row();
-    circuit.eq(expected_1);
+    circuit.eq_and_reset(expected_1);
 
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, true);
@@ -167,7 +167,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithEq)
     typename G1::element expected_1 = (a * x);
 
     circuit.mul_accumulate(a, x);
-    circuit.eq(expected_1);
+    circuit.eq_and_reset(expected_1);
 
     bool result = circuit.check_circuit();
     EXPECT_EQ(result, true);
@@ -187,7 +187,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithAdd)
     typename G1::element expected_1 = (a * x);
 
     circuit.mul_accumulate(a, x);
-    circuit.eq(expected_1);
+    circuit.eq_and_reset(expected_1);
     circuit.add_accumulate(a);
 
     bool result = circuit.check_circuit();
@@ -206,7 +206,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithMul)
     Fr x = Fr::random_element(&engine);
 
     circuit.add_accumulate(a);
-    circuit.eq(a);
+    circuit.eq_and_reset(a);
     circuit.mul_accumulate(a, x);
 
     bool result = circuit.check_circuit();
@@ -225,7 +225,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, EndWithNoop)
     Fr x = Fr::random_element(&engine);
 
     circuit.add_accumulate(a);
-    circuit.eq(a);
+    circuit.eq_and_reset(a);
     circuit.mul_accumulate(a, x);
     circuit.empty_row();
     bool result = circuit.check_circuit();
@@ -251,7 +251,7 @@ TYPED_TEST(ECCVMCircuitBuilderTests, MSM)
             expected += (points[i] * scalars[i]);
             circuit.mul_accumulate(points[i], scalars[i]);
         }
-        circuit.eq(expected);
+        circuit.eq_and_reset(expected);
     };
 
     // single msms

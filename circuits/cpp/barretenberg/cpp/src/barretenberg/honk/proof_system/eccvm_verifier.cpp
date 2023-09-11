@@ -51,7 +51,6 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     auto commitments = VerifierCommitments(key, transcript);
     auto commitment_labels = CommitmentLabels();
 
-    // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
     const auto circuit_size = transcript.template receive_from_prover<uint32_t>("circuit_size");
 
     if (circuit_size != key->circuit_size) {
@@ -168,14 +167,14 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         transcript.template receive_from_prover<Commitment>(commitment_labels.lookup_read_counts_1);
 
     // Get challenge for sorted list batching and wire four memory records
-    auto [eta, gamma] = transcript.get_challenges("beta", "gamma");
+    auto [beta, gamma] = transcript.get_challenges("bbeta", "gamma");
     relation_parameters.gamma = gamma;
-    auto eta_sqr = eta * eta;
-    relation_parameters.eta = eta;
-    relation_parameters.eta_sqr = eta_sqr;
-    relation_parameters.eta_cube = eta_sqr * eta;
+    auto beta_sqr = beta * beta;
+    relation_parameters.beta = beta;
+    relation_parameters.beta_sqr = beta_sqr;
+    relation_parameters.beta_cube = beta_sqr * beta;
     relation_parameters.eccvm_set_permutation_delta =
-        gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
+        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
     // Get commitment to permutation and lookup grand products
@@ -226,7 +225,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
-            std::cout << "point at infinity (unshifted)" << std::endl;
+            info("point at infinity (unshifted)");
         }
         ++commitment_idx;
     }
@@ -237,7 +236,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {
-            std::cout << "point at infinity (to be shifted)" << std::endl;
+            info("point at infinity (to be shifted)");
         }
         ++commitment_idx;
     }

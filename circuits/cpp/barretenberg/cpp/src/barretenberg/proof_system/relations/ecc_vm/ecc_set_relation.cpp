@@ -19,16 +19,16 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
     const auto precompute_round4 = precompute_round2 + precompute_round2;
 
     const auto& gamma = relation_params.gamma;
-    const auto& eta = relation_params.eta;
-    const auto& eta_sqr = relation_params.eta_sqr;
-    const auto& eta_cube = relation_params.eta_cube;
+    const auto& beta = relation_params.beta;
+    const auto& beta_sqr = relation_params.beta_sqr;
+    const auto& beta_cube = relation_params.beta_cube;
     const auto& precompute_pc = get_view<FF, AccumulatorTypes>(extended_edges.precompute_pc, index);
     const auto& precompute_select = get_view<FF, AccumulatorTypes>(extended_edges.precompute_select, index);
 
     /**
      * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
      *        as part of ECCVMWnafRelation.
-     *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * eta + msm-round * eta_sqr).
+     *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * beta + msm-round * beta_sqr).
      *                       There are 4 tuple entires per row.
      */
     Accumulator numerator(1); // degree-0
@@ -41,7 +41,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * eta + precompute_round4 * eta_sqr;
+        const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr;
         numerator *= wnaf_slice_input0; // degree-1
     }
     {
@@ -53,7 +53,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 1) * eta_sqr;
+        const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr;
         numerator *= wnaf_slice_input1; // degree-2
     }
     {
@@ -65,7 +65,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += s1;
 
         // todo can optimize
-        const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 2) * eta_sqr;
+        const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr;
         numerator *= wnaf_slice_input2; // degree-3
     }
     {
@@ -76,7 +76,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
         // TODO(@zac-williamson) can optimize this once we have a stable base to work off of.
-        const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * eta + (precompute_round4 + 3) * eta_sqr;
+        const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
     {
@@ -85,7 +85,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         const auto& precompute_point_transition =
             get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
         const auto skew_input =
-            precompute_point_transition * (skew + gamma + precompute_pc * eta + (precompute_round4 + 4) * eta_sqr) +
+            precompute_point_transition * (skew + gamma + precompute_pc * beta + (precompute_round4 + 4) * beta_sqr) +
             (-precompute_point_transition + 1);
         numerator *= skew_input; // degree-5
     }
@@ -161,7 +161,8 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto precompute_point_transition =
             get_view<FF, AccumulatorTypes>(extended_edges.precompute_point_transition, index);
 
-        auto point_table_init_read = (precompute_pc + table_x * eta + table_y * eta_sqr + scalar_sum_full * eta_cube);
+        auto point_table_init_read =
+            (precompute_pc + table_x * beta + table_y * beta_sqr + scalar_sum_full * beta_cube);
         point_table_init_read =
             precompute_point_transition * (point_table_init_read + gamma) + (-precompute_point_transition + 1);
 
@@ -202,7 +203,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         // at row i + 1 we have updated `pc` to be `(pc at start of msm) + msm_count`
         // at row i + 1 q_msm_transtiion = 1
 
-        auto msm_result_write = msm_pc_shift + msm_x_shift * eta + msm_y_shift * eta_sqr + msm_size * eta_cube;
+        auto msm_result_write = msm_pc_shift + msm_x_shift * beta + msm_y_shift * beta_sqr + msm_size * beta_cube;
 
         // msm_result_write = degree 2
         msm_result_write = msm_transition_shift * (msm_result_write + gamma) + (-msm_transition_shift + 1);
@@ -223,9 +224,9 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
     // TODO(@zac-williamson). The degree of this contribution is 17! makes overall relation degree 19.
     // Can optimise by refining the algebra, once we have a stable base to iterate off of.
     const auto& gamma = relation_params.gamma;
-    const auto& eta = relation_params.eta;
-    const auto& eta_sqr = relation_params.eta_sqr;
-    const auto& eta_cube = relation_params.eta_cube;
+    const auto& beta = relation_params.beta;
+    const auto& beta_sqr = relation_params.beta_sqr;
+    const auto& beta_cube = relation_params.beta_cube;
     const auto& msm_pc = get_view<FF, AccumulatorTypes>(extended_edges.msm_pc, index);
     const auto& msm_count = get_view<FF, AccumulatorTypes>(extended_edges.msm_count, index);
     const auto& msm_round = get_view<FF, AccumulatorTypes>(extended_edges.msm_round, index);
@@ -241,7 +242,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         const auto& msm_slice1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice1, index);
 
         auto wnaf_slice_output1 =
-            add1 * (msm_slice1 + gamma + (msm_pc - msm_count) * eta + msm_round * eta_sqr) + (-add1 + 1);
+            add1 * (msm_slice1 + gamma + (msm_pc - msm_count) * beta + msm_round * beta_sqr) + (-add1 + 1);
         denominator *= wnaf_slice_output1; // degree-2
     }
     {
@@ -249,7 +250,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         const auto& msm_slice2 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice2, index);
 
         auto wnaf_slice_output2 =
-            add2 * (msm_slice2 + gamma + (msm_pc - msm_count - 1) * eta + msm_round * eta_sqr) + (-add2 + 1);
+            add2 * (msm_slice2 + gamma + (msm_pc - msm_count - 1) * beta + msm_round * beta_sqr) + (-add2 + 1);
         denominator *= wnaf_slice_output2; // degree-4
     }
     {
@@ -257,14 +258,14 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         const auto& msm_slice3 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice3, index);
 
         auto wnaf_slice_output3 =
-            add3 * (msm_slice3 + gamma + (msm_pc - msm_count - 2) * eta + msm_round * eta_sqr) + (-add3 + 1);
+            add3 * (msm_slice3 + gamma + (msm_pc - msm_count - 2) * beta + msm_round * beta_sqr) + (-add3 + 1);
         denominator *= wnaf_slice_output3; // degree-6
     }
     {
         const auto& add4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_add4, index);
         const auto& msm_slice4 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice4, index);
         auto wnaf_slice_output4 =
-            add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * eta + msm_round * eta_sqr) + (-add4 + 1);
+            add4 * (msm_slice4 + gamma + (msm_pc - msm_count - 3) * beta + msm_round * beta_sqr) + (-add4 + 1);
         denominator *= wnaf_slice_output4; // degree-8
     }
 
@@ -289,9 +290,9 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto lookup_second = (-z2_zero + 1);
         FF endomorphism_base_field_shift = FF::cube_root_of_unity();
 
-        auto transcript_input1 = transcript_pc + transcript_x * eta + transcript_y * eta_sqr + z1 * eta_cube;
-        auto transcript_input2 = (transcript_pc - 1) + transcript_x * endomorphism_base_field_shift * eta -
-                                 transcript_y * eta_sqr + z2 * eta_cube;
+        auto transcript_input1 = transcript_pc + transcript_x * beta + transcript_y * beta_sqr + z1 * beta_cube;
+        auto transcript_input2 = (transcript_pc - 1) + transcript_x * endomorphism_base_field_shift * beta -
+                                 transcript_y * beta_sqr + z2 * beta_cube;
 
         // | q_mul | z2_zero | z1_zero | lookup                 |
         // | ----- | ------- | ------- | ---------------------- |
@@ -334,7 +335,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         //      auto count_test = transcript_msm_count
         // msm_result_read = degree 2
         auto msm_result_read =
-            transcript_pc_shift + transcript_msm_x * eta + transcript_msm_y * eta_sqr + full_msm_count * eta_cube;
+            transcript_pc_shift + transcript_msm_x * beta + transcript_msm_y * beta_sqr + full_msm_count * beta_cube;
 
         msm_result_read = transcript_msm_transition * (msm_result_read + gamma) + (-transcript_msm_transition + 1);
         denominator *= msm_result_read; // degree-17
@@ -344,12 +345,12 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
 
 /**
  * @brief Expression for the StandardArithmetic gate.
- * @details The relation is defined as C(extended_edges(X)...) =
+ * @dbetails The relation is defined as C(extended_edges(X)...) =
  *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
  *
  * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
  * @param extended_edges an std::array containing the fully extended Accumulator edges.
- * @param parameters contains beta, gamma, and public_input_delta, ....
+ * @param parameters contains bbeta, gamma, and public_input_delta, ....
  * @param scaling_factor optional term to scale the evaluation before adding to evals.
  */
 template <typename FF>

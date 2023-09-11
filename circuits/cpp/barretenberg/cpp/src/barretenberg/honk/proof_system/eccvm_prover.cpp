@@ -190,16 +190,16 @@ template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_wire_commitment
  */
 template <ECCVMFlavor Flavor> void ECCVMProver_<Flavor>::execute_log_derivative_commitments_round()
 {
-    // Compute and add eta to relation parameters
-    auto [eta, gamma] = transcript.get_challenges("beta", "gamma");
+    // Compute and add beta to relation parameters
+    auto [beta, gamma] = transcript.get_challenges("beta", "gamma");
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
-    auto eta_sqr = eta * eta;
+    auto beta_sqr = beta * beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.eta = eta;
-    relation_parameters.eta_sqr = eta_sqr;
-    relation_parameters.eta_cube = eta_sqr * eta;
+    relation_parameters.beta = beta;
+    relation_parameters.beta_sqr = beta_sqr;
+    relation_parameters.beta_cube = beta_sqr * beta;
     relation_parameters.eccvm_set_permutation_delta =
-        gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
+        gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
     lookup_library::compute_logderivative_inverse<Flavor, typename Flavor::LookupRelation>(
@@ -345,7 +345,7 @@ template <ECCVMFlavor Flavor> plonk::proof& ECCVMProver_<Flavor>::construct_proo
     execute_log_derivative_commitments_round();
     queue.process_queue();
 
-    // Fiat-Shamir: beta & gamma
+    // Fiat-Shamir: bbeta & gamma
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
     queue.process_queue();

@@ -58,7 +58,10 @@ void compute_permutation_grand_product(const size_t circuit_size,
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by PermutationRelation
-    const size_t num_threads = circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1;
+    static constexpr size_t MIN_CIRCUIT_SIZE_TO_MULTITHREAD = 64;
+    const size_t num_threads = circuit_size >= MIN_CIRCUIT_SIZE_TO_MULTITHREAD
+                                   ? (circuit_size >= get_num_cpus_pow2() ? get_num_cpus_pow2() : 1)
+                                   : 1;
     const size_t block_size = circuit_size / num_threads;
     parallel_for(num_threads, [&](size_t thread_idx) {
         const size_t start = thread_idx * block_size;

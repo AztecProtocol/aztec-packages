@@ -42,15 +42,29 @@ template <typename Flavor> class ECCVMMSMMBuilder {
         FF accumulator_y = 0;
     };
 
+    /**
+     * @brief Computes the row values for the Straus MSM columns of the ECCVM.
+     *
+     * For a detailed description of the Straus algorithm and its relation to the ECCVM, please see
+     * https://hackmd.io/@aztec-network/rJ5xhuCsn
+     *
+     * @param msms
+     * @param point_table_read_counts
+     * @param total_number_of_muls
+     * @return std::vector<MSMState>
+     */
     static std::vector<MSMState> compute_msm_state(const std::vector<proof_system_eccvm::MSM<CycleGroup>>& msms,
                                                    std::array<std::vector<size_t>, 2>& point_table_read_counts,
                                                    const uint32_t total_number_of_muls)
     {
-        // when we define our point lookup table, we have 2 write columns and 4 read columns
-        // when we perform a read on a given row, we need to increment the read count on the respective write column by
-        // 1 we can define the following struture: 1st write column = positive 2nd write column = negative the row
-        // number is a function of pc and slice value row = pc_delta * rows_per_point_table + some function of the slice
-        // value pc_delta = total_number_of_muls - pc std::vector<std::array<size_t, > point_table_read_counts;
+        // N.B. the following comments refer to a "point lookup table" frequently.
+        // To perform a scalar multiplicaiton of a point [P] by a scalar x, we compute multiples of [P] and store in a
+        // table: specifically: -15[P], -13[P], ..., -3[P], -[P], [P], 3[P], ..., 15[P] when we define our point lookup
+        // table, we have 2 write columns and 4 read columns when we perform a read on a given row, we need to increment
+        // the read count on the respective write column by 1 we can define the following struture: 1st write column =
+        // positive 2nd write column = negative the row number is a function of pc and slice value row = pc_delta *
+        // rows_per_point_table + some function of the slice value pc_delta = total_number_of_muls - pc
+        // std::vector<std::array<size_t, > point_table_read_counts;
         const size_t table_rows = static_cast<size_t>(total_number_of_muls) * 8;
         point_table_read_counts[0].reserve(table_rows);
         point_table_read_counts[1].reserve(table_rows);
@@ -69,32 +83,22 @@ template <typename Flavor> class ECCVMMSMMBuilder {
 
             const size_t column_index = slice_negative ? 1 : 0;
 
+            /**
+             * When computing `point_table_read_counts`, we need the *table index* that a given point belongs to.
+             * the slice value is in *compressed* windowed-non-adjacent-form format:
+             * A non-compressed WNAF slice is in the range: `-15, -13, ..., 15`
+             * In compressed form, tney become `0, ..., 15`
+             * The *point table* format is the following:
+             * (for positive point table) T[0] = P, T[1] = PT, ..., T[7] = 15P
+             * (for negative point table) T[0] = -P, T[1] = -3P, ..., T[15] = -15P
+             * i.e. if the slice value is negative, we can use the compressed WNAF directly as the table index
+             *      if the slice value is positive, we must take `15 - compressedWNAF` to get the table index
+             */
             if (slice_negative) {
                 point_table_read_counts[column_index][pc_offset + static_cast<size_t>(slice_row)]++;
             } else {
-                // 8 maps to 7
-                // 15 maps to 0
-
-                // 15 - x
                 point_table_read_counts[column_index][pc_offset + 15 - static_cast<size_t>(slice_row)]++;
             }
-            // slice : row
-            // -15 : 0
-            // -13 : 1
-            // -11 : 2
-            // -9 : 3
-            // -7 : 4
-            // -5 : 5
-            // -3 : 6
-            // -1 : 7
-            // 1 : 8
-            // 3 : 9
-            // 5 : 10
-            // 7 : 11
-            // 9 : 12
-            // 11 : 13
-            // 13 : 14
-            // 15 : 15
         };
         std::vector<MSMState> msm_state;
         // start with empty row (shiftable polynomials must have 0 as first coefficient)
@@ -129,6 +133,14 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                         auto& add_state = row.add_state[m];
                         add_state.add = points_per_row > m;
                         int slice = add_state.add ? msm[idx + m].wnaf_slices[j] : 0;
+                        // In the MSM columns in the ECCVM circuit, we can add up to 4 points per row.
+                        // if `row.add_state[m].add = 1`, this indicates that we want to add the `m`'th point in the MSM
+                        // columns into the MSM accumulator
+                        // `add_state.slice` = A 4-bit WNAF slice of the scalar multiplier associated with the point we
+                        // are adding (the specific slice chosen depends on the value of msm_round) (WNAF =
+                        // windowed-non-adjacent-form. Value range is `-15, -13, ..., 15`) If `add_state.add = 1`, we
+                        // want `add_state.slice` to be the *compressed* form of the WNAF slice value. (compressed = no
+                        // gaps in the value range. i.e. -15, -13, ..., 15 maps to 0, ... , 15)
                         add_state.slice = add_state.add ? (slice + 15) / 2 : 0;
                         add_state.point = add_state.add
                                               ? msm[idx + m].precomputed_table[static_cast<size_t>(add_state.slice)]

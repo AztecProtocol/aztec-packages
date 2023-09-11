@@ -50,6 +50,8 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
     auto round_shift = View(extended_edges.precompute_round_shift);
     auto pc = View(extended_edges.precompute_pc);
     auto pc_shift = View(extended_edges.precompute_pc_shift);
+    // precompute_select is a boolean column. We only evaluate the ecc_wnaf_relation and the ecc_point_table_relation if
+    // `precompute_select=1`
     auto precompute_select = View(extended_edges.precompute_select);
     auto precompute_select_shift = View(extended_edges.precompute_select_shift);
 
@@ -180,7 +182,7 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
      */
     std::get<11>(accumulator) += precompute_select * scalar_sum_new * scaled_transition;
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
-    // => q_transition * (2 * (pc - pc_shift) - 1) + (pc_shift - pc)
+    // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
     std::get<12>(accumulator) += precompute_select * scaled_transition * ((-pc_delta - pc_delta - 1) + pc_delta);
 

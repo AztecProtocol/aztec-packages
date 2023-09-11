@@ -201,7 +201,8 @@ template <typename Flavor> class ECCVMCircuitBuilder {
             .mul_scalar_full = scalar,
         });
     }
-    void eq(const AffineElement& expected)
+
+    void eq_and_reset(const AffineElement& expected)
     {
         vm_operations.emplace_back(VMOperation{
             .add = false,
@@ -229,6 +230,84 @@ template <typename Flavor> class ECCVMCircuitBuilder {
         });
     }
 
+    /**
+     * @brief Compute the ECCVM flavor polynomial data required to generate an ECCVM Proof
+     *
+     * @details RawPolynomial member polynomials that this fn must populate described below
+     *          For full details see `flavor/ecc_vm.hpp`
+     *
+     *          lagrange_first: lagrange_first[0] = 1, 0 elsewhere
+     *          lagrange_second: lagrange_second[1] = 1, 0 elsewhere
+     *          lagrange_last: lagrange_last[lagrange_last.size() - 1] = 1, 0 elsewhere
+     *          transcript_add/mul/eq/reset_accumulator: boolean selectors that toggle add/mul/eq/reset opcodes
+     *          transcript_collision_check: used to ensure any point being added into eccvm accumulator does not trigger
+     * incomplete addition rules
+     *          transcript_msm_transition: is current transcript row the final `mul` opcode of a multiscalar
+     multiplication?
+     *          transcript_pc: point counter for transcript columns
+     *          transcript_msm_count: counts number of muls processed in an ongoing multiscalar multiplication
+     *          transcript_x: input transcript point, x-coordinate
+     *          transcript_y: input transcriot point, y-coordinate
+     *          transcript_op: input transcript opcode value
+     *          transcript_z1: input transcript scalar multiplier (low component, 128 bits max)
+     *          transcript_z2: input transcript scalar multipplier (high component, 128 bits max)
+     * N.B. scalar multiplier = transcript_z1 + \lambda * transcript_z2. \lambda = cube root of unity in scalar field
+     *          transcript_z1zero: if 1, transcript_z1 must equal 0
+     *          transcript_z2zero: if 1, transcript_z2 must equal 0
+     *          transcript_accumulator_x: x-coordinate of eccvm accumulator register
+     *          transcript_accumulator_y: y-coordinate of eccvm accumulator register
+     *          transcript_msm_x: x-coordinate of MSM output
+     *          transcript_msm_y: y-coordinate of MSM output
+     *          transcript_accumulator_empty: if 1, transcript_accumulator = point at infinity
+     *          precompute_pc: point counter for Straus precomputation columns
+     *          precompute_select: if 1, evaluate Straus precomputation algorithm at current row
+     *          precompute_point_transition: 1 if current row operating on a different point to previous row
+     *          precompute_round: round counter for Straus precomputation algorithm
+     *          precompute_scalar_sum: accumulating sum of Straus scalar slices
+     *          precompute_s1hi/lo: 2-bit hi/lo components of a Straus 4-bit scalar slice
+     *          precompute_s2hilo/precompute_s3hi/loprecompute_s4hi/lo: same as above but for a total of 4 Straus 4-bit
+     scalar slices
+     *          precompute_skew: Straus WNAF skew parameter for a single scalar multiplier
+     *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input point
+     (from transcript)
+     *          precompute_tx: x-coordinate of point accumulator used to generate Straus lookup table for an input point
+     (from transcript)
+     *          precompute_dx: x-coordinate of D = 2 * input point we are evaluating Straus over
+     *          precompute_dy: y-coordinate of D
+     *          msm_pc: point counter for Straus MSM columns
+     *          msm_transition: 1 if current row evaluates different MSM to previous row
+     *          msm_add: 1 if we are adding points in Straus MSM algorithm at current row
+     *          msm_double: 1 if we are doubling accumulator in Straus MSM algorithm at current row
+     *          msm_skew: 1 if we are adding skew points in Straus MSM algorithm at current row
+     *          msm_size_of_msm: size of multiscalar multiplication current row is a part of
+     *          msm_round: describes which round of the Straus MSM algorithm the current row represents
+     *          msm_count: number of points processed for the round indicated by `msm_round`
+     *          msm_x1: x-coordinate of potential point in Straus MSM round
+     *          msm_y1: y-coordinate of potential point in Straus MSM round
+     *          msm_x2: x-coordinate of potential point in Straus MSM round
+     *          msm_y2: y-coordinate of potential point in Straus MSM round
+     *          msm_x3: x-coordinate of potential point in Straus MSM round
+     *          msm_y3: y-coordinate of potential point in Straus MSM round
+     *          msm_x4: x-coordinate of potential point in Straus MSM round
+     *          msm_y4: y-coordinate of potential point in Straus MSM round
+     *          msm_add1: are we adding msm_x1/msm_y1 into accumulator at current round?
+     *          msm_add2: are we adding msm_x2/msm_y2 into accumulator at current round?
+     *          msm_add3: are we adding msm_x3/msm_y3 into accumulator at current round?
+     *          msm_add4: are we adding msm_x4/msm_y4 into accumulator at current round?
+     *          msm_lambda1: temp variable used for ecc point addition algorithm if msm_add1 = 1
+     *          msm_lambda2: temp variable used for ecc point addition algorithm if msm_add2 = 1
+     *          msm_lambda3: temp variable used for ecc point addition algorithm if msm_add3 = 1
+     *          msm_lambda4: temp variable used for ecc point addition algorithm if msm_add4 = 1
+     *          msm_collision_x1: used to ensure incomplete ecc addition exceptions not triggered if msm_add1 = 1
+     *          msm_collision_x2: used to ensure incomplete ecc addition exceptions not triggered if msm_add2 = 1
+     *          msm_collision_x3: used to ensure incomplete ecc addition exceptions not triggered if msm_add3 = 1
+     *          msm_collision_x4: used to ensure incomplete ecc addition exceptions not triggered if msm_add4 = 1
+     *          lookup_read_counts_0: stores number of times a point has been read from a Straus precomputation table
+     (reads come from msm_x/y1, msm_x/y2)
+     *          lookup_read_counts_1: stores number of times a point has been read from a Straus precomputation table
+     (reads come from msm_x/y3, msm_x/y4)
+     * @return RawPolynomials
+     */
     RawPolynomials compute_full_polynomials()
     {
         const auto msms = get_msms();
@@ -399,20 +478,20 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     bool check_circuit()
     {
         const FF gamma = FF::random_element();
-        const FF eta = FF::random_element();
-        const FF eta_sqr = eta.sqr();
-        const FF eta_cube = eta_sqr * eta;
+        const FF beta = FF::random_element();
+        const FF beta_sqr = beta.sqr();
+        const FF beta_cube = beta_sqr * beta;
         auto eccvm_set_permutation_delta =
-            gamma * (gamma + eta_sqr) * (gamma + eta_sqr + eta_sqr) * (gamma + eta_sqr + eta_sqr + eta_sqr);
+            gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
         eccvm_set_permutation_delta = eccvm_set_permutation_delta.invert();
         proof_system::RelationParameters<typename Flavor::FF> params{
-            .eta = eta,
-            .beta = 0,
+            .eta = 0,
+            .beta = beta,
             .gamma = gamma,
             .public_input_delta = 0,
             .lookup_grand_product_delta = 0,
-            .eta_sqr = eta_sqr,
-            .eta_cube = eta_cube,
+            .beta_sqr = beta_sqr,
+            .beta_cube = beta_cube,
             .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
         };
 

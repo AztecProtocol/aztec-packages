@@ -134,9 +134,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
         const auto& ty = get_view<FF, AccumulatorTypes>(extended_edges.precompute_ty, index);
         const auto& precompute_round = get_view<FF, AccumulatorTypes>(extended_edges.precompute_round, index);
         const auto& gamma = relation_params.gamma;
-        const auto& eta = relation_params.eta;
-        const auto& eta_sqr = relation_params.eta_sqr;
-        const auto& eta_cube = relation_params.eta_cube;
+        const auto& beta = relation_params.beta;
+        const auto& beta_sqr = relation_params.beta_sqr;
+        const auto& beta_cube = relation_params.beta_cube;
 
         // slice value : (wnaf value) : lookup term
         // 0 : -15 : 0
@@ -162,9 +162,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
         // | 6 |  3[P].x |  3[P].y
         // | 7 |  1[P].x |  1[P].y | 7, -[P].x, -[P].y | 8 , [P].x, [P].y |
 
-        const auto negative_term = precompute_pc + gamma + precompute_round * eta + tx * eta_sqr - ty * eta_cube;
+        const auto negative_term = precompute_pc + gamma + precompute_round * beta + tx * beta_sqr - ty * beta_cube;
         const auto positive_slice_value = -(precompute_round) + 15;
-        const auto positive_term = precompute_pc + gamma + positive_slice_value * eta + tx * eta_sqr + ty * eta_cube;
+        const auto positive_term = precompute_pc + gamma + positive_slice_value * beta + tx * beta_sqr + ty * beta_cube;
 
         // todo optimise this?
         if constexpr (write_index == 0) {
@@ -194,9 +194,9 @@ template <typename FF_> class ECCVMLookupRelationBase {
         // pc, slice, x, y
         static_assert(read_index < READ_TERMS);
         const auto& gamma = relation_params.gamma;
-        const auto& eta = relation_params.eta;
-        const auto& eta_sqr = relation_params.eta_sqr;
-        const auto& eta_cube = relation_params.eta_cube;
+        const auto& beta = relation_params.beta;
+        const auto& beta_sqr = relation_params.beta_sqr;
+        const auto& beta_cube = relation_params.beta_cube;
         const auto& msm_pc = get_view<FF, AccumulatorTypes>(extended_edges.msm_pc, index);
         const auto& msm_count = get_view<FF, AccumulatorTypes>(extended_edges.msm_count, index);
         const auto& msm_slice1 = get_view<FF, AccumulatorTypes>(extended_edges.msm_slice1, index);
@@ -220,10 +220,10 @@ template <typename FF_> class ECCVMLookupRelationBase {
         // value of current pc = msm_pc - msm_size_of_msm + msm_count + (0,1,2,3)
         const auto current_pc = msm_pc - msm_count;
 
-        const auto read_term1 = (current_pc) + gamma + msm_slice1 * eta + msm_x1 * eta_sqr + msm_y1 * eta_cube;
-        const auto read_term2 = (current_pc - 1) + gamma + msm_slice2 * eta + msm_x2 * eta_sqr + msm_y2 * eta_cube;
-        const auto read_term3 = (current_pc - 2) + gamma + msm_slice3 * eta + msm_x3 * eta_sqr + msm_y3 * eta_cube;
-        const auto read_term4 = (current_pc - 3) + gamma + msm_slice4 * eta + msm_x4 * eta_sqr + msm_y4 * eta_cube;
+        const auto read_term1 = (current_pc) + gamma + msm_slice1 * beta + msm_x1 * beta_sqr + msm_y1 * beta_cube;
+        const auto read_term2 = (current_pc - 1) + gamma + msm_slice2 * beta + msm_x2 * beta_sqr + msm_y2 * beta_cube;
+        const auto read_term3 = (current_pc - 2) + gamma + msm_slice3 * beta + msm_x3 * beta_sqr + msm_y3 * beta_cube;
+        const auto read_term4 = (current_pc - 3) + gamma + msm_slice4 * beta + msm_x4 * beta_sqr + msm_y4 * beta_cube;
 
         if constexpr (read_index == 0) {
             return read_term1; // degree 1
@@ -242,12 +242,12 @@ template <typename FF_> class ECCVMLookupRelationBase {
 
     /**
      * @brief Expression for the StandardArithmetic gate.
-     * @details The relation is defined as C(extended_edges(X)...) =
+     * @dbetails The relation is defined as C(extended_edges(X)...) =
      *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
      *
      * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
      * @param extended_edges an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
+     * @param parameters contains bbeta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename AccumulatorTypes>

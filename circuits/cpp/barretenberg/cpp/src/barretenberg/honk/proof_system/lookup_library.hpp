@@ -33,8 +33,6 @@ void compute_logderivative_inverse(auto& polynomials,
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;
     auto& inverse_polynomial = polynomials.lookup_inverses;
-    // auto& inverse_polynomial = key->lookup_inverses;
-    //  const size_t circuit_size = key->circuit_size;
 
     auto lookup_relation = Relation();
     for (size_t i = 0; i < circuit_size; ++i) {

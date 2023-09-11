@@ -60,11 +60,11 @@ proof_system::ECCVMCircuitBuilder<Flavor> generate_trace(numeric::random::Engine
     result.mul_accumulate(b, y);
     result.add_accumulate(a);
     result.mul_accumulate(b, x);
-    result.eq(expected_1);
+    result.eq_and_reset(expected_1);
     result.add_accumulate(c);
     result.mul_accumulate(a, x);
     result.mul_accumulate(b, x);
-    result.eq(expected_2);
+    result.eq_and_reset(expected_2);
     result.mul_accumulate(a, x);
     result.mul_accumulate(b, x);
     result.mul_accumulate(c, x);
@@ -81,15 +81,6 @@ TYPED_TEST(ECCVMComposerTests, BaseCase)
     auto composer = ECCVMComposer_<Flavor>();
     auto prover = composer.create_prover(circuit_constructor);
 
-    //    / size_t pidx = 0;
-    // for (auto& p : prover.prover_polynomials) {
-    //     size_t count = 0;
-    //     for (auto& x : p) {
-    //         std::cout << "poly[" << pidx << "][" << count << "] = " << x << std::endl;
-    //         count++;
-    //     }
-    //     pidx++;
-    // }
     auto proof = prover.construct_proof();
     auto verifier = composer.create_verifier(circuit_constructor);
     bool verified = verifier.verify_proof(proof);
@@ -103,7 +94,7 @@ TYPED_TEST(ECCVMComposerTests, EqFails)
     using G1 = typename Flavor::CycleGroup;
     auto circuit_constructor = generate_trace<Flavor>(&engine);
     // create an eq opcode that is not satisfied
-    circuit_constructor.eq(G1::affine_one);
+    circuit_constructor.eq_and_reset(G1::affine_one);
     auto composer = ECCVMComposer_<Flavor>();
     auto prover = composer.create_prover(circuit_constructor);
 
