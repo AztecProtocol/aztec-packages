@@ -17,3 +17,4 @@
 
 # Needed scripts.
 !scripts/install-wasi-sdk.sh
+./format.sh
