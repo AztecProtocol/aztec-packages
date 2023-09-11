@@ -374,7 +374,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
 
         // TODO(@zac-williamson) if final opcode resets accumulator, all subsequent "is_accumulator_empty" row values
         // must be 1. Ideally we find a way to tweak this so that empty rows that do nothing have column values that are
-        // all zero
+        // all zero (issue #2217)
         if (transcript_state[transcript_state.size() - 1].accumulator_empty == 1) {
             for (size_t i = transcript_state.size(); i < num_rows_pow2; ++i) {
                 rows.transcript_accumulator_empty[i] = 1;
@@ -573,6 +573,7 @@ template <typename Flavor> class ECCVMCircuitBuilder {
     [[nodiscard]] size_t get_num_gates() const
     {
         // TODO(@zac-williamson) once we have a stable base to work off of, optimise this method!
+        // (issue #2218)
         const auto msms = get_msms();
         const auto flattened_muls = get_flattened_scalar_muls(msms);
 

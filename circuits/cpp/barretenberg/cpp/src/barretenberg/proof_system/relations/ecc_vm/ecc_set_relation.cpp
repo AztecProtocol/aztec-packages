@@ -5,6 +5,34 @@
 
 namespace proof_system::honk::sumcheck {
 
+/**
+ * @brief Performs list-equivalence checks for the ECCVM
+ *
+ * @details ECCVMSetRelationBase validates the correctness of the inputs/outputs of the three main algorithms evaluated
+ * by the ECCVM.
+ *
+ * First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
+ *             as part of ECCVMWnafRelation
+ * Input source: ECCVMWnafRelation
+ * Output source: ECCVMMSMRelation
+ *
+ *
+ * Second term: tuple of (point-counter, P.x, P.y, scalar-multiplier), used in ECCVMWnafRelation and
+ *              ECCVMPointTableRelation
+ * Input source: ECCVMPointTableRelation
+ * Output source: ECCVMMSMRelation
+ *
+ * Third term: tuple of (point-counter, P.x, P.y, msm-size) from ECCVMMSMRelation
+ * Input source: ECCVMMSMRelation
+ * Output source: ECCVMTranscriptRelation
+ *
+ * @tparam FF
+ * @tparam AccumulatorTypes
+ * @param extended_edges
+ * @param relation_params
+ * @param index
+ * @return ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes>
+ */
 template <typename FF>
 template <typename AccumulatorTypes>
 typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMSetRelationBase<

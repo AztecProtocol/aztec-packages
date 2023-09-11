@@ -38,7 +38,7 @@ ECCVMProver_<Flavor>::ECCVMProver_(std::shared_ptr<typename Flavor::ProvingKey> 
     , pcs_commitment_key(commitment_key)
 {
 
-    // TODO(@zac-williamson) Future work; is there a cleaner way of doing this?
+    // TODO(@zac-williamson) Future work; is there a cleaner way of doing this? #2213
     prover_polynomials.transcript_add = key->transcript_add;
     prover_polynomials.transcript_mul = key->transcript_mul;
     prover_polynomials.transcript_eq = key->transcript_eq;

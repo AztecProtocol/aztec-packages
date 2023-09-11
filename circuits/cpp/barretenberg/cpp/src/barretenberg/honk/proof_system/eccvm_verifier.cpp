@@ -221,7 +221,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
     // Construct batched commitment for NON-shifted polynomials
     size_t commitment_idx = 0;
     for (auto& commitment : commitments.get_unshifted()) {
-        // very lazy point at infinity check. not complete. fix.
+        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
         if (commitment.y != 0) {
             batched_commitment_unshifted += commitment * rhos[commitment_idx];
         } else {
@@ -232,7 +232,7 @@ template <typename Flavor> bool ECCVMVerifier_<Flavor>::verify_proof(const plonk
 
     // Construct batched commitment for to-be-shifted polynomials
     for (auto& commitment : commitments.get_to_be_shifted()) {
-        // very lazy point at infinity check. not complete. fix.
+        // TODO(@zac-williamson) ensure ECCVM polynomial commitments are never points at infinity (#2214)
         if (commitment.y != 0) {
             batched_commitment_to_be_shifted += commitment * rhos[commitment_idx];
         } else {

@@ -129,7 +129,7 @@ template <typename Flavor> class ECCVMMSMMBuilder {
 
                     AffineElement acc(accumulator);
                     Element acc_expected = accumulator;
-                    for (size_t m = 0; m < 4; ++m) {
+                    for (size_t m = 0; m < ADDITIONS_PER_ROW; ++m) {
                         auto& add_state = row.add_state[m];
                         add_state.add = points_per_row > m;
                         int slice = add_state.add ? msm[idx + m].wnaf_slices[j] : 0;

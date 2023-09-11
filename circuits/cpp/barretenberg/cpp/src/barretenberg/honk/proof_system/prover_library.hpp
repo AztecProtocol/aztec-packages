@@ -11,6 +11,7 @@
 // big code smell (should really not have using declarations in header files!), however fixing it requires changes in a
 // LOT of files. This would clutter the eccvm feature PR. Adding these following "using namespace" declarations is a
 // temp workaround. Once this work is merged in we should fix the root problem (no using declarations in header files)
+// See issue #2216
 using namespace proof_system;
 using namespace barretenberg;
 namespace proof_system::honk::prover_library {

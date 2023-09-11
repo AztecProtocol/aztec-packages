@@ -52,7 +52,8 @@ void compute_permutation_grand_product(const size_t circuit_size,
     using ValueAccumulatorsAndViews = typename PermutationRelation::ValueAccumulatorsAndViews;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
-    // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
+    // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial.
+    // Reduces readability (issue #2215)
     Polynomial numerator = Polynomial{ circuit_size };
     Polynomial denominator = Polynomial{ circuit_size };
 
