@@ -50,7 +50,7 @@ async function downloadContractAndStarterKitFromGithub(
   const snakeCaseContractName = contractNameToFolder(contractName);
   // source noir files for the contract are in this folder
   const contractFolder = `${NOIR_CONTRACTS_PATH}/${snakeCaseContractName}_contract`;
-  await _downloadNoirFilesFromGithub(contractFolder, snakeCaseContractName, outputPath, log);
+  await downloadNoirFilesFromGithub(contractFolder, snakeCaseContractName, outputPath, log);
 
   log(`Downloaded '@aztex/boxes/${snakeCaseContractName}' to ${outputPath}`);
   return;
@@ -62,7 +62,7 @@ async function downloadContractAndStarterKitFromGithub(
  * @param repositoryFolderPath - folder to copy from github repo
  * @param localOutputPath - local path to copy to
  */
-async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, localOutputPath: string, log: LogFn) {
+async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, localOutputPath: string, log: LogFn) {
   log('downloading from github:', repositoryFolderPath);
   const repositoryDirectories = Object.values(data.files).filter(file => {
     return file.dir && file.name.startsWith(repositoryFolderPath);
@@ -94,6 +94,8 @@ async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, 
   }
 }
 
+// ONLY DO THIS COPY from nargo contracts into the boxes/ subpackage IF THE BOX doesn't have a
+// src/contracts folder
 /**
  * Not flexible at at all, but quick fix to download a noir smart contract from our
  * monorepo on github.  this will copy over the `yarn-projects/boxes/{contract_name}` folder
@@ -103,7 +105,7 @@ async function _copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, 
  * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
  * @returns
  */
-async function _downloadNoirFilesFromGithub(
+async function downloadNoirFilesFromGithub(
   directoryPath: string,
   snakeCaseContractName: string,
   outputPath: string,
@@ -124,12 +126,12 @@ async function _downloadNoirFilesFromGithub(
   const repoDirectoryPrefix = `${repo}-master/`;
 
   const boxPath = `${repoDirectoryPrefix}${BOXES_PATH}/${snakeCaseContractName}`;
-  await _copyFolderFromGithub(data, boxPath, outputPath, log);
+  await copyFolderFromGithub(data, boxPath, outputPath, log);
 
   // TEMPORARY FIX - we also need the `noir-libs` subpackage, which needs to be referenced by
   // a relative path in the Nargo.toml file.  Copy those over as well.
   const noirLibsPath = `${repoDirectoryPrefix}${NOIR_LIBS_PATH}/`;
-  await _copyFolderFromGithub(data, noirLibsPath, path.join(outputPath, 'src', 'contracts'), log);
+  await copyFolderFromGithub(data, noirLibsPath, path.join(outputPath, 'src', 'contracts'), log);
 
   // Step 3: copy the noir contracts to the output directory under subdir /src/contracts/
   const contractDirectoryPath = `${repoDirectoryPrefix}${directoryPath}/`;
@@ -159,9 +161,9 @@ async function _downloadNoirFilesFromGithub(
  * @param log - logger
  */
 async function updatePackagingConfigurations(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
-  await _updateNargoToml(outputPath, log);
-  await _updatePackageJsonVersions(outputPath, packageVersion, log);
-  await _updateTsConfig(outputPath, log);
+  await updateNargoToml(outputPath, log);
+  await updatePackageJsonVersions(outputPath, packageVersion, log);
+  await updateTsConfig(outputPath, log);
 }
 
 /**
@@ -170,7 +172,7 @@ async function updatePackagingConfigurations(outputPath: string, packageVersion:
  * @param outputPath - relative path where we are copying everything
  * @param log - logger
  */
-async function _updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
+async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
   const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
   const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
   const lines = fileContent.split('\n');
@@ -203,7 +205,7 @@ async function _updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
  * so we remove the entries to install the the workspace packages from npm.
  * @param outputPath - directory we are unboxing to
  */
-async function _updateTsConfig(outputPath: string, log: LogFn) {
+async function updateTsConfig(outputPath: string, log: LogFn) {
   try {
     const tsconfigJsonPath = path.join(outputPath, 'tsconfig.json');
     const data = await fs.readFile(tsconfigJsonPath, 'utf8');
@@ -228,7 +230,7 @@ async function _updateTsConfig(outputPath: string, log: LogFn) {
  * @param outputPath - directory we are unboxing to
  * @param log - logger
  */
-async function _updatePackageJsonVersions(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
+async function updatePackageJsonVersions(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
   const packageJsonPath = path.join(outputPath, 'package.json');
   const fileContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageData = JSON.parse(fileContent);

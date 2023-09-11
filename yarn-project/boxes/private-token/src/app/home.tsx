@@ -53,6 +53,7 @@ export function Home() {
               {!selectWalletError && <Contract wallet={selectedWallet}/>}
             </div>
           )}
+          {!isLoadingWallet && !selectedWallet && (`${selectWalletError} ${selectedWallet}`)}
         </div>
       </div>
 
