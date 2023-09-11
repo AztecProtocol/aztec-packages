@@ -3,17 +3,17 @@ import {
   collectEncryptedLogs,
   collectEnqueuedPublicFunctionCalls,
   collectUnencryptedLogs,
-  processAcvmError,
+  resolveOpcodeLocations,
 } from '@aztec/acir-simulator';
 import {
   AztecAddress,
   CompleteAddress,
   EthAddress,
   FunctionData,
+  GrumpkinPrivateKey,
   KernelCircuitPublicInputsFinal,
   MAX_PUBLIC_CALL_STACK_LENGTH_PER_TX,
   PartialAddress,
-  PrivateKey,
   PublicCallRequest,
 } from '@aztec/circuits.js';
 import { encodeArguments } from '@aztec/foundation/abi';
@@ -42,6 +42,7 @@ import {
   TxReceipt,
   TxStatus,
   getNewContractPublicFunctions,
+  isNoirCallStackUnresolved,
   toContractDao,
 } from '@aztec/types';
 
@@ -75,6 +76,11 @@ export class AztecRPCServer implements AztecRPC {
     this.clientInfo = `${name.split('/')[name.split('/').length - 1]}@${version}`;
   }
 
+  public async addAuthWitness(messageHash: Fr, witness: Fr[]) {
+    await this.db.addAuthWitness(messageHash, witness);
+    return Promise.resolve();
+  }
+
   /**
    * Starts the Aztec RPC server by beginning the synchronisation process between the Aztec node and the database.
    *
@@ -98,7 +104,7 @@ export class AztecRPCServer implements AztecRPC {
     this.log.info('Stopped');
   }
 
-  public async registerAccount(privKey: PrivateKey, partialAddress: PartialAddress) {
+  public async registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress) {
     const completeAddress = await CompleteAddress.fromPrivateKeyAndPartialAddress(privKey, partialAddress);
     const wasAdded = await this.db.addCompleteAddress(completeAddress);
     if (wasAdded) {
@@ -169,6 +175,18 @@ export class AztecRPCServer implements AztecRPC {
       throw new Error(`Contract ${contract.toString()} is not deployed`);
     }
     return await this.node.getPublicStorageAt(contract, storageSlot.value);
+  }
+
+  public async getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr) {
+    if ((await this.getContractData(contract)) === undefined) {
+      throw new Error(`Contract ${contract.toString()} is not deployed`);
+    }
+    const notes = await this.db.getNoteSpendingInfo(contract, storageSlot);
+    const ownerCompleteAddress = await this.db.getCompleteAddress(owner);
+    if (!ownerCompleteAddress) throw new Error(`Owner ${owner} not registered in RPC server`);
+    const { publicKey: ownerPublicKey } = ownerCompleteAddress;
+    const ownerNotes = notes.filter(n => n.publicKey.equals(ownerPublicKey));
+    return ownerNotes.map(n => n.notePreimage);
   }
 
   public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
@@ -340,7 +358,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -381,7 +398,6 @@ export class AztecRPCServer implements AztecRPC {
     } catch (err) {
       if (err instanceof SimulationError) {
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
       throw err;
     }
@@ -406,19 +422,12 @@ export class AztecRPCServer implements AztecRPC {
           originalFailingFunction.contractAddress,
           originalFailingFunction.functionSelector,
         );
-        if (debugInfo) {
-          const noirCallStack = processAcvmError(err.message, debugInfo);
-          if (noirCallStack) {
-            err.setNoirCallStack(noirCallStack);
-            err.updateMessage(
-              `Assertion failed in public execution: '${
-                noirCallStack[noirCallStack.length - 1]?.locationText ?? 'Unknown'
-              }'`,
-            );
-          }
+        const noirCallStack = err.getNoirCallStack();
+        if (debugInfo && isNoirCallStackUnresolved(noirCallStack)) {
+          const parsedCallStack = resolveOpcodeLocations(noirCallStack, debugInfo);
+          err.setNoirCallStack(parsedCallStack);
         }
         await this.#enrichSimulationError(err);
-        this.log(err.toString());
       }
 
       throw err;

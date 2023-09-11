@@ -1,9 +1,9 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { Tuple } from '@aztec/foundation/serialize';
 
 import {
   CONTRACT_TREE_HEIGHT,
   FUNCTION_TREE_HEIGHT,
+  MAX_NEW_NULLIFIERS_PER_TX,
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_READ_REQUESTS_PER_CALL,
   MAX_READ_REQUESTS_PER_TX,
@@ -32,7 +32,7 @@ export class PrivateCallData {
     /**
      * Other private call stack items to be processed.
      */
-    public privateCallStackPreimages: PrivateCallStackItem[],
+    public privateCallStackPreimages: Tuple<PrivateCallStackItem, typeof MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     /**
      * The proof of the execution of this private call.
      */
@@ -53,11 +53,11 @@ export class PrivateCallData {
     /**
      * The membership witnesses for read requests created by the function being invoked.
      */
-    public readRequestMembershipWitnesses: ReadRequestMembershipWitness[],
+    public readRequestMembershipWitnesses: Tuple<ReadRequestMembershipWitness, typeof MAX_READ_REQUESTS_PER_CALL>,
     /**
      * The address of the portal contract corresponding to the contract on which the function is being invoked.
      */
-    public portalContractAddress: EthAddress,
+    public portalContractAddress: Fr,
     /**
      * The hash of the ACIR of the function being invoked.
      */
@@ -160,7 +160,11 @@ export class PrivateKernelInputsOrdering {
     /**
      * Contains hints for the transient read requests to localize corresponding commitments.
      */
-    public hintToCommitments: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    public readCommitmentHints: Tuple<Fr, typeof MAX_READ_REQUESTS_PER_TX>,
+    /**
+     * Contains hints for the transient nullifiers to localize corresponding commitments.
+     */
+    public nullifierCommitmentHints: Tuple<Fr, typeof MAX_NEW_NULLIFIERS_PER_TX>,
   ) {}
 
   /**
@@ -168,6 +172,6 @@ export class PrivateKernelInputsOrdering {
    * @returns The buffer.
    */
   toBuffer() {
-    return serializeToBuffer(this.previousKernel, this.hintToCommitments);
+    return serializeToBuffer(this.previousKernel, this.readCommitmentHints);
   }
 }

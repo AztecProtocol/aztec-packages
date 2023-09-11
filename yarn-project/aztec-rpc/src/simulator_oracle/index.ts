@@ -11,8 +11,8 @@ import {
   EthAddress,
   Fr,
   FunctionSelector,
+  GrumpkinPrivateKey,
   HistoricBlockData,
-  PrivateKey,
   PublicKey,
 } from '@aztec/circuits.js';
 import { siloCommitment } from '@aztec/circuits.js/abis';
@@ -33,7 +33,7 @@ export class SimulatorOracle implements DBOracle {
     private dataTreeProvider: DataCommitmentProvider,
   ) {}
 
-  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey> {
+  getSecretKey(_contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey> {
     return this.keyStore.getAccountPrivateKey(pubKey);
   }
 
@@ -44,6 +44,12 @@ export class SimulatorOracle implements DBOracle {
         `Unknown complete address for address ${address.toString()}. Add the information to Aztec RPC server by calling server.registerRecipient(...) or server.registerAccount(...)`,
       );
     return completeAddress;
+  }
+
+  async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
+    const witness = await this.db.getAuthWitness(messageHash);
+    if (!witness) throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
+    return witness;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
