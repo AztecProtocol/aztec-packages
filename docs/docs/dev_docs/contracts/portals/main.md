@@ -79,7 +79,7 @@ When the transaction is included in a rollup block the message will be inserted 
 
 #include_code l2_to_l1_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 
-#include_code consume_message_solidity l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
+#include_code outbox_consume l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol solidity
 
 As noted earlier, the portal contract should check that the sender is as expected. In the example below, we support only one sender contract (stored in `l2TokenAddress`) so we can just pass it as the sender, that way we will only be able to consume messages from that contract. If multiple senders are supported, you could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
 
