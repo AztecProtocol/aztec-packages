@@ -1,3 +1,4 @@
+# We have to stay on 3.17 for now, to get clang-format 15, as code is not yet formatted to 16.
 FROM alpine:3.17 AS builder
 RUN apk update \
     && apk upgrade \
@@ -17,6 +18,6 @@ COPY . .
 RUN ./format.sh check && cmake --preset default -DCMAKE_BUILD_TYPE=RelWithAssert -DCI=ON && cmake --build --preset default
 
 FROM alpine:3.17
-RUN apk update && apk add curl
+RUN apk update && apk add curl libstdc++
 COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
 COPY --from=builder /usr/src/barretenberg/cpp/build/bin /usr/src/barretenberg/cpp/build/bin

@@ -2,10 +2,9 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/barretenberg-wasm-linux-clang 
 
 FROM ubuntu:kinetic AS builder
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential git libssl-dev cmake ninja-build curl binaryen
+COPY --from=bb /usr/src/barretenberg/cpp /usr/src/barretenberg/cpp
 WORKDIR /usr/src/circuits/cpp
 COPY . .
-# Replace symlink to barretenberg.
-COPY --from=bb /usr/src/barretenberg/cpp /usr/src/circuits/cpp/barretenberg/cpp
 RUN cmake --preset wasm && cmake --build --preset wasm
 
 FROM ubuntu:kinetic

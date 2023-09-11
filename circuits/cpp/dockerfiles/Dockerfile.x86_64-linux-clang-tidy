@@ -15,10 +15,9 @@ RUN apk update \
         perl \
         bash \
         python3
+COPY --from=bb /usr/src/barretenberg/cpp /usr/src/barretenberg/cpp
 WORKDIR /usr/src/circuits/cpp
 COPY . .
-# Replace symlink to barretenberg.
-COPY --from=bb /usr/src/barretenberg/cpp /usr/src/circuits/cpp/barretenberg/cpp
 # Configure cmake and check if code is tidy
 RUN cmake --preset default
 RUN ./scripts/tidy.sh fix
