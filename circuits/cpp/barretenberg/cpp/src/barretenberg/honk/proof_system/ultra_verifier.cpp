@@ -28,7 +28,7 @@ template <typename Flavor> UltraVerifier_<Flavor>& UltraVerifier_<Flavor>::opera
 }
 
 /**
- * @brief This function verifies an Ultra Honk proof for given program settings.
+ * @brief This function verifies an Ultra Honk proof for a given Flavor.
  *
  */
 template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
@@ -67,8 +67,6 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         auto public_input_i = transcript.template receive_from_prover<FF>("public_input_" + std::to_string(i));
         public_inputs.emplace_back(public_input_i);
     }
-
-    // up to here in the folding verifier as well
 
     // Get commitments to first three wire polynomials
     commitments.w_l = transcript.template receive_from_prover<Commitment>(commitment_labels.w_l);

@@ -160,7 +160,7 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::construct_ecc_op_wire_poly
 {
     std::array<polynomial, Flavor::NUM_WIRES> op_wire_polynomials;
     for (auto& poly : op_wire_polynomials) {
-        poly = polynomial(dyadic_circuit_size);
+        poly = static_cast<polynomial>(dyadic_circuit_size);
     }
 
     // The ECC op wires are constructed to contain the op data on the appropriate range and to vanish everywhere else.

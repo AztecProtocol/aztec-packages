@@ -30,7 +30,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
     void execute_grand_product_computation_round();
-    void execute_commitment_finalisation_round();
     void execute_relation_check_rounds();
     void execute_univariatization_round();
     void execute_pcs_evaluation_round();
@@ -60,7 +59,6 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     Instance& instance;
 
-    // this should be ProverOutput
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;
     pcs::shplonk::ProverOutput<Curve> shplonk_output;

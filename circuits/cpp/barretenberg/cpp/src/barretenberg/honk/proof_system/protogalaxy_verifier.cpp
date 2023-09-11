@@ -26,11 +26,10 @@ VerifierFoldingResult<Flavor> ProtoGalaxyVerifier_<Flavor>::fold_public_paramete
 
         for (size_t i = 0; i < inst.public_input_size; ++i) {
             auto public_input_i =
-                transcript.template receive_from_prover<FF>(idx + "public_input_" + std::to_string(i));
+                transcript.template receive_from_prover<FF>(idx + "_public_input_" + std::to_string(i));
             inst.public_inputs.emplace_back(public_input_i);
         }
-        auto eta = transcript.get_challenge(idx + "_eta");
-        auto [beta, gamma] = transcript.get_challenges(idx + "_beta", idx + "_gamma");
+        auto [eta, beta, gamma] = transcript.get_challenges(idx + "_eta", idx + "_beta", idx + "_gamma");
         const FF public_input_delta = compute_public_input_delta<Flavor>(
             inst.public_inputs, beta, gamma, inst.circuit_size, inst.pub_inputs_offset);
         const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst.circuit_size);
@@ -38,6 +37,8 @@ VerifierFoldingResult<Flavor> ProtoGalaxyVerifier_<Flavor>::fold_public_paramete
             RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
         verifier_instances.emplace_back(inst);
     }
+
+    // TODO(#722): implement the  Protogalaxy verifier logic
     VerifierFoldingResult<Flavor> res;
     return res;
 }

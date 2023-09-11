@@ -2,22 +2,25 @@
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
+#include "barretenberg/honk/proof_system/folding_result.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 #include "barretenberg/srs/factories/file_crs_factory.hpp"
-
 #include <cstddef>
 #include <memory>
 #include <utility>
 #include <vector>
 namespace proof_system::honk {
-// Need verifier instance as well
-// An Instance is created from a Circuit and we ini tialise all the data structure that rely on information from a
-// circuit Then a Prover and a Verifier is created from an Instance or several instances and each manages their own
-// polynomials
-// The responsability of a Prover is to commit, add to transcript while the Instance manages its polynomials
-// TODO: we might wanna have a specialisaition of the Instance class for the Accumulator
+/**
+ * @brief  An Instance is normally constructed from a finalised circuit and it's role is to compute all the polynomials
+ * involved in creating a proof and, if requested, the verification key.
+ * In case of folded Instance, this will be created from the FoldingResult, the aggregated work from the folding prover
+ * and verifier. More specifically, a folded instance will be constructed from the complete set of folded polynomials
+ * and folded public inputs and its FoldingParams are expected to be non-zero
+ *
+ */
+
 template <UltraFlavor Flavor> class Instance_ {
   public:
     using Circuit = typename Flavor::CircuitBuilder;
@@ -39,9 +42,8 @@ template <UltraFlavor Flavor> class Instance_ {
 
     ProverPolynomials prover_polynomials;
 
-    // After instances have been folded, the pub_inputs_offset will become irrelevant as it's used for computing the 4th
-    // wire polynomial and a folded instance does not care about wires anymore.
-    // Furthermore, folding limits us to having the same number of public inputs.
+    // The number of public inputs has to be the same for all instances because they are
+    // folded element by element.
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset;
 
@@ -68,11 +70,11 @@ template <UltraFlavor Flavor> class Instance_ {
         compute_witness(circuit);
     }
 
-    Instance_(ProverPolynomials polys, std::vector<FF> public_inputs, std::shared_ptr<VerificationKey> vk)
-        : verification_key(std::move(vk))
-        , prover_polynomials(polys)
-        , public_inputs(public_inputs)
-    {}
+    Instance_(FoldingResult<Flavor> result)
+        : verification_key(std::move(result.verification_key))
+        , prover_polynomials(result.folded_prover_polynomials)
+        , public_inputs(result.folded_public_inputs)
+        , folding_params(result.params){};
 
     Instance_(Instance_&& other) noexcept = default;
     Instance_(Instance_ const& other) noexcept = default;
