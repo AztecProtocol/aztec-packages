@@ -1,8 +1,5 @@
 /* eslint-disable no-console */
 import * as AztecJs from '@aztec/aztec.js';
-import { AztecAddress, PrivateKey } from '@aztec/circuits.js';
-import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
-import { fileURLToPath } from '@aztec/foundation/url';
 import { PrivateTokenContractAbi } from '@aztec/noir-contracts/artifacts';
 
 import { Server } from 'http';
@@ -17,15 +14,15 @@ declare global {
   }
 }
 
-const __filename = fileURLToPath(import.meta.url);
+const __filename = AztecJs.fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const PORT = 3000;
+const PORT = 3033;
 
 const { SANDBOX_URL } = process.env;
 
 const conditionalDescribe = () => (SANDBOX_URL ? describe : describe.skip);
-const privKey = PrivateKey.random();
+const privKey = AztecJs.GrumpkinScalar.random();
 
 /**
  * This test is a bit of a special case as it's relying on sandbox and web browser and not only on anvil and node.js.
@@ -45,10 +42,10 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   const initialBalance = 33n;
   const transferAmount = 3n;
 
-  let contractAddress: AztecAddress;
+  let contractAddress: AztecJs.AztecAddress;
 
-  let logger: DebugLogger;
-  let pageLogger: DebugLogger;
+  let logger: AztecJs.DebugLogger;
+  let pageLogger: AztecJs.DebugLogger;
   let app: Koa;
   let testClient: AztecJs.AztecRPC;
   let server: Server;
@@ -59,15 +56,15 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   beforeAll(async () => {
     testClient = AztecJs.createAztecRpcClient(SANDBOX_URL!, AztecJs.makeFetch([1, 2, 3], true));
     await AztecJs.waitForSandbox(testClient);
-
+    const pathRes = path.resolve(__dirname, './web');
     app = new Koa();
-    app.use(serve(path.resolve(__dirname, './web')));
+    app.use(serve(pathRes));
     server = app.listen(PORT, () => {
       logger(`Server started at http://localhost:${PORT}`);
     });
 
-    logger = createDebugLogger('aztec:aztec.js:web');
-    pageLogger = createDebugLogger('aztec:aztec.js:web:page');
+    logger = AztecJs.createDebugLogger('aztec:aztec.js:web');
+    pageLogger = AztecJs.createDebugLogger('aztec:aztec.js:web:page');
 
     browser = await launch({
       executablePath: process.env.CHROME_BIN,
@@ -86,12 +83,12 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
     });
     page = await browser.newPage();
     page.on('console', msg => {
-      pageLogger(msg.text());
+      pageLogger('PAGE MSG', msg.text());
     });
     page.on('pageerror', err => {
-      pageLogger.error(err.toString());
+      pageLogger.error('PAGE ERROR', err.toString());
     });
-    await page.goto(`http://localhost:${PORT}/index.html`);
+    await page.goto(`http://localhost:${PORT}`);
   }, 120_000);
 
   afterAll(async () => {
@@ -110,9 +107,9 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   it('Creates an account', async () => {
     const result = await page.evaluate(
       async (rpcUrl, privateKeyString) => {
-        const { PrivateKey, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } = window.AztecJs;
+        const { GrumpkinScalar, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } = window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
-        const privateKey = PrivateKey.fromString(privateKeyString);
+        const privateKey = GrumpkinScalar.fromString(privateKeyString);
         const account = getUnsafeSchnorrAccount(client, privateKey);
         await account.waitDeploy();
         const completeAddress = await account.getCompleteAddress();
@@ -141,6 +138,7 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const wallet = await AztecJs.getSandboxAccountsWallet(client);
         const contract = await Contract.at(AztecAddress.fromString(contractAddress), PrivateTokenContractAbi, wallet);
         const balance = await contract.methods.getBalance(owner).view({ from: owner });
+        console.log(`Owner's balance: ${balance}`);
         return balance;
       },
       SANDBOX_URL,
@@ -162,9 +160,13 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
         const receiver = accounts[1].address;
         const wallet = await AztecJs.getSandboxAccountsWallet(client);
         const contract = await Contract.at(AztecAddress.fromString(contractAddress), PrivateTokenContractAbi, wallet);
-        await contract.methods.transfer(transferAmount, owner, receiver).send({ origin: owner }).wait();
+        await contract.methods.transfer(transferAmount, receiver).send({ origin: owner }).wait();
         console.log(`Transferred ${transferAmount} tokens to new Account`);
-        return await contract.methods.getBalance(receiver).view({ from: receiver });
+        const receiverBalance = await contract.methods.getBalance(receiver).view({ from: receiver });
+        console.log(`Receiver's balance is now: ${receiverBalance}`);
+        const senderBalance = await contract.methods.getBalance(owner).view({ from: owner });
+        console.log(`Updated sender balance: ${senderBalance}`);
+        return receiverBalance;
       },
       SANDBOX_URL,
       (await getPrivateTokenAddress()).toString(),
@@ -177,12 +179,13 @@ conditionalDescribe()('e2e_aztec.js_browser', () => {
   const deployPrivateTokenContract = async () => {
     const txHash = await page.evaluate(
       async (rpcUrl, privateKeyString, initialBalance, PrivateTokenContractAbi) => {
-        const { PrivateKey, DeployMethod, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } = window.AztecJs;
+        const { GrumpkinScalar, DeployMethod, createAztecRpcClient, makeFetch, getUnsafeSchnorrAccount } =
+          window.AztecJs;
         const client = createAztecRpcClient(rpcUrl!, makeFetch([1, 2, 3], true));
         let accounts = await client.getAccounts();
         if (accounts.length === 0) {
           // This test needs an account for deployment. We create one in case there is none available in the RPC server.
-          const privateKey = PrivateKey.fromString(privateKeyString);
+          const privateKey = GrumpkinScalar.fromString(privateKeyString);
           await getUnsafeSchnorrAccount(client, privateKey).waitDeploy();
           accounts = await client.getAccounts();
         }
