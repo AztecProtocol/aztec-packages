@@ -9,7 +9,8 @@ RUN apk update \
         git \
         curl \
         perl \
-        clang-extra-tools
+        clang-extra-tools \
+        bash
 WORKDIR /usr/src/barretenberg/cpp
 COPY . .
 # Build everything to ensure everything builds. All tests will be run from the result of this build.
