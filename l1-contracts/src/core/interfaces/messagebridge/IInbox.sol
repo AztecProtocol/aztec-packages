@@ -24,6 +24,7 @@ interface IInbox {
 
   event L1ToL2MessageCancelled(bytes32 indexed entryKey);
 
+  // docs:start:send_l1_to_l2_message
   /**
    * @notice Inserts an entry into the Inbox
    * @dev Will emit `MessageAdded` with data for easy access by the sequencer
@@ -40,7 +41,9 @@ interface IInbox {
     bytes32 _content,
     bytes32 _secretHash
   ) external payable returns (bytes32);
+  // docs:end:send_l1_to_l2_message
 
+  // docs:start:pending_l2_cancel
   /**
    * @notice Cancel a pending L2 message
    * @dev Will revert if the deadline have not been crossed - message only cancellable past the deadline
@@ -53,6 +56,7 @@ interface IInbox {
   function cancelL2Message(DataStructures.L1ToL2Msg memory _message, address _feeCollector)
     external
     returns (bytes32 entryKey);
+  // docs:end:pending_l2_cancel
 
   /**
    * @notice Batch consumes entries from the Inbox

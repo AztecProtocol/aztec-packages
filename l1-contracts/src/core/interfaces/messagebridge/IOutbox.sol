@@ -30,6 +30,7 @@ interface IOutbox {
    */
   function sendL1Messages(bytes32[] memory _entryKeys) external;
 
+  // docs:start:consume_message_solidity
   /**
    * @notice Consumes an entry from the Outbox
    * @dev Only meaningfully callable by portals, otherwise should never hit an entry
@@ -38,6 +39,7 @@ interface IOutbox {
    * @return entryKey - The key of the entry removed
    */
   function consume(DataStructures.L2ToL1Msg memory _message) external returns (bytes32 entryKey);
+  // docs:end:consume_message_solidity
 
   /**
    * @notice Fetch an entry

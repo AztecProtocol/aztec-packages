@@ -60,6 +60,7 @@ library DataStructures {
     uint64 fee;
   }
 
+  // docs:start:l2_to_l1_msg
   /**
    * @notice Struct containing a message from L2 to L1
    * @param sender - The sender of the message
@@ -71,6 +72,7 @@ library DataStructures {
     DataStructures.L1Actor recipient;
     bytes32 content;
   }
+  // docs:end:l2_to_l1_msg
 
   /**
    * @notice Struct for storing address of cross communication components and the block number when it was updated
