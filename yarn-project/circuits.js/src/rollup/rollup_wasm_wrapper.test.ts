@@ -1,7 +1,14 @@
-import { AggregationObject, CircuitError, MergeRollupInputs, RootRollupInputs, VerificationKey } from '../index.js';
+import {
+  AggregationObject,
+  CircuitError,
+  MergeRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  VerificationKey,
+} from '../index.js';
 import { makeBaseRollupInputs, makeMergeRollupInputs, makeRootRollupInputs } from '../tests/factories.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
-import { RollupWasmWrapper, mergeRollupSim } from './rollup_wasm_wrapper.js';
+import { RollupWasmWrapper, mergeRollupSim, rootRollupSim } from './rollup_wasm_wrapper.js';
 
 describe('rollup/rollup_wasm_wrapper', () => {
   let wasm: CircuitsWasm;
@@ -101,8 +108,11 @@ describe('rollup/rollup_wasm_wrapper', () => {
     }
     fixPreviousRollupInputs(input);
 
-    const output = rollupWasm.simulateRootRollup(input);
-    expect(output.startNullifierTreeSnapshot).toEqual(
+    const output = rootRollupSim(wasm, input);
+    expect(output instanceof RootRollupPublicInputs).toBeTruthy();
+
+    const publicInputs = output as RootRollupPublicInputs;
+    expect(publicInputs.startNullifierTreeSnapshot).toEqual(
       input.previousRollupData[0].baseOrMergeRollupPublicInputs.startNullifierTreeSnapshot,
     );
   }, 15_000);

@@ -2,7 +2,7 @@ import { BaseOrMergeRollupPublicInputs, BaseRollupInputs, RootRollupInputs, Root
 import { callWasm } from '../utils/call_wasm.js';
 import { CircuitsWasm } from '../wasm/circuits_wasm.js';
 
-export { mergeRollupSim } from '../cbind/circuits.gen.js';
+export { mergeRollupSim, rootRollupSim } from '../cbind/circuits.gen.js';
 
 /**
  * A wrapper around `CircuitsWasm` used to expose only the functions relevant for rollup circuits.
@@ -18,14 +18,5 @@ export class RollupWasmWrapper {
    */
   public simulateBaseRollup(baseRollupInputs: BaseRollupInputs): BaseOrMergeRollupPublicInputs {
     return callWasm(this.wasm, 'base_rollup__sim', baseRollupInputs, BaseOrMergeRollupPublicInputs);
-  }
-
-  /**
-   * Simulates the root rollup circuit from its inputs.
-   * @param rootRollupInputs - Inputs to the circuit.
-   * @returns Public inputs of the root rollup circuit.
-   */
-  public simulateRootRollup(rootRollupInputs: RootRollupInputs): RootRollupPublicInputs {
-    return callWasm(this.wasm, 'root_rollup__sim', rootRollupInputs, RootRollupPublicInputs);
   }
 }
