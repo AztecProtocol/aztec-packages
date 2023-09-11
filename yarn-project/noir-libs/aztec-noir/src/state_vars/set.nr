@@ -49,11 +49,10 @@ impl<Note, N> Set<Note, N> {
         );
     }
 
-    // TODO(#1386)
-    // Should be replaced by `assert_contains_and_remove`.
-    fn assert_contains_note_and_remove(self, note: Note) {
+    fn assert_contains_and_remove(self, note: Note) {
         let mut note_with_header = note;
-        ensure_note_exists(
+        // Modifies note with the header which is necessary for the next step (remove).
+        ensure_note_hash_exists(
             self.context.private.unwrap(),
             self.storage_slot,
             self.note_interface,
@@ -67,10 +66,11 @@ impl<Note, N> Set<Note, N> {
         );
     }
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1386):
-    // replace function above ^ once public kernel injects
-    // nonces to note hashes.
-    fn assert_contains_and_remove(self, note: Note) {
+    // TODO(1386): remove this function and use `assert_contains_and_remove`
+    // once public kernel injects nonces to note hashes.
+    // NOTE: this function should ONLY be used for PUBLICLY-CREATED note hashes!
+    // WARNING: function will be deprecated/removed eventually
+    fn assert_contains_and_remove_publicly_created(self, note: Note) {
         let mut note_with_header = note;
         // Modifies note with the header which is necessary for the next step (remove).
         ensure_note_hash_exists(
