@@ -61,8 +61,8 @@ test() {
 echo "Using $(nargo --version)"
 
 # Build contracts
-for CONTRACT_NAME in "$@"; do
-  test $CONTRACT_NAME &
+for PROJECT_NAME in "$@"; do
+  test $PROJECT_NAME  &
   pids+=($!)
 done
 
