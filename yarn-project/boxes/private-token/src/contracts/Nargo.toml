@@ -1,0 +1,9 @@
+[package]
+name = "private_token_contract"
+authors = [""]
+compiler_version = "0.1"
+type = "contract"
+
+[dependencies]
+aztec = { path = "./noir-aztec" }
+value_note = { path = "./value-note" }
