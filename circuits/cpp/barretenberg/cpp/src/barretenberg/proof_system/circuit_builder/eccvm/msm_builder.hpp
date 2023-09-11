@@ -145,6 +145,13 @@ template <typename Flavor> class ECCVMMSMMBuilder {
                         add_state.point = add_state.add
                                               ? msm[idx + m].precomputed_table[static_cast<size_t>(add_state.slice)]
                                               : AffineElement{ 0, 0 };
+                        // predicate logic:
+                        // add_predicate should normally equal add_state.add
+                        // However! if j == 0 AND k == 0 AND m == 0 this implies we are examing the 1st point addition
+                        // of a new MSM In this case, we do NOT add the 1st point into the accumulator, instead we SET
+                        // the accumulator to equal the 1st point. add_predicate is used to determine whether we add the
+                        // output of a point addition into the accumulator, therefore if j == 0 AND k == 0 AND m == 0,
+                        // add_predicate = 0 even if add_state.add = true
                         bool add_predicate = (m == 0 ? (j != 0 || k != 0) : add_state.add);
 
                         auto& p1 = (m == 0) ? add_state.point : acc;

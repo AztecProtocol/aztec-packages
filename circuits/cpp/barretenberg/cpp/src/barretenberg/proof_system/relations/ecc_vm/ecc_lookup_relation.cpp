@@ -6,10 +6,13 @@
 namespace proof_system::honk::sumcheck {
 
 /**
- * @brief Expression for the StandardArithmetic gate.
- * @details The relation is defined as C(extended_edges(X)...) =
- *    (q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) + (q_o * w_o) + q_c
- *
+ * @brief Expression for ECCVM lookup tables.
+ * @details We use log-derivative lookup tables for the following case:
+ * Table writes: ECCVMPointTable columns: we define Straus point table:
+ * { {0, -15[P]}, {1, -13[P]}, ..., {15, 15[P]} }
+ * write source: { precompute_round, precompute_tx, precompute_ty }
+ * Table reads: ECCVMMSM columns. Each row adds up to 4 points into MSM accumulator
+ * read source: { msm_slice1, msm_x1, msm_y1 }, ..., { msm_slice4, msm_x4, msm_y4 }
  * @param evals transformed to `evals + C(extended_edges(X)...)*scaling_factor`
  * @param extended_edges an std::array containing the fully extended Accumulator edges.
  * @param parameters contains beta, gamma, and public_input_delta, ....
@@ -50,7 +53,7 @@ void ECCVMLookupRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumula
     barretenberg::constexpr_for<0, NUM_TOTAL_TERMS - 1, 1>(
         [&]<size_t i>() { denominator_accumulator[i + 1] *= denominator_accumulator[i]; });
 
-    Accumulator inverse_accumulator = Accumulator(lookup_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
+    auto inverse_accumulator = Accumulator(lookup_inverses); // denominator_accumulator[NUM_TOTAL_TERMS - 1];
 
     const auto row_has_write = View(extended_edges.precompute_select);
     const auto row_has_read = View(extended_edges.msm_add) + View(extended_edges.msm_skew);
