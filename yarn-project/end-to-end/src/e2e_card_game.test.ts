@@ -1,9 +1,9 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, Wallet } from '@aztec/aztec.js';
+import { AccountWallet, AztecAddress, Wallet } from '@aztec/aztec.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { CardGameContract } from '@aztec/noir-contracts/types';
-import { AztecRPC, CompleteAddress } from '@aztec/types';
+import { AztecRPC } from '@aztec/types';
 
 import { setup } from './fixtures/utils.js';
 
@@ -48,20 +48,25 @@ const GAME_ID = 42;
 describe('e2e_card_game', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let wallet: Wallet;
   let logger: DebugLogger;
+
+  let wallets: AccountWallet[];
+  let firstPlayerWallet: Wallet;
+  let secondPlayerWallet: Wallet;
+  let thirdPlayerWallet: Wallet;
+
   let firstPlayer: AztecAddress;
   let secondPlayer: AztecAddress;
   let thirdPlayer: AztecAddress;
 
   let contract: CardGameContract;
+  let contractAsSecondPlayer: CardGameContract;
+  let contractAsThirdPlayer: CardGameContract;
 
   beforeEach(async () => {
-    let accounts: CompleteAddress[];
-    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(3));
-    firstPlayer = accounts[0].address;
-    secondPlayer = accounts[1].address;
-    thirdPlayer = accounts[2].address;
+    ({ aztecNode, aztecRpcServer, wallets, logger } = await setup(3));
+    [firstPlayerWallet, secondPlayerWallet, thirdPlayerWallet] = wallets;
+    [firstPlayer, secondPlayer, thirdPlayer] = wallets.map(a => a.getAddress());
     await deployContract();
   }, 100_000);
 
@@ -74,9 +79,14 @@ describe('e2e_card_game', () => {
 
   const deployContract = async () => {
     logger(`Deploying L2 contract...`);
-    contract = await CardGameContract.deploy(wallet).send().deployed();
+    contract = await CardGameContract.deploy(firstPlayerWallet).send().deployed();
+    contractAsSecondPlayer = contract.withWallet(secondPlayerWallet);
+    contractAsThirdPlayer = contract.withWallet(thirdPlayerWallet);
     logger(`L2 contract deployed at ${contract.address}`);
   };
+
+  const getWallet = (address: AztecAddress) => wallets.find(w => w.getAddress().equals(address))!;
+  const contractFor = (address: AztecAddress) => contract.withWallet(getWallet(address))!;
 
   const firstPlayerCollection: Card[] = [
     {
@@ -94,7 +104,7 @@ describe('e2e_card_game', () => {
   ];
 
   it('should be able to buy packs', async () => {
-    await contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait();
+    await contract.methods.buy_pack(27n).send().wait();
     const collection = await contract.methods.view_collection_cards(firstPlayer, 0).view({ from: firstPlayer });
     expect(unwrapOptions(collection)).toEqual(firstPlayerCollection);
   }, 30_000);
@@ -102,21 +112,21 @@ describe('e2e_card_game', () => {
   describe('game join', () => {
     beforeEach(async () => {
       await Promise.all([
-        contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait(),
-        contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait(),
+        contract.methods.buy_pack(27n).send().wait(),
+        contractAsSecondPlayer.methods.buy_pack(27n).send().wait(),
       ]);
     }, 30_000);
 
     it('should be able to join games', async () => {
       await contract.methods
         .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
-        .send({ origin: firstPlayer })
+        .send()
         .wait();
 
       await expect(
-        contract.methods
+        contractAsSecondPlayer.methods
           .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[1])])
-          .send({ origin: secondPlayer })
+          .send()
           .wait(),
       ).rejects.toThrow(/Card not found/);
 
@@ -158,15 +168,15 @@ describe('e2e_card_game', () => {
       await Promise.all([
         contract.methods
           .join_game(GAME_ID, [cardToField(firstPlayerCollection[0]), cardToField(firstPlayerCollection[2])])
-          .send({ origin: firstPlayer })
+          .send()
           .wait(),
-        contract.methods
+        contractAsSecondPlayer.methods
           .join_game(GAME_ID, [cardToField(secondPlayerCollection[0]), cardToField(secondPlayerCollection[2])])
-          .send({ origin: secondPlayer })
+          .send()
           .wait(),
       ]);
 
-      await contract.methods.start_game(GAME_ID).send({ origin: firstPlayer }).wait();
+      await contract.methods.start_game(GAME_ID).send().wait();
 
       expect((await contract.methods.view_game(GAME_ID).view({ from: firstPlayer })) as Game).toMatchObject({
         players: expect.arrayContaining([
@@ -195,9 +205,9 @@ describe('e2e_card_game', () => {
 
     beforeEach(async () => {
       await Promise.all([
-        contract.methods.buy_pack(27n).send({ origin: firstPlayer }).wait(),
-        contract.methods.buy_pack(27n).send({ origin: secondPlayer }).wait(),
-        contract.methods.buy_pack(27n).send({ origin: thirdPlayer }).wait(),
+        contract.methods.buy_pack(27n).send().wait(),
+        contractAsSecondPlayer.methods.buy_pack(27n).send().wait(),
+        contractAsThirdPlayer.methods.buy_pack(27n).send().wait(),
       ]);
 
       secondPlayerCollection = unwrapOptions(
@@ -209,8 +219,8 @@ describe('e2e_card_game', () => {
       );
     }, 60_000);
 
-    async function joinGame(playerAddress: AztecAddress, cards: Card[], id = GAME_ID) {
-      await contract.methods.join_game(id, cards.map(cardToField)).send({ origin: playerAddress }).wait();
+    async function joinGame(playerWallet: Wallet, cards: Card[], id = GAME_ID) {
+      await contract.withWallet(playerWallet).methods.join_game(id, cards.map(cardToField)).send().wait();
     }
 
     async function playGame(playerDecks: { address: AztecAddress; deck: Card[] }[], id = GAME_ID) {
@@ -224,10 +234,7 @@ describe('e2e_card_game', () => {
         for (let playerIndex = 0; playerIndex < players.length; playerIndex++) {
           const player = players[playerIndex];
           const card = cards[playerIndex][roundIndex];
-          await contract.methods
-            .play_card(id, card)
-            .send({ origin: AztecAddress.fromBigInt(player) })
-            .wait();
+          await contractFor(AztecAddress.fromBigInt(player)).methods.play_card(id, card).send().wait();
         }
       }
 
@@ -240,8 +247,11 @@ describe('e2e_card_game', () => {
     it('should play a game, claim the winned cards and play another match with winned cards', async () => {
       const firstPlayerGameDeck = [firstPlayerCollection[0], firstPlayerCollection[2]];
       const secondPlayerGameDeck = [secondPlayerCollection[0], secondPlayerCollection[2]];
-      await Promise.all([joinGame(firstPlayer, firstPlayerGameDeck), joinGame(secondPlayer, secondPlayerGameDeck)]);
-      await contract.methods.start_game(GAME_ID).send({ origin: firstPlayer }).wait();
+      await Promise.all([
+        joinGame(firstPlayerWallet, firstPlayerGameDeck),
+        joinGame(secondPlayerWallet, secondPlayerGameDeck),
+      ]);
+      await contract.methods.start_game(GAME_ID).send().wait();
 
       let game = await playGame([
         { address: firstPlayer, deck: firstPlayerGameDeck },
@@ -253,10 +263,10 @@ describe('e2e_card_game', () => {
       const loser = AztecAddress.fromBigInt(sotedByPoints[1].address);
 
       await expect(
-        contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: loser }).wait(),
+        contractFor(loser).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send().wait(),
       ).rejects.toThrow(/Not the winner/);
 
-      await contract.methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send({ origin: winner }).wait();
+      await contractFor(winner).methods.claim_cards(GAME_ID, game.rounds_cards.map(cardToField)).send().wait();
 
       const winnerCollection = unwrapOptions(
         (await contract.methods.view_collection_cards(winner, 0).view({ from: winner })) as NoirOption<Card>[],
@@ -266,14 +276,15 @@ describe('e2e_card_game', () => {
       const thirdPlayerGameDeck = [thirdPlayerCOllection[0], thirdPlayerCOllection[2]];
 
       await Promise.all([
-        joinGame(winner, winnerGameDeck, GAME_ID + 1),
-        joinGame(thirdPlayer, thirdPlayerGameDeck, GAME_ID + 1),
+        joinGame(getWallet(winner), winnerGameDeck, GAME_ID + 1),
+        joinGame(thirdPlayerWallet, thirdPlayerGameDeck, GAME_ID + 1),
       ]);
 
-      await contract.methods
-        .start_game(GAME_ID + 1)
-        .send({ origin: winner })
+      await contractFor(winner)
+        .methods.start_game(GAME_ID + 1)
+        .send()
         .wait();
+
       game = await playGame(
         [
           { address: winner, deck: winnerGameDeck },
