@@ -3,6 +3,7 @@
 #include <unordered_map>
 
 
+// TODO(alex): more tests
 
 TEST(integer_mod, basic_arithmetic){
     smt_solver::Solver s("101", {true, 0}, 10);

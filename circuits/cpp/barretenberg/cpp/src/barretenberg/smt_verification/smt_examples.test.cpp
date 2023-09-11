@@ -130,13 +130,10 @@ TEST(circuit_verifiaction, unique_witness)
 
     field_t a(pub_witness_t(&builder, fr::random_element()));
     field_t b(pub_witness_t(&builder, fr::random_element()));
-    info("a = ", a);
-    info("b = ", b);
     builder.set_variable_name(a.witness_index, "a");
     builder.set_variable_name(b.witness_index, "b");
     field_t z(witness_t(&builder, fr::random_element()));
     field_t ev = z * z + a * z + b;
-    info("ev = ", ev);
     builder.set_variable_name(z.witness_index, "z");
     builder.set_variable_name(ev.witness_index, "ev");
 
@@ -150,15 +147,10 @@ TEST(circuit_verifiaction, unique_witness)
 
     bool res = s.check();
     ASSERT_TRUE(res);
-    for (auto x : s.s.getAssertions()) {
-        info(x);
-        info();
-    }
 
     std::unordered_map<std::string, cvc5::Term> terms = { { "z_c1", cirs.first["z"] }, { "z_c2", cirs.second["z"] } };
     std::unordered_map<std::string, std::string> vals = s.model(terms);
-    info(vals["z_c1"]);
-    info(vals["z_c2"]);
+    ASSERT_NE(vals["z_c1"], vals["z_c2"]);
 }
 
 using namespace smt_terms;
@@ -176,7 +168,6 @@ TEST(solver_use_case, solver){
 
     bool res = s.check();
     ASSERT_TRUE(res);
-    info(s.getResult());
 
     std::unordered_map<std::string, cvc5::Term> vars = {{"x", x}, {"y", y}};
     std::unordered_map<std::string, std::string> mvars = s.model(vars);
@@ -184,3 +175,5 @@ TEST(solver_use_case, solver){
     info("x = ", mvars["x"]);
     info("y = ", mvars["y"]);
 }
+
+// TODO(alex): Try setting the whole witness to be not equal at the same time, while setting inputs and outputs to be equal  
