@@ -1,4 +1,4 @@
-import { AztecAddress, AztecRPC, CompleteAddress, Contract, getSandboxAccountsWallet } from '@aztec/aztec.js';
+import { AztecAddress, AztecRPC, CompleteAddress, Contract, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { convertArgs } from './arg_conversion.js';
 
@@ -11,8 +11,8 @@ export async function viewContractFunction(
   wallet: CompleteAddress,
 ) {
   // this is the aztec rpc server/client that is used to initialize the Contract object.  kinda hacky
-  const realWallet = await getSandboxAccountsWallet(rpc);
-  const contract = await Contract.at(address, abi, realWallet);
+  const realWallets = await getSandboxAccountsWallets(rpc);
+  const contract = await Contract.at(address, abi, realWallets[0]);
 
   const functionAbi = abi.functions.find(f => f.name === functionName);
   // false to skip the foundation encoder - need to look into why passing the address as an Fr fails on re-encoding

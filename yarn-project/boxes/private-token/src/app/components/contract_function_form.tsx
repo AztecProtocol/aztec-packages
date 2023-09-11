@@ -2,12 +2,10 @@ import { AztecAddress, CompleteAddress, Fr } from '@aztec/aztec.js';
 import { ContractAbi, FunctionAbi } from '@aztec/foundation/abi';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { CONTRACT_ADDRESS_PARAM_NAMES, rpcClient } from '../../config.js';
+import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { Button } from './index.js';
 
-// ALICE smart contract wallet public key, available on sandbox by default
-const DEFAULT_PUBLIC_ADDRESS = '0x0c8a6673d7676cc80aaebe7fa7504cf51daa90ba906861bfad70a58a98bf5a7d'
 
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
