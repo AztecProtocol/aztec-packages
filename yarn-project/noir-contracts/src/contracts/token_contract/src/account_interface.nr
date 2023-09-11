@@ -18,19 +18,28 @@ impl AccountContract {
     }
   }
 
+  // Will call is_valid(_public) on the account contract
+  // Will insert the nullifier into the context
+  // Will revert if the authorization fails
   fn is_valid(
     self: Self, 
     context: Context,
     message_hash: Field
   ) {
     let return_value = if context.private.is_some() {
-      context.private.unwrap().call_private_function(
+      let context = context.private.unwrap();
+      context.push_new_nullifier(message_hash, 0);
+      // @todo @lherskind Call should be static but unsupported atm
+      context.call_private_function(
         self.address, 
         0xe86ab4ff,
         [message_hash]
       )[0]
     } else if context.public.is_some() {
-      (*context.public.unwrap()).call_public_function(
+      let context = context.public.unwrap();
+      context.push_new_nullifier(message_hash, 0);
+      // @todo @lherskind Call should be static but unsupported atm
+      (*context).call_public_function(
         self.address,
         0xf3661153,
         [message_hash]

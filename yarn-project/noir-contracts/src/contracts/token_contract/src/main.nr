@@ -167,7 +167,6 @@ contract Token {
             let selector = compute_selector("shield((Field),Field,Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash, nonce]);
             AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
-            context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -196,7 +195,6 @@ contract Token {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
-            context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -238,7 +236,6 @@ contract Token {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
-            context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
@@ -263,7 +260,6 @@ contract Token {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
-            context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
         }
