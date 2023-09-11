@@ -5,8 +5,8 @@ mod util;
 // Minimal token implementation that supports `AuthWit` accounts.
 // The auth message follows a similar pattern to the cross-chain message and includes a designated caller.
 // The designated caller is ALWAYS used here, and not based on a flag as cross-chain.
-// message hash = H([caller, selector, , ...args])
-// To be read as `caller` calls function defined by `selector` with `args`
+// message hash = H([caller, contract, selector, ...args])
+// To be read as `caller` calls function at `contract` defined by `selector` with `args`
 // Including a nonce in the message hash ensures that the message can only be used once.
 
 contract Token {
@@ -165,7 +165,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             let selector = compute_selector("shield((Field),Field,Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, secret_hash, nonce]);
             AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -193,7 +193,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -217,7 +217,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn_public((Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -257,7 +257,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -281,7 +281,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, to.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -304,7 +304,7 @@ contract Token {
 
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("burn((Field),Field,Field)");
-            let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, nonce]);
+            let message_field = compute_message_hash([context.msg_sender(), context.this_address(), selector, from.address, amount, nonce]);
             AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
         } else {
             assert(nonce == 0, "invalid nonce");

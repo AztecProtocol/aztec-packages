@@ -1388,6 +1388,7 @@ describe('e2e_token_contract', () => {
       const burnMessageHash = async (caller: CompleteAddress, from: CompleteAddress, amount: bigint, nonce: Fr) => {
         return await hashPayload([
           caller.address.toField(),
+          asset.address.toField(),
           FunctionSelector.fromSignature('burn_public((Field),Field,Field)').toField(),
           from.address.toField(),
           new Fr(amount),
@@ -1524,6 +1525,7 @@ describe('e2e_token_contract', () => {
       const burnMessageHash = async (caller: CompleteAddress, from: CompleteAddress, amount: bigint, nonce: Fr) => {
         return await hashPayload([
           caller.address.toField(),
+          asset.address.toField(),
           FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
           from.address.toField(),
           new Fr(amount),
