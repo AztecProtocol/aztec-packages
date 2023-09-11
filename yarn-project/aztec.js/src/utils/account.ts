@@ -5,6 +5,15 @@ import { AccountWallet } from '../aztec_rpc_client/wallet.js';
 import { getSchnorrAccount } from '../index.js';
 
 /**
+ * Deploys and registers a new account using random private keys and returns the associated wallet. Useful for testing.
+ * @param rpc - RPC client.
+ * @returns - A wallet for a fresh account.
+ */
+export function createAccount(rpc: AztecRPC): Promise<AccountWallet> {
+  return getSchnorrAccount(rpc, GrumpkinScalar.random(), GrumpkinScalar.random()).waitDeploy();
+}
+
+/**
  * Creates a random address and registers it as a recipient on the RPC server. Useful for testing.
  * @param rpc - RPC client.
  * @returns Complete address of the registered recipient.
