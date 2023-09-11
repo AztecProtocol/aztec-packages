@@ -11,7 +11,7 @@ COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /
 COPY --from=circuits /usr/src/circuits/cpp/build-wasm/bin/aztec3-circuits.wasm /usr/src/circuits/cpp/barretenberg/cpp/build-wasm/bin/primitives.wasm
 COPY --from=circuits /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh /usr/src/circuits/cpp/barretenberg/cpp/srs_db/download_ignition.sh
 WORKDIR /usr/src/circuits/cpp/barretenberg/cpp/srs_db
-RUN ./download_ignition.sh 1
+#RUN ./download_ignition.sh 1
 
 WORKDIR /usr/src/yarn-project
 
