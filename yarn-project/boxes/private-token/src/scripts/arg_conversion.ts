@@ -8,6 +8,7 @@ export function convertArgs(functionAbi: FunctionAbi, args: any, encode: boolean
       case 'field':
         return BigInt(args[param.name]);
       default:
+        console.log('not converting argument', param.name, param.type.kind, args[param.name]);
         return args[param.name];
     }
   });

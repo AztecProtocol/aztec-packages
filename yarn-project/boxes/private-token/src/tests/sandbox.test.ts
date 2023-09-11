@@ -1,4 +1,12 @@
-import { AztecAddress, CompleteAddress, Contract, Fr, Wallet, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  AztecAddress,
+  CompleteAddress,
+  Contract,
+  Fr,
+  Wallet,
+  getSandboxAccountsWallets,
+} from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { rpcClient } from '../config.js';
@@ -38,14 +46,14 @@ async function getBalance(contract: Contract, ownerAddress: AztecAddress) {
 }
 
 describe('ZK Contract Tests', () => {
-  let wallet: Wallet;
+  let wallet: AccountWallet;
   let owner: CompleteAddress;
   let account2: CompleteAddress;
   let _account3: CompleteAddress;
   let zkContract: Contract;
 
   beforeAll(async () => {
-    [wallet, _wallet2, _wallet3] = await getSandboxAccountsWallets(rpcClient);
+    wallet = (await getSandboxAccountsWallets(rpcClient))[0];
     const accounts = await rpcClient.getAccounts();
     [owner, account2, _account3] = accounts;
 
@@ -58,7 +66,7 @@ describe('ZK Contract Tests', () => {
   }, 41000);
 
   test('Balance after mint is correct', async () => {
-    const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send({ origin: owner.address });
+    const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send();
     await mintTx.wait({ interval: 0.5 });
 
     const balanceAfterMint = await getBalance(zkContract, owner.address);
@@ -66,7 +74,7 @@ describe('ZK Contract Tests', () => {
   }, 42000);
 
   test('Balance after transfer is correct for both sender and receiver', async () => {
-    const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send({ origin: owner.address });
+    const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send();
     await transferTx.wait({ interval: 0.5 });
 
     const balanceAfterTransfer = await getBalance(zkContract, owner.address);

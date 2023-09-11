@@ -18,9 +18,14 @@ export async function callContractFunction(
   wallet: CompleteAddress,
 ) {
   const realWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
-  console.log(realWallets);
+  const selectedWallet: AccountWallet = realWallets.find(
+    w => w.getAddress().toShortString() === wallet.address.toShortString(),
+  )!;
+  console.log('picked ', selectedWallet.getAddress());
+
   // TODO: switch to the generated typescript class?
-  const contract = await Contract.at(address, abi, realWallets[0]);
+  // realWallet is how we specify the sender of the transaction
+  const contract = await Contract.at(address, abi, selectedWallet);
 
   const functionAbi = abi.functions.find(f => f.name === functionName);
   // false to skip the foundation encoder - need to look into why passing the address as an Fr fails on re-encoding
