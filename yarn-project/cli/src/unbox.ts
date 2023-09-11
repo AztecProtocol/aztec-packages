@@ -158,9 +158,9 @@ async function _downloadNoirFilesFromGithub(
  * @param outputPath - relative path where we are copying everything
  * @param log - logger
  */
-async function updatePackagingConfigurations(outputPath: string, log: LogFn): Promise<void> {
+async function updatePackagingConfigurations(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
   await _updateNargoToml(outputPath, log);
-  await _updatePackageJsonVersions(outputPath, log);
+  await _updatePackageJsonVersions(outputPath, packageVersion, log);
   await _updateTsConfig(outputPath, log);
 }
 
@@ -228,7 +228,7 @@ async function _updateTsConfig(outputPath: string, log: LogFn) {
  * @param outputPath - directory we are unboxing to
  * @param log - logger
  */
-async function _updatePackageJsonVersions(outputPath: string, log: LogFn): Promise<void> {
+async function _updatePackageJsonVersions(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
   const packageJsonPath = path.join(outputPath, 'package.json');
   const fileContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageData = JSON.parse(fileContent);
@@ -248,7 +248,7 @@ async function _updatePackageJsonVersions(outputPath: string, log: LogFn): Promi
       if (value === 'workspace:^') {
         // TODO: check if this right post landing.  the package.json version looks like 0.1.0
         // but the npm versions look like v0.1.0-alpha63 so we are not fully pinned
-        packageData.devDependencies[key] = `^${packageData.version}`;
+        packageData.devDependencies[key] = `^${packageVersion}`;
       }
     }
   }
@@ -257,7 +257,7 @@ async function _updatePackageJsonVersions(outputPath: string, log: LogFn): Promi
   const updatedContent = JSON.stringify(packageData, null, 2);
   await fs.writeFile(packageJsonPath, updatedContent);
 
-  log(`Updated package.json versions to ${packageData.version}`);
+  log(`Updated package.json versions to ${packageVersion}`);
 }
 
 /**
@@ -300,7 +300,12 @@ async function createDirectory(outputDirectoryName: string, log: LogFn): Promise
  * @param contractName - name of contract from `@aztec/noir-contracts`, in a format like "PrivateToken" (rather than "private_token", as it appears in the noir-contracts repo)
  * @param log - Logger instance that will output to the CLI
  */
-export async function unboxContract(contractName: string, outputDirectoryName: string, log: LogFn) {
+export async function unboxContract(
+  contractName: string,
+  outputDirectoryName: string,
+  packageVersion: string,
+  log: LogFn,
+) {
   const contractNames = ['PrivateToken'];
 
   if (!contractNames.includes(contractName)) {
@@ -315,5 +320,5 @@ export async function unboxContract(contractName: string, outputDirectoryName: s
   // along with the relevant folders in @aztec/boxes/{contract_name} and @aztec/noir-libs
   const outputPath = await createDirectory(outputDirectoryName, log);
   await downloadContractAndStarterKitFromGithub(contractName, outputPath, log);
-  await updatePackagingConfigurations(outputPath, log);
+  await updatePackagingConfigurations(outputPath, packageVersion, log);
 }

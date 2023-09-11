@@ -492,7 +492,7 @@ export function getProgram(log: LogFn, debugLogger: DebugLogger): Command {
     .argument('[localDirectory]', 'Local directory to unbox to (relative or absolute), defaults to `<contractName>`')
     .action(async (contractName, localDirectory) => {
       const unboxTo: string = localDirectory ? localDirectory : contractName;
-      await unboxContract(contractName, unboxTo, log);
+      await unboxContract(contractName, unboxTo, version, log);
     });
 
   program
