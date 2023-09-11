@@ -147,7 +147,16 @@ export class Sequencer {
         await this.p2pClient.deleteTxs(await Tx.getHashes(failedTxData));
       }
 
-      if (processedTxs.length === 0) {
+      // Only accept processed transactions that are not double-spends
+      // public functions emitting nullifiers would pass earlier check but fail here
+      const isDoubleSpends = await Promise.all(
+        processedTxs.map(async tx => await this.isTxDoubleSpend(tx as unknown as Tx)),
+      );
+      const doubleSpends = processedTxs.filter((tx, index) => isDoubleSpends[index]).map(tx => tx.hash);
+      await this.p2pClient.deleteTxs(doubleSpends);
+      const processedValidTxs = processedTxs.filter((tx, index) => !isDoubleSpends[index]);
+
+      if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
         return;
       }
@@ -158,16 +167,16 @@ export class Sequencer {
       this.log('Successfully retrieved L1 to L2 messages from contract');
 
       // Build the new block by running the rollup circuits
-      this.log(`Assembling block with txs ${processedTxs.map(tx => tx.hash).join(', ')}`);
+      this.log(`Assembling block with txs ${processedValidTxs.map(tx => tx.hash).join(', ')}`);
 
       const emptyTx = await processor.makeEmptyProcessedTx();
-      const block = await this.buildBlock(processedTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
+      const block = await this.buildBlock(processedValidTxs, l1ToL2Messages, emptyTx, newGlobalVariables);
       this.log(`Assembled block ${block.number}`);
 
       await this.publishExtendedContractData(validTxs, block);
 
       await this.publishL2Block(block);
-      this.log.info(`Submitted rollup block ${block.number} with ${processedTxs.length} transactions`);
+      this.log.info(`Submitted rollup block ${block.number} with ${processedValidTxs.length} transactions`);
     } catch (err) {
       this.log.error(err);
       this.log.error(`Rolling back world state DB`);
@@ -283,16 +292,8 @@ export class Sequencer {
     const allTxs = [...txs, ...times(emptyTxCount, () => emptyTx)];
     this.log(`Building block ${globalVariables.blockNumber}`);
 
-    // If the block is invalid, drop the transactions
-    try {
-      const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
-      return block;
-    } catch (err) {
-      const hashes = txs.map(tx => tx.hash);
-      this.log.error(`Dropping failed txs ${hashes.join(', ')}`);
-      await this.p2pClient.deleteTxs(hashes);
-      throw err;
-    }
+    const [block] = await this.blockBuilder.buildL2Block(globalVariables, allTxs, newL1ToL2Messages);
+    return block;
   }
 
   /**
