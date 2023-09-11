@@ -53,6 +53,7 @@ test() {
     cd src/contracts/$CONTRACT_FOLDER
     nargo test
   else
+    echo "Testing library $PROJECT_NAME..."
     cd ../noir-libs/$PROJECT_NAME
     nargo test
   fi
