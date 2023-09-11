@@ -13,11 +13,8 @@ RUN apk update \
         perl \
         bash \
         python3
-
 WORKDIR /usr/src/circuits/cpp
-
 COPY . .
-
 # Configure cmake and check if code is tidy
 RUN cmake --preset default
 RUN ./scripts/tidy.sh fix

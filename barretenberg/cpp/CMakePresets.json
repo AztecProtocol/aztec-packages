@@ -200,7 +200,14 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "acvm_backend.wasm"]
+      "targets": [
+        "barretenberg.wasm",
+        "acvm_backend.wasm",
+        "barretenberg",
+        "wasi",
+        "env",
+        "honk_tests"
+      ]
     },
     {
       "name": "wasm-dbg",

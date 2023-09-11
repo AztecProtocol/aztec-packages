@@ -96,14 +96,6 @@
     ],
     "dependencies": []
   },
-  "circuits-x86_64-linux-gcc": {
-    "buildDir": "circuits/cpp",
-    "dockerfile": "dockerfiles/Dockerfile.x86_64-linux-gcc",
-    "rebuildPatterns": [
-      "^circuits/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/.*CMakeLists\\.txt$"
-    ],
-    "dependencies": []
-  },
   "docs": {
     "buildDir": ".",
     "dockerfile": "docs/Dockerfile",

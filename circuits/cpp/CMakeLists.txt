@@ -141,7 +141,8 @@ endif()
 
 # include barretenberg as ExternalProject
 # (needs WASM to be set already)
-include(cmake/barretenberg.cmake)
+# Commenting as hoping to ingest pre-build
+#include(cmake/barretenberg.cmake)
 
 include(cmake/build.cmake)
 include(GNUInstallDirs)

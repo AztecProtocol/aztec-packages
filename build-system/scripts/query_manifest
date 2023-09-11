@@ -3,7 +3,7 @@ set -eu
 CMD=$1
 REPO=$2
 
-MANIFEST=$ROOT_PATH/build_manifest.json
+MANIFEST=${ROOT_PATH:-$PWD}/build_manifest.json
 
 if [ $(jq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
   echo "Unknown repository $REPO in build_mainifest.json"

@@ -1264,14 +1264,6 @@ bb_test: &bb_test
   requires:
     - barretenberg-x86_64-linux-clang-assert
   <<: *defaults
-circuits-wasm-test: &circuits-wasm-test
-  requires:
-    - circuits-wasm-linux-clang-assert
-  <<: *defaults
-circuits-x86_64-test: &circuits-x86_64-test
-  requires:
-    - circuits-x86_64-linux-clang-assert
-  <<: *defaults
 
 workflows:
   system:
@@ -1279,6 +1271,8 @@ workflows:
       equal: [system, << pipeline.parameters.workflow >>]
     jobs:
       - build-docs: *defaults
+
+      # Barretenberg
       - barretenberg-x86_64-linux-gcc: *defaults
       - barretenberg-x86_64-linux-clang: *defaults
       - barretenberg-x86_64-linux-clang-assert: *defaults
@@ -1304,6 +1298,10 @@ workflows:
       #         only:
       #           - master
       #     <<: *defaults
+      - barretenberg-acir-tests-bb:
+          requires:
+            - barretenberg-x86_64-linux-clang-assert
+          <<: *defaults
       - bb-js:
           requires:
             - barretenberg-wasm-linux-clang
@@ -1312,31 +1310,43 @@ workflows:
           requires:
             - bb-js
           <<: *defaults
-      - barretenberg-acir-tests-bb:
-          requires:
-            - barretenberg-x86_64-linux-clang-assert
-          <<: *defaults
       - bb-js-acir-tests:
           requires:
             - bb-js
           <<: *defaults
-      - circuits-wasm-linux-clang: *defaults
-      - circuits-wasm-linux-clang-assert: *defaults
+
+      # Circuits
+      - circuits-wasm-linux-clang:
+          requires:
+            - barretenberg-wasm-linux-clang
+          <<: *defaults
+      - circuits-wasm-linux-clang-assert:
+          requires:
+            - barretenberg-wasm-linux-clang
+          <<: *defaults
       - circuits-x86_64-linux-clang-tidy: *defaults
-      - circuits-x86_64-linux-clang: *defaults
-      - circuits-x86_64-linux-clang-assert: *defaults
+      - circuits-x86_64-linux-clang:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
+      - circuits-x86_64-linux-clang-assert:
+          requires:
+            - barretenberg-x86_64-linux-clang
+          <<: *defaults
       - circuits-wasm-tests:
-          <<: *circuits-wasm-test
+          requires:
+            - circuits-wasm-linux-clang-assert
+          <<: *defaults
       - circuits-x86_64-tests:
-          <<: *circuits-x86_64-test
+          requires:
+            - circuits-x86_64-linux-clang-assert
+          <<: *defaults
 
       - circuits-end:
           requires:
             - circuits-wasm-linux-clang
-            - circuits-wasm-linux-clang-assert
             - circuits-x86_64-linux-clang-tidy
             - circuits-x86_64-linux-clang
-            - circuits-x86_64-linux-clang-assert
             - circuits-wasm-tests
             - circuits-x86_64-tests
           <<: *defaults
@@ -1344,6 +1354,7 @@ workflows:
       - l1-contracts: *defaults
       - noir-contracts-build: *defaults
 
+      # Yarn Project
       - yarn-project-base:
           requires:
             - circuits-wasm-linux-clang
@@ -1465,6 +1476,7 @@ workflows:
             - guides-dapp-testing
           <<: *defaults
 
+      # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
             - e2e-end
