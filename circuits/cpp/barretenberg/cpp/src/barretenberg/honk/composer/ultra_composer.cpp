@@ -34,12 +34,28 @@ template <UltraFlavor Flavor> UltraVerifier_<Flavor> UltraComposer_<Flavor>::cre
 }
 
 template <UltraFlavor Flavor>
-ProtoGalaxyProver_<Flavor> UltraComposer_<Flavor>::create_folding_prover(std::vector<Instance> instances)
+ProtoGalaxyProver_<Flavor> UltraComposer_<Flavor>::create_folding_prover(
+    std::vector<std::shared_ptr<Instance>> instances)
 {
-    for (size_t i = 0; i < instances.size(); i++) {
-        instances[i].index = i;
+    uint32_t idx = 0;
+    for (const auto& inst : instances) {
+        inst->index = idx;
+        idx++;
     }
     ProtoGalaxyProver_<Flavor> output_state(instances);
+
+    return output_state;
+}
+
+template <UltraFlavor Flavor>
+ProtoGalaxyVerifier_<Flavor> UltraComposer_<Flavor>::create_folding_verifier(
+    std::vector<std::shared_ptr<Instance>> instances)
+{
+    std::vector<std::shared_ptr<VerificationKey>> vks;
+    for (const auto& inst : instances) {
+        vks.emplace_back(inst->compute_verification_key());
+    }
+    ProtoGalaxyVerifier_<Flavor> output_state(vks);
 
     return output_state;
 }

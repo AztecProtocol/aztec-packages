@@ -13,10 +13,11 @@
 #include <vector>
 namespace proof_system::honk {
 // Need verifier instance as well
-// An Instance is created from a Circuit and we initialise all the data structure that rely on information from a
+// An Instance is created from a Circuit and we ini tialise all the data structure that rely on information from a
 // circuit Then a Prover and a Verifier is created from an Instance or several instances and each manages their own
 // polynomials
 // The responsability of a Prover is to commit, add to transcript while the Instance manages its polynomials
+// TODO: we might wanna have a specialisaition of the Instance class for the Accumulator
 template <UltraFlavor Flavor> class Instance_ {
   public:
     using Circuit = typename Flavor::CircuitBuilder;
@@ -37,6 +38,10 @@ template <UltraFlavor Flavor> class Instance_ {
     std::shared_ptr<CommitmentKey> commitment_key;
 
     ProverPolynomials prover_polynomials;
+
+    // After instances have been folded, the pub_inputs_offset will become irrelevant as it's used for computing the 4th
+    // wire polynomial and a folded instance does not care about wires anymore.
+    // Furthermore, folding limits us to having the same number of public inputs.
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset;
 

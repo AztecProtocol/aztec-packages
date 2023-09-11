@@ -1,3 +1,4 @@
+#pragma once
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 namespace proof_system::honk {
 template <UltraFlavor Flavor> struct ProverFoldingResult {

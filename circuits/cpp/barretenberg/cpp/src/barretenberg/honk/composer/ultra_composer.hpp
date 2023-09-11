@@ -1,5 +1,4 @@
 #pragma once
-
 #include "barretenberg/honk/instance/instance.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
 #include "barretenberg/honk/proof_system/protogalaxy_verifier.hpp"
@@ -75,8 +74,8 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraProver_<Flavor> create_prover(Instance&);
     UltraVerifier_<Flavor> create_verifier(Instance&);
 
-    ProtoGalaxyProver_<Flavor> create_folding_prover(std::vector<Instance&>);
-    ProtoGalaxyVerifier_<Flavor> create_folding_verifier(std::vector<Instance&>);
+    ProtoGalaxyProver_<Flavor> create_folding_prover(std::vector<std::shared_ptr<Instance>>);
+    ProtoGalaxyVerifier_<Flavor> create_folding_verifier(std::vector<std::shared_ptr<Instance>>);
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;
 // TODO: the UltraGrumpkin flavor still works on BN254 because plookup needs to be templated to be able to construct
