@@ -18,7 +18,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
   public:
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
-    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using VerificationKey = typename Flavor::VerificationKey;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -45,7 +44,6 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         : crs_factory_(std::move(crs_factory))
     {}
 
-    // I don't really want this
     UltraComposer_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
         : proving_key(std::move(p_key))
         , verification_key(std::move(v_key))

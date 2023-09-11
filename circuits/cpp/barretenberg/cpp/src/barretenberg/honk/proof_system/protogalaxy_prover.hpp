@@ -17,6 +17,11 @@ template <UltraFlavor Flavor> class ProtoGalaxyProver_ {
     ProverTranscript<FF> transcript;
 
     explicit ProtoGalaxyProver_(std::vector<std::shared_ptr<Instance>>);
+    ProtoGalaxyProver_(ProtoGalaxyProver_&& other) noexcept = default;
+    ProtoGalaxyProver_(ProtoGalaxyProver_ const& other) noexcept = default;
+    ProtoGalaxyProver_& operator=(ProtoGalaxyProver_&& other) noexcept = default;
+    ProtoGalaxyProver_& operator=(ProtoGalaxyProver_ const& other) noexcept = default;
+    ~ProtoGalaxyProver_() = default;
 
     void prepare_for_folding();
 

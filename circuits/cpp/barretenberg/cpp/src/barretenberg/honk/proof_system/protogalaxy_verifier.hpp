@@ -17,6 +17,11 @@ template <UltraFlavor Flavor> class ProtoGalaxyVerifier_ {
     VerifierTranscript<FF> transcript;
 
     explicit ProtoGalaxyVerifier_(std::vector<std::shared_ptr<VerificationKey>> vks);
+    ProtoGalaxyVerifier_(ProtoGalaxyVerifier_&& other) noexcept = default;
+    ProtoGalaxyVerifier_(ProtoGalaxyVerifier_ const& other) noexcept = default;
+    ProtoGalaxyVerifier_& operator=(ProtoGalaxyVerifier_&& other) noexcept = default;
+    ProtoGalaxyVerifier_& operator=(ProtoGalaxyVerifier_ const& other) noexcept = default;
+    ~ProtoGalaxyVerifier_() = default;
     VerifierFoldingResult<Flavor> fold_public_parameters(std::vector<uint8_t> fold_data);
 };
 
