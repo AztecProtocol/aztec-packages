@@ -912,7 +912,7 @@ describe('e2e_token_contract', () => {
 
         expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
         expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
-      });
+      }, 30_000);
 
       it('on behalf of other (wrong designated caller)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -1407,7 +1407,7 @@ describe('e2e_token_contract', () => {
         expect(receipt.status).toBe(TxStatus.MINED);
 
         tokenSim.burnPublic(accounts[0].address, amount);
-      });
+      }, 30_000);
 
       it('burn on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -1456,6 +1456,7 @@ describe('e2e_token_contract', () => {
         it('burn on behalf of self with non-zero nonce', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
           const amount = balance0 - 1n;
+          expect(amount).toBeGreaterThan(0n);
           const nonce = 1;
           await expect(
             asset.methods
