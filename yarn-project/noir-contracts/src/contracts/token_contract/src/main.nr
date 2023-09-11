@@ -166,7 +166,7 @@ contract Token {
             // The redeem is only spendable once, so we need to ensure that you cannot insert multiple shields from the same message.
             let selector = compute_selector("shield((Field),Field,Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, amount, secret_hash, nonce]);
-            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
+            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
             context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -195,7 +195,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer_public((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
-            assert(AccountContract::at(from.address).is_valid(Option::none(), Option::some(context), message_field) == 0xe86ab4ff, "invalid call");
+            AccountContract::at(from.address).is_valid(Context::public(&mut context), message_field);
             context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -237,7 +237,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("unshield((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
-            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
+            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
             context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -262,7 +262,7 @@ contract Token {
         if (from.address != context.msg_sender()) {
             let selector = compute_selector("transfer((Field),(Field),Field,Field)");
             let message_field = compute_message_hash([context.msg_sender(), selector, from.address, to.address, amount, nonce]);
-            assert(AccountContract::at(from.address).is_valid(Option::some(&mut context), Option::none(), message_field) == 0xe86ab4ff, "invalid call");
+            AccountContract::at(from.address).is_valid(Context::private(&mut context), message_field);
             context.push_new_nullifier(message_field, 0);
         } else {
             assert(nonce == 0, "invalid nonce");
@@ -299,6 +299,15 @@ contract Token {
         let storage = Storage::init(Context::public(&mut context));
         let new_balance = SafeU120::new(storage.public_balances.at(to.address).read()).add(SafeU120::new(amount));
         storage.public_balances.at(to.address).write(new_balance.value as Field);
+    }
+
+    #[aztec(public)]
+    internal fn _reduce_total_supply(
+        amount: Field,
+    ) {
+        let storage = Storage::init(Context::public(&mut context));
+        let new_supply = SafeU120::new(storage.total_supply.read()).sub(SafeU120::new(amount));
+        storage.total_supply.write(new_supply.value as Field);
     }
 
     /// Unconstrained /// 

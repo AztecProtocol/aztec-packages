@@ -4,6 +4,7 @@ use dep::std::option::Option;
 use dep::aztec::context::{
     PrivateContext,
     PublicContext,
+    Context,
 };
 
 struct AccountContract {
@@ -19,24 +20,24 @@ impl AccountContract {
 
   fn is_valid(
     self: Self, 
-    private_context: Option<&mut PrivateContext>, 
-    public_context: Option<PublicContext>,
+    context: Context,
     message_hash: Field
-  ) -> Field {
-    if private_context.is_some() {
-      private_context.unwrap().call_private_function(
+  ) {
+    let return_value = if context.private.is_some() {
+      context.private.unwrap().call_private_function(
         self.address, 
         0xe86ab4ff,
         [message_hash]
       )[0]
-    } else if public_context.is_some() {
-      public_context.unwrap().call_public_function(
+    } else if context.public.is_some() {
+      (*context.public.unwrap()).call_public_function(
         self.address,
         0xf3661153,
         [message_hash]
       )[0]
     } else {
       0
-    }
+    };
+    assert(return_value == 0xe86ab4ff, "invalid call");
   }
 }
