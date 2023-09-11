@@ -11,18 +11,17 @@
 namespace proof_system::honk {
 
 /**
- * Create UltraProver_ from proving key, witness and manifest.
+ * Create UltraProver_ from an instance.
  *
- * @param input_key Proving key.
- * @param input_manifest Input manifest
+ * @param instance Instance whose proof we want to generate.
  *
- * @tparam settings Settings class.
+ * @tparam a type of UltraFlavor
  * */
 template <UltraFlavor Flavor>
-UltraProver_<Flavor>::UltraProver_(Instance& inst, std::shared_ptr<CommitmentKey> commitment_key)
-    : queue(commitment_key, transcript)
+UltraProver_<Flavor>::UltraProver_(Instance& inst)
+    : queue(inst.commitment_key, transcript)
     , instance(inst)
-    , pcs_commitment_key(commitment_key)
+    , pcs_commitment_key(instance.commitment_key)
 {
     instance.initialise_prover_polynomials();
 }
@@ -47,19 +46,19 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_round(
 }
 
 /**
- * @brief Compute commitments to the first three wires
+ * @brief Compute commitments to the first three wire polynomials (and ECC op wires if using Goblin).
  *
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitments_round()
 {
-    // Commit to the first three wire polynomials; the fourth is committed to after the addition of memory records.
+    // Commit to the first three wire polynomials
+    // We only commit to the fourth wire polynomial after adding memory records
     auto wire_polys = instance.proving_key->get_wires();
     auto labels = commitment_labels.get_wires();
     for (size_t idx = 0; idx < 3; ++idx) {
         queue.add_commitment(wire_polys[idx], labels[idx]);
     }
 
-    // If Goblin, commit to the ECC op wire polynomials
     if constexpr (IsGoblinFlavor<Flavor>) {
         auto op_wire_polys = instance.proving_key->get_ecc_op_wires();
         auto labels = commitment_labels.get_ecc_op_wires();
@@ -70,7 +69,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_wire_commitment
 }
 
 /**
- * @brief Compute sorted witness-table accumulator
+ * @brief Compute sorted witness-table accumulator and commit to the resulting polynomials.
  *
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_accumulator_round()
@@ -79,14 +78,14 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_sorted_list_acc
 
     instance.compute_sorted_accumulator_polynomials(eta);
 
+    // Commit to the sorted withness-table accumulator and the finalised (i.e. with memory records) fourth wire
+    // polynomial
     queue.add_commitment(instance.proving_key->sorted_accum, commitment_labels.sorted_accum);
     queue.add_commitment(instance.proving_key->w_4, commitment_labels.w_4);
 }
 
-// to here things need to be done for folding as well?
-
 /**
- * @brief Compute permutation and lookup grand product polynomials and commitments
+ * @brief Compute permutation and lookup grand product polynomials and their commitments
  *
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_grand_product_computation_round()
@@ -141,12 +140,12 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_univariatizatio
     };
 
     // Compute d-1 polynomials Fold^(i), i = 1, ..., d-1.
-    fold_polynomials = Gemini::compute_fold_polynomials(
+    gemini_polynomials = Gemini::compute_gemini_polynomials(
         sumcheck_output.challenge_point, std::move(batched_poly_unshifted), std::move(batched_poly_to_be_shifted));
 
     // Compute and add to trasnscript the commitments [Fold^(i)], i = 1, ..., d-1
     for (size_t l = 0; l < instance.proving_key->log_circuit_size - 1; ++l) {
-        queue.add_commitment(fold_polynomials[l + 2], "Gemini:FOLD_" + std::to_string(l + 1));
+        queue.add_commitment(gemini_polynomials[l + 2], "Gemini:FOLD_" + std::to_string(l + 1));
     }
 }
 
@@ -160,7 +159,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_pcs_evaluation_
 {
     const FF r_challenge = transcript.get_challenge("Gemini:r");
     gemini_output = Gemini::compute_fold_polynomial_evaluations(
-        sumcheck_output.challenge_point, std::move(fold_polynomials), r_challenge);
+        sumcheck_output.challenge_point, std::move(gemini_polynomials), r_challenge);
 
     for (size_t l = 0; l < instance.proving_key->log_circuit_size; ++l) {
         std::string label = "Gemini:a_" + std::to_string(l);
@@ -197,7 +196,7 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_shplonk_partial
 }
 /**
  * - Compute final PCS opening proof:
- * - For KZG, this is the quotient commitment [W]_1
+ * - For KZG, this is the quotient commitmecnt [W]_1
  * - For IPA, the vectors L and R
  * */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_final_pcs_round()

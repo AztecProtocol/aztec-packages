@@ -294,14 +294,14 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::initialise_prover_polynomi
         prover_polynomials.lagrange_ecc_op = proving_key->lagrange_ecc_op;
     }
 
-    // Add public inputs to transcript from the second wire polynomial; This requires determination of the offset at
-    // which the PI have been written into the wires relative to the 0th index.
+    // Determine public input offsets in the circuit relative to the 0th index
     std::span<FF> public_wires_source = prover_polynomials.w_r;
     pub_inputs_offset = Flavor::has_zero_row ? 1 : 0;
     if constexpr (IsGoblinFlavor<Flavor>) {
         pub_inputs_offset += proving_key->num_ecc_op_gates;
     }
 
+    // Construct the public inputs array
     for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
         size_t idx = i + pub_inputs_offset;
         public_inputs.emplace_back(public_wires_source[idx]);
@@ -311,11 +311,10 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::initialise_prover_polynomi
 template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_accumulator_polynomials(FF eta)
 {
     relation_parameters.eta = eta;
-    // Compute sorted witness-table accumulator and its commitment
-    // work only ftom instance
+    // Compute sorted witness-table accumulator
     proving_key->sorted_accum = prover_library::compute_sorted_list_accumulator<Flavor>(proving_key, eta);
 
-    // Finalize fourth wire polynomial by adding lookup memory records, then commit
+    // Finalize fourth wire polynomial by adding lookup memory records
     prover_library::add_plookup_memory_records_to_wire_4<Flavor>(proving_key, eta);
 
     prover_polynomials.sorted_accum_shift = proving_key->sorted_accum.shifted();
@@ -324,7 +323,6 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_sorted_accumulator
     prover_polynomials.w_4_shift = proving_key->w_4.shifted();
 }
 
-// get rid of the libraries in the end
 template <UltraFlavor Flavor> void Instance_<Flavor>::compute_grand_product_polynomials(FF beta, FF gamma)
 {
     auto public_input_delta =
@@ -336,27 +334,21 @@ template <UltraFlavor Flavor> void Instance_<Flavor>::compute_grand_product_poly
     relation_parameters.public_input_delta = public_input_delta;
     relation_parameters.lookup_grand_product_delta = lookup_grand_product_delta;
 
-    // Compute permutation + lookup grand product and their commitments
+    // Compute permutation and lookup grand product polynomials
     grand_product_library::compute_grand_products<Flavor>(proving_key, prover_polynomials, relation_parameters);
 }
 
 /**
  * Compute verification key consisting of selector precommitments.
  *
- * @return Pointer to created circuit verification key.
+ * @return Pointer to the resulting verification key of the Instance.
  * */
 template <UltraFlavor Flavor>
-std::shared_ptr<typename Flavor::VerificationKey> Instance_<Flavor>::compute_verification_key(
-    std::shared_ptr<CommitmentKey> commitment_key)
+std::shared_ptr<typename Flavor::VerificationKey> Instance_<Flavor>::compute_verification_key()
 {
     if (verification_key) {
         return verification_key;
     }
-
-    // To have an instance_ you have to have a proving key so this can go away
-    // if (!proving_key) {
-    //     compute_proving_key(circuit);
-    // }
 
     verification_key =
         std::make_shared<typename Flavor::VerificationKey>(proving_key->circuit_size, proving_key->num_public_inputs);

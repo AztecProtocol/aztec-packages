@@ -1,8 +1,8 @@
 #pragma once
 
 #include "barretenberg/honk/instance/instance.hpp"
-#include "barretenberg/honk/proof_system/folding_prover.hpp"
-#include "barretenberg/honk/proof_system/folding_verifier.hpp"
+#include "barretenberg/honk/proof_system/protogalaxy_prover.hpp"
+#include "barretenberg/honk/proof_system/protogalaxy_verifier.hpp"
 #include "barretenberg/honk/proof_system/ultra_prover.hpp"
 #include "barretenberg/honk/proof_system/ultra_verifier.hpp"
 #include "barretenberg/proof_system/composer/composer_lib.hpp"
@@ -19,6 +19,7 @@ template <UltraFlavor Flavor> class UltraComposer_ {
   public:
     using CircuitBuilder = typename Flavor::CircuitBuilder;
     using ProvingKey = typename Flavor::ProvingKey;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
     using VerificationKey = typename Flavor::VerificationKey;
     using PCS = typename Flavor::PCS;
     using CommitmentKey = typename Flavor::CommitmentKey;
@@ -57,21 +58,25 @@ template <UltraFlavor Flavor> class UltraComposer_ {
     UltraComposer_& operator=(UltraComposer_ const& other) noexcept = default;
     ~UltraComposer_() = default;
 
-    // TODO: can instances share commitment key?
-    void compute_commitment_key(size_t circuit_size)
+    std::shared_ptr<CommitmentKey> compute_commitment_key(size_t circuit_size)
     {
+        if (commitment_key) {
+            return commitment_key;
+        }
+
         commitment_key = std::make_shared<CommitmentKey>(circuit_size, crs_factory_);
+        return commitment_key;
     };
 
     Instance create_instance(CircuitBuilder& circuit);
+    // this needs to change
     Instance create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
 
-    UltraProver_<Flavor> create_prover(Instance& instance);
-    UltraVerifier_<Flavor> create_verifier(Instance& instance);
+    UltraProver_<Flavor> create_prover(Instance&);
+    UltraVerifier_<Flavor> create_verifier(Instance&);
 
-    // underlying assumption that the first instance should be the one we fold on?
-    // FoldingProver_<Flavor> create_folding_prover(std::vector<Instance<Flavor>&> instances);
-    // FoldingVerifier_<Flavor> create_folding_verifier(std::vector<Instance<Flavor>&> instances);
+    ProtoGalaxyProver_<Flavor> create_folding_prover(std::vector<Instance&>);
+    ProtoGalaxyVerifier_<Flavor> create_folding_verifier(std::vector<Instance&>);
 };
 extern template class UltraComposer_<honk::flavor::Ultra>;
 // TODO: the UltraGrumpkin flavor still works on BN254 because plookup needs to be templated to be able to construct

@@ -13,8 +13,6 @@
 
 namespace proof_system::honk {
 
-// We won't compile this class with honk::flavor::Standard, but we will like want to compile it (at least for testing)
-// with a flavor that uses the curve Grumpkin, or a flavor that does/does not have zk, etc.
 template <UltraFlavor Flavor> class UltraProver_ {
     using FF = typename Flavor::FF;
     using PCS = typename Flavor::PCS;
@@ -27,7 +25,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Instance = Instance_<Flavor>;
 
   public:
-    explicit UltraProver_(Instance&, std::shared_ptr<CommitmentKey>);
+    explicit UltraProver_(Instance&);
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
@@ -51,7 +49,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     CommitmentLabels commitment_labels;
 
     // Container for d + 1 Fold polynomials produced by Gemini
-    std::vector<Polynomial> fold_polynomials;
+    std::vector<Polynomial> gemini_polynomials;
 
     Polynomial batched_quotient_Q; // batched quotient poly computed by Shplonk
     FF nu_challenge;               // needed in both Shplonk rounds

@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 namespace proof_system::honk {
-
+// Need verifier instance as well
 // An Instance is created from a Circuit and we initialise all the data structure that rely on information from a
 // circuit Then a Prover and a Verifier is created from an Instance or several instances and each manages their own
 // polynomials
@@ -23,7 +23,7 @@ template <UltraFlavor Flavor> class Instance_ {
     using ProvingKey = typename Flavor::ProvingKey;
     using VerificationKey = typename Flavor::VerificationKey;
     using CommitmentKey = typename Flavor::CommitmentKey;
-    using FF = typename Flavor::Curve::ScalarField;
+    using FF = typename Flavor::FF;
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
@@ -34,8 +34,8 @@ template <UltraFlavor Flavor> class Instance_ {
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
     std::shared_ptr<ProvingKey> proving_key;
     std::shared_ptr<VerificationKey> verification_key;
+    std::shared_ptr<CommitmentKey> commitment_key;
 
-    // TODO: should this be a shared_ptr?
     ProverPolynomials prover_polynomials;
     std::vector<FF> public_inputs;
     size_t pub_inputs_offset;
@@ -54,7 +54,7 @@ template <UltraFlavor Flavor> class Instance_ {
 
     FoldingParameters folding_params;
     // Used by the prover for domain separation in the transcript
-    uint32_t instance_index;
+    uint32_t index;
 
     Instance_(Circuit& circuit)
     {
@@ -63,9 +63,10 @@ template <UltraFlavor Flavor> class Instance_ {
         compute_witness(circuit);
     }
 
-    explicit Instance_(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key)
-        : proving_key(std::move(p_key))
-        , verification_key(std::move(v_key))
+    Instance_(ProverPolynomials polys, std::vector<FF> public_inputs, std::shared_ptr<VerificationKey> vk)
+        : verification_key(std::move(vk))
+        , prover_polynomials(polys)
+        , public_inputs(public_inputs)
     {}
 
     Instance_(Instance_&& other) noexcept = default;
@@ -75,7 +76,7 @@ template <UltraFlavor Flavor> class Instance_ {
     ~Instance_() = default;
 
     std::shared_ptr<ProvingKey> compute_proving_key(Circuit&);
-    std::shared_ptr<VerificationKey> compute_verification_key(std::shared_ptr<CommitmentKey> commitment_key);
+    std::shared_ptr<VerificationKey> compute_verification_key();
 
     void compute_circuit_size_parameters(Circuit&);
 
