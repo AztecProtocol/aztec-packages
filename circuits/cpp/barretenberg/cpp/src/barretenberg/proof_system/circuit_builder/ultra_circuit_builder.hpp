@@ -727,7 +727,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
   private:
     void populate_ecc_op_wires(const ecc_op_tuple& in);
-    ecc_op_tuple make_ecc_op_tuple(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
+    ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
 
   public:
     size_t get_num_constant_gates() const override { return 0; }
