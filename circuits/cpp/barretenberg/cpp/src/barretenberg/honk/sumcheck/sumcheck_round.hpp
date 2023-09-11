@@ -282,7 +282,6 @@ template <typename Flavor> class SumcheckVerifierRound {
     {
         // Evaluate T^{l}(u_{l})
         target_total_sum = univariate.evaluate(round_challenge);
-
         return target_total_sum;
     }
 
