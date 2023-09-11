@@ -47,7 +47,7 @@ An entity on L2, specifying the address and the version for the entity. Used whe
 
 A message that is sent from L1 to L2.
 
-#include_code l1_to_l2_message l1-contracts/src/core/libraries/DataStructures.sol solidity
+#include_code l1_to_l2_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |
@@ -62,7 +62,7 @@ A message that is sent from L1 to L2.
 
 A message that is sent from L2 to L1.
 
-#include_code l2_to_l1_message l1-contracts/src/core/libraries/DataStructures.sol solidity
+#include_code l2_to_l1_msg l1-contracts/src/core/libraries/DataStructures.sol solidity
 
 | Name           | Type    | Description |
 | -------------- | ------- | ----------- |

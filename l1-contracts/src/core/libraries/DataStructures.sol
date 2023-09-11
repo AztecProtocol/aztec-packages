@@ -96,5 +96,5 @@ library DataStructures {
     address outbox;
     uint256 blockNumber;
   }
-  // docs:start:registry_snapshot
+  // docs:end:registry_snapshot
 }
