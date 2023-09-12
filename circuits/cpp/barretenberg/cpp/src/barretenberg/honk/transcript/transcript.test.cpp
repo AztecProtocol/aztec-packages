@@ -1,15 +1,12 @@
+#include "transcript.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
-#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
-#include "transcript.hpp"
-#include <cstddef>
-#include <cstdint>
 #include <gtest/gtest.h>
-#include <string>
 
 using namespace proof_system::honk;
 
@@ -188,7 +185,7 @@ TYPED_TEST(TranscriptTests, ProverAndVerifierBasic)
     constexpr size_t LENGTH = 8;
 
     using Fr = barretenberg::fr;
-    using Univariate = proof_system::honk::sumcheck::Univariate<Fr, LENGTH>;
+    using Univariate = barretenberg::Univariate<Fr, LENGTH>;
     using Commitment = barretenberg::g1::affine_element;
 
     std::array<Fr, LENGTH> evaluations;

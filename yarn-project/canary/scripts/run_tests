@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script is used to run an e2e test in CI (see config.yml and cond_spot_run_tests).
 # It sets a few environment variables used inside the docker-compose.yml, pulls images, and runs docker-compose.
-set -eu
+set -exu
 
 export TEST=$1
 export IMAGE=${2:-canary}
@@ -14,13 +14,14 @@ fi
 
 aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 278380418400.dkr.ecr.us-east-2.amazonaws.com
 
-IMAGE_URI=$($(git rev-parse --show-toplevel)/build-system/scripts/calculate_image_uri $IMAGE)
-docker pull $IMAGE_URI
-docker tag $IMAGE_URI aztecprotocol/canary:latest
+export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
+IMAGE_URI=$(calculate_image_uri $IMAGE)
+retry docker pull $IMAGE_URI
+retry docker tag $IMAGE_URI aztecprotocol/canary:latest
 
-SANDBOX_IMAGE_URI=$($(git rev-parse --show-toplevel)/build-system/scripts/calculate_image_uri aztec-sandbox)
-docker pull $SANDBOX_IMAGE_URI
-docker tag $SANDBOX_IMAGE_URI aztecprotocol/sandbox:latest
+SANDBOX_IMAGE_URI=$(calculate_image_uri aztec-sandbox)
+retry docker pull $SANDBOX_IMAGE_URI
+retry docker tag $SANDBOX_IMAGE_URI aztecprotocol/sandbox:latest
 
 docker-compose -f $COMPOSE_FILE rm -f
 docker-compose -f $COMPOSE_FILE up --exit-code-from canary

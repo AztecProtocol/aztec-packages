@@ -102,10 +102,8 @@ inline void _schema_pack_map_content(MsgpackSchemaPacker&)
 }
 
 namespace msgpack_concepts {
-template <typename T> concept SchemaPackable = requires(T value, MsgpackSchemaPacker packer)
-{
-    msgpack_schema_pack(packer, value);
-};
+template <typename T>
+concept SchemaPackable = requires(T value, MsgpackSchemaPacker packer) { msgpack_schema_pack(packer, value); };
 } // namespace msgpack_concepts
 
 // Helper for packing (key, value, key, value, ...) arguments
@@ -121,8 +119,8 @@ inline void _schema_pack_map_content(MsgpackSchemaPacker& packer, std::string ke
 }
 
 template <typename T>
-requires(!msgpack_concepts::HasMsgPackSchema<T> &&
-         !msgpack_concepts::HasMsgPack<T>) inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& obj)
+    requires(!msgpack_concepts::HasMsgPackSchema<T> && !msgpack_concepts::HasMsgPack<T>)
+inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& obj)
 {
     packer.pack(msgpack_schema_name(obj));
 }
@@ -146,8 +144,8 @@ inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& obj)
  * @param object The object in question.
  */
 template <msgpack_concepts::HasMsgPack T>
-requires(!msgpack_concepts::HasMsgPackSchema<T>) inline void msgpack_schema_pack(MsgpackSchemaPacker& packer,
-                                                                                 T const& object)
+    requires(!msgpack_concepts::HasMsgPackSchema<T>)
+inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, T const& object)
 {
     std::string type = msgpack_schema_name(object);
     packer.pack_with_name(type, object);
@@ -212,7 +210,7 @@ inline void msgpack_schema_pack(MsgpackSchemaPacker& packer, std::array<T, N> co
  * @param obj The object to print schema of.
  * @return std::string The schema as a string.
  */
-inline std::string msgpack_schema_to_string(auto obj)
+inline std::string msgpack_schema_to_string(const auto& obj)
 {
     msgpack::sbuffer output;
     MsgpackSchemaPacker printer{ output };
