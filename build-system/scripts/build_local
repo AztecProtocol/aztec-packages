@@ -49,7 +49,7 @@ for E in ${PROJECTS[@]}; do
   echo "*** Building $PROJECT_DIR_NAME:$DOCKERFILE -> $REPO ***"
   echo
 
-  time docker build ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
+  time docker buildx build --platform linux/arm64,linux/amd64 ${ADDITIONAL_ARGS:-} --build-arg ARG_COMMIT_HASH=$COMMIT_HASH -f $DOCKERFILE -t $ECR_DEPLOY_URL/$REPO:latest .
   retry docker tag $ECR_DEPLOY_URL/$REPO:latest aztecprotocol/$REPO:latest
 
   if [ -n "$LAUNCH" ]; then
