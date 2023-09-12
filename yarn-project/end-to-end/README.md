@@ -21,4 +21,4 @@ yarn test:integration
 
 which will spawn the two processes.
 
-You can also run this by `docker-compose up` which will spawn 2 different containers for Anvil and the test runner.
+You can also run this by `docker-compose up`, which will spawn 2 different containers for Anvil and the test runner.
