@@ -2,9 +2,8 @@
 // however, their boxes are stored as standalone git repositories, while ours are subpackages in a monorepo
 // so we do some hacky conversions post copy to make them work as standalone packages.
 // We download the master branch of the monorepo, and then
-// (1) copy "starter-kit" subpackage to the current working directory, into a new subdirectory X
-// (2) copy the specified contract from the "noir-contracts" subpackage to into a new subdirectory "X/src/contracts",
-// (3) copy the specified contract's ABI into the "X/src/contracts" subdirectory.
+// (1) copy "boxes/{CONTRACT_NAME}" subpackage to the specified output directory
+// (2) if the box doesnt include noir source code, we copy it from the "noir-contracts" subpackage to into a new subdirectory "X/src/contracts",
 // These are used by a simple frontend to interact with the contract and deploy to a local sandbox instance of aztec3.
 // The unbox logic can be tested locally by running `$ts-node --esm src/bin/index.ts unbox PrivateToken`
 // from `yarn-project/cli/`
@@ -18,12 +17,7 @@ import * as path from 'path';
 const GITHUB_OWNER = 'AztecProtocol';
 const GITHUB_REPO = 'aztec-packages';
 const NOIR_CONTRACTS_PATH = 'yarn-project/noir-contracts/src/contracts';
-// const BOXES_PATH = 'yarn-project/aztec-sandbox';
-// before this commit lands, we can't grab from github, so can test with another subpackage like this
 const BOXES_PATH = 'yarn-project/boxes';
-// for now we just copy the entire noir-libs subpackage, but this should be unnecessary
-// when Nargo.toml [requirements] section supports a github URL in addition to relative paths
-const NOIR_LIBS_PATH = 'yarn-project/noir-libs';
 
 /**
  * Converts a contract name in "upper camel case" to a folder name in snake case.
@@ -76,10 +70,6 @@ async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, l
   const repositoryDirectories = Object.values(data.files).filter(file => {
     return file.dir && file.name.startsWith(repositoryFolderPath);
   });
-  // log(
-  //   'copying directories ',
-  //   repositoryDirectories.map(dir => dir.name),
-  // );
 
   for (const directory of repositoryDirectories) {
     const relativePath = directory.name.replace(repositoryFolderPath, '');
@@ -90,10 +80,6 @@ async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, l
   const starterFiles = Object.values(data.files).filter(file => {
     return !file.dir && file.name.startsWith(repositoryFolderPath);
   });
-  // log(
-  //   'copying repository files',
-  //   starterFiles.map(file => file.name),
-  // );
 
   for (const file of starterFiles) {
     const relativePath = file.name.replace(repositoryFolderPath, '');
@@ -106,9 +92,9 @@ async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, l
 /**
  * Not flexible at at all, but quick fix to download a noir smart contract from our
  * monorepo on github.  this will copy over the `yarn-projects/boxes/{contract_name}` folder
- * as well as the specified directoryPath, which should point to a single noir contract in
- * `yarn-projects/noir-contracts/src/contracts/...`
- * @param directoryPath - path to the directory in the github repo
+ * as well as the specified `directoryPath` if the box doesn't include source code
+ * `directoryPath` should point to a single noir contract in `yarn-projects/noir-contracts/src/contracts/...`
+ * @param directoryPath - path to a noir contract's source code (folder) in the github repo
  * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
  * @returns
  */
@@ -142,11 +128,6 @@ async function downloadNoirFilesFromGithub(
   // this remaining logic only kicks in if the box doesn't already have a src/contracts folder
   // in which case we optimistically grab the noir source files from the
   // noir-contracts and noir-libs subpackages and pray that the versions are compatible
-
-  // copy the dependencies for now.  we can remove this copy when Nargo.toml
-  // can list dependencies that read from github
-  const noirLibsPath = `${repoDirectoryPrefix}${NOIR_LIBS_PATH}/`;
-  await copyFolderFromGithub(data, noirLibsPath, path.join(outputPath, 'src', 'contracts'), log);
 
   // copy the noir contracts to the output directory under subdir /src/contracts/
   const contractDirectoryPath = `${repoDirectoryPrefix}${directoryPath}/`;
