@@ -360,7 +360,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/end-to-end@workspace:end-to-end":
+"@aztec/end-to-end@workspace:^, @aztec/end-to-end@workspace:end-to-end":
   version: 0.0.0-use.local
   resolution: "@aztec/end-to-end@workspace:end-to-end"
   dependencies:
@@ -12492,6 +12492,7 @@ __metadata:
   dependencies:
     "@aztec/aztec.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/end-to-end": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/types": "workspace:^"

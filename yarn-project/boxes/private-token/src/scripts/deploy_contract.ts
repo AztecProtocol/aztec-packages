@@ -17,10 +17,7 @@ export async function deployContract(
 
   // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
   // convert those back to bigints before sending
-  console.log('args', args);
   const typedArgs: bigint[] = convertArgs(functionAbi, args);
-  console.log(activeWallet.publicKey.toShortString());
-  console.log('typedArgs', typedArgs);
 
   const tx = new DeployMethod(activeWallet.publicKey, client, contractAbi, typedArgs).send({
     contractAddressSalt: salt,

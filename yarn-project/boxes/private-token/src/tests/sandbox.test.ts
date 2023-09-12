@@ -10,6 +10,7 @@ import {
   makeFetch,
   waitForSandbox,
 } from '@aztec/aztec.js';
+import { setup } from '@aztec/end-to-end/fixtures/utils.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { deployContract } from '../scripts/deploy_contract.js';
@@ -31,12 +32,13 @@ const MINT_AMOUNT = 11n;
 
 const setupSandbox = async () => {
   const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+  await setup(3);
   const aztecRpc = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
   await waitForSandbox(aztecRpc);
   return aztecRpc;
 };
 
-async function deployZKContract(owner: CompleteAddress, wallet: Wallet) {
+async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: AztecRPC) {
   logger('Deploying L2 contract...');
   // const constructorFunctionAbi = PrivateTokenContract.abi.functions.find(f => f.name === 'constructor');
   const constructorArgs = {
@@ -70,8 +72,8 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, rpcClient);
 
-    privateTokenContract = await deployZKContract(owner, wallet);
-  }, 30000);
+    privateTokenContract = await deployZKContract(owner, wallet, rpcClient);
+  }, 60000);
 
   test('Initial balance is correct', async () => {
     const balance = await getBalance(privateTokenContract, owner.address);

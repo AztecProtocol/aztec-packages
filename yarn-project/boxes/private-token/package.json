@@ -16,8 +16,7 @@
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
-    "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
-    "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
+    "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test\" \"anvil\""
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -49,6 +48,7 @@
     "yup": "^1.2.0"
   },
   "devDependencies": {
+    "@aztec/end-to-end": "workspace:^",
     "@types/node": "^20.5.9",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
