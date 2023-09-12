@@ -32,12 +32,10 @@ case "$CMD" in
     echo $BUILD_DIR/$DOCKERFILE
     ;;
   buildDir)
-    BUILD_DIR=$(jq -r ".\"$REPO\".buildDir" $MANIFEST)
-    echo $ROOT_PATH/$BUILD_DIR
+    jq -r ".\"$REPO\".buildDir" $MANIFEST
     ;;
   projectDir)
-    PROJECT_DIR=$(jq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST)
-    echo $ROOT_PATH/$PROJECT_DIR
+    jq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST
     ;;
   dependencies)
     ALL_DEPS=()

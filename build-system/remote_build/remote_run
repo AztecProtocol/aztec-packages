@@ -4,7 +4,7 @@ set -eu
 
 ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
 
-echo "Initialising remote build..."
+echo "Checking out code..."
 
 # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: .circleci/config.yml
 # Shallow checkout this commit.
@@ -17,8 +17,6 @@ git config remote.origin.promisor true
 git config remote.origin.partialclonefilter blob:none
 git fetch --depth 1 origin $COMMIT_HASH
 git checkout FETCH_HEAD
-# Checkout barretenberg submodule only.
-git submodule update --init build-system
 
 echo "Git checkout completed."
 
