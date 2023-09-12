@@ -8,16 +8,16 @@
     "build": "yarn clean && webpack",
     "install:noir": "curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash noirup -v aztec",
     "install:sandbox": "docker pull aztecprotocol/aztec-sandbox:latest",
-    "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
     "start:dev": "webpack serve --mode=development",
     "start:sandbox": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" ",
-    "formatting": "prettier --check ./src && eslint ./src",
-    "formatting:fix": "prettier -w ./src",
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test\" \"anvil\""
   },
+  "inherits": [
+    "../../package.common.json"
+  ],
   "jest": {
     "preset": "ts-jest/presets/default-esm",
     "globals": {
@@ -68,10 +68,7 @@
     "prettier": "^3.0.3",
     "resolve-typescript-plugin": "^2.0.1",
     "style-loader": "^3.3.3",
-    "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.4",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.0.4",
     "util": "^0.12.5",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4",
