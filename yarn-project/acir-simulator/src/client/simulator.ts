@@ -1,5 +1,4 @@
-import { CallContext, CircuitsWasm, FunctionData, MAX_NOTE_FIELDS_LENGTH, TxContext } from '@aztec/circuits.js';
-import { computeTxHash } from '@aztec/circuits.js/abis';
+import { CallContext, FunctionData, MAX_NOTE_FIELDS_LENGTH, TxContext } from '@aztec/circuits.js';
 import { Grumpkin } from '@aztec/circuits.js/barretenberg';
 import { ArrayType, FunctionSelector, FunctionType, encodeArguments } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
@@ -14,6 +13,7 @@ import { createSimulationError } from '../common/errors.js';
 import { PackedArgsCache } from '../common/packed_args_cache.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { DBOracle, FunctionAbiWithDebugMetadata } from './db_oracle.js';
+import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionResult } from './execution_result.js';
 import { PrivateFunctionExecution } from './private_execution.js';
 import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
@@ -22,7 +22,7 @@ import { UnconstrainedFunctionExecution } from './unconstrained_execution.js';
  * The ACIR simulator.
  */
 export class AcirSimulator {
-  private static solver: WasmBlackBoxFunctionSolver; // ACVM's backend
+  private static solver: Promise<WasmBlackBoxFunctionSolver>; // ACVM's backend
   private log: DebugLogger;
 
   constructor(private db: DBOracle) {
@@ -42,8 +42,8 @@ export class AcirSimulator {
    *
    * @returns ACVM WasmBlackBoxFunctionSolver
    */
-  public static async getSolver(): Promise<WasmBlackBoxFunctionSolver> {
-    if (!this.solver) this.solver = await createBlackBoxSolver();
+  public static getSolver(): Promise<WasmBlackBoxFunctionSolver> {
+    if (!this.solver) this.solver = createBlackBoxSolver();
     return this.solver;
   }
 
@@ -83,15 +83,13 @@ export class AcirSimulator {
       request.functionData.isConstructor,
     );
 
-    const wasm = await CircuitsWasm.get();
-    const txNullifier = computeTxHash(wasm, request.toTxRequest());
     const execution = new PrivateFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
-        txNullifier,
         request.txContext,
         historicBlockData,
         await PackedArgsCache.create(request.packedArguments),
+        new ExecutionNoteCache(),
       ),
       entryPointABI,
       contractAddress,
@@ -143,10 +141,10 @@ export class AcirSimulator {
     const execution = new UnconstrainedFunctionExecution(
       new ClientTxExecutionContext(
         this.db,
-        Fr.ZERO,
         TxContext.empty(),
         historicBlockData,
         await PackedArgsCache.create([]),
+        new ExecutionNoteCache(),
       ),
       entryPointABI,
       contractAddress,

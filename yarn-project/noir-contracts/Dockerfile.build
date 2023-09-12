@@ -1,9 +1,10 @@
 # Running on ubuntu until noir supports an alpine build
 
 # Builder stage to build the noir artifacts
-FROM ubuntu:kinetic
+FROM ubuntu:jammy
 
 RUN apt-get update && apt-get install -y \
+    jq \
     curl \
     git \
     sed
