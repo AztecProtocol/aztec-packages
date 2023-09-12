@@ -32,14 +32,15 @@ UltraProver_<Flavor>::UltraProver_(std::shared_ptr<Instance> inst)
  */
 template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(instance->proving_key->circuit_size);
-    const auto num_public_inputs = static_cast<uint32_t>(instance->proving_key->num_public_inputs);
+    auto proving_key = instance->proving_key;
+    const auto circuit_size = static_cast<uint32_t>(proving_key->circuit_size);
+    const auto num_public_inputs = static_cast<uint32_t>(proving_key->num_public_inputs);
 
     transcript.send_to_verifier("circuit_size", circuit_size);
     transcript.send_to_verifier("public_input_size", num_public_inputs);
     transcript.send_to_verifier("pub_inputs_offset", static_cast<uint32_t>(instance->pub_inputs_offset));
 
-    for (size_t i = 0; i < instance->proving_key->num_public_inputs; ++i) {
+    for (size_t i = 0; i < proving_key->num_public_inputs; ++i) {
         auto public_input_i = instance->public_inputs[i];
         transcript.send_to_verifier("public_input_" + std::to_string(i), public_input_i);
     }
