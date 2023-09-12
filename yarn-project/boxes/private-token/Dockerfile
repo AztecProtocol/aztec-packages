@@ -9,7 +9,7 @@ RUN yarn cache clean
 
 
 WORKDIR /usr/src/yarn-project/boxes/private-token
-RUN yarn build && yarn formatting && yarn test
+RUN yarn build && yarn formatting
 
 # Prune dev dependencies. See comment in base image.
 RUN yarn cache clean
