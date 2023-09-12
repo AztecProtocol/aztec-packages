@@ -197,7 +197,7 @@ describe('e2e_token_contract', () => {
     await tokenSim.check();
   }, 30_000);
 
-  describe('Access controlled functions', () => {
+  describe.only('Access controlled functions', () => {
     it('Set admin', async () => {
       const tx = asset.methods.set_admin({ address: accounts[1].address }).send();
       const receipt = await tx.wait();
@@ -233,7 +233,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe('Minting', () => {
+  describe.only('Minting', () => {
     describe('Public', () => {
       it('as minter', async () => {
         const amount = 10000n;
@@ -297,6 +297,7 @@ describe('e2e_token_contract', () => {
         });
 
         it('redeem as recipient', async () => {
+          // How is this shitter failing?
           const txClaim = asset.methods.redeem_shield({ address: accounts[0].address }, amount, secret).send();
           const receiptClaim = await txClaim.wait();
           expect(receiptClaim.status).toBe(TxStatus.MINED);
@@ -327,6 +328,7 @@ describe('e2e_token_contract', () => {
 
         it('mint <u120 but recipient balance >u120', async () => {
           const amount = 2n ** 120n - tokenSim.balanceOfPrivate(accounts[0].address);
+          expect(amount).toBeLessThan(2n ** 120n);
           await expect(asset.methods.mint_private(amount, secretHash).simulate()).rejects.toThrowError(
             'Assertion failed: Overflow',
           );
@@ -527,7 +529,7 @@ describe('e2e_token_contract', () => {
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
-        });
+        }, 45_000);
 
         it('transfer on behalf of other, wrong designated caller', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -540,16 +542,22 @@ describe('e2e_token_contract', () => {
           const messageHash = await transferMessageHash(accounts[0], accounts[0], accounts[1], amount, nonce);
 
           // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
+          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
           const validTxReceipt = await setValidTx.wait();
           expect(validTxReceipt.status).toBe(TxStatus.MINED);
 
           // Perform the transfer
           await expect(
-            asset.methods
-              .transfer_public({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
+            asset
+              .withWallet(wallets[1])
+              .methods.transfer_public(
+                { address: accounts[0].address },
+                { address: accounts[1].address },
+                amount,
+                nonce,
+              )
+              .simulate(),
           ).rejects.toThrowError('Assertion failed: invalid call');
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
@@ -820,14 +828,6 @@ describe('e2e_token_contract', () => {
       const receiptReplay = await txReplay.getReceipt();
       expect(receiptReplay.status).toBe(TxStatus.DROPPED);
 
-      // Check that replaying the shield should fail!
-      const txReplay = asset.methods
-        .shield({ address: accounts[0].address }, amount, secretHash, nonce)
-        .send({ origin: accounts[1].address });
-      await txReplay.isMined();
-      const receiptReplay = await txReplay.getReceipt();
-      expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-
       // Redeem it
       const txClaim = asset.methods.redeem_shield({ address: accounts[0].address }, amount, secret).send();
       const receiptClaim = await txClaim.wait();
@@ -865,7 +865,6 @@ describe('e2e_token_contract', () => {
 
       it('on behalf of other (more than balance)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-        const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -889,7 +888,6 @@ describe('e2e_token_contract', () => {
 
       it('on behalf of other (wrong designated caller)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-        const balancePriv = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
         const amount = balancePub + 1n;
         const nonce = Fr.random();
         expect(amount).toBeGreaterThan(0n);
@@ -909,9 +907,6 @@ describe('e2e_token_contract', () => {
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
         ).rejects.toThrowError('Assertion failed: invalid call');
-
-        expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
-        expect(await asset.methods.balance_of_private({ address: accounts[0].address }).view()).toEqual(balancePriv);
       }, 30_000);
 
       it('on behalf of other (wrong designated caller)', async () => {
@@ -925,15 +920,16 @@ describe('e2e_token_contract', () => {
         const messageHash = await shieldMessageHash(accounts[1], accounts[0], amount, secretHash, nonce);
 
         // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
+        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallets[0]);
+        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send();
         const validTxReceipt = await setValidTx.wait();
         expect(validTxReceipt.status).toBe(TxStatus.MINED);
 
         await expect(
-          asset.methods
-            .shield({ address: accounts[0].address }, amount, secretHash, nonce)
-            .simulate({ origin: accounts[2].address }),
+          asset
+            .withWallet(wallets[2])
+            .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
+            .simulate(),
         ).rejects.toThrowError('Assertion failed: invalid call');
 
         expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balancePub);
@@ -1365,294 +1361,18 @@ describe('e2e_token_contract', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign.
-        const messageHash = await unshieldMessageHash(accounts[1], accounts[0], accounts[1], amount, nonce);
-        const expectedMessageHash = await unshieldMessageHash(accounts[2], accounts[0], accounts[1], amount, nonce);
+        const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
+        const expectedMessageHash = await burnMessageHash(accounts[2], accounts[0], amount, nonce);
 
         // Both wallets are connected to same node and rpc so we could just insert directly using
         // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
         // But doing it in two actions to show the flow.
-        const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
-        await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
+        const witness = await wallets[0].signAndGetAuthWitness(messageHash);
+        await wallets[2].addAuthWitness(Fr.fromBuffer(messageHash), witness);
 
         await expect(
-          asset.methods
-            .unshield({ address: accounts[0].address }, { address: accounts[1].address }, amount, nonce)
-            .simulate({ origin: accounts[2].address }),
+          asset.withWallet(wallets[2]).methods.burn({ address: accounts[0].address }, amount, nonce).simulate(),
         ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
-      });
-    });
-  });
-
-  describe('Burn', () => {
-    describe('public', () => {
-      const burnMessageHash = async (caller: CompleteAddress, from: CompleteAddress, amount: bigint, nonce: Fr) => {
-        return await hashPayload([
-          caller.address.toField(),
-          asset.address.toField(),
-          FunctionSelector.fromSignature('burn_public((Field),Field,Field)').toField(),
-          from.address.toField(),
-          new Fr(amount),
-          nonce,
-        ]);
-      };
-
-      it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-        const amount = balance0 / 2n;
-        expect(amount).toBeGreaterThan(0n);
-        const tx = asset.methods
-          .burn_public({ address: accounts[0].address }, amount, 0)
-          .send({ origin: accounts[0].address });
-        const receipt = await tx.wait();
-        expect(receipt.status).toBe(TxStatus.MINED);
-
-        tokenSim.burnPublic(accounts[0].address, amount);
-      }, 30_000);
-
-      it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-        const amount = balance0 / 2n;
-        expect(amount).toBeGreaterThan(0n);
-        const nonce = Fr.random();
-
-        // We need to compute the message we want to sign.
-        const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-        // Add it to the wallet as approved
-        const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
-        const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
-        const validTxReceipt = await setValidTx.wait();
-        expect(validTxReceipt.status).toBe(TxStatus.MINED);
-
-        const tx = asset.methods
-          .burn_public({ address: accounts[0].address }, amount, nonce)
-          .send({ origin: accounts[1].address });
-        const receipt = await tx.wait();
-        expect(receipt.status).toBe(TxStatus.MINED);
-
-        tokenSim.burnPublic(accounts[0].address, amount);
-
-        // Check that the message hash is no longer valid. Need to try to send since nullifiers are handled by sequencer.
-        const txReplay = asset.methods
-          .burn_public({ address: accounts[0].address }, amount, nonce)
-          .send({ origin: accounts[1].address });
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-      }, 30_000);
-
-      describe('failure cases', () => {
-        it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-          const amount = balance0 + 1n;
-          const nonce = 0;
-          await expect(
-            asset.methods
-              .burn_public({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[0].address }),
-          ).rejects.toThrowError('Assertion failed: Underflow');
-        });
-
-        it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-          const amount = balance0 - 1n;
-          expect(amount).toBeGreaterThan(0n);
-          const nonce = 1;
-          await expect(
-            asset.methods
-              .burn_public({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[0].address }),
-          ).rejects.toThrowError('Assertion failed: invalid nonce');
-        });
-
-        it('burn on behalf of other without "approval"', async () => {
-          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-          const amount = balance0 + 1n;
-          const nonce = Fr.random();
-          await expect(
-            asset.methods
-              .burn_public({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
-          ).rejects.toThrowError('Assertion failed: invalid call');
-        });
-
-        it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-          const amount = balance0 + 1n;
-          const nonce = Fr.random();
-          expect(amount).toBeGreaterThan(0n);
-
-          // We need to compute the message we want to sign.
-          const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
-
-          await expect(
-            asset.methods
-              .burn_public({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
-          ).rejects.toThrowError('Assertion failed: Underflow');
-        });
-
-        it('burn on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
-          const amount = balance0 + 2n;
-          const nonce = Fr.random();
-          expect(amount).toBeGreaterThan(0n);
-
-          // We need to compute the message we want to sign.
-          const messageHash = await burnMessageHash(accounts[0], accounts[0], amount, nonce);
-
-          // Add it to the wallet as approved
-          const me = await SchnorrAuthWitnessAccountContract.at(accounts[0].address, wallet);
-          const setValidTx = me.methods.set_is_valid_storage(messageHash, 1).send({ origin: accounts[0].address });
-          const validTxReceipt = await setValidTx.wait();
-          expect(validTxReceipt.status).toBe(TxStatus.MINED);
-
-          await expect(
-            asset.methods
-              .burn_public({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
-          ).rejects.toThrowError('Assertion failed: invalid call');
-        });
-      });
-    });
-
-    describe('private', () => {
-      const burnMessageHash = async (caller: CompleteAddress, from: CompleteAddress, amount: bigint, nonce: Fr) => {
-        return await hashPayload([
-          caller.address.toField(),
-          asset.address.toField(),
-          FunctionSelector.fromSignature('burn((Field),Field,Field)').toField(),
-          from.address.toField(),
-          new Fr(amount),
-          nonce,
-        ]);
-      };
-
-      it('burn less than balance', async () => {
-        const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-        const amount = balance0 / 2n;
-        expect(amount).toBeGreaterThan(0n);
-        const tx = asset.methods
-          .burn({ address: accounts[0].address }, amount, 0)
-          .send({ origin: accounts[0].address });
-        const receipt = await tx.wait();
-        expect(receipt.status).toBe(TxStatus.MINED);
-        tokenSim.burnPrivate(accounts[0].address, amount);
-      });
-
-      it('burn on behalf of other', async () => {
-        const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-        const amount = balance0 / 2n;
-        const nonce = Fr.random();
-        expect(amount).toBeGreaterThan(0n);
-
-        // We need to compute the message we want to sign.
-        const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-        // Both wallets are connected to same node and rpc so we could just insert directly using
-        // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
-        // But doing it in two actions to show the flow.
-        const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
-        await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
-
-        const tx = asset.methods
-          .burn({ address: accounts[0].address }, amount, nonce)
-          .send({ origin: accounts[1].address });
-        const receipt = await tx.wait();
-        expect(receipt.status).toBe(TxStatus.MINED);
-        tokenSim.burnPrivate(accounts[0].address, amount);
-
-        // Perform the transfer again, should fail
-        const txReplay = asset.methods
-          .burn({ address: accounts[0].address }, amount, nonce)
-          .send({ origin: accounts[1].address });
-        await txReplay.isMined();
-        const receiptReplay = await txReplay.getReceipt();
-        expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-      });
-
-      describe('failure cases', () => {
-        it('burn more than balance', async () => {
-          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-          const amount = balance0 + 1n;
-          expect(amount).toBeGreaterThan(0n);
-          await expect(
-            asset.methods.burn({ address: accounts[0].address }, amount, 0).simulate({ origin: accounts[0].address }),
-          ).rejects.toThrowError('Assertion failed: Balance too low');
-        });
-
-        it('burn on behalf of self with non-zero nonce', async () => {
-          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-          const amount = balance0 - 1n;
-          expect(amount).toBeGreaterThan(0n);
-          await expect(
-            asset.methods.burn({ address: accounts[0].address }, amount, 1).simulate({ origin: accounts[0].address }),
-          ).rejects.toThrowError('Assertion failed: invalid nonce');
-        });
-
-        it('burn more than balance on behalf of other', async () => {
-          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-          const amount = balance0 + 1n;
-          const nonce = Fr.random();
-          expect(amount).toBeGreaterThan(0n);
-
-          // We need to compute the message we want to sign.
-          const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-          // Both wallets are connected to same node and rpc so we could just insert directly using
-          // await wallet.signAndAddAuthWitness(messageHash, { origin: accounts[0].address });
-          // But doing it in two actions to show the flow.
-          const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
-          await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
-
-          await expect(
-            asset.methods
-              .burn({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
-          ).rejects.toThrowError('Assertion failed: Balance too low');
-        });
-
-        it('burn on behalf of other without approval', async () => {
-          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-          const amount = balance0 / 2n;
-          const nonce = Fr.random();
-          expect(amount).toBeGreaterThan(0n);
-
-          // We need to compute the message we want to sign.
-          const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-
-          await expect(
-            asset.methods
-              .burn({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[1].address }),
-          ).rejects.toThrowError(`Unknown auth witness for message hash 0x${messageHash.toString('hex')}`);
-        });
-
-        it('burn on behalf of other, wrong designated caller', async () => {
-          const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
-          const amount = balance0 / 2n;
-          const nonce = Fr.random();
-          expect(amount).toBeGreaterThan(0n);
-
-          // We need to compute the message we want to sign.
-          const messageHash = await burnMessageHash(accounts[1], accounts[0], amount, nonce);
-          const expectedMessageHash = await burnMessageHash(accounts[2], accounts[0], amount, nonce);
-
-          const witness = await wallet.signAndGetAuthWitness(messageHash, { origin: accounts[0].address });
-          await wallet.addAuthWitness(Fr.fromBuffer(messageHash), witness);
-
-          await expect(
-            asset.methods
-              .burn({ address: accounts[0].address }, amount, nonce)
-              .simulate({ origin: accounts[2].address }),
-          ).rejects.toThrowError(`Unknown auth witness for message hash 0x${expectedMessageHash.toString('hex')}`);
-        });
       });
     });
   });

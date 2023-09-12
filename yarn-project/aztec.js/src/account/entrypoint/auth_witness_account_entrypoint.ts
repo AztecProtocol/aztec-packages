@@ -66,7 +66,7 @@ export class AuthWitnessAccountEntrypoint implements IAuthWitnessAccountEntrypoi
     return this.signer.constructSignature(message, this.privateKey).toBuffer();
   }
 
-  async createAuthWitness(message: Buffer, _opts?: CreateTxRequestOpts): Promise<Fr[]> {
+  async createAuthWitness(message: Buffer): Promise<Fr[]> {
     const signature = this.sign(message);
     const publicKey = await generatePublicKey(this.privateKey);
 

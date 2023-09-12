@@ -153,19 +153,8 @@ export class AuthWitnessEntrypointWallet extends BaseWallet {
    * @param messageHash - The message hash to sign
    * @param opts - The options.
    */
-  async signAndGetAuthWitness(messageHash: Buffer, opts: CreateTxRequestOpts = {}): Promise<Fr[]> {
-    return await this.accountImpl.createAuthWitness(messageHash, opts);
-  }
-
-  /**
-   * Signs the `messageHash` and adds the witness to the RPC.
-   * This is useful for signing messages that are not directly part of the transaction payload, such as
-   * approvals .
-   * @param messageHash - The message hash to sign
-   * @param opts - The options.
-   */
-  async signAndAddAuthWitness(messageHash: Buffer, opts: CreateTxRequestOpts = {}): Promise<void> {
-    const witness = await this.accountImpl.createAuthWitness(messageHash, opts);
+  async signAndAddAuthWitness(messageHash: Buffer): Promise<void> {
+    const witness = await this.accountImpl.createAuthWitness(messageHash);
     await this.rpc.addAuthWitness(Fr.fromBuffer(messageHash), witness);
     return Promise.resolve();
   }
