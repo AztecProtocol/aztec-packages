@@ -1,9 +1,14 @@
 // docs:start:easy_private_token_contract
-mod storage;
-
 contract EasyPrivateToken {
     use dep::std::option::Option;
-    use dep::aztec::abi::Hasher;
+    use dep::aztec::{
+        context::{PrivateContext, PublicContext, Context},
+        note::{
+            note_header::NoteHeader,
+            utils as note_utils,
+        },
+        state_vars::map::Map,
+    };
     use dep::value_note::{
             balance_utils,
             value_note::{
@@ -11,18 +16,25 @@ contract EasyPrivateToken {
                 VALUE_NOTE_LEN,
             },
     };
+    use dep::easy_private_state::easy_private_state::EasyPrivateUint;
 
-    use dep::aztec::{
-        abi,
-        abi::PrivateContextInputs,
-        context::PrivateContext,
-        note::{
-            note_header::NoteHeader,
-            utils as note_utils,
-        },
-    };
+    struct Storage {
+        balances: Map<EasyPrivateUint>,
+    }
 
-    use crate::storage::Storage;
+    impl Storage {
+        fn init(context: Context) -> pub Self {
+            Storage {
+                balances: Map::new(
+                    context,
+                    1,
+                    |context, slot| {
+                        EasyPrivateUint::new(context, slot)
+                    },
+                ),
+            }
+        }
+    }
 
     /**
      * Initialise the contract's initial state variables.
@@ -32,7 +44,7 @@ contract EasyPrivateToken {
         initial_supply: u120, 
         owner: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let balances = storage.balances;
 
         balances.at(owner).add(initial_supply, owner);
@@ -44,7 +56,7 @@ contract EasyPrivateToken {
         amount: u120, 
         owner: Field,
     )  {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let balances = storage.balances;
 
         balances.at(owner).add(amount, owner);
@@ -57,7 +69,7 @@ contract EasyPrivateToken {
         sender: Field, 
         recipient: Field,
     ) {
-        let storage = Storage::init(Option::some(&mut context), Option::none());
+        let storage = Storage::init(Context::private(&mut context));
         let balances = storage.balances;
 
         balances.at(sender).sub(amount, sender);
@@ -68,7 +80,7 @@ contract EasyPrivateToken {
     unconstrained fn getBalance(
         owner: Field,
     ) -> Field {
-        let storage = Storage::init(Option::none(), Option::none());
+        let storage = Storage::init(Context::none());
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

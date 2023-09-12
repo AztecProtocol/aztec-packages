@@ -1,4 +1,4 @@
-import { CompleteAddress, HistoricBlockData, PrivateKey, PublicKey } from '@aztec/circuits.js';
+import { CompleteAddress, GrumpkinPrivateKey, HistoricBlockData, PublicKey } from '@aztec/circuits.js';
 import { FunctionAbi, FunctionDebugMetadata, FunctionSelector } from '@aztec/foundation/abi';
 import { AztecAddress } from '@aztec/foundation/aztec-address';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,18 +18,12 @@ export interface NoteData {
   nonce: Fr;
   /** The preimage of the note */
   preimage: Fr[];
-  /** The corresponding nullifier of the note */
+  /** The inner note hash of the note. */
+  innerNoteHash: Fr;
+  /** The corresponding nullifier of the note. Undefined for pending notes. */
   siloedNullifier?: Fr;
   /** The note's leaf index in the private data tree. Undefined for pending notes. */
   index?: bigint;
-}
-
-/**
- * Information about a note needed during execution.
- */
-export interface PendingNoteData extends NoteData {
-  /** The inner note hash (used as a nullified commitment). */
-  innerNoteHash: Fr;
 }
 
 /**
@@ -89,16 +83,23 @@ export interface DBOracle extends CommitmentsDB {
   getCompleteAddress(address: AztecAddress): Promise<CompleteAddress>;
 
   /**
+   * Retrieve the auth witness for a given message hash.
+   * @param message_hash - The message hash.
+   * @returns A Promise that resolves to an array of field elements representing the auth witness.
+   */
+  getAuthWitness(message_hash: Fr): Promise<Fr[]>;
+
+  /**
    * Retrieve the secret key associated with a specific public key.
    * The function only allows access to the secret keys of the transaction creator,
    * and throws an error if the address does not match the public key address of the key pair.
    *
    * @param contractAddress - The contract address. Ignored here. But we might want to return different keys for different contracts.
    * @param pubKey - The public key of an account.
-   * @returns A Promise that resolves to the secret key as a Buffer.
+   * @returns A Promise that resolves to the secret key.
    * @throws An Error if the input address does not match the public key address of the key pair.
    */
-  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<PrivateKey>;
+  getSecretKey(contractAddress: AztecAddress, pubKey: PublicKey): Promise<GrumpkinPrivateKey>;
 
   /**
    * Retrieves a set of notes stored in the database for a given contract address and storage slot.

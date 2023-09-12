@@ -14,6 +14,8 @@ import {
   executeCircuitWithBlackBoxSolver,
 } from 'acvm_js';
 
+import { traverseCauseChain } from '../common/errors.js';
+
 /**
  * The format for fields on the ACVM.
  */
@@ -30,7 +32,9 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
  * The supported oracle names.
  */
 type ORACLE_NAMES =
+  | 'computeSelector'
   | 'packArguments'
+  | 'getAuthWitness'
   | 'getSecretKey'
   | 'getNote'
   | 'getNotes'
@@ -87,7 +91,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
 
     const { path, source } = files[fileId];
 
-    const locationText = source.substring(span.start, span.end + 1);
+    const locationText = source.substring(span.start, span.end);
     const precedingText = source.substring(0, span.start);
     const previousLines = precedingText.split('\n');
     // Lines and columns in stacks are one indexed.
@@ -127,6 +131,7 @@ export async function acvm(
   callback: ACIRCallback,
 ): Promise<ACIRExecutionResult> {
   const logger = createDebugLogger('aztec:simulator:acvm');
+
   const partialWitness = await executeCircuitWithBlackBoxSolver(
     solver,
     acir,
@@ -152,7 +157,18 @@ export async function acvm(
         throw typedError;
       }
     },
-  );
+  ).catch((err: Error) => {
+    // Wasm callbacks act as a boundary for stack traces, so we capture it here and complete the error if it happens.
+    const stack = new Error().stack;
+
+    traverseCauseChain(err, cause => {
+      if (cause.stack) {
+        cause.stack += stack;
+      }
+    });
+
+    throw err;
+  });
 
   return { partialWitness };
 }

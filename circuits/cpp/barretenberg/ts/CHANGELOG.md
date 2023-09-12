@@ -1,5 +1,78 @@
 # Changelog
 
+## [0.6.7](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.6...barretenberg.js-v0.6.7) (2023-09-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.6](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.5...barretenberg.js-v0.6.6) (2023-09-11)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.5](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.4...barretenberg.js-v0.6.5) (2023-09-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.4](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.3...barretenberg.js-v0.6.4) (2023-09-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.3](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.2...barretenberg.js-v0.6.3) (2023-09-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.6.1...barretenberg.js-v0.6.2) (2023-09-08)
+
+
+### Miscellaneous
+
+* **barretenberg.js:** Synchronize aztec-packages versions
+
+## [0.6.1](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.5.2...barretenberg.js-v0.6.1) (2023-09-08)
+
+
+### Miscellaneous
+
+* **master:** Release 0.5.2 ([#2141](https://github.com/AztecProtocol/aztec-packages/issues/2141)) ([451aad6](https://github.com/AztecProtocol/aztec-packages/commit/451aad6ea92ebced9839ca14baae10cee327be35))
+* Release 0.5.2 ([f76b53c](https://github.com/AztecProtocol/aztec-packages/commit/f76b53c985116ac131a9b11b2a255feb7d0f8f13))
+* Release 0.6.1 ([1bd1a79](https://github.com/AztecProtocol/aztec-packages/commit/1bd1a79b0cefcd90306133aab141d992e8ea5fc3))
+
+## [0.5.2](https://github.com/AztecProtocol/aztec-packages/compare/barretenberg.js-v0.5.2...barretenberg.js-v0.5.2) (2023-09-08)
+
+
+### Miscellaneous
+
+* Release 0.5.2 ([f76b53c](https://github.com/AztecProtocol/aztec-packages/commit/f76b53c985116ac131a9b11b2a255feb7d0f8f13))
+
+## [0.5.1](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.5.0...barretenberg.js-v0.5.1) (2023-09-05)
+
+
+### Features
+
+* Add `info` command to bb ([#2010](https://github.com/AztecProtocol/barretenberg/issues/2010)) ([2882d97](https://github.com/AztecProtocol/barretenberg/commit/2882d97f5165239badb328be80568e7d683c0465))
+* **ci:** Use content hash in build system, restrict docs build to *.ts or *.cpp ([#1953](https://github.com/AztecProtocol/barretenberg/issues/1953)) ([297a20d](https://github.com/AztecProtocol/barretenberg/commit/297a20d7878a4aabab1cabf2cc5d2d67f9e969c5))
+
+
+### Bug Fixes
+
+* **bb.js:** (breaking change) bundles bb.js properly so that it works in the browser and in node ([#1855](https://github.com/AztecProtocol/barretenberg/issues/1855)) ([bc93a5f](https://github.com/AztecProtocol/barretenberg/commit/bc93a5f8510d0dc600343e7e613ab84380d3c225))
+* **ci:** Incorrect content hash in some build targets ([#1973](https://github.com/AztecProtocol/barretenberg/issues/1973)) ([c6c469a](https://github.com/AztecProtocol/barretenberg/commit/c6c469aa5da7c6973f656ddf8af4fb20c3e8e4f6))
+* Master ([#1981](https://github.com/AztecProtocol/barretenberg/issues/1981)) ([59a454e](https://github.com/AztecProtocol/barretenberg/commit/59a454ecf1611424893e1cb093774a23dde39310))
+
 ## [0.5.0](https://github.com/AztecProtocol/barretenberg/compare/barretenberg.js-v0.4.6...barretenberg.js-v0.5.0) (2023-09-01)
 
 

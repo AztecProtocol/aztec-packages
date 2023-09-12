@@ -75,8 +75,8 @@ const sidebars = {
         id: "dev_docs/getting_started/main",
       },
       items: [
-        "dev_docs/getting_started/noir",
         "dev_docs/getting_started/sandbox",
+        "dev_docs/getting_started/noir_contracts",
         "dev_docs/getting_started/cli",
       ],
     },
@@ -153,6 +153,43 @@ const sidebars = {
               },
               items: ["dev_docs/contracts/security/breaking_changes/v0"],
             },
+          ],
+        },
+      ],
+    },
+    {
+      label: "DApp Development",
+      type: "category",
+      link: {
+        type: "doc",
+        id: "dev_docs/dapps/main",
+      },
+      items: [
+        {
+          label: "API",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/api/main",
+          },
+          items: [
+            "dev_docs/dapps/api/aztec_rpc",
+            "dev_docs/dapps/api/contract_interaction",
+          ],
+        },
+        {
+          label: "Tutorials",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "dev_docs/dapps/tutorials/main",
+          },
+          items: [
+            "dev_docs/dapps/tutorials/project_setup",
+            "dev_docs/dapps/tutorials/rpc_server",
+            "dev_docs/dapps/tutorials/contract_deployment",
+            "dev_docs/dapps/tutorials/contract_interaction",
+            "dev_docs/dapps/tutorials/testing",
           ],
         },
       ],
