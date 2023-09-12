@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.6.7](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.6...aztec-packages-v0.6.7) (2023-09-11)
+
+
+### Features
+
+* Testing commands in CLI docs ([#2119](https://github.com/AztecProtocol/aztec-packages/issues/2119)) ([73328db](https://github.com/AztecProtocol/aztec-packages/commit/73328dbe4e509235329e32ff88f823d849a2b673))
+
+
+### Bug Fixes
+
+* Add homepage url to aztec.js package.json ([#2196](https://github.com/AztecProtocol/aztec-packages/issues/2196)) ([7361302](https://github.com/AztecProtocol/aztec-packages/commit/7361302b0b06bc218d287da56cabd7f567cd6aa3))
+* **ci:** Add install backend step in noir rebuild ([#2182](https://github.com/AztecProtocol/aztec-packages/issues/2182)) ([27b8bed](https://github.com/AztecProtocol/aztec-packages/commit/27b8bed05fea4f44f36894739613b07cdb8089ac))
+* Use Github Bot token for dispatch workflow ([#2171](https://github.com/AztecProtocol/aztec-packages/issues/2171)) ([e6af616](https://github.com/AztecProtocol/aztec-packages/commit/e6af6164095a706109a6f61ef7e1196de67716dc))
+
+## [0.6.6](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.5...aztec-packages-v0.6.6) (2023-09-11)
+
+
+### Features
+
+* **noir:** Introduce context union to simplify storage declarations ([#2143](https://github.com/AztecProtocol/aztec-packages/issues/2143)) ([2288e44](https://github.com/AztecProtocol/aztec-packages/commit/2288e44a5b817076c9d51db5f99905deeeffc418)), closes [#2012](https://github.com/AztecProtocol/aztec-packages/issues/2012)
+
+
+### Bug Fixes
+
+* **test:** Fix regex in canary test ([#2165](https://github.com/AztecProtocol/aztec-packages/issues/2165)) ([e5f50df](https://github.com/AztecProtocol/aztec-packages/commit/e5f50df55e68f6c94b602fc16b33abbcea15674e))
+
 ## [0.6.5](https://github.com/AztecProtocol/aztec-packages/compare/aztec-packages-v0.6.4...aztec-packages-v0.6.5) (2023-09-08)
 
 
