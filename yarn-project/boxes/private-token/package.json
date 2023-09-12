@@ -37,6 +37,7 @@
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
     "@aztec/cli": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/end-to-end": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
@@ -49,7 +50,6 @@
     "yup": "^1.2.0"
   },
   "devDependencies": {
-    "@aztec/end-to-end": "workspace:^",
     "@types/node": "^20.5.9",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
