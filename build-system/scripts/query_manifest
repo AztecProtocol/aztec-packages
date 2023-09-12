@@ -27,9 +27,7 @@ function rebuildPatterns {
 
 case "$CMD" in
   dockerfile)
-    BUILD_DIR=$($0 buildDir $REPO)
-    DOCKERFILE=$(jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST)
-    echo $BUILD_DIR/$DOCKERFILE
+    jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST
     ;;
   buildDir)
     jq -r ".\"$REPO\".buildDir" $MANIFEST
