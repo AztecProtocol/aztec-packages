@@ -24,8 +24,8 @@ export function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-between px-16">
       <div>
-        <Banner background="black" direction="forward" animated={ANIMATED_BANNER}/>
-        <Banner background="purple" direction="reverse" animated={ANIMATED_BANNER}/>
+        <Banner background="black" direction="forward" animated={ANIMATED_BANNER} />
+        <Banner background="purple" direction="reverse" animated={ANIMATED_BANNER} />
       </div>
 
       <div className="max-w-screen flex flex-col w-full items-center py-16 font-mono text-sm">
@@ -50,17 +50,17 @@ export function Home() {
           {!isLoadingWallet && !!selectedWallet && (
             <div className="py-8">
               {!!selectWalletError && `Failed to load accounts: ${selectWalletError}`}
-              {!selectWalletError && <Contract wallet={selectedWallet}/>}
+              {!selectWalletError && <Contract wallet={selectedWallet} />}
             </div>
           )}
-          {!isLoadingWallet && !selectedWallet && (`${selectWalletError} ${selectedWallet}`)}
+          {!isLoadingWallet && !selectedWallet && `${selectWalletError} ${selectedWallet}`}
         </div>
       </div>
 
       <div className="flex w-full items-center flex-col"></div>
       <div>
-        <Banner background="purple" direction="forward" animated={ANIMATED_BANNER}/>
-        <Banner background="black" direction="reverse" animated={ANIMATED_BANNER}/>
+        <Banner background="purple" direction="forward" animated={ANIMATED_BANNER} />
+        <Banner background="black" direction="reverse" animated={ANIMATED_BANNER} />
       </div>
     </main>
   );

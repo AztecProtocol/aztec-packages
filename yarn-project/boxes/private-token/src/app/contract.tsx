@@ -14,7 +14,7 @@ interface Props {
   wallet: CompleteAddress;
 }
 
-export function Contract({wallet}: Props) {
+export function Contract({ wallet }: Props) {
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');
@@ -46,7 +46,7 @@ export function Contract({wallet}: Props) {
       </div>
       {!contractAddress && (
         <ContractFunctionForm
-        wallet={wallet}
+          wallet={wallet}
           contractAbi={contractAbi}
           functionAbi={constructorAbi}
           title="Deploy Contract"
@@ -66,7 +66,7 @@ export function Contract({wallet}: Props) {
             .map((functionAbi: FunctionAbi) => (
               <ContractFunctionForm
                 key={functionAbi.name}
-        wallet={wallet}
+                wallet={wallet}
                 contractAddress={contractAddress}
                 contractAbi={contractAbi}
                 functionAbi={functionAbi}

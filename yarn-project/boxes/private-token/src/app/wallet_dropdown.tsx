@@ -30,35 +30,31 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
 
   return (
     <div className="">
-    <div className="flex justify-end">
-      <div className="p-2">
-        {'Active Wallet: '}
-        {!wallets && 'loading...'}
-      </div>
-      {!!wallets && (
-        <select
-          className="min-w-64 border rounded px-3 py-2"
-          onChange={e => {
-                const selectedWallet = wallets.find(wallet => wallet.address.toString() === e.target.value);
-            onSelectChange(selectedWallet!);
-          }}
-          value={selected?.address.toString()}
-        >
-          {wallets.map(({ address }: CompleteAddress) => {
-            return (
-              <option key={address.toShortString()} value={address.toString()}>
-                {address.toShortString()}
-              </option>
-            );
-          })}
-        </select>
-      )}
-</div>
-  {!!selected && (
-        <div className='p-1'>
-        {selected.address.toString()}
+      <div className="flex justify-end">
+        <div className="p-2">
+          {'Active Wallet: '}
+          {!wallets && 'loading...'}
         </div>
-  )}
+        {!!wallets && (
+          <select
+            className="min-w-64 border rounded px-3 py-2"
+            onChange={e => {
+              const selectedWallet = wallets.find(wallet => wallet.address.toString() === e.target.value);
+              onSelectChange(selectedWallet!);
+            }}
+            value={selected?.address.toString()}
+          >
+            {wallets.map(({ address }: CompleteAddress) => {
+              return (
+                <option key={address.toShortString()} value={address.toString()}>
+                  {address.toShortString()}
+                </option>
+              );
+            })}
+          </select>
+        )}
+      </div>
+      {!!selected && <div className="p-1">{selected.address.toString()}</div>}
     </div>
   );
 }

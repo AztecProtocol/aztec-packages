@@ -6,7 +6,6 @@ import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from 
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
 import { Button } from './index.js';
 
-
 type NoirFunctionYupSchema = {
   // hack: add `any` at the end to get the array schema to typecheck
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,12 +20,12 @@ function generateYupSchema(functionAbi: FunctionAbi) {
   const parameterSchema: NoirFunctionYupSchema = {};
   const initialValues: NoirFunctionFormValues = {};
   for (const param of functionAbi.parameters) {
-      if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)){
-        // these are hex strings instead, but yup doesn't support bigint so convert back on execution
-          parameterSchema[param.name] = Yup.string().required();
-          initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
-          continue;
-      }
+    if (CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name)) {
+      // these are hex strings instead, but yup doesn't support bigint so convert back on execution
+      parameterSchema[param.name] = Yup.string().required();
+      initialValues[param.name] = DEFAULT_PUBLIC_ADDRESS;
+      continue;
+    }
     // set some super crude default values
     switch (param.type.kind) {
       case 'field':
@@ -36,15 +35,18 @@ function generateYupSchema(functionAbi: FunctionAbi) {
       case 'array':
         // eslint-disable-next-line no-case-declarations
         const arrayLength = param.type.length;
-        parameterSchema[param.name] = Yup.array().of(Yup.number()).min(arrayLength).max(arrayLength)
-          .transform(function(value: number[], originalValue: string) {
+        parameterSchema[param.name] = Yup.array()
+          .of(Yup.number())
+          .min(arrayLength)
+          .max(arrayLength)
+          .transform(function (value: number[], originalValue: string) {
             if (typeof originalValue === 'string') {
               return originalValue.split(',').map(Number);
             }
             return value;
           });
         initialValues[param.name] = Array(arrayLength).fill(
-          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? DEFAULT_PUBLIC_ADDRESS : 200
+          CONTRACT_ADDRESS_PARAM_NAMES.includes(param.name) ? DEFAULT_PUBLIC_ADDRESS : 200,
         );
         break;
       case 'boolean':
