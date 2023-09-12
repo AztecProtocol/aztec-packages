@@ -13,6 +13,8 @@ contract NativeToken {
         utils::{increment, decrement},
         value_note::{VALUE_NOTE_LEN, ValueNoteMethods},
     };
+    use dep::std;
+    use dep::aztec::constants_gen::GENERATOR_INDEX__SIGNATURE_PAYLOAD;
 
     use dep::non_native::{
         hash::{get_mint_content_hash, get_withdraw_content_hash},
@@ -24,15 +26,19 @@ contract NativeToken {
 
     use crate::storage::Storage;
 
-    use dep::aztec::types::point::Point;
     use dep::aztec::{
         note::{
             note_header::NoteHeader,
             utils as note_utils,
         },
+        oracle::{
+            logs::emit_unencrypted_log,
+            compute_selector::compute_selector
+        },
+        public_call_stack_item::PublicCallStackItem,
+        types::point::Point,
+        auth::assert_valid_message_for,
     };
-
-    use dep::aztec::public_call_stack_item::PublicCallStackItem;
 
     #[aztec(private)]
     fn constructor(
@@ -45,7 +51,6 @@ contract NativeToken {
         increment(balance, initial_supply, owner);
     }
 
-    // uint256(keccak256("owner_mint_pub(field,field)")) >> 224 -> 1071038680
     #[aztec(public)]
     fn owner_mint_pub(
         to: Field,
@@ -55,11 +60,11 @@ contract NativeToken {
         let new_balance = storage.public_balances.at(to).read() + amount;
         storage.public_balances.at(to).write(new_balance);
         storage.total_supply.write(storage.total_supply.read() + amount);
-        
+        let _hash = emit_unencrypted_log("Coins minted");
+
         1
     }
 
-    // uint256(keccak256("owner_mint_priv(field,field)")) >> 224 -> 3157518188
     #[aztec(public)]
     fn owner_mint_priv(
         amount: Field,
@@ -79,7 +84,6 @@ contract NativeToken {
     // Mint Private Function
     // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
-    // uint256(keccak256("mint(field,field,field,field,field)")) >> 224 -> 2341211258
     #[aztec(private)]
     fn mint(
         amount: Field,
@@ -103,7 +107,6 @@ contract NativeToken {
     // Withdraws using user's private balance.
     // @dev Destroys 2 of user's notes and sends a message to the L1 portal contract. That message can then be consumed
     //      by calling the `withdraw` function on the L1 portal contract (assuming the args are set correctly).
-    // uint256(keccak256("withdraw(field,field,field,field)")) >> 224 -> 3193431016
     #[aztec(private)]
     fn withdraw(
         amount: Field,
@@ -123,7 +126,6 @@ contract NativeToken {
     // Mint Public Function
     // This mint function differs to the typical token mint function as it only allows minting
     // upon consuming valid messages from a token portal contract
-    // uint256(keccak256("mintPublic(field,field,field,field,field)")) >> 224 -> 1598652179
     #[aztec(public)]
     fn mintPublic(
         amount: Field,
@@ -151,7 +153,6 @@ contract NativeToken {
     }
 
     // Withdraws using user's public balance.
-    // uint256(keccak256("withdrawPublic(field,field,field)")) >> 224 -> 2996031894
     #[aztec(public)]
     fn withdrawPublic(
         amount: Field,
@@ -166,12 +167,7 @@ contract NativeToken {
 
         let current_sender_balance: Field = sender_balance.read();
 
-        if (current_sender_balance as u120) > (amount as u120) {
-            // User has sufficient balance so we decrement it by `amount`
-            let _void1 = sender_balance.write(current_sender_balance - amount);
-        }
-        // TODO: Revert if there is not enough balance
-
+        assert(current_sender_balance as u120 >= amount as u120);
         let content = get_withdraw_content_hash(amount, recipient, callerOnL1);
 
         // Emit the l2 to l1 message
@@ -187,7 +183,6 @@ contract NativeToken {
         storage.public_allowances.at(context.msg_sender()).at(spender).write(allowance);
     }
 
-    // uint256(keccak256("transfer_pub(field,field)")) >> 224 -> 1012824788
     #[aztec(public)]
     fn transfer_pub(
         to: Field,
@@ -199,7 +194,7 @@ contract NativeToken {
         let sender = context.msg_sender();
         let sender_balance = storage.public_balances.at(sender);
         let current_sender_balance: Field = sender_balance.read();
-        assert(current_sender_balance as u120 >= amount as u120);
+        assert(current_sender_balance as u120 >= amount as u120, "Balance too low");
 
         let to_balance = storage.public_balances.at(to);
         let current_to_balance: Field = to_balance.read();
@@ -207,9 +202,10 @@ contract NativeToken {
         // User has sufficient balance so we decrement it by `amount`
         sender_balance.write(current_sender_balance - amount);
         to_balance.write(current_to_balance + amount);
+
+        let _hash = emit_unencrypted_log("Coins transferred");
     }
 
-    // uint256(keccak256("transfer_from_pub(field,field,field)")) >> 224 -> 1602017294
     #[aztec(public)]
     fn transfer_from_pub(
         from: Field,
@@ -239,7 +235,6 @@ contract NativeToken {
 
     // Transfers `amount` of tokens from `sender`'s private balance to a `recipient`.
     // Note: Copied from PrivateToken
-    // uint256(keccak256("transfer(field,field,field)")) >> 224 -> 3704931096
     #[aztec(private)]
     fn transfer(
         from: Field,
@@ -257,7 +252,6 @@ contract NativeToken {
     }
 
     // Shield creates a way for a user to move tokens from the public context into the private context.
-    // uint256(keccak256("shield(field,field)")) >> 224 -> 845411215
     #[aztec(public)]
     fn shield(
         amount: Field,
@@ -286,7 +280,6 @@ contract NativeToken {
 
     // The shield function takes a public balance, and creates a commitment containing the amount of tokens
     // in the private context.
-    // uint256(keccak256("redeemShield(field,field,field)")) >> 224 -> 2260077221
     #[aztec(private)]
     fn redeemShield(
         amount: Field,
@@ -306,7 +299,6 @@ contract NativeToken {
         increment(balance, amount, owner);
     }
 
-    // uint256(keccak256("unshieldTokens(field,field,field)")) >> 224 -> 2423803924
     #[aztec(private)]
     fn unshieldTokens(
         from: Field,
@@ -315,17 +307,34 @@ contract NativeToken {
     ) {
         let storage = Storage::init(Option::some(&mut context), Option::none());
 
-        // Remove user balance
+        // If `from != sender` then we use the is_valid function to check that the message is approved.
+        if (from != context.msg_sender()) {
+            // Compute the message hash, should follow eip-712 more here.
+            // @todo @lherskind, probably need a separate generator index and address of the 
+            // @todo @lherskind Currently this can be used multiple times since it is not nullified. 
+            //                  We can do a simple nullifier to handle that in here. Spends only 32 bytes onchain.
+            // @todo @LHerskind Is to be solved as part of https://github.com/AztecProtocol/aztec-packages/issues/1743
+            let message_field: Field = std::hash::pedersen_with_separator([
+                    compute_selector("unshieldTokens(Field,Field,Field)"),
+                    from, 
+                    to, 
+                    amount
+                ], 
+                GENERATOR_INDEX__SIGNATURE_PAYLOAD
+            )[0];
+            
+            assert_valid_message_for(&mut context, from, message_field);
+        }
+
+        // Reduce user balance
         let sender_balance = storage.balances.at(from);
         decrement(sender_balance, amount, from);
 
         // enqueue a public function to perform the public state update.
         let thisAddress = context.this_address();
 
-        // addUnshieldedBalance selector (in decimal)
-        // recompute by: `cast keccak addUnshieldedBalance(field,field)` -> convert to decimal
-        let pubEntryPointSelector = 753269941;
-        let _callStackItem1 = context.call_public_function(thisAddress, pubEntryPointSelector, [amount, to]);
+        let addUnshieldedBalance = compute_selector("addUnshieldedBalance(Field,Field)");
+        let _callStackItem1 = context.call_public_function(thisAddress, addUnshieldedBalance, [amount, to]);
     }
 
     #[aztec(public)]
@@ -355,7 +364,7 @@ contract NativeToken {
     // Note 2: Having it in all the contracts gives us the ability to compute the note hash and nullifier differently for different kind of notes.
     unconstrained fn compute_note_hash_and_nullifier(contract_address: Field, nonce: Field, storage_slot: Field, preimage: [Field; VALUE_NOTE_LEN]) -> [Field; 4] {
         let note_header = NoteHeader { contract_address, nonce, storage_slot };
-        if (storage_slot == 2) {
+        if (storage_slot == 3) {
             note_utils::compute_note_hash_and_nullifier(TransparentNoteMethods, note_header, preimage)
         } else {
             note_utils::compute_note_hash_and_nullifier(ValueNoteMethods, note_header, preimage)

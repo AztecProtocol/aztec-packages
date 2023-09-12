@@ -10,12 +10,14 @@ use dep::aztec::oracle::{
 
 global VALUE_NOTE_LEN: Field = 3; // 3 plus a header.
 
+// docs:start:value-note-def
 struct ValueNote {
     value: Field,
     owner: Field,
     randomness: Field,
     header: NoteHeader,
 }
+// docs:end:value-note-def
 
 impl ValueNote {
     fn new(value: Field, owner: Field) -> Self {
@@ -59,7 +61,8 @@ impl ValueNote {
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             note_hash_for_nullify,
-            secret,
+            secret.high,
+            secret.low,
         ])[0]
     }
 
