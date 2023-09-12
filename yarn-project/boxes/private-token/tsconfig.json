@@ -4,7 +4,11 @@
     "outDir": "dest",
     "tsBuildInfoFile": ".tsbuildinfo",
     "target": "es2020",
-    "lib": ["esnext", "dom", "DOM.Iterable"],
+    "lib": [
+      "esnext",
+      "dom",
+      "DOM.Iterable"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -21,13 +25,28 @@
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "src/**/*.json"],
+  "include": [
+    "src",
+    "src/**/*.json"
+  ],
   "references": [
-    { "path": "../../aztec.js" },
-    { "path": "../../cli" },
-    { "path": "../../foundation" },
-    { "path": "../../noir-compiler" },
-    { "path": "../../noir-contracts" },
-    { "path": "../../types" }
+    {
+      "path": "../../aztec.js"
+    },
+    {
+      "path": "../../circuits.js"
+    },
+    {
+      "path": "../../cli"
+    },
+    {
+      "path": "../../foundation"
+    },
+    {
+      "path": "../../noir-compiler"
+    },
+    {
+      "path": "../../types"
+    }
   ]
 }
