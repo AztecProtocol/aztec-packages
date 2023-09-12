@@ -35,7 +35,6 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/noir-contracts": "workspace:^",
-    "@aztec/boxes/private-token": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/sequencer-client": "workspace:^",
     "@aztec/types": "workspace:^",
