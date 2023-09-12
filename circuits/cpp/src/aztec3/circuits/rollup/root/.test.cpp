@@ -64,6 +64,9 @@ class root_rollup_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 
+    // TODO(1998): uncomment once https://github.com/AztecProtocol/aztec-packages/issues/1998 is solved and
+    //             use new pattern such as call_func_and_wrapper from test_helper.hpp
+
     // static void run_cbind(RootRollupInputs& root_rollup_inputs,
     //                       RootRollupPublicInputs& expected_public_inputs,
     //                       bool compare_pubins = true)
@@ -149,6 +152,7 @@ TEST_F(root_rollup_tests, native_check_block_hashes_empty_blocks)
 
     EXPECT_FALSE(builder.failed());
 
+    // TODO(1998): see above
     // run_cbind(inputs, outputs, true);
 }
 
@@ -300,6 +304,7 @@ TEST_F(root_rollup_tests, native_root_missing_nullifier_logic)
 
     EXPECT_FALSE(builder.failed());
 
+    // TODO(1998): see above
     // run_cbind(rootRollupInputs, outputs, true);
 }
 

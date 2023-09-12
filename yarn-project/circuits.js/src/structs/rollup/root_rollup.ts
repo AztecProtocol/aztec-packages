@@ -31,11 +31,11 @@ export class RootRollupInputs {
     /**
      * Sibling path of the new L1 to L2 message tree root.
      */
-    public newL1ToL2MessageTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
+    public newL1ToL2MessagesTreeRootSiblingPath: Tuple<Fr, typeof L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH>,
     /**
      * Snapshot of the L1 to L2 message tree at the start of the rollup.
      */
-    public startL1ToL2MessageTreeSnapshot: AppendOnlyTreeSnapshot,
+    public startL1ToL2MessagesTreeSnapshot: AppendOnlyTreeSnapshot,
     /**
      * Snapshot of the historic block roots tree at the start of the rollup.
      */
@@ -58,8 +58,8 @@ export class RootRollupInputs {
     return [
       fields.previousRollupData,
       fields.newL1ToL2Messages,
-      fields.newL1ToL2MessageTreeRootSiblingPath,
-      fields.startL1ToL2MessageTreeSnapshot,
+      fields.newL1ToL2MessagesTreeRootSiblingPath,
+      fields.startL1ToL2MessagesTreeSnapshot,
       fields.startHistoricBlocksTreeSnapshot,
       fields.newHistoricBlocksTreeSiblingPath,
     ] as const;

@@ -110,7 +110,7 @@ export class SoloBlockBuilder implements BlockBuilder {
       endNullifierTreeSnapshot,
       endContractTreeSnapshot,
       endPublicDataTreeRoot,
-      endL1ToL2MessagesTreeSnapshot: endL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessagesTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
     } = circuitsOutput;
 
@@ -150,8 +150,8 @@ export class SoloBlockBuilder implements BlockBuilder {
       endContractTreeSnapshot,
       startPublicDataTreeRoot: startPublicDataTreeSnapshot.root,
       endPublicDataTreeRoot,
-      startL1ToL2MessageTreeSnapshot,
-      endL1ToL2MessageTreeSnapshot,
+      startL1ToL2MessagesTreeSnapshot: startL1ToL2MessageTreeSnapshot,
+      endL1ToL2MessagesTreeSnapshot,
       startHistoricBlocksTreeSnapshot,
       endHistoricBlocksTreeSnapshot,
       newCommitments,
@@ -438,20 +438,20 @@ export class SoloBlockBuilder implements BlockBuilder {
       return path.toFieldArray();
     };
 
-    const newL1ToL2MessageTreeRootSiblingPathArray = await this.getSubtreeSiblingPath(
+    const newL1ToL2MessagesTreeRootSiblingPathArray = await this.getSubtreeSiblingPath(
       MerkleTreeId.L1_TO_L2_MESSAGES_TREE,
       L1_TO_L2_MSG_SUBTREE_HEIGHT,
     );
 
-    const newL1ToL2MessageTreeRootSiblingPath = makeTuple(
+    const newL1ToL2MessagesTreeRootSiblingPath = makeTuple(
       L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
       i =>
-        i < newL1ToL2MessageTreeRootSiblingPathArray.length ? newL1ToL2MessageTreeRootSiblingPathArray[i] : Fr.ZERO,
+        i < newL1ToL2MessagesTreeRootSiblingPathArray.length ? newL1ToL2MessagesTreeRootSiblingPathArray[i] : Fr.ZERO,
       0,
     );
 
     // Get tree snapshots
-    const startL1ToL2MessageTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
+    const startL1ToL2MessagesTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGES_TREE);
 
     // Get historic block tree roots
     const startHistoricBlocksTreeSnapshot = await this.getTreeSnapshot(MerkleTreeId.BLOCKS_TREE);
@@ -466,8 +466,8 @@ export class SoloBlockBuilder implements BlockBuilder {
     return RootRollupInputs.from({
       previousRollupData,
       newL1ToL2Messages,
-      newL1ToL2MessageTreeRootSiblingPath,
-      startL1ToL2MessageTreeSnapshot,
+      newL1ToL2MessagesTreeRootSiblingPath,
+      startL1ToL2MessagesTreeSnapshot,
       startHistoricBlocksTreeSnapshot,
       newHistoricBlocksTreeSiblingPath,
     });

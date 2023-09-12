@@ -2579,8 +2579,8 @@ export function fromMergeRollupInputs(o: MergeRollupInputs): MsgpackMergeRollupI
 interface MsgpackRootRollupInputs {
   previous_rollup_data: Tuple<MsgpackPreviousRollupData, 2>;
   new_l1_to_l2_messages: Tuple<Buffer, 16>;
-  new_l1_to_l2_message_tree_root_sibling_path: Tuple<Buffer, 12>;
-  start_l1_to_l2_message_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
+  new_l1_to_l2_messages_tree_root_sibling_path: Tuple<Buffer, 12>;
+  start_l1_to_l2_messages_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   start_historic_blocks_tree_snapshot: MsgpackAppendOnlyTreeSnapshot;
   new_historic_blocks_tree_sibling_path: Tuple<Buffer, 16>;
 }
@@ -2592,11 +2592,11 @@ export function toRootRollupInputs(o: MsgpackRootRollupInputs): RootRollupInputs
   if (o.new_l1_to_l2_messages === undefined) {
     throw new Error('Expected new_l1_to_l2_messages in RootRollupInputs deserialization');
   }
-  if (o.new_l1_to_l2_message_tree_root_sibling_path === undefined) {
-    throw new Error('Expected new_l1_to_l2_message_tree_root_sibling_path in RootRollupInputs deserialization');
+  if (o.new_l1_to_l2_messages_tree_root_sibling_path === undefined) {
+    throw new Error('Expected new_l1_to_l2_messages_tree_root_sibling_path in RootRollupInputs deserialization');
   }
-  if (o.start_l1_to_l2_message_tree_snapshot === undefined) {
-    throw new Error('Expected start_l1_to_l2_message_tree_snapshot in RootRollupInputs deserialization');
+  if (o.start_l1_to_l2_messages_tree_snapshot === undefined) {
+    throw new Error('Expected start_l1_to_l2_messages_tree_snapshot in RootRollupInputs deserialization');
   }
   if (o.start_historic_blocks_tree_snapshot === undefined) {
     throw new Error('Expected start_historic_blocks_tree_snapshot in RootRollupInputs deserialization');
@@ -2607,8 +2607,8 @@ export function toRootRollupInputs(o: MsgpackRootRollupInputs): RootRollupInputs
   return new RootRollupInputs(
     mapTuple(o.previous_rollup_data, (v: MsgpackPreviousRollupData) => toPreviousRollupData(v)),
     mapTuple(o.new_l1_to_l2_messages, (v: Buffer) => Fr.fromBuffer(v)),
-    mapTuple(o.new_l1_to_l2_message_tree_root_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
-    toAppendOnlyTreeSnapshot(o.start_l1_to_l2_message_tree_snapshot),
+    mapTuple(o.new_l1_to_l2_messages_tree_root_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
+    toAppendOnlyTreeSnapshot(o.start_l1_to_l2_messages_tree_snapshot),
     toAppendOnlyTreeSnapshot(o.start_historic_blocks_tree_snapshot),
     mapTuple(o.new_historic_blocks_tree_sibling_path, (v: Buffer) => Fr.fromBuffer(v)),
   );
@@ -2621,11 +2621,11 @@ export function fromRootRollupInputs(o: RootRollupInputs): MsgpackRootRollupInpu
   if (o.newL1ToL2Messages === undefined) {
     throw new Error('Expected newL1ToL2Messages in RootRollupInputs serialization');
   }
-  if (o.newL1ToL2MessageTreeRootSiblingPath === undefined) {
-    throw new Error('Expected newL1ToL2MessageTreeRootSiblingPath in RootRollupInputs serialization');
+  if (o.newL1ToL2MessagesTreeRootSiblingPath === undefined) {
+    throw new Error('Expected newL1ToL2MessagesTreeRootSiblingPath in RootRollupInputs serialization');
   }
-  if (o.startL1ToL2MessageTreeSnapshot === undefined) {
-    throw new Error('Expected startL1ToL2MessageTreeSnapshot in RootRollupInputs serialization');
+  if (o.startL1ToL2MessagesTreeSnapshot === undefined) {
+    throw new Error('Expected startL1ToL2MessagesTreeSnapshot in RootRollupInputs serialization');
   }
   if (o.startHistoricBlocksTreeSnapshot === undefined) {
     throw new Error('Expected startHistoricBlocksTreeSnapshot in RootRollupInputs serialization');
@@ -2636,10 +2636,10 @@ export function fromRootRollupInputs(o: RootRollupInputs): MsgpackRootRollupInpu
   return {
     previous_rollup_data: mapTuple(o.previousRollupData, (v: PreviousRollupData) => fromPreviousRollupData(v)),
     new_l1_to_l2_messages: mapTuple(o.newL1ToL2Messages, (v: Fr) => toBuffer(v)),
-    new_l1_to_l2_message_tree_root_sibling_path: mapTuple(o.newL1ToL2MessageTreeRootSiblingPath, (v: Fr) =>
+    new_l1_to_l2_messages_tree_root_sibling_path: mapTuple(o.newL1ToL2MessagesTreeRootSiblingPath, (v: Fr) =>
       toBuffer(v),
     ),
-    start_l1_to_l2_message_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startL1ToL2MessageTreeSnapshot),
+    start_l1_to_l2_messages_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startL1ToL2MessagesTreeSnapshot),
     start_historic_blocks_tree_snapshot: fromAppendOnlyTreeSnapshot(o.startHistoricBlocksTreeSnapshot),
     new_historic_blocks_tree_sibling_path: mapTuple(o.newHistoricBlocksTreeSiblingPath, (v: Fr) => toBuffer(v)),
   };

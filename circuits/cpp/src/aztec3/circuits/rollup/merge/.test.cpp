@@ -28,6 +28,9 @@ class merge_rollup_tests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { barretenberg::srs::init_crs_factory("../barretenberg/cpp/srs_db/ignition"); }
 
+    // TODO(1998): uncomment once https://github.com/AztecProtocol/aztec-packages/issues/1998 is solved and
+    //             use new pattern such as call_func_and_wrapper from test_helper.hpp
+
     // static void run_cbind(MergeRollupInputs& merge_rollup_inputs,
     //                       BaseOrMergeRollupPublicInputs& expected_public_inputs,
     //                       bool compare_pubins = true)
@@ -299,6 +302,8 @@ TEST_F(merge_rollup_tests, native_merge_cbind)
 
     ASSERT_FALSE(builder.failed());
     BaseOrMergeRollupPublicInputs ignored_public_inputs;
+
+    // TODO(1998): see above
     // run_cbind(inputs, ignored_public_inputs, false);
 }
 }  // namespace aztec3::circuits::rollup::merge::native_merge_rollup_circuit
