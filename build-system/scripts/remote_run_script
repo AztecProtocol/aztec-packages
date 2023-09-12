@@ -17,7 +17,7 @@ SSH_CONFIG_PATH=${SSH_CONFIG_PATH:-$BUILD_SYSTEM_PATH/remote/ssh_config}
 scp -rF $SSH_CONFIG_PATH $BUILD_SYSTEM_PATH/remote_build/remote_run $IP:.
 
 # Run script on remote instance, passing environment variables.
-echo "Running $ROOT_RELATIVE_PATH on $IP..."
+echo "Running ./remote_run $@ on $IP..."
 ssh -A -F $SSH_CONFIG_PATH $IP "
   COMMIT_HASH=$COMMIT_HASH
   COMMIT_TAG=$COMMIT_TAG
