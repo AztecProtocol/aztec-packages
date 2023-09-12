@@ -32,10 +32,6 @@ export class PrivateTokenContract extends ContractBase {
     super(completeAddress, PrivateTokenContractAbi, wallet);
   }
 
-  get address() {
-    return this.completeAddress.address;
-  }
-
   /**
    * Creates a contract instance.
    * @param address - The deployed contract's address.
