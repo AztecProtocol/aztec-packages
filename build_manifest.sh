@@ -22,7 +22,7 @@ PROJECTS=(
   # bb.js:barretenberg/ts:Dockerfile:bb.js::1
   # run-acir-tests-bb:barretenberg/acir_tests:Dockerfile.bb
   # run-acir-tests-bb.js:barretenberg/acir_tests:Dockerfile.bb.js
-  circuits-x86_64-linux-clang:circuits/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:circuits-x86_64-linux-clang
+  # circuits-x86_64-linux-clang:circuits/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:circuits-x86_64-linux-clang
   # circuits-x86_64-linux-clang-assert:circuits/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:circuits-x86_64-linux-clang-assert
   circuits-wasm-linux-clang:circuits/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:circuits-wasm-linux-clang
   l1-contracts:l1-contracts
