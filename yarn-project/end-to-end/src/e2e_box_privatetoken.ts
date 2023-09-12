@@ -58,7 +58,7 @@ async function getBalance(contractAddress: AztecAddress, privateTokenContract: C
     contractAddress,
     privateTokenContract.abi,
     'getBalance',
-    [owner.address],
+    { owner: owner.address },
     rpcClient,
     owner,
   );
@@ -75,12 +75,13 @@ async function mint(
     contractAddress,
     privateTokenContract.abi,
     'mint',
-    [MINT_AMOUNT, to.address],
+    { amount: MINT_AMOUNT, owner: to.address },
     rpcClient,
     from,
   );
 }
 
+// eslint-disable-next-line jsdoc/require-jsdoc
 async function transfer(
   contractAddress: AztecAddress,
   privateTokenContract: Contract,
@@ -91,7 +92,7 @@ async function transfer(
     contractAddress,
     privateTokenContract.abi,
     'transfer',
-    [TRANSFER_AMOUNT, to.address],
+    { amount: TRANSFER_AMOUNT, recipient: to.address },
     rpcClient,
     from,
   );

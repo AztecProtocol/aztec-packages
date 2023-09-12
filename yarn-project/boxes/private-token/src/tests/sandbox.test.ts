@@ -30,6 +30,7 @@ const TRANSFER_AMOUNT = 44n;
 const MINT_AMOUNT = 11n;
 
 // assumes sandbox is running locally, which this script does not trigger
+// as well as anvil.  anvil can be started with yarn test:integration
 const setupSandbox = async () => {
   const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
   const aztecRpc = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
@@ -39,7 +40,6 @@ const setupSandbox = async () => {
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClient: AztecRPC) {
   logger('Deploying PrivateToken contract...');
-  // const constructorFunctionAbi = PrivateTokenContract.abi.functions.find(f => f.name === 'constructor');
   const constructorArgs = {
     // eslint-disable-next-line camelcase
     initial_supply: INITIAL_BALANCE,
