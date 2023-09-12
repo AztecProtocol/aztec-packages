@@ -11,29 +11,21 @@
 #
 # Arguments are:
 # 1. REPOSITORY: The project repository name in ECR. Used to determine if there are changes since last success.
-# 2. CPUS: Number of cpus on spot request.
-# 3... ARGS: Script and arguments to run.
-#
-# Env vars are:
-# TAG_POSTFIX: Optional. If provided we check for the image tag with this postfix to determine if re-run is required.
+# 2... ARGS: Script and arguments to run.
 set -eu
 
 REPOSITORY=$1
-CPUS=$2
-shift 2
+shift
 
 CONTENT_HASH=$(calculate_content_hash $REPOSITORY)
 BASE_TAG=cache-$CONTENT_HASH
-SUCCESS_TAG=$BASE_TAG
-
-if [ -n "${TAG_POSTFIX:-}" ]; then
-  SUCCESS_TAG=$BASE_TAG-$TAG_POSTFIX
-fi
+SUCCESS_TAG=$BASE_TAG-$JOB_NAME
 
 echo "Content hash: $CONTENT_HASH"
 
 if ! check_rebuild $SUCCESS_TAG $REPOSITORY; then
   init_submodules $REPOSITORY
-  spot_run_script $CONTENT_HASH $CPUS $@
+  cd $(query-manifest $REPOSITORY projectDir)
+  $@
   retry tag_remote_image $REPOSITORY $BASE_TAG $SUCCESS_TAG
 fi
