@@ -65,7 +65,7 @@ echo "Content hash: $CONTENT_HASH"
 
 cd $BUILD_DIR
 
-ensure_apt_package docker-buildx-plugin
+ensure_docker_buildx
 docker buildx create --name multi-platform-builder --bootstrap --use
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
