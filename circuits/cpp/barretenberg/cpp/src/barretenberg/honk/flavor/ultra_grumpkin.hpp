@@ -304,8 +304,8 @@ class UltraGrumpkin {
      * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
      */
     template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
+    using ProverUnivariates = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
+                                          barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the

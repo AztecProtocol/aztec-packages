@@ -1,42 +1,53 @@
 #pragma once
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/pow.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
 namespace barretenberg {
+
+template <typename Flavor, size_t NUM> struct Instances {
+    using FF = typename Flavor::FF;
+    using ProverPolynomials = typename Flavor::ProverPolynomials;
+    std::array<typename Flavor::ProverPolynomials, NUM> data;
+    std::array<FF, NUM> get_row(size_t idx)
+    {
+        std::array<FF, NUM> result;
+        for (auto& instance : data) {
+        }
+    }
+};
 
 template <typename Flavor, typename Instances> class ProtogalaxyProver {
   public:
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
-    using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using RelationProtogalaxyUnivariates = typename Flavor::template RelationProtogalaxyUnivariates<Instances::NUM>;
     using BaseUnivariate = Univariate<FF, Instances::NUM>;
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
-    // TODO(#224)(Cody): this should go away
-    BarycentricData<FF, BaseUnivariate::LENGTH, ExtendedUnivariate::LENGTH> barycentric;
 
-    Relations relations;
-    RelationUnivariates univariate_accumulators;
+    RelationProtogalaxyUnivariates univariate_accumulators;
 
-    void extend_univariates(auto& extended_univariates, const Instances& instances, const size_t row_idx)
+    template <typename Extended>
+    void extend_univariates(ExtendedUn& extended_univariates, const Instances& instances, const size_t row_idx)
     {
         size_t univariate_idx = 0; // TODO(#391) zip
         for (const auto& instance : instances) {
             BaseUnivariate univariate{ instances.get_row(row_idx) };
-            extended_univariates[univariate_idx] = barycentric.extend(univariate);
+            extended_univariates[univariate_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
             ++univariate_idx;
         }
     }
 
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(RelationProtogalaxyUnivariates& univariate_accumulators,
                                          const auto& extended_univariates,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
     {
-        std::get<relation_idx>(relations).add_edge_contribution(
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+        Relation::accumulate(
             std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -73,7 +84,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         size_t iterations_per_thread = Instances::CIRCUIT_SIZE / num_threads; // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<RelationProtogalaxyUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             zero_univariates(accum);
         }
@@ -87,21 +98,19 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
             size_t start = thread_idx * iterations_per_thread;
             size_t end = (thread_idx + 1) * iterations_per_thread;
 
-            // For each edge_idx = 2i, we need to multiply the whole contribution by zeta^{2^{2i}}
-            // This means that each univariate for each relation needs an extra multiplication.
-            for (size_t edge_idx = start; edge_idx < end; edge_idx += 2) {
-                extend_univariates(extended_univariates[thread_idx], instances, edge_idx);
+            for (size_t idx = start; idx < end; idx++) {
+                extend_univariates(extended_univariates[thread_idx], instances, idx);
 
                 // Update the pow polynomial's contribution c_l ⋅ ζ_{l+1}ⁱ for the next edge.
-                FF pow_challenge = pow_challenges[edge_idx >> 1];
+                FF pow_challenge = pow_challenges[idx >> 1];
 
                 // Compute the i-th edge's univariate contribution,
                 // scale it by the pow polynomial's constant and zeta power "c_l ⋅ ζ_{l+1}ⁱ"
                 // and add it to the accumulators for Sˡ(Xₗ)
-                accumulate_relation_univariates<>(thread_univariate_accumulators[thread_idx],
-                                                  extended_univariates[thread_idx],
-                                                  relation_parameters,
-                                                  pow_challenge);
+                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
+                                                extended_univariates[thread_idx],
+                                                relation_parameters,
+                                                pow_challenge);
             }
         });
 

@@ -59,8 +59,7 @@ template <typename Flavor> class SumcheckProverRound {
 
   public:
     using FF = typename Flavor::FF;
-    template <size_t univariate_length>
-    using ExtendedEdges = typename Flavor::template ExtendedEdges<univariate_length>;
+    using ExtendedEdges = typename Flavor::template ProverUnivariates<Flavor::MAX_RELATION_LENGTH>;
 
     size_t round_size; // a power of 2
 
@@ -86,7 +85,7 @@ template <typename Flavor> class SumcheckProverRound {
      *
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    void extend_edges(ExtendedEdges<MAX_RELATION_LENGTH>& extended_edges,
+    void extend_edges(ExtendedEdges& extended_edges,
                       /* const */ ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
                       size_t edge_idx)
     {
@@ -136,7 +135,7 @@ template <typename Flavor> class SumcheckProverRound {
         }
 
         // Constuct extended edge containers; one per thread
-        std::vector<ExtendedEdges<MAX_RELATION_LENGTH>> extended_edges;
+        std::vector<ExtendedEdges> extended_edges;
         extended_edges.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation accross each edge of the hyper-cube
