@@ -8,8 +8,8 @@
 
 namespace proof_system::plonk::stdlib::recursion::honk {
 
-template <typename Flavor, bool goblin_flag>
-UltraRecursiveVerifier_<Flavor, goblin_flag>::UltraRecursiveVerifier_(Builder* builder,
+template <typename Flavor>
+UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
                                                                       std::shared_ptr<VerificationKey> verifier_key)
     : key(verifier_key)
     , builder(builder)
@@ -19,15 +19,15 @@ UltraRecursiveVerifier_<Flavor, goblin_flag>::UltraRecursiveVerifier_(Builder* b
  * @brief This function constructs a recursive verifier circuit for an Ultra Honk proof of a given flavor.
  *
  */
-template <typename Flavor, bool goblin_flag>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, goblin_flag>::verify_proof(
+template <typename Flavor>
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
     const plonk::proof& proof)
 {
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
-    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve, goblin_flag>;
-    using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve, goblin_flag>;
-    using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve, goblin_flag>; // note: This can only be KZG
+    using Gemini = ::proof_system::honk::pcs::gemini::GeminiVerifier_<Curve>;
+    using Shplonk = ::proof_system::honk::pcs::shplonk::ShplonkVerifier_<Curve>;
+    using KZG = ::proof_system::honk::pcs::kzg::KZG<Curve>; // note: This can only be KZG
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationParams = ::proof_system::RelationParameters<FF>;
@@ -156,7 +156,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, gob
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
     auto batched_commitment_unshifted =
-        GroupElement::template batch_mul<goblin_flag>(commitments.get_unshifted(), scalars_unshifted);
+        GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
 
     info("Batch mul (unshifted): num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -166,7 +166,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, gob
     prev_num_gates = builder->get_num_gates();
 
     auto batched_commitment_to_be_shifted =
-        GroupElement::template batch_mul<goblin_flag>(commitments.get_to_be_shifted(), scalars_to_be_shifted);
+        GroupElement::batch_mul(commitments.get_to_be_shifted(), scalars_to_be_shifted);
 
     info("Batch mul (to-be-shited): num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -209,8 +209,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor, gob
     return pairing_points;
 }
 
-using UltraRecursiveFlavor = proof_system::honk::flavor::UltraRecursive;
-template class UltraRecursiveVerifier_<UltraRecursiveFlavor, /*goblin_flag*/ false>;
-template class UltraRecursiveVerifier_<UltraRecursiveFlavor, /*goblin_flag*/ true>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

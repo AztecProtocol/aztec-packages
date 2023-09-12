@@ -94,7 +94,7 @@ TEST_F(GoblinUltraHonkComposerTests, SingleCircuit)
     // Add mock data to op queue to simulate interaction with a previous circuit
     populate_ecc_op_queue_with_mock_data(op_queue);
 
-    auto builder = UltraCircuitBuilder(op_queue);
+    auto builder = GoblinUltraCircuitBuilder(op_queue);
 
     generate_test_circuit(builder);
 
@@ -124,7 +124,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
 
     // Construct first circuit and its proof
     {
-        auto builder = UltraCircuitBuilder(op_queue);
+        auto builder = GoblinUltraCircuitBuilder(op_queue);
 
         generate_test_circuit(builder);
         expected_op_queue_size += builder.num_ecc_op_gates;
@@ -139,7 +139,7 @@ TEST_F(GoblinUltraHonkComposerTests, MultipleCircuits)
 
     // Construct second circuit
     {
-        auto builder = UltraCircuitBuilder(op_queue);
+        auto builder = GoblinUltraCircuitBuilder(op_queue);
 
         generate_test_circuit(builder);
         expected_op_queue_size += builder.num_ecc_op_gates;

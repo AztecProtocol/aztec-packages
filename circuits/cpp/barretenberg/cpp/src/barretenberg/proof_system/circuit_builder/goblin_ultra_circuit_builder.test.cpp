@@ -1,5 +1,4 @@
-#include "barretenberg/crypto/generators/generator_data.hpp"
-#include "ultra_circuit_builder.hpp"
+#include "goblin_ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
 
 using namespace barretenberg;
@@ -20,7 +19,7 @@ TEST(UltraCircuitBuilder, GoblinSimple)
 {
     const size_t CHUNK_SIZE = plonk::NUM_LIMB_BITS_IN_FIELD_SIMULATION * 2;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
 
     // Compute a simple point accumulation natively
     auto P1 = g1::affine_element::random_element();
@@ -85,7 +84,7 @@ TEST(UltraCircuitBuilder, GoblinSimple)
 TEST(UltraCircuitBuilder, GoblinEccOpQueueUltraOps)
 {
     // Construct a simple circuit with op gates
-    auto builder = UltraCircuitBuilder();
+    auto builder = GoblinUltraCircuitBuilder();
 
     // Compute a simple point accumulation natively
     auto P1 = g1::affine_element::random_element();

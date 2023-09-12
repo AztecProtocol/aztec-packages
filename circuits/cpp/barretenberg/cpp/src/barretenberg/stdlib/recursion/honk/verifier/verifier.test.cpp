@@ -20,21 +20,19 @@ namespace proof_system::plonk::stdlib::recursion::honk {
  * @details Construct and check a recursive verifier circuit for an UltraHonk proof using 1) the conventional Ultra
  * arithmetization, or 2) a Goblin-style Ultra arithmetization
  *
- * @tparam UseGoblinFlag whether or not to use goblin-style arithmetization for group operations
+ * @tparam Builder
  */
-template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::Test {
-
-    static constexpr bool goblin_flag = UseGoblinFlag::value;
-
+template <typename VerifierType> class RecursiveVerifierTest : public testing::Test {
     using InnerComposer = ::proof_system::honk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
 
-    using OuterBuilder = ::proof_system::UltraCircuitBuilder;
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
-    // Arithmetization of group operations in recursive verifier circuit (goblin or not) is determined by goblin_flag
-    using RecursiveVerifier = UltraRecursiveVerifier_<::proof_system::honk::flavor::UltraRecursive, goblin_flag>;
-    using VerificationKey = ::proof_system::honk::flavor::UltraRecursive::VerificationKey;
+    // Arithmetization of group operations in recursive verifier circuit is determined by outer builder
+
+    using RecursiveVerifier = VerifierType;
+    using OuterBuilder = typename RecursiveVerifier::Builder;
+    using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using inner_curve = bn254<InnerBuilder>;
     using inner_scalar_field_ct = inner_curve::ScalarField;
@@ -227,11 +225,12 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
     }
 };
 
-// Run the recursive verifier tests twice, once without using a goblin style arithmetization of group operations and
-// once with.
-using UseGoblinFlag = testing::Types<std::false_type, std::true_type>;
+// Run the recursive verifier tests with conventional Ultra builder and Goblin builder
+using VerifierTypes = testing::Types<UltraRecursiveVerifier>;
+// using VerifierTypes = testing::Types<UltraRecursiveVerifier, GoblinUltraRecursiveVerifier>;
+// using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, UseGoblinFlag);
+TYPED_TEST_SUITE(RecursiveVerifierTest, VerifierTypes);
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
 {

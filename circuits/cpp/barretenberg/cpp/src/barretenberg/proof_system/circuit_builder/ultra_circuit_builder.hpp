@@ -37,11 +37,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     // number of gates created per non-native field operation in process_non_native_field_multiplications
     static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
 
-    size_t num_ecc_op_gates = 0; // number of ecc op "gates" (rows); these are placed at the start of the circuit
-
-    // Stores record of ecc operations and performs corresponding native operations internally
-    std::shared_ptr<ECCOpQueue> op_queue;
-
     // Indices for constant variables corresponding to ECCOpQueue op codes
     uint32_t null_op_idx;
     uint32_t add_accum_op_idx;
@@ -545,14 +540,6 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     WireVector& w_o = std::get<2>(this->wires);
     WireVector& w_4 = std::get<3>(this->wires);
 
-    // Wires storing ecc op queue data; values are indices into the variables array
-    std::array<WireVector, arithmetization::Ultra<FF>::NUM_WIRES> ecc_op_wires;
-
-    WireVector& ecc_op_wire_1 = std::get<0>(ecc_op_wires);
-    WireVector& ecc_op_wire_2 = std::get<1>(ecc_op_wires);
-    WireVector& ecc_op_wire_3 = std::get<2>(ecc_op_wires);
-    WireVector& ecc_op_wire_4 = std::get<3>(ecc_op_wires);
-
     SelectorVector& q_m = this->selectors.q_m;
     SelectorVector& q_c = this->selectors.q_c;
     SelectorVector& q_1 = this->selectors.q_1;
@@ -601,9 +588,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
     bool circuit_finalised = false;
 
     void process_non_native_field_multiplications();
-    UltraCircuitBuilder_(const size_t size_hint = 0, std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
+    UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<arithmetization::Ultra<FF>>(ultra_selector_names(), size_hint)
-        , op_queue(op_queue_in)
     {
         w_l.reserve(size_hint);
         w_r.reserve(size_hint);
@@ -611,14 +597,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         w_4.reserve(size_hint);
         this->zero_idx = put_constant_variable(FF::zero());
         this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
-        // Set indices to constants corresponding to Goblin ECC op codes
-        null_op_idx = this->zero_idx;
-        add_accum_op_idx = put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-        mul_accum_op_idx = put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-        equality_op_idx = put_constant_variable(FF(EccOpCode::EQUALITY));
     };
-    UltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : UltraCircuitBuilder_(0, op_queue_in) {}
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = delete;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other)
         : CircuitBuilderBase<arithmetization::Ultra<FF>>(std::move(other))
@@ -717,21 +696,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
     uint32_t put_constant_variable(const FF& variable);
 
-    /**
-     * ** Goblin Methods ** (methods for add ecc op queue gates)
-     * TODO(#705): Consider isolating/modularizing the goblin builder functionality
-     **/
-    ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
-    ecc_op_tuple queue_ecc_mul_accum(const g1::affine_element& point, const FF& scalar);
-    ecc_op_tuple queue_ecc_eq();
-
-  private:
-    void populate_ecc_op_wires(const ecc_op_tuple& in);
-    ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
-
   public:
     size_t get_num_constant_gates() const override { return 0; }
-
     /**
      * @brief Get the final number of gates in a circuit, which consists of the sum of:
      * 1) Current number number of actual gates
@@ -847,7 +813,7 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t ramcount = 0;
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
-        return count + romcount + ramcount + rangecount + nnfcount + num_ecc_op_gates;
+        return count + romcount + ramcount + rangecount + nnfcount;
     }
 
     /**
@@ -886,10 +852,9 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
         size_t nnfcount = 0;
         get_num_gates_split_into_components(count, rangecount, romcount, ramcount, nnfcount);
 
-        size_t total = count + romcount + ramcount + rangecount + num_ecc_op_gates;
+        size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_ecc_op_gates << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << ", range " << rangecount << ", non native field gates " << nnfcount << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
     // /**
     //  * @brief Get the final number of gates in a circuit, which consists of the sum of:

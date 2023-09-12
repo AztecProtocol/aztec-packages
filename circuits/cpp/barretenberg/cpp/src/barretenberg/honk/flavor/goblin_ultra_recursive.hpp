@@ -1,31 +1,53 @@
 #pragma once
+#include "barretenberg/ecc/curves/bn254/g1.hpp"
+#include "barretenberg/honk/pcs/commitment_key.hpp"
 #include "barretenberg/honk/pcs/kzg/kzg.hpp"
-#include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
+
+#include "barretenberg/honk/transcript/transcript.hpp"
+#include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/proof_system/circuit_builder/goblin_ultra_circuit_builder.hpp"
 #include "barretenberg/proof_system/flavor/flavor.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
-#include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"
 #include "barretenberg/proof_system/relations/elliptic_relation.hpp"
 #include "barretenberg/proof_system/relations/gen_perm_sort_relation.hpp"
 #include "barretenberg/proof_system/relations/lookup_relation.hpp"
 #include "barretenberg/proof_system/relations/permutation_relation.hpp"
 #include "barretenberg/proof_system/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/srs/factories/crs_factory.hpp"
+#include <array>
+#include <concepts>
+#include <span>
+#include <string>
+#include <type_traits>
+#include <vector>
+
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace proof_system::honk::flavor {
 
-class GoblinUltra {
+/**
+ * @brief The recursive counterpart to the "native" Goblin Ultra flavor.
+ * @details This flavor can be used to instantiate a recursive Ultra Honk verifier for a proof created using the
+ * conventional Ultra flavor. It is similar in structure to its native counterpart with two main differences: 1) the
+ * curve types are stdlib types (e.g. field_t instead of field) and 2) it does not specify any Prover related types
+ * (e.g. Polynomial, ExtendedEdges, etc.) since we do not emulate prover computation in circuits, i.e. it only makes
+ * sense to instantiate a Verifier with this flavor.
+ *
+ */
+class GoblinUltraRecursive {
   public:
     using CircuitBuilder = GoblinUltraCircuitBuilder;
-    using Curve = curve::BN254;
-    using PCS = pcs::kzg::KZG<Curve>;
+    using Curve = plonk::stdlib::bn254<CircuitBuilder>;
     using GroupElement = Curve::Element;
-    using Commitment = Curve::AffineElement;
-    using CommitmentHandle = Curve::AffineElement;
+    using Commitment = Curve::Element;
+    using CommitmentHandle = Curve::Element;
     using FF = Curve::ScalarField;
-    using Polynomial = barretenberg::Polynomial<FF>;
-    using PolynomialHandle = std::span<FF>;
-    using CommitmentKey = pcs::CommitmentKey<Curve>;
+
+    // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = pcs::VerifierCommitmentKey<Curve>;
 
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
@@ -38,9 +60,6 @@ class GoblinUltra {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 26; // 25 (UH) + 1 op wire "selector"
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 15; // 11 (UH) + 4 op wires
-
-    using GrandProductRelations =
-        std::tuple<proof_system::UltraPermutationRelation<FF>, proof_system::LookupRelation<FF>>;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = std::tuple<proof_system::UltraArithmeticRelation<FF>,
@@ -61,9 +80,6 @@ class GoblinUltra {
     // define the container for storing the univariate contribution from each relation in Sumcheck
     using RelationUnivariates = decltype(create_relation_univariates_container<FF, Relations>());
     using RelationValues = decltype(create_relation_values_container<FF, Relations>());
-
-    // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
-    static constexpr bool has_zero_row = true;
 
   private:
     template <typename DataType, typename HandleType>
@@ -271,30 +287,6 @@ class GoblinUltra {
 
   public:
     /**
-     * @brief The proving key is responsible for storing the polynomials used by the prover.
-     * @note TODO(Cody): Maybe multiple inheritance is the right thing here. In that case, nothing should eve inherit
-     * from ProvingKey.
-     */
-    class ProvingKey : public ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                          WitnessEntities<Polynomial, PolynomialHandle>> {
-      public:
-        // Expose constructors on the base class
-        using Base = ProvingKey_<PrecomputedEntities<Polynomial, PolynomialHandle>,
-                                 WitnessEntities<Polynomial, PolynomialHandle>>;
-        using Base::Base;
-
-        std::vector<uint32_t> memory_read_records;
-        std::vector<uint32_t> memory_write_records;
-
-        size_t num_ecc_op_gates; // needed to determine public input offset
-
-        std::shared_ptr<ECCOpQueue> op_queue;
-
-        // The plookup wires that store plookup read data.
-        std::array<PolynomialHandle, 3> get_table_column_wires() { return { w_l, w_r, w_o }; };
-    };
-
-    /**
      * @brief The verification key is responsible for storing the the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
      *
@@ -302,36 +294,46 @@ class GoblinUltra {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    using VerificationKey = VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>;
-
-    /**
-     * @brief A container for polynomials handles; only stores spans.
-     */
-    using ProverPolynomials = AllEntities<PolynomialHandle, PolynomialHandle>;
-
-    /**
-     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
-     */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial, PolynomialHandle> {
-
+    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>> {
       public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
+        /**
+         * @brief Construct a new Verification Key with stdlib types from a provided native verification key
+         *
+         * @param builder
+         * @param native_key Native verification key from which to extract the precomputed commitments
+         */
+        VerificationKey(CircuitBuilder* builder, auto native_key)
+            : VerificationKey_<PrecomputedEntities<Commitment, CommitmentHandle>>(native_key->circuit_size,
+                                                                                  native_key->num_public_inputs)
         {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->_data) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
+            q_m = Commitment::from_witness(builder, native_key->q_m);
+            q_l = Commitment::from_witness(builder, native_key->q_l);
+            q_r = Commitment::from_witness(builder, native_key->q_r);
+            q_o = Commitment::from_witness(builder, native_key->q_o);
+            q_4 = Commitment::from_witness(builder, native_key->q_4);
+            q_c = Commitment::from_witness(builder, native_key->q_c);
+            q_arith = Commitment::from_witness(builder, native_key->q_arith);
+            q_sort = Commitment::from_witness(builder, native_key->q_sort);
+            q_elliptic = Commitment::from_witness(builder, native_key->q_elliptic);
+            q_aux = Commitment::from_witness(builder, native_key->q_aux);
+            q_lookup = Commitment::from_witness(builder, native_key->q_lookup);
+            sigma_1 = Commitment::from_witness(builder, native_key->sigma_1);
+            sigma_2 = Commitment::from_witness(builder, native_key->sigma_2);
+            sigma_3 = Commitment::from_witness(builder, native_key->sigma_3);
+            sigma_4 = Commitment::from_witness(builder, native_key->sigma_4);
+            id_1 = Commitment::from_witness(builder, native_key->id_1);
+            id_2 = Commitment::from_witness(builder, native_key->id_2);
+            id_3 = Commitment::from_witness(builder, native_key->id_3);
+            id_4 = Commitment::from_witness(builder, native_key->id_4);
+            table_1 = Commitment::from_witness(builder, native_key->table_1);
+            table_2 = Commitment::from_witness(builder, native_key->table_2);
+            table_3 = Commitment::from_witness(builder, native_key->table_3);
+            table_4 = Commitment::from_witness(builder, native_key->table_4);
+            lagrange_first = Commitment::from_witness(builder, native_key->lagrange_first);
+            lagrange_last = Commitment::from_witness(builder, native_key->lagrange_last);
+            lagrange_ecc_op = Commitment::from_witness(builder, native_key->lagrange_ecc_op);
+        };
     };
-
-    /**
-     * @brief A container for univariates produced during the hot loop in sumcheck.
-     * @todo TODO(#390): Simplify this by moving MAX_RELATION_LENGTH?
-     */
-    template <size_t MAX_RELATION_LENGTH>
-    using ExtendedEdges = AllEntities<barretenberg::Univariate<FF, MAX_RELATION_LENGTH>,
-                                      barretenberg::Univariate<FF, MAX_RELATION_LENGTH>>;
 
     /**
      * @brief A container for the polynomials evaluations produced during sumcheck, which are purported to be the
@@ -392,15 +394,13 @@ class GoblinUltra {
             table_4 = "__TABLE_4";
             lagrange_first = "__LAGRANGE_FIRST";
             lagrange_last = "__LAGRANGE_LAST";
-            lagrange_ecc_op = "__Q_ECC_OP_QUEUE";
         };
     };
 
     class VerifierCommitments : public AllEntities<Commitment, CommitmentHandle> {
       public:
-        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key, VerifierTranscript<FF> transcript)
+        VerifierCommitments(std::shared_ptr<VerificationKey> verification_key)
         {
-            static_cast<void>(transcript);
             q_m = verification_key->q_m;
             q_l = verification_key->q_l;
             q_r = verification_key->q_r;
