@@ -58,6 +58,22 @@ inline typename std::tuple_element<0, typename AccumulatorTypes::AccumulatorView
 template <typename RelationImpl> class Relation : public RelationImpl {
   private:
     using FF = typename RelationImpl::FF;
+    template <size_t num_instances, size_t... subrelation_lengths>
+    struct UnivariateProtogalaxyAccumulatorsAndViewsTemplate_ {
+        using Accumulators =
+            std::tuple<barretenberg::Univariate<FF, (subrelation_lengths - 1) * (num_instances - 1) + 1>...>;
+        using AccumulatorViews =
+            std::tuple<barretenberg::UnivariateView<FF, (subrelation_lengths - 1) * (num_instances - 1) + 1>...>;
+    };
+
+    template <size_t... subrelation_lengths>
+    using Univariate2ProtogalaxyAccumulatorsAndViewsTemplate =
+        UnivariateProtogalaxyAccumulatorsAndViewsTemplate_<2, subrelation_lengths...>;
+
+    template <size_t... subrelation_lengths>
+    using Univariate4ProtogalaxyAccumulatorsAndViewsTemplate =
+        UnivariateProtogalaxyAccumulatorsAndViewsTemplate_<4, subrelation_lengths...>;
+
     template <size_t... subrelation_lengths> struct UnivariateAccumulatorsAndViewsTemplate {
         using Accumulators = std::tuple<barretenberg::Univariate<FF, subrelation_lengths>...>;
         using AccumulatorViews = std::tuple<barretenberg::UnivariateView<FF, subrelation_lengths>...>;
@@ -70,15 +86,29 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     // Each `RelationImpl` defines a template `GetAccumulatorTypes` that supplies the `subrelation_lengths` parameters
     // of the different `AccumulatorsAndViewsTemplate`s.
+    using Univariate2ProtogalaxyAccumulatorsAndViews =
+        typename RelationImpl::template GetAccumulatorTypes<Univariate2ProtogalaxyAccumulatorsAndViewsTemplate>;
+    using Univariate4ProtogalaxyAccumulatorsAndViews =
+        typename RelationImpl::template GetAccumulatorTypes<Univariate4ProtogalaxyAccumulatorsAndViewsTemplate>;
     using UnivariateAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<UnivariateAccumulatorsAndViewsTemplate>;
     // In the case of the value accumulator types, only the number of subrelations (not their lengths) has an effect.
     using ValueAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
+    using Relation2ProtogalaxyUnivariates = typename Univariate2ProtogalaxyAccumulatorsAndViews::Accumulators;
     using RelationSumcheckUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
     using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
+
+    static inline void add_2protogalaxy_univariate_contribution(Relation2ProtogalaxyUnivariates& accumulator,
+                                                                const auto& input,
+                                                                const RelationParameters<FF>& relation_parameters,
+                                                                const FF& scaling_factor)
+    {
+        Relation::template accumulate<Univariate2ProtogalaxyAccumulatorsAndViews>(
+            accumulator, input, relation_parameters, scaling_factor);
+    }
 
     static inline void add_edge_contribution(RelationSumcheckUnivariates& accumulator,
                                              const auto& input,

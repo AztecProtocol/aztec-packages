@@ -98,7 +98,7 @@ template <typename Flavor> class RelationUtils {
     /**
      * @brief Componentwise addition of nested tuples (tuples of tuples)
      * @details Used for summing tuples of tuples of Univariates. Needed for Sumcheck multithreading. Each thread
-     * accumulates realtion contributions across a portion of the hypecube and then the results are accumulated into a
+     * accumulates relation contributions across a portion of the hypecube and then the results are accumulated into a
      * single nested tuple.
      *
      * @tparam Tuple
@@ -128,14 +128,12 @@ template <typename Flavor> class RelationUtils {
                                              ExtendedUnivariate& result)
     {
         // Random poly R(X) = (1-X) + X.zeta_pow
-        auto random_poly_edge = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow });
-        ExtendedUnivariate extended_random_polynomial_edge =
-            random_poly_edge.template extend_to<ExtendedUnivariate::LENGTH>();
+        auto random_poly_edge = Univariate<FF, 2>({ 1, pow_univariate.zeta_pow }); // WORKTODO
+        auto extended_random_polynomial_edge = random_poly_edge.template extend_to<ExtendedUnivariate::LENGTH>();
 
         auto extend_and_sum = [&]<size_t relation_idx, size_t subrelation_idx, typename Element>(Element& element) {
             using Relation = typename std::tuple_element<relation_idx, Relations>::type;
 
-            // TODO(#224)(Cody): this barycentric stuff should be more built-in?
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
             const bool is_subrelation_linearly_independent =
@@ -159,7 +157,7 @@ template <typename Flavor> class RelationUtils {
      */
     template <typename ExtendedUnivariate> // WORKTODO: no template argument?
     static ExtendedUnivariate batch_over_relations(
-        /* WORKTODO const */ RelationSumcheckUnivariates& univariate_accumulators,
+        /* WORKTODO const */ auto& univariate_accumulators,
         const FF& challenge,
         const PowUnivariate<FF>& pow_univariate)
     {

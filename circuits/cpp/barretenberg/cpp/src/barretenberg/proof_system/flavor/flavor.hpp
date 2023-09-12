@@ -221,15 +221,33 @@ template <typename Tuple, std::size_t Index = 0> static constexpr size_t get_max
  * @details This is the container for storing the univariate contributions from each identity in each relation. Each
  * Relation contributes a tuple with num-identities many Univariates and there are num-relations many tuples in the
  * outer tuple.
- * WORKTODO: unused FF?
  */
-template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_univariates_container()
+template <typename Tuple, std::size_t Index = 0>
+static constexpr auto create_relation_2protogalaxy_univariates_container()
+{
+    if constexpr (Index >= std::tuple_size<Tuple>::value) {
+        return std::tuple<>{}; // Return empty when reach end of the tuple
+    } else {
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::Relation2ProtogalaxyUnivariates;
+        return std::tuple_cat(std::tuple<UnivariateTuple>{},
+                              create_relation_2protogalaxy_univariates_container<Tuple, Index + 1>());
+    }
+}
+
+/**
+ * @brief Recursive utility function to construct tuple of tuple of Univariates
+ * @details This is the container for storing the univariate contributions from each identity in each relation. Each
+ * Relation contributes a tuple with num-identities many Univariates and there are num-relations many tuples in the
+ * outer tuple.
+ */
+template <typename Tuple, std::size_t Index = 0> static constexpr auto create_relation_sumcheck_univariates_container()
 {
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
         using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationSumcheckUnivariates;
-        return std::tuple_cat(std::tuple<UnivariateTuple>{}, create_relation_univariates_container<Tuple, Index + 1>());
+        return std::tuple_cat(std::tuple<UnivariateTuple>{},
+                              create_relation_sumcheck_univariates_container<Tuple, Index + 1>());
     }
 }
 

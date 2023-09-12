@@ -4,39 +4,52 @@
 #include "barretenberg/polynomials/pow.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
+#include "barretenberg/proof_system/relations/utils.hpp"
 
 namespace barretenberg {
 
-template <typename Flavor, size_t NUM> struct Instances {
+template <typename Flavor, size_t NUM_> struct Instances {
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+
+    static constexpr size_t NUM = NUM_;
     std::array<typename Flavor::ProverPolynomials, NUM> data;
-    std::array<FF, NUM> get_row(size_t idx)
+
+    Univariate<FF, NUM> get_row(size_t univariate_idx, size_t row_idx) const
     {
-        std::array<FF, NUM> result;
+        Univariate<FF, NUM> result;
         for (auto& instance : data) {
+            result.evaluations[univariate_idx] = instance._data[univariate_idx][row_idx];
         }
+        return result;
     }
 };
 
 template <typename Flavor, typename Instances> class ProtogalaxyProver {
   public:
+    using Utils = RelationUtils<Flavor>;
+
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
-    using RelationProtogalaxyUnivariates = typename Flavor::template RelationProtogalaxyUnivariates<Instances::NUM>;
     using BaseUnivariate = Univariate<FF, Instances::NUM>;
     using ExtendedUnivariate = Univariate<FF, (Flavor::MAX_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
+    using RandomExtendedUnivariate =
+        Univariate<FF, (Flavor::MAX_RANDOM_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
+    using ExtendedUnivariates =
+        typename Flavor::template ProverUnivariates<(Flavor::MAX_RELATION_LENGTH - 1) * (Instances::NUM - 1) + 1>;
 
+    using RelationProtogalaxyUnivariates = typename Flavor::Relation2ProtogalaxyUnivariates;
     RelationProtogalaxyUnivariates univariate_accumulators;
 
-    template <typename Extended>
-    void extend_univariates(ExtendedUn& extended_univariates, const Instances& instances, const size_t row_idx)
+    /**
+     * For a fixed entity label, extract that endity from each instance in Instances, and extract
+     * @todo WORKTODO: Initial copying step is more efficient?
+     */
+    void extend_univariates(ExtendedUnivariates& extended_univariates, const Instances& instances, const size_t row_idx)
     {
-        size_t univariate_idx = 0; // TODO(#391) zip
-        for (const auto& instance : instances) {
-            BaseUnivariate univariate{ instances.get_row(row_idx) };
+        for (size_t univariate_idx = 0; univariate_idx < Instances::NUM; univariate_idx++) {
+            auto univariate = instances.get_row(univariate_idx, row_idx);
             extended_univariates[univariate_idx] = univariate.template extend_to<ExtendedUnivariate::LENGTH>();
-            ++univariate_idx;
         }
     }
 
@@ -47,7 +60,7 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
                                          const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
-        Relation::accumulate(
+        Relation::add_2protogalaxy_univariate_contribution(
             std::get<relation_idx>(univariate_accumulators), extended_univariates, relation_parameters, scaling_factor);
 
         // Repeat for the next relation.
@@ -57,18 +70,19 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         }
     }
 
-    Univariate<typename Flavor::FF, Instances::NUM> compute_combiner(
+    RandomExtendedUnivariate compute_combiner(
         const Instances& instances,
         const proof_system::RelationParameters<typename Flavor::FF>& relation_parameters,
         const PowUnivariate<typename Flavor::FF>& pow_univariate,
         const typename Flavor::FF alpha)
     {
-
+        size_t common_circuit_size = instances.data[0]._data[0].size(); // WORKTODO
         // Precompute the vector of required powers of zeta
         // WORKTODO: Parallelize this
-        std::vector<FF> pow_challenges(Instances::CIRCUIT_SIZE >> 1);
-        pow_challenges[0] = pow_univariate.partial_evaluation_constant;
-        for (size_t i = 1; i < (Instances::CIRCUIT_SIZE >> 1); ++i) {
+        std::vector<FF> pow_challenges(common_circuit_size >> 1);
+        pow_challenges[0] =
+            pow_univariate.partial_evaluation_constant; // LEFTOFFHERE: segfault here; need nonempty polynomials!
+        for (size_t i = 1; i < (common_circuit_size >> 1); ++i) {
             pow_challenges[i] = pow_challenges[i - 1] * pow_univariate.zeta_pow_sqr;
         }
 
@@ -78,19 +92,19 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
         // For now we use a power of 2 number of threads simply to ensure the round size is evenly divided.
         size_t max_num_threads = get_num_cpus_pow2(); // number of available threads (power of 2)
         size_t min_iterations_per_thread = 1 << 6; // min number of iterations for which we'll spin up a unique thread
-        size_t desired_num_threads = Instances::CIRCUIT_SIZE / min_iterations_per_thread;
-        size_t num_threads = std::min(desired_num_threads, max_num_threads);  // fewer than max if justified
-        num_threads = num_threads > 0 ? num_threads : 1;                      // ensure num threads is >= 1
-        size_t iterations_per_thread = Instances::CIRCUIT_SIZE / num_threads; // actual iterations per thread
+        size_t desired_num_threads = common_circuit_size / min_iterations_per_thread;
+        size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
+        num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
+        size_t iterations_per_thread = common_circuit_size / num_threads;    // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
         std::vector<RelationProtogalaxyUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
-            zero_univariates(accum);
+            Utils::zero_univariates(accum);
         }
 
         // Constuct extended edge containers; one per thread
-        std::vector<ExtendedUnivariate> extended_univariates;
+        std::vector<ExtendedUnivariates> extended_univariates;
         extended_univariates.resize(num_threads);
 
         // Accumulate the contribution from each sub-relation across each edge of the hypercube
@@ -116,10 +130,11 @@ template <typename Flavor, typename Instances> class ProtogalaxyProver {
 
         // Accumulate the per-thread univariate accumulators into a single set of accumulators
         for (auto& accumulators : thread_univariate_accumulators) {
-            add_nested_tuples(univariate_accumulators, accumulators);
+            Utils::add_nested_tuples(univariate_accumulators, accumulators);
         }
         // Batch the univariate contributions from each sub-relation to obtain the round univariate
-        return batch_over_relations(alpha, pow_univariate);
+        return Utils::template batch_over_relations<RandomExtendedUnivariate>(
+            univariate_accumulators, alpha, pow_univariate);
     }
 };
 } // namespace barretenberg
