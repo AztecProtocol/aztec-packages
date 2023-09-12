@@ -220,7 +220,7 @@
     "projectDir": "yarn-project/boxes/private-token/",
     "dockerfile": "boxes/private-token/Dockerfile",
     "rebuildPatterns": ["^yarn-project/boxes/"],
-    "dependencies": ["aztec.js", "cli", "foundation", "noir-compiler", "noir-contracts", "types"]
+    "dependencies": ["aztec.js", "cli", "foundation", "noir-compiler", "types"]
   },
   "canary-build": {
     "buildDir": "yarn-project",

@@ -15,7 +15,9 @@
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
+    "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test:integration:run\" \"anvil\"",
+    "test:integration:run": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.integration.config.json"
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
@@ -38,7 +40,6 @@
     "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-compiler": "workspace:^",
-    "@aztec/noir-contracts": "workspace:^",
     "@aztec/types": "workspace:^",
     "formik": "^2.4.3",
     "react": "^18.2.0",

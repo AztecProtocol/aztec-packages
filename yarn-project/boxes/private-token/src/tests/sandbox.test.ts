@@ -1,7 +1,17 @@
-import { AccountWallet, AztecAddress, CompleteAddress, Contract, Fr, Wallet } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  AztecAddress,
+  AztecRPC,
+  CompleteAddress,
+  Contract,
+  Fr,
+  Wallet,
+  createAztecRpcClient,
+  makeFetch,
+  waitForSandbox,
+} from '@aztec/aztec.js';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
-import { rpcClient } from '../config.js';
 import { deployContract } from '../scripts/deploy_contract.js';
 import { getWallet } from '../scripts/util.js';
 
@@ -18,6 +28,13 @@ const MAX_INITIAL_BALANCE = 600;
 const INITIAL_BALANCE = getRandomInt(MIN_INITIAL_BALANCE, MAX_INITIAL_BALANCE);
 const TRANSFER_AMOUNT = 44n;
 const MINT_AMOUNT = 11n;
+
+const setupSandbox = async () => {
+  const { SANDBOX_URL = 'http://localhost:8080' } = process.env;
+  const aztecRpc = createAztecRpcClient(SANDBOX_URL, makeFetch([1, 2, 3], true));
+  await waitForSandbox(aztecRpc);
+  return aztecRpc;
+};
 
 async function deployZKContract(owner: CompleteAddress, wallet: Wallet) {
   logger('Deploying L2 contract...');
@@ -44,8 +61,10 @@ describe('ZK Contract Tests', () => {
   let account2: CompleteAddress;
   let _account3: CompleteAddress;
   let privateTokenContract: Contract;
+  let rpcClient: AztecRPC;
 
   beforeAll(async () => {
+    rpcClient = await setupSandbox();
     const accounts = await rpcClient.getAccounts();
     [owner, account2, _account3] = accounts;
 

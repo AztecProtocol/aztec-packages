@@ -12,4 +12,4 @@ RUN yarn workspaces focus --production > /dev/null
 FROM node:18-alpine
 COPY --from=builder /usr/src/yarn-project/boxes/private-token /usr/src/yarn-project/boxes/private-token
 WORKDIR /usr/src/yarn-project/boxes/private-token
-ENTRYPOINT ["yarn"]
+ENTRYPOINT ["yarn", "test:integration"]

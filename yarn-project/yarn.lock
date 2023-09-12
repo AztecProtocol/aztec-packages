@@ -12494,7 +12494,6 @@ __metadata:
     "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
-    "@aztec/noir-contracts": "workspace:^"
     "@aztec/types": "workspace:^"
     "@types/node": ^20.5.9
     "@types/react": ^18.2.15
