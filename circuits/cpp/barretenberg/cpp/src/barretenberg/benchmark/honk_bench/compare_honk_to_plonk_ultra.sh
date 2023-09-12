@@ -10,6 +10,7 @@ BASE_DIR="$HOME/aztec-packages/circuits/cpp/barretenberg/cpp"
 BUILD_DIR="$BASE_DIR/build-bench"
 BENCH_RESULTS_DIR="$BASE_DIR/tmp_bench_results"
 BENCH_TOOLS_DIR="$BUILD_DIR/_deps/benchmark-src/tools"
+MULTITHREADING=0
 
 # Install requirements (numpy + scipy) for comparison script if necessary.
 # Note: By default, installation will occur in $HOME/.local/bin.
@@ -22,13 +23,13 @@ mkdir $BENCH_RESULTS_DIR
 # 
 echo -e '\nBuilding and running Standard benchmarks..'
 # rm -rf $BUILD_DIR
-cmake --preset bench > /dev/null && cmake --build --preset bench --target ultra_plonk_bench 
+cmake --preset bench -DMULTITHREADING=$MULTITHREADING > /dev/null && cmake --build --preset bench --target ultra_plonk_bench 
 cd build-bench
 PLONK_BENCH_RESULTS="$BENCH_RESULTS_DIR/plonk_bench.json"
 ./bin/ultra_plonk_bench --benchmark_format=json > $PLONK_BENCH_RESULTS
 
 cd ..
-cmake --preset bench > /dev/null && cmake --build --preset bench --target ultra_honk_bench 
+cmake --preset bench -DMULTITHREADING=$MULTITHREADING > /dev/null && cmake --build --preset bench --target ultra_honk_bench 
 cd build-bench
 HONK_BENCH_RESULTS="$BENCH_RESULTS_DIR/honk_bench.json"
 ./bin/ultra_honk_bench --benchmark_format=json > $HONK_BENCH_RESULTS
