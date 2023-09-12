@@ -77,10 +77,10 @@ When calling the `consume_l1_to_l2_message` function on a contract; a number of 
 3. Check that the message content matches the content reproduced earlier on. 
 4. Validate that caller know's the preimage to the message's `secretHash`. See more information [here](../../concepts/foundation/communication/cross_chain_calls.md#messages).
 5. We compute the nullifier for the message.
-#include_code l1_to_l2_message_compute_nullifier  /yarn-project/noir-libs/noir-aztec/src/messaging/l1_to_l2_message.nr rust
+#include_code l1_to_l2_message_compute_nullifier  /yarn-project/noir-libs/aztec-noir/src/messaging/l1_to_l2_message.nr rust
 6. Finally we push the nullifier to the context. Allowing it to be checked for validity by the kernel and rollup circuits. 
 
-#include_code consume_l1_to_l2_message  /yarn-project/noir-libs/noir-aztec/src/context.nr rust
+#include_code consume_l1_to_l2_message  /yarn-project/noir-libs/aztec-noir/src/context.nr rust
 
 As the same nullifier cannot be created twice. We cannot consume the message again.
 

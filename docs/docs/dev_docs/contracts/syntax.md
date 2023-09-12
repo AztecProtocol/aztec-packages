@@ -24,7 +24,7 @@ compiler_version = "0.10.0"
 type = "contract"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/noir-aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/aztec-noir" }
 ```
 
 Note: currently the dependency name ***MUST*** be `aztec`. The framework expects this namespace to be available when compiling into contracts. This limitation may be removed in the future.

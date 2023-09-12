@@ -22,19 +22,19 @@ The following section will cover both contexts.
 ## The Private Context
 
 The code snippet below shows what is contained within the private context.
-#include_code private-context /yarn-project/noir-libs/noir-aztec/src/context.nr rust
+#include_code private-context /yarn-project/noir-libs/aztec-noir/src/context.nr rust
 
 ### Private Context Broken Down
 #### Inputs
 The context inputs includes all of the information that is passed from the kernel circuit into the application circuit. It contains the following values.
 
-#include_code private-context-inputs /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code private-context-inputs /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 As shown in the snippet, the application context is made up of 4 main structures. The call context, the block data, the contract deployment data and the private global variables.
 
 First of all, the call context.
 
-#include_code call-context /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code call-context /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 The call context contains information about the current call being made:.
 1, Msg Sender
@@ -56,17 +56,17 @@ The call context contains information about the current call being made:.
 ### Historic Block Data
 Another structure that is contained within the context is the Historic Block Data object. This object is a special one as it contains all of the roots of Aztec's data trees. 
 
-#include_code historic-block-data /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code historic-block-data /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 ### Contract Deployment Data
 Just like with the `is_contract_deployment` flag mentioned earlier. This data will only be set to true when the current transaction is one in which a contract is being deployed.
 
-#include_code contract-deployment-data /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code contract-deployment-data /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 ### Private Global Variables
 In the private execution context, we only have access to a subset of the total global variables, we are restricted to those which can be reliably proven by the kernel circuits.
 
-#include_code private-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code private-global-variables /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 ### Args Hash
 To allow for flexibility in the number of arguments supported by Aztec functions, all function inputs are reduced to a singular value which can be proven from within the application. 
@@ -104,10 +104,10 @@ New L2 to L1 messages contains messages that are delivered to the [l1 outbox](..
 ## Public Context Inputs
 In the current version of the system, the public context is almost a clone of the private execution context. It contains the same call context data, access to the same historic tree roots, however it does NOT have access to contract deployment data, this is due to traditional contract deployments only currently being possible from private transactions.
 
-#include_code public-context-inputs /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code public-context-inputs /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 
 ### Public Global Variables
 The public global variables are provided by the rollup sequencer and consequently contain some more values than the private global variables.
 
-#include_code public-global-variables /yarn-project/noir-libs/noir-aztec/src/abi.nr rust
+#include_code public-global-variables /yarn-project/noir-libs/aztec-noir/src/abi.nr rust

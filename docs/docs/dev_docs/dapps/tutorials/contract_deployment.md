@@ -19,7 +19,7 @@ Then, open the `contracts/private_token/Nargo.toml` configuration file, and add 
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/noir-aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/aztec-noir" }
 value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="master", directory="yarn-project/noir-libs/value-note" }
 ```
 
