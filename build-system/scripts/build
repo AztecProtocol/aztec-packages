@@ -66,7 +66,9 @@ echo "Content hash: $CONTENT_HASH"
 cd $BUILD_DIR
 
 ensure_docker_buildx
+echo "Creating multi-platform builder"
 docker buildx create --name multi-platform-builder --bootstrap --use
+echo "Multi-platform builder created"
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
@@ -163,7 +165,7 @@ for STAGE in $STAGES; do
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
   # Build our dockerfile, add timing information
-  docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+  #docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
   docker buildx build --platform linux/amd64,linux/arm64 --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
   | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
   
@@ -188,7 +190,7 @@ fi
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
 echo "Building image: $IMAGE_COMMIT_URI"
 # Build our dockerfile, add timing information
-docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+#docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
 docker buildx build --platform linux/amd64,linux/arm64 -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
 | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
 echo "Pushing image: $IMAGE_COMMIT_URI"
