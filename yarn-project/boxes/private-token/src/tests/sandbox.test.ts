@@ -43,7 +43,7 @@ describe('ZK Contract Tests', () => {
   let owner: CompleteAddress;
   let account2: CompleteAddress;
   let _account3: CompleteAddress;
-  let zkContract: Contract;
+  let privateTokenContract: Contract;
 
   beforeAll(async () => {
     const accounts = await rpcClient.getAccounts();
@@ -51,30 +51,30 @@ describe('ZK Contract Tests', () => {
 
     wallet = await getWallet(owner, rpcClient);
 
-    zkContract = await deployZKContract(owner, wallet);
+    privateTokenContract = await deployZKContract(owner, wallet);
   }, 30000);
 
   test('Initial balance is correct', async () => {
-    const balance = await getBalance(zkContract, owner.address);
+    const balance = await getBalance(privateTokenContract, owner.address);
     expect(balance).toEqual(INITIAL_BALANCE);
-  }, 41000);
+  }, 40000);
 
   test('Balance after mint is correct', async () => {
-    const mintTx = zkContract.methods.mint(MINT_AMOUNT, owner.address).send();
+    const mintTx = privateTokenContract.methods.mint(MINT_AMOUNT, owner.address).send();
     await mintTx.wait({ interval: 0.5 });
 
-    const balanceAfterMint = await getBalance(zkContract, owner.address);
+    const balanceAfterMint = await getBalance(privateTokenContract, owner.address);
     expect(balanceAfterMint).toEqual(INITIAL_BALANCE + MINT_AMOUNT);
-  }, 42000);
+  }, 40000);
 
   test('Balance after transfer is correct for both sender and receiver', async () => {
-    const transferTx = zkContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send();
+    const transferTx = privateTokenContract.methods.transfer(TRANSFER_AMOUNT, account2.address).send();
     await transferTx.wait({ interval: 0.5 });
 
-    const balanceAfterTransfer = await getBalance(zkContract, owner.address);
+    const balanceAfterTransfer = await getBalance(privateTokenContract, owner.address);
     expect(balanceAfterTransfer).toEqual(INITIAL_BALANCE + MINT_AMOUNT - TRANSFER_AMOUNT);
 
-    const receiverBalance = await getBalance(zkContract, account2.address);
+    const receiverBalance = await getBalance(privateTokenContract, account2.address);
     expect(receiverBalance).toEqual(TRANSFER_AMOUNT);
-  }, 43000);
+  }, 40000);
 });
