@@ -87,7 +87,6 @@ describe('e2e_lending_contract', () => {
       const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
       const deployTx = await account.deploy();
       await deployTx.wait({ interval: 0.1 });
-      // wallet = await account.getWallet();
       wallet = new AuthWitnessEntrypointWallet(
         aztecRpcServer,
         (await account.getEntrypoint()) as unknown as IAuthWitnessAccountEntrypoint,

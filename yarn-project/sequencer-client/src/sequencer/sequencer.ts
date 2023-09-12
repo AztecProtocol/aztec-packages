@@ -149,12 +149,7 @@ export class Sequencer {
 
       // Only accept processed transactions that are not double-spends
       // public functions emitting nullifiers would pass earlier check but fail here
-      const isDoubleSpends = await Promise.all(
-        processedTxs.map(async tx => await this.isTxDoubleSpend(tx as unknown as Tx)),
-      );
-      const doubleSpends = processedTxs.filter((tx, index) => isDoubleSpends[index]).map(tx => tx.hash);
-      await this.p2pClient.deleteTxs(doubleSpends);
-      const processedValidTxs = processedTxs.filter((tx, index) => !isDoubleSpends[index]);
+      const processedValidTxs = await this.takeValidProcessedTxs(processedTxs);
 
       if (processedValidTxs.length === 0) {
         this.log('No txs processed correctly to build block. Exiting');
@@ -256,6 +251,13 @@ export class Sequencer {
     }
 
     return validTxs;
+  }
+
+  protected async takeValidProcessedTxs(txs: ProcessedTx[]) {
+    const isDoubleSpends = await Promise.all(txs.map(async tx => await this.isTxDoubleSpend(tx as unknown as Tx)));
+    const doubleSpends = txs.filter((tx, index) => isDoubleSpends[index]).map(tx => tx.hash);
+    await this.p2pClient.deleteTxs(doubleSpends);
+    return txs.filter((tx, index) => !isDoubleSpends[index]);
   }
 
   /**

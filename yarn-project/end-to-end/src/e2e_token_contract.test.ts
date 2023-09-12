@@ -572,6 +572,8 @@ describe('e2e_token_contract', () => {
         it.skip('transfer into account to overflow', () => {
           // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
           // a way to get funds enough to overflow.
+          // Require direct storage manipulation for us to perform a nice explicit case though.
+          // See https://github.com/AztecProtocol/aztec-packages/issues/1259
         });
       });
     });
@@ -703,7 +705,12 @@ describe('e2e_token_contract', () => {
           expect(await asset.methods.balance_of_private({ address: accounts[1].address }).view()).toEqual(balance1);
         });
 
-        it.skip('transfer into account to overflow', () => {});
+        it.skip('transfer into account to overflow', () => {
+          // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is not
+          // a way to get funds enough to overflow.
+          // Require direct storage manipulation for us to perform a nice explicit case though.
+          // See https://github.com/AztecProtocol/aztec-packages/issues/1259
+        });
 
         it('transfer on behalf of other without approval', async () => {
           const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
