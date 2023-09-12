@@ -10,7 +10,6 @@ import {
   makeFetch,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
 import {
   PrivateTokenContract,
   callContractFunction,
@@ -18,7 +17,8 @@ import {
   getWallet,
   rpcClient,
   viewContractFunction,
-} from '@aztec/unbox/private-token';
+} from '@aztec/boxes/private-token';
+import { createDebugLogger } from '@aztec/foundation/log';
 
 import { setup } from './fixtures/utils.js';
 
