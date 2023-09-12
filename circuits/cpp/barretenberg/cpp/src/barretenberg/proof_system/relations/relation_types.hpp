@@ -76,11 +76,11 @@ template <typename RelationImpl> class Relation : public RelationImpl {
     using ValueAccumulatorsAndViews =
         typename RelationImpl::template GetAccumulatorTypes<ValueAccumulatorsAndViewsTemplate>;
 
-    using RelationUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
+    using RelationSumcheckUnivariates = typename UnivariateAccumulatorsAndViews::Accumulators;
     using RelationValues = typename ValueAccumulatorsAndViews::Accumulators;
     static constexpr size_t RELATION_LENGTH = RelationImpl::RELATION_LENGTH;
 
-    static inline void add_edge_contribution(RelationUnivariates& accumulator,
+    static inline void add_edge_contribution(RelationSumcheckUnivariates& accumulator,
                                              const auto& input,
                                              const RelationParameters<FF>& relation_parameters,
                                              const FF& scaling_factor)

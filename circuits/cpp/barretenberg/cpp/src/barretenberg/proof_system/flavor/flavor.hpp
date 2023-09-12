@@ -228,7 +228,7 @@ template <typename Tuple, std::size_t Index = 0> static constexpr auto create_re
     if constexpr (Index >= std::tuple_size<Tuple>::value) {
         return std::tuple<>{}; // Return empty when reach end of the tuple
     } else {
-        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationUnivariates;
+        using UnivariateTuple = typename std::tuple_element_t<Index, Tuple>::RelationSumcheckUnivariates;
         return std::tuple_cat(std::tuple<UnivariateTuple>{}, create_relation_univariates_container<Tuple, Index + 1>());
     }
 }

@@ -11,7 +11,7 @@ template <typename Flavor> class RelationUtils {
   public:
     using FF = typename Flavor::FF;
     using Relations = typename Flavor::Relations;
-    using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using RelationSumcheckUnivariates = typename Flavor::RelationSumcheckUnivariates;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -158,9 +158,10 @@ template <typename Flavor> class RelationUtils {
      * @tparam T : In practice, this is a Univariate<FF, MAX_NUM_RELATIONS>.
      */
     template <typename ExtendedUnivariate> // WORKTODO: no template argument?
-    static ExtendedUnivariate batch_over_relations(/* WORKTODO const */ RelationUnivariates& univariate_accumulators,
-                                                   const FF& challenge,
-                                                   const PowUnivariate<FF>& pow_univariate)
+    static ExtendedUnivariate batch_over_relations(
+        /* WORKTODO const */ RelationSumcheckUnivariates& univariate_accumulators,
+        const FF& challenge,
+        const PowUnivariate<FF>& pow_univariate)
     {
         FF running_challenge = 1;
         scale_univariates(univariate_accumulators, challenge, running_challenge);

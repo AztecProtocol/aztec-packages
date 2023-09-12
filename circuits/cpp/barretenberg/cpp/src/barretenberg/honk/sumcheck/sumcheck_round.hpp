@@ -55,7 +55,7 @@ template <typename Flavor> class SumcheckProverRound {
 
     using Utils = barretenberg::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
-    using RelationUnivariates = typename Flavor::RelationUnivariates;
+    using RelationSumcheckUnivariates = typename Flavor::RelationSumcheckUnivariates;
 
   public:
     using FF = typename Flavor::FF;
@@ -68,7 +68,7 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr size_t MAX_RELATION_LENGTH = Flavor::MAX_RELATION_LENGTH;
     static constexpr size_t MAX_RANDOM_RELATION_LENGTH = Flavor::MAX_RANDOM_RELATION_LENGTH;
 
-    RelationUnivariates univariate_accumulators;
+    RelationSumcheckUnivariates univariate_accumulators;
 
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
@@ -85,7 +85,10 @@ template <typename Flavor> class SumcheckProverRound {
      * In practice, multivariates is one of ProverPolynomials or FoldedPolynomials.
      *
      */
-    void extend_edges(auto& extended_edges, auto& multivariates, size_t edge_idx)
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
+    void extend_edges(ExtendedEdges<MAX_RELATION_LENGTH>& extended_edges,
+                      /* const */ ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates,
+                      size_t edge_idx)
     {
         size_t univariate_idx = 0; // TODO(#391) zip
         for (auto& poly : multivariates) {
@@ -100,8 +103,9 @@ template <typename Flavor> class SumcheckProverRound {
      * values. Most likely this will end up being S_l(0), ... , S_l(t-1) where t is around 12. At the end, reset all
      * univariate accumulators to be zero.
      */
+    template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     barretenberg::Univariate<FF, MAX_RANDOM_RELATION_LENGTH> compute_univariate(
-        auto& polynomials,
+        ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const proof_system::RelationParameters<FF>& relation_parameters,
         const barretenberg::PowUnivariate<FF>& pow_univariate,
         const FF alpha)
@@ -126,7 +130,7 @@ template <typename Flavor> class SumcheckProverRound {
         size_t iterations_per_thread = round_size / num_threads;             // actual iterations per thread
 
         // Constuct univariate accumulator containers; one per thread
-        std::vector<RelationUnivariates> thread_univariate_accumulators(num_threads);
+        std::vector<RelationSumcheckUnivariates> thread_univariate_accumulators(num_threads);
         for (auto& accum : thread_univariate_accumulators) {
             Utils::zero_univariates(accum);
         }
@@ -184,7 +188,7 @@ template <typename Flavor> class SumcheckProverRound {
      * appropriate scaling factors, produces S_l.
      */
     template <size_t relation_idx = 0>
-    void accumulate_relation_univariates(RelationUnivariates& univariate_accumulators,
+    void accumulate_relation_univariates(RelationSumcheckUnivariates& univariate_accumulators,
                                          const auto& extended_edges,
                                          const proof_system::RelationParameters<FF>& relation_parameters,
                                          const FF& scaling_factor)
