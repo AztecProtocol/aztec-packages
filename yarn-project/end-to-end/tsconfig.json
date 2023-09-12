@@ -22,6 +22,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../boxes/private-token"
+    },
+    {
       "path": "../circuits.js"
     },
     {

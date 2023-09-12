@@ -262,6 +262,7 @@
       "aztec-rpc",
       "aztec-sandbox",
       "aztec.js",
+      "boxes/private-token",
       "circuits.js",
       "cli",
       "ethereum",
