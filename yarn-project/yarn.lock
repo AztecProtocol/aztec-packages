@@ -12490,10 +12490,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "private-token@workspace:boxes/private-token"
   dependencies:
+    "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/end-to-end": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/noir-compiler": "workspace:^"
     "@aztec/types": "workspace:^"
