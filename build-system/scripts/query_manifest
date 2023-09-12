@@ -3,7 +3,8 @@ set -eu
 CMD=$1
 REPO=$2
 
-MANIFEST=${ROOT_PATH:-$PWD}/build_manifest.json
+ROOT_PATH=${ROOT_PATH:-$PWD}
+MANIFEST=$ROOT_PATH/build_manifest.json
 
 if [ $(jq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
   echo "Unknown repository $REPO in build_mainifest.json"
@@ -14,8 +15,8 @@ function rebuildPatterns {
     TYPE=$(jq -r ".\"$REPO\".rebuildPatterns | type" $MANIFEST)
     if [ "$TYPE" == "string" ]; then
       FILE=$(jq -r ".\"$REPO\".rebuildPatterns" $MANIFEST)
-      DIR=$($0 buildDir $REPO)
-      PATTERNS=($(cat $DIR/$FILE))
+      BUILD_DIR=$($0 buildDir $REPO)
+      PATTERNS=($(cat $BUILD_DIR/$FILE))
     elif [ "$TYPE" == "array" ]; then
       PATTERNS=($(jq -r ".\"$REPO\".rebuildPatterns | .[]" $MANIFEST))
     else
@@ -26,13 +27,17 @@ function rebuildPatterns {
 
 case "$CMD" in
   dockerfile)
-    jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST
+    BUILD_DIR=$($0 buildDir $REPO)
+    DOCKERFILE=$(jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST)
+    echo $BUILD_DIR/$DOCKERFILE
     ;;
   buildDir)
-    jq -r ".\"$REPO\".buildDir" $MANIFEST
+    BUILD_DIR=$(jq -r ".\"$REPO\".buildDir" $MANIFEST)
+    echo $ROOT_PATH/$BUILD_DIR
     ;;
   projectDir)
-    jq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST
+    PROJECT_DIR=$(jq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST)
+    echo $ROOT_PATH/$PROJECT_DIR
     ;;
   dependencies)
     ALL_DEPS=()
