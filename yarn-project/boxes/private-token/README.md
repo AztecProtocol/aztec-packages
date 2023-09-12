@@ -4,15 +4,18 @@ Some settings assume that CONTRACT_NAME was `PrivateToken` and will require some
 
 ## Setup
 
-Dependencies can be installed with one command from the root of the package:
+Dependencies can be installed from the root of the package:
 
 ```bash
+yarn
+yarn install:noir
+yarn install:sandbox
 yarn build
 ```
 
 In addition to the usual javascript dependencies, this project requires `nargo` (package manager) and `noir` (Aztec ZK smart contract language) in addition to `@aztec/aztec-cli`.
 
-The former are installed within `yarn build` via
+The former are installed within `yarn install:noir` which executes
 
 ```bash
 curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash
@@ -26,17 +29,15 @@ noirup -v aztec
 /bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
 ```
 
-This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run
+This sandbox requires [Docker](https://www.docker.com/) to be installed _and running_ locally. In the event the image needs updating, you can run `yarn install:sandbox` which executes
 
 ```bash
 docker pull aztecprotocol/aztec-sandbox:latest
 ```
 
-Which is also run automatically by `yarn build`.
-
 ## Getting started
 
-After `yarn build` has run, `yarn start:dev` will launch a local instance of the Aztec sandbox via Docker Compose as well as a simple frontend for deploying and interacting with the PrivateToken contract.
+After `yarn build` has run,`yarn start:sandbox` in one terminal will launch a local instance of the Aztec sandbox via Docker Compose and `yarn start:dev` will launch a simple frontend for deploying and interacting with the PrivateToken contract.
 
 This folder should have the following directory structure:
 
