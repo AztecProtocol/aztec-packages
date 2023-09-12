@@ -10,6 +10,20 @@ if [ $(jq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
   exit 1
 fi
 
+function rebuildPatterns {
+    TYPE=$(jq -r ".\"$REPO\".rebuildPatterns | type" $MANIFEST)
+    if [ "$TYPE" == "string" ]; then
+      FILE=$(jq -r ".\"$REPO\".rebuildPatterns" $MANIFEST)
+      DIR=$($0 buildDir $REPO)
+      PATTERNS=($(cat $DIR/$FILE))
+    elif [ "$TYPE" == "array" ]; then
+      PATTERNS=($(jq -r ".\"$REPO\".rebuildPatterns | .[]" $MANIFEST))
+    else
+      >&2 echo "Missing rebuildPatterns property. Either filename as string, or patterns as array."
+      exit 1
+    fi
+}
+
 case "$CMD" in
   dockerfile)
     jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST
@@ -33,10 +47,11 @@ case "$CMD" in
     printf "%s\n" "${ALL_DEPS[@]}" | sort | uniq
     ;;
   rebuildPatterns)
-    ALL_PATTERNS=($(jq -r ".\"$REPO\".rebuildPatterns | .[]" $MANIFEST))
+    rebuildPatterns
+    ALL_PATTERNS=(${ALL_PATTERNS[@]} ${PATTERNS[@]})
     DEPS=($($0 dependencies $REPO))
     for DEP in "${DEPS[@]}"; do
-      PATTERNS=($(jq -r ".\"$DEP\".rebuildPatterns | .[]" $MANIFEST))
+      PATTERNS=($($0 rebuildPatterns $DEP))
       ALL_PATTERNS=(${ALL_PATTERNS[@]} ${PATTERNS[@]})
     done
     printf "%s\n" "${ALL_PATTERNS[@]}" | sort | uniq
