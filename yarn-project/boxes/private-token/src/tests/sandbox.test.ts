@@ -10,7 +10,7 @@ import {
   makeFetch,
   waitForSandbox,
 } from '@aztec/aztec.js';
-import { setup } from '@aztec/end-to-end/fixtures/utils.js';
+import { setup } from '@aztec/end-to-end';
 import { createDebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '../artifacts/PrivateToken.js';
 import { deployContract } from '../scripts/deploy_contract.js';
