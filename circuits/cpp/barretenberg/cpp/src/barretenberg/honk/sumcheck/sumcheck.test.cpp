@@ -612,22 +612,22 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     fr beta = fr::random_element();
     fr gamma = fr::random_element();
 
-    instance.initialise_prover_polynomials();
-    instance.compute_sorted_accumulator_polynomials(eta);
-    instance.compute_grand_product_polynomials(beta, gamma);
+    instance->initialise_prover_polynomials();
+    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_grand_product_polynomials(beta, gamma);
 
     auto prover_transcript = ProverTranscript<FF>::init_empty();
-    auto circuit_size = instance.proving_key->circuit_size;
+    auto circuit_size = instance->proving_key->circuit_size;
 
     auto sumcheck_prover = SumcheckProver<Flavor>(circuit_size, prover_transcript);
 
-    auto prover_output = sumcheck_prover.prove(instance.prover_polynomials, instance.relation_parameters);
+    auto prover_output = sumcheck_prover.prove(instance->prover_polynomials, instance->relation_parameters);
 
     auto verifier_transcript = VerifierTranscript<FF>::init_empty(prover_transcript);
 
     auto sumcheck_verifier = SumcheckVerifier<Flavor>(circuit_size);
 
-    std::optional verifier_output = sumcheck_verifier.verify(instance.relation_parameters, verifier_transcript);
+    std::optional verifier_output = sumcheck_verifier.verify(instance->relation_parameters, verifier_transcript);
 
     ASSERT_TRUE(verifier_output.has_value());
 }

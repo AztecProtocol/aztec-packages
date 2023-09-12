@@ -116,10 +116,10 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
         auto prover = inner_composer.create_prover(instance);
         auto proof_to_recursively_verify = prover.construct_proof();
 
-        info("Inner circuit size = ", instance.proving_key->circuit_size);
+        info("Inner circuit size = ", instance->proving_key->circuit_size);
 
         // Compute native verification key
-        const auto native_verification_key = instance.compute_verification_key();
+        const auto native_verification_key = instance->compute_verification_key();
 
         // Instantiate the recursive verification key from the native verification key
         auto verification_key = std::make_shared<VerificationKey>(&outer_builder, native_verification_key);
@@ -190,7 +190,7 @@ template <typename UseGoblinFlag> class RecursiveVerifierTest : public testing::
         InnerComposer inner_composer;
         auto instance = inner_composer.create_instance(inner_circuit);
         auto prover = inner_composer.create_prover(instance); // A prerequisite for computing VK
-        const auto native_verification_key = instance.compute_verification_key();
+        const auto native_verification_key = instance->compute_verification_key();
 
         // Instantiate the recursive verification key from the native verification key
         auto verification_key = std::make_shared<VerificationKey>(&outer_circuit, native_verification_key);

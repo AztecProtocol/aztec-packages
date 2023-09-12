@@ -44,7 +44,7 @@
       "description": "Build with globally installed Clang-16 in debug mode",
       "inherits": "clang16",
       "environment": {
-        "CMAKE_BUILD_TYPE": "Release"
+        "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
         "ENABLE_ASAN": "OFF",

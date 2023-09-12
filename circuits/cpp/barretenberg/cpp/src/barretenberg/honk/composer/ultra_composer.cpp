@@ -5,26 +5,29 @@
 
 namespace proof_system::honk {
 
-template <UltraFlavor Flavor> Instance_<Flavor> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
+template <UltraFlavor Flavor>
+std::shared_ptr<Instance_<Flavor>> UltraComposer_<Flavor>::create_instance(CircuitBuilder& circuit)
 {
     circuit.add_gates_to_ensure_all_polys_are_non_zero();
     circuit.finalize_circuit();
-    Instance instance = Instance(circuit);
-    instance.commitment_key = compute_commitment_key(instance.proving_key->circuit_size);
+    auto instance = std::make_shared<Instance>(circuit);
+    instance->commitment_key = compute_commitment_key(instance->proving_key->circuit_size);
     return instance;
 }
 
-template <UltraFlavor Flavor> UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(Instance& instance)
+template <UltraFlavor Flavor>
+UltraProver_<Flavor> UltraComposer_<Flavor>::create_prover(std::shared_ptr<Instance> instance)
 {
     UltraProver_<Flavor> output_state(instance);
 
     return output_state;
 }
 
-template <UltraFlavor Flavor> UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(Instance& instance)
+template <UltraFlavor Flavor>
+UltraVerifier_<Flavor> UltraComposer_<Flavor>::create_verifier(std::shared_ptr<Instance> instance)
 {
     // for the folding composer we compute the commitment keys here!
-    auto verification_key = instance.compute_verification_key();
+    auto verification_key = instance->compute_verification_key();
     // change this it's clunky and inconsistent
     UltraVerifier_<Flavor> output_state(verification_key);
     auto pcs_verification_key = std::make_unique<VerifierCommitmentKey>(verification_key->circuit_size, crs_factory_);

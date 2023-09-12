@@ -354,14 +354,16 @@ TEST_F(UltraTranscriptTests, FoldingManifestTest)
     info("created instances");
 
     std::vector<std::shared_ptr<Instance>> insts;
-    insts.emplace_back(std::make_shared<Instance>(instance_one));
-    insts.emplace_back(std::make_shared<Instance>(instance_two));
+    insts.emplace_back(instance_one);
+    insts.emplace_back(instance_two);
     auto prover = composer.create_folding_prover(insts);
     auto verifier = composer.create_folding_verifier(insts);
     info("created prover and verifier");
 
     auto prover_res = prover.fold_instances();
+    info("folded");
     verifier.fold_public_parameters(prover_res.folding_data);
+    info("verified");
 
     prover.transcript.print();
     verifier.transcript.print();

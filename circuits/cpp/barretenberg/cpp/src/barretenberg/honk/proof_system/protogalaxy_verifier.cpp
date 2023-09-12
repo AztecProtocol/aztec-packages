@@ -35,10 +35,9 @@ VerifierFoldingResult<Flavor> ProtoGalaxyVerifier_<Flavor>::fold_public_paramete
         const FF lookup_grand_product_delta = compute_lookup_grand_product_delta<FF>(beta, gamma, inst.circuit_size);
         inst.relation_parameters =
             RelationParameters<FF>{ eta, beta, gamma, public_input_delta, lookup_grand_product_delta };
-        verifier_instances.emplace_back(inst);
     }
 
-    // TODO(#722): implement the  Protogalaxy verifier logic
+    // TODO(#690): implement the  Protogalaxy verifier logic
     VerifierFoldingResult<Flavor> res;
     return res;
 }

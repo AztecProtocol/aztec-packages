@@ -65,12 +65,10 @@ template <UltraFlavor Flavor> class UltraComposer_ {
         return commitment_key;
     };
 
-    Instance create_instance(CircuitBuilder& circuit);
-    // this needs to change
-    Instance create_instance(std::shared_ptr<ProvingKey> p_key, std::shared_ptr<VerificationKey> v_key);
+    std::shared_ptr<Instance> create_instance(CircuitBuilder& circuit);
 
-    UltraProver_<Flavor> create_prover(Instance&);
-    UltraVerifier_<Flavor> create_verifier(Instance&);
+    UltraProver_<Flavor> create_prover(std::shared_ptr<Instance>);
+    UltraVerifier_<Flavor> create_verifier(std::shared_ptr<Instance>);
 
     ProtoGalaxyProver_<Flavor> create_folding_prover(std::vector<std::shared_ptr<Instance>>);
     ProtoGalaxyVerifier_<Flavor> create_folding_verifier(std::vector<std::shared_ptr<Instance>>);

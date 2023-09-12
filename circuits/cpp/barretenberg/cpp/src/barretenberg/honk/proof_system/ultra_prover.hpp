@@ -25,7 +25,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
     using Instance = Instance_<Flavor>;
 
   public:
-    explicit UltraProver_(Instance&);
+    explicit UltraProver_(std::shared_ptr<Instance>);
     void execute_preamble_round();
     void execute_wire_commitments_round();
     void execute_sorted_list_accumulator_round();
@@ -57,7 +57,7 @@ template <UltraFlavor Flavor> class UltraProver_ {
 
     work_queue<Curve> queue;
 
-    Instance& instance;
+    std::shared_ptr<Instance> instance;
 
     sumcheck::SumcheckOutput<Flavor> sumcheck_output;
     pcs::gemini::ProverOutput<Curve> gemini_output;

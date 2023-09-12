@@ -308,23 +308,23 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     // Create a prover (it will compute proving key and witness)
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
-    auto circuit_size = instance.proving_key->circuit_size;
+    auto circuit_size = instance->proving_key->circuit_size;
 
     // Generate eta, beta and gamma
     fr eta = fr::random_element();
     fr beta = fr::random_element();
     fr gamma = fr::random_element();
 
-    instance.initialise_prover_polynomials();
-    instance.compute_sorted_accumulator_polynomials(eta);
-    instance.compute_grand_product_polynomials(beta, gamma);
+    instance->initialise_prover_polynomials();
+    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_grand_product_polynomials(beta, gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(instance.proving_key->q_arith);
-    ensure_non_zero(instance.proving_key->q_sort);
-    ensure_non_zero(instance.proving_key->q_lookup);
-    ensure_non_zero(instance.proving_key->q_elliptic);
-    ensure_non_zero(instance.proving_key->q_aux);
+    ensure_non_zero(instance->proving_key->q_arith);
+    ensure_non_zero(instance->proving_key->q_sort);
+    ensure_non_zero(instance->proving_key->q_lookup);
+    ensure_non_zero(instance->proving_key->q_elliptic);
+    ensure_non_zero(instance->proving_key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
@@ -334,8 +334,8 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
                                 proof_system::EllipticRelation<FF>(),
                                 proof_system::AuxiliaryRelation<FF>());
 
-    auto prover_polynomials = instance.prover_polynomials;
-    auto params = instance.relation_parameters;
+    auto prover_polynomials = instance->prover_polynomials;
+    auto params = instance->relation_parameters;
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);
     check_relation<Flavor>(std::get<1>(relations), circuit_size, prover_polynomials, params);
@@ -365,23 +365,23 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     // Create a prover (it will compute proving key and witness)
     auto composer = GoblinUltraComposer();
     auto instance = composer.create_instance(builder);
-    auto circuit_size = instance.proving_key->circuit_size;
+    auto circuit_size = instance->proving_key->circuit_size;
 
     // Generate eta, beta and gamma
     fr eta = fr::random_element();
     fr beta = fr::random_element();
     fr gamma = fr::random_element();
 
-    instance.initialise_prover_polynomials();
-    instance.compute_sorted_accumulator_polynomials(eta);
-    instance.compute_grand_product_polynomials(beta, gamma);
+    instance->initialise_prover_polynomials();
+    instance->compute_sorted_accumulator_polynomials(eta);
+    instance->compute_grand_product_polynomials(beta, gamma);
 
     // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
-    ensure_non_zero(instance.proving_key->q_arith);
-    ensure_non_zero(instance.proving_key->q_sort);
-    ensure_non_zero(instance.proving_key->q_lookup);
-    ensure_non_zero(instance.proving_key->q_elliptic);
-    ensure_non_zero(instance.proving_key->q_aux);
+    ensure_non_zero(instance->proving_key->q_arith);
+    ensure_non_zero(instance->proving_key->q_sort);
+    ensure_non_zero(instance->proving_key->q_lookup);
+    ensure_non_zero(instance->proving_key->q_elliptic);
+    ensure_non_zero(instance->proving_key->q_aux);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations = std::tuple(proof_system::UltraArithmeticRelation<FF>(),
@@ -392,8 +392,8 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
                                 proof_system::AuxiliaryRelation<FF>(),
                                 proof_system::EccOpQueueRelation<FF>());
 
-    auto prover_polynomials = instance.prover_polynomials;
-    auto params = instance.relation_parameters;
+    auto prover_polynomials = instance->prover_polynomials;
+    auto params = instance->relation_parameters;
 
     // Check that each relation is satisfied across each row of the prover polynomials
     check_relation<Flavor>(std::get<0>(relations), circuit_size, prover_polynomials, params);

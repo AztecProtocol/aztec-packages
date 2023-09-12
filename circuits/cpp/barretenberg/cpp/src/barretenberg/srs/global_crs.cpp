@@ -14,17 +14,13 @@ namespace barretenberg::srs {
 // Initialises the crs using the memory buffers
 void init_crs_factory(std::vector<g1::affine_element> const& points, g2::affine_element const g2_point)
 {
-    if (!crs_factory) {
-        crs_factory = std::make_shared<factories::MemCrsFactory>(points, g2_point);
-    }
+    crs_factory = std::make_shared<factories::MemCrsFactory>(points, g2_point);
 }
 
 // Initialises crs from a file path this we use in the entire codebase
 void init_crs_factory(std::string crs_path)
 {
-    if (!crs_factory) {
-        crs_factory = std::make_shared<factories::FileCrsFactory<curve::BN254>>(crs_path);
-    }
+    crs_factory = std::make_shared<factories::FileCrsFactory<curve::BN254>>(crs_path);
 }
 
 void init_grumpkin_crs_factory(std::string crs_path)
