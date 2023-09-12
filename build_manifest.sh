@@ -15,9 +15,9 @@
 
 PROJECTS=(
   # bb-x86_64-linux-clang:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang:barretenberg-x86_64-linux-clang
-  bb-x86_64-linux-clang-assert:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
+  # bb-x86_64-linux-clang-assert:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
   # bb-x86_64-linux-gcc:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-gcc:barretenberg-x86_64-linux-gcc
-  # bb-wasm-linux-clang:barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
+  bb-wasm-linux-clang:barretenberg/cpp:./dockerfiles/Dockerfile.wasm-linux-clang:barretenberg-wasm-linux-clang
   # bb-x86:barretenberg/cpp:./dockerfiles/Dockerfile.x86_64-linux-clang-assert:barretenberg-x86_64-linux-clang-assert
   # bb.js:barretenberg/ts:Dockerfile:bb.js::1
   # run-acir-tests-bb:barretenberg/acir_tests:Dockerfile.bb

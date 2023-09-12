@@ -1,7 +1,7 @@
 # Running on ubuntu until noir supports an alpine build
 
 # Builder stage to build the noir artifacts
-FROM ubuntu:jammy
+FROM ubuntu:lunar
 
 RUN apt-get update && apt-get install -y \
     jq \
@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/yarn-project
 COPY . .
 
-WORKDIR /usr/src/yarn-project/noir-contracts 
+WORKDIR /usr/src/yarn-project/noir-contracts
 
 # Download and extract nargo
 ENV NARGO_HOME="/usr/src/yarn-project/noir-contracts/.nargo"
