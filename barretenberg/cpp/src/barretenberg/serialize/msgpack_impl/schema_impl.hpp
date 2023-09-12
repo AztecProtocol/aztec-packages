@@ -24,6 +24,7 @@ struct MsgpackSchemaPacker : msgpack::packer<msgpack::sbuffer> {
     // Returns if already was emitted
     bool set_emitted(const std::string& type)
     {
+
         if (emitted_types.find(type) == emitted_types.end()) {
             emitted_types.insert(type);
             return false;
