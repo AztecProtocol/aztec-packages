@@ -224,7 +224,6 @@
       "aztec.js",
       "circuits.js",
       "cli",
-      "end-to-end",
       "foundation",
       "noir-compiler",
       "types"
