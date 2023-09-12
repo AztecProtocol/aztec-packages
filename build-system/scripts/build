@@ -70,6 +70,9 @@ echo "Creating multi-platform builder"
 docker buildx create --name multi-platform-builder --bootstrap --use
 echo "Multi-platform builder created"
 
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
   echo "No rebuild necessary."
