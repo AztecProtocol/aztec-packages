@@ -21,6 +21,8 @@ import { DebugLogger } from '@aztec/foundation/log';
 import { SchnorrAuthWitnessAccountContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
 
+import { jest } from '@jest/globals';
+
 import { setup } from './fixtures/utils.js';
 
 const hashPayload = async (payload: Fr[]) => {
@@ -30,6 +32,8 @@ const hashPayload = async (payload: Fr[]) => {
     GeneratorIndex.SIGNATURE_PAYLOAD,
   );
 };
+
+const TIMEOUT = 60_000;
 
 class TokenSimulator {
   private balancesPrivate: Map<AztecAddress, bigint> = new Map();
@@ -121,6 +125,8 @@ class TokenSimulator {
 }
 
 describe('e2e_token_contract', () => {
+  jest.setTimeout(TIMEOUT);
+
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
   let wallets: AuthWitnessEntrypointWallet[];
@@ -195,9 +201,9 @@ describe('e2e_token_contract', () => {
 
   afterEach(async () => {
     await tokenSim.check();
-  }, 30_000);
+  }, TIMEOUT);
 
-  describe.only('Access controlled functions', () => {
+  describe('Access controlled functions', () => {
     it('Set admin', async () => {
       const tx = asset.methods.set_admin({ address: accounts[1].address }).send();
       const receipt = await tx.wait();
@@ -233,7 +239,7 @@ describe('e2e_token_contract', () => {
     });
   });
 
-  describe.only('Minting', () => {
+  describe('Minting', () => {
     describe('Public', () => {
       it('as minter', async () => {
         const amount = 10000n;
@@ -297,7 +303,6 @@ describe('e2e_token_contract', () => {
         });
 
         it('redeem as recipient', async () => {
-          // How is this shitter failing?
           const txClaim = asset.methods.redeem_shield({ address: accounts[0].address }, amount, secret).send();
           const receiptClaim = await txClaim.wait();
           expect(receiptClaim.status).toBe(TxStatus.MINED);
@@ -388,7 +393,7 @@ describe('e2e_token_contract', () => {
         expect(receipt.status).toBe(TxStatus.MINED);
 
         tokenSim.transferPublic(accounts[0].address, accounts[0].address, amount);
-      }, 30_000);
+      });
 
       it('transfer on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -423,7 +428,7 @@ describe('e2e_token_contract', () => {
         await txReplay.isMined();
         const receiptReplay = await txReplay.getReceipt();
         expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-      }, 45_000);
+      });
 
       describe('failure cases', () => {
         it('transfer more than balance', async () => {
@@ -496,7 +501,7 @@ describe('e2e_token_contract', () => {
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
-        }, 30_000);
+        });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -529,7 +534,7 @@ describe('e2e_token_contract', () => {
 
           expect(await asset.methods.balance_of_public({ address: accounts[0].address }).view()).toEqual(balance0);
           expect(await asset.methods.balance_of_public({ address: accounts[1].address }).view()).toEqual(balance1);
-        }, 45_000);
+        });
 
         it('transfer on behalf of other, wrong designated caller', async () => {
           const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -600,7 +605,7 @@ describe('e2e_token_contract', () => {
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
         tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
-      }, 30_000);
+      });
 
       it('transfer to self', async () => {
         const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
@@ -612,7 +617,7 @@ describe('e2e_token_contract', () => {
         const receipt = await tx.wait();
         expect(receipt.status).toBe(TxStatus.MINED);
         tokenSim.transferPrivate(accounts[0].address, accounts[0].address, amount);
-      }, 30_000);
+      });
 
       it('transfer on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
@@ -792,7 +797,7 @@ describe('e2e_token_contract', () => {
       await txClaimDoubleSpend.isMined();
       const receiptDoubleSpend = await txClaimDoubleSpend.getReceipt();
       expect(receiptDoubleSpend.status).toBe(TxStatus.DROPPED);
-    }, 30_000);
+    });
 
     it('on behalf of other', async () => {
       const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -840,7 +845,7 @@ describe('e2e_token_contract', () => {
       await txClaimDoubleSpend.isMined();
       const receiptDoubleSpend = await txClaimDoubleSpend.getReceipt();
       expect(receiptDoubleSpend.status).toBe(TxStatus.DROPPED);
-    }, 60_000);
+    });
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
@@ -884,7 +889,7 @@ describe('e2e_token_contract', () => {
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
         ).rejects.toThrowError('Assertion failed: Underflow');
-      }, 30_000);
+      });
 
       it('on behalf of other (wrong designated caller)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -907,7 +912,7 @@ describe('e2e_token_contract', () => {
             .methods.shield({ address: accounts[0].address }, amount, secretHash, nonce)
             .simulate(),
         ).rejects.toThrowError('Assertion failed: invalid call');
-      }, 30_000);
+      });
 
       it('on behalf of other (wrong designated caller)', async () => {
         const balancePub = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -983,7 +988,7 @@ describe('e2e_token_contract', () => {
       expect(receipt.status).toBe(TxStatus.MINED);
 
       tokenSim.unshield(accounts[0].address, accounts[0].address, amount);
-    }, 45_000);
+    });
 
     it('on behalf of other', async () => {
       const balancePriv0 = await asset.methods.balance_of_private({ address: accounts[0].address }).view();
@@ -1016,7 +1021,7 @@ describe('e2e_token_contract', () => {
       await txReplay.isMined();
       const receiptReplay = await txReplay.getReceipt();
       expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-    }, 30_000);
+    });
 
     describe('failure cases', () => {
       it('on behalf of self (more than balance)', async () => {
@@ -1114,7 +1119,7 @@ describe('e2e_token_contract', () => {
         expect(receipt.status).toBe(TxStatus.MINED);
 
         tokenSim.burnPublic(accounts[0].address, amount);
-      }, 30_000);
+      });
 
       it('burn on behalf of other', async () => {
         const balance0 = await asset.methods.balance_of_public({ address: accounts[0].address }).view();
@@ -1148,7 +1153,7 @@ describe('e2e_token_contract', () => {
         await txReplay.isMined();
         const receiptReplay = await txReplay.getReceipt();
         expect(receiptReplay.status).toBe(TxStatus.DROPPED);
-      }, 30_000);
+      });
 
       describe('failure cases', () => {
         it('burn more than balance', async () => {

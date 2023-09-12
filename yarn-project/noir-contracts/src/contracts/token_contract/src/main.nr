@@ -246,7 +246,7 @@ contract Token {
         let balance = storage.balances.at(to.address);
         let public_note = TransparentNote::new_from_secret(amount, secret);
         
-        pending_shields.assert_contains_and_remove(public_note);
+        pending_shields.assert_contains_and_remove_publicly_created(public_note);
         increment(balance, amount, to.address);
 
         1
