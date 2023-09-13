@@ -1,9 +1,9 @@
 #pragma once
 #include "barretenberg/honk/flavor/goblin_ultra.hpp"
+#include "barretenberg/honk/flavor/goblin_ultra_recursive.hpp"
 #include "barretenberg/honk/flavor/ultra.hpp"
 #include "barretenberg/honk/flavor/ultra_grumpkin.hpp"
 #include "barretenberg/honk/flavor/ultra_recursive.hpp"
-#include "barretenberg/honk/flavor/goblin_ultra_recursive.hpp"
 #include "barretenberg/honk/sumcheck/sumcheck.hpp"
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/recursion/honk/transcript/transcript.hpp"
@@ -38,10 +38,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     Transcript<Builder> transcript;
 };
 
-extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;
+extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
+extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
 extern template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
-
-using UltraRecursiveVerifier = UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;
-using GoblinUltraRecursiveVerifier = UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

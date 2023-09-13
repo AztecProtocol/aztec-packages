@@ -257,7 +257,7 @@ class StandardGrumpkin;
 class Ultra;
 class UltraGrumpkin;
 class GoblinUltra;
-class UltraRecursive;
+template <typename BuilderType> class UltraRecursive_;
 class GoblinUltraRecursive;
 } // namespace proof_system::honk::flavor
 
@@ -291,7 +291,7 @@ template <typename T>
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra>;
 
 template <typename T> 
-concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive, honk::flavor::GoblinUltraRecursive>;
+concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive_<UltraCircuitBuilder>, honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>, honk::flavor::GoblinUltraRecursive>;
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
 
