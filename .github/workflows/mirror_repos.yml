@@ -17,7 +17,6 @@ on:
 jobs:
   mirror-to-docs-repo:
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.modified, 'docs/')"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -29,15 +28,16 @@ jobs:
           SUBREPO_PATH=docs
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
-          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main
-          git fetch # in case a commit came after this
-          git rebase origin/master
-          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
-          git push
+
+          if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main; then
+            git fetch # in case a commit came after this
+            git rebase origin/master
+            git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
+            git push
+          fi
 
   mirror-to-build-system-repo:
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.modified, 'build-system/')"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -49,15 +49,16 @@ jobs:
           SUBREPO_PATH=build-system
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
-          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=maste
-          git fetch # in case a commit came after this
-          git rebase origin/masterr
-          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
-          git push
+
+          if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main; then
+            git fetch # in case a commit came after this
+            git rebase origin/master
+            git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
+            git push
+          fi
 
   mirror-to-barretenberg-repo:
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.modified, 'barretenberg/')"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -69,8 +70,10 @@ jobs:
           SUBREPO_PATH=barretenberg
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
-          ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master
-          git fetch # in case a commit came after this
-          git rebase origin/master
-          git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
-          git push
+
+          if ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=main; then
+            git fetch # in case a commit came after this
+            git rebase origin/master
+            git commit --amend -m "$(git log -1 --pretty=%B) [skip ci]"
+            git push
+          fi
