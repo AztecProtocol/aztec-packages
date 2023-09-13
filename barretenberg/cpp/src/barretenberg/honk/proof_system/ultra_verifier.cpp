@@ -1,9 +1,9 @@
 #include "./ultra_verifier.hpp"
 #include "barretenberg/honk/flavor/standard.hpp"
+#include "barretenberg/honk/pcs/claim.hpp"
 #include "barretenberg/honk/transcript/transcript.hpp"
 #include "barretenberg/honk/utils/power_polynomial.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/honk/pcs/claim.hpp"
 
 using namespace barretenberg;
 using namespace proof_system::honk::sumcheck;
@@ -160,11 +160,10 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
     // - d+1 commitments [Fold_{r}^(0)], [Fold_{-r}^(0)], and [Fold^(l)], l = 1:d-1
     // - d+1 evaluations a_0_pos, and a_l, l = 0:d-1
     auto univariate_opening_claims = Gemini::reduce_verification(multivariate_challenge,
-                                                    batched_evaluation,
-                                                    batched_commitment_unshifted,
-                                                    batched_commitment_to_be_shifted,
-                                                    transcript);
-
+                                                                 batched_evaluation,
+                                                                 batched_commitment_unshifted,
+                                                                 batched_commitment_to_be_shifted,
+                                                                 transcript);
 
     // Perform ECC op queue transcript aggregation protocol
     if constexpr (IsGoblinFlavor<Flavor>) {
@@ -173,9 +172,12 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         std::array<Commitment, Flavor::NUM_WIRES> prev_agg_op_queue_commitments;
         std::array<Commitment, Flavor::NUM_WIRES> agg_op_queue_commitments;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            shifted_op_wire_commitments[idx] = transcript.template receive_from_prover<Commitment>("SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
-            prev_agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
-            agg_op_queue_commitments[idx] = transcript.template receive_from_prover<Commitment>("AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
+            shifted_op_wire_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("SHIFTED_ECC_OP_WIRE_" + std::to_string(idx + 1));
+            prev_agg_op_queue_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("PREV_AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
+            agg_op_queue_commitments[idx] =
+                transcript.template receive_from_prover<Commitment>("AGG_ECC_OP_QUEUE_" + std::to_string(idx + 1));
         }
 
         // Receive transcript poly evaluations
@@ -184,13 +186,19 @@ template <typename Flavor> bool UltraVerifier_<Flavor>::verify_proof(const plonk
         std::array<FF, Flavor::NUM_WIRES> prev_agg_op_queue_evals;
         std::array<FF, Flavor::NUM_WIRES> agg_op_queue_evals;
         for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
-            shifted_op_wire_evals[idx] = transcript.template receive_from_prover<FF>("op_wire_eval_" + std::to_string(idx + 1));
-            prev_agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
-            agg_op_queue_evals[idx] = transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
-        
-            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, shifted_op_wire_evals[idx]}, shifted_op_wire_commitments[idx] });
-            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, prev_agg_op_queue_evals[idx]}, prev_agg_op_queue_commitments[idx] });
-            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ {kappa, agg_op_queue_evals[idx]}, agg_op_queue_commitments[idx] });
+            shifted_op_wire_evals[idx] =
+                transcript.template receive_from_prover<FF>("op_wire_eval_" + std::to_string(idx + 1));
+            prev_agg_op_queue_evals[idx] =
+                transcript.template receive_from_prover<FF>("prev_agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+            agg_op_queue_evals[idx] =
+                transcript.template receive_from_prover<FF>("agg_ecc_op_queue_eval_" + std::to_string(idx + 1));
+
+            univariate_opening_claims.emplace_back(
+                pcs::OpeningClaim<Curve>{ { kappa, shifted_op_wire_evals[idx] }, shifted_op_wire_commitments[idx] });
+            univariate_opening_claims.emplace_back(pcs::OpeningClaim<Curve>{ { kappa, prev_agg_op_queue_evals[idx] },
+                                                                             prev_agg_op_queue_commitments[idx] });
+            univariate_opening_claims.emplace_back(
+                pcs::OpeningClaim<Curve>{ { kappa, agg_op_queue_evals[idx] }, agg_op_queue_commitments[idx] });
         }
 
         // Check the identity T_i(γ) = T_{i-1}(γ) + t_i^{shift}(γ). If it fails, return false

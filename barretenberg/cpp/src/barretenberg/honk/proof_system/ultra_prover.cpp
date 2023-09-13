@@ -299,20 +299,20 @@ template <UltraFlavor Flavor> void UltraProver_<Flavor>::execute_op_queue_transc
             // T_{i-1}(γ)
             auto polynomial = Polynomial(prev_aggregate_ecc_op_transcript[idx]);
             auto evaluation = polynomial.evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{kappa, evaluation});
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
             univariate_openings.witnesses.emplace_back(std::move(polynomial));
             transcript.send_to_verifier("prev_agg_ecc_op_queue_eval_" + suffix, evaluation);
 
             // t_i^{shift}(γ)
             evaluation = right_shifted_op_wires[idx].evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{kappa, evaluation});
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
             univariate_openings.witnesses.emplace_back(std::move(right_shifted_op_wires[idx]));
             transcript.send_to_verifier("op_wire_eval_" + suffix, evaluation);
 
             // T_i(γ)
             polynomial = Polynomial(aggregate_ecc_op_transcript[idx]);
             evaluation = polynomial.evaluate(kappa);
-            univariate_openings.opening_pairs.emplace_back(OpenPair{kappa, evaluation});
+            univariate_openings.opening_pairs.emplace_back(OpenPair{ kappa, evaluation });
             univariate_openings.witnesses.emplace_back(std::move(polynomial));
             transcript.send_to_verifier("agg_ecc_op_queue_eval_" + suffix, evaluation);
         }
