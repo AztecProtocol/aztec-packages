@@ -97,6 +97,10 @@ COPY rollup-provider/tsconfig.json rollup-provider/tsconfig.json
 COPY types/tsconfig.json types/tsconfig.json
 COPY world-state/tsconfig.json world-state/tsconfig.json
 
+# Check that dependencies config are up to date
+COPY yarn-project-base/scripts yarn-project-base/scripts
+RUN yarn prepare:check
+
 # Generate TS-importable contract artifacts
 COPY l1-artifacts/scripts/generate-artifacts.sh l1-artifacts/scripts/generate-artifacts.sh
 WORKDIR /usr/src/yarn-project/l1-artifacts
