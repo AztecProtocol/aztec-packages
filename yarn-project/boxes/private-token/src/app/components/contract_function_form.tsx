@@ -4,6 +4,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { CONTRACT_ADDRESS_PARAM_NAMES, DEFAULT_PUBLIC_ADDRESS, rpcClient } from '../../config.js';
 import { callContractFunction, deployContract, viewContractFunction } from '../../scripts/index.js';
+import { convertArgs } from '../../scripts/util.js';
 import { Button } from './index.js';
 
 type NoirFunctionYupSchema = {
@@ -65,18 +66,27 @@ async function handleFunctionCall(
   args: any,
   wallet: CompleteAddress,
 ) {
+  const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
+
   if (functionName === 'constructor' && !!wallet) {
+    if (functionAbi === undefined) {
+      throw new Error('Cannot find constructor in the ABI.');
+    }
+    // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
+    // convert those back to bigints before sending
+    const typedArgs: bigint[] = convertArgs(functionAbi, args);
+
     // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
     // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
     const salt = Fr.random();
-    return await deployContract(wallet, contractAbi, args, salt, rpcClient);
+    return await deployContract(wallet, contractAbi, typedArgs, salt, rpcClient);
   }
 
-  const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
+  const typedArgs: any[] = convertArgs(functionAbi, args, false);
   if (functionAbi.functionType === 'unconstrained') {
-    return await viewContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient, wallet);
+    return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   } else {
-    return await callContractFunction(contractAddress!, contractAbi, functionName, args, rpcClient, wallet);
+    return await callContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   }
 }
 

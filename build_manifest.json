@@ -222,11 +222,8 @@
     "rebuildPatterns": ["^yarn-project/boxes/"],
     "dependencies": [
       "aztec.js",
-      "circuits.js",
       "cli",
-      "foundation",
-      "noir-compiler",
-      "types"
+      "foundation"
     ]
   },
   "canary-build": {
