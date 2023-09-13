@@ -80,7 +80,8 @@ class ECCOpQueue {
 
     [[nodiscard]] size_t get_previous_size() const { return previous_ultra_ops_size; }
 
-    void set_commitment_data(std::array<Point, 4>& commitments) {
+    void set_commitment_data(std::array<Point, 4>& commitments)
+    {
         previous_ultra_ops_commitments = ultra_ops_commitments;
         ultra_ops_commitments = commitments;
     }

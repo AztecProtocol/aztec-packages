@@ -10,7 +10,7 @@ namespace proof_system {
 template <typename FF> void GoblinUltraCircuitBuilder_<FF>::finalize_circuit()
 {
     UltraCircuitBuilder_<FF>::finalize_circuit();
-    
+
     // Set internally the current and previous size of the aggregate op queue transcript
     op_queue->set_size_data();
 }
@@ -57,7 +57,7 @@ ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_add_accum(const barretenb
  */
 template <typename FF>
 ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_mul_accum(const barretenberg::g1::affine_element& point,
-                                                           const FF& scalar)
+                                                                 const FF& scalar)
 {
     // Add raw op to op queue
     op_queue->mul_accumulate(point, scalar);
@@ -95,7 +95,9 @@ template <typename FF> ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::queue_ecc_eq
  * @return ecc_op_tuple Tuple of indices into variables array used to construct pair of ecc op gates
  */
 template <typename FF>
-ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_idx, const g1::affine_element& point, const FF& scalar)
+ecc_op_tuple GoblinUltraCircuitBuilder_<FF>::decompose_ecc_operands(uint32_t op_idx,
+                                                                    const g1::affine_element& point,
+                                                                    const FF& scalar)
 {
     // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
     const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;

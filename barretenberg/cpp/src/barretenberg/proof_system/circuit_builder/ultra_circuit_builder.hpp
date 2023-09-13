@@ -854,7 +854,8 @@ template <typename FF> class UltraCircuitBuilder_ : public CircuitBuilderBase<ar
 
         size_t total = count + romcount + ramcount + rangecount;
         std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount << "), pubinp = " << this->public_inputs.size() << std::endl;
+                  << ", range " << rangecount << ", non native field gates " << nnfcount
+                  << "), pubinp = " << this->public_inputs.size() << std::endl;
     }
     // /**
     //  * @brief Get the final number of gates in a circuit, which consists of the sum of:

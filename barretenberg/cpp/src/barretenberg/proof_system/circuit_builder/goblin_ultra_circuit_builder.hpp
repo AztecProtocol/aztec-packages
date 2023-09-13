@@ -53,8 +53,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
     ecc_op_tuple decompose_ecc_operands(uint32_t op, const g1::affine_element& point, const FF& scalar = FF::zero());
 
   public:
-
-    GoblinUltraCircuitBuilder_(const size_t size_hint = 0, std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
+    GoblinUltraCircuitBuilder_(const size_t size_hint = 0,
+                               std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
         : UltraCircuitBuilder_<FF>(size_hint)
         , op_queue(op_queue_in)
     {
@@ -65,7 +65,8 @@ template <typename FF> class GoblinUltraCircuitBuilder_ : public UltraCircuitBui
         equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
     };
     GoblinUltraCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
-        : GoblinUltraCircuitBuilder_(0, op_queue_in) {}
+        : GoblinUltraCircuitBuilder_(0, op_queue_in)
+    {}
 
     void finalize_circuit();
     void add_gates_to_ensure_all_polys_are_non_zero();
