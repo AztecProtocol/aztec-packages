@@ -52,5 +52,5 @@
       "path": "../world-state"
     }
   ],
-  "include": ["src"]
+  "include": ["src", "../boxes/private-token/src/tests/e2e_box_privatetoken.ts"]
 }
