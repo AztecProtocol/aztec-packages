@@ -12491,6 +12491,7 @@ __metadata:
   resolution: "private-token@workspace:boxes/private-token"
   dependencies:
     "@aztec/aztec.js": "workspace:^"
+    "@aztec/circuits.js": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@types/node": ^20.5.9

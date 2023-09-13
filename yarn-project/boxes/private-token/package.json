@@ -14,7 +14,7 @@
     "start:sandbox": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" ",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
-    "compile": "aztec-compile compile src/contracts --outdir ../artifacts --typescript ../artifacts",
+    "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --runInBand",
     "test:integration": "concurrently -k -s first -c reset,dim -n test,anvil \"yarn test\" \"anvil\""
   },
@@ -36,8 +36,8 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/cli": "workspace:^",
     "@aztec/circuits.js": "workspace:^",
+    "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "formik": "^2.4.3",
     "react": "^18.2.0",
