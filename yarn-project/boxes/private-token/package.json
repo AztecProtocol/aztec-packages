@@ -11,7 +11,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "start": "serve -p 3000 ./dest",
     "start:dev": "webpack serve --mode=development",
-    "start:sandbox": "/bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" ",
+    "start:sandbox": "SANDBOX_VERSION=latest /bin/bash -c \"$(curl -fsSL 'https://sandbox.aztec.network')\" ",
     "formatting": "prettier --check ./src && eslint ./src",
     "formatting:fix": "prettier -w ./src",
     "compile": "aztec-cli compile src/contracts --outdir ../artifacts --typescript ../artifacts",

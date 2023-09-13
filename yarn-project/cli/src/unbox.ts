@@ -202,14 +202,15 @@ async function updatePackageJsonVersions(packageVersion: string, outputPath: str
     }
   }
 
-  // modify the version of the sandbox to pull - it's "latest" in the repo, but we need to replace
-  // with the same tagVersion as the cli and the other aztec npm packages
-  if (packageData.scripts && packageData.scripts['install:sandbox']) {
-    packageData.scripts['install:sandbox'] = packageData.scripts['install:sandbox'].replace(
-      'latest',
-      `v${packageVersion}`,
-    );
-  }
+  // modify the version of the sandbox to pull - it's set to "latest" version in the monorepo,
+  // but we need to replace with the same tagVersion as the cli and the other aztec npm packages
+  // similarly, make sure we spinup the sandbox with the same version.
+  packageData.scripts['install:sandbox'] = packageData.scripts['install:sandbox'].replace(
+    'latest',
+    `v${packageVersion}`,
+  );
+
+  packageData.scripts['start:sandbox'] = packageData.scripts['start:sandbox'].replace('latest', `v${packageVersion}`);
 
   // Convert back to a string and write back to the package.json file
   const updatedContent = JSON.stringify(packageData, null, 2);
