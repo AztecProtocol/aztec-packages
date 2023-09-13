@@ -137,12 +137,30 @@ async function downloadContractAndBoxFromGithub(
  * Does some conversion from the package/build configurations in the monorepo to the
  * something usable by the copied standalone unboxed folder.  Adjusts relative paths
  * and package versions.
+ * @param packageVersion - CLI npm version, which determines what npm version to grab
  * @param outputPath - relative path where we are copying everything
  * @param log - logger
  */
 async function updatePackagingConfigurations(packageVersion: string, outputPath: string, log: LogFn): Promise<void> {
   await updatePackageJsonVersions(packageVersion, outputPath, log);
   await updateTsConfig(outputPath, log);
+  await updateNargoToml(packageVersion, outputPath, log);
+}
+
+/**
+ * adjust the contract Nargo.toml file to use the same repository version as the npm packages
+ * @param packageVersion - CLI npm version, which determines what npm version to grab
+ * @param outputPath - relative path where we are copying everything
+ * @param log - logger
+ */
+async function updateNargoToml(packageVersion: string, outputPath: string, log: LogFn): Promise<void> {
+  const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
+  const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
+  const lines = fileContent.split('\n');
+  const updatedLines = lines.map(line => line.replace(/tag="master"/g, `tag="v${packageVersion}"`));
+  const updatedContent = updatedLines.join('\n');
+  await fs.writeFile(nargoTomlPath, updatedContent);
+  log(`Updated Nargo.toml to point to local copy of noir-libs`);
 }
 
 /**
@@ -173,8 +191,8 @@ async function updateTsConfig(outputPath: string, log: LogFn) {
  * We pin to "workspace:^" in the package.json for subpackages, but we need to replace it with
  * an the actual version number in the cloned starter kit
  * We modify the copied package.json and pin to the version of the package that was downloaded
- * @param outputPath - directory we are unboxing to
  * @param packageVersion - CLI npm version, which determines what npm version to grab
+ * @param outputPath - directory we are unboxing to
  * @param log - logger
  */
 async function updatePackageJsonVersions(packageVersion: string, outputPath: string, log: LogFn): Promise<void> {
