@@ -1,7 +1,6 @@
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
-#include "barretenberg/honk/proof_system/prover_library.hpp"
 #include "barretenberg/proof_system/relations/arithmetic_relation.hpp"
 #include "barretenberg/proof_system/relations/auxiliary_relation.hpp"
 #include "barretenberg/proof_system/relations/ecc_op_queue_relation.hpp"

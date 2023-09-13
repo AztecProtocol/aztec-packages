@@ -30,6 +30,7 @@ template <UltraFlavor Flavor> class Instance_ {
     using FF = typename Flavor::FF;
     using FoldingParameters = typename Flavor::FoldingParameters;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using Polynomial = typename Flavor::Polynomial;
 
     // offset due to placing zero wires at the start of execution trace
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
@@ -62,6 +63,8 @@ template <UltraFlavor Flavor> class Instance_ {
     FoldingParameters folding_params;
     // Used by the prover for domain separation in the transcript
     uint32_t index;
+
+    Instance_();
 
     Instance_(Circuit& circuit)
     {
@@ -96,6 +99,10 @@ template <UltraFlavor Flavor> class Instance_ {
     void initialise_prover_polynomials();
 
     void compute_sorted_accumulator_polynomials(FF);
+
+    void compute_sorted_list_accumulator(FF);
+
+    void add_plookup_memory_records_to_wire_4(FF);
 
     void compute_grand_product_polynomials(FF, FF);
 };
