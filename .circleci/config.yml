@@ -581,7 +581,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox
+          command: force_deploy_build aztec-sandbox false
 
   circuits-js:
     machine:
@@ -1031,7 +1031,7 @@ jobs:
       - *setup_env
       - run:
           name: "Build and test"
-          command: force_deploy_build aztec-sandbox-multi-platform "linux/amd64,linux/arm64,linux/arm/v7"
+          command: force_deploy_build aztec-sandbox-multi-platform true "linux/amd64,linux/arm64,linux/arm/v7"
 
   deploy-npm:
     machine:

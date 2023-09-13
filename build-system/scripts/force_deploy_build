@@ -8,7 +8,7 @@ set -e
 
 REPOSITORY=$1
 shift
-FORCE_BUILD=${1:-"false"}
+FORCE_BUILD=$1
 shift
 
 # if FORCE_BUILD is already set, just continue with it
