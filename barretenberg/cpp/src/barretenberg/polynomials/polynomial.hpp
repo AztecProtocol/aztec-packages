@@ -157,32 +157,7 @@ template <typename Fr> class Polynomial {
      * @param coeffs_in
      * @param shift_size
      */
-    void set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size = 1)
-    {
-        auto size_in = coeffs_in.size();
-        ASSERT(size_in > 0);
-        ASSERT(shift_size < size_in);
-        // Ensure that the last shift_size-many input coefficients are zero
-        for (size_t i = 0; i < shift_size; ++i) {
-            size_t idx = size_in - shift_size - 1;
-            ASSERT(coeffs_in[idx].is_zero());
-        }
-
-        // Set size of self equal to size of input
-        size_ = size_in;
-        coefficients_ = allocate_aligned_memory(sizeof(Fr) * capacity());
-
-        // Zero out the first shift_size-many coefficients
-        memset(static_cast<void*>(coefficients_.get()), 0, sizeof(Fr) * shift_size);
-
-        // Complete construction of right shift by copying num_to_copy-many input coeffs into self at the shift_size-th
-        // index.
-        std::size_t num_to_copy = size_ - shift_size;
-        memcpy(static_cast<void*>(coefficients_.get() + shift_size),
-               static_cast<void const*>(coeffs_in.data()),
-               sizeof(Fr) * num_to_copy);
-        zero_memory_beyond(size_);
-    }
+    void set_to_right_shifted(std::span<Fr> coeffs_in, size_t shift_size = 1);
 
     /**
      * @brief adds the polynomial q(X) 'other', multiplied by a scaling factor.
