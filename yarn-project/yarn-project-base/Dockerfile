@@ -1,3 +1,4 @@
+# Update this counter to trigger a rebuild when needed: 1
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/circuits-wasm-linux-clang as circuits
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/l1-contracts as contracts
 FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/noir-contracts-build as noir
@@ -116,11 +117,12 @@ WORKDIR /usr/src/yarn-project
 FROM builder_ as noir_types
 COPY . .
 COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
+COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-project/noir-contracts/target
 WORKDIR /usr/src/yarn-project/noir-contracts
 
 # Run yarn build to have the json ABIs available for the types generator
 RUN yarn build
-RUN ./scripts/types_ci.sh
+RUN ./scripts/types_all.sh
 # Run yarn build again to build the types
 RUN yarn build
 

@@ -48,21 +48,24 @@ export class SimulatorOracle implements DBOracle {
 
   async getAuthWitness(messageHash: Fr): Promise<Fr[]> {
     const witness = await this.db.getAuthWitness(messageHash);
-    if (!witness) throw new Error(`Unknown auth witness for message hash ${messageHash.toString()}`);
+    if (!witness) throw new Error(`Unknown auth witness for message hash ${messageHash.toString(true)}`);
     return witness;
   }
 
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr) {
     const noteDaos = await this.db.getNoteSpendingInfo(contractAddress, storageSlot);
-    return noteDaos.map(({ contractAddress, storageSlot, nonce, notePreimage, siloedNullifier, index }) => ({
-      contractAddress,
-      storageSlot,
-      nonce,
-      preimage: notePreimage.items,
-      siloedNullifier,
-      // RPC Client can use this index to get full MembershipWitness
-      index,
-    }));
+    return noteDaos.map(
+      ({ contractAddress, storageSlot, nonce, notePreimage, innerNoteHash, siloedNullifier, index }) => ({
+        contractAddress,
+        storageSlot,
+        nonce,
+        preimage: notePreimage.items,
+        innerNoteHash,
+        siloedNullifier,
+        // RPC Client can use this index to get full MembershipWitness
+        index,
+      }),
+    );
   }
 
   async getFunctionABI(

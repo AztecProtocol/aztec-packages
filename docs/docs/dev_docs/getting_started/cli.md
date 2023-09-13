@@ -46,6 +46,8 @@ We have shipped a number of example contracts in the `@aztec/noir-contracts` npm
 
 #include_code example-contracts yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
+You can see all of our example contracts in the monorepo [here](https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/noir-contracts/src/contracts).
+
 In the following sections there will be commands that require contracts as options. You can either specify the full directory path to the contract abi, or you can use the name of one of these examples as the option value. This will become clearer later on.
 
 ## Creating Accounts
@@ -73,7 +75,7 @@ Let's double check that the accounts have been registered with the sandbox using
 
 #include_code get-accounts yarn-project/end-to-end/src/cli_docs_sandbox.test.ts bash
 
-Save one of the printed accounts (not the one that you generated above) in an environment variable. We will use it later.
+You will see a that a number of accounts exist that we did not create. The Sandbox initialises itself with 3 default accounts. Save one of the printed accounts (not the one that you generated above) in an environment variable. We will use it later.
 
 ```bash
 export ADDRESS2=<Account address printed by the above command>
@@ -118,7 +120,7 @@ The `call` command calls a read-only method on a contract, one that will not gen
 - `--contract-abi` - The abi of the contract we are calling.
 - `--contract-address` - The address of the deployed contract
 
-As you can see from the result, this address has a balance of 1000000, as expected.
+As you can see from the result, this address has a balance of 1000000, as expected. When using the Sandbox, you are able to query the balance of any account that has been created in the system, even the accounts created by default. You may wonder why this is, as you haven't provided the private keys for these accounts. The Sandbox contains a component known as the AztecRPCServer. When an account is created, this component stores the provided encryption private key and is able to read the account's private state meaning that the Sandbox can report the balance of any of it's accounts. More information about the account model can be found [here](../../concepts/foundation/accounts/main.md).
 
 ## Sending a Transaction
 
