@@ -1002,7 +1002,7 @@ jobs:
           name: "Test"
           command: ./scripts/cond_run_script end-to-end $JOB_NAME ./scripts/run_tests_local guides/dapp_testing.test.ts ./scripts/docker-compose-e2e-sandbox.yml
           working_directory: yarn-project/end-to-end
-        
+
   guides-sample-dapp:
     machine:
       image: ubuntu-2004:202010-01
@@ -1056,6 +1056,17 @@ jobs:
       - run:
           name: "Noop"
           command: echo Noop
+
+  aztec-sandbox-multi-platform:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox-multi-platform "linux/amd64,linux/arm64,linux/arm/v7"
 
   deploy-npm:
     machine:
@@ -1181,6 +1192,7 @@ jobs:
           command: |
             deploy_ecr aztec-sandbox
             deploy_npm aztec-sandbox
+
   deploy-dockerhub:
     machine:
       image: ubuntu-2004:202010-01
@@ -1491,13 +1503,18 @@ workflows:
             - guides-sample-dapp
           <<: *defaults
 
-      - deploy-dockerhub:
+      - aztec-sandbox-multi-platform:
           requires:
             - e2e-end
+          <<: *defaults
+
+      - deploy-dockerhub:
+          requires:
+            - aztec-sandbox-multi-platform
           <<: *deploy_defaults
       - deploy-npm:
           requires:
-            - e2e-end
+            - aztec-sandbox-multi-platform
           <<: *deploy_defaults
 
       - deploy-end:
