@@ -1,6 +1,6 @@
 import { CompleteAddress } from '@aztec/aztec.js';
 import { useEffect, useState } from 'react';
-import { rpcClient } from '../config.js';
+import { rpcClient } from '../../config.js';
 
 interface Props {
   selected: CompleteAddress | undefined;
