@@ -11,14 +11,14 @@ if [ $(jq "has(\"$REPO\")" $MANIFEST) == "false" ]; then
   exit 1
 fi
 
-function rebuildPatterns {
-    TYPE=$(jq -r ".\"$REPO\".rebuildPatterns | type" $MANIFEST)
+function addRebuildPatterns {
+    local TYPE=$(jq -r ".\"$1\".rebuildPatterns | type" $MANIFEST)
     if [ "$TYPE" == "string" ]; then
-      FILE=$(jq -r ".\"$REPO\".rebuildPatterns" $MANIFEST)
-      BUILD_DIR=$($0 buildDir $REPO)
-      PATTERNS=($(cat $BUILD_DIR/$FILE))
+      local FILE=$(jq -r ".\"$1\".rebuildPatterns" $MANIFEST)
+      local BUILD_DIR=$($0 buildDir $1)
+      PATTERNS=(${PATTERNS[@]} $(cat $BUILD_DIR/$FILE))
     elif [ "$TYPE" == "array" ]; then
-      PATTERNS=($(jq -r ".\"$REPO\".rebuildPatterns | .[]" $MANIFEST))
+      PATTERNS=(${PATTERNS[@]} $(jq -r ".\"$1\".rebuildPatterns | .[]" $MANIFEST))
     else
       >&2 echo "Missing rebuildPatterns property. Either filename as string, or patterns as array."
       exit 1
@@ -46,26 +46,30 @@ case "$CMD" in
     jq -r ".\"$REPO\".projectDir // .\"$REPO\".buildDir" $MANIFEST
     ;;
   dependencies)
-    ALL_DEPS=()
+    declare -A ALL_DEPS
     add_deps() {
+      if [[ -v ALL_DEPS[$1] ]]; then
+        return
+      fi
+      ALL_DEPS["$1"]=1
       DEPS=($(jq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
-      ALL_DEPS=(${ALL_DEPS[@]} ${DEPS[@]})
       for DEP in "${DEPS[@]}"; do
         add_deps $DEP
       done
     }
     add_deps $REPO
-    printf "%s\n" "${ALL_DEPS[@]}" | sort | uniq
+    for KEY in "${!ALL_DEPS[@]}"; do
+      echo $KEY
+    done | sort
     ;;
   rebuildPatterns)
-    rebuildPatterns
-    ALL_PATTERNS=(${ALL_PATTERNS[@]} ${PATTERNS[@]})
     DEPS=($($0 dependencies $REPO))
+    PATTERNS=()
+    addRebuildPatterns $REPO
     for DEP in "${DEPS[@]}"; do
-      PATTERNS=($($0 rebuildPatterns $DEP))
-      ALL_PATTERNS=(${ALL_PATTERNS[@]} ${PATTERNS[@]})
+      addRebuildPatterns $DEP
     done
-    printf "%s\n" "${ALL_PATTERNS[@]}" | sort | uniq
+    printf "%s\n" "${PATTERNS[@]}" | sort | uniq
     ;;
   submodulePath)
     DIR=$($0 buildDir $REPO)
