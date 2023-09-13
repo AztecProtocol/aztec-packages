@@ -5,7 +5,7 @@
 #include "barretenberg/plonk/proof_system/types/proof.hpp"
 #include "barretenberg/proof_system/relations/relation_parameters.hpp"
 
-// TODO(@zac-williamson). We used to include `program_settings.hpp` in this file. Needed to remove due to circular
+// TODO(@zac-williamson #2216). We used to include `program_settings.hpp` in this file. Needed to remove due to circular
 // dependency. `program_settings.hpp` included header files that added "using namespace proof_system" and "using
 // namespace barretenberg" declarations. This effects downstream code that relies on these using declarations. This is a
 // big code smell (should really not have using declarations in header files!), however fixing it requires changes in a

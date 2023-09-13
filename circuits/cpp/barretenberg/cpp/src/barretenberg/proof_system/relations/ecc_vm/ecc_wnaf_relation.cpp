@@ -184,7 +184,8 @@ void ECCVMWnafRelationBase<FF>::accumulate(typename AccumulatorTypes::Accumulato
     // (2, 3 combined): q_transition * (pc - pc_shift - 1) + (-q_transition + 1) * (pc_shift - pc)
     // => q_transition * (-2 * (pc_shift - pc) - 1) + (pc_shift - pc)
     const auto pc_delta = pc_shift - pc;
-    std::get<12>(accumulator) += precompute_select * scaled_transition * ((-pc_delta - pc_delta - 1) + pc_delta);
+    std::get<12>(accumulator) +=
+        precompute_select * (scaled_transition * ((-pc_delta - pc_delta - 1)) + pc_delta * scaling_factor);
 
     /**
      * @brief Validate skew is 0 or 7

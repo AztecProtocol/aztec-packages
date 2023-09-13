@@ -57,7 +57,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
      * @brief First term: tuple of (pc, round, wnaf_slice), computed when slicing scalar multipliers into slices,
      *        as part of ECCVMWnafRelation.
      *        If precompute_select = 1, tuple entry = (wnaf-slice + point-counter * beta + msm-round * beta_sqr).
-     *                       There are 4 tuple entires per row.
+     *                       There are 4 tuple entries per row.
      */
     Accumulator numerator(1); // degree-0
     {
@@ -68,7 +68,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // todo can optimize
+        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input0 = wnaf_slice + gamma + precompute_pc * beta + precompute_round4 * beta_sqr;
         numerator *= wnaf_slice_input0; // degree-1
     }
@@ -80,7 +80,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // todo can optimize
+        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input1 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 1) * beta_sqr;
         numerator *= wnaf_slice_input1; // degree-2
     }
@@ -92,7 +92,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
 
-        // todo can optimize
+        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input2 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 2) * beta_sqr;
         numerator *= wnaf_slice_input2; // degree-3
     }
@@ -103,7 +103,7 @@ typename ECCVMSetRelationBase<FF>::template Accumulator<AccumulatorTypes> ECCVMS
         auto wnaf_slice = s0 + s0;
         wnaf_slice += wnaf_slice;
         wnaf_slice += s1;
-        // TODO(@zac-williamson) can optimize this once we have a stable base to work off of.
+        // TODO(@zac-williamson #2226) optimize
         const auto wnaf_slice_input3 = wnaf_slice + gamma + precompute_pc * beta + (precompute_round4 + 3) * beta_sqr;
         numerator *= wnaf_slice_input3; // degree-4
     }
