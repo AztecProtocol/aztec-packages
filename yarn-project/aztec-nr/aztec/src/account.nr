@@ -7,12 +7,12 @@ use crate::auth::IS_VALID_SELECTOR;
 
 struct AccountActions {
   context: Context,
-  is_valid_impl: fn(Field, Field) -> bool,
+  is_valid_impl: fn(&mut PrivateContext, Field) -> bool,
   approved_action: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
 }
 
 impl AccountActions {
-  fn init(context: Context, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+  fn init(context: Context, approved_action_storage_slot: Field, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
     AccountActions {
       context: context,
       is_valid_impl: is_valid_impl,
@@ -26,11 +26,11 @@ impl AccountActions {
     }
   }
 
-  fn private(context: &mut PrivateContext, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+  fn private(context: &mut PrivateContext, approved_action_storage_slot: Field, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
     AccountActions::init(Context::private(context), approved_action_storage_slot, is_valid_impl)
   }
 
-  fn public(context: &mut PublicContext, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+  fn public(context: &mut PublicContext, approved_action_storage_slot: Field, is_valid_impl: fn(&mut PrivateContext, Field) -> bool) -> Self {
     AccountActions::init(Context::public(context), approved_action_storage_slot, is_valid_impl)
   }
   
@@ -38,13 +38,13 @@ impl AccountActions {
     let message_hash = payload.hash();
     let valid_fn = self.is_valid_impl;
     let private_context = self.context.private.unwrap();
-    assert(valid_fn(message_hash, private_context.this_address()));
+    assert(valid_fn(private_context, message_hash));
     payload.execute_calls(private_context);
   }
 
   fn is_valid(self, message_hash: Field) -> Field {
     let valid_fn = self.is_valid_impl;
-    if (valid_fn(message_hash, self.context.private.unwrap().this_address())) {
+    if (valid_fn(self.context.private.unwrap(), message_hash)) {
         IS_VALID_SELECTOR
     } else {
         0
@@ -60,6 +60,7 @@ impl AccountActions {
     }
   }
 
+  // TODO: See if we can remove this function. Maybe we can have the entrypoint call directly into internal_set_is_valid_storage..?
   fn set_is_valid_storage(self, message_hash: Field, value: Field) {
     let private_context = self.context.private.unwrap();
     assert((value == 0) | (value == 1), "value must be a boolean");

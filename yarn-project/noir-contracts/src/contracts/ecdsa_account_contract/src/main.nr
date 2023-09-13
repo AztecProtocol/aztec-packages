@@ -1,5 +1,54 @@
 mod ecdsa_public_key_note;
 
+use dep::std;
+use dep::aztec::{
+    context::{PrivateContext, PublicContext, Context},
+    entrypoint::{EntrypointPayload, ENTRYPOINT_PAYLOAD_SIZE},
+    state_vars::immutable_singleton::ImmutableSingleton,
+    oracle::auth_witness::get_auth_witness,
+};
+use crate::ecdsa_public_key_note::{
+    EcdsaPublicKeyNote, EcdsaPublicKeyNoteInterface, ECDSA_PUBLIC_KEY_NOTE_LEN,
+};
+
+struct Storage {
+    public_key: ImmutableSingleton<EcdsaPublicKeyNote, ECDSA_PUBLIC_KEY_NOTE_LEN>,
+}
+
+impl Storage {
+    fn init(context: Context) -> Self {
+        Storage {
+            public_key: ImmutableSingleton::new(context, 1, EcdsaPublicKeyNoteInterface),
+        }
+    }
+}
+
+// Declared outside the contract to work around Noir error
+// "entered unreachable code: ICE: Params to the program should only contains numbers and arrays"
+fn is_valid_impl(context: &mut PrivateContext, message_field: Field) -> bool {
+    // Load public key from storage
+    let storage = Storage::init(Context::private(context));
+    let public_key = storage.public_key.get_note();
+
+    // Verify payload signature using Ethereum's signing scheme
+    // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
+    // TODO workaround for https://github.com/noir-lang/noir/issues/2421
+    let message_bytes_slice = message_field.to_be_bytes(32);
+    let mut message_bytes: [u8; 32] = [0; 32];
+    for i in 0..32 { message_bytes[i] = message_bytes_slice[i]; }
+    
+    // Load auth witness
+    let witness: [Field; 64] = get_auth_witness(message_field);
+    let mut signature: [u8; 64] = [0; 64];
+    for i in 0..64 { signature[i] = witness[i] as u8; }
+
+    let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
+    let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
+    assert(verification == true);
+
+    true
+}
+
 // Account contract that uses ECDSA signatures for authentication on the same curve as Ethereum.
 // The signing key is stored in an immutable private note and should be different from the signing key.
 contract EcdsaAccount {
@@ -17,51 +66,17 @@ contract EcdsaAccount {
         },
         oracle::get_public_key::get_public_key,
         state_vars::immutable_singleton::ImmutableSingleton,
+        account::AccountActions,
     };
 
     use crate::ecdsa_public_key_note::{
         EcdsaPublicKeyNote, EcdsaPublicKeyNoteInterface, ECDSA_PUBLIC_KEY_NOTE_LEN,
     };
 
-    struct Storage {
-        public_key: ImmutableSingleton<EcdsaPublicKeyNote, ECDSA_PUBLIC_KEY_NOTE_LEN>,
-    }
+    use crate::Storage;
+    use crate::is_valid_impl;
 
-    impl Storage {
-        fn init(context: Context) -> pub Self {
-            Storage {
-                public_key: ImmutableSingleton::new(context, 1, EcdsaPublicKeyNoteInterface),
-            }
-        }
-    }
-
-    // All calls made by this account will be routed through this entrypoint
-    #[aztec(private)]
-    fn entrypoint(  
-        payload: pub EntrypointPayload, // contains a set of arguments, selectors, targets and a nonce
-        signature: pub [u8;64],
-    ) {
-        // Load public key from storage
-        let storage = Storage::init(Context::private(&mut context));
-        let public_key = storage.public_key.get_note();
-
-        // Verify payload signature using Ethereum's signing scheme
-        // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
-        let payload_fields: [Field; ENTRYPOINT_PAYLOAD_SIZE] = payload.serialize();
-        let message_field: Field = std::hash::pedersen_with_separator(payload_fields, GENERATOR_INDEX__SIGNATURE_PAYLOAD)[0];
-        // TODO workaround for https://github.com/noir-lang/noir/issues/2421
-        let message_bytes_slice = message_field.to_be_bytes(32);
-        let mut message_bytes: [u8; 32] = [0; 32];
-        for i in 0..32 {
-          message_bytes[i] = message_bytes_slice[i];
-        }
-        let hashed_message: [u8; 32] = std::hash::sha256(message_bytes);
-        let verification = std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message);
-        assert(verification == true);
-
-        payload.execute_calls(&mut context);
-    }
-
+    global ACCOUNT_ACTIONS_STORAGE_SLOT = 2;
 
     // Creates a new account out of an ECDSA public key to use for signature verification
     #[aztec(private)]
@@ -82,6 +97,36 @@ contract EcdsaAccount {
             get_public_key(this),
             pub_key_note.serialise(),
         );
+    }
+
+    #[aztec(private)]
+    fn entrypoint(payload: pub EntrypointPayload) {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.entrypoint(payload);
+    }
+
+    #[aztec(private)]
+    fn is_valid(message_hash: Field) -> Field {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.is_valid(message_hash)
+    }
+
+    #[aztec(public)]
+    fn is_valid_public(message_hash: Field) -> Field {
+        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.is_valid_public(message_hash)
+    }
+
+    #[aztec(private)]
+    fn set_is_valid_storage(message_hash: Field, value: Field) {
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.set_is_valid_storage(message_hash, value)
+    }
+
+    #[aztec(public)]
+    internal fn internal_set_is_valid_storage(message_hash: Field, value: Field) {
+        let actions = AccountActions::public(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        actions.internal_set_is_valid_storage(message_hash, value)
     }
 
     // Computes note hash and nullifier.

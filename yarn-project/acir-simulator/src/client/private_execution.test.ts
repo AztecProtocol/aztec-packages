@@ -105,6 +105,7 @@ describe('Private Execution test suite', () => {
       functionData,
       txContext: TxContext.from({ ...txContextFields, ...txContext }),
       packedArguments: [packedArguments],
+      authWitnesses: [],
     });
 
     return acirSimulator.run(
