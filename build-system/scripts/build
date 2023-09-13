@@ -121,7 +121,9 @@ for PARENT in $PARENTS; do
   echo "Pulling dependency $PARENT_REPO..."
   fetch_image $PARENT_IMAGE_URI
   # Tag it to look like an official release as that's what we use in Dockerfiles.
-  retry docker tag $PARENT_IMAGE_URI $ECR_DEPLOY_URL/$PARENT
+  TAG=$ECR_DEPLOY_URL/$PARENT
+  echo "Tagging $PARENT_IMAGE_URI as $TAG"
+  retry docker tag $PARENT_IMAGE_URI $TAG
 done
 
 
@@ -169,6 +171,7 @@ for STAGE in $STAGES; do
 
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
+  echo "buildx tag $STAGE_IMAGE_COMMIT_URI"
   # Build our dockerfile, add timing information
   docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
   | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
