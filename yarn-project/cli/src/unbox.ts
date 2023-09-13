@@ -119,7 +119,7 @@ async function downloadNoirFilesFromGithub(
 
   // Step 2: copy the '@aztec/boxes/{contract-name}' subpackage to the output directory
   // this is currently only implemented for PrivateToken under 'boxes/private-token/'
-  const repoDirectoryPrefix = `${repo}-master/`;
+  const repoDirectoryPrefix = `${repo}-v${tagVersion}/`;
 
   const boxPath = `${repoDirectoryPrefix}${BOXES_PATH}/${snakeCaseContractName}`;
   await copyFolderFromGithub(data, boxPath, outputPath, log);
@@ -159,8 +159,8 @@ async function downloadNoirFilesFromGithub(
  * @param outputPath - relative path where we are copying everything
  * @param log - logger
  */
-async function updatePackagingConfigurations(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
-  await updatePackageJsonVersions(outputPath, packageVersion, log);
+async function updatePackagingConfigurations(packageVersion: string, outputPath: string, log: LogFn): Promise<void> {
+  await updatePackageJsonVersions(packageVersion, outputPath, log);
   await updateTsConfig(outputPath, log);
 }
 
@@ -196,7 +196,7 @@ async function updateTsConfig(outputPath: string, log: LogFn) {
  * @param packageVersion - CLI npm version, which determines what npm version to grab
  * @param log - logger
  */
-async function updatePackageJsonVersions(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
+async function updatePackageJsonVersions(packageVersion: string, outputPath: string, log: LogFn): Promise<void> {
   const packageJsonPath = path.join(outputPath, 'package.json');
   const fileContent = await fs.readFile(packageJsonPath, 'utf-8');
   const packageData = JSON.parse(fileContent);
@@ -278,7 +278,7 @@ async function createDirectory(outputDirectoryName: string, log: LogFn): Promise
 export async function unboxContract(
   contractName: string,
   outputDirectoryName: string,
-  packageVersion: string,
+  _packageVersion: string,
   log: LogFn,
 ) {
   const contractNames = ['PrivateToken'];
@@ -294,6 +294,8 @@ export async function unboxContract(
   // downloads the selected contract's noir source code into `${outputDirectoryName}/src/contracts`,
   // along with the relevant folders in @aztec/boxes/{contract_name} and @aztec/noir-libs
   const outputPath = await createDirectory(outputDirectoryName, log);
+
+  const packageVersion = '0.7.0';
   await downloadContractAndBoxFromGithub(packageVersion, contractName, outputPath, log);
-  await updatePackagingConfigurations(outputPath, packageVersion, log);
+  await updatePackagingConfigurations(packageVersion, outputPath, log);
 }
