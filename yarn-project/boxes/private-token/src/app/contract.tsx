@@ -12,9 +12,10 @@ const functionTypeSortOrder = {
 
 interface Props {
   wallet: CompleteAddress;
+  onDeploy: () => void;
 }
 
-export function Contract({ wallet }: Props) {
+export function Contract({ wallet, onDeploy }: Props) {
   const [contractAddress, setContractAddress] = useState<AztecAddress | undefined>();
   const [processingFunction, setProcessingFunction] = useState('');
   const [errorMsg, setError] = useState('');
@@ -33,6 +34,7 @@ export function Contract({ wallet }: Props) {
     setResult('');
     setError('');
     setProcessingFunction('');
+    onDeploy();
   };
 
   const constructorAbi = contractAbi.functions.find(f => f.name === 'constructor')!;

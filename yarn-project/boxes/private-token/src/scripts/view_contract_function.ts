@@ -10,12 +10,11 @@ export async function viewContractFunction(
   rpc: AztecRPC,
   wallet: CompleteAddress,
 ) {
-  // this is the aztec rpc server/client that is used to initialize the Contract object.  kinda hacky
+  // we specify the account that is calling the view function by passing in the wallet to the Contract
   const selectedWallet = await getWallet(wallet, rpc);
   const contract = await Contract.at(address, abi, selectedWallet);
 
-  // false to skip the foundation encoder - need to look into why passing the address as an Fr fails on re-encoding
-
+  // TODO: see if we can remove the {from: wallet.address}?
   const viewResult = await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
   return viewResult;
 }

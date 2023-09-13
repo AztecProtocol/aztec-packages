@@ -6,7 +6,7 @@ export async function callContractFunction(
   address: AztecAddress,
   abi: ContractAbi,
   functionName: string,
-  typedArgs: any[],
+  typedArgs: any[], // for the exposed functions, this is an array of field elements Fr[]
   rpc: AztecRPC,
   wallet: CompleteAddress,
 ) {
