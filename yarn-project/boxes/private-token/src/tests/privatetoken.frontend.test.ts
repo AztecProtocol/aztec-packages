@@ -58,7 +58,7 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
 async function getBalance(contractAddress: AztecAddress, privateTokenContract: Contract, owner: CompleteAddress) {
   const getBalanceAbi = getFunctionAbi(PrivateTokenContract.abi, 'getBalance');
   const viewArgs = { owner: owner.address };
-  const typedArgs = convertArgs(getBalanceAbi, viewArgs, false);
+  const typedArgs = convertArgs(getBalanceAbi, viewArgs);
 
   return await viewContractFunction(
     contractAddress,
@@ -75,10 +75,11 @@ async function mint(
   privateTokenContract: Contract,
   from: CompleteAddress,
   to: CompleteAddress,
+  amount: bigint,
 ) {
-  const getBalanceAbi = getFunctionAbi(PrivateTokenContract.abi, 'getBalance');
-  const viewArgs = { amount: MINT_AMOUNT, owner: to.address };
-  const typedArgs = convertArgs(getBalanceAbi, viewArgs, false);
+  const getBalanceAbi = getFunctionAbi(PrivateTokenContract.abi, 'mint');
+  const mintArgs = { amount, owner: to.address };
+  const typedArgs = convertArgs(getBalanceAbi, mintArgs);
 
   return await callContractFunction(contractAddress, privateTokenContract.abi, 'mint', typedArgs, rpcClient, from);
 }
@@ -88,10 +89,11 @@ async function transfer(
   privateTokenContract: Contract,
   from: CompleteAddress,
   to: CompleteAddress,
+  amount: bigint,
 ) {
-  const getBalanceAbi = getFunctionAbi(PrivateTokenContract.abi, 'getBalance');
-  const viewArgs = { amount: MINT_AMOUNT, owner: to.address };
-  const typedArgs = convertArgs(getBalanceAbi, viewArgs, false);
+  const getBalanceAbi = getFunctionAbi(PrivateTokenContract.abi, 'transfer');
+  const transferArgs = { amount, recipient: to.address };
+  const typedArgs = convertArgs(getBalanceAbi, transferArgs);
 
   return await callContractFunction(contractAddress, privateTokenContract.abi, 'transfer', typedArgs, rpcClient, from);
 }
@@ -122,7 +124,7 @@ describe('ZK Contract Tests', () => {
   }, 40000);
 
   test('Balance after mint is correct', async () => {
-    const mintTx = mint(contractAddress, privateTokenContract, owner, owner);
+    const mintTx = mint(contractAddress, privateTokenContract, owner, owner, MINT_AMOUNT);
     await mintTx;
 
     const balanceAfterMint = await getBalance(contractAddress, privateTokenContract, owner);
@@ -130,7 +132,7 @@ describe('ZK Contract Tests', () => {
   }, 40000);
 
   test('Balance after transfer is correct for both sender and receiver', async () => {
-    const transferTx = transfer(contractAddress, privateTokenContract, owner, account2);
+    const transferTx = transfer(contractAddress, privateTokenContract, owner, account2, TRANSFER_AMOUNT);
     await transferTx;
 
     const balanceAfterTransfer = await getBalance(contractAddress, privateTokenContract, owner);

@@ -67,6 +67,7 @@ async function handleFunctionCall(
   wallet: CompleteAddress,
 ) {
   const functionAbi = contractAbi.functions.find(f => f.name === functionName)!;
+  const typedArgs: any[] = convertArgs(functionAbi, args);
 
   if (functionName === 'constructor' && !!wallet) {
     if (functionAbi === undefined) {
@@ -74,7 +75,6 @@ async function handleFunctionCall(
     }
     // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
     // convert those back to bigints before sending
-    const typedArgs: bigint[] = convertArgs(functionAbi, args);
 
     // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
     // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
@@ -82,7 +82,6 @@ async function handleFunctionCall(
     return await deployContract(wallet, contractAbi, typedArgs, salt, rpcClient);
   }
 
-  const typedArgs: any[] = convertArgs(functionAbi, args, false);
   if (functionAbi.functionType === 'unconstrained') {
     return await viewContractFunction(contractAddress!, contractAbi, functionName, typedArgs, rpcClient, wallet);
   } else {

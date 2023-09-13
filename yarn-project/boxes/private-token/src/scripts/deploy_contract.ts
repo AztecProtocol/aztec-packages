@@ -5,7 +5,7 @@ import { AztecRPC } from '@aztec/types';
 export async function deployContract(
   activeWallet: CompleteAddress,
   contractAbi: ContractAbi,
-  typedArgs: bigint[], // key: value object where parameter name is the key.  make function generic to pass in
+  typedArgs: bigint[] | Fr[], // key: value object where parameter name is the key.  make function generic to pass in
   salt: Fr,
   client: AztecRPC,
 ): Promise<AztecAddress> {

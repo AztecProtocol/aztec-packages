@@ -1,22 +1,20 @@
-import { AccountWallet, getSandboxAccountsWallets } from '@aztec/aztec.js';
+import { AccountWallet, Fr, getSandboxAccountsWallets } from '@aztec/aztec.js';
 import { FunctionAbi, encodeArguments } from '@aztec/foundation/abi';
 import { AztecRPC, CompleteAddress } from '@aztec/types';
-// hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
-// convert those back to bigints before sending
-export function convertArgs(functionAbi: FunctionAbi, args: any, encode: boolean = true) {
+
+export function convertArgs(functionAbi: FunctionAbi, args: any): Fr[] {
   const untypedArgs = functionAbi.parameters.map(param => {
-    // param => args[param.name],
     switch (param.type.kind) {
       case 'field':
+        // hack: addresses are stored as string in the form to avoid bigint compatibility issues with formik
+        // convert those back to bigints before turning into Fr
         return BigInt(args[param.name]);
       default:
-        console.log('not converting argument', param.name, param.type.kind, args[param.name]);
+        // they are all fields in the privatetoken contract, need more testing on other types
         return args[param.name];
     }
   });
-  if (!encode) {
-    return untypedArgs;
-  }
+
   const typedArgs = encodeArguments(functionAbi, untypedArgs);
   return typedArgs;
 }
