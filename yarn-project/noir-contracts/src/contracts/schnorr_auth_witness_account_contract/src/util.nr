@@ -1,7 +1,7 @@
 mod auth_oracle;
 
-use dep::std::{schnorr::verify_signature, hash::pedersen_with_separator};
-use dep::aztec::constants_gen::GENERATOR_INDEX__CONTRACT_ADDRESS;
+use dep::std::{schnorr::verify_signature};
+use dep::aztec::address::compute_address;
 use crate::auth_oracle::{AuthWitness};
 
 fn recover_address(
@@ -17,6 +17,6 @@ fn recover_address(
     let verification = verify_signature(witness.owner.x, witness.owner.y, witness.signature, message_bytes);
     assert(verification == true);
 
-    let reproduced_address = pedersen_with_separator([witness.owner.x, witness.owner.y, witness.partial_address], GENERATOR_INDEX__CONTRACT_ADDRESS)[0];
+    let reproduced_address = compute_address(witness.owner.x, witness.owner.y, witness.partial_address);
     reproduced_address
 }

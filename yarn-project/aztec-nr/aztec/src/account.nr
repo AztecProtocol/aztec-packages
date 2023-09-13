@@ -1,0 +1,76 @@
+use crate::entrypoint::EntrypointPayload;
+use crate::context::{PrivateContext, PublicContext, Context};
+use crate::oracle::compute_selector::compute_selector;
+use crate::state_vars::{map::Map, public_state::PublicState};
+use crate::types::type_serialisation::field_serialisation::{FieldSerialisationMethods,FIELD_SERIALISED_LEN};
+use crate::auth::IS_VALID_SELECTOR;
+
+struct AccountActions {
+  context: Context,
+  is_valid_impl: fn(Field, Field) -> bool,
+  approved_action: Map<PublicState<Field, FIELD_SERIALISED_LEN>>,
+}
+
+impl AccountActions {
+  fn init(context: Context, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+    AccountActions {
+      context: context,
+      is_valid_impl: is_valid_impl,
+      approved_action: Map::new(
+        context,
+        approved_action_storage_slot,
+        |context, slot| {
+          PublicState::new(context, slot, FieldSerialisationMethods)
+        },
+      ),
+    }
+  }
+
+  fn private(context: &mut PrivateContext, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+    AccountActions::init(Context::private(context), approved_action_storage_slot, is_valid_impl)
+  }
+
+  fn public(context: &mut PublicContext, approved_action_storage_slot: Field, is_valid_impl: fn(Field, Field) -> bool) -> Self {
+    AccountActions::init(Context::public(context), approved_action_storage_slot, is_valid_impl)
+  }
+  
+  fn entrypoint(self, payload: EntrypointPayload) {
+    let message_hash = payload.hash();
+    let valid_fn = self.is_valid_impl;
+    let private_context = self.context.private.unwrap();
+    assert(valid_fn(message_hash, private_context.this_address()));
+    payload.execute_calls(private_context);
+  }
+
+  fn is_valid(self, message_hash: Field) -> Field {
+    let valid_fn = self.is_valid_impl;
+    if (valid_fn(message_hash, self.context.private.unwrap().this_address())) {
+        IS_VALID_SELECTOR
+    } else {
+        0
+    }
+  }
+
+  fn is_valid_public(self, message_hash: Field) -> Field {
+    let value = self.approved_action.at(message_hash).read();
+    if (value == 1){
+        IS_VALID_SELECTOR
+    } else {
+        0
+    }
+  }
+
+  fn set_is_valid_storage(self, message_hash: Field, value: Field) {
+    let private_context = self.context.private.unwrap();
+    assert((value == 0) | (value == 1), "value must be a boolean");
+    assert(private_context.msg_sender() == private_context.this_address(), "only the owner can set the storage");
+    // assert(_inner_is_valid(message_hash, context.this_address()), "only the owner can set the storage");
+
+    let selector = compute_selector("internal_set_is_valid_storage(Field,Field)");
+    let _void = private_context.call_public_function(private_context.this_address(), selector, [message_hash, value]);
+  }
+
+  fn internal_set_is_valid_storage(self, message_hash: Field, value: Field) {
+    self.approved_action.at(message_hash).write(value);
+  }
+}
