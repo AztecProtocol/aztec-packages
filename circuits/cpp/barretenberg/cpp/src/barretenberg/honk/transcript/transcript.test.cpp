@@ -131,13 +131,13 @@ TYPED_TEST(TranscriptTests, ProverManifestConsistency)
     using Flavor = TypeParam;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     typename Flavor::FF a = 1;
-    auto circuit_constructor = typename Flavor::CircuitBuilder();
-    circuit_constructor.add_variable(a);
-    circuit_constructor.add_public_variable(a);
+    auto builder = typename Flavor::CircuitBuilder();
+    builder.add_variable(a);
+    builder.add_public_variable(a);
 
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = StandardComposer_<Flavor>();
-    auto prover = composer.create_prover(circuit_constructor);
+    auto prover = composer.create_prover(builder);
     plonk::proof proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
@@ -159,17 +159,17 @@ TYPED_TEST(TranscriptTests, VerifierManifestConsistency)
     using Flavor = TypeParam;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     typename Flavor::FF a = 1;
-    auto circuit_constructor = typename Flavor::CircuitBuilder();
-    circuit_constructor.add_variable(a);
-    circuit_constructor.add_public_variable(a);
+    auto builder = typename Flavor::CircuitBuilder();
+    builder.add_variable(a);
+    builder.add_public_variable(a);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = StandardComposer_<Flavor>();
-    auto prover = composer.create_prover(circuit_constructor);
+    auto prover = composer.create_prover(builder);
     plonk::proof proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
-    auto verifier = composer.create_verifier(circuit_constructor);
+    auto verifier = composer.create_verifier(builder);
     verifier.verify_proof(proof);
     prover.transcript.print();
     verifier.transcript.print();
@@ -300,15 +300,15 @@ TEST_F(UltraTranscriptTests, UltraVerifierManifestConsistency)
 {
 
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
-    auto circuit_constructor = proof_system::UltraCircuitBuilder();
+    auto builder = proof_system::UltraCircuitBuilder();
 
     fr a = 2;
-    circuit_constructor.add_variable(a);
-    circuit_constructor.add_public_variable(a);
+    builder.add_variable(a);
+    builder.add_public_variable(a);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = UltraComposer();
-    auto instance = composer.create_instance(circuit_constructor);
+    auto instance = composer.create_instance(builder);
     auto prover = composer.create_prover(instance);
     plonk::proof proof = prover.construct_proof();
 

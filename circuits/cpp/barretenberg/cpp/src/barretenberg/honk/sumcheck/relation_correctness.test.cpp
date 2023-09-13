@@ -220,13 +220,13 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // Create a composer and a dummy circuit with a few gates
-    auto circuit_constructor = StandardCircuitBuilder();
+    auto builder = StandardCircuitBuilder();
 
-    create_some_add_gates<Flavor>(circuit_constructor);
+    create_some_add_gates<Flavor>(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto composer = StandardComposer();
-    auto prover = composer.create_prover(circuit_constructor);
+    auto prover = composer.create_prover(builder);
     auto circuit_size = prover.key->circuit_size;
 
     // Generate beta and gamma
@@ -234,7 +234,7 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
     fr gamma = fr::random_element();
 
     // Compute public input delta
-    const auto public_inputs = circuit_constructor.get_public_inputs();
+    const auto public_inputs = builder.get_public_inputs();
     auto public_input_delta =
         honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
 
