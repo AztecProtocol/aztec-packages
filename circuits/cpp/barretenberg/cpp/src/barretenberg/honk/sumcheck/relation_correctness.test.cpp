@@ -1,3 +1,4 @@
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/honk/composer/standard_composer.hpp"
 #include "barretenberg/honk/composer/ultra_composer.hpp"
 #include "barretenberg/honk/proof_system/grand_product_library.hpp"
@@ -61,13 +62,14 @@ template <typename Flavor> void check_relation(auto relation, auto circuit_size,
 
 template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
 {
-    fr a = fr::random_element();
+    using FF = typename Flavor::FF;
+    auto a = FF::random_element();
 
     // Add some basic add gates; incorporate a public input for non-trivial PI-delta
     uint32_t a_idx = circuit_builder.add_public_variable(a);
-    fr b = fr::random_element();
-    fr c = a + b;
-    fr d = a + c;
+    FF b = FF::random_element();
+    FF c = a + b;
+    FF d = a + c;
     uint32_t b_idx = circuit_builder.add_variable(b);
     uint32_t c_idx = circuit_builder.add_variable(c);
     uint32_t d_idx = circuit_builder.add_variable(d);
@@ -77,8 +79,8 @@ template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
     }
 
     // If Ultra arithmetization, add a big add gate with use of next row to test q_arith = 2
-    if constexpr (IsUltraFlavor<Flavor>) {
-        fr e = a + b + c + d;
+    if constexpr (proof_system::IsUltraFlavor<Flavor>) {
+        FF e = a + b + c + d;
         uint32_t e_idx = circuit_builder.add_variable(e);
 
         uint32_t zero_idx = circuit_builder.zero_idx;
@@ -89,10 +91,11 @@ template <typename Flavor> void create_some_add_gates(auto& circuit_builder)
 
 template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
 {
+    using FF = typename Flavor::FF;
     // Add some lookup gates (related to pedersen hashing)
-    barretenberg::fr pedersen_input_value = fr::random_element();
-    const fr input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const fr input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    auto pedersen_input_value = FF::random_element();
+    const auto input_hi = uint256_t(pedersen_input_value).slice(126, 256);
+    const auto input_lo = uint256_t(pedersen_input_value).slice(0, 126);
     const auto input_hi_index = circuit_builder.add_variable(input_hi);
     const auto input_lo_index = circuit_builder.add_variable(input_lo);
 
@@ -118,12 +121,13 @@ template <typename Flavor> void create_some_genperm_sort_gates(auto& circuit_bui
 
 template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
 {
+    using FF = typename Flavor::FF;
     // Add some RAM gates
     uint32_t ram_values[8]{
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
+        circuit_builder.add_variable(FF::random_element()), circuit_builder.add_variable(FF::random_element()),
+        circuit_builder.add_variable(FF::random_element()), circuit_builder.add_variable(FF::random_element()),
+        circuit_builder.add_variable(FF::random_element()), circuit_builder.add_variable(FF::random_element()),
+        circuit_builder.add_variable(FF::random_element()), circuit_builder.add_variable(FF::random_element()),
     };
 
     size_t ram_id = circuit_builder.create_RAM_array(8);
@@ -188,11 +192,13 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
 
 template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_builder)
 {
-    static_assert(IsGoblinFlavor<Flavor>);
+    using G1 = typename Flavor::Curve::Group;
+    using FF = typename Flavor::FF;
+    static_assert(proof_system::IsGoblinFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
-        auto point = g1::affine_one * fr::random_element();
-        auto scalar = fr::random_element();
+        auto point = G1::affine_one * FF::random_element();
+        auto scalar = FF::random_element();
         circuit_builder.queue_ecc_mul_accum(point, scalar);
     }
 }
@@ -214,12 +220,12 @@ class RelationCorrectnessTests : public ::testing::Test {
  */
 TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
 {
-    using Flavor = honk::flavor::Standard;
+    using Flavor = flavor::Standard;
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = StandardCircuitBuilder();
+    auto builder = proof_system::StandardCircuitBuilder();
 
     create_some_add_gates<Flavor>(builder);
 
@@ -229,13 +235,12 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
     auto circuit_size = prover.key->circuit_size;
 
     // Generate beta and gamma
-    fr beta = fr::random_element();
-    fr gamma = fr::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
     // Compute public input delta
     const auto public_inputs = builder.get_public_inputs();
-    auto public_input_delta =
-        honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
+    auto public_input_delta = compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
 
     proof_system::RelationParameters<FF> params{
         .beta = beta,
@@ -267,7 +272,7 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
     prover_polynomials.lagrange_last = prover.key->lagrange_last;
 
     // Compute grand product polynomial
-    grand_product_library::compute_grand_products<honk::flavor::Standard>(prover.key, prover_polynomials, params);
+    grand_product_library::compute_grand_products<flavor::Standard>(prover.key, prover_polynomials, params);
 
     // Construct the round for applying sumcheck relations and results for storing computed results
     auto relations = std::tuple(proof_system::ArithmeticRelation<FF>(), proof_system::PermutationRelation<FF>());
@@ -290,12 +295,12 @@ TEST_F(RelationCorrectnessTests, StandardRelationCorrectness)
 // TODO(luke): Add a gate that sets q_arith = 3 to check secondary arithmetic relation
 TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
-    auto builder = UltraCircuitBuilder();
+    auto builder = proof_system::UltraCircuitBuilder();
 
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
@@ -311,9 +316,9 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    fr eta = fr::random_element();
-    fr beta = fr::random_element();
-    fr gamma = fr::random_element();
+    FF eta = FF::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
     instance->initialise_prover_polynomials();
     instance->compute_sorted_accumulator_polynomials(eta);
@@ -347,12 +352,12 @@ TEST_F(RelationCorrectnessTests, UltraRelationCorrectness)
 
 TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
 {
-    using Flavor = honk::flavor::GoblinUltra;
+    using Flavor = flavor::GoblinUltra;
     using FF = typename Flavor::FF;
 
     // Create a composer and then add an assortment of gates designed to ensure that the constraint(s) represented
     // by each relation are non-trivially exercised.
-    auto builder = UltraCircuitBuilder();
+    auto builder = proof_system::UltraCircuitBuilder();
 
     // Create an assortment of representative gates
     create_some_add_gates<Flavor>(builder);
@@ -369,9 +374,9 @@ TEST_F(RelationCorrectnessTests, GoblinUltraRelationCorrectness)
     auto circuit_size = proving_key->circuit_size;
 
     // Generate eta, beta and gamma
-    fr eta = fr::random_element();
-    fr beta = fr::random_element();
-    fr gamma = fr::random_element();
+    FF eta = FF::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
     instance->initialise_prover_polynomials();
     instance->compute_sorted_accumulator_polynomials(eta);

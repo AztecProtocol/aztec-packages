@@ -11,7 +11,7 @@
 
 /**
  * @brief IPA (inner-product argument) commitment scheme class. Conforms to the specification
- * https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view.x
+ * https://hackmd.io/q-A8y6aITWyWJrvsGGMWNA?view.
  *
  */
 namespace proof_system::honk::pcs::ipa {

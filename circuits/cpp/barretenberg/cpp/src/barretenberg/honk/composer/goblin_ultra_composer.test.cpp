@@ -27,7 +27,9 @@ class GoblinUltraHonkComposerTests : public ::testing::Test {
  */
 TEST_F(GoblinUltraHonkComposerTests, SimpleCircuit)
 {
-    auto builder = UltraCircuitBuilder();
+    using fr = barretenberg::fr;
+    using g1 = barretenberg::g1;
+    auto builder = proof_system::UltraCircuitBuilder();
 
     // Define an arbitrary number of operations/gates
     size_t num_ecc_ops = 3;

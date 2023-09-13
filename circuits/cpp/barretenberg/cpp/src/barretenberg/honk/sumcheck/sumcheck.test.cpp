@@ -15,7 +15,7 @@
 
 using namespace proof_system::honk;
 using namespace proof_system::honk::sumcheck;
-using Flavor = honk::flavor::Standard; // TODO(Cody): Generalize this test.
+using Flavor = proof_system::honk::flavor::Standard; // TODO(Cody): Generalize this test.
 using FF = typename Flavor::FF;
 using ProverPolynomials = typename Flavor::ProverPolynomials;
 const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
@@ -406,37 +406,35 @@ TEST_F(SumcheckTests, ProverAndVerifierLonger)
  */
 TEST_F(SumcheckTests, RealCircuitStandard)
 {
-    using Flavor = honk::flavor::Standard;
-    using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = StandardCircuitBuilder();
-    fr a = fr::one();
+    auto builder = proof_system::StandardCircuitBuilder();
+    FF a = FF::one();
     // Using the public variable to check that public_input_delta is computed and added to the relation correctly
     uint32_t a_idx = builder.add_public_variable(a);
-    fr b = fr::one();
-    fr c = a + b;
-    fr d = a + c;
+    FF b = FF::one();
+    FF c = a + b;
+    FF d = a + c;
     uint32_t b_idx = builder.add_variable(b);
     uint32_t c_idx = builder.add_variable(c);
     uint32_t d_idx = builder.add_variable(d);
     for (size_t i = 0; i < 16; i++) {
-        builder.create_add_gate({ a_idx, b_idx, c_idx, fr::one(), fr::one(), fr::neg_one(), fr::zero() });
-        builder.create_add_gate({ d_idx, c_idx, a_idx, fr::one(), fr::neg_one(), fr::neg_one(), fr::zero() });
+        builder.create_add_gate({ a_idx, b_idx, c_idx, FF::one(), FF::one(), FF::neg_one(), FF::zero() });
+        builder.create_add_gate({ d_idx, c_idx, a_idx, FF::one(), FF::neg_one(), FF::neg_one(), FF::zero() });
     }
     // Create a prover (it will compute proving key and witness)
     auto composer = StandardComposer();
     auto prover = composer.create_prover(builder);
 
     // Generate beta and gamma
-    fr beta = fr::random_element();
-    fr gamma = fr::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
     // Compute public input delta
     const auto public_inputs = builder.get_public_inputs();
     auto public_input_delta =
-        honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
+        proof_system::honk::compute_public_input_delta<Flavor>(public_inputs, beta, gamma, prover.key->circuit_size);
 
     proof_system::RelationParameters<FF> relation_parameters{
         .beta = beta,
@@ -487,18 +485,18 @@ TEST_F(SumcheckTests, RealCircuitStandard)
  */
 TEST_F(SumcheckTests, RealCircuitUltra)
 {
-    using Flavor = honk::flavor::Ultra;
+    using Flavor = flavor::Ultra;
     using FF = typename Flavor::FF;
 
     // Create a composer and a dummy circuit with a few gates
-    auto builder = UltraCircuitBuilder();
-    fr a = fr::one();
+    auto builder = proof_system::UltraCircuitBuilder();
+    FF a = FF::one();
 
     // Add some basic add gates, with a public input for good measure
     uint32_t a_idx = builder.add_public_variable(a);
-    fr b = fr::one();
-    fr c = a + b;
-    fr d = a + c;
+    FF b = FF::one();
+    FF c = a + b;
+    FF d = a + c;
     uint32_t b_idx = builder.add_variable(b);
     uint32_t c_idx = builder.add_variable(c);
     uint32_t d_idx = builder.add_variable(d);
@@ -508,7 +506,7 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     }
 
     // Add a big add gate with use of next row to test q_arith = 2
-    fr e = a + b + c + d;
+    FF e = a + b + c + d;
     uint32_t e_idx = builder.add_variable(e);
 
     uint32_t zero_idx = builder.zero_idx;
@@ -516,9 +514,9 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     builder.create_big_add_gate({ zero_idx, zero_idx, zero_idx, e_idx, 0, 0, 0, 0, 0 }, false);
 
     // Add some lookup gates (related to pedersen hashing)
-    barretenberg::fr pedersen_input_value = fr::random_element();
-    const fr input_hi = uint256_t(pedersen_input_value).slice(126, 256);
-    const fr input_lo = uint256_t(pedersen_input_value).slice(0, 126);
+    auto pedersen_input_value = FF::random_element();
+    const FF input_hi = uint256_t(pedersen_input_value).slice(126, 256);
+    const FF input_lo = uint256_t(pedersen_input_value).slice(0, 126);
     const auto input_hi_index = builder.add_variable(input_hi);
     const auto input_lo_index = builder.add_variable(input_lo);
 
@@ -558,10 +556,10 @@ TEST_F(SumcheckTests, RealCircuitUltra)
 
     // Add some RAM gates
     uint32_t ram_values[8]{
-        builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
-        builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
-        builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
-        builder.add_variable(fr::random_element()), builder.add_variable(fr::random_element()),
+        builder.add_variable(FF::random_element()), builder.add_variable(FF::random_element()),
+        builder.add_variable(FF::random_element()), builder.add_variable(FF::random_element()),
+        builder.add_variable(FF::random_element()), builder.add_variable(FF::random_element()),
+        builder.add_variable(FF::random_element()), builder.add_variable(FF::random_element()),
     };
 
     size_t ram_id = builder.create_RAM_array(8);
@@ -606,9 +604,9 @@ TEST_F(SumcheckTests, RealCircuitUltra)
     auto instance = composer.create_instance(builder);
 
     // Generate eta, beta and gamma
-    fr eta = fr::random_element();
-    fr beta = fr::random_element();
-    fr gamma = fr::random_element();
+    FF eta = FF::random_element();
+    FF beta = FF::random_element();
+    FF gamma = FF::random_element();
 
     instance->initialise_prover_polynomials();
     instance->compute_sorted_accumulator_polynomials(eta);

@@ -64,8 +64,6 @@ template <UltraFlavor Flavor> class Instance_ {
     // Used by the prover for domain separation in the transcript
     uint32_t index;
 
-    Instance_();
-
     Instance_(Circuit& circuit)
     {
         compute_circuit_size_parameters(circuit);

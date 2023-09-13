@@ -15,7 +15,7 @@ template <typename Flavor> class TranscriptTests : public testing::Test {
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     virtual void SetUp()
     {
-        if constexpr (IsGrumpkinFlavor<Flavor>) {
+        if constexpr (proof_system::IsGrumpkinFlavor<Flavor>) {
             barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
             barretenberg::srs::init_crs_factory("../srs_db/ignition");
@@ -94,7 +94,7 @@ template <typename Flavor> class TranscriptTests : public testing::Test {
 
         round++;
         // TODO(Mara): Make testing more flavor agnostic so we can test this with all flavors
-        if constexpr (IsGrumpkinFlavor<Flavor>) {
+        if constexpr (proof_system::IsGrumpkinFlavor<Flavor>) {
             manifest_expected.add_entry(round, "IPA:poly_degree", size_uint64);
             manifest_expected.add_challenge(round, "IPA:generator_challenge");
 
@@ -138,7 +138,7 @@ TYPED_TEST(TranscriptTests, ProverManifestConsistency)
     // Automatically generate a transcript manifest by constructing a proof
     auto composer = StandardComposer_<Flavor>();
     auto prover = composer.create_prover(builder);
-    plonk::proof proof = prover.construct_proof();
+    auto proof = prover.construct_proof();
 
     // Check that the prover generated manifest agrees with the manifest hard coded in this suite
     auto manifest_expected = TestFixture::construct_standard_honk_manifest(prover.key->circuit_size);
@@ -166,7 +166,7 @@ TYPED_TEST(TranscriptTests, VerifierManifestConsistency)
     // Automatically generate a transcript manifest in the prover by constructing a proof
     auto composer = StandardComposer_<Flavor>();
     auto prover = composer.create_prover(builder);
-    plonk::proof proof = prover.construct_proof();
+    auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     auto verifier = composer.create_verifier(builder);
@@ -302,7 +302,7 @@ TEST_F(UltraTranscriptTests, UltraVerifierManifestConsistency)
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = proof_system::UltraCircuitBuilder();
 
-    fr a = 2;
+    auto a = 2;
     builder.add_variable(a);
     builder.add_public_variable(a);
 
@@ -310,7 +310,7 @@ TEST_F(UltraTranscriptTests, UltraVerifierManifestConsistency)
     auto composer = UltraComposer();
     auto instance = composer.create_instance(builder);
     auto prover = composer.create_prover(instance);
-    plonk::proof proof = prover.construct_proof();
+    auto proof = prover.construct_proof();
 
     // Automatically generate a transcript manifest in the verifier by verifying a proof
     auto verifier = composer.create_verifier(instance);
@@ -333,8 +333,8 @@ TEST_F(UltraTranscriptTests, UltraVerifierManifestConsistency)
 TEST_F(UltraTranscriptTests, FoldingManifestTest)
 {
     auto builder_one = proof_system::UltraCircuitBuilder();
-    fr a = 2;
-    fr b = 3;
+    auto a = 2;
+    auto b = 3;
     builder_one.add_variable(a);
     builder_one.add_public_variable(a);
     builder_one.add_public_variable(b);

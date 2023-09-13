@@ -18,7 +18,7 @@ using namespace proof_system::honk;
 #define TYPE_ALIASES                                                                                                   \
     using Flavor = TypeParam;                                                                                          \
     using FF = typename Flavor::FF;                                                                                    \
-    using CircuitBuilder = StandardCircuitBuilder_<FF>;                                                                \
+    using CircuitBuilder = proof_system::StandardCircuitBuilder_<FF>;                                                  \
     using Composer = StandardComposer_<Flavor>;
 
 namespace test_standard_honk_composer {
@@ -28,7 +28,7 @@ template <typename Flavor> class StandardHonkComposerTests : public ::testing::T
     // TODO(640): The Standard Honk on Grumpkin test suite fails unless the SRS is initialised for every test.
     virtual void SetUp()
     {
-        if constexpr (IsGrumpkinFlavor<Flavor>) {
+        if constexpr (proof_system::IsGrumpkinFlavor<Flavor>) {
             barretenberg::srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
         } else {
             barretenberg::srs::init_crs_factory("../srs_db/ignition");
