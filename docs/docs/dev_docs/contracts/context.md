@@ -6,12 +6,12 @@ hide_table_of_contents: false
 # The Function Context
 
 ## What is the context
-The context is a variable that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity. 
+The context is an object that is made available within every function in `Aztec.nr`. As mentioned in the [kernel circuit documentation](../../concepts/advanced/circuits/kernels/private_kernel.md). At the beginning of a function's execution, the context contains all of the kernel information that application needs to execute. During the lifecycle of a transaction, the function will update the context with each of it's side effects (created notes, nullifiers etc.). At the end of a function's execution the mutated context is returned to the kernel to be checked for validity. 
 
 Behind the scenes, Aztec noir will pass data the kernel needs to and from a circuit, this is abstracted away from the developer. In an developer's eyes; the context is a useful structure that allows access and mutate the state of the `Aztec` blockchain.
 
 ## Two context's one API
-The `Aztec` blockchain contains two execution environments (ADD REFERENCE). 
+The `Aztec` blockchain contains two environments [public and private](../../concepts/foundation/state_model.md). 
 - Private, for private transactions taking place on user's devices.
 - Public, for public transactions taking place on the network's sequencers.
 
@@ -37,7 +37,7 @@ First of all, the call context.
 #include_code call-context /yarn-project/noir-libs/aztec-noir/src/abi.nr rust
 
 The call context contains information about the current call being made:.
-1, Msg Sender
+1. Msg Sender
     - The message sender is the account (Aztec Contract) that sent the message to the current context. In the first call of the kernel circuit (often the account contract call), this value will be empty. For all subsequent calls the value will be the previous call. 
 
     ( TODO: INCLUDE A DIAGRAM HERE SHOWING HOW IT GETS UPDATED ON CONTRACT CALLS )
@@ -49,8 +49,8 @@ The call context contains information about the current call being made:.
     - This value stores the current contract's linked portal contract address. ( INCLUDE A LINK TO THE LITERATURE ). As a quick recap, this value is the value of the contracts related ethereum l1 contract address, and will be the recipient of any messages that are created by this contract.
 4. Flags
     - Furthermore there are a series of flags that are stored within the application context:
-        - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will NOT be the current contract address.
-        - is_static_call: (TODO: REFER TO EVM CODES TO FILL IN THIS SECTION)
+        - is_delegate_call: Denotes whether the current call is a delegate call. If true, then the storage contract address will be the address of the sender.
+        - is_static_call: This will be set if and only if the current call is a static call. In a static call, state changing altering operations are not allowed.
         - is_contract_deployment: This will be set if and only if the current call is the contract's constructor.
 
 ### Historic Block Data
@@ -92,7 +92,7 @@ Nullified commitments is an optimisation for introduced to help reduce state gro
 In these cases there is no reason that these commitments should take up space on the node's commitment/nullifier trees. Keeping track of nullified commitments allows us to "cancel out" and prove these cases.
 
 ### Private Call Stack
-The private call stack contains all of the external function calls that have been created within the current context. Any function call objects are hashed and then pushed to the execution stack. 
+The private call stack contains all of the external private function calls that have been created within the current context. Any function call objects are hashed and then pushed to the execution stack. 
 The kernel circuit will orchestrate dispatching the calls and returning the values to the current context.
 
 ### Public Call Stack
