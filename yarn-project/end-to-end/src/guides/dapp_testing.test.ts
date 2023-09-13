@@ -48,7 +48,7 @@ describe('guides/dapp/testing', () => {
         const secretHash = await computeMessageSecretHash(secret);
         expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
         expect(
-          await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait(),
+          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
         ).toEqual(TxStatus.MINED);
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
@@ -84,7 +84,7 @@ describe('guides/dapp/testing', () => {
         const secretHash = await computeMessageSecretHash(secret);
         expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
         expect(
-          await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait(),
+          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
         ).toEqual(TxStatus.MINED);
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
@@ -114,7 +114,7 @@ describe('guides/dapp/testing', () => {
         const secretHash = await computeMessageSecretHash(secret);
         expect((await token.methods.mint_private(20n, secretHash).send().wait()).status).toEqual(TxStatus.MINED);
         expect(
-          await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait(),
+          (await token.methods.redeem_shield({ address: recipient.getAddress() }, 20n, secret).send().wait()).status,
         ).toEqual(TxStatus.MINED);
         expect(await token.methods.balance_of_private({ address: recipient.getAddress() }).view()).toEqual(20n);
       });
@@ -170,8 +170,8 @@ describe('guides/dapp/testing', () => {
 
         // docs:start:calc-slot
         cheats = await CheatCodes.create(ETHEREUM_HOST, rpc);
-        // The balances mapping is defined on storage slot 1 and is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(1n, owner.getAddress());
+        // The balances mapping is defined on storage slot 3 and is indexed by user address
+        ownerSlot = cheats.aztec.computeSlotInMap(3n, owner.getAddress());
         // docs:end:calc-slot
       }, 30_000);
 
@@ -187,7 +187,7 @@ describe('guides/dapp/testing', () => {
       it('checks public storage', async () => {
         // docs:start:public-storage
         await token.methods.mint_public({ address: owner.getAddress() }, 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(4n, owner.getAddress());
+        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(6n, owner.getAddress());
         const balance = await rpc.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
         expect(toBigIntBE(balance!)).toEqual(100n);
         // docs:end:public-storage
@@ -257,7 +257,7 @@ describe('guides/dapp/testing', () => {
           1000n,
           0,
         );
-        await expect(call.simulate()).rejects.toThrowError(/Balance too low/);
+        await expect(call.simulate()).rejects.toThrowError(/Underflow/);
         // docs:end:local-pub-fails
       });
 
