@@ -35,6 +35,7 @@ echo "Repository: $REPOSITORY"
 echo "Working directory: $PWD"
 echo "Dockerfile: $DOCKERFILE"
 echo "Build directory: $BUILD_DIR"
+echo "Platforms: $PLATFORMS"
 
 # Fetch images with retries
 function fetch_image() {
@@ -67,7 +68,7 @@ echo "Content hash: $CONTENT_HASH"
 cd $BUILD_DIR
 
 SINGLE_ARCH="false"
-if [[ $PLATFORMS == 'linux/amd64' ]]; then
+if [[ $PLATFORMS == "linux/amd64" ]]; then
   SINGLE_ARCH="true"
   retry ensure_docker_buildx
   echo "Creating multi-platform builder"
