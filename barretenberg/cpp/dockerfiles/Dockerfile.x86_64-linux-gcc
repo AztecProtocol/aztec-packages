@@ -13,5 +13,5 @@ COPY . .
 RUN cmake --preset gcc -DCI=ON && cmake --build --preset gcc
 
 FROM alpine:3.18
-RUN apk update && apk add libstdc++ libgomp
-COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
+RUN apk update && apk add libstdc++
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb

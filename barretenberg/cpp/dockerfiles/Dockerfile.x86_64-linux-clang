@@ -4,19 +4,20 @@ RUN apk update \
     && apk add --no-cache \
         build-base \
         clang16 \
-        openmp-dev \
         cmake \
         ninja \
         git \
         curl \
         perl
-
 WORKDIR /usr/src/barretenberg/cpp
-
 COPY . .
-# Build the entire project, as we want to check everything builds under clang
-RUN cmake --preset default && cmake --build --preset default
+# Build bb binary. Everything else is built as part linux-clang-assert.
+RUN cmake --preset default && cmake --build --preset default --target bb
 
 FROM alpine:3.18
-RUN apk update && apk add openmp
-COPY --from=builder /usr/src/barretenberg/cpp/srs_db /usr/src/barretenberg/cpp/srs_db
+WORKDIR /usr/src/barretenberg/cpp
+COPY . .
+COPY --from=builder /usr/src/barretenberg/cpp/build/bin/bb /usr/src/barretenberg/cpp/build/bin/bb
+# Copy libs for consuming projects.
+COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a /usr/src/barretenberg/cpp/build/lib/libbarretenberg.a
+COPY --from=builder /usr/src/barretenberg/cpp/build/lib/libenv.a /usr/src/barretenberg/cpp/build/lib/libenv.a

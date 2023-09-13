@@ -2,11 +2,11 @@
 #include <gtest/gtest.h>
 #include <unordered_map>
 
-
 // TODO(alex): more tests
 
-TEST(integer_mod, basic_arithmetic){
-    smt_solver::Solver s("101", {true, 0}, 10);
+TEST(integer_mod, basic_arithmetic)
+{
+    smt_solver::Solver s("101", { true, 0 }, 10);
 
     smt_terms::FFITerm x = smt_terms::FFITerm::Var("x", &s);
     smt_terms::FFITerm y = smt_terms::FFITerm::Var("y", &s);

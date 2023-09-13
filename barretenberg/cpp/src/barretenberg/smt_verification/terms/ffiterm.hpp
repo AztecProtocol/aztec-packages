@@ -28,7 +28,8 @@ class FFITerm {
     FFITerm(cvc5::Term& term, Solver* s)
         : solver(s)
         , term(term)
-        , modulus(s->s.mkInteger(s->modulus)){}
+        , modulus(s->s.mkInteger(s->modulus))
+    {}
 
     FFITerm(const FFITerm& other) = default;
     FFITerm(FFITerm&& other) = default;
@@ -51,10 +52,7 @@ class FFITerm {
     void operator==(const FFITerm& other) const;
     void operator!=(const FFITerm& other) const;
 
-    operator std::string() const
-    {
-        return term.isIntegerValue() ? term.getIntegerValue() : term.toString();
-    };
+    operator std::string() const { return term.isIntegerValue() ? term.getIntegerValue() : term.toString(); };
     operator cvc5::Term() const { return term; };
 
     ~FFITerm() = default;
