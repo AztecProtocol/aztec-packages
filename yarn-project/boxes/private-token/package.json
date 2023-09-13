@@ -37,6 +37,7 @@
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
     "@aztec/cli": "workspace:^",
+    "@aztec/circuits.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "formik": "^2.4.3",
     "react": "^18.2.0",

@@ -199,6 +199,7 @@
     "dependencies": [
       "aztec.js",
       "cli",
+      "circuits.js",
       "foundation"
     ]
   },
