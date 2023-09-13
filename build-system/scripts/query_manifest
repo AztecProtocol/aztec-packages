@@ -60,10 +60,10 @@ function add_rebuild_patterns {
 
 case "$CMD" in
   dockerfile)
-    # In the manifest, the path is relative to buildDir. Return absolute path.
-    BUILD_DIR=$($0 buildDir $REPO)
+    # In the manifest, the path is relative to projectDir. Return absolute path.
+    PROJECT_DIR=$($0 projectDir $REPO)
     DOCKERFILE=$(jq -r ".\"$REPO\".dockerfile // \"Dockerfile\"" $MANIFEST)
-    echo $BUILD_DIR/$DOCKERFILE
+    echo $PROJECT_DIR/$DOCKERFILE
     ;;
   buildDir)
     # In the manifest, the path is relative to the repo root. Return absolute path.
