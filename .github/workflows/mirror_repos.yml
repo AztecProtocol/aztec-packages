@@ -10,16 +10,9 @@ name: Mirror Repositories
 concurrency:
   group: mirror-repositories
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - "docs/**"
-      - "!docs/.gitrepo"
-      - "build-system/**"
-      - "!build-system/.gitrepo"
-      - "circuits/cpp/barretenberg/**"
-      - "!circuits/cpp/barretenberg/.gitrepo"
+  schedule:
+    # Run the workflow every night at 2:00 AM UTC.
+    cron: '0 2 * * *'
 
 jobs:
   mirror-to-docs-repo:
@@ -31,7 +24,16 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Check for docs changes
+        id: changes
+        run: |
+          if [[ -n "$(git diff --name-only origin/master -- 'docs/')" ]]; then
+            echo "::set-output name=changes::true"
+          else
+            echo "::set-output name=changes::false"
+          fi
       - name: Push to docs repo
+        if: steps.changes.outputs.changes == 'true'
         run: |
           SUBREPO_PATH=docs
           git config --global user.name AztecBot
@@ -51,7 +53,16 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Check for build system changes
+        id: changes
+        run: |
+          if [[ -n "$(git diff --name-only origin/master -- 'build-system/')" ]]; then
+            echo "::set-output name=changes::true"
+          else
+            echo "::set-output name=changes::false"
+          fi
       - name: Push to build-system repo
+        if: steps.changes.outputs.changes == 'true'
         run: |
           SUBREPO_PATH=build-system
           git config --global user.name AztecBot
@@ -71,7 +82,16 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+      - name: Check for barretenberg changes
+        id: changes
+        run: |
+          if [[ -n "$(git diff --name-only origin/master -- 'circuits/cpp/barretenberg/')" ]]; then
+            echo "::set-output name=changes::true"
+          else
+            echo "::set-output name=changes::false"
+          fi
       - name: Push to barretenberg repo
+        if: steps.changes.outputs.changes == 'true'
         run: |
           SUBREPO_PATH=circuits/cpp/barretenberg
           git config --global user.name AztecBot
