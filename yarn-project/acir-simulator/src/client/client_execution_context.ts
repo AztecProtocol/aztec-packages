@@ -277,7 +277,7 @@ export class ClientTxExecutionContext {
    * @param contractAddress - The contract address.
    * @param nonce - The nonce of the note.
    * @param innerNoteHash - The inner note hash of the note.
-   * @returns The commitment data.
+   * @returns 1 if (persistent or transient) note hash exists, 0 otherwise. Value is in ACVMField form.
    */
   public async checkNoteHashExists(
     contractAddress: AztecAddress,
@@ -297,6 +297,7 @@ export class ClientTxExecutionContext {
       // If we can't find a matching new note, keep looking for the match from the notes created in previous transactions.
     }
 
+    // If nonce is zero, SHOULD only be able to reach this point if note was publicly created
     const wasm = await CircuitsWasm.get();
     let noteHashToLookUp = siloCommitment(wasm, contractAddress, innerNoteHashField);
     if (!nonceField.isZero()) {

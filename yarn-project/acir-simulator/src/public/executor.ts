@@ -99,6 +99,7 @@ export class PublicExecutor {
         const wasm = await CircuitsWasm.get();
         const siloedNoteHash = siloCommitment(wasm, execution.contractAddress, fromACVMField(innerNoteHash));
         const index = await this.commitmentsDb.getCommitmentIndex(siloedNoteHash);
+        // return 0 or 1 for whether note hash exists
         return index === undefined ? ZERO_ACVM_FIELD : ONE_ACVM_FIELD;
       },
       storageRead: async ([slot], [numberOfElements]) => {
