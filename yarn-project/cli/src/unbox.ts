@@ -38,29 +38,6 @@ async function isDirectoryNonEmpty(directoryPath: string): Promise<boolean> {
 }
 
 /**
- * @param tagVersion - cli version
- * @param contractName - The contract name, in upper camel case
- * @param outputPath - The output path, by default this is the current working directory
- * @returns The path to the downloaded contract.
- */
-async function downloadContractAndBoxFromGithub(
-  tagVersion: string,
-  contractName: string = 'PrivateToken',
-  outputPath: string,
-  log: LogFn,
-): Promise<void> {
-  // small string conversion, in the ABI the contract name looks like PrivateToken
-  // but in the repostory it looks like private_token
-  const snakeCaseContractName = contractNameToFolder(contractName);
-  // source noir files for the contract are in this folder
-  const contractFolder = `${NOIR_CONTRACTS_PATH}/${snakeCaseContractName}_contract`;
-  await downloadNoirFilesFromGithub(tagVersion, contractFolder, snakeCaseContractName, outputPath, log);
-
-  log(`Downloaded '@aztex/boxes/${snakeCaseContractName}' to ${outputPath}`);
-  return;
-}
-
-/**
  *
  * @param data - in memory unzipped clone of a github repo
  * @param repositoryFolderPath - folder to copy from github repo
@@ -100,17 +77,19 @@ async function copyFolderFromGithub(data: JSZip, repositoryFolderPath: string, l
  * @param outputPath - local path that we will copy the noir contracts and web3 starter kit to
  * @returns
  */
-async function downloadNoirFilesFromGithub(
+async function downloadContractAndBoxFromGithub(
   tagVersion: string,
-  directoryPath: string,
-  snakeCaseContractName: string,
+  contractName: string,
   outputPath: string,
   log: LogFn,
 ): Promise<void> {
-  const owner = GITHUB_OWNER;
-  const repo = GITHUB_REPO;
+  // small string conversion, in the ABI the contract name looks like PrivateToken
+  // but in the repostory it looks like private_token
+  const snakeCaseContractName = contractNameToFolder(contractName);
+
+  log(`Downloaded '@aztex/boxes/${snakeCaseContractName}' to ${outputPath}`);
   // Step 1: Fetch the monorepo ZIP from GitHub, matching the CLI version
-  const url = `https://github.com/${owner}/${repo}/archive/refs/tags/aztec-packages-v${tagVersion}.zip`;
+  const url = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/archive/refs/tags/aztec-packages-v${tagVersion}.zip`;
   const response = await fetch(url);
   const buffer = await response.arrayBuffer();
 
@@ -119,7 +98,7 @@ async function downloadNoirFilesFromGithub(
 
   // Step 2: copy the '@aztec/boxes/{contract-name}' subpackage to the output directory
   // this is currently only implemented for PrivateToken under 'boxes/private-token/'
-  const repoDirectoryPrefix = `${repo}-v${tagVersion}/`;
+  const repoDirectoryPrefix = `${GITHUB_REPO}-v${tagVersion}/`;
 
   const boxPath = `${repoDirectoryPrefix}${BOXES_PATH}/${snakeCaseContractName}`;
   await copyFolderFromGithub(data, boxPath, outputPath, log);
@@ -132,8 +111,10 @@ async function downloadNoirFilesFromGithub(
   // in which case we optimistically grab the noir source files from the
   // noir-contracts and noir-libs subpackages and pray that the versions are compatible
 
+  // source noir files for the contract are in this folder
+  const contractFolder = `${NOIR_CONTRACTS_PATH}/${snakeCaseContractName}_contract`;
   // copy the noir contracts to the output directory under subdir /src/contracts/
-  const contractDirectoryPath = `${repoDirectoryPrefix}${directoryPath}/`;
+  const contractDirectoryPath = `${repoDirectoryPrefix}${contractFolder}/`;
 
   const contractFiles = Object.values(data.files).filter(file => {
     return !file.dir && file.name.startsWith(contractDirectoryPath);
@@ -278,7 +259,7 @@ async function createDirectory(outputDirectoryName: string, log: LogFn): Promise
 export async function unboxContract(
   contractName: string,
   outputDirectoryName: string,
-  _packageVersion: string,
+  packageVersion: string,
   log: LogFn,
 ) {
   const contractNames = ['PrivateToken'];
@@ -291,11 +272,13 @@ export async function unboxContract(
     );
     return;
   }
-  // downloads the selected contract's noir source code into `${outputDirectoryName}/src/contracts`,
-  // along with the relevant folders in @aztec/boxes/{contract_name} and @aztec/noir-libs
   const outputPath = await createDirectory(outputDirectoryName, log);
 
-  const packageVersion = '0.7.0';
+  // downloads the selected contract's relevant folder in @aztec/boxes/{contract_name}
+  // and the noir source code from `noir-contracts` into `${outputDirectoryName}/src/contracts`
+  // if not present in the box
   await downloadContractAndBoxFromGithub(packageVersion, contractName, outputPath, log);
+  // make adjustments for packaging to work as a standalone, as opposed to part of yarn workspace
+  // as in the monorepo source files
   await updatePackagingConfigurations(packageVersion, outputPath, log);
 }
