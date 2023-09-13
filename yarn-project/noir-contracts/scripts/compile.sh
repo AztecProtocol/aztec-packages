@@ -34,14 +34,22 @@ build() {
   CONTRACT_NAME=$1
   CONTRACT_FOLDER="${CONTRACT_NAME}_contract"
   echo "Compiling $CONTRACT_NAME..."
-  cd src/contracts/$CONTRACT_FOLDER
-  rm -f target/*
+  rm -f target/${CONTRACT_FOLDER}-*
+  rm -f target/debug_${CONTRACT_FOLDER}-*
 
   # If the compilation fails, rerun the compilation with 'nargo' and show the compiler output.
-  nargo compile --output-debug;
+  nargo compile --package $CONTRACT_FOLDER --output-debug;
 }
 
+# Check nargo version matches the expected one
 echo "Using $(nargo --version)"
+EXPECTED_VERSION=$(jq -r '.commit' ../noir-compiler/src/noir-version.json)
+FOUND_VERSION=$(nargo --version | grep -oP 'git version hash: \K[0-9a-f]+')
+if [ "$EXPECTED_VERSION" != "$FOUND_VERSION" ]; then
+  echo "Expected nargo version $EXPECTED_VERSION but found version $FOUND_VERSION. Aborting."
+  exit 1
+fi
+
 
 # Build contracts
 for CONTRACT_NAME in "$@"; do
