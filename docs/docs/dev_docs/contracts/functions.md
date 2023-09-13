@@ -63,7 +63,7 @@ E.g. `get()`
 ## L1 --> L2
 The context available within functions includes the ability to send messages to l1. For more information on how cross chain communication works in Aztec, see the [documentation on communication.](../../concepts/foundation/communication/cross_chain_calls.md)
 
-#include_code send_to_l2  /yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
+#include_code non_native_token_withdraw  /yarn-project/noir-contracts/src/contracts/non_native_token_contract/src/main.nr rust
 
 ### What happens behind the scenes?
 When a user sends a message from a [portal contract](../../concepts/foundation/communication/cross_chain_calls.md#portal) to the rollup's inbox it gets processed and added to the `l1 to l2 messages tree`.
