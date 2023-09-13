@@ -57,7 +57,7 @@ jobs:
 
   mirror-to-barretenberg-repo:
     runs-on: ubuntu-latest
-    if: "contains(github.event.head_commit.modified, 'circuits/cpp/barretenberg/')"
+    if: "contains(github.event.head_commit.modified, 'barretenberg/')"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -66,7 +66,7 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
       - name: Push to barretenberg repo
         run: |
-          SUBREPO_PATH=circuits/cpp/barretenberg
+          SUBREPO_PATH=barretenberg
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
           ./scripts/git_subrepo.sh push $SUBREPO_PATH --branch=master
