@@ -12,8 +12,6 @@
 set -euo pipefail;
 
 # Run build scripts
-echo "Compiling all contracts"
-nargo compile --workspace
-
+./scripts/compile.sh "$@"
 echo "Generating types"
 ./scripts/types.sh "$@"

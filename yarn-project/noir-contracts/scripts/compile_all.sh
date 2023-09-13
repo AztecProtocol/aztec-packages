@@ -1,4 +1,5 @@
 #!/bin/bash
+# Compiles all noir contracts
 
 source ./scripts/nargo_check.sh
 
