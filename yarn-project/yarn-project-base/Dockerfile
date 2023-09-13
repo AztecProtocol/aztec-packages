@@ -71,11 +71,6 @@ RUN /bin/bash -c '\
   [[ $F =~ (.*-) ]] && ln $F /root/.yarn/berry/cache/${BASH_REMATCH[1]}8.zip; \
   done'
 
-# We hack around the build context by copying the build manifest to and from the yarn_project root,
-# see the comment in .circleci/config.yml for more info.
-COPY build_manifest.json ./
-RUN cp build_manifest.json ../
-
 # Copy tsconfig to check dependencies
 COPY acir-simulator/tsconfig.json acir-simulator/tsconfig.json
 COPY archiver/tsconfig.json archiver/tsconfig.json
@@ -101,10 +96,6 @@ COPY sequencer-client/tsconfig.json sequencer-client/tsconfig.json
 COPY rollup-provider/tsconfig.json rollup-provider/tsconfig.json
 COPY types/tsconfig.json types/tsconfig.json
 COPY world-state/tsconfig.json world-state/tsconfig.json
-
-# Check that dependencies config are up to date
-COPY yarn-project-base/scripts yarn-project-base/scripts
-RUN yarn prepare:check
 
 # Generate TS-importable contract artifacts
 COPY l1-artifacts/scripts/generate-artifacts.sh l1-artifacts/scripts/generate-artifacts.sh
