@@ -1486,7 +1486,7 @@ workflows:
 
       - aztec-sandbox-multi-platform:
           requires:
-            - e2e-end
+            - aztec-sandbox
           <<: *defaults
 
         # Deployment and Canary tests
