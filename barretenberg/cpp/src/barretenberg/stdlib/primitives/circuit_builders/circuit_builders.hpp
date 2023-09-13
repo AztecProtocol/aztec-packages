@@ -13,8 +13,7 @@ concept HasPlookup =
     proof_system::IsAnyOf<T, proof_system::UltraCircuitBuilder, proof_system::GoblinUltraCircuitBuilder>;
 
 template <typename T>
-concept IsGoblinBuilder =
-    proof_system::IsAnyOf<T, proof_system::GoblinUltraCircuitBuilder>;
+concept IsGoblinBuilder = proof_system::IsAnyOf<T, proof_system::GoblinUltraCircuitBuilder>;
 
 #define INSTANTIATE_STDLIB_METHOD(stdlib_method)                                                                       \
     template stdlib_method(proof_system::StandardCircuitBuilder);                                                      \

@@ -10,7 +10,7 @@ namespace proof_system::plonk::stdlib::recursion::honk {
 
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
-                                                                      std::shared_ptr<VerificationKey> verifier_key)
+                                                         std::shared_ptr<VerificationKey> verifier_key)
     : key(verifier_key)
     , builder(builder)
 {}
@@ -20,8 +20,7 @@ UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(
-    const plonk::proof& proof)
+std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::verify_proof(const plonk::proof& proof)
 {
     using Sumcheck = ::proof_system::honk::sumcheck::SumcheckVerifier<Flavor>;
     using Curve = typename Flavor::Curve;
@@ -155,8 +154,7 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     scalars_unshifted[0] = FF::from_witness(builder, 1);
 
     // Batch the commitments to the unshifted and to-be-shifted polynomials using powers of rho
-    auto batched_commitment_unshifted =
-        GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
+    auto batched_commitment_unshifted = GroupElement::batch_mul(commitments.get_unshifted(), scalars_unshifted);
 
     info("Batch mul (unshifted): num gates = ",
          builder->get_num_gates() - prev_num_gates,
@@ -209,7 +207,8 @@ std::array<typename Flavor::GroupElement, 2> UltraRecursiveVerifier_<Flavor>::ve
     return pairing_points;
 }
 
-template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<UltraCircuitBuilder>>;
+template class UltraRecursiveVerifier_<proof_system::honk::flavor::UltraRecursive_<GoblinUltraCircuitBuilder>>;
 template class UltraRecursiveVerifier_<proof_system::honk::flavor::GoblinUltraRecursive>;
 
 } // namespace proof_system::plonk::stdlib::recursion::honk

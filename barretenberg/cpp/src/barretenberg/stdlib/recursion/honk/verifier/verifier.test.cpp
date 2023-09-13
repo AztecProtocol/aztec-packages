@@ -22,16 +22,16 @@ namespace proof_system::plonk::stdlib::recursion::honk {
  *
  * @tparam Builder
  */
-template <typename VerifierType> class RecursiveVerifierTest : public testing::Test {
+template <typename BuilderType> class RecursiveVerifierTest : public testing::Test {
     using InnerComposer = ::proof_system::honk::UltraComposer;
     using InnerBuilder = typename InnerComposer::CircuitBuilder;
-
 
     using NativeVerifier = ::proof_system::honk::UltraVerifier_<::proof_system::honk::flavor::Ultra>;
     // Arithmetization of group operations in recursive verifier circuit is determined by outer builder
 
-    using RecursiveVerifier = VerifierType;
-    using OuterBuilder = typename RecursiveVerifier::Builder;
+    using Flavor = ::proof_system::honk::flavor::UltraRecursive_<BuilderType>;
+    using RecursiveVerifier = UltraRecursiveVerifier_<Flavor>;
+    using OuterBuilder = BuilderType;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using inner_curve = bn254<InnerBuilder>;
@@ -226,11 +226,12 @@ template <typename VerifierType> class RecursiveVerifierTest : public testing::T
 };
 
 // Run the recursive verifier tests with conventional Ultra builder and Goblin builder
-using VerifierTypes = testing::Types<UltraRecursiveVerifier>;
+// using VerifierTypes = testing::Types<UltraRecursiveVerifier>;
 // using VerifierTypes = testing::Types<UltraRecursiveVerifier, GoblinUltraRecursiveVerifier>;
-// using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+using BuilderTypes = testing::Types<UltraCircuitBuilder, GoblinUltraCircuitBuilder>;
+// using BuilderTypes = testing::Types<UltraCircuitBuilder>;
 
-TYPED_TEST_SUITE(RecursiveVerifierTest, VerifierTypes);
+TYPED_TEST_SUITE(RecursiveVerifierTest, BuilderTypes);
 
 HEAVY_TYPED_TEST(RecursiveVerifierTest, InnerCircuit)
 {
