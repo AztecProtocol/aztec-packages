@@ -21,7 +21,7 @@ impl SafeU120 {
         // Check that it actually will fit. Spending a lot of constraints here :grimacing:
         let bytes = value.to_be_bytes(32);
         for i in 0..17 {
-            assert(bytes[i] == 0);
+            assert(bytes[i] == 0, "Value too large for SafeU120");
         }
         Self {
             value: value as u120
@@ -45,7 +45,7 @@ impl SafeU120 {
       self: Self,
       b: Self,
     ) -> Self {
-        assert(self.value >= b.value);
+        assert(self.value >= b.value, "Underflow");
         Self {
             value: self.value - b.value
         }
@@ -56,7 +56,7 @@ impl SafeU120 {
         b: Self,
     ) -> Self {
         let c: u120 = self.value + b.value;
-        assert(c >= self.value);
+        assert(c >= self.value, "Overflow");
         Self {
             value: c
         }
@@ -68,7 +68,7 @@ impl SafeU120 {
     ) -> Self {
         let c: u120 = self.value * b.value;
         if !b.is_zero() {
-            assert(c / b.value == self.value);
+            assert(c / b.value == self.value, "Overflow");
         }
         Self {
             value: c
@@ -79,7 +79,7 @@ impl SafeU120 {
         self: Self,
         b: Self,
     ) -> Self {
-        assert(!b.is_zero());
+        assert(!b.is_zero(), "Divide by zero");
         Self {
             value: self.value / b.value
         }
@@ -99,7 +99,7 @@ impl SafeU120 {
         divisor: Self
     ) -> Self {
         let c = self.mul(b);
-        assert(!divisor.is_zero());
+        assert(!divisor.is_zero(), "Divide by zero");
         let adder = ((self.value * b.value % divisor.value) as u120 > 0) as u120;
         c.div(divisor).add(Self {value: adder})
     }
@@ -259,7 +259,6 @@ fn test_mul_div_up_ghost_overflow() {
 
 // It should not be possible for us to overflow `mul_div_up` through the adder, since that require the divisor to be 1
 // since we otherwise would not be at the max value. If divisor is 1, adder is 0.
-
 #[test(should_fail)]
 fn test_mul_div_up_zero_divisor() {
     let a = SafeU120::new(6);

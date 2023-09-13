@@ -27,7 +27,7 @@ export interface NoteData {
 }
 
 /**
- * The format that noir uses to get L1 to L2 Messages.
+ * The format that Aztec.nr uses to get L1 to L2 Messages.
  */
 export interface MessageLoadOracleInputs {
   /**
@@ -37,22 +37,6 @@ export interface MessageLoadOracleInputs {
   message: Fr[];
   /**
    * The path in the merkle tree to the message.
-   */
-  siblingPath: Fr[];
-  /**
-   * The index of the message commitment in the merkle tree.
-   */
-  index: bigint;
-}
-
-/**
- * The format noir uses to get commitments.
- */
-export interface CommitmentDataOracleInputs {
-  /** The siloed commitment. */
-  commitment: Fr;
-  /**
-   * The path in the merkle tree to the commitment.
    */
   siblingPath: Fr[];
   /**
