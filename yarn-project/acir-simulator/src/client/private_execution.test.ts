@@ -236,8 +236,8 @@ describe('Private Execution test suite', () => {
       const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [
           uniqueSiloedNoteHash.toBuffer(),
-          ownerPk.high.toBuffer(),
           ownerPk.low.toBuffer(),
+          ownerPk.high.toBuffer(),
         ]),
       );
 
@@ -464,8 +464,8 @@ describe('Private Execution test suite', () => {
       const innerNullifier = Fr.fromBuffer(
         pedersenPlookupCommitInputs(circuitsWasm, [
           uniqueSiloedNoteHash.toBuffer(),
-          ownerPk.high.toBuffer(),
           ownerPk.low.toBuffer(),
+          ownerPk.high.toBuffer(),
         ]),
       );
 
