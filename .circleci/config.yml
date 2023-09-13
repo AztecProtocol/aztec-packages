@@ -1485,7 +1485,7 @@ workflows:
           <<: *defaults
 
       - aztec-sandbox-multi-platform:
-                requires:
+          requires:
             - e2e-end
           <<: *defaults
 
