@@ -18,6 +18,6 @@ export async function viewContractFunction(
   // false to skip the foundation encoder - need to look into why passing the address as an Fr fails on re-encoding
   const typedArgs = convertArgs(functionAbi!, args, false);
 
-  const balance = await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
-  return balance;
+  const viewResult = await contract.methods[functionName](...typedArgs).view({ from: wallet.address });
+  return viewResult;
 }

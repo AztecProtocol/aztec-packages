@@ -12,14 +12,12 @@ export function WalletDropdown({ selected, onSelectChange, onError }: Props) {
   const [wallets, setOptions] = useState<CompleteAddress[] | undefined>();
 
   useEffect(() => {
-    // console.log('wallets', wallets);
     if (wallets) {
       return;
     }
     const loadOptions = async () => {
       const fetchedOptions = await rpcClient.getAccounts();
       setOptions(fetchedOptions);
-      // console.log('fetchedOptions', fetchedOptions.map(x => (x.toString(), x.partialAddress)));
       onSelectChange(fetchedOptions[0]);
     };
     loadOptions().catch(e => {

@@ -17,15 +17,7 @@ import { callContractFunction, deployContract, getWallet, viewContractFunction }
 
 const logger = createDebugLogger('aztec:http-rpc-client');
 
-function getRandomInt(min: number, max: number): bigint {
-  min = Math.ceil(min);
-  max = Math.floor(max);
-  return BigInt(Math.floor(Math.random() * (max - min)) + min);
-}
-
-const MIN_INITIAL_BALANCE = 300;
-const MAX_INITIAL_BALANCE = 600;
-const INITIAL_BALANCE = getRandomInt(MIN_INITIAL_BALANCE, MAX_INITIAL_BALANCE);
+const INITIAL_BALANCE = 444n;
 const TRANSFER_AMOUNT = 44n;
 const MINT_AMOUNT = 11n;
 
@@ -45,7 +37,13 @@ async function deployZKContract(owner: CompleteAddress, wallet: Wallet, rpcClien
     initial_supply: INITIAL_BALANCE,
     owner: owner.address,
   };
-  const contractAddress = await deployContract(owner, PrivateTokenContract.abi, constructorArgs, Fr.ZERO, rpcClient);
+  const contractAddress = await deployContract(
+    owner,
+    PrivateTokenContract.abi,
+    constructorArgs,
+    Fr.random(),
+    rpcClient,
+  );
 
   logger(`L2 contract deployed at ${contractAddress}`);
   const contract = await PrivateTokenContract.at(contractAddress, wallet);

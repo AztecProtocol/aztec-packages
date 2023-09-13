@@ -68,7 +68,7 @@ async function handleFunctionCall(
   if (functionName === 'constructor' && !!wallet) {
     // for now, dont let user change the salt.  requires some change to the form generation if we want to let user choose one
     // since everything is currently based on parsing the contractABI, and the salt parameter is not present there
-    const salt = Fr.ZERO;
+    const salt = Fr.random();
     return await deployContract(wallet, contractAbi, args, salt, rpcClient);
   }
 

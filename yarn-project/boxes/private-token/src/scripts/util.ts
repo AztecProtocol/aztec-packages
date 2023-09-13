@@ -31,9 +31,7 @@ export function convertArgs(functionAbi: FunctionAbi, args: any, encode: boolean
  */
 export async function getWallet(account: CompleteAddress, rpc: AztecRPC): Promise<AccountWallet> {
   const accountWallets: AccountWallet[] = await getSandboxAccountsWallets(rpc);
-  const selectedWallet: AccountWallet = accountWallets.find(
-    w => w.getAddress().toShortString() === account.address.toShortString(),
-  )!;
+  const selectedWallet: AccountWallet = accountWallets.find(w => w.getAddress().equals(account.address))!;
   if (!selectedWallet) {
     throw new Error(`Wallet for account ${account.address.toShortString()} not found in the RPC server.`);
   }

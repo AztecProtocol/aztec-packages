@@ -36,11 +36,8 @@
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/noir-compiler": "workspace:^",
-    "@aztec/types": "workspace:^",
     "formik": "^2.4.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
