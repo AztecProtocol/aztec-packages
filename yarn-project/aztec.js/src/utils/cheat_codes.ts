@@ -151,7 +151,7 @@ export class EthCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in noir contract)
+   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
@@ -228,13 +228,13 @@ export class AztecCheatCodes {
 
   /**
    * Computes the slot value for a given map and key.
-   * @param baseSlot - The base slot of the map (specified in noir contract)
+   * @param baseSlot - The base slot of the map (specified in Aztec.nr contract)
    * @param key - The key to lookup in the map
    * @returns The storage slot of the value in the map
    */
   public computeSlotInMap(baseSlot: Fr | bigint, key: Fr | bigint | AztecAddress): Fr {
     // Based on `at` function in
-    // aztec3-packages/yarn-project/noir-libs/aztec-noir/src/state_vars/map.nr
+    // aztec3-packages/yarn-project/aztec-nr/aztec/src/state_vars/map.nr
     return Fr.fromBuffer(
       pedersenPlookupCommitInputs(
         this.wasm,
