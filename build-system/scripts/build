@@ -66,13 +66,16 @@ echo "Content hash: $CONTENT_HASH"
 
 cd $BUILD_DIR
 
-retry ensure_docker_buildx
-echo "Creating multi-platform builder"
-docker buildx create --name multi-platform-builder --bootstrap --use
-echo "Multi-platform builder created"
+SINGLE_ARCH="false"
+if [[ $PLATFORMS == 'linux/amd64' ]] then
+  SINGLE_ARCH="true"
+  retry ensure_docker_buildx
+  echo "Creating multi-platform builder"
+  docker buildx create --name multi-platform-builder --bootstrap --use
+  echo "Multi-platform builder created"
 
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
+  docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+fi
 
 # If we have previously successful commit, we can early out if nothing relevant has changed since.
 if [[ $FORCE_BUILD == 'false' ]] && check_rebuild cache-"$CONTENT_HASH" $REPOSITORY; then
@@ -172,15 +175,21 @@ for STAGE in $STAGES; do
   echo "Building stage: $STAGE"
   STAGE_IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH-$STAGE
   echo "buildx tag $STAGE_IMAGE_COMMIT_URI"
-  # Build our dockerfile, add timing information
-  docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
-  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+  if [[ $SINGLE_ARCH == "false" ]] then
+    # Build our dockerfile, add timing information
+    docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
+    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+  else
+    # Build our dockerfile, add timing information
+    docker build --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+    | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+  fi
 
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
 
-  #echo "Pushing stage: $STAGE"
-  #retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
+  echo "Pushing stage: $STAGE"
+  retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
 done
 
@@ -196,9 +205,15 @@ fi
 # Build the actual image and give it a commit tag.
 IMAGE_COMMIT_URI=$ECR_URL/$REPOSITORY:cache-$CONTENT_HASH
 echo "Building image: $IMAGE_COMMIT_URI"
-# Build our dockerfile, add timing information
-docker buildx build --platform $PLATFORMS -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
-| while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-#echo "Pushing image: $IMAGE_COMMIT_URI"
-#retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+if [[ $SINGLE_ARCH == "false" ]] then
+  # Build our dockerfile, add timing information
+  docker buildx build --platform $PLATFORMS --target $STAGE $STAGE_CACHE_FROM -t $STAGE_IMAGE_COMMIT_URI -f $DOCKERFILE --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
+  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+else
+  # Build our dockerfile, add timing information
+  docker build -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH . \
+  | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
+fi
+echo "Pushing image: $IMAGE_COMMIT_URI"
+retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted
