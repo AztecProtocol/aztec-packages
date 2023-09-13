@@ -43,8 +43,8 @@ impl AddressNote {
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             siloed_note_hash,
-            secret.high,
             secret.low,
+            secret.high,
         ])[0]
     }
 

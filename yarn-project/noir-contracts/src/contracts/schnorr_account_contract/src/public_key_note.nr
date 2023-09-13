@@ -47,8 +47,8 @@ impl PublicKeyNote {
         // TODO(#1205) Should use a non-zero generator index.
         dep::std::hash::pedersen([
             unique_siloed_note_hash,
-            secret.high,
             secret.low,
+            secret.high,
         ])[0]
     }
 
