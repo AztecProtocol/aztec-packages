@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    VERSION 0.6.7 # x-release-please-version
+    VERSION 0.7.0 # x-release-please-version
     LANGUAGES CXX C
 )
 
@@ -21,7 +21,6 @@ option(DISABLE_TBB "Intel Thread Building Blocks" ON)
 option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
-option(INSTALL_BARRETENBERG "Enable installation of barretenberg. (Projects embedding barretenberg may want to turn this OFF.)" ON)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")

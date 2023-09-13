@@ -1,7 +1,7 @@
 {
   "name": "@aztec/bb.js",
-  "version": "0.6.7",
-  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/circuits/cpp/barretenberg/ts",
+  "version": "0.7.0",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/barretenberg/ts",
   "license": "MIT",
   "type": "module",
   "types": "./cjs-entry/index.d.ts",

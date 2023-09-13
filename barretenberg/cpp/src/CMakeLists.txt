@@ -39,6 +39,7 @@ endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/msgpack-c/include)
 
+
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_SHENANIGANS parameter.
 if(DISABLE_ASM)
@@ -68,6 +69,12 @@ add_subdirectory(barretenberg/solidity_helpers)
 add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/bb)
+
+
+if(SMT)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR} $ENV{HOME}/cvc5/tmp-lib/include)
+    add_subdirectory(barretenberg/smt_verification)
+endif()
 
 if(BENCHMARKS)
     add_subdirectory(barretenberg/benchmark)
@@ -183,49 +190,10 @@ if(WASM)
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
     )
+
     target_link_options(
         acvm_backend.wasm
         PRIVATE
         -nostartfiles -Wl,--no-entry,--export-dynamic,--allow-undefined
     )
-
-    if(INSTALL_BARRETENBERG)
-        install(TARGETS barretenberg.wasm DESTINATION ${CMAKE_INSTALL_BINDIR})
-        install(TARGETS acvm_backend.wasm DESTINATION ${CMAKE_INSTALL_BINDIR})
-    endif()
-
-else()
-    if(INSTALL_BARRETENBERG)
-        # The `install` function takes targets to install in different destinations on the system.
-        install(
-
-            # TODO(dbanks12): should only need to install API headers
-            TARGETS barretenberg barretenberg_headers
-
-            # We also give it an optional export name in case something wants to target the install.
-            EXPORT barretenbergTargets
-
-            # The ARCHIVE output signifies static libraries that should be installed
-            # and we use the GNUInstallDirs location to install into the standard system library location
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-
-            # The FILE_SET output is used instead of PUBLIC_HEADER & PRIVATE_HEADER outputs because
-            # our headers don't have a clear delineation between public & private, but we still use
-            # the GNUInstallDirs location to install into the standard system header location
-            FILE_SET HEADERS DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        )
-
-        set(pkg_config "${PROJECT_BINARY_DIR}/barretenberg.pc")
-
-        configure_file(
-            "${PROJECT_SOURCE_DIR}/cmake/barretenberg.pc.in"
-            "${pkg_config}"
-            @ONLY
-        )
-
-        install(
-            FILES "${pkg_config}"
-            DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
-        )
-    endif()
 endif()

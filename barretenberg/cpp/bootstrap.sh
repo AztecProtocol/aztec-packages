@@ -1,18 +1,12 @@
 #!/bin/bash
 set -eu
 
+# Navigate to script folder
+cd "$(dirname "$0")"
+
 # Clean.
 rm -rf ./build
 rm -rf ./build-wasm
-
-# Install formatting git hook.
-HOOKS_DIR=$(git rev-parse --git-path hooks)
-# The pre-commit script will live in a barretenberg-specific hooks directory
-# Find it based on the script directory.
-# TODO(AD) it is a bit unintuitive that bootstrap sets one up for a barretenberg-oriented workflow
-SCRIPT_PWD=`pwd` # fix: capture pwd instead of writing into script
-echo "cd $SCRIPT_PWD && ./format.sh staged" > $HOOKS_DIR/pre-commit
-chmod +x $HOOKS_DIR/pre-commit
 
 # Determine system.
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -25,9 +19,7 @@ else
 fi
 
 # Download ignition transcripts.
-cd ./srs_db
-./download_ignition.sh 3
-cd ..
+(cd ./srs_db && ./download_ignition.sh 3)
 
 # Pick native toolchain file.
 ARCH=$(uname -m)
