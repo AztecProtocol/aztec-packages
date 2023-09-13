@@ -34,7 +34,7 @@ if [ -n "$CMD" ]; then
     if [ "$user_input" != "y" ] && [ "$user_input" != "Y" ]; then
       exit 1
     fi
-    rm .bootstrapped
+    rm -f .bootstrapped
     rm -rf .git/hooks/*
     rm -rf .git/modules/*
     git clean -fd
