@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 
+#include "barretenberg/common/timer.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
 #include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
@@ -23,8 +24,8 @@ struct BenchParams {
     static constexpr size_t MAX_NUM_ITERATIONS = 10;
 
     // Log num gates; for simple circuits only, e.g. standard arithmetic circuit
-    static constexpr size_t MIN_LOG_NUM_GATES = 16;
-    static constexpr size_t MAX_LOG_NUM_GATES = 16;
+    static constexpr size_t MIN_LOG_NUM_GATES = 13;
+    static constexpr size_t MAX_LOG_NUM_GATES = 23;
 
     static constexpr size_t NUM_REPETITIONS = 1;
 };
@@ -42,12 +43,13 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     proof_system::plonk::stdlib::field_t b(
         proof_system::plonk::stdlib::witness_t(&builder, barretenberg::fr::random_element()));
     proof_system::plonk::stdlib::field_t c(&builder);
-    for (size_t i = 0; i < (num_gates / 4) - 4; ++i) {
+    for (size_t i = 0; i < (num_gates / 4) - 5; ++i) {
         c = a + b;
         c = a * c;
         a = b * b;
         b = c * c;
     }
+    info("builder num_gates: ", builder.num_gates);
 }
 
 /**
@@ -196,7 +198,11 @@ void construct_proof_with_specified_num_gates(State& state,
         state.ResumeTiming();
 
         // Construct proof
+        info("num gates: ", ext_prover.key->circuit_size);
+        Timer timer;
         auto proof = ext_prover.construct_proof();
+        int64_t total_proving_time = timer.nanoseconds() / 1000;
+        info("proving time: ", total_proving_time);
     }
 }
 
