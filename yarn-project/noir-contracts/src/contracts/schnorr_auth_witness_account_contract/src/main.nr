@@ -35,8 +35,7 @@ contract SchnorrAuthWitnessAccount {
 
     #[aztec(private)]
     fn entrypoint(payload: pub EntrypointPayload) {
-        let actions = get_actions(Context::private(&mut context));
-        // let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
+        let actions = AccountActions::private(&mut context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl);
         actions.entrypoint(payload);
     }
 
@@ -68,9 +67,5 @@ contract SchnorrAuthWitnessAccount {
         let witness = get_auth_witness(message_hash);
         assert(recover_address(message_hash, witness) == address);
         true
-    }
-
-    fn get_actions(context: Context) -> pub AccountActions {
-        AccountActions::init(context, ACCOUNT_ACTIONS_STORAGE_SLOT, is_valid_impl)
     }
 }
