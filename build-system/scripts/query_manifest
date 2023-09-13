@@ -20,7 +20,8 @@ function get_deps {
       >&2 echo "Dependency script not found: $CMD"
       exit 1
     fi
-    DEPS=($($CMD $1))
+    local PROJECT_DIR=$($0 projectDir $1)
+    DEPS=($($CMD $PROJECT_DIR))
   elif [ "$TYPE" == "null" ]; then
     # Execute default script relative to buildDir to retrieve dependencies.
     local CMD=$BUILD_DIR/scripts/get_dependencies.sh
@@ -28,7 +29,8 @@ function get_deps {
       >&2 echo "Dependency script not found: $CMD"
       exit 1
     fi
-    DEPS=($($CMD $1))
+    local PROJECT_DIR=$($0 projectDir $1)
+    DEPS=($($CMD $PROJECT_DIR))
   elif [ "$TYPE" == "array" ]; then
     DEPS=($(jq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
   else
@@ -80,7 +82,6 @@ case "$CMD" in
       fi
       ALL_DEPS["$1"]=1
       get_deps $1
-      # DEPS=($(jq -r ".\"$1\".dependencies // [] | .[]" $MANIFEST))
       for DEP in "${DEPS[@]}"; do
         add_deps $DEP
       done

@@ -1,9 +1,7 @@
 #!/bin/bash
 set -eu
 
-REPO=$1
-
-cd "$(dirname "$0")"
+PROJECT_DIR=$1
 
 echo yarn-project-base
-jq -r ".dependencies | keys | .[] | select(startswith(\"@aztec/\")) | ltrimstr(\"@aztec/\")" ../$REPO/package.json
+jq -r ".dependencies + .devDependencies | keys | .[] | select(startswith(\"@aztec/\")) | ltrimstr(\"@aztec/\")" $PROJECT_DIR/package.json
