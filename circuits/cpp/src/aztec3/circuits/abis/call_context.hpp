@@ -27,13 +27,16 @@ template <typename NCT> struct CallContext {
     boolean is_static_call = false;
     boolean is_contract_deployment = false;
 
+    fr start_side_effect_counter = 0;
+
     // for serialization, update with new fields
     MSGPACK_FIELDS(msg_sender,
                    storage_contract_address,
                    portal_contract_address,
                    is_delegate_call,
                    is_static_call,
-                   is_contract_deployment);
+                   is_contract_deployment,
+                   start_side_effect_counter);
     boolean operator==(CallContext<NCT> const& other) const
     {
         // we can't use =default with a custom boolean, but we can use a msgpack-derived utility
@@ -48,8 +51,13 @@ template <typename NCT> struct CallContext {
         auto to_ct = [&](auto& e) { return aztec3::utils::types::to_ct(builder, e); };
 
         CallContext<CircuitTypes<Builder>> call_context = {
-            to_ct(msg_sender),       to_ct(storage_contract_address), to_ct(portal_contract_address),
-            to_ct(is_delegate_call), to_ct(is_static_call),           to_ct(is_contract_deployment),
+            to_ct(msg_sender),
+            to_ct(storage_contract_address),
+            to_ct(portal_contract_address),
+            to_ct(is_delegate_call),
+            to_ct(is_static_call),
+            to_ct(is_contract_deployment),
+            to_ct(start_side_effect_counter),
 
         };
 
@@ -62,8 +70,13 @@ template <typename NCT> struct CallContext {
         auto to_nt = [&](auto& e) { return aztec3::utils::types::to_nt<Builder>(e); };
 
         CallContext<NativeTypes> call_context = {
-            to_nt(msg_sender),       to_nt(storage_contract_address), to_nt(portal_contract_address),
-            to_nt(is_delegate_call), to_nt(is_static_call),           to_nt(is_contract_deployment),
+            to_nt(msg_sender),
+            to_nt(storage_contract_address),
+            to_nt(portal_contract_address),
+            to_nt(is_delegate_call),
+            to_nt(is_static_call),
+            to_nt(is_contract_deployment),
+            to_nt(start_side_effect_counter),
         };
 
         return call_context;
@@ -72,8 +85,8 @@ template <typename NCT> struct CallContext {
     fr hash() const
     {
         std::vector<fr> const inputs = {
-            msg_sender.to_field(), storage_contract_address.to_field(), portal_contract_address, fr(is_delegate_call),
-            fr(is_static_call),    fr(is_contract_deployment),
+            msg_sender.to_field(), storage_contract_address.to_field(), portal_contract_address,   fr(is_delegate_call),
+            fr(is_static_call),    fr(is_contract_deployment),          start_side_effect_counter,
         };
 
         return NCT::hash(inputs, GeneratorIndex::CALL_CONTEXT);
@@ -89,6 +102,7 @@ template <typename NCT> struct CallContext {
         fr(is_delegate_call).assert_is_zero();
         fr(is_static_call).assert_is_zero();
         fr(is_contract_deployment).assert_is_zero();
+        start_side_effect_counter.assert_is_zero();
     }
 
     void set_public()
@@ -101,6 +115,7 @@ template <typename NCT> struct CallContext {
         fr(is_delegate_call).set_public();
         fr(is_static_call).set_public();
         fr(is_contract_deployment).set_public();
+        start_side_effect_counter.set_public();
     }
 };
 

@@ -112,7 +112,7 @@ void match_nullifiers_to_commitments_and_squash(
             size_t match_pos = MAX_NEW_COMMITMENTS_PER_TX;
 
             if (hint_pos < MAX_NEW_COMMITMENTS_PER_TX) {
-                match_pos = nullified_commitment == new_commitments[hint_pos] ? hint_pos : match_pos;
+                match_pos = nullified_commitment == new_commitments[hint_pos].value ? hint_pos : match_pos;
             }
 
             if (match_pos != MAX_NEW_COMMITMENTS_PER_TX) {

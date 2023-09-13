@@ -49,6 +49,20 @@ impl<T, MaxLen> BoundedVec<T, MaxLen> {
         }
         ret
     }
+
+    fn flatten_and_push_array<S, InnerLen, Len>(&mut self, serialize: fn(S) -> [T; InnerLen], array: [S; Len]) {
+        let newLen = self.len + (array.len() * InnerLen);
+        assert(newLen as u64 <= MaxLen as u64);
+        for outer in 0..array.len() {
+            let inner_array = serialize(array[outer]);
+            self.push_array(inner_array);
+            // TODO: more efficient:
+            //for inner in 0..inner_array.len() {
+            //    self.storage[self.len + (outer * InnerLen) + inner] = inner_array[inner];
+            //}
+        }
+    }
+
 }
 
 #[test]

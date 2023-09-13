@@ -304,7 +304,15 @@ export function makeAggregationObject(seed = 1): AggregationObject {
  * @returns A call context.
  */
 export function makeCallContext(seed = 0, storageContractAddress = makeAztecAddress(seed + 1)): CallContext {
-  return new CallContext(makeAztecAddress(seed), storageContractAddress, makeEthAddress(seed + 2), false, false, false);
+  return new CallContext(
+    makeAztecAddress(seed),
+    storageContractAddress,
+    makeEthAddress(seed + 2),
+    false,
+    false,
+    false,
+    fr(0),
+  );
 }
 
 /**
@@ -655,6 +663,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
       true,
       true,
       true,
+      fr(0),
     ),
     argsHash: fr(seed + 0x100),
     returnValues: makeTuple(RETURN_VALUES_LENGTH, fr, seed + 0x200),

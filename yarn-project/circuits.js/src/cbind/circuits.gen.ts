@@ -57,6 +57,9 @@ import {
   ReadRequestMembershipWitness,
   RootRollupInputs,
   RootRollupPublicInputs,
+  SideEffect,
+  SideEffectLinkedToNoteHash,
+  SideEffectWithRange,
   TxContext,
   TxRequest,
   VerificationKeyData,
@@ -566,13 +569,13 @@ export function fromPublicDataRead(o: PublicDataRead): MsgpackPublicDataRead {
 
 interface MsgpackCombinedAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  read_requests: Tuple<Buffer, 128>;
-  new_commitments: Tuple<Buffer, 64>;
-  new_nullifiers: Tuple<Buffer, 64>;
+  read_requests: Tuple<MsgpackSideEffect, 128>;
+  new_commitments: Tuple<MsgpackSideEffect, 64>;
+  new_nullifiers: Tuple<MsgpackSideEffectLinkedToNoteHash, 64>;
   nullified_commitments: Tuple<Buffer, 64>;
-  private_call_stack: Tuple<Buffer, 8>;
-  public_call_stack: Tuple<Buffer, 8>;
-  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  private_call_stack: Tuple<MsgpackSideEffectWithRange, 8>;
+  public_call_stack: Tuple<MsgpackSideEffectWithRange, 8>;
+  new_l2_to_l1_msgs: Tuple<MsgpackSideEffect, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   encrypted_log_preimages_length: Buffer;
@@ -1212,6 +1215,7 @@ interface MsgpackCallContext {
   is_delegate_call: boolean;
   is_static_call: boolean;
   is_contract_deployment: boolean;
+  start_side_effect_counter: Buffer;
 }
 
 export function toCallContext(o: MsgpackCallContext): CallContext {
@@ -1233,6 +1237,9 @@ export function toCallContext(o: MsgpackCallContext): CallContext {
   if (o.is_contract_deployment === undefined) {
     throw new Error('Expected is_contract_deployment in CallContext deserialization');
   }
+  if (o.start_side_effect_counter === undefined) {
+    throw new Error('Expected start_side_effect_counter in CallContext deserialization');
+  }
   return new CallContext(
     Address.fromBuffer(o.msg_sender),
     Address.fromBuffer(o.storage_contract_address),
@@ -1240,6 +1247,7 @@ export function toCallContext(o: MsgpackCallContext): CallContext {
     o.is_delegate_call,
     o.is_static_call,
     o.is_contract_deployment,
+    Fr.fromBuffer(o.start_side_effect_counter),
   );
 }
 
@@ -1262,6 +1270,9 @@ export function fromCallContext(o: CallContext): MsgpackCallContext {
   if (o.isContractDeployment === undefined) {
     throw new Error('Expected isContractDeployment in CallContext serialization');
   }
+  if (o.startSideEffectCounter === undefined) {
+    throw new Error('Expected startSideEffectCounter in CallContext serialization');
+  }
   return {
     msg_sender: toBuffer(o.msgSender),
     storage_contract_address: toBuffer(o.storageContractAddress),
@@ -1269,6 +1280,7 @@ export function fromCallContext(o: CallContext): MsgpackCallContext {
     is_delegate_call: o.isDelegateCall,
     is_static_call: o.isStaticCall,
     is_contract_deployment: o.isContractDeployment,
+    start_side_effect_counter: toBuffer(o.startSideEffectCounter),
   };
 }
 
@@ -1276,13 +1288,13 @@ interface MsgpackPrivateCircuitPublicInputs {
   call_context: MsgpackCallContext;
   args_hash: Buffer;
   return_values: Tuple<Buffer, 4>;
-  read_requests: Tuple<Buffer, 32>;
-  new_commitments: Tuple<Buffer, 16>;
-  new_nullifiers: Tuple<Buffer, 16>;
+  read_requests: Tuple<MsgpackSideEffect, 32>;
+  new_commitments: Tuple<MsgpackSideEffect, 16>;
+  new_nullifiers: Tuple<MsgpackSideEffectLinkedToNoteHash, 16>;
   nullified_commitments: Tuple<Buffer, 16>;
-  private_call_stack: Tuple<Buffer, 4>;
-  public_call_stack: Tuple<Buffer, 4>;
-  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  private_call_stack: Tuple<MsgpackSideEffectWithRange, 4>;
+  public_call_stack: Tuple<MsgpackSideEffectWithRange, 4>;
+  new_l2_to_l1_msgs: Tuple<MsgpackSideEffect, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   encrypted_log_preimages_length: Buffer;
@@ -1833,12 +1845,12 @@ export function fromPrivateKernelInputsOrdering(o: PrivateKernelInputsOrdering):
 
 interface MsgpackFinalAccumulatedData {
   aggregation_object: MsgpackNativeAggregationState;
-  new_commitments: Tuple<Buffer, 64>;
-  new_nullifiers: Tuple<Buffer, 64>;
+  new_commitments: Tuple<MsgpackSideEffect, 64>;
+  new_nullifiers: Tuple<MsgpackSideEffectLinkedToNoteHash, 64>;
   nullified_commitments: Tuple<Buffer, 64>;
-  private_call_stack: Tuple<Buffer, 8>;
-  public_call_stack: Tuple<Buffer, 8>;
-  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  private_call_stack: Tuple<MsgpackSideEffectWithRange, 8>;
+  public_call_stack: Tuple<MsgpackSideEffectWithRange, 8>;
+  new_l2_to_l1_msgs: Tuple<MsgpackSideEffect, 2>;
   encrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   encrypted_log_preimages_length: Buffer;
@@ -2081,10 +2093,10 @@ interface MsgpackPublicCircuitPublicInputs {
   return_values: Tuple<Buffer, 4>;
   contract_storage_update_requests: Tuple<MsgpackContractStorageUpdateRequest, 16>;
   contract_storage_reads: Tuple<MsgpackContractStorageRead, 16>;
-  public_call_stack: Tuple<Buffer, 4>;
-  new_commitments: Tuple<Buffer, 16>;
-  new_nullifiers: Tuple<Buffer, 16>;
-  new_l2_to_l1_msgs: Tuple<Buffer, 2>;
+  public_call_stack: Tuple<MsgpackSideEffectWithRange, 4>;
+  new_commitments: Tuple<MsgpackSideEffect, 16>;
+  new_nullifiers: Tuple<MsgpackSideEffectLinkedToNoteHash, 16>;
+  new_l2_to_l1_msgs: Tuple<MsgpackSideEffect, 2>;
   unencrypted_logs_hash: Tuple<Buffer, 2>;
   unencrypted_log_preimages_length: Buffer;
   historic_block_data: MsgpackHistoricBlockData;

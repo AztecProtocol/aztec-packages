@@ -70,6 +70,14 @@ impl SideEffect {
     fn serialize(self) -> [Field; 2] {
         [self.value, self.side_effect_counter]
     }
+
+    fn deserialise(values: [Field; 2]) -> Self {
+        Self {
+            value: values[0],
+            side_effect_counter: values[1],
+        }
+    }
+
     //fn hash(self) -> Field {
     //    // no generator index to hash these...
     //    dep::std::hash::pedersen_with_separator(self.serialize(), 2)[0]
@@ -94,6 +102,15 @@ impl SideEffectLinkedToNoteHash {
     fn serialize(self) -> [Field; 3] {
         [self.value, self.note_hash, self.side_effect_counter]
     }
+
+    fn deserialise(values: [Field; 3]) -> Self {
+        Self {
+            value: values[0],
+            note_hash: values[1],
+            side_effect_counter: values[2],
+        }
+    }
+
     //fn hash(self) -> Field {
     //    // no generator index to hash these...
     //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
@@ -117,6 +134,15 @@ impl SideEffectWithRange {
     fn serialize(self) -> [Field; 3] {
         [self.value, self.start_side_effect_counter, self.end_side_effect_counter]
     }
+
+    fn deserialise(values: [Field; 3]) -> Self {
+        Self {
+            value: values[0],
+            start_side_effect_counter: values[1],
+            end_side_effect_counter: values[2],
+        }
+    }
+
     //fn hash(self) -> Field {
     //    // no generator index to hash these...
     //    dep::std::hash::pedersen_with_separator(self.serialize(), 3)[0]
@@ -190,6 +216,8 @@ struct CallContext {
     is_delegate_call : bool,
     is_static_call : bool,
     is_contract_deployment: bool,
+
+    start_side_effect_counter: Field,
 }
 // docs:end:call-context
 
@@ -202,6 +230,7 @@ impl CallContext {
             self.is_delegate_call as Field,
             self.is_static_call as Field,
             self.is_contract_deployment as Field,
+            self.start_side_effect_counter,
         ]
     }
 
@@ -316,6 +345,7 @@ impl PrivateCircuitPublicInputs {
         fields.flatten_and_push_array(SideEffect::serialize, self.new_commitments);
         fields.flatten_and_push_array(SideEffectLinkedToNoteHash::serialize, self.new_nullifiers);
         // TODO(dbanks12): should nullified commitments be here!
+        fields.push_array(self.nullified_commitments);
         fields.flatten_and_push_array(SideEffectWithRange::serialize, self.private_call_stack);
         fields.flatten_and_push_array(SideEffectWithRange::serialize, self.public_call_stack);
         fields.flatten_and_push_array(SideEffect::serialize, self.new_l2_to_l1_msgs);

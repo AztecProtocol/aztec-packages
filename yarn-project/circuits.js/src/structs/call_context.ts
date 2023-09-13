@@ -43,6 +43,10 @@ export class CallContext {
      * Determines whether the call is a contract deployment.
      */
     public isContractDeployment: boolean,
+    /**
+     * The start side effect counter for this call context.
+     */
+    public startSideEffectCounter: Fr,
   ) {
     this.portalContractAddress =
       portalContractAddress instanceof EthAddress ? portalContractAddress : EthAddress.fromField(portalContractAddress);
@@ -53,7 +57,7 @@ export class CallContext {
    * @returns A new instance of CallContext with zero msg sender, storage contract address and portal contract address.
    */
   public static empty(): CallContext {
-    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, Fr.ZERO, false, false, false);
+    return new CallContext(AztecAddress.ZERO, AztecAddress.ZERO, Fr.ZERO, false, false, false, Fr.ZERO);
   }
 
   isEmpty() {
@@ -72,6 +76,7 @@ export class CallContext {
       fields.isDelegateCall,
       fields.isStaticCall,
       fields.isContractDeployment,
+      fields.startSideEffectCounter,
     ] as const;
   }
 
@@ -97,6 +102,7 @@ export class CallContext {
       reader.readBoolean(),
       reader.readBoolean(),
       reader.readBoolean(),
+      new Fr(reader.readFr()),
     );
   }
 }
