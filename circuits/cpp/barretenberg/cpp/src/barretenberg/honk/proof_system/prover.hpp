@@ -42,8 +42,6 @@ template <StandardFlavor Flavor> class StandardProver_ {
 
     void compute_wire_commitments();
 
-    void construct_prover_polynomials();
-
     plonk::proof& export_proof();
     plonk::proof& construct_proof();
 
