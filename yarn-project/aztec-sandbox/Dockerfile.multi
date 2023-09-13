@@ -1,4 +1,4 @@
-FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-sandbox AS builder
+FROM --platform=$BUILDPLATFORM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/aztec-sandbox AS builder
 
 FROM node:18-alpine
 
