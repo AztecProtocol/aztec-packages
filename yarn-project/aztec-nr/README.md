@@ -55,9 +55,10 @@ To use `Aztec.nr` you must have [Noir](https://noir-lang.org/) installed. Noir i
 ### Quick Installation
 The fastest way to install is with [noirup](https://noir-lang.org/getting_started/nargo_installation#option-1-noirup).
 
-To use `Aztec-nr` the `aztec` version of `Noir` is installed (Note; this version temporarily required if you would like to use our the `#[aztec()]` macros).
+To use `Aztec-nr` the `aztec` version of `Noir` is required (Note; this version is temporarily required if you would like to use `#[aztec()]` macros).
 
-```bach
+Once noirup is installed, you can run the following:
+```bash
 noirup -v aztec
 ```
 
