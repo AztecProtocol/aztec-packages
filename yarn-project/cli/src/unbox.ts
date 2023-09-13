@@ -160,42 +160,8 @@ async function downloadNoirFilesFromGithub(
  * @param log - logger
  */
 async function updatePackagingConfigurations(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
-  await updateNargoToml(outputPath, log);
   await updatePackageJsonVersions(outputPath, packageVersion, log);
   await updateTsConfig(outputPath, log);
-}
-
-/**
- * hack to adjust the copied contract Nargo.toml file to point to the location
- * of noir-libs in the newly created/copied directory.
- * This should be removable soon.
- * @param outputPath - relative path where we are copying everything
- * @param log - logger
- */
-async function updateNargoToml(outputPath: string, log: LogFn): Promise<void> {
-  const nargoTomlPath = path.join(outputPath, 'src', 'contracts', 'Nargo.toml');
-  const fileContent = await fs.readFile(nargoTomlPath, 'utf-8');
-  const lines = fileContent.split('\n');
-  const newLines = lines
-    .filter(line => !line.startsWith('#'))
-    .map(line => {
-      // hard coded mapping of dependencies that aztec noir contracts use - add more here to support more "packages"
-      // TODO: consider just storing a copy of everything in the /boxes/ subpackage, and then we don't need to
-      // update the Nargo.toml file at all or copy from the noir-libs subpackage
-      if (line.startsWith('aztec')) {
-        return `aztec = { path = "./noir-aztec" }`;
-      }
-      if (line.startsWith('value_note')) {
-        return `value_note = { path = "./value-note" }`;
-      }
-      if (line.startsWith('easy_private_state')) {
-        return `easy_private_state = { path = "./easy-private-state" }`;
-      }
-      return line;
-    });
-  const updatedContent = newLines.join('\n');
-  await fs.writeFile(nargoTomlPath, updatedContent);
-  log(`Updated Nargo.toml to point to local copy of noir-libs`);
 }
 
 /**
@@ -227,6 +193,7 @@ async function updateTsConfig(outputPath: string, log: LogFn) {
  * an the actual version number in the cloned starter kit
  * We modify the copied package.json and pin to the version of the package that was downloaded
  * @param outputPath - directory we are unboxing to
+ * @param packageVersion - CLI npm version, which determines what npm version to grab
  * @param log - logger
  */
 async function updatePackageJsonVersions(outputPath: string, packageVersion: string, log: LogFn): Promise<void> {
@@ -238,7 +205,7 @@ async function updatePackageJsonVersions(outputPath: string, packageVersion: str
   if (packageData.dependencies) {
     for (const [key, value] of Object.entries(packageData.dependencies)) {
       if (value === 'workspace:^') {
-        packageData.dependencies[key] = `^${packageData.version}`;
+        packageData.dependencies[key] = `^${packageVersion}`;
       }
     }
   }
@@ -252,6 +219,15 @@ async function updatePackageJsonVersions(outputPath: string, packageVersion: str
         packageData.devDependencies[key] = `^${packageVersion}`;
       }
     }
+  }
+
+  // modify the version of the sandbox to pull - it's "latest" in the repo, but we need to replace
+  // with the same tagVersion as the cli and the other aztec npm packages
+  if (packageData.scripts && packageData.scripts['install:sandbox']) {
+    packageData.scripts['install:sandbox'] = packageData.scripts['install:sandbox'].replace(
+      'latest',
+      `v${packageVersion}`,
+    );
   }
 
   // Convert back to a string and write back to the package.json file

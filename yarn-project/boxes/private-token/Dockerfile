@@ -3,12 +3,9 @@ FROM 278380418400.dkr.ecr.eu-west-2.amazonaws.com/yarn-project-base AS builder
 COPY . .
 
 WORKDIR /usr/src/yarn-project/boxes/private-token
-RUN yarn install
-
 RUN yarn build && yarn formatting
 
-
-# Prune dev dependencies. See comment in base image.
+# this feels wrong
 RUN yarn cache clean
 RUN yarn workspaces focus --production > /dev/null
 
