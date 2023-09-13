@@ -114,6 +114,10 @@ RUN ./scripts/generate-artifacts.sh
 WORKDIR /usr/src/yarn-project
 
 # Generate noir contract artifacts
+FROM builder_ as noir_types
+COPY . .
+COPY --from=noir /usr/src/yarn-project/noir-contracts/src/contracts /usr/src/yarn-project/noir-contracts/src/contracts
+COPY --from=noir /usr/src/yarn-project/noir-contracts/target /usr/src/yarn-project/noir-contracts/target
 WORKDIR /usr/src/yarn-project/noir-contracts
 
 # Run yarn build to have the json ABIs available for the types generator
@@ -121,3 +125,9 @@ RUN yarn build
 RUN ./scripts/types_all.sh
 # Run yarn build again to build the types
 RUN yarn build
+
+# Take noir contract artifacts into the final build image
+FROM builder_ as final
+COPY . .
+COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/artifacts /usr/src/yarn-project/noir-contracts/src/artifacts
+COPY --from=noir_types /usr/src/yarn-project/noir-contracts/src/types /usr/src/yarn-project/noir-contracts/src/types
