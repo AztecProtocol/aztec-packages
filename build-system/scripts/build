@@ -65,7 +65,7 @@ echo "Content hash: $CONTENT_HASH"
 
 cd $BUILD_DIR
 
-ensure_docker_buildx
+retry ensure_docker_buildx
 echo "Creating multi-platform builder"
 docker buildx create --name multi-platform-builder --bootstrap --use
 echo "Multi-platform builder created"
