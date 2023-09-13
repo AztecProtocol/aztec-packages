@@ -26,7 +26,6 @@ export interface NoteData {
   index?: bigint;
 }
 
-
 /**
  * The format that Aztec.nr uses to get L1 to L2 Messages.
  */
