@@ -1,13 +1,5 @@
 #!/bin/bash
-# Conditionally runs a script on a remote spot instance if any dependent code has changed between
-# the last successful run and the present commit.
-#
-# It's expected to be run from the project directory, and that there be a directory called `scripts`
-# containing the given named script to execute on the remote machine.
-#
-# This script is only useful if there is nothing to do in the event there is no rebuild. This is fine
-# for running a suite of tests for example, but is not useful for performing a build, as even if a
-# build has nothing to do, the previous images are retagged with the new commit hash for upstream jobs.
+# Conditionally runs a script if the REPOSITORY content hash has changed and we haven't had a successful run.
 #
 # Arguments are:
 # 1. REPOSITORY: The project repository name in ECR. Used to determine if there are changes since last success.

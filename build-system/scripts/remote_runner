@@ -1,4 +1,3 @@
-# TODO: Just move this scripts directory, rename "remote_runner"?
 #!/bin/bash
 set -eu
 

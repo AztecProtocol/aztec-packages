@@ -49,7 +49,7 @@ checkout: &checkout
       echo $GIT_CHECKOUT_KEY | base64 -d > .ssh/id_rsa
 
       chmod 0600 .ssh/id_rsa
-      # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/remote_build/remote_run
+      # IF YOU'RE CHANGING THIS, YOU ALSO WANT TO CHANGE: build-system/scripts/remote_runner
       # Shallow checkout this commit.
       mkdir -p project
       cd project

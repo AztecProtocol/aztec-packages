@@ -209,10 +209,7 @@
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/circuits.js",
     "dockerfile": "circuits.js/Dockerfile",
-    "rebuildPatterns": [
-      "^circuits/.*\\.(cpp|cc|cxx|c\\+\\+|h|hpp|hxx|h\\+\\+|c|h|inl|inc|ipp|tpp|cmake)$|^circuits/.*CMakeLists\\.txt$",
-      "^yarn-project/circuits.js/"
-    ],
+    "rebuildPatterns": ["^circuits/", "^yarn-project/circuits.js/"],
     "dependencies": ["foundation"]
   },
   "end-to-end": {
