@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
 import { AztecAddress, Wallet, generatePublicKey, getSchnorrAccount } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
+import { GrumpkinScalar } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { PrivateTokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, TxStatus } from '@aztec/types';
@@ -23,11 +23,11 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
   beforeEach(async () => {
     ({ aztecNode, aztecRpcServer, logger } = await setup(0));
 
-    const encryptionPrivateKey = PrivateKey.random();
+    const encryptionPrivateKey = GrumpkinScalar.random();
 
     for (let i = 0; i < numAccounts; i++) {
       logger(`Deploying account contract ${i}/3...`);
-      const signingPrivateKey = PrivateKey.random();
+      const signingPrivateKey = GrumpkinScalar.random();
       const account = getSchnorrAccount(aztecRpcServer, encryptionPrivateKey, signingPrivateKey);
       const wallet = await account.waitDeploy({ interval: 0.1 });
       const { address } = await account.getCompleteAddress();
@@ -81,7 +81,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
     const contractWithWallet = await PrivateTokenContract.at(privateTokenAddress, wallets[senderIndex]);
 
-    const tx = contractWithWallet.methods.transfer(transferAmount, receiver).send({ origin: sender });
+    const tx = contractWithWallet.methods.transfer(transferAmount, receiver).send();
     await tx.isMined({ interval: 0.1 });
     const receipt = await tx.getReceipt();
 

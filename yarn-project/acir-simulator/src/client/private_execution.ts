@@ -26,13 +26,7 @@ import {
   toAcvmEnqueuePublicFunctionResult,
 } from '../acvm/index.js';
 import { ExecutionError } from '../common/errors.js';
-import {
-  AcirSimulator,
-  ExecutionResult,
-  FunctionAbiWithDebugMetadata,
-  NewNoteData,
-  NewNullifierData,
-} from '../index.js';
+import { AcirSimulator, ExecutionResult, FunctionAbiWithDebugMetadata } from '../index.js';
 import { ClientTxExecutionContext } from './client_execution_context.js';
 import { acvmFieldMessageToString, oracleDebugCallToFormattedStr } from './debug.js';
 
@@ -63,11 +57,9 @@ export class PrivateFunctionExecution {
     const acir = Buffer.from(this.abi.bytecode, 'base64');
     const initialWitness = this.getInitialWitness();
 
-    // TODO: Move to ClientTxExecutionContext.
-    const newNotePreimages: NewNoteData[] = [];
-    const newNullifiers: NewNullifierData[] = [];
     const nestedExecutionContexts: ExecutionResult[] = [];
     const enqueuedPublicFunctionCalls: PublicCallRequest[] = [];
+    // TODO: Move to ClientTxExecutionContext.
     const encryptedLogs = new FunctionL2Logs([]);
     const unencryptedLogs = new FunctionL2Logs([]);
 
@@ -79,6 +71,9 @@ export class PrivateFunctionExecution {
       },
       packArguments: async args => {
         return toACVMField(await this.context.packedArgsCache.pack(args.map(fromACVMField)));
+      },
+      getAuthWitness: async ([messageHash]) => {
+        return (await this.context.db.getAuthWitness(fromACVMField(messageHash))).map(toACVMField);
       },
       getSecretKey: ([ownerX], [ownerY]) => this.context.getSecretKey(this.contractAddress, ownerX, ownerY),
       getPublicKey: async ([acvmAddress]) => {
@@ -101,29 +96,11 @@ export class PrivateFunctionExecution {
         ),
       getRandomField: () => Promise.resolve(toACVMField(Fr.random())),
       notifyCreatedNote: ([storageSlot], preimage, [innerNoteHash]) => {
-        this.context.pushNewNote(
-          this.contractAddress,
-          fromACVMField(storageSlot),
-          preimage.map(f => fromACVMField(f)),
-          fromACVMField(innerNoteHash),
-        );
-
-        // TODO(https://github.com/AztecProtocol/aztec-packages/issues/1040): remove newNotePreimages
-        // as it is redundant with pendingNoteData. Consider renaming pendingNoteData->pendingNotePreimages.
-        newNotePreimages.push({
-          storageSlot: fromACVMField(storageSlot),
-          preimage: preimage.map(f => fromACVMField(f)),
-        });
+        this.context.handleNewNote(this.contractAddress, storageSlot, preimage, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
-      notifyNullifiedNote: async ([slot], [nullifier], acvmPreimage, [innerNoteHash]) => {
-        newNullifiers.push({
-          preimage: acvmPreimage.map(f => fromACVMField(f)),
-          storageSlot: fromACVMField(slot),
-          nullifier: fromACVMField(nullifier),
-        });
-        await this.context.pushNewNullifier(fromACVMField(nullifier), this.contractAddress);
-        this.context.nullifyPendingNotes(fromACVMField(innerNoteHash), this.contractAddress, fromACVMField(slot));
+      notifyNullifiedNote: async ([slot], [innerNullifier], [innerNoteHash]) => {
+        await this.context.handleNullifiedNote(this.contractAddress, slot, innerNullifier, innerNoteHash);
         return Promise.resolve(ZERO_ACVM_FIELD);
       },
       callPrivateFunction: async ([acvmContractAddress], [acvmFunctionSelector], [acvmArgsHash]) => {
@@ -218,12 +195,13 @@ export class PrivateFunctionExecution {
     publicInputs.unencryptedLogsHash = to2Fields(unencryptedLogs.hash());
     publicInputs.unencryptedLogPreimagesLength = new Fr(unencryptedLogs.getSerializedLength());
 
-    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs);
+    const callStackItem = new PrivateCallStackItem(this.contractAddress, this.functionData, publicInputs, false);
     const returnValues = decodeReturnValues(this.abi, publicInputs.returnValues);
 
     this.log(`Returning from call to ${this.contractAddress.toString()}:${selector}`);
 
-    const readRequestPartialWitnesses = this.context.getReadRequestPartialWitnesses();
+    const readRequestPartialWitnesses = this.context.getReadRequestPartialWitnesses(publicInputs.readRequests);
+    const newNotes = this.context.getNewNotes();
 
     return {
       acir,
@@ -231,10 +209,7 @@ export class PrivateFunctionExecution {
       callStackItem,
       returnValues,
       readRequestPartialWitnesses,
-      preimages: {
-        newNotes: newNotePreimages,
-        nullifiedNotes: newNullifiers,
-      },
+      newNotes,
       vk: Buffer.from(this.abi.verificationKey!, 'hex'),
       nestedExecutions: nestedExecutionContexts,
       enqueuedPublicFunctionCalls,

@@ -1,4 +1,4 @@
-import { AztecAddress, CircuitsWasm, Fr, PartialAddress, PrivateKey, TxContext } from '@aztec/circuits.js';
+import { AztecAddress, CircuitsWasm, Fr, GrumpkinPrivateKey, PartialAddress, TxContext } from '@aztec/circuits.js';
 import {
   AztecRPC,
   ContractData,
@@ -7,6 +7,7 @@ import {
   FunctionCall,
   L2BlockL2Logs,
   NodeInfo,
+  NotePreimage,
   PackedArguments,
   SyncStatus,
   Tx,
@@ -15,7 +16,7 @@ import {
   TxReceipt,
 } from '@aztec/types';
 
-import { CreateTxRequestOpts, Entrypoint } from '../account/entrypoint/index.js';
+import { AuthWitnessAccountEntrypoint, Entrypoint } from '../account/entrypoint/index.js';
 import { CompleteAddress } from '../index.js';
 
 /**
@@ -29,9 +30,9 @@ export type Wallet = Entrypoint & AztecRPC;
 export abstract class BaseWallet implements Wallet {
   constructor(protected readonly rpc: AztecRPC) {}
 
-  abstract createTxExecutionRequest(execs: FunctionCall[], opts?: CreateTxRequestOpts): Promise<TxExecutionRequest>;
+  abstract createTxExecutionRequest(execs: FunctionCall[]): Promise<TxExecutionRequest>;
 
-  registerAccount(privKey: PrivateKey, partialAddress: PartialAddress): Promise<void> {
+  registerAccount(privKey: GrumpkinPrivateKey, partialAddress: PartialAddress): Promise<void> {
     return this.rpc.registerAccount(privKey, partialAddress);
   }
   registerRecipient(account: CompleteAddress): Promise<void> {
@@ -64,6 +65,9 @@ export abstract class BaseWallet implements Wallet {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.rpc.getTxReceipt(txHash);
   }
+  getPrivateStorageAt(owner: AztecAddress, contract: AztecAddress, storageSlot: Fr): Promise<NotePreimage[]> {
+    return this.rpc.getPrivateStorageAt(owner, contract, storageSlot);
+  }
   getPublicStorageAt(contract: AztecAddress, storageSlot: Fr): Promise<any> {
     return this.rpc.getPublicStorageAt(contract, storageSlot);
   }
@@ -94,6 +98,9 @@ export abstract class BaseWallet implements Wallet {
   getSyncStatus(): Promise<SyncStatus> {
     return this.rpc.getSyncStatus();
   }
+  addAuthWitness(messageHash: Fr, witness: Fr[]) {
+    return this.rpc.addAuthWitness(messageHash, witness);
+  }
 }
 
 /**
@@ -103,8 +110,52 @@ export class EntrypointWallet extends BaseWallet {
   constructor(rpc: AztecRPC, protected accountImpl: Entrypoint) {
     super(rpc);
   }
-  createTxExecutionRequest(executions: FunctionCall[], opts: CreateTxRequestOpts = {}): Promise<TxExecutionRequest> {
-    return this.accountImpl.createTxExecutionRequest(executions, opts);
+  createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
+    return this.accountImpl.createTxExecutionRequest(executions);
+  }
+}
+
+/**
+ * A wallet implementation supporting auth witnesses.
+ * This wallet inserts eip1271-like witnesses into the RPC, which are then fetched using an oracle
+ * to provide authentication data to the contract during execution.
+ */
+export class AuthWitnessEntrypointWallet extends BaseWallet {
+  constructor(rpc: AztecRPC, protected accountImpl: AuthWitnessAccountEntrypoint) {
+    super(rpc);
+  }
+
+  /**
+   * Create a transaction request and add the auth witness to the RPC.
+   * Note:  When used in simulations, the witness that is inserted could be used later by attacker with
+   *        access to the RPC.
+   *        Meaning that if you were to use someone elses rpc with db you could send these transactions.
+   *        For simulations it would be desirable to bypass such that no data is generated.
+   *
+   * @param executions - The function calls to execute.
+   * @param opts - The options.
+   * @returns - The TxRequest
+   */
+  async createTxExecutionRequest(executions: FunctionCall[]): Promise<TxExecutionRequest> {
+    const { txRequest, message, witness } = await this.accountImpl.createTxExecutionRequestWithWitness(executions);
+    await this.rpc.addAuthWitness(Fr.fromBuffer(message), witness);
+    return txRequest;
+  }
+
+  sign(messageHash: Buffer): Promise<Buffer> {
+    return Promise.resolve(this.accountImpl.sign(messageHash));
+  }
+
+  /**
+   * Signs the `messageHash` and adds the witness to the RPC.
+   * This is useful for signing messages that are not directly part of the transaction payload, such as
+   * approvals .
+   * @param messageHash - The message hash to sign
+   */
+  async signAndAddAuthWitness(messageHash: Buffer): Promise<void> {
+    const witness = await this.accountImpl.createAuthWitness(messageHash);
+    await this.rpc.addAuthWitness(Fr.fromBuffer(messageHash), witness);
+    return Promise.resolve();
   }
 }
 
@@ -119,6 +170,11 @@ export class AccountWallet extends EntrypointWallet {
   /** Returns the complete address of the account that implements this wallet. */
   public getCompleteAddress() {
     return this.address;
+  }
+
+  /** Returns the address of the account that implements this wallet. */
+  public getAddress() {
+    return this.address.address;
   }
 }
 

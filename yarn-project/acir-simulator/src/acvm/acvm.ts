@@ -34,6 +34,7 @@ export const ONE_ACVM_FIELD: ACVMField = `0x${'00'.repeat(Fr.SIZE_IN_BYTES - 1)}
 type ORACLE_NAMES =
   | 'computeSelector'
   | 'packArguments'
+  | 'getAuthWitness'
   | 'getSecretKey'
   | 'getNote'
   | 'getNotes'
@@ -90,7 +91,7 @@ function getSourceCodeLocationsFromOpcodeLocation(
 
     const { path, source } = files[fileId];
 
-    const locationText = source.substring(span.start, span.end + 1);
+    const locationText = source.substring(span.start, span.end);
     const precedingText = source.substring(0, span.start);
     const previousLines = precedingText.split('\n');
     // Lines and columns in stacks are one indexed.

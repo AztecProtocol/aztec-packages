@@ -2,15 +2,14 @@
 contract Test {
     use dep::aztec::{
         abi,
-        types::vec::BoundedVec,
         abi::PrivateContextInputs,
-    };
-    use dep::aztec::context::PrivateContext;
-
-    use dep::aztec::oracle::{
-        get_public_key::get_public_key,
-        context::get_portal_address,
-        rand::rand,
+        context::PrivateContext,
+        oracle::{
+            get_public_key::get_public_key,
+            context::get_portal_address,
+            rand::rand,
+        },
+        types::vec::BoundedVec,
     };
 
     #[aztec(private)]
@@ -105,14 +104,15 @@ contract Test {
         context.push_new_nullifier(note.get_commitment(), 0);
     }
 
+    // docs:start:is-time-equal
     #[aztec(public)]
     fn isTimeEqual(
         time: Field,
     ) -> Field {
         assert(context.timestamp() == time);
-
         time
     }
+    // docs:end:is-time-equal
 
     // Purely exists for testing
     unconstrained fn getRandom(

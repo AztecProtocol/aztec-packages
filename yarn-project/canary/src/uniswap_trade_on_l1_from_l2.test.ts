@@ -2,14 +2,13 @@ import {
   AztecAddress,
   EthAddress,
   Fr,
-  PrivateKey,
   TxStatus,
   Wallet,
   computeMessageSecretHash,
   createAztecRpcClient,
   createDebugLogger,
   getL1ContractAddresses,
-  getSandboxAccountsWallet,
+  getSandboxAccountsWallets,
   makeFetch,
   sleep,
   waitForSandbox,
@@ -51,7 +50,6 @@ const aztecRpcUrl = SANDBOX_URL;
 const ethRpcUrl = ETHEREUM_HOST;
 
 const hdAccount = mnemonicToAccount(MNEMONIC);
-const privateKey = new PrivateKey(Buffer.from(hdAccount.getHdKey().privateKey!));
 
 const aztecRpcClient = createAztecRpcClient(aztecRpcUrl, makeFetch([1, 2, 3], true));
 let wallet: Wallet;
@@ -153,7 +151,7 @@ const transferWethOnL2 = async (
   receiver: AztecAddress,
   transferAmount: bigint,
 ) => {
-  const transferTx = wethL2Contract.methods.transfer(transferAmount, receiver).send({ origin: ownerAddress });
+  const transferTx = wethL2Contract.methods.transfer(transferAmount, receiver).send();
   await transferTx.isMined();
   const transferReceipt = await transferTx.getReceipt();
   expect(transferReceipt.status).toBe(TxStatus.MINED);
@@ -186,7 +184,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
   it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
     logger('Running L1/L2 messaging test on HTTP interface.');
 
-    wallet = await getSandboxAccountsWallet(aztecRpcClient);
+    [wallet] = await getSandboxAccountsWallets(aztecRpcClient);
     const accounts = await wallet.getAccounts();
     const owner = accounts[0].address;
     const receiver = accounts[1].address;
@@ -248,7 +246,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Call the mint tokens function on the Aztec.nr contract
     const consumptionTx = wethL2Contract.methods
       .mint(wethAmountToBridge, owner, messageKey, secret, ethAccount.toField())
-      .send({ origin: owner });
+      .send();
     await consumptionTx.isMined();
     const consumptionReceipt = await consumptionTx.getReceipt();
     expect(consumptionReceipt.status).toBe(TxStatus.MINED);
@@ -262,12 +260,10 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // 4. Send L2 to L1 message to withdraw funds and another message to swap assets.
     logger('Send L2 tx to withdraw WETH to uniswap portal and send message to swap assets on L1');
     // recipient is the uniswap portal
-    const selector = wethL2Contract.methods.withdraw.selector.toField();
     const minimumOutputAmount = 0n;
 
     const withdrawTx = uniswapL2Contract.methods
       .swap(
-        selector,
         wethL2Contract.address.toField(),
         wethAmountToBridge,
         new Fr(3000),
@@ -280,7 +276,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
         ethAccount.toField(),
         ethAccount.toField(),
       )
-      .send({ origin: owner });
+      .send();
     await withdrawTx.isMined();
     const withdrawReceipt = await withdrawTx.getReceipt();
     expect(withdrawReceipt.status).toBe(TxStatus.MINED);
@@ -331,7 +327,7 @@ describe('uniswap_trade_on_l1_from_l2', () => {
     // Call the mint tokens function on the Aztec.nr contract
     const daiMintTx = daiL2Contract.methods
       .mint(daiAmountToBridge, owner, depositDaiMessageKey, secret, ethAccount.toField())
-      .send({ origin: owner });
+      .send();
     await daiMintTx.isMined();
     const daiMintTxReceipt = await daiMintTx.getReceipt();
     expect(daiMintTxReceipt.status).toBe(TxStatus.MINED);
