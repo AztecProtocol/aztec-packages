@@ -176,8 +176,8 @@ for STAGE in $STAGES; do
   # We don't want to have redo this stages work when building the final image. Use it as a layer cache.
   CACHE_FROM="--cache-from $STAGE_IMAGE_COMMIT_URI $CACHE_FROM"
 
-  echo "Pushing stage: $STAGE"
-  retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
+  #echo "Pushing stage: $STAGE"
+  #retry docker push $STAGE_IMAGE_COMMIT_URI > /dev/null 2>&1
   echo
 done
 
@@ -196,6 +196,6 @@ echo "Building image: $IMAGE_COMMIT_URI"
 # Build our dockerfile, add timing information
 docker buildx build --platform $PLATFORMS -t $IMAGE_COMMIT_URI -f $DOCKERFILE $CACHE_FROM --build-arg COMMIT_TAG=$COMMIT_TAG_VERSION --build-arg ARG_CONTENT_HASH=$CONTENT_HASH --push . \
 | while read line ; do echo "$(date "+%H:%M:%S")| $line"; done
-echo "Pushing image: $IMAGE_COMMIT_URI"
-retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
+#echo "Pushing image: $IMAGE_COMMIT_URI"
+#retry docker push $IMAGE_COMMIT_URI > /dev/null 2>&1
 untag_remote_image $REPOSITORY tainted
