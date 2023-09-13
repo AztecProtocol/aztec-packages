@@ -583,6 +583,17 @@ jobs:
           name: "Build and test"
           command: force_deploy_build aztec-sandbox false
 
+  aztec-sandbox-arm64:
+    machine:
+      image: ubuntu-2004:202010-01
+    resource_class: arm.large
+    steps:
+      - *checkout
+      - *setup_env
+      - run:
+          name: "Build and test"
+          command: force_deploy_build aztec-sandbox-arm true
+
   circuits-js:
     machine:
       image: ubuntu-2004:202010-01
@@ -1022,16 +1033,16 @@ jobs:
           name: "Noop"
           command: echo Noop
 
-  aztec-sandbox-multi-platform:
-    machine:
-      image: ubuntu-2004:202010-01
-    resource_class: large
-    steps:
-      - *checkout
-      - *setup_env
-      - run:
-          name: "Build and test"
-          command: force_deploy_build aztec-sandbox-multi-platform true "linux/amd64,linux/arm64,linux/arm/v7"
+  # aztec-sandbox-multi-platform:
+  #   machine:
+  #     image: ubuntu-2004:202010-01
+  #   resource_class: large
+  #   steps:
+  #     - *checkout
+  #     - *setup_env
+  #     - run:
+  #         name: "Build and test"
+  #         command: force_deploy_build aztec-sandbox-multi-platform true "linux/amd64,linux/arm64,linux/arm/v7"
 
   deploy-npm:
     machine:
@@ -1415,6 +1426,11 @@ workflows:
             - canary
           <<: *defaults
 
+      - aztec-sandbox-arm64:
+          requires:
+            - aztec-sandbox
+          <<: *defaults
+
       - e2e-2-rpc-servers: *e2e_test
       - e2e-deploy-contract: *e2e_test
       - e2e-lending-contract: *e2e_test
@@ -1484,19 +1500,14 @@ workflows:
             - guides-sample-dapp
           <<: *defaults
 
-      - aztec-sandbox-multi-platform:
-          requires:
-            - aztec-sandbox
-          <<: *defaults
-
         # Deployment and Canary tests
       - deploy-dockerhub:
           requires:
-            - aztec-sandbox-multi-platform
+            - e2e-end
           <<: *deploy_defaults
       - deploy-npm:
           requires:
-            - aztec-sandbox-multi-platform
+            - e2e-end
           <<: *deploy_defaults
 
       - deploy-end:

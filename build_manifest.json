@@ -184,10 +184,10 @@
       "types"
     ]
   },
-  "aztec-sandbox-multi-platform": {
+  "aztec-sandbox-arm": {
     "buildDir": "yarn-project",
     "projectDir": "yarn-project/aztec-sandbox",
-    "dockerfile": "aztec-sandbox/Dockerfile.multi",
+    "dockerfile": "aztec-sandbox/Dockerfile.arm64",
     "rebuildPatterns": ["^yarn-project/aztec-sandbox/"],
     "dependencies": [
       "aztec-node",
