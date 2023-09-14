@@ -18,7 +18,8 @@ export PATH="$PATH:$(git rev-parse --show-toplevel)/build-system/scripts"
 IMAGE_URI=$(calculate_image_uri $REPOSITORY)
 retry docker pull $IMAGE_URI
 
-if [ -f "$TESTS" ]; then
+# If there is a file in the scripts directory named $TESTS, those are the tests to run.
+if [ -f "$(query_manifest projectDir $REPOSITORY)/scripts/$TESTS" ]; then
   TESTS=$(cat $TESTS | tr '\n' ' ')
 fi
 
