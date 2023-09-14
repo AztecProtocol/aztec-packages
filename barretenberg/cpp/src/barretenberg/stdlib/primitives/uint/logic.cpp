@@ -522,7 +522,7 @@ uint<Composer, Native> uint<Composer, Native>::logic_operator(const uint& other,
 
     uint<Composer, Native> result(ctx);
     Test test;
-//    result.accumulators = logic_accumulators.out;
+    //    result.accumulators = logic_accumulators.out;
     std::vector<uint32_t> accums_out;
     accums_out = logic_accumulators.out;
     result.accumulators = accums_out;

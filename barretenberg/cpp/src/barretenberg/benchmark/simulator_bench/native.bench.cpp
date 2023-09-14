@@ -125,7 +125,6 @@ void biggroup_batch_mul(State& state) noexcept
     }
 };
 
-
 BENCHMARK(pedersen_compress_pair)
     ->DenseRange(MIN_NUM_ITERATIONS, MAX_NUM_ITERATIONS)
     ->Repetitions(NUM_REPETITIONS)

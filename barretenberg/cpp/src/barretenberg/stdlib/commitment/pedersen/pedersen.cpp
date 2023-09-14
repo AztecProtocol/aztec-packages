@@ -98,7 +98,6 @@ field_t<C> pedersen_commitment<C>::compress(const std::vector<field_t>& inputs, 
     }
 
     return commit(inputs, hash_index).x;
-
 }
 
 /**

@@ -33,9 +33,7 @@ typename G1::affine_element recover_public_key(const std::string& message, const
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/659)
 template <typename Hash, typename Fq, typename Fr, typename G1>
-bool verify_signature(const auto& message,
-                      const typename G1::affine_element& public_key,
-                      const signature& signature);
+bool verify_signature(const auto& message, const typename G1::affine_element& public_key, const signature& signature);
 
 inline bool operator==(signature const& lhs, signature const& rhs)
 {

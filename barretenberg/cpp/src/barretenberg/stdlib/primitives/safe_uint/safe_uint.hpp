@@ -117,8 +117,8 @@ template <typename ComposerContext> class safe_uint_t {
     safe_uint_t operator-(const safe_uint_t& other) const
     {
         if constexpr (!IsSimulator<ComposerContext>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/669)
-        //   Is the condition in this assertion the one it should be?
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/669)
+            //   Is the condition in this assertion the one it should be?
             ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
                      static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
         }
