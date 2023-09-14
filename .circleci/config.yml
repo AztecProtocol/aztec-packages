@@ -1032,6 +1032,8 @@ jobs:
       - *setup_env
       - run:
           name: "Test"
+          environment:
+            PLATFORM: linux/arm/v8
           command: cond_run_script canary-build ./scripts/run_tests uniswap_trade_on_l1_from_l2.test.ts canary-build ./scripts/docker-compose-e2e-sandbox.yml
 
   build-docs:
