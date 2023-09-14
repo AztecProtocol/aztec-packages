@@ -1,11 +1,15 @@
 import { AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { RpcServerConfig, createAztecRPCServer, getConfigEnvVars as getRpcConfigEnvVars } from '@aztec/aztec-rpc';
 import {
+  Account,
   AccountWallet,
+  AuthWitnessAccountContract,
+  AuthWitnessEntrypointWallet,
   AztecAddress,
   CheatCodes,
   EthAddress,
   EthCheatCodes,
+  IAuthWitnessAccountEntrypoint,
   Wallet,
   createAccounts,
   createAztecRpcClient as createJsonRpcClient,
@@ -15,19 +19,19 @@ import {
 } from '@aztec/aztec.js';
 import { CompleteAddress } from '@aztec/circuits.js';
 import { DeployL1Contracts, deployL1Contract, deployL1Contracts } from '@aztec/ethereum';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { DebugLogger, createDebugLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { PortalERC20Abi, PortalERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
-import { NonNativeTokenContract } from '@aztec/noir-contracts/types';
+import { NonNativeTokenContract, TokenBridgeContract, TokenContract } from '@aztec/noir-contracts/types';
 import { AztecRPC, L2BlockL2Logs, LogType, TxStatus } from '@aztec/types';
 
 import {
-  Account,
   Chain,
   HDAccount,
   HttpTransport,
   PublicClient,
+  Account as ViemAccount,
   WalletClient,
   createPublicClient,
   createWalletClient,
@@ -167,6 +171,47 @@ export async function setupAztecRPCServer(
 }
 
 /**
+ * Creates AuthWitness Wallets and accounts.
+ * @param aztecRpcServer - The RPC server instance.
+ * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
+ */
+export async function createAuthWitnessAccounts(
+  aztecRpcServer: AztecRPC,
+  numberOfAccounts = 1,
+): Promise<{
+  /**
+   * The accounts created by the RPC server.
+   */
+  accounts: CompleteAddress[];
+  /**
+   * The corresponding auth witness wallet instances.
+   */
+  wallets: AuthWitnessEntrypointWallet[];
+}> {
+  const _accounts = [];
+  for (let i = 0; i < numberOfAccounts; i++) {
+    const privateKey = GrumpkinScalar.random();
+    const account = new Account(aztecRpcServer, privateKey, new AuthWitnessAccountContract(privateKey));
+    const deployTx = await account.deploy();
+    await deployTx.wait({ interval: 0.1 });
+    _accounts.push(account);
+  }
+  const wallets = await Promise.all(
+    _accounts.map(
+      async account =>
+        new AuthWitnessEntrypointWallet(
+          aztecRpcServer,
+          (await account.getEntrypoint()) as unknown as IAuthWitnessAccountEntrypoint,
+          await account.getCompleteAddress(),
+        ),
+    ),
+  );
+  //wallet = new AuthWitnessEntrypointWallet(aztecRpcServer, await AuthEntrypointCollection.fromAccounts(_accounts));
+  const accounts = await wallets[0].getAccounts();
+  return { accounts, wallets };
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the RPC server is initiated.
  */
@@ -273,6 +318,99 @@ export function getLogger() {
 }
 
 /**
+ * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
+ * @param wallet - the wallet instance
+ * @param walletClient - A viem WalletClient.
+ * @param publicClient - A viem PublicClient.
+ * @param rollupRegistryAddress - address of rollup registry to pass to initialize the token portal
+ * @param owner - owner of the L2 contract
+ * @param underlyingERC20Address - address of the underlying ERC20 contract to use (if none supplied, it deploys one)
+ * @returns l2 contract instance, bridge contract instance, token portal instance, token portal address and the underlying ERC20 instance
+ */
+export async function deployAndInitializeStandardizedTokenAndBridgeContracts(
+  wallet: Wallet,
+  walletClient: WalletClient<HttpTransport, Chain, ViemAccount>,
+  publicClient: PublicClient<HttpTransport, Chain>,
+  rollupRegistryAddress: EthAddress,
+  owner: AztecAddress,
+  underlyingERC20Address?: EthAddress,
+) {
+  // deploy underlying contract if no address supplied
+  if (!underlyingERC20Address) {
+    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, PortalERC20Abi, PortalERC20Bytecode);
+  }
+  const underlyingERC20: any = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: PortalERC20Abi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy the token portal
+  const tokenPortalAddress = await deployL1Contract(walletClient, publicClient, TokenPortalAbi, TokenPortalBytecode);
+  const tokenPortal: any = getContract({
+    address: tokenPortalAddress.toString(),
+    abi: TokenPortalAbi,
+    walletClient,
+    publicClient,
+  });
+
+  // deploy l2 token
+  const deployTx = TokenContract.deploy(wallet).send();
+
+  // deploy l2 token bridge and attach to the portal
+  const bridgeTx = TokenBridgeContract.deploy(wallet).send({
+    portalContract: tokenPortalAddress,
+    contractAddressSalt: Fr.random(),
+  });
+
+  // now wait for the deploy txs to be mined. This way we send all tx in the same rollup.
+  const deployReceipt = await deployTx.wait();
+  if (deployReceipt.status !== TxStatus.MINED) throw new Error(`Deploy token tx status is ${deployReceipt.status}`);
+  const l2Token = await TokenContract.at(deployReceipt.contractAddress!, wallet);
+
+  const bridgeReceipt = await bridgeTx.wait();
+  if (bridgeReceipt.status !== TxStatus.MINED) throw new Error(`Deploy bridge tx status is ${bridgeReceipt.status}`);
+  const bridge = await TokenBridgeContract.at(bridgeReceipt.contractAddress!, wallet);
+  await bridge.attach(tokenPortalAddress);
+  const bridgeAddress = bridge.address.toString() as `0x${string}`;
+
+  // initialize l2 token
+  const initializeTx = l2Token.methods._initialize({ address: owner }).send();
+
+  // initialize bridge
+  const initializeBridgeTx = bridge.methods._initialize({ address: l2Token.address }).send();
+
+  // now we wait for the txs to be mined. This way we send all tx in the same rollup.
+  const initializeReceipt = await initializeTx.wait();
+  if (initializeReceipt.status !== TxStatus.MINED)
+    throw new Error(`Initialize token tx status is ${initializeReceipt.status}`);
+  if ((await l2Token.methods.admin().view()) !== owner.toBigInt()) throw new Error(`Token admin is not ${owner}`);
+
+  const initializeBridgeReceipt = await initializeBridgeTx.wait();
+  if (initializeBridgeReceipt.status !== TxStatus.MINED)
+    throw new Error(`Initialize token bridge tx status is ${initializeBridgeReceipt.status}`);
+  if ((await bridge.methods.token().view()) !== l2Token.address.toBigInt())
+    throw new Error(`Bridge token is not ${l2Token.address}`);
+
+  // make the bridge a minter on the token:
+  const makeMinterTx = l2Token.methods.set_minter({ address: bridge.address }, 1).send();
+  const makeMinterReceipt = await makeMinterTx.wait();
+  if (makeMinterReceipt.status !== TxStatus.MINED)
+    throw new Error(`Make bridge a minter tx status is ${makeMinterReceipt.status}`);
+  if ((await l2Token.methods.is_minter({ address: bridge.address }).view()) === 1n)
+    throw new Error(`Bridge is not a minter`);
+
+  // initialize portal
+  await tokenPortal.write.initialize(
+    [rollupRegistryAddress.toString(), underlyingERC20Address.toString(), bridgeAddress],
+    {} as any,
+  );
+
+  return { l2Token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
+}
+
+/**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract and attach is to the portal.
  * @param aztecRpcServer - the aztec rpc server instance
  * @param walletClient - A viem WalletClient.
@@ -285,7 +423,7 @@ export function getLogger() {
  */
 export async function deployAndInitializeNonNativeL2TokenContracts(
   wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
+  walletClient: WalletClient<HttpTransport, Chain, ViemAccount>,
   publicClient: PublicClient<HttpTransport, Chain>,
   rollupRegistryAddress: EthAddress,
   initialBalance = 0n,
