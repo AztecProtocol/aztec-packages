@@ -32,7 +32,7 @@ class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
 
   async createAuthWitness(message: Fr): Promise<AuthWitness> {
     const schnorr = await Schnorr.new();
-    const signature = schnorr.constructSignature(message.toBuffer(), this.signingPrivateKey).toFields();
-    return new AuthWitness(message, signature);
+    const signature = schnorr.constructSignature(message.toBuffer(), this.signingPrivateKey).toBuffer();
+    return new AuthWitness(message, [...signature]);
   }
 }

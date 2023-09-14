@@ -32,7 +32,7 @@ class EcdsaAuthWitnessProvider implements AuthWitnessProvider {
 
   async createAuthWitness(message: Fr): Promise<AuthWitness> {
     const ecdsa = await Ecdsa.new();
-    const signature = ecdsa.constructSignature(message.toBuffer(), this.signingPrivateKey).toFields();
-    return new AuthWitness(message, signature);
+    const signature = ecdsa.constructSignature(message.toBuffer(), this.signingPrivateKey);
+    return new AuthWitness(message, [...signature.r, ...signature.s]);
   }
 }

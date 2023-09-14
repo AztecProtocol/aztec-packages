@@ -5,12 +5,17 @@ import { BufferReader, serializeToBuffer } from '@aztec/circuits.js/utils';
  * An authentication witness. Used to authorise an action by a user.
  */
 export class AuthWitness {
+  /** Authentication witness for the hash  */
+  public readonly witness: Fr[];
+
   constructor(
     /** Hash of the request to authorize */
     public readonly requestHash: Fr,
     /** Authentication witness for the hash  */
-    public readonly witness: Fr[],
-  ) {}
+    witness: (Fr | number)[],
+  ) {
+    this.witness = witness.map(x => new Fr(x));
+  }
 
   toBuffer() {
     return serializeToBuffer(this.requestHash, new Vector(this.witness));

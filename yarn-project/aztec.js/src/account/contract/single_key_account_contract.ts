@@ -38,7 +38,7 @@ class SingleKeyAuthWitnessProvider implements AuthWitnessProvider {
     const schnorr = await Schnorr.new();
     const signature = schnorr.constructSignature(message.toBuffer(), this.privateKey);
     const publicKey = await generatePublicKey(this.privateKey);
-    const witness = [...publicKey.toFields(), ...signature.toFields(), this.partialAddress];
+    const witness = [...publicKey.toFields(), ...signature.toBuffer(), this.partialAddress];
     return new AuthWitness(message, witness);
   }
 }
