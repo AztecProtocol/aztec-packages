@@ -156,6 +156,18 @@
       "cacheVariables": {
         "MULTITHREADING": "ON"
       }
+    },
+    {
+      "name": "xray",
+      "displayName": "Build with XRay Profiling",
+      "description": "Build with Clang and enable LLVM XRay for profiling",
+      "inherits": "clang16",
+      "environment": {
+        "CFLAGS": "-fxray-instrument",
+        "CXXFLAGS": "-fxray-instrument",
+        "LDFLAGS": "-fxray-instrument"
+      },
+      "binaryDir": "build-xray"
     }
   ],
   "buildPresets": [
@@ -237,6 +249,11 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "xray",
+      "configurePreset": "xray",
+      "inherits": "default"
     }
   ],
   "testPresets": [
