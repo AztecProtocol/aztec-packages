@@ -1,7 +1,7 @@
 import { AztecNodeService } from '@aztec/aztec-node';
 import { AztecRPCServer } from '@aztec/aztec-rpc';
-import { AztecAddress, BatchCall, Wallet, generatePublicKey } from '@aztec/aztec.js';
-import { CompleteAddress, Fr, PrivateKey, getContractDeploymentInfo } from '@aztec/circuits.js';
+import { AccountWallet, AztecAddress, BatchCall, generatePublicKey } from '@aztec/aztec.js';
+import { CompleteAddress, Fr, GrumpkinPrivateKey, GrumpkinScalar, getContractDeploymentInfo } from '@aztec/circuits.js';
 import { DebugLogger } from '@aztec/foundation/log';
 import { EscrowContractAbi } from '@aztec/noir-contracts/artifacts';
 import { EscrowContract, PrivateTokenContract } from '@aztec/noir-contracts/types';
@@ -12,7 +12,8 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_escrow_contract', () => {
   let aztecNode: AztecNodeService | undefined;
   let aztecRpcServer: AztecRPC;
-  let wallet: Wallet;
+  let wallet: AccountWallet;
+  let recipientWallet: AccountWallet;
   let accounts: CompleteAddress[];
   let logger: DebugLogger;
 
@@ -21,18 +22,24 @@ describe('e2e_escrow_contract', () => {
   let owner: AztecAddress;
   let recipient: AztecAddress;
 
-  let escrowPrivateKey: PrivateKey;
+  let escrowPrivateKey: GrumpkinPrivateKey;
   let escrowPublicKey: PublicKey;
 
   beforeEach(async () => {
     // Setup environment
-    ({ aztecNode, aztecRpcServer, accounts, wallet, logger } = await setup(2));
+    ({
+      aztecNode,
+      aztecRpcServer,
+      accounts,
+      wallets: [wallet, recipientWallet],
+      logger,
+    } = await setup(2));
     owner = accounts[0].address;
     recipient = accounts[1].address;
 
     // Generate private key for escrow contract, register key in rpc server, and deploy
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
-    escrowPrivateKey = PrivateKey.random();
+    escrowPrivateKey = GrumpkinScalar.random();
     escrowPublicKey = await generatePublicKey(escrowPrivateKey);
     const salt = Fr.random();
     const deployInfo = await getContractDeploymentInfo(EscrowContractAbi, [owner], salt, escrowPublicKey);
@@ -74,7 +81,10 @@ describe('e2e_escrow_contract', () => {
 
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
-      escrowContract.methods.withdraw(privateTokenContract.address, 30, recipient).simulate({ origin: recipient }),
+      escrowContract
+        .withWallet(recipientWallet)
+        .methods.withdraw(privateTokenContract.address, 30, recipient)
+        .simulate(),
     ).rejects.toThrowError();
   }, 60_000);
 

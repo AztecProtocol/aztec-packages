@@ -64,11 +64,9 @@
  */
 
 #pragma once
-#include "barretenberg/honk/pcs/commitment_key.hpp"
-#include "barretenberg/honk/pcs/verification_key.hpp"
-#include "barretenberg/honk/sumcheck/polynomials/barycentric_data.hpp"
-#include "barretenberg/honk/sumcheck/polynomials/univariate.hpp"
+#include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
+#include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/proof_system/circuit_builder/circuit_simulator.hpp"
 #include "barretenberg/proof_system/types/circuit_type.hpp"
 #include <array>
@@ -292,14 +290,11 @@ concept IsUltraFlavor = IsAnyOf<T, honk::flavor::Ultra, honk::flavor::UltraGrump
 template <typename T> 
 concept IsGoblinFlavor = IsAnyOf<T, honk::flavor::GoblinUltra>;
 
-<<<<<<< HEAD
 // WORKTODO: Find the right place for this.
 template <typename T> 
 concept IsSimulator = IsAnyOf<T, proof_system::CircuitSimulatorBN254>;
-=======
 template <typename T> 
 concept IsRecursiveFlavor = IsAnyOf<T, honk::flavor::UltraRecursive>;
->>>>>>> origin/master
 
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, honk::flavor::StandardGrumpkin, honk::flavor::UltraGrumpkin>;
 

@@ -36,7 +36,9 @@ template <typename Curve> struct aggregation_state {
     void add_proof_outputs_as_public_inputs()
     {
         auto* context = P0.get_context();
-        context->add_recursive_proof(proof_witness_indices);
+        if constexpr (!IsSimulator<typename Curve::Builder>) {
+            context->add_recursive_proof(proof_witness_indices);
+        }
     }
 
     void assign_object_to_proof_outputs()
@@ -52,7 +54,7 @@ template <typename Curve> struct aggregation_state {
         P0 = P0.reduce();
         P1 = P1.reduce();
         if constexpr (IsSimulator<typename Curve::Builder>) {
-            std::vector<typename Curve::ScalarField> proof_element_limbs = {
+            std::vector<typename Curve::ScalarFieldNative> proof_element_limbs = {
                 P0.x.binary_basis_limbs[0].element.normalize().get_value(),
                 P0.x.binary_basis_limbs[1].element.normalize().get_value(),
                 P0.x.binary_basis_limbs[2].element.normalize().get_value(),

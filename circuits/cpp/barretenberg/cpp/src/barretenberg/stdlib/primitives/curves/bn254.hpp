@@ -31,28 +31,15 @@ template <typename CircuitBuilder> struct bn254 {
     // Additional types with no analog in the native description of the curve
     using Builder = CircuitBuilder;
     using Composer = CircuitBuilder;
-<<<<<<< HEAD
-    using witness_ct = witness_t<CircuitBuilder> ;
-    using public_witness_ct = public_witness_t<CircuitBuilder> ;
-    using fr_ct = field_t<CircuitBuilder> ;
-    using byte_array_ct = byte_array<CircuitBuilder> ;
-    using bool_ct = bool_t<CircuitBuilder> ;
-    using uint32_ct = stdlib::uint32<CircuitBuilder> ;
-
-    using fq_ct = bigfield<CircuitBuilder, barretenberg::Bn254FqParams> ;
-    using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams> ;
-    using g1_ct = element<CircuitBuilder, fq_ct, fr_ct, Group> ;
-    using g1_bigfr_ct = element<CircuitBuilder, fq_ct, bigfr_ct, Group> ;
-=======
     using witness_ct = witness_t<CircuitBuilder>;
     using public_witness_ct = public_witness_t<CircuitBuilder>;
     using byte_array_ct = byte_array<CircuitBuilder>;
     using bool_ct = bool_t<CircuitBuilder>;
     using uint32_ct = stdlib::uint32<CircuitBuilder>;
 
+    // TODO(AD) what to name this in relation to BaseField?
     using bigfr_ct = bigfield<CircuitBuilder, barretenberg::Bn254FrParams>;
     using g1_bigfr_ct = element<CircuitBuilder, BaseField, bigfr_ct, GroupNative>;
->>>>>>> origin/master
 
 }; // namespace bn254
 } // namespace stdlib

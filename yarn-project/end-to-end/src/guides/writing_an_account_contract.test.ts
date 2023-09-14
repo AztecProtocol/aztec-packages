@@ -3,7 +3,6 @@ import {
   Account,
   AccountContract,
   CompleteAddress,
-  CreateTxRequestOpts,
   Entrypoint,
   FunctionCall,
   NodeInfo,
@@ -11,7 +10,7 @@ import {
   buildTxExecutionRequest,
   hashPayload,
 } from '@aztec/aztec.js';
-import { PrivateKey } from '@aztec/circuits.js';
+import { GrumpkinPrivateKey, GrumpkinScalar } from '@aztec/circuits.js';
 import { Schnorr } from '@aztec/circuits.js/barretenberg';
 import { ContractAbi } from '@aztec/foundation/abi';
 import { PrivateTokenContract, SchnorrHardcodedAccountContractAbi } from '@aztec/noir-contracts/types';
@@ -19,11 +18,11 @@ import { PrivateTokenContract, SchnorrHardcodedAccountContractAbi } from '@aztec
 import { setup } from '../fixtures/utils.js';
 
 // docs:start:account-contract
-const PRIVATE_KEY = PrivateKey.fromString('0xff2b5f8212061f0e074fc8794ffe8524130434889df20a912d7329e03894ccff');
+const PRIVATE_KEY = GrumpkinScalar.fromString('0xd35d743ac0dfe3d6dbe6be8c877cb524a00ab1e3d52d7bada095dfc8894ccfa');
 
 /** Account contract implementation that authenticates txs using Schnorr signatures. */
 class SchnorrHardcodedKeyAccountContract implements AccountContract {
-  constructor(private privateKey: PrivateKey = PRIVATE_KEY) {}
+  constructor(private privateKey: GrumpkinPrivateKey = PRIVATE_KEY) {}
 
   getContractAbi(): ContractAbi {
     // Return the ABI of the SchnorrHardcodedAccount contract.
@@ -42,12 +41,7 @@ class SchnorrHardcodedKeyAccountContract implements AccountContract {
     // Create a new Entrypoint object, whose responsibility is to turn function calls from the user
     // into a tx execution request ready to be simulated and sent.
     return Promise.resolve({
-      async createTxExecutionRequest(calls: FunctionCall[], opts: CreateTxRequestOpts = {}) {
-        // Validate that the requested origin matches (if set)
-        if (opts.origin && !opts.origin.equals(address)) {
-          throw new Error(`Sender ${opts.origin.toString()} does not match ${address.toString()}`);
-        }
-
+      async createTxExecutionRequest(calls: FunctionCall[]) {
         // Assemble the EntrypointPayload out of the requested calls
         const { payload, packedArguments: callsPackedArguments } = await buildPayload(calls);
 
@@ -87,7 +81,7 @@ describe('guides/writing_an_account_contract', () => {
   it('works', async () => {
     const { aztecRpcServer: rpc, logger } = context;
     // docs:start:account-contract-deploy
-    const encryptionPrivateKey = PrivateKey.random();
+    const encryptionPrivateKey = GrumpkinScalar.random();
     const account = new Account(rpc, encryptionPrivateKey, new SchnorrHardcodedKeyAccountContract());
     const wallet = await account.waitDeploy();
     const address = wallet.getCompleteAddress().address;
@@ -105,7 +99,7 @@ describe('guides/writing_an_account_contract', () => {
     expect(balance).toEqual(150n);
 
     // docs:start:account-contract-fails
-    const wrongKey = PrivateKey.random();
+    const wrongKey = GrumpkinScalar.random();
     const wrongAccountContract = new SchnorrHardcodedKeyAccountContract(wrongKey);
     const wrongAccount = new Account(rpc, encryptionPrivateKey, wrongAccountContract, wallet.getCompleteAddress());
     const wrongWallet = await wrongAccount.getWallet();

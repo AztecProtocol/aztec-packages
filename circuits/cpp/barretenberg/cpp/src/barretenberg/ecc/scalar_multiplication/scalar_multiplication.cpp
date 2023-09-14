@@ -219,7 +219,11 @@ void compute_wnaf_states(uint64_t* point_schedule,
     }
 
     parallel_for(num_threads, [&](size_t i) {
-        Fr T0;
+        // NOTE: to appease GCC array-bounds checks, we need an extra Fr at the end of 'T0'
+        // This is why it is an Fr[2]. Otherwise, GCC really doesn't like us type-punning in endo_scalar_upper_limbs as
+        // it encompasses undefined memory (even though it doesn't use it).
+        Fr T0_buffer[2];
+        Fr& T0 = T0_buffer[0];
         uint64_t* wnaf_table = &point_schedule[(2 * i) * num_initial_points_per_thread];
         const Fr* thread_scalars = &scalars[i * num_initial_points_per_thread];
         bool* skew_table = &input_skew_table[(2 * i) * num_initial_points_per_thread];

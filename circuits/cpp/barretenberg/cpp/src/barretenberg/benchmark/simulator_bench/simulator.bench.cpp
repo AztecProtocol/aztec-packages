@@ -139,8 +139,8 @@ void biggroup_batch_mul(State& state) noexcept
     using curve = proof_system::plonk::stdlib::bn254<Simulator>;
     using element_t = barretenberg::g1::element;
     using affine_element_t = barretenberg::g1::affine_element;
-    using element_ct = typename curve::g1_ct;
-    using scalar_ct = typename curve::fr_ct;
+    using element_ct = typename curve::Group;
+    using scalar_ct = typename curve::ScalarField;
 
     for (auto _ : state) {
         state.PauseTiming();

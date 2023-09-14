@@ -602,9 +602,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const std::vector<Fr>& scalars,
                                                        const size_t max_num_bits)
 {
-<<<<<<< HEAD
     if constexpr (IsSimulator<C> && std::same_as<G, barretenberg::g1>) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/663) 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/663)
         auto context = points[0].get_context();
         using element_t = typename G::element;
         element_t result = G::one;
@@ -614,10 +613,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         }
         result = result.normalize();
         return from_witness(context, result);
-=======
-    if constexpr (use_goblin) {
+    } else if constexpr (use_goblin) {
         return goblin_batch_mul(points, scalars);
->>>>>>> origin/master
     }
     const size_t num_points = points.size();
     ASSERT(scalars.size() == num_points);

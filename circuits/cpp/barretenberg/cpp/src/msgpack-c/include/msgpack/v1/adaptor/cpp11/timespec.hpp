@@ -124,7 +124,7 @@ struct object_with_zone<timespec> {
             char* p = static_cast<char*>(o.zone.allocate_no_align(o.via.ext.size + 1));
             p[0] = static_cast<char>(-1);
             _msgpack_store32(&p[1], static_cast<uint32_t>(v.tv_nsec));
-            _msgpack_store64(&p[1 + 4], v.tv_sec);
+            _msgpack_store64(&p[1 + 4], static_cast<uint64_t>(v.tv_sec));
             o.via.ext.ptr = p;
         }
     }

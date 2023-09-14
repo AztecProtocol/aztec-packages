@@ -636,14 +636,19 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_with_endomorphism(const Fr& exponent)
     }
 
     uint64_t wnaf_table[num_rounds * 2];
-    Fr endo_scalar;
-    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar, *(Fr*)&endo_scalar.data[2]); // NOLINT
+
+    // NOTE: to appease GCC array-bounds checks, we need an extra Fr at the end of 'endo_scalar'
+    // This is why it is an Fr[2]. Otherwise, GCC really doesn't like us type-punning in endo_scalar_upper_limbs as it
+    // encompasses undefined memory (even though it doesn't use it).
+    Fr endo_scalar[2];
+    Fr& endo_scalar_upper_limbs = (Fr&)endo_scalar[0].data[2];
+    Fr::split_into_endomorphism_scalars(converted_scalar, endo_scalar[0], endo_scalar_upper_limbs); // NOLINT
 
     bool skew = false;
     bool endo_skew = false;
 
-    wnaf::fixed_wnaf(&endo_scalar.data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
-    wnaf::fixed_wnaf(&endo_scalar.data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar[0].data[0], &wnaf_table[0], skew, 0, 2, num_wnaf_bits);
+    wnaf::fixed_wnaf(&endo_scalar[0].data[2], &wnaf_table[1], endo_skew, 0, 2, num_wnaf_bits);
 
     element work_element{ T::one_x, T::one_y, Fq::one() };
     work_element.self_set_infinity();

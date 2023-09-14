@@ -535,7 +535,7 @@ TYPED_TEST(SafeUintTest, TestDivRemainderConstraint)
     suint_ct b(witness_ct(&composer, val), 32);
 
     // set quotient to 0 and remainder to val.
-    auto supply_bad_witnesses = [](uint256_t val, [[maybe_unused]]uint256_t divisor) {
+    auto supply_bad_witnesses = [](uint256_t val, [[maybe_unused]] uint256_t divisor) {
         return std::make_pair(0, val);
     };
 

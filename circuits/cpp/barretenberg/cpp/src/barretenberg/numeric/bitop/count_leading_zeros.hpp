@@ -10,19 +10,17 @@ namespace numeric {
  * Implemented in terms of intrinsics which will use instructions such as `bsr` or `lzcnt` for best performance.
  * Undefined behaviour when input is 0.
  */
-template <typename T> constexpr inline size_t count_leading_zeros(T const& u);
-
-template <> constexpr inline size_t count_leading_zeros<uint32_t>(uint32_t const& u)
+constexpr inline size_t count_leading_zeros(uint32_t const& u)
 {
     return static_cast<size_t>(__builtin_clz(u));
 }
 
-template <> constexpr inline size_t count_leading_zeros<uint64_t>(uint64_t const& u)
+constexpr inline size_t count_leading_zeros(uint64_t const& u)
 {
     return static_cast<size_t>(__builtin_clzll(u));
 }
 
-template <> constexpr inline size_t count_leading_zeros<uint128_t>(uint128_t const& u)
+constexpr inline size_t count_leading_zeros(uint128_t const& u)
 {
     auto hi = static_cast<uint64_t>(u >> 64);
     if (hi != 0U) {
@@ -32,7 +30,7 @@ template <> constexpr inline size_t count_leading_zeros<uint128_t>(uint128_t con
     return static_cast<size_t>(__builtin_clzll(lo)) + 64;
 }
 
-template <> constexpr inline size_t count_leading_zeros<uint256_t>(uint256_t const& u)
+constexpr inline size_t count_leading_zeros(uint256_t const& u)
 {
     if (u.data[3] != 0U) {
         return count_leading_zeros(u.data[3]);
