@@ -350,6 +350,39 @@ Our complete output should now be:
 
 That's it! We have successfully deployed a private token contract to an instance of the Aztec network and mined private state-transitioning transactions. We have also queried the resulting state all via the interfaces provided by the contract.
 
+## Updating
+To update the sandbox, simply run the curl command again:
+
+```sh
+/bin/bash -c "$(curl -fsSL 'https://sandbox.aztec.network')"
+```
+
+It will download and start the latest version of sandbox.
+
+If you would like to use a fixed version of sandbox you can export the `SANDBOX_VERSION` environmental variable.
+The version in our case is a tag of the `aztec-sandbox` image on [dockerhub](https://hub.docker.com/r/aztecprotocol/aztec-sandbox/tags).
+This is the full command:
+
+```sh
+export SANDBOX_VERSION=v0.7.0
+```
+
+If this variable is not set the latest version will be used.
+
+To manually specify that you want to use the latest version use the `latest` tag:
+
+```sh
+export SANDBOX_VERSION=latest
+```
+
+Now when you run the curl command it will use the version you specified.
+To verify that it's the case check the console output of the curl command.
+Alternatively you can open a new terminal and use aztec-cli to get the version.
+  
+```sh
+aztec-cli get-node-info
+```
+
 ## Next Steps
 Here we showed how to interact with the sandbox, but didn't go into details on how to write your own contract or any relevant setup needed for it. 
 
